@@ -1980,21 +1980,30 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(updatedVmi.Status.MigrationTransport).To(Equal(virtv1.MigrationTransportUnix))
 		})
 
-		Context("should update pod labels", func() {
+		Context("should update pod annotations and labels", func() {
 
 			type testData struct {
-				vmiLabels      map[string]string
-				podLabels      map[string]string
-				expectedPatch  bool
-				expectedLabels map[string]string
+				vmiAnnotations      map[string]string
+				podAnnotations      map[string]string
+				vmiLabels           map[string]string
+				podLabels           map[string]string
+				expectedPatch       bool
+				expectedAnnotations map[string]string
+				expectedLabels      map[string]string
 			}
-			DescribeTable("when VMI dynamic label set changes", func(td *testData) {
+			DescribeTable("when VMI dynamic annotations and label sets changes", func(td *testData) {
 				vmi := newPendingVirtualMachine("testvmi")
 				vmi.Status.Phase = virtv1.Running
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 				vmi.Labels = td.vmiLabels
+				for key, val := range td.vmiAnnotations {
+					vmi.Annotations[key] = val
+				}
+				for key, val := range td.podAnnotations {
+					pod.Annotations[key] = val
+				}
 				for key, val := range td.podLabels {
 					pod.Labels[key] = val
 				}
@@ -2007,6 +2016,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				updatedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedPod.Annotations).To(BeEquivalentTo(td.expectedAnnotations))
 				Expect(updatedPod.Labels).To(BeEquivalentTo(td.expectedLabels))
 				if td.expectedPatch {
 					Expect(kubeClient.Actions()).To(HaveLen(3)) // 0: create, 1: patch, 2: get
@@ -2022,6 +2032,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						},
 						podLabels: map[string]string{
 							virtv1.NodeNameLabel: "node1",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
 						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
@@ -2039,6 +2053,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						podLabels: map[string]string{
 							virtv1.NodeNameLabel: "node1",
 						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
@@ -2048,12 +2066,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				),
 				Entry("when POD label doesn't exist",
-
 					&testData{
 						vmiLabels: map[string]string{
 							virtv1.NodeNameLabel: "node1",
 						},
 						podLabels: map[string]string{},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
@@ -2062,10 +2083,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						expectedPatch: true,
 					},
 				),
-				Entry("when neither POD or VMI label exists",
+				Entry("when neither POD or VMI annotations and label exists",
 					&testData{
 						vmiLabels: map[string]string{},
 						podLabels: map[string]string{},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
@@ -2079,9 +2104,120 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						podLabels: map[string]string{
 							virtv1.OutdatedLauncherImageLabel: "",
 						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
+						},
+						expectedPatch: true,
+					},
+				),
+				Entry("when VMI and pod annotations differ",
+					&testData{
+						vmiAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						podAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "true",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":                  "testvmi",
+							descheduler.EvictOnlyAnnotation:       "",
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						expectedPatch: true,
+					},
+				),
+				Entry("when VMI and pod annotations are the same",
+					&testData{
+						vmiAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						podAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":                  "testvmi",
+							descheduler.EvictOnlyAnnotation:       "",
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						expectedPatch: false,
+					},
+				),
+				Entry("when POD annotation doesn't exist",
+					&testData{
+						vmiAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						podAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":                  "testvmi",
+							descheduler.EvictOnlyAnnotation:       "",
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						expectedPatch: true,
+					},
+				),
+				Entry("when POD annotation exists and VMI does not",
+					&testData{
+						vmiAnnotations: map[string]string{},
+						podAnnotations: map[string]string{
+							"kubevirt.io/domain":                  "testvmi",
+							descheduler.EvictOnlyAnnotation:       "",
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
+						expectedPatch: true,
+					},
+				),
+				Entry("when both annotations and labels differ between VMI and pod",
+					&testData{
+						vmiAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						podAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "true",
+						},
+						vmiLabels: map[string]string{
+							virtv1.NodeNameLabel: "node2",
+						},
+						podLabels: map[string]string{
+							virtv1.NodeNameLabel: "node1",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+							virtv1.NodeNameLabel:     "node2",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":                  "testvmi",
+							descheduler.EvictOnlyAnnotation:       "",
+							descheduler.EvictPodAnnotationKeyBeta: "false",
 						},
 						expectedPatch: true,
 					},

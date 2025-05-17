@@ -240,9 +240,10 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return fmt.Errorf("error syncing paused condition to pod: %v", err)
 		}
 
-		if err := c.syncDynamicLabelsToPod(vmiCopy, pod); err != nil {
-			return fmt.Errorf("error syncing labels to pod: %v", err)
+		if err := c.syncDynamicAnnotationsAndLabelsToPod(vmiCopy, pod); err != nil {
+			return fmt.Errorf("error syncing annotations and labels to pod: %v", err)
 		}
+
 	}
 
 	aggregateDataVolumesConditions(vmiCopy, dataVolumes)
@@ -569,41 +570,68 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 	return patchSet
 }
 
-// These "dynamic" labels are Pod labels which may diverge from the VMI over time that we want to keep in sync.
-func (c *Controller) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+// These "dynamic" annotations/labels are Pod annotations/labels which may diverge from the VMI over time that we want to keep in sync.
+func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	patchSet := patch.New()
-	dynamicLabels := []string{
-		virtv1.NodeNameLabel,
-		virtv1.OutdatedLauncherImageLabel,
-	}
 	podMeta := pod.ObjectMeta.DeepCopy()
-	if podMeta.Labels == nil {
-		podMeta.Labels = map[string]string{}
+	type scope struct {
+		keys          []string
+		vmiSource     map[string]string
+		podTarget     map[string]string
+		podMetaTarget map[string]string
+		subPath       string
 	}
-	changed := false
-	for _, key := range dynamicLabels {
-		vmiVal, vmiLabelExists := vmi.Labels[key]
-		podVal, podLabelExists := podMeta.Labels[key]
-		if vmiLabelExists == podLabelExists && vmiVal == podVal {
+
+	for _, s := range []scope{
+		{
+			keys: []string{
+				virtv1.NodeNameLabel,
+				virtv1.OutdatedLauncherImageLabel,
+			},
+			vmiSource:     vmi.Labels,
+			podTarget:     podMeta.Labels,
+			podMetaTarget: pod.ObjectMeta.Labels,
+			subPath:       "labels",
+		},
+		{
+			keys: []string{
+				descheduler.EvictPodAnnotationKeyAlpha,
+				descheduler.EvictPodAnnotationKeyBeta,
+			},
+			vmiSource:     vmi.Annotations,
+			podTarget:     podMeta.Annotations,
+			podMetaTarget: pod.ObjectMeta.Annotations,
+			subPath:       "annotations",
+		},
+	} {
+		if s.podTarget == nil {
+			s.podTarget = map[string]string{}
+		}
+		changed := false
+		for _, key := range s.keys {
+			vmiVal, vmiKeyExists := s.vmiSource[key]
+			podVal, podKeyExists := s.podTarget[key]
+			if vmiKeyExists == podKeyExists && vmiVal == podVal {
+				continue
+			}
+			changed = true
+			if !vmiKeyExists {
+				delete(s.podTarget, key)
+			} else {
+				s.podTarget[key] = vmiVal
+			}
+		}
+		if !changed {
 			continue
 		}
-		changed = true
-		if !vmiLabelExists {
-			delete(podMeta.Labels, key)
+		if s.podMetaTarget == nil {
+			patchSet.AddOption(patch.WithAdd("/metadata/"+s.subPath, s.podTarget))
 		} else {
-			podMeta.Labels[key] = vmiVal
+			patchSet.AddOption(
+				patch.WithTest("/metadata/"+s.subPath, s.podMetaTarget),
+				patch.WithReplace("/metadata/"+s.subPath, s.podTarget),
+			)
 		}
-	}
-	if !changed {
-		return nil
-	}
-	if pod.ObjectMeta.Labels == nil {
-		patchSet.AddOption(patch.WithAdd("/metadata/labels", podMeta.Labels))
-	} else {
-		patchSet.AddOption(
-			patch.WithTest("/metadata/labels", pod.ObjectMeta.Labels),
-			patch.WithReplace("/metadata/labels", podMeta.Labels),
-		)
 	}
 	if patchSet.IsEmpty() {
 		return nil
@@ -613,7 +641,7 @@ func (c *Controller) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstance, 
 		return err
 	}
 	if _, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
-		log.Log.Object(pod).Errorf("failed to sync dynamic pod labels during sync: %v", err)
+		log.Log.Object(pod).Errorf("failed to sync dynamic pod annotations and labels during sync: %v", err)
 		return err
 	}
 	return nil
