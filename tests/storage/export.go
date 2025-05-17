@@ -947,7 +947,7 @@ var _ = Describe(SIG("Export", func() {
 		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
 	})
 
-	It("should be possibe to observe exportserver pod exiting", func() {
+	It("should be possible to observe exportserver pod exiting", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
 			Fail("Fail test when Filesystem storage is not present")
