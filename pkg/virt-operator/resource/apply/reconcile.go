@@ -185,6 +185,11 @@ func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 							Operator: corev1.TolerationOpExists,
 							Effect:   corev1.TaintEffectNoSchedule,
 						},
+						{
+							Key:      "node-role.kubernetes.io/etcd",
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoExecute,
+						},
 					},
 				},
 			}
