@@ -50,7 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("[sig-storage]Memory dump", decorators.SigStorage, func() {
+var _ = Describe(SIG("[sig-storage]Memory dump", decorators.SigStorage, decorators.WgS390x, func() {
 	const (
 		randNameTail    = 5
 		claimNameFlag   = "--claim-name"
@@ -71,7 +71,7 @@ var _ = Describe(SIG("[sig-storage]Memory dump", decorators.SigStorage, func() {
 
 		pvcName = "fs-pvc-" + rand.String(randNameTail)
 
-		vm = libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		vm = libvmi.NewVirtualMachine(libvmifact.NewAlpine(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		var err error
 		vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
