@@ -419,6 +419,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 		return err
 	}
 	// allow block devices
+	log.DefaultLogger().V(5).Infof("Allow hotplugged volume %v device: %v", volume, dev)
 	if err := m.allowBlockMajorMinor(dev, cgroupManager); err != nil {
 		return err
 	}
