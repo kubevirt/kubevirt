@@ -19,9 +19,9 @@ spec:
       - masquerade: {}
         name: default
       rng: {}
-    resources:
-      requests:
-        memory: 1024M
+    memory:
+      guest: 1024M
+    resources: {}
   networks:
   - name: default
     pod: {}

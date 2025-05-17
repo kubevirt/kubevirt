@@ -152,10 +152,8 @@ func getBaseVMISpec() *v1.VirtualMachineInstanceSpec {
 	return &v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
 		Domain: v1.DomainSpec{
-			Resources: v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
-				},
+			Memory: &v1.Memory{
+				Guest: pointer.P(resource.MustParse("128Mi")),
 			},
 		},
 	}
@@ -194,7 +192,9 @@ func addDedicatedAndIsolatedCPU(spec *v1.VirtualMachineInstanceSpec) *v1.Virtual
 	cpu := &v1.CPU{
 		IsolateEmulatorThread: true,
 		DedicatedCPUPlacement: true,
+		Sockets:               1,
 		Cores:                 1,
+		Threads:               1,
 	}
 	spec.Domain.CPU = cpu
 	return spec
@@ -411,7 +411,7 @@ func GetVMISata() *v1.VirtualMachineInstance {
 
 func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiFedora)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
 	makeMigratable(vmi)
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
@@ -420,7 +420,12 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 
 func GetVMIEphemeralFedoraIsolated() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiFedora)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+		Requests: k8sv1.ResourceList{
+			k8sv1.ResourceMemory: resource.MustParse("1024M"),
+		},
+	}
 	initFedoraIsolated(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 	return vmi
@@ -445,7 +450,7 @@ func GetVMISecureBoot() *v1.VirtualMachineInstance {
 		},
 	}
 
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1Gi"))
 	return vmi
 }
 
@@ -462,64 +467,64 @@ func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
 		},
 	}
 
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1Gi"))
 	return vmi
 }
 
 func GetVMIMasquerade() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiMasquerade)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-	initFedora(&vm.Spec)
+	vmi := getBaseVMI(VmiMasquerade)
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Networks = []v1.Network{{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+	initFedora(&vmi.Spec)
 	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n"
 	addNoCloudDiskWitUserDataNetworkData(
-		&vm.Spec,
+		&vmi.Spec,
 		generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService),
 		networkData)
 
 	masquerade := &v1.InterfaceMasquerade{}
 	ports := []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}}
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "testmasquerade", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: masquerade}}}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "testmasquerade", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: masquerade}}}
 
-	return vm
+	return vmi
 }
 
 func GetVMISRIOV() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiSRIOV)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov/sriov-network"}}}}
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
+	vmi := getBaseVMI(VmiSRIOV)
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov/sriov-network"}}}}
+	initFedora(&vmi.Spec)
+	addNoCloudDiskWitUserDataNetworkData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
 
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
 		{Name: "sriov-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}}
 
-	return vm
+	return vmi
 }
 
 func GetVMIMultusPtp() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiMultusPtp)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword))
+	vmi := getBaseVMI(VmiMultusPtp)
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
+	initFedora(&vmi.Spec)
+	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 
-	return vm
+	return vmi
 }
 
 func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiMultusMultipleNet)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
+	vmi := getBaseVMI(VmiMultusMultipleNet)
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
+	initFedora(&vmi.Spec)
+	addNoCloudDiskWitUserDataNetworkData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
 
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
 		{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 
-	return vm
+	return vmi
 }
 
 func GetVMINoCloud() *v1.VirtualMachineInstance {
@@ -603,8 +608,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 
 func GetVMIKernelBoot() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiKernelBoot)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1Gi"))
 	AddKernelBootToVMI(vmi)
 	return vmi
 }
@@ -923,7 +927,7 @@ func GetVMIPresetSmall() *v1.VirtualMachineInstancePreset {
 
 func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiWithHookSidecar)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
 
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
@@ -937,7 +941,7 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 
 func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiWithHookSidecarConfigMap)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
 
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
@@ -954,7 +958,7 @@ func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
 
 func GetVMIGPU() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiGPU)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
 	GPUs := []v1.GPU{
 		{
 			Name:       "gpu1",
@@ -970,7 +974,7 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 // The minimum memory for UEFI boot on Arm64 is 256Mi
 func GetVMIARM() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiARM)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("256Mi"))
 	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
 	addNoCloudDisk(&vmi.Spec)
 	addEmptyDisk(&vmi.Spec, "2Gi")
@@ -979,7 +983,7 @@ func GetVMIARM() *v1.VirtualMachineInstance {
 
 func GetVMIUSB() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiUSB)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
 

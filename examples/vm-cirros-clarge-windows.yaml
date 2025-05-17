@@ -25,6 +25,8 @@ spec:
             name: containerdisk
           - disk: {}
             name: cloudinitdisk
+        memory:
+          guest: 128Mi
         resources: {}
       terminationGracePeriodSeconds: 0
       volumes:

@@ -15,7 +15,7 @@ spec:
           initrdPath: /boot/initramfs-virt
           kernelPath: /boot/vmlinuz-virt
         kernelArgs: console=ttyS0
-    resources:
-      requests:
-        memory: 1Gi
+    memory:
+      guest: 1Gi
+    resources: {}
   terminationGracePeriodSeconds: 0

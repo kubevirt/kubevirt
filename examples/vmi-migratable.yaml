@@ -15,9 +15,9 @@ spec:
       interfaces:
       - masquerade: {}
         name: default
-    resources:
-      requests:
-        memory: 128Mi
+    memory:
+      guest: 128Mi
+    resources: {}
   networks:
   - name: default
     pod: {}
