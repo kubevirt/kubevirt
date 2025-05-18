@@ -1817,7 +1817,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				restore = nil
 			})
 
-			FIt("should restore with volume restore policy InPlace and DV template as disk", func() {
+			It("should restore with volume restore policy InPlace and DV template as disk", func() {
 				// Create a VM and snapshot it
 				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
 				By(creatingSnapshot)
@@ -1892,7 +1892,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				restore = nil
 			})
 
-			FIt("should restore with volume restore policy InPlace and DV (not template) as disk", func() {
+			It("should restore with volume restore policy InPlace and DV (not template) as disk", func() {
 				// VM with normal DV mounted to it
 				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
 
@@ -1959,7 +1959,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(restoredDV.Annotations[cdiv1.AnnPrePopulated]).To(Equal(originalPVCName))
 			})
 
-			FIt("should restore with volume restore policy InPlace and PVC as disk", func() {
+			It("should restore with volume restore policy InPlace and PVC as disk", func() {
 				// VM with normal DV mounted to it
 				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
 				vm.Spec.DataVolumeTemplates = nil // Remove traces of DV, we want a raw PVC
