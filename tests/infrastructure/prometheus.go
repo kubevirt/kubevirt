@@ -594,7 +594,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:6244] by IPv6", k8sv1.IPv6Protocol),
 	)
 
-	// explicit test fo swap metrics as test_id:4144 doesn't catch if they are missing
+	// explicit test swap metrics as test_id:4144 doesn't catch if they are missing
 	DescribeTable("should include swap metrics", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
