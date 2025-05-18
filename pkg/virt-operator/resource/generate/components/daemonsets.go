@@ -61,6 +61,7 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			RunAsUser:  pointer.P(int64(util.RootUser)),
 			Privileged: pointer.P(true),
 		},
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
 }
 
@@ -149,6 +150,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 					MountPath: nodeLabellerVolumePath,
 				},
 			},
+			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		},
 	}
 
@@ -173,6 +175,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 					corev1.ResourceMemory: resource.MustParse("20Mi"),
 				},
 			},
+			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		})
 	}
 

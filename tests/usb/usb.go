@@ -54,7 +54,7 @@ var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.S
 		stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"dmesg"})
 		Expect(err).ToNot(HaveOccurred())
 		if strings.Count(stdout, "idVendor=46f4") == 0 {
-			Skip("No emulated USB devices present for functional test.")
+			Fail("No emulated USB devices present for functional test.")
 		}
 
 		vmi = libvmifact.NewCirros()

@@ -147,7 +147,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			expectEqualStrMap(targetVM.Spec.Template.ObjectMeta.Annotations, sourceVM.Spec.Template.ObjectMeta.Annotations, fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "template.annotations"), keysToExclude...)
 		}
 
-		expectSpecsToEqualExceptForMacAddress := func(vm1, vm2 *virtv1.VirtualMachine) {
+		expectSpecsToEqualExceptForMacAddressAndUUID := func(vm1, vm2 *virtv1.VirtualMachine) {
 			vm1Spec := vm1.Spec.DeepCopy()
 			vm2Spec := vm2.Spec.DeepCopy()
 
@@ -155,9 +155,25 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				for i := range spec.Template.Spec.Domain.Devices.Interfaces {
 					spec.Template.Spec.Domain.Devices.Interfaces[i].MacAddress = ""
 				}
+				if spec.Template.Spec.Domain.Firmware != nil {
+					spec.Template.Spec.Domain.Firmware.UUID = ""
+				}
 			}
 
-			Expect(vm1Spec).To(Equal(vm2Spec), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec not including mac addresses"))
+			Expect(vm1Spec).To(Equal(vm2Spec), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec not including mac addresses and firmware UUID"))
+		}
+
+		expectSpecsToEqualExceptForFirmwareUUID := func(vm1, vm2 *virtv1.VirtualMachine) {
+			vm1Spec := vm1.Spec.DeepCopy()
+			vm2Spec := vm2.Spec.DeepCopy()
+
+			for _, spec := range []*virtv1.VirtualMachineSpec{vm1Spec, vm2Spec} {
+				if spec.Template.Spec.Domain.Firmware != nil {
+					spec.Template.Spec.Domain.Firmware.UUID = ""
+				}
+			}
+
+			Expect(vm1Spec).To(Equal(vm2Spec), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec not including firmware UUID"))
 		}
 
 		generateCloneFromVM := func() *clone.VirtualMachineClone {
@@ -184,7 +200,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				By("Making sure target is runnable")
 				targetVM = expectVMRunnable(targetVM)
 
-				Expect(targetVM.Spec).To(Equal(sourceVM.Spec), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec"))
+				expectSpecsToEqualExceptForFirmwareUUID(sourceVM, targetVM)
 				expectEqualLabels(targetVM, sourceVM)
 				expectEqualAnnotations(targetVM, sourceVM)
 				expectEqualTemplateLabels(targetVM, sourceVM)
@@ -260,7 +276,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				By("Making sure target is runnable")
 				targetVM = expectVMRunnable(targetVM)
 
-				Expect(targetVM.Spec).To(Equal(sourceVM.Spec), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec"))
+				expectSpecsToEqualExceptForFirmwareUUID(sourceVM, targetVM)
 				expectEqualLabels(targetVM, sourceVM, key2)
 				expectEqualAnnotations(targetVM, sourceVM, key2)
 			})
@@ -332,7 +348,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				By("Making sure new mac address is applied to target VM")
 				Expect(targetInterface.MacAddress).ToNot(Equal(srcInterface.MacAddress))
 
-				expectSpecsToEqualExceptForMacAddress(targetVM, sourceVM)
+				expectSpecsToEqualExceptForMacAddressAndUUID(targetVM, sourceVM)
 				expectEqualLabels(targetVM, sourceVM)
 				expectEqualAnnotations(targetVM, sourceVM)
 				expectEqualTemplateLabels(targetVM, sourceVM)

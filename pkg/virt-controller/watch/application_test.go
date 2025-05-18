@@ -27,9 +27,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	"github.com/emicklei/go-restful/v3"
 	appsv1 "k8s.io/api/apps/v1"
@@ -167,6 +167,7 @@ var _ = Describe("Application", func() {
 			recorder,
 			virtClient,
 			config,
+			nil,
 			nil,
 			instancetypecontroller.NewMockController(),
 		)

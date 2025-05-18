@@ -15,7 +15,7 @@ go_library(
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/virt-chroot:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/github.com/golang/mock/gomock:go_default_library",
+        "//vendor/go.uber.org/mock/gomock:go_default_library",
     ],
 )
 
@@ -29,8 +29,8 @@ go_test(
         ":go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/virt-handler/filewatcher:go_default_library",
-        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/go.uber.org/mock/gomock:go_default_library",
     ],
 )

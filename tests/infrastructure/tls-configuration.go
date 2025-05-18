@@ -57,7 +57,7 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 		virtClient = kubevirt.Client()
 
 		if !checks.HasFeature(featuregate.VMExportGate) {
-			Skip(fmt.Sprintf("Cluster has the %s featuregate disabled, skipping  the tests", featuregate.VMExportGate))
+			Fail(fmt.Sprintf(`Cluster has the %q featuregate disabled, skipping  the tests`, featuregate.VMExportGate))
 		}
 
 		kvConfig := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()

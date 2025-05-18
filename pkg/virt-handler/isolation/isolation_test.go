@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	gomock "github.com/golang/mock/gomock"
 	mount "github.com/moby/sys/mountinfo"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gomock "go.uber.org/mock/gomock"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
