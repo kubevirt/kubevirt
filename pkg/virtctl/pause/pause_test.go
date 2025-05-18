@@ -3,9 +3,9 @@ package pause_test
 import (
 	"context"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

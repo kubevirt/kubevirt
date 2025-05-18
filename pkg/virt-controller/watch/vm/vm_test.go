@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -140,6 +140,7 @@ var _ = Describe("VirtualMachine", func() {
 				recorder,
 				virtClient,
 				config,
+				nil,
 				nil,
 				instancetypecontroller.NewMockController(),
 			)

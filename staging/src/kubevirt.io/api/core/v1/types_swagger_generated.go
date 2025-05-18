@@ -212,6 +212,38 @@ func (VirtualMachineInstanceGuestOSInfo) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstanceCommonMigrationState) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"node":                   "The source node that the VMI originated on",
+		"pod":                    "The source pod that the VMI is originated on",
+		"migrationUID":           "The Source VirtualMachineInstanceMigration object associated with this migration",
+		"domainName":             "The name of the domain on the source libvirt domain",
+		"domainNamespace":        "Namespace used in the name of the source libvirt domain. Can be used to find and modify paths in the domain",
+		"syncAddress":            "The ip address/fqdn:port combination to use to synchronize the VMI with the target.",
+		"persistentStatePVCName": "If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here",
+	}
+}
+
+func (VirtualMachineInstanceMigrationSourceState) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "+k8s:openapi-gen=true",
+		"nodeSelectors": "Node selectors needed by the target to start the receiving pod.",
+	}
+}
+
+func (VirtualMachineInstanceMigrationTargetState) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                         "+k8s:openapi-gen=true",
+		"domainReadyTimestamp":     "The timestamp at which the target node detects the domain is active",
+		"domainDetected":           "The Target Node has seen the Domain Start Event",
+		"nodeAddress":              "The address of the target node to use for the migration",
+		"directMigrationNodePorts": "The list of ports opened for live migration on the destination node",
+		"attachmentPodUID":         "The UID of the target attachment pod for hotplug volumes",
+		"cpuSet":                   "If the VMI requires dedicated CPUs, this field will\nhold the dedicated CPU set on the target node\n+listType=atomic",
+		"nodeTopology":             "If the VMI requires dedicated CPUs, this field will\nhold the numa topology on the target node",
+	}
+}
+
 func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                               "+k8s:openapi-gen=true",
@@ -238,6 +270,9 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"targetNodeTopology":             "If the VMI requires dedicated CPUs, this field will\nhold the numa topology on the target node",
 		"sourcePersistentStatePVCName":   "If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here",
 		"targetPersistentStatePVCName":   "If the VMI being migrated uses persistent features (backend-storage), its target PVC name is saved here",
+		"sourceState":                    "SourceState contains migration state managed by the source virt handler",
+		"targetState":                    "TargetState contains migration state managed by the target virt handler",
+		"migrationNetworkType":           "The type of migration network, either 'pod' or 'migration'",
 	}
 }
 
@@ -319,6 +354,21 @@ func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"vmiName":           "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
 		"addedNodeSelector": "AddedNodeSelector is an additional selector that can be used to\ncomplement a NodeSelector or NodeAffinity as set on the VM\nto restrict the set of allowed target nodes for a migration.\nIn case of key collisions, values set on the VM objects\nare going to be preserved to ensure that addedNodeSelector\ncan only restrict but not bypass constraints already set on the VM object.\n+optional",
+		"sendTo":            "If sendTo is specified, this VirtualMachineInstanceMigration will be considered the source",
+		"receive":           "If receieve is specified, this VirtualMachineInstanceMigration will be considered the target",
+	}
+}
+
+func (VirtualMachineInstanceMigrationSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"migrationID": "A unique identifier to identify this migration.",
+		"connectURL":  "The synchronization controller URL to connect to.",
+	}
+}
+
+func (VirtualMachineInstanceMigrationTarget) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"migrationID": "A unique identifier to identify this migration.",
 	}
 }
 

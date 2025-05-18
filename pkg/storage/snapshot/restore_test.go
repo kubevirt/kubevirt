@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -817,6 +817,7 @@ var _ = Describe("Restore controller", func() {
 				uvm.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 				uvm.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
 				uvm.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
+				setLegacyFirmwareUUID(uvm)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimBound
 					addPVC(&pvc)
@@ -1514,6 +1515,7 @@ var _ = Describe("Restore controller", func() {
 						updatedVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 						updatedVM.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
 						updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
+						setLegacyFirmwareUUID(updatedVM)
 						updateVMCalls = expectVMUpdate(kubevirtClient, updatedVM)
 					}
 					res, err := targetVM.Reconcile()
@@ -1531,6 +1533,48 @@ var _ = Describe("Restore controller", func() {
 					Entry("wait for dvs when dv phase pending", true, cdiv1.Pending, false),
 					Entry("create dvs when dv doesnt exists", false, cdiv1.PhaseUnset, false),
 				)
+
+				It("should set firmware UUID when it lacks from snapshot", func() {
+					addRestoreVolumes(true, cdiv1.Succeeded)
+					vmRestoreSource.Add(r)
+
+					addVM(vm)
+					updatedVM := createSnapshotVM()
+					updatedVM.Status.RestoreInProgress = &vmRestoreName
+					updatedVM.ResourceVersion = "1"
+					updatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
+					updatedVM.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
+					updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
+					setLegacyFirmwareUUID(updatedVM)
+					expectVMUpdate(kubevirtClient, updatedVM)
+					res, err := targetVM.Reconcile()
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(res).To(BeTrue())
+				})
+
+				It("should not override existing firmware UUID", func() {
+					addRestoreVolumes(true, cdiv1.Succeeded)
+					vmRestoreSource.Add(r)
+
+					uid := types.UID("existing-uid")
+					existingFirmware := &kubevirtv1.Firmware{UUID: uid}
+
+					vm.Spec.Template.Spec.Domain.Firmware = existingFirmware
+					sc.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Firmware = existingFirmware
+
+					addVM(vm)
+					updatedVM := createSnapshotVM()
+					updatedVM.Status.RestoreInProgress = &vmRestoreName
+					updatedVM.ResourceVersion = "1"
+					updatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
+					updatedVM.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
+					updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
+					updatedVM.Spec.Template.Spec.Domain.Firmware = &kubevirtv1.Firmware{UUID: uid}
+					expectVMUpdate(kubevirtClient, updatedVM)
+					res, err := targetVM.Reconcile()
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(res).To(BeTrue())
+				})
 			})
 
 			Context("target VM is different than source VM", func() {
@@ -1565,7 +1609,6 @@ var _ = Describe("Restore controller", func() {
 					newVM.Spec.DataVolumeTemplates[0].Name = *vmRestore.Status.Restores[0].DataVolumeName
 					newVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = *vmRestore.Status.Restores[0].DataVolumeName
 					newVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
-
 					createVMCalls := expectVMCreate(kubevirtClient, newVM, newVMUID)
 
 					By("Making sure right VMRestore update occurs")
@@ -1653,7 +1696,7 @@ var _ = Describe("Restore controller", func() {
 
 					BeforeEach(func() {
 						r = createRestore()
-						r.Spec.Target.Name = "new-vm-name"
+						r.Spec.Target.Name = "nonexistent-vm"
 						r.Status = &snapshotv1.VirtualMachineRestoreStatus{
 							Complete: pointer.P(false),
 						}
@@ -1688,7 +1731,6 @@ var _ = Describe("Restore controller", func() {
 						newVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = restoreDVName(r, r.Status.Restores[0].VolumeName, "")
 						newVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 						newVM.Spec.Template.Spec.Domain.Devices.Interfaces[0].MacAddress = newMacAddress
-
 						createVMCalls := expectVMCreate(kubevirtClient, newVM, newVMUID)
 
 						targetVM, err := controller.getTarget(r)
@@ -2033,6 +2075,7 @@ var _ = Describe("Restore controller", func() {
 
 					updatedVM := originalVM.DeepCopy()
 					updatedVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
+					setLegacyFirmwareUUID(updatedVM)
 					updateVMCalls := expectVMUpdate(kubevirtClient, updatedVM)
 					calls := expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
@@ -2195,7 +2238,6 @@ var _ = Describe("Restore controller", func() {
 					if newVM.Spec.Preference != nil {
 						newVM.Spec.Preference.RevisionName = expectedCreatedCR.Name
 					}
-
 					createVMFailureCalls := expectVMCreateFailure(kubevirtClient, vmCreationFailureMessage)
 					failCalls := expectUpdateVMRestoreFailure(restore, "1", vmCreationFailureMessage)
 
@@ -2280,6 +2322,7 @@ var _ = Describe("Restore controller", func() {
 
 				updatedVM := originalVM.DeepCopy()
 				updatedVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
+				setLegacyFirmwareUUID(updatedVM)
 				updateVMCalls := expectVMUpdate(kubevirtClient, updatedVM)
 				calls := expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 

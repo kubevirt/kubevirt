@@ -5,6 +5,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:subresource:status
 
 // Infrastructure holds cluster-wide information about Infrastructure.  The canonical name is `cluster`
 type Infrastructure struct {
@@ -26,8 +27,21 @@ type InfrastructureSpec struct {
 	// This configuration file is used to configure the Kubernetes cloud provider integration
 	// when using the built-in cloud provider integration or the external cloud controller manager.
 	// The namespace for this config map is openshift-config.
+	//
+	// cloudConfig should only be consumed by the kube_cloud_config controller.
+	// The controller is responsible for using the user configuration in the spec
+	// for various platforms and combining that with the user provided ConfigMap in this field
+	// to create a stitched kube cloud config.
+	// The controller generates a ConfigMap `kube-cloud-config` in `openshift-config-managed` namespace
+	// with the kube cloud config is stored in `cloud.conf` key.
+	// All the clients are expected to use the generated ConfigMap only.
+	//
 	// +optional
 	CloudConfig ConfigMapFileReference `json:"cloudConfig"`
+
+	// platformSpec holds desired information specific to the underlying
+	// infrastructure provider.
+	PlatformSpec PlatformSpec `json:"platformSpec,omitempty"`
 }
 
 // InfrastructureStatus describes the infrastructure the cluster is leveraging.
@@ -50,21 +64,23 @@ type InfrastructureStatus struct {
 	// etcdDiscoveryDomain is the domain used to fetch the SRV records for discovering
 	// etcd servers and clients.
 	// For more info: https://github.com/etcd-io/etcd/blob/329be66e8b3f9e2e6af83c123ff89297e49ebd15/Documentation/op-guide/clustering.md#dns-discovery
+	// deprecated: as of 4.7, this field is no longer set or honored.  It will be removed in a future release.
 	EtcdDiscoveryDomain string `json:"etcdDiscoveryDomain"`
 
-	// apiServerURL is a valid URI with scheme(http/https), address and
-	// port.  apiServerURL can be used by components like the web console
+	// apiServerURL is a valid URI with scheme 'https', address and
+	// optionally a port (defaulting to 443).  apiServerURL can be used by components like the web console
 	// to tell users where to find the Kubernetes API.
 	APIServerURL string `json:"apiServerURL"`
 
-	// apiServerInternalURL is a valid URI with scheme(http/https),
-	// address and port.  apiServerInternalURL can be used by components
+	// apiServerInternalURL is a valid URI with scheme 'https',
+	// address and optionally a port (defaulting to 443).  apiServerInternalURL can be used by components
 	// like kubelets, to contact the Kubernetes API server using the
 	// infrastructure provider rather than Kubernetes networking.
 	APIServerInternalURL string `json:"apiServerInternalURI"`
 }
 
 // PlatformType is a specific supported infrastructure provider.
+// +kubebuilder:validation:Enum="";AWS;Azure;BareMetal;GCP;Libvirt;OpenStack;None;VSphere;oVirt;IBMCloud;KubeVirt
 type PlatformType string
 
 const (
@@ -94,7 +110,77 @@ const (
 
 	// OvirtPlatformType represents oVirt/RHV infrastructure.
 	OvirtPlatformType PlatformType = "oVirt"
+
+	// IBMCloudPlatformType represents IBM Cloud infrastructure.
+	IBMCloudPlatformType PlatformType = "IBMCloud"
+
+	// KubevirtPlatformType represents KubeVirt/Openshift Virtualization infrastructure.
+	KubevirtPlatformType PlatformType = "KubeVirt"
 )
+
+// IBMCloudProviderType is a specific supported IBM Cloud provider cluster type
+type IBMCloudProviderType string
+
+const (
+	// Classic  means that the IBM Cloud cluster is using classic infrastructure
+	IBMCloudProviderTypeClassic IBMCloudProviderType = "Classic"
+
+	// VPC means that the IBM Cloud cluster is using VPC infrastructure
+	IBMCloudProviderTypeVPC IBMCloudProviderType = "VPC"
+)
+
+// PlatformSpec holds the desired state specific to the underlying infrastructure provider
+// of the current cluster. Since these are used at spec-level for the underlying cluster, it
+// is supposed that only one of the spec structs is set.
+type PlatformSpec struct {
+	// type is the underlying infrastructure provider for the cluster. This
+	// value controls whether infrastructure automation such as service load
+	// balancers, dynamic volume provisioning, machine creation and deletion, and
+	// other integrations are enabled. If None, no infrastructure automation is
+	// enabled. Allowed values are "AWS", "Azure", "BareMetal", "GCP", "Libvirt",
+	// "OpenStack", "VSphere", "oVirt", "KubeVirt" and "None". Individual components may not support
+	// all platforms, and must handle unrecognized platforms as None if they do
+	// not support that platform.
+	//
+	// +unionDiscriminator
+	Type PlatformType `json:"type"`
+
+	// AWS contains settings specific to the Amazon Web Services infrastructure provider.
+	// +optional
+	AWS *AWSPlatformSpec `json:"aws,omitempty"`
+
+	// Azure contains settings specific to the Azure infrastructure provider.
+	// +optional
+	Azure *AzurePlatformSpec `json:"azure,omitempty"`
+
+	// GCP contains settings specific to the Google Cloud Platform infrastructure provider.
+	// +optional
+	GCP *GCPPlatformSpec `json:"gcp,omitempty"`
+
+	// BareMetal contains settings specific to the BareMetal platform.
+	// +optional
+	BareMetal *BareMetalPlatformSpec `json:"baremetal,omitempty"`
+
+	// OpenStack contains settings specific to the OpenStack infrastructure provider.
+	// +optional
+	OpenStack *OpenStackPlatformSpec `json:"openstack,omitempty"`
+
+	// Ovirt contains settings specific to the oVirt infrastructure provider.
+	// +optional
+	Ovirt *OvirtPlatformSpec `json:"ovirt,omitempty"`
+
+	// VSphere contains settings specific to the VSphere infrastructure provider.
+	// +optional
+	VSphere *VSpherePlatformSpec `json:"vsphere,omitempty"`
+
+	// IBMCloud contains settings specific to the IBMCloud infrastructure provider.
+	// +optional
+	IBMCloud *IBMCloudPlatformSpec `json:"ibmcloud,omitempty"`
+
+	// Kubevirt contains settings specific to the kubevirt infrastructure provider.
+	// +optional
+	Kubevirt *KubevirtPlatformSpec `json:"kubevirt,omitempty"`
+}
 
 // PlatformStatus holds the current status specific to the underlying infrastructure provider
 // of the current cluster. Since these are used at status-level for the underlying cluster, it
@@ -108,6 +194,9 @@ type PlatformStatus struct {
 	// "OpenStack", "VSphere", "oVirt", and "None". Individual components may not support
 	// all platforms, and must handle unrecognized platforms as None if they do
 	// not support that platform.
+	//
+	// This value will be synced with to the `status.platform` and `status.platformStatus.type`.
+	// Currently this value cannot be changed once set.
 	Type PlatformType `json:"type"`
 
 	// AWS contains settings specific to the Amazon Web Services infrastructure provider.
@@ -133,13 +222,63 @@ type PlatformStatus struct {
 	// Ovirt contains settings specific to the oVirt infrastructure provider.
 	// +optional
 	Ovirt *OvirtPlatformStatus `json:"ovirt,omitempty"`
+
+	// VSphere contains settings specific to the VSphere infrastructure provider.
+	// +optional
+	VSphere *VSpherePlatformStatus `json:"vsphere,omitempty"`
+
+	// IBMCloud contains settings specific to the IBMCloud infrastructure provider.
+	// +optional
+	IBMCloud *IBMCloudPlatformStatus `json:"ibmcloud,omitempty"`
+
+	// Kubevirt contains settings specific to the kubevirt infrastructure provider.
+	// +optional
+	Kubevirt *KubevirtPlatformStatus `json:"kubevirt,omitempty"`
+}
+
+// AWSServiceEndpoint store the configuration of a custom url to
+// override existing defaults of AWS Services.
+type AWSServiceEndpoint struct {
+	// name is the name of the AWS service.
+	// The list of all the service names can be found at https://docs.aws.amazon.com/general/latest/gr/aws-service-information.html
+	// This must be provided and cannot be empty.
+	//
+	// +kubebuilder:validation:Pattern=`^[a-z0-9-]+$`
+	Name string `json:"name"`
+
+	// url is fully qualified URI with scheme https, that overrides the default generated
+	// endpoint for a client.
+	// This must be provided and cannot be empty.
+	//
+	// +kubebuilder:validation:Pattern=`^https://`
+	URL string `json:"url"`
+}
+
+// AWSPlatformSpec holds the desired state of the Amazon Web Services infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type AWSPlatformSpec struct {
+	// serviceEndpoints list contains custom endpoints which will override default
+	// service endpoint of AWS Services.
+	// There must be only one ServiceEndpoint for a service.
+	// +optional
+	ServiceEndpoints []AWSServiceEndpoint `json:"serviceEndpoints,omitempty"`
 }
 
 // AWSPlatformStatus holds the current status of the Amazon Web Services infrastructure provider.
 type AWSPlatformStatus struct {
 	// region holds the default AWS region for new AWS resources created by the cluster.
 	Region string `json:"region"`
+
+	// ServiceEndpoints list contains custom endpoints which will override default
+	// service endpoint of AWS Services.
+	// There must be only one ServiceEndpoint for a service.
+	// +optional
+	ServiceEndpoints []AWSServiceEndpoint `json:"serviceEndpoints,omitempty"`
 }
+
+// AzurePlatformSpec holds the desired state of the Azure infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type AzurePlatformSpec struct{}
 
 // AzurePlatformStatus holds the current status of the Azure infrastructure provider.
 type AzurePlatformStatus struct {
@@ -150,7 +289,35 @@ type AzurePlatformStatus struct {
 	// If empty, the value is same as ResourceGroupName.
 	// +optional
 	NetworkResourceGroupName string `json:"networkResourceGroupName,omitempty"`
+
+	// cloudName is the name of the Azure cloud environment which can be used to configure the Azure SDK
+	// with the appropriate Azure API endpoints.
+	// If empty, the value is equal to `AzurePublicCloud`.
+	// +optional
+	CloudName AzureCloudEnvironment `json:"cloudName,omitempty"`
 }
+
+// AzureCloudEnvironment is the name of the Azure cloud environment
+// +kubebuilder:validation:Enum="";AzurePublicCloud;AzureUSGovernmentCloud;AzureChinaCloud;AzureGermanCloud
+type AzureCloudEnvironment string
+
+const (
+	// AzurePublicCloud is the general-purpose, public Azure cloud environment.
+	AzurePublicCloud AzureCloudEnvironment = "AzurePublicCloud"
+
+	// AzureUSGovernmentCloud is the Azure cloud environment for the US government.
+	AzureUSGovernmentCloud AzureCloudEnvironment = "AzureUSGovernmentCloud"
+
+	// AzureChinaCloud is the Azure cloud environment used in China.
+	AzureChinaCloud AzureCloudEnvironment = "AzureChinaCloud"
+
+	// AzureGermanCloud is the Azure cloud environment used in Germany.
+	AzureGermanCloud AzureCloudEnvironment = "AzureGermanCloud"
+)
+
+// GCPPlatformSpec holds the desired state of the Google Cloud Platform infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type GCPPlatformSpec struct{}
 
 // GCPPlatformStatus holds the current status of the Google Cloud Platform infrastructure provider.
 type GCPPlatformStatus struct {
@@ -160,6 +327,10 @@ type GCPPlatformStatus struct {
 	// region holds the region for new GCP resources created for the cluster.
 	Region string `json:"region"`
 }
+
+// BareMetalPlatformSpec holds the desired state of the BareMetal infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type BareMetalPlatformSpec struct{}
 
 // BareMetalPlatformStatus holds the current status of the BareMetal infrastructure provider.
 // For more information about the network architecture used with the BareMetal platform type, see:
@@ -183,6 +354,10 @@ type BareMetalPlatformStatus struct {
 	// to the nodes in the cluster.
 	NodeDNSIP string `json:"nodeDNSIP,omitempty"`
 }
+
+// OpenStackPlatformSpec holds the desired state of the OpenStack infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type OpenStackPlatformSpec struct{}
 
 // OpenStackPlatformStatus holds the current status of the OpenStack infrastructure provider.
 type OpenStackPlatformStatus struct {
@@ -209,8 +384,32 @@ type OpenStackPlatformStatus struct {
 	NodeDNSIP string `json:"nodeDNSIP,omitempty"`
 }
 
+// OvirtPlatformSpec holds the desired state of the oVirt infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type OvirtPlatformSpec struct{}
+
 // OvirtPlatformStatus holds the current status of the  oVirt infrastructure provider.
 type OvirtPlatformStatus struct {
+	// apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used
+	// by components inside the cluster, like kubelets using the infrastructure rather
+	// than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI
+	// points to. It is the IP for a self-hosted load balancer in front of the API servers.
+	APIServerInternalIP string `json:"apiServerInternalIP,omitempty"`
+
+	// ingressIP is an external IP which routes to the default ingress controller.
+	// The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
+	IngressIP string `json:"ingressIP,omitempty"`
+
+	// deprecated: as of 4.6, this field is no longer set or honored.  It will be removed in a future release.
+	NodeDNSIP string `json:"nodeDNSIP,omitempty"`
+}
+
+// VSpherePlatformSpec holds the desired state of the vSphere infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type VSpherePlatformSpec struct{}
+
+// VSpherePlatformStatus holds the current status of the vSphere infrastructure provider.
+type VSpherePlatformStatus struct {
 	// apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used
 	// by components inside the cluster, like kubelets using the infrastructure rather
 	// than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI
@@ -224,10 +423,43 @@ type OvirtPlatformStatus struct {
 	// nodeDNSIP is the IP address for the internal DNS used by the
 	// nodes. Unlike the one managed by the DNS operator, `NodeDNSIP`
 	// provides name resolution for the nodes themselves. There is no DNS-as-a-service for
-	// oVirt deployments. In order to minimize necessary changes to the
+	// vSphere deployments. In order to minimize necessary changes to the
 	// datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames
 	// to the nodes in the cluster.
 	NodeDNSIP string `json:"nodeDNSIP,omitempty"`
+}
+
+// IBMCloudPlatformSpec holds the desired state of the IBMCloud infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type IBMCloudPlatformSpec struct{}
+
+//IBMCloudPlatformStatus holds the current status of the IBMCloud infrastructure provider.
+type IBMCloudPlatformStatus struct {
+	// Location is where the cluster has been deployed
+	Location string `json:"location,omitempty"`
+
+	// ResourceGroupName is the Resource Group for new IBMCloud resources created for the cluster.
+	ResourceGroupName string `json:"resourceGroupName,omitempty"`
+
+	// ProviderType indicates the type of cluster that was created
+	ProviderType IBMCloudProviderType `json:"providerType,omitempty"`
+}
+
+// KubevirtPlatformSpec holds the desired state of the kubevirt infrastructure provider.
+// This only includes fields that can be modified in the cluster.
+type KubevirtPlatformSpec struct{}
+
+// KubevirtPlatformStatus holds the current status of the kubevirt infrastructure provider.
+type KubevirtPlatformStatus struct {
+	// apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used
+	// by components inside the cluster, like kubelets using the infrastructure rather
+	// than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI
+	// points to. It is the IP for a self-hosted load balancer in front of the API servers.
+	APIServerInternalIP string `json:"apiServerInternalIP,omitempty"`
+
+	// ingressIP is an external IP which routes to the default ingress controller.
+	// The IP is a suitable target of a wildcard DNS record used to resolve default route host names.
+	IngressIP string `json:"ingressIP,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

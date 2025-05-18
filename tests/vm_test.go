@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
+	k8swatch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -107,15 +108,16 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		newVirtualMachineInstanceWithFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
+			sc, foundSC := libstorage.GetAvailableRWFileSystemStorageClass()
 			Expect(foundSC).To(BeTrue(), "Filesystem storage is not present")
+
 			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), sc, k8sv1.PersistentVolumeFilesystem)
 		}
 
 		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			sc, foundSC := libstorage.GetRWOBlockStorageClass()
+			sc, foundSC := libstorage.GetAvailableRWBlockStorageClass()
 			if !foundSC {
-				Skip("Skip test when Block storage is not present")
+				Skip("Block storage is not present")
 			}
 			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), sc, k8sv1.PersistentVolumeBlock)
 		}
@@ -528,11 +530,16 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm := createRunningVM(virtClient, vmi)
 
 			By("Verifying that the status toggles between ErrImagePull and ImagePullBackOff")
-			const times = 2
-			for i := 0; i < times; i++ {
-				Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusErrImagePull))
-				Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusImagePullBackOff))
+			expectedStates := []v1.VirtualMachinePrintableStatus{
+				// State transitions two toggles of the VM state b/w ErrImagePull and ImagePullBackOff
+				v1.VirtualMachineStatusErrImagePull,
+				v1.VirtualMachineStatusImagePullBackOff,
+				v1.VirtualMachineStatusErrImagePull,
+				v1.VirtualMachineStatusImagePullBackOff,
 			}
+			// Timeout is set to 660 seconds to allow for states to toggle twice, i.e.,
+			// 2 worst-case backoff grace periods (5 mins each), and 2 image pull attempts (30 secs each).
+			waitForVMStateTransition(vm, expectedStates, 660*time.Second)
 		})
 
 		It("[test_id:7679]should report an error status when data volume error occurs", func() {
@@ -541,7 +548,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			_, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
-				Skip("Skipping since required StorageClass is not configured")
+				Fail(fmt.Sprintf(`StorageClass "%s" is not configured`, storageClassName))
 			}
 			Expect(err).ToNot(HaveOccurred())
 
@@ -767,7 +774,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:4119]should migrate a running VM", func() {
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				if len(nodes.Items) < 2 {
-					Skip("Migration tests require at least 2 nodes")
+					Fail("Migration tests require at least 2 nodes")
 				}
 				By("Creating a VM with RunStrategyAlways")
 				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
@@ -795,7 +802,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:7743]should not migrate a running vm if dry-run option is passed", func() {
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				if len(nodes.Items) < 2 {
-					Skip("Migration tests require at least 2 nodes")
+					Fail("Migration tests require at least 2 nodes")
 				}
 				By("Creating a VM with RunStrategyAlways")
 				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
@@ -1266,4 +1273,26 @@ func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMach
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return vm
+}
+
+func waitForVMStateTransition(vm *v1.VirtualMachine, expectedStates []v1.VirtualMachinePrintableStatus, timeoutDuration time.Duration) {
+	// Setting up a watch on the VM resource
+	virtClient := kubevirt.Client()
+	watch, err := virtClient.VirtualMachine(vm.Namespace).Watch(context.Background(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("metadata.name=%s", vm.Name),
+	})
+	Expect(err).ToNot(HaveOccurred())
+	defer watch.Stop()
+
+	getPrintableStatus := func(e k8swatch.Event) v1.VirtualMachinePrintableStatus {
+		updatedVM, ok := e.Object.(*v1.VirtualMachine)
+		if !ok {
+			Fail("Received unexpected object type")
+		}
+		return updatedVM.Status.PrintableStatus
+	}
+
+	for i, expectedState := range expectedStates {
+		Eventually(watch.ResultChan()).WithPolling(1*time.Second).WithTimeout(timeoutDuration).Should(Receive(WithTransform(getPrintableStatus, Equal(expectedState))), fmt.Sprintf("Failed watching the vm status moving to %s in the iteration number %d", expectedState, i))
+	}
 }

@@ -13748,6 +13748,9 @@ var CRDsValidation map[string]string = map[string]string{
                     indicates the migration will be unsafe to the guest. Defaults to false
                   type: boolean
               type: object
+            migrationNetworkType:
+              description: The type of migration network, either 'pod' or 'migration'
+              type: string
             migrationPolicyName:
               description: Name of the migration policy. If string is empty, no policy
                 is matched
@@ -13769,6 +13772,42 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             sourcePod:
               type: string
+            sourceState:
+              description: SourceState contains migration state managed by the source
+                virt handler
+              properties:
+                domainName:
+                  description: The name of the domain on the source libvirt domain
+                  type: string
+                domainNamespace:
+                  description: Namespace used in the name of the source libvirt domain.
+                    Can be used to find and modify paths in the domain
+                  type: string
+                migrationUID:
+                  description: The Source VirtualMachineInstanceMigration object associated
+                    with this migration
+                  type: string
+                node:
+                  description: The source node that the VMI originated on
+                  type: string
+                nodeSelectors:
+                  additionalProperties:
+                    type: string
+                  description: Node selectors needed by the target to start the receiving
+                    pod.
+                  type: object
+                persistentStatePVCName:
+                  description: If the VMI being migrated uses persistent features
+                    (backend-storage), its source PVC name is saved here
+                  type: string
+                pod:
+                  description: The source pod that the VMI is originated on
+                  type: string
+                syncAddress:
+                  description: The ip address/fqdn:port combination to use to synchronize
+                    the VMI with the target.
+                  type: string
+              type: object
             startTimestamp:
               description: The time the migration action began
               format: date-time
@@ -13817,6 +13856,69 @@ var CRDsValidation map[string]string = map[string]string{
             targetPod:
               description: The target pod that the VMI is moving to
               type: string
+            targetState:
+              description: TargetState contains migration state managed by the target
+                virt handler
+              properties:
+                attachmentPodUID:
+                  description: The UID of the target attachment pod for hotplug volumes
+                  type: string
+                cpuSet:
+                  description: |-
+                    If the VMI requires dedicated CPUs, this field will
+                    hold the dedicated CPU set on the target node
+                  items:
+                    type: integer
+                  type: array
+                  x-kubernetes-list-type: atomic
+                directMigrationNodePorts:
+                  additionalProperties:
+                    type: integer
+                  description: The list of ports opened for live migration on the
+                    destination node
+                  type: object
+                domainDetected:
+                  description: The Target Node has seen the Domain Start Event
+                  type: boolean
+                domainName:
+                  description: The name of the domain on the source libvirt domain
+                  type: string
+                domainNamespace:
+                  description: Namespace used in the name of the source libvirt domain.
+                    Can be used to find and modify paths in the domain
+                  type: string
+                domainReadyTimestamp:
+                  description: The timestamp at which the target node detects the
+                    domain is active
+                  format: date-time
+                  type: string
+                migrationUID:
+                  description: The Source VirtualMachineInstanceMigration object associated
+                    with this migration
+                  type: string
+                node:
+                  description: The source node that the VMI originated on
+                  type: string
+                nodeAddress:
+                  description: The address of the target node to use for the migration
+                  type: string
+                nodeTopology:
+                  description: |-
+                    If the VMI requires dedicated CPUs, this field will
+                    hold the numa topology on the target node
+                  type: string
+                persistentStatePVCName:
+                  description: If the VMI being migrated uses persistent features
+                    (backend-storage), its source PVC name is saved here
+                  type: string
+                pod:
+                  description: The source pod that the VMI is originated on
+                  type: string
+                syncAddress:
+                  description: The ip address/fqdn:port combination to use to synchronize
+                    the VMI with the target.
+                  type: string
+              type: object
           type: object
         migrationTransport:
           description: This represents the migration transport
@@ -14047,6 +14149,30 @@ var CRDsValidation map[string]string = map[string]string{
             are going to be preserved to ensure that addedNodeSelector
             can only restrict but not bypass constraints already set on the VM object.
           type: object
+        receive:
+          description: If receieve is specified, this VirtualMachineInstanceMigration
+            will be considered the target
+          properties:
+            migrationID:
+              description: A unique identifier to identify this migration.
+              type: string
+          required:
+          - migrationID
+          type: object
+        sendTo:
+          description: If sendTo is specified, this VirtualMachineInstanceMigration
+            will be considered the source
+          properties:
+            connectURL:
+              description: The synchronization controller URL to connect to.
+              type: string
+            migrationID:
+              description: A unique identifier to identify this migration.
+              type: string
+          required:
+          - connectURL
+          - migrationID
+          type: object
         vmiName:
           description: The name of the VMI to perform the migration on. VMI must exist
             in the migration objects namespace
@@ -14188,6 +14314,9 @@ var CRDsValidation map[string]string = map[string]string{
                     indicates the migration will be unsafe to the guest. Defaults to false
                   type: boolean
               type: object
+            migrationNetworkType:
+              description: The type of migration network, either 'pod' or 'migration'
+              type: string
             migrationPolicyName:
               description: Name of the migration policy. If string is empty, no policy
                 is matched
@@ -14209,6 +14338,42 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             sourcePod:
               type: string
+            sourceState:
+              description: SourceState contains migration state managed by the source
+                virt handler
+              properties:
+                domainName:
+                  description: The name of the domain on the source libvirt domain
+                  type: string
+                domainNamespace:
+                  description: Namespace used in the name of the source libvirt domain.
+                    Can be used to find and modify paths in the domain
+                  type: string
+                migrationUID:
+                  description: The Source VirtualMachineInstanceMigration object associated
+                    with this migration
+                  type: string
+                node:
+                  description: The source node that the VMI originated on
+                  type: string
+                nodeSelectors:
+                  additionalProperties:
+                    type: string
+                  description: Node selectors needed by the target to start the receiving
+                    pod.
+                  type: object
+                persistentStatePVCName:
+                  description: If the VMI being migrated uses persistent features
+                    (backend-storage), its source PVC name is saved here
+                  type: string
+                pod:
+                  description: The source pod that the VMI is originated on
+                  type: string
+                syncAddress:
+                  description: The ip address/fqdn:port combination to use to synchronize
+                    the VMI with the target.
+                  type: string
+              type: object
             startTimestamp:
               description: The time the migration action began
               format: date-time
@@ -14257,6 +14422,69 @@ var CRDsValidation map[string]string = map[string]string{
             targetPod:
               description: The target pod that the VMI is moving to
               type: string
+            targetState:
+              description: TargetState contains migration state managed by the target
+                virt handler
+              properties:
+                attachmentPodUID:
+                  description: The UID of the target attachment pod for hotplug volumes
+                  type: string
+                cpuSet:
+                  description: |-
+                    If the VMI requires dedicated CPUs, this field will
+                    hold the dedicated CPU set on the target node
+                  items:
+                    type: integer
+                  type: array
+                  x-kubernetes-list-type: atomic
+                directMigrationNodePorts:
+                  additionalProperties:
+                    type: integer
+                  description: The list of ports opened for live migration on the
+                    destination node
+                  type: object
+                domainDetected:
+                  description: The Target Node has seen the Domain Start Event
+                  type: boolean
+                domainName:
+                  description: The name of the domain on the source libvirt domain
+                  type: string
+                domainNamespace:
+                  description: Namespace used in the name of the source libvirt domain.
+                    Can be used to find and modify paths in the domain
+                  type: string
+                domainReadyTimestamp:
+                  description: The timestamp at which the target node detects the
+                    domain is active
+                  format: date-time
+                  type: string
+                migrationUID:
+                  description: The Source VirtualMachineInstanceMigration object associated
+                    with this migration
+                  type: string
+                node:
+                  description: The source node that the VMI originated on
+                  type: string
+                nodeAddress:
+                  description: The address of the target node to use for the migration
+                  type: string
+                nodeTopology:
+                  description: |-
+                    If the VMI requires dedicated CPUs, this field will
+                    hold the numa topology on the target node
+                  type: string
+                persistentStatePVCName:
+                  description: If the VMI being migrated uses persistent features
+                    (backend-storage), its source PVC name is saved here
+                  type: string
+                pod:
+                  description: The source pod that the VMI is originated on
+                  type: string
+                syncAddress:
+                  description: The ip address/fqdn:port combination to use to synchronize
+                    the VMI with the target.
+                  type: string
+              type: object
           type: object
         phase:
           description: VirtualMachineInstanceMigrationPhase is a label for the condition

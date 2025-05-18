@@ -526,6 +526,10 @@ if [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
 fi
 
+if [[ -z "$KUBEVIRT_SWAP_ON" || "$KUBEVIRT_SWAP_ON" == "false" ]]; then
+  add_to_label_filter '(!SwapTest)' '&&'
+fi
+
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
   ginko_params="$ginko_params|Networkpolicy"

@@ -120,7 +120,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Filesystem storage (RWO) is not present")
 		}
 
 		dataVolume := libdv.NewDataVolume(

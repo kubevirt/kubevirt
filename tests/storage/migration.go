@@ -886,16 +886,13 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			} else {
 				Expect(virtClient.VirtualMachineInstance(ns).RemoveVolume(context.Background(), vm.Name, removeOpts)).ToNot(HaveOccurred())
 			}
-			Eventually(func() bool {
+			Eventually(func() []v1.VolumeStatus {
 				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
-					if volumeStatus.Name == volName {
-						return true
-					}
-				}
-				return false
-			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).Should(BeTrue())
+				return updatedVMI.Status.VolumeStatus
+			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).ShouldNot(
+				ContainElement(HaveField("Name", Equal(volName))),
+			)
 		},
 			Entry("with a persistent volume", true),
 			Entry("with an ephemeral volume", false),

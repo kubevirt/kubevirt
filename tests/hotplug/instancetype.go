@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -23,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -181,5 +183,110 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 	},
 		Entry("with maxGuest and maxSockets defined", true),
 		Entry("without maxGuest and maxSockets defined", false),
+	)
+
+	DescribeTable("should reject live update when preference requirements are no longer met - bug #14595",
+		func(
+			createVM func(*virtv1.VirtualMachineInstance, string) (*virtv1.VirtualMachine, error),
+			updateVM func(*virtv1.VirtualMachine) (*virtv1.VirtualMachine, error),
+			errMatcher gomegatypes.GomegaMatcher,
+		) {
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+			)
+
+			preference := builder.NewPreference()
+			preference.Spec.Requirements = &instancetypev1beta1.PreferenceRequirements{
+				Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+					Guest: resource.MustParse("1Gi"),
+				},
+			}
+			preference, err := virtClient.VirtualMachinePreference(vmi.Namespace).Create(
+				context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm, err := createVM(vmi, preference.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = updateVM(vm)
+			Expect(err).To(MatchError(errMatcher))
+		},
+		Entry("by VirtualMachine resource requests",
+			func(vmi *virtv1.VirtualMachineInstance, preferenceName string) (*virtv1.VirtualMachine, error) {
+				return virtClient.VirtualMachine(vmi.Namespace).Create(
+					context.Background(),
+					libvmi.NewVirtualMachine(vmi, libvmi.WithPreference(preferenceName)),
+					metav1.CreateOptions{},
+				)
+			},
+			func(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+				newMemory := vm.Spec.Template.Spec.Domain.Resources.Requests.Memory().DeepCopy()
+				newMemory.Sub(resource.MustParse("512Mi"))
+
+				const memoryPath = "/spec/template/spec/domain/resources/requests/memory"
+				patches := patch.New(
+					patch.WithTest(memoryPath, vm.Spec.Template.Spec.Domain.Resources.Requests.Memory().String()),
+					patch.WithReplace(memoryPath, newMemory.String()),
+				)
+				patchData, err := patches.GeneratePayload()
+				Expect(err).NotTo(HaveOccurred())
+				return virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			},
+			ContainSubstring("failure checking preference requirements: insufficient Memory resources of 512Mi provided by VirtualMachine, preference requires 1Gi"),
+		),
+		Entry("by instance type resource requests",
+			func(vmi *virtv1.VirtualMachineInstance, preferenceName string) (*virtv1.VirtualMachine, error) {
+				origInstancetype, err := virtClient.VirtualMachineInstancetype(vmi.Namespace).Create(
+					context.Background(),
+					builder.NewInstancetypeFromVMI(vmi),
+					metav1.CreateOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				vm, err := virtClient.VirtualMachine(vmi.Namespace).Create(
+					context.Background(),
+					libvmi.NewVirtualMachine(
+						vmi,
+						libvmi.WithInstancetype(origInstancetype.Name),
+						libvmi.WithPreference(preferenceName),
+					),
+					metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				// bug #14595 was caused by lookup code using the stashed controller
+				// revision copy of a different object during live update so wait until
+				// these are created before asserting that we fail to live update
+				By("Waiting for VirtualMachineInstancetype and VirtualMachinePreference ControllerRevision to be referenced from the VirtualMachine")
+				Eventually(ThisVM(vm)).WithTimeout(1 * time.Minute).WithPolling(2 * time.Second).Should(HaveControllerRevisionRefs())
+				return vm, nil
+			},
+			func(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+				origInstancetype, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Get(
+					context.Background(), vm.Spec.Instancetype.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				newMemory := origInstancetype.Spec.Memory.Guest.DeepCopy()
+				newMemory.Sub(resource.MustParse("512Mi"))
+				newInstancetype, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(
+					context.Background(),
+					builder.NewInstancetype(
+						builder.WithCPUs(1),
+						builder.WithMemory(newMemory.String()),
+					),
+					metav1.CreateOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				patches := patch.New(
+					patch.WithTest("/spec/instancetype/name", origInstancetype.Name),
+					patch.WithReplace("/spec/instancetype/name", newInstancetype.Name),
+				)
+				patchData, err := patches.GeneratePayload()
+				Expect(err).NotTo(HaveOccurred())
+				return virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			},
+			ContainSubstring("failure checking preference requirements: insufficient Memory resources of 512Mi provided by instance type, preference requires 1Gi"),
+		),
 	)
 })

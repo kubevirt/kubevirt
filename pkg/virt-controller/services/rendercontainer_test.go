@@ -32,15 +32,8 @@ var _ = Describe("Container spec renderer", func() {
 		})
 
 		It("should have the unprivileged root user security context", func() {
-			Expect(specRenderer.Render(exampleCommand)).Should(
-				Equal(
-					k8sv1.Container{
-						Name:            containerName,
-						Image:           img,
-						Command:         exampleCommand,
-						ImagePullPolicy: pullPolicy,
-						SecurityContext: unprivilegedRootUserSecurityContext(),
-					}))
+			Expect(specRenderer.Render(exampleCommand).SecurityContext).Should(
+				Equal(unprivilegedRootUserSecurityContext()))
 		})
 	})
 

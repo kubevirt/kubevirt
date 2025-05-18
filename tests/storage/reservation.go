@@ -360,6 +360,35 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			By("Ensuring all KubeVirt components are ready")
 			testsuite.EnsureKubevirtReady()
 		})
+
+		Context("With multipath", func() {
+			const mpathSocket = "/proc/1/root/run/multipathd.socket"
+			BeforeEach(func() {
+				// Check if mulitpathd socket exists on the nodes, if not simulate the existance by creating a mock socket
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				for _, node := range nodes.Items {
+					_, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"ls", mpathSocket})
+					if err != nil {
+						By(fmt.Sprintf("Create a fake mulitpathd.socket in node %s", node.Name))
+						libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"touch", mpathSocket})
+						DeferCleanup(func() {
+							_, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"rm", "-f", mpathSocket})
+							Expect(err).ToNot(HaveOccurred())
+						})
+					}
+				}
+			})
+
+			It("ensure multipath socket is bind mounted and available to the pr-helper daemon", func() {
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				for _, node := range nodes.Items {
+					output, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"cat", "/proc/mounts"})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(strings.Count(output, "multipathd.socket")).Should(Equal(1),
+						"the multipathd socket should be mounted only once")
+				}
+			})
+		})
 	})
 
 }))
