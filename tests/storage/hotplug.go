@@ -159,7 +159,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 		// Try at least 3 times, this is done because `AddVolume` is inherently racy in the way it's implemented
 		// as when it patches the VM Status it expects the field `volumeRequests` to be there (by using a test json patch op),
-		// but at the same time virt-controller trims this field when all requests have been satified.
+		// but at the same time virt-controller trims this field when all requests have been satisfied.
 		// To avoid hitting these we should explicitly try multiple times.
 		for i := 0; i < 3; i++ {
 			err = virtClient.VirtualMachine(namespace).AddVolume(context.Background(), name, volumeOptions)
@@ -448,7 +448,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		return vm
 	}
 
-	verifyHotplugAttachedAndUseable := func(vmi *v1.VirtualMachineInstance, names []string) []string {
+	verifyHotplugAttachedAndUsable := func(vmi *v1.VirtualMachineInstance, names []string) []string {
 		targets := getTargetsFromVolumeStatus(vmi, names...)
 		for _, target := range targets {
 			verifyVolumeAccessible(vmi, target)
@@ -528,7 +528,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		verifyVolumeAndDiskVMIAdded(virtClient, vmi, "testvolume")
 		verifyVolumeStatus(vmi, v1.VolumeReady, "", "testvolume")
 		getVmiConsoleAndLogin(vmi)
-		targets := verifyHotplugAttachedAndUseable(vmi, []string{"testvolume"})
+		targets := verifyHotplugAttachedAndUsable(vmi, []string{"testvolume"})
 		verifySingleAttachmentPod(vmi)
 		By(removingVolumeFromVM)
 		removeVolumeFunc(vm.Name, vm.Namespace, "testvolume", false)
@@ -633,7 +633,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dv.Name)
 			verifyVolumeStatus(vmi, v1.VolumeReady, "", dv.Name)
 			getVmiConsoleAndLogin(vmi)
-			targets := verifyHotplugAttachedAndUseable(vmi, []string{dv.Name})
+			targets := verifyHotplugAttachedAndUsable(vmi, []string{dv.Name})
 			Expect(targets).To(HaveLen(1))
 		},
 			Entry("DataVolume", addDVVolumeVM),
@@ -660,7 +660,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dv.Name)
 			verifyVolumeStatus(vmi, v1.VolumeReady, "", dv.Name)
 			getVmiConsoleAndLogin(vmi)
-			targets := verifyHotplugAttachedAndUseable(vmi, []string{dv.Name})
+			targets := verifyHotplugAttachedAndUsable(vmi, []string{dv.Name})
 			Expect(targets).To(HaveLen(1))
 
 			By("Deleting virt-handler pod")
@@ -688,7 +688,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dv.Name)
 			verifyVolumeStatus(vmi, v1.VolumeReady, "", dv.Name)
 			getVmiConsoleAndLogin(vmi)
-			targets = verifyHotplugAttachedAndUseable(vmi, []string{dv.Name})
+			targets = verifyHotplugAttachedAndUsable(vmi, []string{dv.Name})
 			Expect(targets).To(HaveLen(1))
 
 			By("Verifying the block devices are still accessible")
@@ -760,7 +760,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dvNames...)
 			verifyVolumeStatus(vmi, v1.VolumeReady, "", dvNames...)
 			getVmiConsoleAndLogin(vmi)
-			verifyHotplugAttachedAndUseable(vmi, dvNames)
+			verifyHotplugAttachedAndUsable(vmi, dvNames)
 			verifySingleAttachmentPod(vmi)
 			for _, volumeName := range dvNames {
 				By("removing volume " + volumeName + " from VM")
@@ -870,7 +870,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(virtClient, vmi, testVolumes...)
 				verifyVolumeStatus(vmi, v1.VolumeReady, "", testVolumes...)
-				targets := verifyHotplugAttachedAndUseable(vmi, testVolumes)
+				targets := verifyHotplugAttachedAndUsable(vmi, testVolumes)
 				verifySingleAttachmentPod(vmi)
 				for _, volumeName := range testVolumes {
 					By("removing volume " + volumeName + " from VM")
@@ -1042,7 +1042,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 				By("Verifying the volume is attached and usable")
 				getVmiConsoleAndLogin(vmi)
-				targets := verifyHotplugAttachedAndUseable(vmi, []string{"testvolume"})
+				targets := verifyHotplugAttachedAndUsable(vmi, []string{"testvolume"})
 				Expect(targets).To(HaveLen(1))
 
 				By("stopping VM")
@@ -1221,7 +1221,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				libwait.WaitForSuccessfulVMIStart(vmi,
 					libwait.WithTimeout(240),
 				)
-				By("Verifying the VMI is migrateable")
+				By("Verifying the VMI is migratable")
 				Eventually(matcher.ThisVMI(vmi), 90*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceIsMigratable))
 
 				By("Adding volume to running VMI")
@@ -1232,12 +1232,12 @@ var _ = Describe(SIG("Hotplug", func() {
 				verifyVolumeAndDiskVMIAdded(virtClient, vmi, volumeName)
 				verifyVolumeStatus(vmi, v1.VolumeReady, "", volumeName)
 
-				By("Verifying the VMI is still migrateable")
+				By("Verifying the VMI is still migratable")
 				Eventually(matcher.ThisVMI(vmi), 90*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceIsMigratable))
 
 				By("Verifying the volume is attached and usable")
 				getVmiConsoleAndLogin(vmi)
-				targets := verifyHotplugAttachedAndUseable(vmi, []string{volumeName})
+				targets := verifyHotplugAttachedAndUsable(vmi, []string{volumeName})
 				Expect(targets).To(HaveLen(1))
 
 				By("Starting the migration")
@@ -1451,8 +1451,8 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyVolumeStatus(vmi, v1.VolumeReady, "", checkVolumeName)
 			getVmiConsoleAndLogin(vmi)
 
-			By("verifying the volume is useable and creating some data on it")
-			verifyHotplugAttachedAndUseable(vmi, []string{checkVolumeName})
+			By("verifying the volume is usable and creating some data on it")
+			verifyHotplugAttachedAndUsable(vmi, []string{checkVolumeName})
 			targets := getTargetsFromVolumeStatus(vmi, checkVolumeName)
 			Expect(targets).ToNot(BeEmpty())
 			verifyWriteReadData(vmi, targets[0])
@@ -1972,7 +1972,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyVolumeAndDiskVMIAdded(virtClient, vmi, "testvolume")
 			verifyVolumeStatus(vmi, v1.VolumeReady, "", "testvolume")
 			getVmiConsoleAndLogin(vmi)
-			targets := verifyHotplugAttachedAndUseable(vmi, []string{"testvolume"})
+			targets := verifyHotplugAttachedAndUsable(vmi, []string{"testvolume"})
 			verifySingleAttachmentPod(vmi)
 			By(removingVolumeFromVM)
 			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
