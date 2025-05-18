@@ -929,7 +929,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				migration1, err := virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(context.Background(), migration1, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				// Successfully tested with 40, but requests start getting throttled above 10, which is better to avoid to prevent flakyness
+				// Successfully tested with 40, but requests start getting throttled above 10, which is better to avoid to prevent flakiness
 				By("Starting 10 more migrations expecting all to fail to create")
 				var wg sync.WaitGroup
 				for n := 0; n < 10; n++ {
@@ -1135,7 +1135,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := createVMI()
 
 				By("Starting the VirtualMachineInstance")
-				// Resizing takes too long and therefor a warning is thrown
+				// Resizing takes too long and therefore a warning is thrown
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -1150,7 +1150,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 340)
 
-				By("Verifying Second Migration Succeeeds")
+				By("Verifying Second Migration Succeeds")
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Checking that the launcher is running as qemu")
@@ -1221,7 +1221,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi.Namespace = testsuite.NamespacePrivileged
 
 				By("Starting the VirtualMachineInstance")
-				// Resizing takes too long and therefor a warning is thrown
+				// Resizing takes too long and therefore a warning is thrown
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -1236,7 +1236,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 340)
 
-				By("Verifying Second Migration Succeeeds")
+				By("Verifying Second Migration Succeeds")
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Checking that the launcher is running as qemu")
@@ -1598,7 +1598,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				migration = libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 340)
 
-				By("Verifying Second Migration Succeeeds")
+				By("Verifying Second Migration Succeeds")
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
