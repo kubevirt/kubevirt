@@ -1654,6 +1654,7 @@ func isVolumeRestorePolicyInPlace(vmRestore *snapshotv1.VirtualMachineRestore) b
 	}
 
 	return *vmRestore.Spec.VolumeRestorePolicy == snapshotv1.VolumeRestorePolicyInPlace
+}
 
 func setLegacyFirmwareUUID(vm *kubevirtv1.VirtualMachine) {
 	if vm.Spec.Template.Spec.Domain.Firmware == nil {
