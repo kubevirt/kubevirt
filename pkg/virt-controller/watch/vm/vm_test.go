@@ -102,6 +102,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+			kvInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
@@ -141,7 +142,8 @@ var _ = Describe("VirtualMachine", func() {
 				vmInformer,
 				dataVolumeInformer,
 				dataSourceInformer,
-				namespaceInformer.GetStore(),
+				kvInformer,
+				namespaceInformer,
 				pvcInformer,
 				crInformer,
 				recorder,
@@ -3303,6 +3305,328 @@ var _ = Describe("VirtualMachine", func() {
 					0,
 				),
 			)
+		})
+
+		Context("CBT Event Handlers", func() {
+			Describe("handleKubeVirtUpdate", func() {
+				It("should enqueue all VMs when ChangedBlockTrackingLabelSelectors change", func() {
+					// Create test VMs in different namespaces
+					vm1, _ := watchtesting.DefaultVirtualMachine(true)
+					vm1.Name = "test-vm-1"
+					vm1.Namespace = "ns1"
+					vm2, _ := watchtesting.DefaultVirtualMachine(true)
+					vm2.Name = "test-vm-2"
+					vm2.Namespace = "default"
+
+					// Add VMs to informer
+					Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+					Expect(controller.vmIndexer.Add(vm2)).To(Succeed())
+
+					// Create old and new KubeVrt objects with different CBT selectors
+					oldKV := &v1.KubeVirt{
+						ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
+									NamespaceLabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{"old-label": "old-value"},
+									},
+								},
+							},
+						},
+					}
+
+					newKV := &v1.KubeVirt{
+						ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
+									NamespaceLabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{"new-label": "new-value"},
+									},
+								},
+							},
+						},
+					}
+
+					// Clear any existing items in the queue
+					for mockQueue.Len() > 0 {
+						item, shutdown := mockQueue.Get()
+						if shutdown {
+							break
+						}
+						mockQueue.Done(item)
+					}
+
+					// Call the handler
+					controller.handleKubeVirtUpdate(oldKV, newKV)
+
+					// Expect both VMs to be enqueued
+					Expect(mockQueue.Len()).To(Equal(2))
+				})
+
+				It("should not enqueue VMs when ChangedBlockTrackingLabelSelectors don't change", func() {
+					// Create test VMs
+					vm1, _ := watchtesting.DefaultVirtualMachine(true)
+					vm1.Name = "test-vm-1"
+					vm1.Namespace = "ns1"
+
+					// Add VM to informer
+					Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+
+					// Create old and new KubeVirt objects with same CBT selectors
+					cbtSelectors := &v1.ChangedBlockTrackingSelectors{
+						NamespaceLabelSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"same-label": "same-value"},
+						},
+					}
+
+					oldKV := &v1.KubeVirt{
+						ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								ChangedBlockTrackingLabelSelectors: cbtSelectors,
+							},
+						},
+					}
+
+					newKV := &v1.KubeVirt{
+						ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								ChangedBlockTrackingLabelSelectors: cbtSelectors,
+							},
+						},
+					}
+
+					// Clear any existing items in the queue
+					for mockQueue.Len() > 0 {
+						item, shutdown := mockQueue.Get()
+						if shutdown {
+							break
+						}
+						mockQueue.Done(item)
+					}
+
+					// Call the handler
+					controller.handleKubeVirtUpdate(oldKV, newKV)
+
+					// Expect no VMs to be enqueued
+					Expect(mockQueue.Len()).To(Equal(0))
+				})
+			})
+
+			Describe("handleNamespaceUpdate", func() {
+				BeforeEach(func() {
+					// Set up cluster config with CBT selectors
+					cbtConfig := &v1.ChangedBlockTrackingSelectors{
+						NamespaceLabelSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"cbt-enabled": "true"},
+						},
+					}
+					kvConfig := &v1.KubeVirtConfiguration{
+						ChangedBlockTrackingLabelSelectors: cbtConfig,
+					}
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:            "kubevirt",
+							Namespace:       "kubevirt",
+							ResourceVersion: "1",
+						},
+						Spec: v1.KubeVirtSpec{
+							Configuration: *kvConfig,
+						},
+					})
+				})
+
+				It("should enqueue VMs when namespace labels change affecting CBT selector matching", func() {
+					// Create test VMs in the namespace
+					vm1, _ := watchtesting.DefaultVirtualMachine(true)
+					vm1.Name = "test-vm-1"
+					vm1.Namespace = "test-ns"
+					vm2, _ := watchtesting.DefaultVirtualMachine(true)
+					vm2.Name = "test-vm-2"
+					vm2.Namespace = "test-ns"
+
+					// Add VMs to informer
+					Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+					Expect(controller.vmIndexer.Add(vm2)).To(Succeed())
+
+					// Create old namespace without CBT label (doesn't match selector)
+					oldNS := &k8sv1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "test-ns",
+							Labels: map[string]string{"other-label": "value"},
+						},
+					}
+
+					// Create new namespace with CBT label (matches selector)
+					newNS := &k8sv1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-ns",
+							Labels: map[string]string{
+								"other-label": "value",
+								"cbt-enabled": "true",
+							},
+						},
+					}
+
+					// Clear any existing items in the queue
+					for mockQueue.Len() > 0 {
+						item, shutdown := mockQueue.Get()
+						if shutdown {
+							break
+						}
+						mockQueue.Done(item)
+					}
+
+					// Call the handler
+					controller.handleNamespaceUpdate(oldNS, newNS)
+
+					// Expect both VMs in the namespace to be enqueued
+					Expect(mockQueue.Len()).To(Equal(2))
+				})
+
+				It("should not enqueue VMs when namespace labels change but don't affect CBT selector matching", func() {
+					// Create test VMs in the namespace
+					vm1, _ := watchtesting.DefaultVirtualMachine(true)
+					vm1.Name = "test-vm-1"
+					vm1.Namespace = "test-ns"
+
+					// Add VM to informer
+					Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+
+					// Create old and new namespaces that both match the selector
+					oldNS := &k8sv1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-ns",
+							Labels: map[string]string{
+								"cbt-enabled": "true",
+								"other-label": "old-value",
+							},
+						},
+					}
+
+					newNS := &k8sv1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-ns",
+							Labels: map[string]string{
+								"cbt-enabled": "true",
+								"other-label": "new-value",
+							},
+						},
+					}
+
+					// Clear any existing items in the queue
+					for mockQueue.Len() > 0 {
+						item, shutdown := mockQueue.Get()
+						if shutdown {
+							break
+						}
+						mockQueue.Done(item)
+					}
+
+					// Call the handler
+					controller.handleNamespaceUpdate(oldNS, newNS)
+
+					// Expect no VMs to be enqueued since matching status didn't change
+					Expect(mockQueue.Len()).To(Equal(0))
+				})
+
+				It("should not enqueue VMs when no CBT selectors are configured", func() {
+					// Override cluster config to have no CBT selectors
+					kvConfigNoCBT := &v1.KubeVirtConfiguration{}
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:            "kubevirt",
+							Namespace:       "kubevirt",
+							ResourceVersion: "2",
+						},
+						Spec: v1.KubeVirtSpec{
+							Configuration: *kvConfigNoCBT,
+						},
+					})
+
+					// Create test VM
+					vm1, _ := watchtesting.DefaultVirtualMachine(true)
+					vm1.Name = "test-vm-1"
+					vm1.Namespace = "test-ns"
+
+					// Add VM to informer
+					Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+
+					// Create namespace update
+					oldNS := &k8sv1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "test-ns",
+							Labels: map[string]string{"old-label": "old-value"},
+						},
+					}
+
+					newNS := &k8sv1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "test-ns",
+							Labels: map[string]string{"new-label": "new-value"},
+						},
+					}
+
+					// Clear any existing items in the queue
+					for mockQueue.Len() > 0 {
+						item, shutdown := mockQueue.Get()
+						if shutdown {
+							break
+						}
+						mockQueue.Done(item)
+					}
+
+					// Call the handler
+					controller.handleNamespaceUpdate(oldNS, newNS)
+
+					// Expect no VMs to be enqueued since no CBT selectors are configured
+					Expect(mockQueue.Len()).To(Equal(0))
+				})
+
+				It("should not enqueue VMs when namespace labels don't change", func() {
+					// Create test VM
+					vm1, _ := watchtesting.DefaultVirtualMachine(true)
+					vm1.Name = "test-vm-1"
+					vm1.Namespace = "test-ns"
+
+					// Add VM to informer
+					Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+
+					// Create old and new namespaces with same labels
+					labels := map[string]string{"cbt-enabled": "true"}
+					oldNS := &k8sv1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "test-ns",
+							Labels: labels,
+						},
+					}
+
+					newNS := &k8sv1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "test-ns",
+							Labels: labels,
+						},
+					}
+
+					// Clear any existing items in the queue
+					for mockQueue.Len() > 0 {
+						item, shutdown := mockQueue.Get()
+						if shutdown {
+							break
+						}
+						mockQueue.Done(item)
+					}
+
+					// Call the handler
+					controller.handleNamespaceUpdate(oldNS, newNS)
+
+					// Expect no VMs to be enqueued since labels didn't change
+					Expect(mockQueue.Len()).To(Equal(0))
+				})
+			})
 		})
 
 		Context("VM memory dump", func() {
