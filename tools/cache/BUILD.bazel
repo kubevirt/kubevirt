@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["time-defined-cache.go"],
+    srcs = [
+        "oneshot-cache.go",
+        "time-defined-cache.go",
+    ],
     importpath = "kubevirt.io/kubevirt/tools/cache",
     visibility = ["//visibility:public"],
     deps = [
@@ -16,6 +19,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "cache_suite_test.go",
+        "oneshot-cache_test.go",
         "time-defined-cache_test.go",
     ],
     deps = [
