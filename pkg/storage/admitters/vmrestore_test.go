@@ -41,8 +41,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
-	"k8s.io/utils/ptr"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -428,7 +426,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
-			DescribeTable("should reject volume overrides if source volume doesn't exist", func(validSourceVolume bool) {
+			It("should reject volume overrides if source no parameter is specified", func() {
 				restore := &snapshotv1.VirtualMachineRestore{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "restore",
@@ -442,59 +440,20 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 						},
 						VirtualMachineSnapshotName: vmSnapshotName,
 						VolumeRestoreOverrides: []snapshotv1.VolumeRestoreOverride{
-							{
-								VolumeName:  "some-volume",
-								RestoreName: "some-source",
-							},
+							{}, // Nothing specified in the override
 						},
 					},
 				}
-
-				if !validSourceVolume {
-					restore.Spec.VolumeRestoreOverrides[0].VolumeName = "invalid-source-volume"
-				}
-
-				vmSnapshotContent := &snapshotv1.VirtualMachineSnapshotContent{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "snapshot-content",
-						Namespace: "default",
-					},
-					Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
-						Source: snapshotv1.SourceSpec{
-							VirtualMachine: &snapshotv1.VirtualMachine{
-								ObjectMeta: vm.ObjectMeta,
-								Spec:       vm.Spec,
-								Status:     vm.Status,
-							},
-						},
-						VolumeBackups: []snapshotv1.VolumeBackup{
-							{
-								VolumeName:            "some-volume",
-								PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{},
-								VolumeSnapshotName:    ptr.To("some-snapshot"),
-							},
-						},
-					},
-				}
-
-				snapshot.Status.VirtualMachineSnapshotContentName = pointer.P(vmSnapshotContent.Name)
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot, vmSnapshotContent).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
 
-				if !validSourceVolume {
-					Expect(resp.Allowed).To(BeFalse())
-					Expect(resp.Result.Details.Causes).To(HaveLen(1))
-					Expect(resp.Result.Details.Causes).ToNot(BeNil())
-					Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.volumeRestoreOverrides[0]"))
-					return
-				}
-
-				Expect(resp.Allowed).To(BeTrue())
-			},
-				Entry("source volume doesn't not exist", false),
-				Entry("source volume exists", true),
-			)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(HaveLen(2))
+				Expect(resp.Result.Details.Causes).ToNot(BeNil())
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.volumeRestoreOverrides[0].volumeName"))
+				Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.volumeRestoreOverrides[0]"))
+			})
 
 			DescribeTable("Should reject restore when using backend storage and restoring to different VM", func(doesTargetExist bool) {
 				const targetVMName = "new-test-vm"

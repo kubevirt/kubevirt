@@ -335,6 +335,20 @@ const (
 	VirtualMachineRestoreWaitEventually TargetReadinessPolicy = "WaitEventually"
 )
 
+// VolumeRestorePolicy defines how to handle the restore of snapshotted volumes
+type VolumeRestorePolicy string
+
+const (
+	// VolumeRestorePolicyRandomizeNames defines a VolumeRestorePolicy which creates
+	// new PVCs with randomized names for each snapshotted volume. This is the default policy.
+	VolumeRestorePolicyRandomizeNames VolumeRestorePolicy = "RandomizeNames"
+
+	// VolumeRestorePolicyInPlace defines a VolumeRestorePolicy which overwrites
+	// existing PVCs for each snapshotted volumes. That means deleting the original PVC if it still
+	// exists, and restoring the volume with the same name as the original PVC.
+	VolumeRestorePolicyInPlace VolumeRestorePolicy = "InPlace"
+)
+
 // VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore resource
 type VirtualMachineRestoreSpec struct {
 	// initially only VirtualMachine type supported
@@ -344,6 +358,9 @@ type VirtualMachineRestoreSpec struct {
 
 	// +optional
 	TargetReadinessPolicy *TargetReadinessPolicy `json:"targetReadinessPolicy,omitempty"`
+
+	// +optional
+	VolumeRestorePolicy *VolumeRestorePolicy `json:"volumeRestorePolicy,omitempty"`
 
 	// VolumeRestoreOverrides gives the option to change properties of each restored volume
 	// For example, specifying the name of the restored volume, or adding labels/annotations to it
@@ -392,6 +409,11 @@ type VolumeRestore struct {
 
 	// +optional
 	DataVolumeName *string `json:"dataVolumeName,omitempty"`
+
+	// MustWipe is used to signal the volume should be deleted if it already exists before
+	// creating it again. This is used when the VolumeRestorePolicy is set to InPlace, as we
+	// need to delete the original volume before creating one with the same name over it.
+	MustWipe bool `json:"mustWipe,omitempty"`
 }
 
 // VolumeRestoreOverride specifies how a volume should be restored from a VirtualMachineSnapshot

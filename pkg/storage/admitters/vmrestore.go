@@ -268,37 +268,21 @@ func (admitter *VMRestoreAdmitter) validateVolumeOverrides(ctx context.Context, 
 
 	// Check each individual override
 	for i, override := range vmRestore.Spec.VolumeRestoreOverrides {
-		namespace := vmRestore.Namespace
-		vmSnapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(ctx, vmRestore.Spec.VirtualMachineSnapshotName, metav1.GetOptions{})
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, nil
-			}
-			return nil, err
-		}
-
-		contentName := vmSnapshot.Status.VirtualMachineSnapshotContentName
-		if contentName == nil {
-			return nil, fmt.Errorf("snapshot content name is nil in vmSnapshot status")
-		}
-
-		vmSnapshotContent, err := admitter.Client.VirtualMachineSnapshotContent(namespace).Get(ctx, *contentName, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-
-		var found bool
-		for _, vol := range vmSnapshotContent.Spec.VolumeBackups {
-			if vol.VolumeName == override.VolumeName {
-				found = true
-				break
-			}
-		}
-
-		if !found {
+		if override.VolumeName == "" {
 			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("volume name (%s) doesn't match any existing volumeBackup in VolumeSnapshotContent %s", override.VolumeName, vmSnapshotContent.Name),
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("must provide a volume name"),
+				Field: k8sfield.NewPath("spec").
+					Child("volumeRestoreOverrides").
+					Index(i).Child("volumeName").
+					String(),
+			})
+		}
+
+		if override.RestoreName == "" && override.Annotations == nil && override.Labels == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("must provide at least one overriden field"),
 				Field:   k8sfield.NewPath("spec").Child("volumeRestoreOverrides").Index(i).String(),
 			})
 		}

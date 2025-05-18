@@ -228,6 +228,11 @@ func (in *VirtualMachineRestoreSpec) DeepCopyInto(out *VirtualMachineRestoreSpec
 		*out = new(TargetReadinessPolicy)
 		**out = **in
 	}
+	if in.VolumeRestorePolicy != nil {
+		in, out := &in.VolumeRestorePolicy, &out.VolumeRestorePolicy
+		*out = new(VolumeRestorePolicy)
+		**out = **in
+	}
 	if in.VolumeRestoreOverrides != nil {
 		in, out := &in.VolumeRestoreOverrides, &out.VolumeRestoreOverrides
 		*out = make([]VolumeRestoreOverride, len(*in))

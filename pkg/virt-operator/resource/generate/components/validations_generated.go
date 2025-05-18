@@ -24352,6 +24352,10 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        volumeRestorePolicy:
+          description: VolumeRestorePolicy defines how to handle the restore of snapshotted
+            volumes
+          type: string
       required:
       - target
       - virtualMachineSnapshotName
@@ -24403,6 +24407,12 @@ var CRDsValidation map[string]string = map[string]string{
             properties:
               dataVolumeName:
                 type: string
+              mustWipe:
+                description: |-
+                  MustWipe is used to signal the volume should be deleted if it already exists before
+                  creating it again. This is used when the VolumeRestorePolicy is set to InPlace, as we
+                  need to delete the original volume before creating one with the same name over it.
+                type: boolean
               persistentVolumeClaim:
                 type: string
               volumeName:

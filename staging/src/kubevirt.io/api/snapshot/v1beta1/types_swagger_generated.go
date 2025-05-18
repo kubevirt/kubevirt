@@ -142,6 +142,7 @@ func (VirtualMachineRestoreSpec) SwaggerDoc() map[string]string {
 		"":                       "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore resource",
 		"target":                 "initially only VirtualMachine type supported",
 		"targetReadinessPolicy":  "+optional",
+		"volumeRestorePolicy":    "+optional",
 		"volumeRestoreOverrides": "VolumeRestoreOverrides gives the option to change properties of each restored volume\nFor example, specifying the name of the restored volume, or adding labels/annotations to it\n+optional\n+listType=atomic",
 		"patches":                "If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be\napplied to the target manifest before it's created. Patches should fit the target's Kind.\n\nExample for a patch: {\"op\": \"replace\", \"path\": \"/metadata/name\", \"value\": \"new-vm-name\"}\n\n+optional\n+listType=atomic",
 	}
@@ -162,6 +163,7 @@ func (VolumeRestore) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "VolumeRestore contains the data needed to restore a PVC",
 		"dataVolumeName": "+optional",
+		"mustWipe":       "MustWipe is used to signal the volume should be deleted if it already exists before\ncreating it again. This is used when the VolumeRestorePolicy is set to InPlace, as we\nneed to delete the original volume before creating one with the same name over it.",
 	}
 }
 
