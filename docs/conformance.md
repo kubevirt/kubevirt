@@ -5,7 +5,7 @@ KubeVirt releases a `kubevirt/conformance:<release>` image and
 [Sonobuoy](https://sonobuoy.io/) plugin to verify if the underlying cluster
 meets the basic needs to run KubeVirt.
 
-By default tests with a `[Conformance]` tag will be executed and tests with a
+By default tests with a `conformance` decorator will be executed and tests with a
 `[Disruptive]` tag will be skipped. These tests will not destroy or modify
 anything outside of the explicitly created test namespaces by the binary.
 

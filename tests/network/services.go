@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -159,7 +160,7 @@ var _ = SIGDescribe("Services", func() {
 		})
 
 		Context("with a service matching the vmi exposed", func() {
-			DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
+			DescribeTable("should be able to reach the vmi based on labels specified on the vmi", decorators.Conformance, func(ipFamily k8sv1.IPFamily) {
 				var service *k8sv1.Service
 				serviceName := "myservice"
 

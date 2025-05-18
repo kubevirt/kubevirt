@@ -23,6 +23,7 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -176,7 +177,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					)
 				})
 
-				It("[Conformance] should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
+				It("should report PodIP as its own on interface status", decorators.Conformance, func() { AssertReportedIP(vmi) })
 			})
 		})
 	})
