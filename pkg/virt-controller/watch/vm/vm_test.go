@@ -101,6 +101,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+			kvInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
@@ -140,7 +141,8 @@ var _ = Describe("VirtualMachine", func() {
 				vmInformer,
 				dataVolumeInformer,
 				dataSourceInformer,
-				namespaceInformer.GetStore(),
+				kvInformer,
+				namespaceInformer,
 				pvcInformer,
 				crInformer,
 				recorder,
