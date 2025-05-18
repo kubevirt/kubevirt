@@ -74,6 +74,19 @@ var _ = Describe("VM Network Controller", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			),
 		),
+		Entry("there is an interface status that does not match a spec interface",
+			libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)),
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "DEFAULT"}),
+				)),
+			),
+		),
 	)
 
 	It("sync fails when VMI patch returns an error", func() {

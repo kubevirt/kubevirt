@@ -58,11 +58,5 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			[]v1.Interface{{Name: "blue"}, {Name: "red"}},
 			[]v1.Network{{Name: "blue"}, {Name: "red"}},
 		),
-		Entry("should remain, given status iface and no associated iface in spec",
-			[]v1.Interface{{Name: "blue"}},
-			[]v1.VirtualMachineInstanceNetworkInterface{{Name: "RED"}},
-			[]v1.Interface{{Name: "blue"}},
-			[]v1.Network{{Name: "blue"}},
-		),
 	)
 })
