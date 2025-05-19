@@ -68,17 +68,18 @@ func NewVMController(clientset kubevirt.Interface) *VMController {
 }
 
 func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
-	if vmi == nil || vmi.DeletionTimestamp != nil {
+	if vmi != nil && vmi.DeletionTimestamp != nil {
 		return vm, nil
 	}
 
+	var indexedStatusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface
+	if vmi != nil {
+		indexedStatusIfaces = vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
+			func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
+		)
+	}
+
 	vmCopy := vm.DeepCopy()
-	vmiCopy := vmi.DeepCopy()
-
-	indexedStatusIfaces := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
-		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
-	)
-
 	ifaces, networks := clearDetachedInterfaces(
 		vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces,
 		vmCopy.Spec.Template.Spec.Networks, indexedStatusIfaces,
@@ -86,6 +87,11 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
 	vmCopy.Spec.Template.Spec.Networks = networks
 
+	if vmi == nil {
+		return vmCopy, nil
+	}
+
+	vmiCopy := vmi.DeepCopy()
 	ifaces, networks = clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
 	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 	vmiCopy.Spec.Networks = networks

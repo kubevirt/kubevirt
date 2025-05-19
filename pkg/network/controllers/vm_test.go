@@ -295,7 +295,7 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(BeEmpty())
 	})
 
-	It("sync succeeds to clear hotunplug interfaces", func() {
+	It("sync succeeds to clear hotunplug interfaces from running VM", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset)
 		unpluggedIface := libvmi.InterfaceDeviceWithBridgeBinding("foonet")
@@ -329,6 +329,28 @@ var _ = Describe("VM Network Controller", func() {
 
 		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces))
+	})
+
+	It("sync succeeds to clear hotunplug interfaces from stopped VM", func() {
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(clientset)
+		unpluggedIface := libvmi.InterfaceDeviceWithBridgeBinding("foonet")
+		unpluggedIface.State = v1.InterfaceStateAbsent
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithInterface(unpluggedIface),
+			libvmi.WithNetwork(libvmi.MultusNetwork("foonet", "foonet-nad")),
+		)
+		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
+
+		originalVM := vm.DeepCopy()
+		updatedVM, err := c.Sync(vm, nil)
+		Expect(err).NotTo(HaveOccurred())
+
+		originalVM.Spec.Template.Spec.Networks = originalVM.Spec.Template.Spec.Networks[:1]
+		originalVM.Spec.Template.Spec.Domain.Devices.Interfaces = originalVM.Spec.Template.Spec.Domain.Devices.Interfaces[:1]
+		Expect(updatedVM).To(Equal(originalVM))
 	})
 
 	It("sync does not hotunplug interfaces when nameing scheme is unknown", func() {
