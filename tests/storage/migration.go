@@ -401,6 +401,86 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 		})
 
+		It("should trigger the migration once the destination DV exists", func() {
+			volName := "disk0"
+			srcDV := createDV()
+			vm := createVMWithDV(srcDV, volName)
+			destDV := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithStorage(libdv.StorageWithStorageClass(testSc),
+					libdv.StorageWithVolumeSize(size),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+					libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce),
+				),
+			)
+			By("Update volumes")
+			i := slices.IndexFunc(vm.Spec.Template.Spec.Volumes, func(volume virtv1.Volume) bool {
+				return volume.Name == volName
+			})
+			Expect(i).To(BeNumerically(">", -1))
+			By(fmt.Sprintf("Replacing volume %s with DV %s", volName, destDV.Name))
+
+			updatedVolume := virtv1.Volume{
+				Name: volName,
+				VolumeSource: virtv1.VolumeSource{DataVolume: &virtv1.DataVolumeSource{
+					Name: destDV.Name,
+				}}}
+
+			p, err := patch.New(
+				patch.WithRemove("/spec/dataVolumeTemplates"),
+				patch.WithReplace(fmt.Sprintf("/spec/template/spec/volumes/%d", i), updatedVolume),
+				patch.WithReplace("/spec/updateVolumesStrategy", virtv1.UpdateVolumesStrategyMigration),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() []virtv1.VirtualMachineInstanceCondition {
+				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.Conditions
+			}, 30*time.Second, time.Second).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Type":    Equal(virtv1.VirtualMachineInstanceVolumesChange),
+				"Status":  Equal(k8sv1.ConditionFalse),
+				"Message": ContainSubstring("One of the destination volumes doesn't exist"),
+			})))
+
+			By("Create the destination DV")
+			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
+				destDV, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+		})
+
+		It("should trigger the migration once the destination PVC exists", func() {
+			volName := "disk0"
+			srcDV := createDV()
+			vm := createVMWithDV(srcDV, volName)
+			By("Update volumes")
+			updateVMWithPVC(vm, volName, destPVC)
+			Eventually(func() virtv1.VirtualMachineInstanceMigrationPhase {
+				ls := labels.Set{
+					virtv1.VolumesUpdateMigration: vm.Name,
+				}
+				migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(),
+					metav1.ListOptions{
+						LabelSelector: ls.String(),
+					})
+				Expect(err).ToNot(HaveOccurred())
+				if migList == nil || len(migList.Items) == 0 {
+					return virtv1.MigrationPhaseUnset
+				}
+				Expect(migList.Items).To(HaveLen(1))
+				return migList.Items[0].Status.Phase
+			}, 120*time.Second, time.Second).Should(Equal(virtv1.MigrationPending))
+
+			By("Create the destination PVC")
+			libstorage.CreateFSPVC(destPVC, ns, "2Gi", nil)
+
+			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+		})
+
 		It("should migrate the source volume from a source and destination block RWX DVs", decorators.StorageCritical, decorators.RequiresRWXBlock, func() {
 			volName := "disk0"
 			sc, exist := libstorage.GetRWXBlockStorageClass()
