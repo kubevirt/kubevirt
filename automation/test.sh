@@ -530,6 +530,10 @@ if [[ -z "$KUBEVIRT_SWAP_ON" || "$KUBEVIRT_SWAP_ON" == "false" ]]; then
   add_to_label_filter '(!SwapTest)' '&&'
 fi
 
+if [[ $TARGET =~ sriov.* ]]; then
+  kubectl patch kubevirt kubevirt -n kubevirt --type='merge' -p '{"spec":{"configuration":{"developerConfiguration":{"logVerbosity":{"virtLauncher":3,"virtHandler":3}}}}}'
+fi
+
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
   ginko_params="$ginko_params|Networkpolicy"
