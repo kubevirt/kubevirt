@@ -26,10 +26,10 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
     branches:
-      - v12n-patches
+      - '*virtualization*'
   push:
     branches:
-      - v12n-patches
+      - '*virtualization*'
 defaults:
   run:
     shell: bash
