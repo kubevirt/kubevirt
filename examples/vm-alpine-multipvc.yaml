@@ -21,9 +21,9 @@ spec:
           - disk:
               bus: virtio
             name: pvcdisk2
-        resources:
-          requests:
-            memory: 128Mi
+        memory:
+          guest: 128Mi
+        resources: {}
       terminationGracePeriodSeconds: 0
       volumes:
       - name: pvcdisk1

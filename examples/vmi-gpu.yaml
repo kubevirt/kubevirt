@@ -19,9 +19,9 @@ spec:
       - deviceName: nvidia.com/GP102GL_Tesla_P40
         name: gpu1
       rng: {}
-    resources:
-      requests:
-        memory: 1024M
+    memory:
+      guest: 1024M
+    resources: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

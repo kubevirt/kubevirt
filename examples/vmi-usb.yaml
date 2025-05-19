@@ -19,9 +19,9 @@ spec:
       - deviceName: kubevirt.io/storage
         name: node-usb-to-vmi-storage
       rng: {}
-    resources:
-      requests:
-        memory: 1024M
+    memory:
+      guest: 1024M
+    resources: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
