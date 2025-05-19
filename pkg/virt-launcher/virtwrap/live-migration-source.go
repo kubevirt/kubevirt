@@ -481,7 +481,7 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 			logger.Info("Migration job was canceled")
 			return &libvirt.DomainJobInfo{
 				Type:             libvirt.DOMAIN_JOB_CANCELLED,
-				DataRemaining:    uint64(m.remainingData),
+				DataRemaining:    m.remainingData,
 				DataRemainingSet: true,
 			}
 		}
@@ -501,7 +501,7 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 			logger.Info("Migration job failed")
 			return &libvirt.DomainJobInfo{
 				Type:             libvirt.DOMAIN_JOB_FAILED,
-				DataRemaining:    uint64(m.remainingData),
+				DataRemaining:    m.remainingData,
 				DataRemainingSet: true,
 			}
 		}
@@ -581,15 +581,6 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	return nil
 }
 
-func (m *migrationMonitor) hasMigrationErr() error {
-	select {
-	case err := <-m.migrationErr:
-		return err
-	default:
-		return nil
-	}
-}
-
 func (m *migrationMonitor) startMonitor() {
 	var completedJobInfo *libvirt.DomainJobInfo
 	vmi := m.vmi
@@ -614,9 +605,12 @@ func (m *migrationMonitor) startMonitor() {
 	logInterval := 0
 
 	for {
-		time.Sleep(monitorSleepPeriodMS * time.Millisecond)
+		err = nil
+		select {
+		case err = <-m.migrationErr:
+		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
+		}
 
-		err := m.hasMigrationErr()
 		if err != nil && m.migrationFailedWithError == nil {
 			logger.Reason(err).Error("Received a live migration error. Will check the latest migration status.")
 			m.migrationFailedWithError = err
@@ -635,7 +629,7 @@ func (m *migrationMonitor) startMonitor() {
 		if stats == nil {
 			stats, err = dom.GetJobStats(0)
 			if err != nil {
-				logger.Reason(err).Error("failed to get domain job info")
+				logger.Reason(err).Warning("failed to get domain job info, will retry")
 				continue
 			}
 		}
