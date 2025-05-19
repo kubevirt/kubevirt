@@ -125,6 +125,7 @@ if [[ $TARGET =~ sriov.* ]]; then
     export KUBEVIRT_NUM_NODES=3
   fi
   export KUBEVIRT_DEPLOY_CDI="false"
+  export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
 elif [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
 else
