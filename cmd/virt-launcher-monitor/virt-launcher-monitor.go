@@ -189,15 +189,38 @@ func RunAndMonitor(containerDiskDir, uid string) (int, error) {
 		for sig := range sigs {
 			switch sig {
 			case syscall.SIGCHLD:
-				var wstatus syscall.WaitStatus
-				wpid, err := syscall.Wait4(-1, &wstatus, syscall.WNOHANG, nil)
-				if err != nil {
-					log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
-				}
+				wpids := make([]int, 0)
+				for {
+					var wstatus syscall.WaitStatus
+					wpid, err := syscall.Wait4(-1, &wstatus, syscall.WNOHANG, nil)
 
-				log.Log.Infof("Reaped pid %d with status %d", wpid, int(wstatus))
-				if wpid == cmd.Process.Pid {
-					exitStatus <- wstatus.ExitStatus()
+					if wpid == -1 {
+						if err != nil {
+							if errors.Is(err, syscall.ECHILD) {
+								log.Log.Info("No processes to wait")
+							} else {
+								log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
+							}
+						}
+						break
+					}
+
+					if wpid == 0 {
+						log.Log.Info("No processes to reap")
+						break
+					}
+
+					wpids = append(wpids, wpid)
+					log.Log.Infof("Reaped pid %d with status %d", wpid, int(wstatus))
+					if wpid == cmd.Process.Pid {
+						log.Log.Infof("Got %s for virt-launcher pid %d, exiting ...", sig.String(), cmd.Process.Pid)
+						exitStatus <- wstatus.ExitStatus()
+					} else {
+						log.Log.Infof("Still wait for virt-launcher pid %d", cmd.Process.Pid)
+					}
+				}
+				if len(wpids) > 0 {
+					log.Log.Infof("Reaped %d processes on %s signal", len(wpids), sig.String())
 				}
 
 			default:
