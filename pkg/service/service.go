@@ -42,6 +42,8 @@ type ServiceListen struct {
 	Name        string
 	BindAddress string
 	Port        int
+	MetricsBindAddress string
+	MetricsPort        int
 }
 
 type ServiceLibvirt struct {
@@ -50,6 +52,10 @@ type ServiceLibvirt struct {
 
 func (service *ServiceListen) Address() string {
 	return fmt.Sprintf("%s:%s", service.BindAddress, strconv.Itoa(service.Port))
+}
+
+func (service *ServiceListen) MetricsAddress() string {
+	return fmt.Sprintf("%s:%s", service.MetricsBindAddress, strconv.Itoa(service.MetricsPort))
 }
 
 func (service *ServiceListen) InitFlags() {
@@ -61,6 +67,9 @@ func (service *ServiceListen) InitFlags() {
 func (service *ServiceListen) AddCommonFlags() {
 	flag.StringVar(&service.BindAddress, "listen", service.BindAddress, "Address where to listen on")
 	flag.IntVar(&service.Port, "port", service.Port, "Port to listen on")
+	// default values are taken from the common server counterparts
+	flag.StringVar(&service.MetricsBindAddress, "metrics-listen", service.MetricsBindAddress, "Address for metrics to listen on")
+	flag.IntVar(&service.MetricsPort, "metrics-port", service.MetricsPort, "Port for metrics to listen on")
 }
 
 func (service *ServiceLibvirt) AddLibvirtFlags() {
