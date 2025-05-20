@@ -943,7 +943,7 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 	})
 }
 
-func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.ClientCAManager, kubevirtCAManager kvtls.ClientCAManager) {
+func (app *virtAPIApp) setupTLS(k8sCAManager, kubevirtCAManager, virtualizationCAManager kvtls.ClientCAManager) {
 
 	// A VerifyClientCertIfGiven request means we're not guaranteed
 	// a client has been authenticated unless they provide a peer
@@ -960,7 +960,7 @@ func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.ClientCAManager, kubevirtCAMa
 	// response is given. That status request won't send a peer cert regardless
 	// if the TLS handshake requests it. As a result, the TLS handshake fails
 	// and our aggregated endpoint never becomes available.
-	app.tlsConfig = kvtls.SetupTLSWithCertManager(k8sCAManager, app.certmanager, tls.VerifyClientCertIfGiven, app.clusterConfig)
+	app.tlsConfig = kvtls.SetupTLSWithVirtualizationCAManager(k8sCAManager, virtualizationCAManager, app.certmanager, tls.VerifyClientCertIfGiven, app.clusterConfig)
 	app.handlerTLSConfiguration = kvtls.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager, app.externallyManaged)
 }
 
@@ -978,10 +978,12 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 
 	authConfigMapInformer := informerFactory.ApiAuthConfigMap()
 	kubevirtCAConfigInformer := informerFactory.KubeVirtCAConfigMap()
+	virtualizationCAConfigInformer := informerFactory.VirtualizationCA()
 
 	k8sCAManager := kvtls.NewKubernetesClientCAManager(authConfigMapInformer.GetStore())
 	kubevirtCAInformer := kvtls.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
-	app.setupTLS(k8sCAManager, kubevirtCAInformer)
+	virtualizationCAInformer := kvtls.NewCAManager(virtualizationCAConfigInformer.GetStore(), app.namespace, "virtualization-ca")
+	app.setupTLS(k8sCAManager, kubevirtCAInformer, virtualizationCAInformer)
 
 	app.Compose()
 
@@ -1069,6 +1071,7 @@ func (app *virtAPIApp) Run() {
 
 	kubeInformerFactory.ApiAuthConfigMap()
 	kubeInformerFactory.KubeVirtCAConfigMap()
+	kubeInformerFactory.VirtualizationCA()
 	crdInformer := kubeInformerFactory.CRD()
 	vmiPresetInformer := kubeInformerFactory.VirtualMachinePreset()
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()

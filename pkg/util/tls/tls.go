@@ -132,6 +132,55 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 	return tlsConfig
 }
 
+func SetupTLSWithVirtualizationCAManager(caManager, virtualizationCAManager ClientCAManager, certManager certificate.Manager, clientAuth tls.ClientAuthType, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
+	tlsConfig := &tls.Config{
+		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
+			cert := certManager.Current()
+			if cert == nil {
+				return nil, fmt.Errorf(noSrvCertMessage)
+			}
+			return cert, nil
+		},
+		GetConfigForClient: func(hi *tls.ClientHelloInfo) (*tls.Config, error) {
+			cert := certManager.Current()
+			if cert == nil {
+				return nil, fmt.Errorf(noSrvCertMessage)
+			}
+
+			clientCAPool, err := caManager.GetCurrent()
+			if err != nil {
+				log.Log.Reason(err).Error("Failed to get requestheader client CA")
+				return nil, err
+			}
+
+			virtualizationCA, err := virtualizationCAManager.GetCurrentRaw()
+			if err != nil {
+				log.Log.Reason(err).Error("Failed to get CA from config-map virtualization-ca")
+				return nil, err
+			}
+
+			clientCAPool.AppendCertsFromPEM(virtualizationCA)
+
+			kv := clusterConfig.GetConfigFromKubeVirtCR()
+			tlsConfig := getTLSConfiguration(kv)
+			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
+			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
+			config := &tls.Config{
+				CipherSuites: ciphers,
+				MinVersion:   minTLSVersion,
+				Certificates: []tls.Certificate{*cert},
+				ClientCAs:    clientCAPool,
+				ClientAuth:   clientAuth,
+			}
+
+			config.BuildNameToCertificate()
+			return config, nil
+		},
+	}
+	tlsConfig.BuildNameToCertificate()
+	return tlsConfig
+}
+
 func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
 	// #nosec cause: InsecureSkipVerify: true
 	// resolution: Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
