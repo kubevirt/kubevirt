@@ -163,8 +163,8 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			Name:            "virt-launcher-image-holder",
 			Image:           launcherImage,
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			Command:         []string{"/bin/sh", "-c"},
-			Args:            []string{"sleep infinity"},
+			Command:         []string{"sleep"},
+			Args:            []string{"infinity"},
 			Resources: corev1.ResourceRequirements{
 				Limits: map[corev1.ResourceName]resource.Quantity{
 					corev1.ResourceCPU:    resource.MustParse("100m"),
