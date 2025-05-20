@@ -100,7 +100,9 @@ func IsKubeVirtServiceAccount(serviceAccount string) bool {
 
 	return IsComponentServiceAccount(serviceAccount, ns, components.ApiServiceAccountName) ||
 		IsComponentServiceAccount(serviceAccount, ns, components.HandlerServiceAccountName) ||
-		IsComponentServiceAccount(serviceAccount, ns, components.ControllerServiceAccountName)
+		IsComponentServiceAccount(serviceAccount, ns, components.ControllerServiceAccountName) ||
+		IsComponentServiceAccount(serviceAccount, ns, components.VirtualizationController) ||
+		IsComponentServiceAccount(serviceAccount, ns, components.VirtualizationApi)
 }
 
 func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {

@@ -6,4 +6,7 @@ const (
 	ExportProxyServiceAccountName = "kubevirt-internal-virtualization-exportproxy"
 	HandlerServiceAccountName     = "kubevirt-internal-virtualization-handler"
 	OperatorServiceAccountName    = "kubevirt-operator"
+
+	VirtualizationController = "virtualization-controller"
+	VirtualizationApi        = "virtualization-api"
 )
