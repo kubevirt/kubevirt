@@ -443,7 +443,7 @@ var _ = Describe("Template", func() {
 					k8sv1.LabelArchStable: arch,
 				}))
 
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor",
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/tini", "--", "/usr/bin/virt-launcher-monitor",
 					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Command),
 					"--name", "testvmi",
 					"--uid", "1234",
@@ -1249,7 +1249,7 @@ var _ = Describe("Template", func() {
 					v1.NodeSchedulable:    "true",
 					k8sv1.LabelArchStable: arch,
 				}))
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor",
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/tini", "--", "/usr/bin/virt-launcher-monitor",
 					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Command),
 					"--name", "testvmi",
 					"--uid", "1234",
