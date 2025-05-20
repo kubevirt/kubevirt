@@ -22,4 +22,6 @@ set -x
 
 source hack/config-kubevirtci.sh
 KUBEVIRT_DEPLOY_CDI=${KUBEVIRT_DEPLOY_CDI:-true}
+export OCI_BIN=podman
+export KIND_EXPERIMENTAL_PROVIDER=podman
 source "${KUBEVIRTCI_PATH}up.sh"
