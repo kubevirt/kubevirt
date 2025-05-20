@@ -42,6 +42,8 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/util/checksum"
+	"kubevirt.io/kubevirt/pkg/util/syncobject"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
 
 	"libvirt.org/go/libvirt"
@@ -160,6 +162,7 @@ type DomainManager interface {
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 	UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error
 	GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error)
+	GetAppliedVMIChecksum() string
 }
 
 type LibvirtDomainManager struct {
@@ -197,6 +200,8 @@ type LibvirtDomainManager struct {
 	cpuSetGetter                  func() ([]int, error)
 	imageVolumeFeatureGateEnabled bool
 	setTimeOnce                   sync.Once
+
+	checksum syncobject.SyncObject[string]
 }
 
 type pausedVMIs struct {
@@ -251,6 +256,8 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		cpuSetGetter:                  cpuSetGetter,
 		setTimeOnce:                   sync.Once{},
 		imageVolumeFeatureGateEnabled: imageVolumeEnabled,
+
+		checksum: syncobject.NewSyncObject[string](),
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -321,6 +328,11 @@ func (l *LibvirtDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance)
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
+	var origSpec *v1.VirtualMachineInstanceSpec
+	if vmi != nil {
+		origSpec = vmi.Spec.DeepCopy()
+	}
+
 	const errMsgPrefix = "failed to update Guest Memory"
 
 	domainName := api.VMINamespaceKeyFunc(vmi)
@@ -367,6 +379,12 @@ func (l *LibvirtDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance)
 			return err
 		}
 	}
+
+	sum, err := checksum.FromVMISpec(origSpec)
+	if err != nil {
+		return fmt.Errorf("failed to calculate checksum of VMI spec: %w", err)
+	}
+	l.checksum.Set(sum)
 
 	log.Log.V(2).Infof("hotplugging guest memory to %v", vmi.Spec.Domain.Memory.Guest.Value())
 	return nil
@@ -483,6 +501,11 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
+	var origSpec *v1.VirtualMachineInstanceSpec
+	if vmi != nil {
+		origSpec = vmi.Spec.DeepCopy()
+	}
+
 	const errMsgPrefix = "failed to update vCPUs"
 
 	domainName := api.VMINamespaceKeyFunc(vmi)
@@ -562,8 +585,14 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 				return fmt.Errorf("%s: %v", errMsgPrefix, err)
 			}
 		}
-
 	}
+
+	sum, err := checksum.FromVMISpec(origSpec)
+	if err != nil {
+		return fmt.Errorf("failed to calculate checksum of VMI spec: %w", err)
+	}
+	l.checksum.Set(sum)
+
 	return nil
 }
 
@@ -589,9 +618,20 @@ func (l *LibvirtDomainManager) HotplugHostDevices(vmi *v1.VirtualMachineInstance
 	go func() {
 		defer func() { <-l.hotplugHostDevicesInProgress }()
 
+		var origSpec *v1.VirtualMachineInstanceSpec
+		if vmi != nil {
+			origSpec = vmi.Spec.DeepCopy()
+		}
 		if err := l.hotPlugHostDevices(vmi); err != nil {
 			log.Log.Object(vmi).Error(err.Error())
 		}
+
+		sum, err := checksum.FromVMISpec(origSpec)
+		if err != nil {
+			log.Log.Object(vmi).Errorf("Failed to calculate checksum: %v", err)
+		}
+		l.checksum.Set(sum)
+
 	}()
 	return nil
 }
@@ -1163,6 +1203,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
+	var originalSpec *v1.VirtualMachineInstanceSpec
+	if vmi != nil {
+		originalSpec = vmi.Spec.DeepCopy()
+	}
+
 	logger := log.Log.Object(vmi)
 
 	domain := &api.Domain{}
@@ -1232,6 +1277,13 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	}
 
 	l.syncGracePeriod(vmi)
+
+	// Set CHECKSUM VMI SPEC
+	sum, err := checksum.FromVMISpec(originalSpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate checksum of VMI spec: %w", err)
+	}
+	l.checksum.Set(sum)
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return oldSpec, nil
@@ -2706,4 +2758,8 @@ func calculateHotplugPortCount(vmi *v1.VirtualMachineInstance, domainSpec *api.D
 	}
 
 	return max(defaultTotalPorts-portsInUse, minFreePorts), nil
+}
+
+func (l *LibvirtDomainManager) GetAppliedVMIChecksum() string {
+	return l.checksum.Get()
 }

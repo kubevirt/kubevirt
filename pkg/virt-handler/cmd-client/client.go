@@ -116,6 +116,7 @@ type LauncherClient interface {
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 	SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	GetDomainDirtyRateStats() (dirtyRateMbps int64, err error)
+	GetAppliedVMIChecksum() (string, error)
 }
 
 type VirtLauncherClient struct {
@@ -824,4 +825,26 @@ func (c *VirtLauncherClient) InjectLaunchSecret(vmi *v1.VirtualMachineInstance, 
 
 func (c *VirtLauncherClient) SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
 	return c.genericSendVMICmd("SyncVirtualMachineMemory", c.v1client.SyncVirtualMachineMemory, vmi, options)
+}
+
+func (c *VirtLauncherClient) GetAppliedVMIChecksum() (string, error) {
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	checksumResponse, err := c.v1client.GetAppliedVMIChecksum(ctx, request)
+	var response *cmdv1.Response
+	if checksumResponse != nil {
+		response = checksumResponse.Response
+	}
+	if err = handleError(err, "GetAppliedVMIChecksum", response); err != nil {
+		return "", err
+	}
+
+	if checksumResponse != nil {
+		return checksumResponse.Checksum, nil
+	}
+
+	log.Log.Reason(err).Error("error getting the checksum")
+	return "", errors.New("error getting the checksum")
 }

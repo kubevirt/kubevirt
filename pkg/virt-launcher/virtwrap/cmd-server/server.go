@@ -783,6 +783,18 @@ func (l *Launcher) SyncVirtualMachineMemory(_ context.Context, request *cmdv1.VM
 	return response, nil
 }
 
+func (l *Launcher) GetAppliedVMIChecksum(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.VMIChecksumResponse, error) {
+	checksum := l.domainManager.GetAppliedVMIChecksum()
+	log.Log.V(5).Infof("GetAppliedVMIChecksum: %q", checksum)
+	response := &cmdv1.VMIChecksumResponse{
+		Checksum: checksum,
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+	return response, nil
+}
+
 func ReceivedEarlyExitSignal() bool {
 	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
 	return earlyExit
