@@ -67,15 +67,28 @@ import (
 )
 
 const (
-	containerDisks        = "container-disks"
-	hotplugDisks          = "hotplug-disks"
-	hookSidecarSocks      = "hook-sidecar-sockets"
-	varRun                = "/var/run"
-	virtBinDir            = "virt-bin-share-dir"
-	hotplugDisk           = "hotplug-disk"
-	virtExporter          = "virt-exporter"
-	hotplugContainerDisks = "hotplug-container-disks"
-	HotplugContainerDisk  = "hotplug-container-disk-"
+	containerDisks               = "container-disks"
+	hotplugDisks                 = "hotplug-disks"
+	hookSidecarSocks             = "hook-sidecar-sockets"
+	varRun                       = "/var/run"
+	virtBinDir                   = "virt-bin-share-dir"
+	hotplugDisk                  = "hotplug-disk"
+	virtExporter                 = "virt-exporter"
+	hotplugContainerDisks        = "hotplug-container-disks"
+	HotplugContainerDisk         = "hotplug-container-disk-"
+	varLog                       = "/var/log"
+	etcLibvirt                   = "/etc/libvirt"
+	varLibLibvirt                = "/var/lib/libvirt"
+	varCacheLibvirt              = "/var/cache/libvirt"
+	tmp                          = "/tmp"
+	varLibSWTPMLocalCA           = "/var/lib/swtpm-localca"
+	varLogVolumeName             = "var-log"
+	etcLibvirtVolumeName         = "etc-libvirt"
+	varLibLibvirtVolumeName      = "var-lib-libvirt"
+	varCacheLibvirtVolumeName    = "var-cache-libvirt"
+	varRunVolumeName             = "var-run"
+	tmpVolumeName                = "tmp"
+	varLibSWTPMLocalCAVolumeName = "var-lib-swtpm-localca"
 )
 
 const KvmDevice = "devices.virtualization.deckhouse.io/kvm"
@@ -614,6 +627,20 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 
 	}
+
+	// Set ReadOnlyRootFilesystem
+	setReadOnlyRootFilesystem := func(ctrs []k8sv1.Container) {
+		for i := range ctrs {
+			ctr := &ctrs[i]
+			if ctr.SecurityContext == nil {
+				ctr.SecurityContext = &k8sv1.SecurityContext{}
+			}
+			ctr.SecurityContext.ReadOnlyRootFilesystem = pointer.P(true)
+		}
+	}
+	setReadOnlyRootFilesystem(initContainers)
+	setReadOnlyRootFilesystem(containers)
+
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",

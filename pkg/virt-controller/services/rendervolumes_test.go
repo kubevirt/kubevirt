@@ -343,6 +343,34 @@ func vmiDiskPath(volumeName string) string {
 func defaultVolumes() []k8sv1.Volume {
 	return []k8sv1.Volume{
 		{
+			Name:         varRunVolumeName,
+			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         varLogVolumeName,
+			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         etcLibvirtVolumeName,
+			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         varLibLibvirtVolumeName,
+			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         varCacheLibvirtVolumeName,
+			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         tmpVolumeName,
+			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         varLibSWTPMLocalCAVolumeName,
+			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+		},
+		{
 			Name:         "private",
 			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
 		}, {
@@ -371,6 +399,13 @@ func defaultVolumeMounts() []k8sv1.VolumeMount {
 	hostToContainerPropagation := k8sv1.MountPropagationHostToContainer
 
 	return []k8sv1.VolumeMount{
+		{Name: varRunVolumeName, MountPath: varRun},
+		{Name: varLogVolumeName, MountPath: varLog},
+		{Name: etcLibvirtVolumeName, MountPath: etcLibvirt},
+		{Name: varLibLibvirtVolumeName, MountPath: varLibLibvirt},
+		{Name: varCacheLibvirtVolumeName, MountPath: varCacheLibvirt},
+		{Name: tmpVolumeName, MountPath: tmp},
+		{Name: varLibSWTPMLocalCAVolumeName, MountPath: varLibSWTPMLocalCA},
 		{Name: "private", MountPath: "/var/run/kubevirt-private"},
 		{Name: "public", MountPath: "/var/run/kubevirt"},
 		{Name: "ephemeral-disks", MountPath: "disk1"},

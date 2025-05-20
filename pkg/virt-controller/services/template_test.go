@@ -502,7 +502,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(k8sv1.PullPolicy("IfNotPresent")))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
-				Expect(pod.Spec.InitContainers).To(BeEmpty())
+				Expect(pod.Spec.InitContainers).To(HaveLen(0))
 				By("setting the right hostname")
 				Expect(pod.Spec.Hostname).To(Equal("testvmi"))
 				Expect(pod.Spec.Subdomain).To(BeEmpty())
@@ -2326,7 +2326,7 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
-				Expect(pod.Spec.Volumes).To(HaveLen(9))
+				Expect(pod.Spec.Volumes).To(HaveLen(16))
 				Expect(pod.Spec.Volumes).To(
 					ContainElements(
 						k8sv1.Volume{
@@ -2341,7 +2341,7 @@ var _ = Describe("Template", func() {
 								EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 							}}))
 
-				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(15))
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(
 					ContainElements(
 						k8sv1.VolumeMount{
@@ -2405,7 +2405,7 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
-				Expect(pod.Spec.Volumes).To(HaveLen(9))
+				Expect(pod.Spec.Volumes).To(HaveLen(16))
 				Expect(pod.Spec.Volumes).To(
 					ContainElements(
 						k8sv1.Volume{
@@ -2420,7 +2420,7 @@ var _ = Describe("Template", func() {
 								EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 							}}))
 
-				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(15))
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(
 					ContainElements(
 						k8sv1.VolumeMount{
@@ -2475,11 +2475,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty(), "No devices in manifest for 1st container")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Some mounts in manifest for 1st container")
-				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7), "7 mounts in manifest for 1st container")
-				Expect(pod.Spec.Containers[0].VolumeMounts[6].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(14), "14 mounts in manifest for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeMounts[13].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(pod.Spec.Volumes).To(HaveLen(8), "Found 8 volumes in manifest")
+				Expect(pod.Spec.Volumes).To(HaveLen(15), "Found 15 volumes in manifest")
 				Expect(pod.Spec.Volumes).To(
 					ContainElement(
 						k8sv1.Volume{
@@ -2547,10 +2547,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices[1].Name).To(Equal(ephemeralVolumeName), "Found device for 1st container with correct name")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
-				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(6), "Found 6 mounts in manifest for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(13), "Found 13 mounts in manifest for 1st container")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(pod.Spec.Volumes).To(HaveLen(9), "Found 9 volumes in manifest")
+				Expect(pod.Spec.Volumes).To(HaveLen(16), "Found 16 volumes in manifest")
 				Expect(pod.Spec.Volumes).To(
 					ContainElement(
 						k8sv1.Volume{
@@ -3070,7 +3070,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(pod.Spec.Volumes).To(HaveLen(8))
+				Expect(pod.Spec.Volumes).To(HaveLen(15))
 
 				oneMB := resource.MustParse("1Mi")
 				Expect(pod.Spec.Volumes).To(ContainElement(
@@ -3084,7 +3084,7 @@ var _ = Describe("Template", func() {
 						},
 					}))
 
-				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal(k6tconfig.DownwardMetricDisksDir))
+				Expect(pod.Spec.Containers[0].VolumeMounts[13].MountPath).To(Equal(k6tconfig.DownwardMetricDisksDir))
 			})
 
 			It("Should add 1Mi memory overhead", func() {
@@ -3138,7 +3138,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(pod.Spec.Volumes).To(HaveLen(8))
+				Expect(pod.Spec.Volumes).To(HaveLen(15))
 				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 					Name: "configmap-volume",
 					VolumeSource: k8sv1.VolumeSource{
@@ -3177,7 +3177,7 @@ var _ = Describe("Template", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-					Expect(pod.Spec.Volumes).To(HaveLen(9))
+					Expect(pod.Spec.Volumes).To(HaveLen(16))
 					Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 						Name: "sysprep-configmap-volume",
 						VolumeSource: k8sv1.VolumeSource{
@@ -3214,7 +3214,7 @@ var _ = Describe("Template", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-					Expect(pod.Spec.Volumes).To(HaveLen(9))
+					Expect(pod.Spec.Volumes).To(HaveLen(16))
 
 					Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 						Name: "sysprep-configmap-volume",
@@ -3256,7 +3256,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(pod.Spec.Volumes).To(HaveLen(8))
+				Expect(pod.Spec.Volumes).To(HaveLen(15))
 
 				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 					Name: "secret-volume",
