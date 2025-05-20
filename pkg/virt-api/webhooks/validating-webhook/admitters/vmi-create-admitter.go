@@ -2118,13 +2118,22 @@ func validateSerialNumValue(field *k8sfield.Path, idx int, disk v1.Disk) []metav
 
 func validateSerialNumLength(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if disk.Serial != "" && len([]rune(disk.Serial)) > maxStrLen {
+
+	if disk.Disk != nil && disk.Disk.Bus == v1.DiskBusSCSI && len(disk.Serial) > hwutil.MaxSCSISerialLen {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified", field.Index(idx).String(), maxStrLen),
+			Message: fmt.Sprintf("SCSI device serial should not be more than %d symbols. Got %d (%s) for disk %s", hwutil.MaxSCSISerialLen, len(disk.Serial), disk.Serial, field.Index(idx).String()),
+			Field:   field.Index(idx).Child("serial").String(),
+		})
+
+	} else if len(disk.Serial) > maxStrLen {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("disk serial should not be more than %d symbols. Got %d (%s) for disk %s.", maxStrLen, len(disk.Serial), disk.Serial, field.Index(idx).String()),
 			Field:   field.Index(idx).Child("serial").String(),
 		})
 	}
+
 	return causes
 }
 

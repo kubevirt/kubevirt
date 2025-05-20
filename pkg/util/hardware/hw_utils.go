@@ -35,6 +35,7 @@ import (
 
 const (
 	PCI_ADDRESS_PATTERN = `^([\da-fA-F]{4}):([\da-fA-F]{2}):([\da-fA-F]{2})\.([0-7]{1})$`
+	MaxSCSISerialLen    = 36
 )
 
 // Parse linux cpuset into an array of ints
@@ -177,4 +178,11 @@ func LookupDeviceVCPUAffinity(pciAddress string, domainSpec *api.DomainSpec) ([]
 		}
 	}
 	return alignedVCPUList, nil
+}
+
+func TruncateSCSIDiskSerial(serial string) string {
+	if len(serial) <= MaxSCSISerialLen {
+		return serial
+	}
+	return string([]byte(serial)[:MaxSCSISerialLen])
 }
