@@ -353,7 +353,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 					return ""
 				},
-				Equal("/bin/bash -c echo bound PVCs"),
+				Equal("temp_pod"),
 			)
 
 			sanityExecute()
@@ -689,7 +689,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 					return ""
 				},
-				Equal("/bin/bash -c echo bound PVCs"))
+				Equal("temp_pod"))
 			expectMatchingPodCreation(vmi, IsPodWithoutVmPayload)
 			expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
 				Fields{"Type": Equal(virtv1.VirtualMachineInstanceProvisioning)})),
