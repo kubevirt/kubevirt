@@ -694,7 +694,8 @@
           "image": "imageValue",
           "imagePullSecret": "imagePullSecretValue",
           "path": "pathValue",
-          "imagePullPolicy": "imagePullPolicyValue"
+          "imagePullPolicy": "imagePullPolicyValue",
+          "hotpluggable": true
         },
         "ephemeral": {
           "persistentVolumeClaim": {

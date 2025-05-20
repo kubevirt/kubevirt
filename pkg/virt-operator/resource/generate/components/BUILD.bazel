@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "apiservices.go",
         "crds.go",
         "daemonsets.go",
         "deployments.go",
@@ -62,7 +61,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
-        "//vendor/k8s.io/kube-aggregator/pkg/apis/apiregistration/v1:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
     ],
 )
@@ -70,7 +68,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "apiservices_test.go",
         "components_suite_test.go",
         "crds_test.go",
         "deployments_test.go",
@@ -85,7 +82,6 @@ go_test(
     deps = [
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

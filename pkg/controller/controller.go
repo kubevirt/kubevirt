@@ -38,6 +38,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	container_disk "kubevirt.io/kubevirt/pkg/container-disk"
 )
 
 const (
@@ -278,6 +280,10 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 				dvSource := request.AddVolumeOptions.VolumeSource.DataVolume.DeepCopy()
 				dvSource.Hotpluggable = true
 				newVolume.VolumeSource.DataVolume = dvSource
+			} else if request.AddVolumeOptions.VolumeSource.ContainerDisk != nil {
+				containerDiskSource := request.AddVolumeOptions.VolumeSource.ContainerDisk.DeepCopy()
+				containerDiskSource.Hotpluggable = true
+				newVolume.VolumeSource.ContainerDisk = containerDiskSource
 			}
 
 			vmiSpec.Volumes = append(vmiSpec.Volumes, newVolume)
@@ -444,6 +450,9 @@ func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
 			return true
 		}
+		if volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable {
+			return true
+		}
 	}
 	return false
 }
@@ -557,7 +566,7 @@ func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Po
 		podVolumeMap[podVolume.Name] = podVolume
 	}
 	for _, vmiVolume := range vmiVolumes {
-		if _, ok := podVolumeMap[vmiVolume.Name]; !ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil || vmiVolume.MemoryDump != nil) {
+		if _, ok := podVolumeMap[vmiVolume.Name]; !ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil || vmiVolume.MemoryDump != nil || container_disk.IsHotplugContainerDisk(&vmiVolume)) {
 			hotplugVolumes = append(hotplugVolumes, vmiVolume.DeepCopy())
 		}
 	}

@@ -7723,6 +7723,8 @@ var CRDsValidation map[string]string = map[string]string{
                           ContainerDisk references a docker image, embedding a qcow or raw disk.
                           More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
                         properties:
+                          hotpluggable:
+                            type: boolean
                           image:
                             description: Image is the name of the image with the embedded
                               disk.
@@ -8355,6 +8357,35 @@ var CRDsValidation map[string]string = map[string]string{
                     description: VolumeSource represents the source of the volume
                       to map to the disk.
                     properties:
+                      containerDisk:
+                        description: Represents a docker image with an embedded disk.
+                        properties:
+                          hotpluggable:
+                            type: boolean
+                          image:
+                            description: Image is the name of the image with the embedded
+                              disk.
+                            type: string
+                          imagePullPolicy:
+                            description: |-
+                              Image pull policy.
+                              One of Always, Never, IfNotPresent.
+                              Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+                              Cannot be updated.
+                              More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+                            type: string
+                          imagePullSecret:
+                            description: ImagePullSecret is the name of the Docker
+                              registry secret required to pull the image. The secret
+                              must already exist.
+                            type: string
+                          path:
+                            description: Path defines the path to disk file in the
+                              container
+                            type: string
+                        required:
+                        - image
+                        type: object
                       dataVolume:
                         description: |-
                           DataVolume represents the dynamic creation a PVC for this volume as well as
@@ -12768,6 +12799,8 @@ var CRDsValidation map[string]string = map[string]string{
                   ContainerDisk references a docker image, embedding a qcow or raw disk.
                   More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
                 properties:
+                  hotpluggable:
+                    type: boolean
                   image:
                     description: Image is the name of the image with the embedded
                       disk.
@@ -18328,6 +18361,8 @@ var CRDsValidation map[string]string = map[string]string{
                           ContainerDisk references a docker image, embedding a qcow or raw disk.
                           More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
                         properties:
+                          hotpluggable:
+                            type: boolean
                           image:
                             description: Image is the name of the image with the embedded
                               disk.
@@ -22835,6 +22870,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   ContainerDisk references a docker image, embedding a qcow or raw disk.
                                   More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
                                 properties:
+                                  hotpluggable:
+                                    type: boolean
                                   image:
                                     description: Image is the name of the image with
                                       the embedded disk.
@@ -28015,6 +28052,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       ContainerDisk references a docker image, embedding a qcow or raw disk.
                                       More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
                                     properties:
+                                      hotpluggable:
+                                        type: boolean
                                       image:
                                         description: Image is the name of the image
                                           with the embedded disk.
@@ -28673,6 +28712,36 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: VolumeSource represents the source of
                                   the volume to map to the disk.
                                 properties:
+                                  containerDisk:
+                                    description: Represents a docker image with an
+                                      embedded disk.
+                                    properties:
+                                      hotpluggable:
+                                        type: boolean
+                                      image:
+                                        description: Image is the name of the image
+                                          with the embedded disk.
+                                        type: string
+                                      imagePullPolicy:
+                                        description: |-
+                                          Image pull policy.
+                                          One of Always, Never, IfNotPresent.
+                                          Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+                                          Cannot be updated.
+                                          More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+                                        type: string
+                                      imagePullSecret:
+                                        description: ImagePullSecret is the name of
+                                          the Docker registry secret required to pull
+                                          the image. The secret must already exist.
+                                        type: string
+                                      path:
+                                        description: Path defines the path to disk
+                                          file in the container
+                                        type: string
+                                    required:
+                                    - image
+                                    type: object
                                   dataVolume:
                                     description: |-
                                       DataVolume represents the dynamic creation a PVC for this volume as well as

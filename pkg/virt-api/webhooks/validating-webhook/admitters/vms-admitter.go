@@ -591,6 +591,8 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 				newVolume.VolumeSource.PersistentVolumeClaim = volumeRequest.AddVolumeOptions.VolumeSource.PersistentVolumeClaim
 			} else if volumeRequest.AddVolumeOptions.VolumeSource.DataVolume != nil {
 				newVolume.VolumeSource.DataVolume = volumeRequest.AddVolumeOptions.VolumeSource.DataVolume
+			} else if volumeRequest.AddVolumeOptions.VolumeSource.ContainerDisk != nil {
+				newVolume.VolumeSource.ContainerDisk = volumeRequest.AddVolumeOptions.VolumeSource.ContainerDisk
 			}
 
 			vmVolume, ok := vmVolumeMap[name]
@@ -666,7 +668,6 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 }
 
 func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause {
-	var bus v1.DiskBus
 	// Validate the disk is configured properly
 	if disk == nil {
 		return []metav1.StatusCause{{
@@ -675,19 +676,23 @@ func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause 
 			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 		}}
 	}
-	if disk.DiskDevice.Disk == nil && disk.DiskDevice.LUN == nil {
+	var bus v1.DiskBus
+	switch {
+	case disk.DiskDevice.Disk != nil:
+		bus = disk.DiskDevice.Disk.Bus
+	case disk.DiskDevice.LUN != nil:
+		bus = disk.DiskDevice.LUN.Bus
+	case disk.DiskDevice.CDRom != nil:
+		bus = disk.DiskDevice.CDRom.Bus
+	default:
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("AddVolume request for [%s] requires diskDevice of type 'disk' or 'lun' to be used.", name),
+			Message: fmt.Sprintf("AddVolume request for [%s] requires diskDevice of type 'disk',lun' or 'cdrom' to be used.", name),
 			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 		}}
 	}
-	if disk.DiskDevice.Disk != nil {
-		bus = disk.DiskDevice.Disk.Bus
-	} else {
-		bus = disk.DiskDevice.LUN.Bus
-	}
-	if bus != "scsi" {
+
+	if bus != v1.DiskBusSCSI {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("AddVolume request for [%s] requires disk bus to be 'scsi'. [%s] is not permitted", name, bus),

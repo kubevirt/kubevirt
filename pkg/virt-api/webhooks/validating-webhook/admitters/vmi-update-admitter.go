@@ -200,11 +200,11 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 			}
 		} else {
 			// This is a new volume, ensure that the volume is either DV, PVC or memoryDumpVolume
-			if v.DataVolume == nil && v.PersistentVolumeClaim == nil && v.MemoryDump == nil {
+			if v.DataVolume == nil && v.PersistentVolumeClaim == nil && v.MemoryDump == nil && v.ContainerDisk == nil {
 				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("volume %s is not a PVC or DataVolume", k),
+						Message: fmt.Sprintf("volume %s is not a PVC,DataVolume,MemoryDumpVolume or ContainerDisk", k),
 					},
 				})
 			}
@@ -219,19 +219,19 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 					})
 				}
 				disk := newDisks[k]
-				if disk.Disk == nil && disk.LUN == nil {
+				if disk.Disk == nil && disk.LUN == nil && disk.CDRom == nil {
 					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 						{
 							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("Disk %s requires diskDevice of type 'disk' or 'lun' to be hotplugged.", k),
+							Message: fmt.Sprintf("Disk %s requires diskDevice of type 'disk','lun' or cdrom to be hotplugged.", k),
 						},
 					})
 				}
-				if (disk.Disk == nil || disk.Disk.Bus != "scsi") && (disk.LUN == nil || disk.LUN.Bus != "scsi") {
+				if (disk.Disk != nil && disk.Disk.Bus != v1.DiskBusSCSI) || (disk.LUN != nil && disk.LUN.Bus != v1.DiskBusSCSI) || (disk.CDRom != nil && disk.CDRom.Bus != v1.DiskBusSCSI) {
 					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 						{
 							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("hotplugged Disk %s does not use a scsi bus", k),
+							Message: fmt.Sprintf("hotplugged Disk %s does not use a %q bus", k, v1.DiskBusSCSI),
 						},
 					})
 

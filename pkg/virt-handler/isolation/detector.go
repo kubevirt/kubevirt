@@ -24,6 +24,8 @@ package isolation
 import (
 	"fmt"
 	"net"
+	"os"
+	"path"
 	"runtime"
 	"syscall"
 	"time"
@@ -207,12 +209,45 @@ func setProcessMemoryLockRLimit(pid int, size int64) error {
 	return nil
 }
 
+type deferFunc func()
+
+func (s *socketBasedIsolationDetector) socketHack(socket string) (sock net.Conn, deferFunc deferFunc, err error) {
+	fn := func() {}
+	if len([]rune(socket)) <= 108 {
+		sock, err = net.DialTimeout("unix", socket, time.Duration(isolationDialTimeout)*time.Second)
+		fn = func() {
+			if err == nil {
+				sock.Close()
+			}
+		}
+		return sock, fn, err
+	}
+	base := path.Base(socket)
+	newPath := fmt.Sprintf("/tmp/%s", base)
+	if err = os.Symlink(socket, newPath); err != nil {
+		return nil, fn, err
+	}
+	sock, err = net.DialTimeout("unix", newPath, time.Duration(isolationDialTimeout)*time.Second)
+	fn = func() {
+		if err == nil {
+			sock.Close()
+		}
+		os.Remove(newPath)
+	}
+	return sock, fn, err
+}
+
 func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
-	sock, err := net.DialTimeout("unix", socket, time.Duration(isolationDialTimeout)*time.Second)
+	sock, defFn, err := s.socketHack(socket)
+	defer defFn()
 	if err != nil {
 		return -1, err
 	}
-	defer sock.Close()
+	//sock, err := net.DialTimeout("unix", socket, time.Duration(isolationDialTimeout)*time.Second)
+	//if err != nil {
+	//	return -1, err
+	//}
+	//defer sock.Close()
 
 	ufile, err := sock.(*net.UnixConn).File()
 	if err != nil {

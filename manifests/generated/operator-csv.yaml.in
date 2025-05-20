@@ -606,6 +606,13 @@ spec:
           verbs:
           - '*'
         - apiGroups:
+          - subresources.virtualization.deckhouse.io
+          resources:
+          - virtualmachines/addvolume
+          - virtualmachines/removevolume
+          verbs:
+          - update
+        - apiGroups:
           - subresources.kubevirt.io
           resources:
           - virtualmachineinstances/addvolume

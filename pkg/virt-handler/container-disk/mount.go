@@ -254,7 +254,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 	disksInfo := map[string]*containerdisk.DiskInfo{}
 
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.ContainerDisk != nil {
+		if volume.ContainerDisk != nil && !volume.ContainerDisk.Hotpluggable {
 			diskTargetDir, err := containerdisk.GetDiskTargetDirFromHostView(vmi)
 			if err != nil {
 				return nil, err
@@ -296,7 +296,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 	}
 
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.ContainerDisk != nil {
+		if volume.ContainerDisk != nil && !volume.ContainerDisk.Hotpluggable {
 			diskTargetDir, err := containerdisk.GetDiskTargetDirFromHostView(vmi)
 			if err != nil {
 				return nil, err
@@ -394,7 +394,7 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 
 func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error) {
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.ContainerDisk != nil {
+		if volume.ContainerDisk != nil && !volume.ContainerDisk.Hotpluggable {
 			_, err := m.socketPathGetter(vmi, i)
 			if err != nil {
 				log.DefaultLogger().Object(vmi).Reason(err).Infof("containerdisk %s not yet ready", volume.Name)
@@ -706,7 +706,7 @@ func (m *mounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksu
 
 	// compute for containerdisks
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.ContainerDisk == nil {
+		if volume.VolumeSource.ContainerDisk == nil || volume.VolumeSource.ContainerDisk.Hotpluggable {
 			continue
 		}
 
@@ -771,7 +771,7 @@ func VerifyChecksums(mounter Mounter, vmi *v1.VirtualMachineInstance) error {
 
 	// verify containerdisks
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.ContainerDiskVolume == nil {
+		if volumeStatus.ContainerDiskVolume == nil || volumeStatus.HotplugVolume != nil {
 			continue
 		}
 

@@ -1004,7 +1004,9 @@ func addVolumeRequestExists(request v1.VirtualMachineVolumeRequest, name string)
 }
 
 func volumeHotpluggable(volume v1.Volume) bool {
-	return (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable)
+	return (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) ||
+		(volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable) ||
+		(volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable)
 }
 
 func volumeNameExists(volume v1.Volume, volumeName string) bool {
@@ -1018,12 +1020,16 @@ func volumeSourceName(volumeSource *v1.HotplugVolumeSource) string {
 	if volumeSource.PersistentVolumeClaim != nil {
 		return volumeSource.PersistentVolumeClaim.ClaimName
 	}
+	if volumeSource.ContainerDisk != nil {
+		return volumeSource.ContainerDisk.Image
+	}
 	return ""
 }
 
 func volumeSourceExists(volume v1.Volume, volumeName string) bool {
 	return (volume.DataVolume != nil && volume.DataVolume.Name == volumeName) ||
-		(volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == volumeName)
+		(volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == volumeName) ||
+		(volume.ContainerDisk != nil && volume.ContainerDisk.Image == volumeName)
 }
 
 func volumeExists(volume v1.Volume, volumeName string) bool {
@@ -1125,6 +1131,8 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 		opts.VolumeSource.DataVolume.Hotpluggable = true
 	} else if opts.VolumeSource.PersistentVolumeClaim != nil {
 		opts.VolumeSource.PersistentVolumeClaim.Hotpluggable = true
+	} else if opts.VolumeSource.ContainerDisk != nil {
+		opts.VolumeSource.ContainerDisk.Hotpluggable = true
 	}
 
 	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.

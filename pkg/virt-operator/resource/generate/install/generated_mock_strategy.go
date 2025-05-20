@@ -241,16 +241,6 @@ func (_mr *_MockStrategyInterfaceRecorder) MutatingWebhookConfigurations() *gomo
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MutatingWebhookConfigurations")
 }
 
-func (_m *MockStrategyInterface) APIServices() []*v18.APIService {
-	ret := _m.ctrl.Call(_m, "APIServices")
-	ret0, _ := ret[0].([]*v18.APIService)
-	return ret0
-}
-
-func (_mr *_MockStrategyInterfaceRecorder) APIServices() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "APIServices")
-}
-
 func (_m *MockStrategyInterface) CertificateSecrets() []*v14.Secret {
 	ret := _m.ctrl.Call(_m, "CertificateSecrets")
 	ret0, _ := ret[0].([]*v14.Secret)

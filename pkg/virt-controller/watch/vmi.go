@@ -32,6 +32,7 @@ import (
 
 	"k8s.io/utils/ptr"
 
+	container_disk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -1774,12 +1775,18 @@ func (c *VMIController) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, hotp
 }
 
 func (c *VMIController) getActiveAndOldAttachmentPods(readyHotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
+	sort.Slice(hotplugAttachmentPods, func(i, j int) bool {
+		return hotplugAttachmentPods[i].CreationTimestamp.Time.Before(hotplugAttachmentPods[j].CreationTimestamp.Time)
+	})
 	var currentPod *k8sv1.Pod
 	oldPods := make([]*k8sv1.Pod, 0)
 	for _, attachmentPod := range hotplugAttachmentPods {
 		if !c.podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes) {
 			oldPods = append(oldPods, attachmentPod)
 		} else {
+			if currentPod != nil {
+				oldPods = append(oldPods, currentPod)
+			}
 			currentPod = attachmentPod
 		}
 	}
@@ -1836,6 +1843,10 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 	readyHotplugVolumes := make([]*virtv1.Volume, 0)
 	// Find all ready volumes
 	for _, volume := range hotplugVolumes {
+		if container_disk.IsHotplugContainerDisk(volume) {
+			readyHotplugVolumes = append(readyHotplugVolumes, volume)
+			continue
+		}
 		var err error
 		ready, wffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
 		if err != nil {
@@ -1883,20 +1894,45 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 }
 
 func (c *VMIController) podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*virtv1.Volume) bool {
-	// -2 for empty dir and token
-	if len(attachmentPod.Spec.Volumes)-2 != len(volumes) {
-		return false
-	}
-	podVolumeMap := make(map[string]k8sv1.Volume)
-	for _, volume := range attachmentPod.Spec.Volumes {
-		if volume.PersistentVolumeClaim != nil {
-			podVolumeMap[volume.Name] = volume
+	const (
+		// -2 for empty dir and token
+		subVols = 2
+		// -4 for hotplug with ContainerDisk. 3 empty dir + token
+		subVolsWithContainerDisk = 4
+	)
+	containerDisksNames := make(map[string]struct{})
+	for _, ctr := range attachmentPod.Spec.Containers {
+		if strings.HasPrefix(ctr.Name, services.HotplugContainerDisk) {
+			containerDisksNames[strings.TrimPrefix(ctr.Name, services.HotplugContainerDisk)] = struct{}{}
 		}
 	}
+
+	var sub = subVols
+	if len(containerDisksNames) > 0 {
+		sub = subVolsWithContainerDisk
+	}
+
+	countAttachmentVolumes := len(attachmentPod.Spec.Volumes) - sub + len(containerDisksNames)
+
+	if countAttachmentVolumes != len(volumes) {
+		return false
+	}
+
+	podVolumeMap := make(map[string]struct{})
+	for _, volume := range attachmentPod.Spec.Volumes {
+		if volume.PersistentVolumeClaim != nil {
+			podVolumeMap[volume.Name] = struct{}{}
+		}
+	}
+
 	for _, volume := range volumes {
+		if container_disk.IsHotplugContainerDisk(volume) {
+			delete(containerDisksNames, volume.Name)
+			continue
+		}
 		delete(podVolumeMap, volume.Name)
 	}
-	return len(podVolumeMap) == 0
+	return len(podVolumeMap) == 0 && len(containerDisksNames) == 0
 }
 
 func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, volumes []*virtv1.Volume) (*k8sv1.Pod, syncError) {
@@ -2007,7 +2043,17 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 	var pod *k8sv1.Pod
 	var err error
 
-	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcIndexer, virtlauncherPod.Namespace)
+	var hasContainerDisk bool
+	var newVolumes []*virtv1.Volume
+	for _, volume := range volumes {
+		if volume.VolumeSource.ContainerDisk != nil {
+			hasContainerDisk = true
+			continue
+		}
+		newVolumes = append(newVolumes, volume)
+	}
+
+	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(newVolumes, c.pvcIndexer, virtlauncherPod.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PVC map: %v", err)
 	}
@@ -2029,7 +2075,7 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 		}
 	}
 
-	if len(volumeNamesPVCMap) > 0 {
+	if len(volumeNamesPVCMap) > 0 || hasContainerDisk {
 		pod, err = c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesPVCMap)
 	}
 	return pod, err
@@ -2151,23 +2197,68 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 					ClaimName: volume.Name,
 				}
 			}
+			if volume.ContainerDisk != nil && status.ContainerDiskVolume == nil {
+				status.ContainerDiskVolume = &virtv1.ContainerDiskInfo{}
+			}
 			if attachmentPod == nil {
-				if !c.volumeReady(status.Phase) {
+				if volume.ContainerDisk != nil {
 					status.HotplugVolume.AttachPodUID = ""
-					// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
-					phase, reason, message := c.getVolumePhaseMessageReason(&vmi.Spec.Volumes[i], vmi.Namespace)
-					status.Phase = phase
-					status.Message = message
-					status.Reason = reason
+					status.Phase = virtv1.VolumePending
+					status.Message = "Attachment pod not found"
+					status.Reason = "AttachmentPodNotFound"
+				} else {
+					if !c.volumeReady(status.Phase) {
+						status.HotplugVolume.AttachPodUID = ""
+						// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
+						phase, reason, message := c.getVolumePhaseMessageReason(&vmi.Spec.Volumes[i], vmi.Namespace)
+						status.Phase = phase
+						status.Message = message
+						status.Reason = reason
+					}
 				}
 			} else {
 				status.HotplugVolume.AttachPodName = attachmentPod.Name
-				if len(attachmentPod.Status.ContainerStatuses) == 1 && attachmentPod.Status.ContainerStatuses[0].Ready {
+				if volume.ContainerDisk != nil {
+					var (
+						uid     types.UID
+						isReady bool
+					)
+					for _, cs := range attachmentPod.Status.ContainerStatuses {
+						name := strings.TrimPrefix(cs.Name, "hotplug-container-disk-")
+						if volume.Name == name {
+							uid = attachmentPod.UID
+							isReady = cs.Ready
+							break
+						}
+					}
+					if isReady {
+						status.HotplugVolume.AttachPodUID = uid
+					} else {
+						status.HotplugVolume.AttachPodUID = ""
+
+					}
+				} else if len(attachmentPod.Status.ContainerStatuses) == 1 && attachmentPod.Status.ContainerStatuses[0].Ready {
 					status.HotplugVolume.AttachPodUID = attachmentPod.UID
+				} else if volume.PersistentVolumeClaim != nil {
+					var isReady bool
+					for _, cs := range attachmentPod.Status.ContainerStatuses {
+						if cs.Name == "hotplug-disk" {
+							isReady = cs.Ready
+							break
+						}
+					}
+
+					if isReady {
+						status.HotplugVolume.AttachPodUID = attachmentPod.UID
+					} else {
+						// Remove UID of old pod if a new one is available, but not yet ready
+						status.HotplugVolume.AttachPodUID = ""
+					}
 				} else {
 					// Remove UID of old pod if a new one is available, but not yet ready
 					status.HotplugVolume.AttachPodUID = ""
 				}
+
 				if c.canMoveToAttachedPhase(status.Phase) {
 					status.Phase = virtv1.HotplugVolumeAttachedToNode
 					status.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volume.Name)
@@ -2176,7 +2267,6 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 				}
 			}
 		}
-
 		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil || volume.VolumeSource.MemoryDump != nil {
 
 			pvcName := storagetypes.PVCNameFromVirtVolume(&volume)

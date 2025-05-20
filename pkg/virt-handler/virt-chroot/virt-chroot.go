@@ -20,7 +20,10 @@
 package virt_chroot
 
 import (
+	"bytes"
+	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -46,6 +49,49 @@ func GetChrootMountNamespace() string {
 
 func MountChroot(sourcePath, targetPath *safepath.Path, ro bool) *exec.Cmd {
 	return UnsafeMountChroot(trimProcPrefix(sourcePath), trimProcPrefix(targetPath), ro)
+}
+
+func MountChrootWithOptions(sourcePath, targetPath *safepath.Path, mountOptions ...string) error {
+	args := append(getBaseArgs(), "mount")
+	remountArgs := slices.Clone(args)
+
+	mountOptions = slices.DeleteFunc(mountOptions, func(s string) bool {
+		return s == "remount"
+	})
+	if len(mountOptions) > 0 {
+		opts := strings.Join(mountOptions, ",")
+		remountOpts := "remount," + opts
+		args = append(args, "-o", opts)
+		remountArgs = append(remountArgs, "-o", remountOpts)
+	}
+
+	sp := trimProcPrefix(sourcePath)
+	tp := trimProcPrefix(targetPath)
+	args = append(args, sp, tp)
+	remountArgs = append(remountArgs, sp, tp)
+
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("mount failed: %w, stdout: %s, stderr: %s", err, stdout.String(), stderr.String())
+	}
+
+	stdout = new(bytes.Buffer)
+	stderr = new(bytes.Buffer)
+
+	remountCmd := exec.Command(binaryPath, remountArgs...)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	err = remountCmd.Run()
+	if err != nil {
+		return fmt.Errorf("mount failed: %w, stdout: %s, stderr: %s", err, stdout.String(), stderr.String())
+	}
+	return nil
 }
 
 // Deprecated: UnsafeMountChroot is used to connect to code which needs to be refactored

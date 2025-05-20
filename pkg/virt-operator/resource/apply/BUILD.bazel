@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "admissionregistration.go",
-        "apiservices.go",
         "apps.go",
         "certificates.go",
         "core.go",
@@ -65,7 +64,6 @@ go_library(
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
-        "//vendor/k8s.io/kube-aggregator/pkg/apis/apiregistration/v1:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
     ],
 )

@@ -64,13 +64,15 @@ import (
 )
 
 const (
-	containerDisks   = "container-disks"
-	hotplugDisks     = "hotplug-disks"
-	hookSidecarSocks = "hook-sidecar-sockets"
-	varRun           = "/var/run"
-	virtBinDir       = "virt-bin-share-dir"
-	hotplugDisk      = "hotplug-disk"
-	virtExporter     = "virt-exporter"
+	containerDisks        = "container-disks"
+	hotplugDisks          = "hotplug-disks"
+	hookSidecarSocks      = "hook-sidecar-sockets"
+	varRun                = "/var/run"
+	virtBinDir            = "virt-bin-share-dir"
+	hotplugDisk           = "hotplug-disk"
+	virtExporter          = "virt-exporter"
+	hotplugContainerDisks = "hotplug-container-disks"
+	HotplugContainerDisk  = "hotplug-container-disk-"
 )
 
 const KvmDevice = "devices.virtualization.deckhouse.io/kvm"
@@ -846,6 +848,49 @@ func sidecarContainerName(i int) string {
 	return fmt.Sprintf("hook-sidecar-%d", i)
 }
 
+func sidecarContainerHotplugContainerdDiskName(name string) string {
+	return fmt.Sprintf("%s%s", HotplugContainerDisk, name)
+}
+
+func (t *templateService) containerForHotplugContainerDisk(name string, cd *v1.ContainerDiskSource, vmi *v1.VirtualMachineInstance) k8sv1.Container {
+	runUser := int64(util.NonRootUID)
+	sharedMount := k8sv1.MountPropagationHostToContainer
+	path := fmt.Sprintf("/path/%s", name)
+	command := []string{"/init/usr/bin/container-disk"}
+	args := []string{"--copy-path", path}
+
+	return k8sv1.Container{
+		Name:      name,
+		Image:     cd.Image,
+		Command:   command,
+		Args:      args,
+		Resources: hotplugContainerResourceRequirementsForVMI(vmi, t.clusterConfig),
+		SecurityContext: &k8sv1.SecurityContext{
+			AllowPrivilegeEscalation: pointer.Bool(false),
+			RunAsNonRoot:             pointer.Bool(true),
+			RunAsUser:                &runUser,
+			SeccompProfile: &k8sv1.SeccompProfile{
+				Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+			},
+			Capabilities: &k8sv1.Capabilities{
+				Drop: []k8sv1.Capability{"ALL"},
+			},
+			SELinuxOptions: &k8sv1.SELinuxOptions{
+				Type:  t.clusterConfig.GetSELinuxLauncherType(),
+				Level: "s0",
+			},
+		},
+		VolumeMounts: []k8sv1.VolumeMount{
+			initContainerVolumeMount(),
+			{
+				Name:             hotplugContainerDisks,
+				MountPath:        "/path",
+				MountPropagation: &sharedMount,
+			},
+		},
+	}
+}
+
 func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error) {
 	zero := int64(0)
 	runUser := int64(util.NonRootUID)
@@ -923,6 +968,30 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
 		},
+	}
+	first := true
+	for _, vol := range vmi.Spec.Volumes {
+		if vol.ContainerDisk == nil || !vol.ContainerDisk.Hotpluggable {
+			continue
+		}
+		name := sidecarContainerHotplugContainerdDiskName(vol.Name)
+		pod.Spec.Containers = append(pod.Spec.Containers, t.containerForHotplugContainerDisk(name, vol.ContainerDisk, vmi))
+		if first {
+			first = false
+			userId := int64(util.NonRootUID)
+			initContainerCommand := []string{"/usr/bin/cp",
+				"/usr/bin/container-disk",
+				"/init/usr/bin/container-disk",
+			}
+			pod.Spec.InitContainers = append(
+				pod.Spec.InitContainers,
+				t.newInitContainerRenderer(vmi,
+					initContainerVolumeMount(),
+					initContainerResourceRequirementsForVMI(vmi, v1.ContainerDisk, t.clusterConfig),
+					userId).Render(initContainerCommand))
+			pod.Spec.Volumes = append(pod.Spec.Volumes, emptyDirVolume(hotplugContainerDisks))
+			pod.Spec.Volumes = append(pod.Spec.Volumes, emptyDirVolume(virtBinDir))
+		}
 	}
 
 	err := matchSELinuxLevelOfVMI(pod, vmi)

@@ -12951,6 +12951,9 @@
      "image"
     ],
     "properties": {
+     "hotpluggable": {
+      "type": "boolean"
+     },
      "image": {
       "description": "Image is the name of the image with the embedded disk.",
       "type": "string",
@@ -13973,6 +13976,9 @@
     "description": "HotplugVolumeSource Represents the source of a volume to mount which are capable of being hotplugged on a live running VMI. Only one of its members may be specified.",
     "type": "object",
     "properties": {
+     "containerDisk": {
+      "$ref": "#/definitions/v1.ContainerDiskSource"
+     },
      "dataVolume": {
       "description": "DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.",
       "$ref": "#/definitions/v1.DataVolumeSource"

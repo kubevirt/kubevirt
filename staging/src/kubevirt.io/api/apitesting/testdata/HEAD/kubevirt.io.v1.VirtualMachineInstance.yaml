@@ -524,6 +524,7 @@ spec:
       optional: true
       volumeLabel: volumeLabelValue
     containerDisk:
+      hotpluggable: true
       image: imageValue
       imagePullPolicy: imagePullPolicyValue
       imagePullSecret: imagePullSecretValue

@@ -1948,6 +1948,11 @@ func (in *HotplugVolumeSource) DeepCopyInto(out *HotplugVolumeSource) {
 		*out = new(DataVolumeSource)
 		**out = **in
 	}
+	if in.ContainerDisk != nil {
+		in, out := &in.ContainerDisk, &out.ContainerDisk
+		*out = new(ContainerDiskSource)
+		**out = **in
+	}
 	return
 }
 
