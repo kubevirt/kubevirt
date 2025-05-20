@@ -37,6 +37,7 @@ import (
 	"time"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+	checksum_controller "kubevirt.io/kubevirt/pkg/virt-handler/checksum-controller"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	pvctypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -286,10 +287,10 @@ func NewController(
 	}
 
 	_, err = domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			UpdateFunc: c.updateNetworkPriorityFunc,
-		})
+		UpdateFunc: c.updateNetworkPriorityFunc,
+	})
 	if err != nil {
-			return nil, err
+		return nil, err
 	}
 
 	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
@@ -321,6 +322,8 @@ func NewController(
 		clusterConfig,
 		clientset.CoreV1())
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
+
+	c.checksumCtrl = checksum_controller.NewController(c.vmiSourceInformer, c.clientset)
 
 	return c, nil
 }
@@ -360,7 +363,9 @@ type VirtualMachineController struct {
 	ioErrorRetryManager         *FailRetryManager
 
 	hotplugContainerDiskMounter container_disk.HotplugMounter
-	nam *migrations.NetworkAccessibilityManager
+	nam                         *migrations.NetworkAccessibilityManager
+
+	checksumCtrl *checksum_controller.Controller
 }
 
 type virtLauncherCriticalSecurebootError struct {
@@ -1731,6 +1736,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
+
+	go c.checksumCtrl.Run(stopCh)
 
 	<-stopCh
 	<-heartBeatDone
@@ -3267,7 +3274,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities, disksInfo, d.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, d.clusterConfig.GetNetworkBindings())
 
-	err = client.SyncVirtualMachine(vmi, options)
+	err = d.SyncVirtualMachine(client, vmi, options)
 	if err != nil {
 		isSecbootError := strings.Contains(err.Error(), "EFI OVMF rom missing")
 		if isSecbootError {
@@ -3350,7 +3357,7 @@ func (d *VirtualMachineController) hotplugSriovInterfacesCommand(vmi *v1.Virtual
 	}
 
 	log.Log.V(3).Object(vmi).Info("sending hot-plug host-devices command")
-	if err := client.HotplugHostDevices(vmi); err != nil {
+	if err := d.HotplugHostDevices(client, vmi); err != nil {
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
@@ -3709,7 +3716,7 @@ func (d *VirtualMachineController) hotplugCPU(vmi *v1.VirtualMachineInstance, cl
 		nil,
 		d.clusterConfig)
 
-	if err := client.SyncVirtualMachineCPUs(vmi, options); err != nil {
+	if err := d.SyncVirtualMachineCPU(client, vmi, options); err != nil {
 		return err
 	}
 
@@ -3757,7 +3764,7 @@ func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance,
 
 	options := virtualMachineOptions(nil, 0, nil, d.capabilities, nil, d.clusterConfig)
 
-	if err := client.SyncVirtualMachineMemory(vmi, options); err != nil {
+	if err := d.SyncVirtualMachineMemory(client, vmi, options); err != nil {
 		// mark hotplug as failed
 		vmiConditions.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
 			Type:    v1.VirtualMachineInstanceMemoryChange,
@@ -3857,4 +3864,52 @@ func (d *VirtualMachineController) updateNetworkPriorityFunc(_, new interface{})
 		log.Log.Object(newDomain).Reason(err).With("key", key).Error("Failed to set network priority high for the target pod")
 		return
 	}
+}
+
+func (d *VirtualMachineController) SyncVirtualMachine(client cmdclient.LauncherClient, vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	control, err := checksum_controller.NewVMIControl(vmi, client)
+	if err != nil {
+		return err
+	}
+	if err = client.SyncVirtualMachine(vmi, options); err != nil {
+		return err
+	}
+	d.checksumCtrl.Set(control)
+	return nil
+}
+
+func (d *VirtualMachineController) SyncVirtualMachineCPU(client cmdclient.LauncherClient, vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	control, err := checksum_controller.NewVMIControl(vmi, client)
+	if err != nil {
+		return err
+	}
+	if err = client.SyncVirtualMachineCPUs(vmi, options); err != nil {
+		return err
+	}
+	d.checksumCtrl.Set(control)
+	return nil
+}
+
+func (d *VirtualMachineController) SyncVirtualMachineMemory(client cmdclient.LauncherClient, vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	control, err := checksum_controller.NewVMIControl(vmi, client)
+	if err != nil {
+		return err
+	}
+	if err = client.SyncVirtualMachineMemory(vmi, options); err != nil {
+		return err
+	}
+	d.checksumCtrl.Set(control)
+	return nil
+}
+
+func (d *VirtualMachineController) HotplugHostDevices(client cmdclient.LauncherClient, vmi *v1.VirtualMachineInstance) error {
+	control, err := checksum_controller.NewVMIControl(vmi, client)
+	if err != nil {
+		return err
+	}
+	if err = client.HotplugHostDevices(vmi); err != nil {
+		return err
+	}
+	d.checksumCtrl.Set(control)
+	return nil
 }

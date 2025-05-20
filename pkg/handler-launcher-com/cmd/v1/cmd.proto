@@ -34,6 +34,7 @@ service Cmd {
   rpc GetSEVInfo(EmptyRequest) returns (SEVInfoResponse) {}
   rpc GetLaunchMeasurement(VMIRequest) returns (LaunchMeasurementResponse) {}
   rpc InjectLaunchSecret(InjectLaunchSecretRequest) returns (Response) {}
+  rpc GetAppliedVMIChecksum(EmptyRequest) returns (VMIChecksumResponse) {}
 }
 
 message QemuVersionResponse {
@@ -204,4 +205,9 @@ message LaunchMeasurementResponse {
 message InjectLaunchSecretRequest {
     VMI vmi = 1;
     bytes options = 2;
+}
+
+message VMIChecksumResponse {
+  Response response = 1;
+  string checksum = 2;
 }
