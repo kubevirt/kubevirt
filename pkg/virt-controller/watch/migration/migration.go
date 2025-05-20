@@ -1126,14 +1126,9 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 		}
 	}
 
-	clusterMigrationConfigs := c.clusterConfig.GetMigrationConfiguration().DeepCopy()
-	err := c.matchMigrationPolicy(vmiCopy, clusterMigrationConfigs)
-	if err != nil {
-		return fmt.Errorf("failed to match migration policy: %v", err)
-	}
-
-	if !c.isMigrationPolicyMatched(vmiCopy) {
-		vmiCopy.Status.MigrationState.MigrationConfiguration = clusterMigrationConfigs
+	// External migration configuration: Do not set migrationConfiguration from MigrationPolicies, just preserve it for the running migration if was set externally.
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationConfiguration != nil && vmi.Status.MigrationState.EndTimestamp == nil {
+		vmiCopy.Status.MigrationState.MigrationConfiguration = vmi.Status.MigrationState.MigrationConfiguration.DeepCopy()
 	}
 
 	if controller.VMIHasHotplugCPU(vmi) && vmi.IsCPUDedicated() {
@@ -1157,7 +1152,7 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 		bs.UpdateVolumeStatus(vmiCopy, backendStoragePVC)
 	}
 
-	err = c.patchVMI(vmi, vmiCopy)
+	err := c.patchVMI(vmi, vmiCopy)
 	if err != nil {
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
 		return err

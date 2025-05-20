@@ -499,6 +499,13 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		return nil
 	}
 
+	// External migration configuration: interrupt reconcile and wait for the next VMI update with filled MigrationConfiguration.
+	if vmi.Status.MigrationState.MigrationConfiguration == nil {
+		// Wait for migration options.
+		log.DefaultLogger().Infof("external migration configuration is enabled, wait until VMI receives migration configuration, vmi phase is %s", vmi.Status.Phase)
+		return nil
+	}
+
 	err = c.handleSourceMigrationProxy(vmi)
 	if errors.Is(err, errWaitingForTargetPorts) {
 		log.Log.Object(vmi).V(4).Info("waiting for target node to publish migration ports")
