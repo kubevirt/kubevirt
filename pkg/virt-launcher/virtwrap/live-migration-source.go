@@ -230,6 +230,15 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 		return "", err
 	}
 
+	// Put back common model if specified in VMI.
+	vmiCPU := vmi.Spec.Domain.CPU
+	if vmiCPU != nil && vmiCPU.Model == "kvm64" {
+		if domcfg.CPU.Model != nil {
+			domcfg.CPU.Model.Value = vmiCPU.Model
+			domcfg.CPU.Model.Fallback = "allow"
+		}
+	}
+
 	return domcfg.Marshal()
 }
 
