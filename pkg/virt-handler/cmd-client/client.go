@@ -117,6 +117,7 @@ type LauncherClient interface {
 	SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	GetDomainDirtyRateStats() (dirtyRateMbps int64, err error)
 	GetAppliedVMIChecksum() (string, error)
+	MigrationProxy(action MigrationProxyAction) error
 }
 
 type VirtLauncherClient struct {
@@ -847,4 +848,23 @@ func (c *VirtLauncherClient) GetAppliedVMIChecksum() (string, error) {
 
 	log.Log.Reason(err).Error("error getting the checksum")
 	return "", errors.New("error getting the checksum")
+}
+
+type MigrationProxyAction int32
+
+const (
+	MigrationProxyActionStart = iota
+	MigrationProxyActionStop
+)
+
+func (c *VirtLauncherClient) MigrationProxy(action MigrationProxyAction) error {
+	request := &cmdv1.MigrationProxyRequest{
+		Action: cmdv1.MigrationProxyAction(action),
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	response, err := c.v1client.MigrationProxy(ctx, request)
+
+	return handleError(err, "MigrationProxy", response)
 }

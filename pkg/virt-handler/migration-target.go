@@ -576,7 +576,7 @@ func migrationNeedsFinalization(migrationState *v1.VirtualMachineInstanceMigrati
 		!migrationState.Failed
 }
 
-func (c *MigrationTargetController) handleTargetMigrationProxy(vmi *v1.VirtualMachineInstance) error {
+func (c *MigrationTargetController) handleTargetMigrationProxy(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
 	// handle starting/stopping target migration proxy
 	migrationTargetSockets := []string{}
 	res, err := c.podIsolationDetector.Detect(vmi)
@@ -588,8 +588,10 @@ func (c *MigrationTargetController) handleTargetMigrationProxy(vmi *v1.VirtualMa
 		vmiUID = string(*vmi.Status.MigrationState.SourceState.VirtualMachineInstanceUID)
 	}
 
-	// Get the libvirt connection socket file on the destination pod.
-	socketFile := fmt.Sprintf(filepath.Join(c.virtLauncherFSRunDirPattern, "libvirt/virtqemud-sock"), res.Pid())
+	// Get the virt-launcher migration proxy connection socket file on the destination pod.
+	socketFile := fmt.Sprintf(filepath.Join(c.virtLauncherFSRunDirPattern, "kubevirt/migrationproxy/wrap-virtqemud-sock"), res.Pid())
+	//// Get the libvirt connection socket file on the destination pod.
+	//socketFile := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "libvirt/virtqemud-sock"), res.Pid())
 	// the migration-proxy is no longer shared via host mount, so we
 	// pass in the virt-launcher's baseDir to reach the unix sockets.
 	baseDir := fmt.Sprintf(filepath.Join(c.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
@@ -601,6 +603,10 @@ func (c *MigrationTargetController) handleTargetMigrationProxy(vmi *v1.VirtualMa
 		// a proxy between the target direct qemu channel and the connector in the destination pod
 		destSocketFile := migrationproxy.SourceUnixFile(baseDir, key)
 		migrationTargetSockets = append(migrationTargetSockets, destSocketFile)
+	}
+	err = c.StartMigrationProxyInVirtLauncher(client)
+	if err != nil {
+		return err
 	}
 	err = c.migrationProxy.StartTargetListener(vmiUID, migrationTargetSockets)
 	if err != nil {
@@ -795,7 +801,7 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 		return fmt.Errorf("syncing migration target failed: %v", err)
 	}
 
-	err = c.handleTargetMigrationProxy(vmi)
+	err = c.handleTargetMigrationProxy(vmi, client)
 	if err != nil {
 		return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
 	}
@@ -1074,4 +1080,8 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 
 func finalizeNodePlacement(vmi *v1.VirtualMachineInstance) {
 	controller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceNodePlacementNotMatched)
+}
+
+func (d *MigrationTargetController) StartMigrationProxyInVirtLauncher(client cmdclient.LauncherClient) error {
+	return client.MigrationProxy(cmdclient.MigrationProxyActionStart)
 }

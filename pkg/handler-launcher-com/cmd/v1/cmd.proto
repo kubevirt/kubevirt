@@ -37,6 +37,7 @@ service Cmd {
   rpc InjectLaunchSecret(InjectLaunchSecretRequest) returns (Response) {}
   rpc GetDomainDirtyRateStats(EmptyRequest) returns (DirtyRateStatsResponse) {}
   rpc GetAppliedVMIChecksum(EmptyRequest) returns (VMIChecksumResponse) {}
+  rpc MigrationProxy(MigrationProxyRequest) returns (Response);
 }
 
 message QemuVersionResponse {
@@ -217,4 +218,13 @@ message DirtyRateStatsResponse {
 message VMIChecksumResponse {
   Response response = 1;
   string checksum = 2;
+}
+
+enum MigrationProxyAction {
+  START = 0;
+  STOP = 1;
+}
+
+message MigrationProxyRequest {
+  MigrationProxyAction action = 1;
 }
