@@ -31,7 +31,10 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-const vmiSubresourceURL = "/apis/subresources.kubevirt.io/%s"
+const (
+	vmiSubresourceURL               = "/apis/subresources.kubevirt.io/%s"
+	vmiSubresourceVirtualizationURL = "/apis/subresources.virtualization.deckhouse.io/v1alpha2" // v1alpha2/namespaces/%s/virtualmachines/%s/%s
+)
 
 type SerialConsoleOptions struct {
 	ConnectionTimeout time.Duration
@@ -304,9 +307,9 @@ func (c *virtualMachineInstances) AddVolume(ctx context.Context, name string, ad
 	}
 
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(vmiSubresourceVirtualizationURL).
 		Namespace(c.GetNamespace()).
-		Resource("virtualmachineinstances").
+		Resource("virtualmachines").
 		Name(name).
 		SubResource("addvolume").
 		Body(body).
@@ -321,9 +324,9 @@ func (c *virtualMachineInstances) RemoveVolume(ctx context.Context, name string,
 	}
 
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(vmiSubresourceVirtualizationURL).
 		Namespace(c.GetNamespace()).
-		Resource("virtualmachineinstances").
+		Resource("virtualmachines").
 		Name(name).
 		SubResource("removevolume").
 		Body(body).
