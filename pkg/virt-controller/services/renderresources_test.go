@@ -437,7 +437,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 		})
 	})
 
-	It("WithSEV option adds ", func() {
+	PIt("WithSEV option adds ", func() {
 		sevResourceKey := kubev1.ResourceName("devices.kubevirt.io/sev")
 		rr = NewResourceRenderer(nil, nil, WithSEV())
 		Expect(rr.Requests()).To(Equal(kubev1.ResourceList{

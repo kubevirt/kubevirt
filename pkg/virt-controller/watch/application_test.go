@@ -164,7 +164,7 @@ var _ = Describe("Application", func() {
 			nodeInformer,
 		)
 		app.rsController, _ = replicaset.NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))
-		app.vmController, _ = vm.NewVMController(vmiInformer,
+		app.vmController, _ = vm.NewController(vmiInformer,
 			vmInformer,
 			dataVolumeInformer,
 			dataSourceInformer,
@@ -206,7 +206,8 @@ var _ = Describe("Application", func() {
 			CRDInformer:               crdInformer,
 			DVInformer:                dvInformer,
 			Recorder:                  recorder,
-			ResyncPeriod:              60 * time.Second,
+			// The specified resyncPeriod 1m0s is invalid because this shared informer doesn't support resyncing.
+			// ResyncPeriod:              60 * time.Second,
 		}
 		_ = app.snapshotController.Init()
 		app.restoreController = &snapshot.VMRestoreController{
