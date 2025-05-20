@@ -308,7 +308,7 @@ func newApiServerAuthDelegatorClusterRoleBinding(namespace string) *rbacv1.Clust
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-apiserver-auth-delegator",
+			Name: "kubevirt-internal-virtualization-apiserver-auth-delegator",
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},

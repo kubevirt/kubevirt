@@ -36,8 +36,8 @@ import (
 )
 
 const (
-	defaultClusterRoleName          = "kubevirt.io:default"
-	instancetypeViewClusterRoleName = "instancetype.kubevirt.io:view"
+	defaultClusterRoleName          = "kubevirt.internal.virtualization.deckhouse.io:default"
+	instancetypeViewClusterRoleName = "instancetype.kubevirt.internal.virtualization.deckhouse.io:view"
 
 	apiVersion            = "version"
 	apiGuestFs            = "guestfs"
@@ -183,7 +183,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt.io:admin",
+			Name: "kubevirt.internal.virtualization.deckhouse.io:admin",
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 				"rbac.authorization.k8s.io/aggregate-to-admin": "true",
@@ -378,7 +378,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt.io:edit",
+			Name: "kubevirt.internal.virtualization.deckhouse.io:edit",
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 				"rbac.authorization.k8s.io/aggregate-to-edit": "true",
@@ -623,7 +623,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt.io:view",
+			Name: "kubevirt.internal.virtualization.deckhouse.io:view",
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 				"rbac.authorization.k8s.io/aggregate-to-view": "true",

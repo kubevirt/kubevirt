@@ -27,7 +27,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
-const SynchronizationControllerServiceAccountName = "kubevirt-synchronization-controller"
+const SynchronizationControllerServiceAccountName = "kubevirt-internal-virtualization-synchronization-controller"
 
 func GetAllSynchronizationController(namespace string) []runtime.Object {
 	return []runtime.Object{

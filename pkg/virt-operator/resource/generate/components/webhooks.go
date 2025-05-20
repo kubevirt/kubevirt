@@ -898,15 +898,15 @@ const VirtExportProxyServiceName = "virt-exportproxy"
 
 const VirtSynchronizationControllerServiceName = "virt-synchronization-controller"
 
-const VirtAPIValidatingWebhookName = "virt-api-validator"
+const VirtAPIValidatingWebhookName = "virt-internal-virtualization-api-validator"
 
 const VirtOperatorServiceName = "kubevirt-operator-webhook"
 
-const VirtAPIMutatingWebhookName = "virt-api-mutator"
+const VirtAPIMutatingWebhookName = "virt-internal-virtualization-api-mutator"
 
 const KubevirtOperatorWebhookServiceName = "kubevirt-operator-webhook"
 
-const KubeVirtOperatorValidatingWebhookName = "virt-operator-validator"
+const KubeVirtOperatorValidatingWebhookName = "virt-internal-virtualization-operator-validator"
 
 const VMSnapshotValidatePath = "/virtualmachinesnapshots-validate"
 
