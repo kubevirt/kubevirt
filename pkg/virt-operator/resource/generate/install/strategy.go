@@ -301,7 +301,7 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 			GenerateName: "kubevirt-install-strategy-",
 			Namespace:    config.GetNamespace(),
 			Labels: map[string]string{
-				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+				v1.ManagedByLabel:       "virt-operator-internal-virtualization",
 				v1.InstallStrategyLabel: "",
 			},
 			Annotations: map[string]string{

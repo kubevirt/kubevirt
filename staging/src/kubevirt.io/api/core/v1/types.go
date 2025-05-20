@@ -914,13 +914,13 @@ const (
 	ManagedByLabelOperatorValue    = "virt-operator"
 	ManagedByLabelOperatorOldValue = "kubevirt-operator"
 	// This annotation represents the kubevirt version for an install strategy configmap.
-	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
+	InstallStrategyVersionAnnotation = "install.internal.virtualization.deckhouse.io/install-strategy-version"
 	// This annotation represents the kubevirt registry used for an install strategy configmap.
-	InstallStrategyRegistryAnnotation = "kubevirt.io/install-strategy-registry"
+	InstallStrategyRegistryAnnotation = "install.internal.virtualization.deckhouse.io/install-strategy-registry"
 	// This annotation represents the kubevirt deployment identifier used for an install strategy configmap.
-	InstallStrategyIdentifierAnnotation = "kubevirt.io/install-strategy-identifier"
+	InstallStrategyIdentifierAnnotation = "install.internal.virtualization.deckhouse.io/install-strategy-identifier"
 	// This annotation shows the enconding used for the manifests in the Install Strategy ConfigMap.
-	InstallStrategyConfigMapEncoding = "kubevirt.io/install-strategy-cm-encoding"
+	InstallStrategyConfigMapEncoding = "install.internal.virtualization.deckhouse.io/install-strategy-cm-encoding"
 	// This annotation is a hash of all customizations that live under spec.CustomizeComponents
 	KubeVirtCustomizeComponentAnnotationHash = "kubevirt.io/customizer-identifier"
 	// This annotation represents the kubevirt generation that was used to create a resource
@@ -931,7 +931,7 @@ const (
 	EphemeralProvisioningObject string = "kubevirt.io/ephemeral-provisioning"
 
 	// This label indicates the object is a part of the install strategy retrieval process.
-	InstallStrategyLabel = "kubevirt.io/install-strategy"
+	InstallStrategyLabel = "install.internal.virtualization.deckhouse.io/install-strategy"
 
 	// Set by virt-operator to coordinate component deletion
 	VirtOperatorComponentFinalizer string = "kubevirt.io/virtOperatorFinalizer"
