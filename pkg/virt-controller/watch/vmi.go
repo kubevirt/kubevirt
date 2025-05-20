@@ -19,14 +19,18 @@
 package watch
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
@@ -1048,6 +1052,9 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		log.Log.Reason(err).Errorf("failed to delete orphaned attachment pods %s: %v", controller.VirtualMachineInstanceKey(vmi), err)
 		// do not return; just log the error
 	}
+	if err := c.deleteErrorPods(context.Background(), vmi, 3); err != nil {
+		return &syncErrorImpl{fmt.Errorf("failed to delete error pods: %v", err), controller.FailedDeletePodReason}
+	}
 
 	err := c.backendStorage.CreateIfNeededAndUpdateVolumeStatus(vmi)
 	if err != nil {
@@ -1173,6 +1180,44 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 					reason: controller.FailedHotplugSyncReason,
 				}
 			}
+		}
+	}
+	return nil
+}
+
+func getAge(obj v1.Object) time.Duration {
+	return time.Since(obj.GetCreationTimestamp().Time).Truncate(time.Second)
+}
+
+func (c *VMIController) deleteErrorPods(ctx context.Context, vmi *virtv1.VirtualMachineInstance, keepCount int) error {
+	pods, err := c.listPodsFromNamespace(vmi.GetNamespace())
+	if err != nil {
+		return fmt.Errorf("failed to list pods from namespace %s: %v", vmi.GetNamespace(), err)
+	}
+	var errorPods []*k8sv1.Pod
+	for _, pod := range pods {
+		if !controller.IsControlledBy(pod, vmi) {
+			continue
+		}
+		if pod.Status.Phase != k8sv1.PodFailed {
+			continue
+		}
+		if !strings.Contains(pod.GetName(), "virt-launcher") {
+			continue
+		}
+		errorPods = append(errorPods, pod)
+	}
+	if len(errorPods) <= keepCount {
+		return nil
+	}
+	slices.SortFunc(errorPods, func(a, b *k8sv1.Pod) int {
+		return cmp.Compare(getAge(a), getAge(b))
+	})
+
+	for _, pod := range errorPods[keepCount:] {
+		err = c.clientset.CoreV1().Pods(vmi.GetNamespace()).Delete(ctx, pod.GetName(), v1.DeleteOptions{GracePeriodSeconds: ptr.To[int64](0)})
+		if err != nil {
+			return fmt.Errorf("failed to delete pod %s: %v", pod.GetName(), err)
 		}
 	}
 	return nil
