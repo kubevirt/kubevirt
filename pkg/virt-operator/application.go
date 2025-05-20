@@ -183,7 +183,6 @@ func Execute() {
 		DaemonSet:                app.informerFactory.OperatorDaemonSet(),
 		ValidationWebhook:        app.informerFactory.OperatorValidationWebhook(),
 		MutatingWebhook:          app.informerFactory.OperatorMutatingWebhook(),
-		APIService:               app.informerFactory.OperatorAPIService(),
 		InstallStrategyConfigMap: app.informerFactory.OperatorInstallStrategyConfigMaps(),
 		InstallStrategyJob:       app.informerFactory.OperatorInstallStrategyJob(),
 		InfrastructurePod:        app.informerFactory.OperatorPod(),

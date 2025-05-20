@@ -140,10 +140,6 @@ func (c *Customizer) Apply(targetStrategy install.StrategyInterface) error {
 	if err != nil {
 		return err
 	}
-	err = c.GenericApplyPatches(targetStrategy.APIServices())
-	if err != nil {
-		return err
-	}
 	err = c.GenericApplyPatches(targetStrategy.CertificateSecrets())
 	if err != nil {
 		return err

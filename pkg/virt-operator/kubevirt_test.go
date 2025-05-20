@@ -168,7 +168,6 @@ func (k *KubeVirtTestData) BeforeTest() {
 	informers.DaemonSet, _ = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
 	informers.ValidationWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingWebhookConfiguration{})
 	informers.MutatingWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
-	informers.APIService, _ = testutils.NewFakeInformerFor(&apiregv1.APIService{})
 	informers.SCC, _ = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 	informers.Route, _ = testutils.NewFakeInformerFor(&routev1.Route{})
 	informers.InstallStrategyConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
@@ -463,8 +462,6 @@ func (k *KubeVirtTestData) deleteResource(resource string, key string) {
 		k.deleteValidationWebhook(key)
 	case "mutatingwebhookconfigurations":
 		k.deleteMutatingWebhook(key)
-	case "apiservices":
-		k.deleteAPIService(key)
 	case "jobs":
 		k.deleteInstallStrategyJob(key)
 	case "configmaps":
@@ -567,13 +564,6 @@ func (k *KubeVirtTestData) deleteValidationWebhook(key string) {
 func (k *KubeVirtTestData) deleteMutatingWebhook(key string) {
 	if obj, exists, _ := k.controller.stores.MutatingWebhookCache.GetByKey(key); exists {
 		k.controller.stores.MutatingWebhookCache.Delete(obj.(runtime.Object))
-	}
-	k.mockQueue.Add(key)
-}
-
-func (k *KubeVirtTestData) deleteAPIService(key string) {
-	if obj, exists, _ := k.controller.stores.APIServiceCache.GetByKey(key); exists {
-		k.controller.stores.APIServiceCache.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Add(key)
 }
@@ -989,7 +979,6 @@ func (k *KubeVirtTestData) addMutatingWebhook(wh *admissionregistrationv1.Mutati
 }
 
 func (k *KubeVirtTestData) addAPIService(as *apiregv1.APIService) {
-	k.controller.stores.APIServiceCache.Add(as)
 	key, err := kubecontroller.KeyFunc(as)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
@@ -1336,12 +1325,6 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 		mutatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
 	}
 	all = append(all, mutatingWebhook)
-
-	apiServices := components.NewVirtAPIAPIServices(config.GetNamespace())
-	for _, apiService := range apiServices {
-		apiService.Spec.CABundle = caBundle
-		all = append(all, apiService)
-	}
 
 	validatingWebhook = components.NewOpertorValidatingWebhookConfiguration(NAMESPACE)
 	for i := range validatingWebhook.Webhooks {

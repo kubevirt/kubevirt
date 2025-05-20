@@ -48,7 +48,6 @@ type Stores struct {
 	DaemonSetCache                        cache.Store
 	ValidationWebhookCache                cache.Store
 	MutatingWebhookCache                  cache.Store
-	APIServiceCache                       cache.Store
 	SCCCache                              cache.Store
 	RouteCache                            cache.Store
 	InstallStrategyConfigMapCache         cache.Store
@@ -78,7 +77,6 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.DaemonSetCache) &&
 		IsStoreEmpty(s.ValidationWebhookCache) &&
 		IsStoreEmpty(s.MutatingWebhookCache) &&
-		IsStoreEmpty(s.APIServiceCache) &&
 		IsStoreEmpty(s.PodDisruptionBudgetCache) &&
 		IsSCCStoreEmpty(s.SCCCache) &&
 		IsStoreEmpty(s.RouteCache) &&
@@ -126,7 +124,6 @@ type Expectations struct {
 	DaemonSet                        *controller.UIDTrackingControllerExpectations
 	ValidationWebhook                *controller.UIDTrackingControllerExpectations
 	MutatingWebhook                  *controller.UIDTrackingControllerExpectations
-	APIService                       *controller.UIDTrackingControllerExpectations
 	SCC                              *controller.UIDTrackingControllerExpectations
 	Route                            *controller.UIDTrackingControllerExpectations
 	InstallStrategyConfigMap         *controller.UIDTrackingControllerExpectations
@@ -154,7 +151,6 @@ type Informers struct {
 	DaemonSet                        cache.SharedIndexInformer
 	ValidationWebhook                cache.SharedIndexInformer
 	MutatingWebhook                  cache.SharedIndexInformer
-	APIService                       cache.SharedIndexInformer
 	SCC                              cache.SharedIndexInformer
 	Route                            cache.SharedIndexInformer
 	InstallStrategyConfigMap         cache.SharedIndexInformer
@@ -185,7 +181,6 @@ func (e *Expectations) DeleteExpectations(key string) {
 	e.DaemonSet.DeleteExpectations(key)
 	e.ValidationWebhook.DeleteExpectations(key)
 	e.MutatingWebhook.DeleteExpectations(key)
-	e.APIService.DeleteExpectations(key)
 	e.SCC.DeleteExpectations(key)
 	e.Route.DeleteExpectations(key)
 	e.InstallStrategyConfigMap.DeleteExpectations(key)
@@ -211,7 +206,6 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.DaemonSet.SetExpectations(key, 0, 0)
 	e.ValidationWebhook.SetExpectations(key, 0, 0)
 	e.MutatingWebhook.SetExpectations(key, 0, 0)
-	e.APIService.SetExpectations(key, 0, 0)
 	e.SCC.SetExpectations(key, 0, 0)
 	e.Route.SetExpectations(key, 0, 0)
 	e.InstallStrategyConfigMap.SetExpectations(key, 0, 0)
@@ -237,7 +231,6 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
 		e.DaemonSet.SatisfiedExpectations(key) &&
 		e.ValidationWebhook.SatisfiedExpectations(key) &&
 		e.MutatingWebhook.SatisfiedExpectations(key) &&
-		e.APIService.SatisfiedExpectations(key) &&
 		e.SCC.SatisfiedExpectations(key) &&
 		e.Route.SatisfiedExpectations(key) &&
 		e.InstallStrategyConfigMap.SatisfiedExpectations(key) &&

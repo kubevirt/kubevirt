@@ -35,7 +35,6 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -205,25 +204,6 @@ func DeleteAll(kv *v1.KubeVirt,
 				if err != nil {
 					expectations.MutatingWebhook.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete mutatingwebhook %+v: %v", webhookConfiguration, err)
-					return err
-				}
-			}
-		} else if !ok {
-			log.Log.Errorf(castFailedFmt, obj)
-			return nil
-		}
-	}
-
-	// delete apiservices
-	objects = stores.APIServiceCache.List()
-	for _, obj := range objects {
-		if apiservice, ok := obj.(*apiregv1.APIService); ok && apiservice.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(apiservice); err == nil {
-				expectations.APIService.AddExpectedDeletion(kvkey, key)
-				err := aggregatorclient.Delete(context.Background(), apiservice.Name, deleteOptions)
-				if err != nil {
-					expectations.APIService.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete apiservice %+v: %v", apiservice, err)
 					return err
 				}
 			}

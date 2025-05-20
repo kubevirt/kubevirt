@@ -99,7 +99,6 @@ func NewKubeVirtController(
 		DaemonSetCache:                        informers.DaemonSet.GetStore(),
 		ValidationWebhookCache:                informers.ValidationWebhook.GetStore(),
 		MutatingWebhookCache:                  informers.MutatingWebhook.GetStore(),
-		APIServiceCache:                       informers.APIService.GetStore(),
 		InstallStrategyConfigMapCache:         informers.InstallStrategyConfigMap.GetStore(),
 		InstallStrategyJobCache:               informers.InstallStrategyJob.GetStore(),
 		InfrastructurePodCache:                informers.InfrastructurePod.GetStore(),
@@ -139,7 +138,6 @@ func NewKubeVirtController(
 			DaemonSet:                        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
 			ValidationWebhook:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ValidationWebhook")),
 			MutatingWebhook:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("MutatingWebhook")),
-			APIService:                       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("APIService")),
 			SCC:                              controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("SCC")),
 			Route:                            controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Route")),
 			InstallStrategyConfigMap:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("InstallStrategyConfigMap")),
@@ -365,21 +363,6 @@ func NewKubeVirtController(
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.MutatingWebhook)
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = informers.APIService.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.genericAddHandler(obj, c.kubeVirtExpectations.APIService)
-		},
-		DeleteFunc: func(obj interface{}) {
-			c.genericDeleteHandler(obj, c.kubeVirtExpectations.APIService)
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.APIService)
 		},
 	})
 	if err != nil {
