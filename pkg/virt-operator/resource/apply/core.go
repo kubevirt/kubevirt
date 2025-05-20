@@ -437,6 +437,18 @@ func generateServicePatch(
 	if service.Spec.SessionAffinity == "" {
 		service.Spec.SessionAffinity = cachedService.Spec.SessionAffinity
 	}
+	if service.Spec.InternalTrafficPolicy == nil {
+		service.Spec.InternalTrafficPolicy = cachedService.Spec.InternalTrafficPolicy
+	}
+	if service.Spec.ClusterIPs == nil {
+		service.Spec.ClusterIPs = cachedService.Spec.ClusterIPs
+	}
+	if service.Spec.IPFamilies == nil {
+		service.Spec.IPFamilies = cachedService.Spec.IPFamilies
+	}
+	if service.Spec.IPFamilyPolicy == nil {
+		service.Spec.IPFamilyPolicy = cachedService.Spec.IPFamilyPolicy
+	}
 
 	// If the Specs don't equal each other, replace it
 	if !equality.Semantic.DeepEqual(cachedService.Spec, service.Spec) {
