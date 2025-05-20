@@ -501,7 +501,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			sc, exist := libstorage.GetRWXBlockStorageClass()
 			Expect(exist).To(BeTrue())
 			srcDV := libdv.NewDataVolume(
-				libdv.WithBlankImageSource(),
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
 				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
 					libdv.StorageWithVolumeSize(size),
 					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
@@ -521,6 +521,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				destDV, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vm := createVMWithDV(srcDV, volName)
+
 			By("Update volumes")
 			updateVMWithDV(vm, volName, destDV.Name)
 			Eventually(func() bool {
@@ -543,7 +544,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			sc, exist := libstorage.GetRWOBlockStorageClass()
 			Expect(exist).To(BeTrue())
 			srcDV := libdv.NewDataVolume(
-				libdv.WithBlankImageSource(),
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
 				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
 					libdv.StorageWithVolumeSize(size),
 					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
