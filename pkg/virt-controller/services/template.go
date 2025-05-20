@@ -73,12 +73,12 @@ const (
 	virtExporter     = "virt-exporter"
 )
 
-const KvmDevice = "devices.kubevirt.io/kvm"
-const TunDevice = "devices.kubevirt.io/tun"
-const VhostNetDevice = "devices.kubevirt.io/vhost-net"
-const SevDevice = "devices.kubevirt.io/sev"
-const VhostVsockDevice = "devices.kubevirt.io/vhost-vsock"
-const PrDevice = "devices.kubevirt.io/pr-helper"
+const KvmDevice = "devices.virtualization.deckhouse.io/kvm"
+const TunDevice = "devices.virtualization.deckhouse.io/tun"
+const VhostNetDevice = "devices.virtualization.deckhouse.io/vhost-net"
+const SevDevice = "devices.virtualization.deckhouse.io/sev"
+const VhostVsockDevice = "devices.virtualization.deckhouse.io/vhost-vsock"
+const PrDevice = "devices.virtualization.deckhouse.io/pr-helper"
 
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"

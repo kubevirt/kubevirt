@@ -230,7 +230,7 @@ func gRPCConnect(socketPath string, timeout time.Duration) (*grpc.ClientConn, er
 }
 
 func SocketPath(deviceName string) string {
-	return filepath.Join(v1beta1.DevicePluginPath, fmt.Sprintf("kubevirt-%s.sock", deviceName))
+	return filepath.Join(v1beta1.DevicePluginPath, fmt.Sprintf("virtualization-deckhouse-%s.sock", deviceName))
 }
 
 func IsChanClosed(ch <-chan struct{}) bool {

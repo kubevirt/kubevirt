@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	DeviceNamespace   = "devices.kubevirt.io"
+	DeviceNamespace   = "devices.virtualization.deckhouse.io"
 	connectionTimeout = 5 * time.Second
 )
 
