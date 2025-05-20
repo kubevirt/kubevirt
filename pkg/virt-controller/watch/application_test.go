@@ -92,6 +92,7 @@ var _ = Describe("Application", func() {
 		pdbInformer, _ := testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		migrationPolicyInformer, _ := testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		resourceQuotaInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
@@ -141,6 +142,9 @@ var _ = Describe("Application", func() {
 			cdiConfigInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
+			podInformer,
+			nsInformer,
+			nodeInformer,
 		)
 		app.rsController, _ = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController, _ = NewVMController(vmiInformer,
@@ -180,7 +184,8 @@ var _ = Describe("Application", func() {
 			CRDInformer:               crdInformer,
 			DVInformer:                dvInformer,
 			Recorder:                  recorder,
-			ResyncPeriod:              60 * time.Second,
+			// The specified resyncPeriod 1m0s is invalid because this shared informer doesn't support resyncing.
+			// ResyncPeriod:              60 * time.Second,
 		}
 		_ = app.snapshotController.Init()
 		app.restoreController = &snapshot.VMRestoreController{
