@@ -84,9 +84,11 @@ import (
 const (
 	// Default port that virt-api listens on.
 	defaultPort = 443
+	defaultMetricsPort = 8080
 
 	// Default address that virt-api listens on.
 	defaultHost = "0.0.0.0"
+	defaultMetricsHost = defaultHost
 
 	DefaultConsoleServerPort = 8186
 
@@ -158,6 +160,8 @@ func NewVirtApi() VirtApi {
 	app := &virtAPIApp{}
 	app.BindAddress = defaultHost
 	app.Port = defaultPort
+	app.MetricsBindAddress = defaultMetricsHost
+	app.MetricsPort = defaultMetricsPort
 
 	return app
 }
@@ -1015,6 +1019,19 @@ func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.KubernetesCAManager, kubevirt
 	app.handlerTLSConfiguration = kvtls.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager, app.externallyManaged)
 }
 
+func (app *virtAPIApp) startPrometheusServer(errCh chan error) {
+	mux := restful.NewContainer()
+	webService := new(restful.WebService)
+	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+	mux.Add(webService)
+	mux.Handle("/metrics", promhttp.Handler())
+	server := http.Server{
+		Addr:    app.ServiceListen.MetricsAddress(),
+		Handler: mux,
+	}
+	errCh <- server.ListenAndServe()
+
+}
 func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) error {
 
 	errors := make(chan error)
@@ -1038,7 +1055,6 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 
 	app.Compose()
 
-	http.Handle("/metrics", promhttp.Handler())
 	server := &http.Server{
 		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, app.Port),
 		TLSConfig: app.tlsConfig,
@@ -1174,6 +1190,8 @@ func (app *virtAPIApp) Run() {
 	go app.certmanager.Start()
 	go app.handlerCertManager.Start()
 
+	promErrCh := make(chan error)
+	go app.startPrometheusServer(promErrCh)
 	// start TLS server
 	// tls server will only accept connections when fetching a certificate and internal configuration passed once
 	err = app.startTLS(kubeInformerFactory)

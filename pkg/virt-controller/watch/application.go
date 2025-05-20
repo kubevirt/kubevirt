@@ -106,8 +106,10 @@ import (
 
 const (
 	defaultPort = 8182
+	defaultMetricsPort = 8080
 
 	defaultHost = "0.0.0.0"
+	defaultMetricsHost = defaultHost
 
 	launcherImage       = "virt-launcher"
 	exporterImage       = "virt-exportserver"
@@ -544,10 +546,12 @@ func (vca *VirtControllerApp) Run() {
 	go promCertManager.Start()
 	promTLSConfig := kvtls.SetupPromTLS(promCertManager, vca.clusterConfig)
 
+	promErrCh := make(chan error)
+	go vca.startPrometheusServer(promErrCh)
+
 	go func() {
 		httpLogger := logger.With("service", "http")
 		_ = httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
-		http.Handle("/metrics", promhttp.Handler())
 		server := http.Server{
 			Addr:      vca.Address(),
 			Handler:   http.DefaultServeMux,
@@ -569,6 +573,20 @@ func (vca *VirtControllerApp) Run() {
 	vca.leaderElector.Run(vca.ctx)
 	metrics.SetVirtControllerNotReady()
 	panic("unreachable")
+}
+
+func (app *VirtControllerApp) startPrometheusServer(errCh chan error) {
+	mux := restful.NewContainer()
+	webService := new(restful.WebService)
+	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+	mux.Add(webService)
+	mux.Handle("/metrics", promhttp.Handler())
+	server := http.Server{
+		Addr:    app.ServiceListen.MetricsAddress(),
+		Handler: mux,
+	}
+	errCh <- server.ListenAndServe()
+
 }
 
 func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
@@ -982,6 +1000,8 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	vca.BindAddress = defaultHost
 	vca.Port = defaultPort
+	vca.MetricsBindAddress = defaultMetricsHost
+	vca.MetricsPort = defaultMetricsPort
 
 	vca.AddCommonFlags()
 
