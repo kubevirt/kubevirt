@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -96,6 +97,9 @@ const (
 	httpStatusNotFoundMessage     = "Not Found"
 	httpStatusBadRequestMessage   = "Bad Request"
 	httpStatusInternalServerError = "Internal Server Error"
+
+	VirtAPIRateLimiterQPSEnvVar   = "VIRT_API_RATE_LIMITER_QPS"
+	VirtAPIRateLimiterBurstEnvVar = "VIRT_API_RATE_LIMITER_BURST"
 )
 
 type VirtApi interface {
@@ -1156,8 +1160,29 @@ func (app *virtAPIApp) shouldChangeLogVerbosity() {
 // Update virt-handler rate limiter
 func (app *virtAPIApp) shouldChangeRateLimiter() {
 	config := app.clusterConfig.GetConfig()
+
 	qps := config.APIConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
+	if os.Getenv(VirtAPIRateLimiterQPSEnvVar) != "" {
+		qpsFromEnv, err := strconv.ParseFloat(os.Getenv(VirtAPIRateLimiterQPSEnvVar), 32)
+		if err != nil {
+			log.Log.Errorf("failed to parse %s: %s, will use default QPS burst %v", VirtAPIRateLimiterQPSEnvVar, err, qps)
+		} else {
+			qps = float32(qpsFromEnv)
+			log.Log.V(2).Infof("use rate limiter QPS %v from %s", qps, VirtAPIRateLimiterQPSEnvVar)
+		}
+	}
+
 	burst := config.APIConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
+	if os.Getenv(VirtAPIRateLimiterBurstEnvVar) != "" {
+		burstFromEnv, err := strconv.ParseInt(os.Getenv(VirtAPIRateLimiterBurstEnvVar), 10, 32)
+		if err != nil {
+			log.Log.Errorf("failed to parse %s: %s, will use default burst %d", VirtAPIRateLimiterBurstEnvVar, err, burst)
+		} else {
+			burst = int(burstFromEnv)
+			log.Log.V(2).Infof("use rate limiter burst %v from %s", burst, VirtAPIRateLimiterBurstEnvVar)
+		}
+	}
+
 	app.reloadableRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
 	log.Log.V(2).Infof("setting rate limiter for the API to %v QPS and %v Burst", qps, burst)
 	qps = config.WebhookConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
