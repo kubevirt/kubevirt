@@ -27,9 +27,11 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/client-go/log"
 
@@ -178,20 +180,64 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 					ClaimName: volume.Name,
 				}
 			}
+			if volume.ContainerDisk != nil && status.ContainerDiskVolume == nil {
+				status.ContainerDiskVolume = &virtv1.ContainerDiskInfo{}
+			}
 			if attachmentPod == nil {
-				if !c.volumeReady(status.Phase) {
+				if volume.ContainerDisk != nil {
 					status.HotplugVolume.AttachPodUID = ""
-					// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
-					phase, reason, message := c.getVolumePhaseMessageReason(&vmi.Spec.Volumes[i], vmi.Namespace)
-					status.Phase = phase
-					log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volume.Name)
-					status.Message = message
-					status.Reason = reason
+					status.Phase = virtv1.VolumePending
+					status.Message = "Attachment pod not found"
+					status.Reason = "AttachmentPodNotFound"
+				} else {
+					if !c.volumeReady(status.Phase) {
+						status.HotplugVolume.AttachPodUID = ""
+						// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
+						phase, reason, message := c.getVolumePhaseMessageReason(&vmi.Spec.Volumes[i], vmi.Namespace)
+						status.Phase = phase
+						log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volume.Name)
+						status.Message = message
+						status.Reason = reason
+					}
 				}
 			} else {
 				status.HotplugVolume.AttachPodName = attachmentPod.Name
-				if len(attachmentPod.Status.ContainerStatuses) == 1 && attachmentPod.Status.ContainerStatuses[0].Ready {
+				if volume.ContainerDisk != nil {
+					var (
+						uid     types.UID
+						isReady bool
+					)
+					for _, cs := range attachmentPod.Status.ContainerStatuses {
+						name := strings.TrimPrefix(cs.Name, "hotplug-container-disk-")
+						if volume.Name == name {
+							uid = attachmentPod.UID
+							isReady = cs.Ready
+							break
+						}
+					}
+					if isReady {
+						status.HotplugVolume.AttachPodUID = uid
+					} else {
+						status.HotplugVolume.AttachPodUID = ""
+
+					}
+				} else if len(attachmentPod.Status.ContainerStatuses) == 1 && attachmentPod.Status.ContainerStatuses[0].Ready {
 					status.HotplugVolume.AttachPodUID = attachmentPod.UID
+				} else if volume.PersistentVolumeClaim != nil {
+					var isReady bool
+					for _, cs := range attachmentPod.Status.ContainerStatuses {
+						if cs.Name == "hotplug-disk" {
+							isReady = cs.Ready
+							break
+						}
+					}
+
+					if isReady {
+						status.HotplugVolume.AttachPodUID = attachmentPod.UID
+					} else {
+						// Remove UID of old pod if a new one is available, but not yet ready
+						status.HotplugVolume.AttachPodUID = ""
+					}
 				} else {
 					// Remove UID of old pod if a new one is available, but not yet ready
 					status.HotplugVolume.AttachPodUID = ""

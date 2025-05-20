@@ -735,6 +735,7 @@ spec:
           optional: true
           volumeLabel: volumeLabelValue
         containerDisk:
+          hotpluggable: true
           image: imageValue
           imagePullPolicy: imagePullPolicyValue
           imagePullSecret: imagePullSecretValue
@@ -868,6 +869,12 @@ status:
       - dryRunValue
       name: nameValue
       volumeSource:
+        containerDisk:
+          hotpluggable: true
+          image: imageValue
+          imagePullPolicy: imagePullPolicyValue
+          imagePullSecret: imagePullSecretValue
+          path: pathValue
         dataVolume:
           hotpluggable: true
           name: nameValue

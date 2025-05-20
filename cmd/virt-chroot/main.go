@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"runtime"
 	"strconv"
 	"strings"
@@ -16,6 +17,8 @@ import (
 
 var (
 	mntNamespace string
+	targetUser   string
+	targetUserID int
 )
 
 func init() {
@@ -43,6 +46,45 @@ func main() {
 					return fmt.Errorf("failed to join the mount namespace: %v", err)
 				}
 			}
+
+			var u *user.User
+			if targetUserID >= 0 {
+				_, _, errno := syscall.Syscall(syscall.SYS_SETUID, uintptr(targetUserID), 0, 0)
+				if errno != 0 {
+					return fmt.Errorf("failed to switch to user: %d. errno: %d", targetUserID, errno)
+				}
+			} else if targetUser != "" {
+				var err error
+				u, err = user.Lookup(targetUser)
+				if err != nil {
+					return fmt.Errorf("failed to look up user: %v", err)
+				}
+			}
+
+			// Now let's switch users and drop privileges
+			if u != nil {
+				uid, err := strconv.ParseInt(u.Uid, 10, 32)
+				if err != nil {
+					return fmt.Errorf("failed to parse uid: %v", err)
+				}
+				gid, err := strconv.ParseInt(u.Gid, 10, 32)
+				if err != nil {
+					return fmt.Errorf("failed to parse gid: %v", err)
+				}
+				err = unix.Setgroups([]int{int(gid)})
+				if err != nil {
+					return fmt.Errorf("failed to drop auxiliary groups: %v", err)
+				}
+				_, _, errno := syscall.Syscall(syscall.SYS_SETGID, uintptr(gid), 0, 0)
+				if errno != 0 {
+					return fmt.Errorf("failed to join the group of the user: %v", err)
+				}
+				_, _, errno = syscall.Syscall(syscall.SYS_SETUID, uintptr(uid), 0, 0)
+				if errno != 0 {
+					return fmt.Errorf("failed to switch to user: %v", err)
+				}
+			}
+
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -51,6 +93,8 @@ func main() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&mntNamespace, "mount", "", "mount namespace to use")
+	rootCmd.PersistentFlags().StringVar(&targetUser, "user", "", "switch to this targetUser to e.g. drop privileges")
+	rootCmd.PersistentFlags().IntVar(&targetUserID, "userid", -1, "switch to this targetUser to e.g. drop privileges")
 
 	execCmd := &cobra.Command{
 		Use:   "exec",
@@ -71,16 +115,39 @@ func main() {
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var mntOpts uint = 0
+			var dataOpts []string
 
 			fsType := cmd.Flag("type").Value.String()
 			mntOptions := cmd.Flag("options").Value.String()
+			var (
+				uid = -1
+				gid = -1
+			)
 			for _, opt := range strings.Split(mntOptions, ",") {
 				opt = strings.TrimSpace(opt)
-				switch opt {
-				case "ro":
+				switch {
+				case opt == "ro":
 					mntOpts = mntOpts | syscall.MS_RDONLY
-				case "bind":
+				case opt == "bind":
 					mntOpts = mntOpts | syscall.MS_BIND
+				case opt == "remount":
+					mntOpts = mntOpts | syscall.MS_REMOUNT
+				case strings.HasPrefix(opt, "uid="):
+					uidS := strings.TrimPrefix(opt, "uid=")
+					uidI, err := strconv.Atoi(uidS)
+					if err != nil {
+						return fmt.Errorf("failed to parse uid: %w", err)
+					}
+					uid = uidI
+					dataOpts = append(dataOpts, opt)
+				case strings.HasPrefix(opt, "gid="):
+					gidS := strings.TrimPrefix(opt, "gid=")
+					gidI, err := strconv.Atoi(gidS)
+					if err != nil {
+						return fmt.Errorf("failed to parse gid: %w", err)
+					}
+					gid = gidI
+					dataOpts = append(dataOpts, opt)
 				default:
 					return fmt.Errorf("mount option %s is not supported", opt)
 				}
@@ -103,8 +170,17 @@ func main() {
 				return fmt.Errorf("mount target invalid: %v", err)
 			}
 			defer targetFile.Close()
-
-			return syscall.Mount(sourceFile.SafePath(), targetFile.SafePath(), fsType, uintptr(mntOpts), "")
+			if uid >= 0 && gid >= 0 {
+				err = os.Chown(targetFile.SafePath(), uid, gid)
+				if err != nil {
+					return fmt.Errorf("chown target failed: %w", err)
+				}
+			}
+			var data string
+			if len(dataOpts) > 0 {
+				data = strings.Join(dataOpts, ",")
+			}
+			return syscall.Mount(sourceFile.SafePath(), targetFile.SafePath(), fsType, uintptr(mntOpts), data)
 		},
 	}
 	mntCmd.Flags().StringP("options", "o", "", "comma separated list of mount options")

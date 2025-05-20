@@ -23,14 +23,18 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	container_disk "kubevirt.io/kubevirt/pkg/container-disk"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -50,12 +54,19 @@ func needsHandleHotplug(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8
 }
 
 func getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
+	sort.Slice(hotplugAttachmentPods, func(i, j int) bool {
+		return hotplugAttachmentPods[i].CreationTimestamp.Time.Before(hotplugAttachmentPods[j].CreationTimestamp.Time)
+	})
+
 	var currentPod *k8sv1.Pod
 	oldPods := make([]*k8sv1.Pod, 0)
 	for _, attachmentPod := range hotplugAttachmentPods {
 		if !podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes) {
 			oldPods = append(oldPods, attachmentPod)
 		} else {
+			if currentPod != nil {
+				oldPods = append(oldPods, currentPod)
+			}
 			currentPod = attachmentPod
 		}
 	}
@@ -135,6 +146,10 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 	readyHotplugVolumes := make([]*v1.Volume, 0)
 	// Find all ready volumes
 	for _, volume := range hotplugVolumes {
+		if container_disk.IsHotplugContainerDisk(volume) {
+			readyHotplugVolumes = append(readyHotplugVolumes, volume)
+			continue
+		}
 		var err error
 		ready, wffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
 		if err != nil {
@@ -243,6 +258,16 @@ func findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Po
 func (c *Controller) createAttachmentPodTemplate(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod, volumes []*v1.Volume) (*k8sv1.Pod, error) {
 	logger := log.Log.Object(vmi)
 
+	var hasContainerDisk bool
+	var newVolumes []*v1.Volume
+	for _, volume := range volumes {
+		if volume.VolumeSource.ContainerDisk != nil {
+			hasContainerDisk = true
+			continue
+		}
+		newVolumes = append(newVolumes, volume)
+	}
+
 	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcIndexer, virtlauncherPod.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PVC map: %v", err)
@@ -265,7 +290,7 @@ func (c *Controller) createAttachmentPodTemplate(vmi *v1.VirtualMachineInstance,
 		}
 	}
 
-	if len(volumeNamesPVCMap) > 0 {
+	if len(volumeNamesPVCMap) > 0 || hasContainerDisk {
 		return c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesPVCMap)
 	}
 	return nil, err
@@ -360,20 +385,45 @@ func (c *Controller) deleteAttachmentPod(vmi *v1.VirtualMachineInstance, attachm
 }
 
 func podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*v1.Volume) bool {
-	// -2 for empty dir and token
-	if len(attachmentPod.Spec.Volumes)-2 != len(volumes) {
-		return false
-	}
-	podVolumeMap := make(map[string]k8sv1.Volume)
-	for _, volume := range attachmentPod.Spec.Volumes {
-		if volume.PersistentVolumeClaim != nil {
-			podVolumeMap[volume.Name] = volume
+	const (
+		// -2 for empty dir and token
+		subVols = 2
+		// -4 for hotplug with ContainerDisk. 3 empty dir + token
+		subVolsWithContainerDisk = 4
+	)
+	containerDisksNames := make(map[string]struct{})
+	for _, ctr := range attachmentPod.Spec.Containers {
+		if strings.HasPrefix(ctr.Name, services.HotplugContainerDisk) {
+			containerDisksNames[strings.TrimPrefix(ctr.Name, services.HotplugContainerDisk)] = struct{}{}
 		}
 	}
+
+	var sub = subVols
+	if len(containerDisksNames) > 0 {
+		sub = subVolsWithContainerDisk
+	}
+
+	countAttachmentVolumes := len(attachmentPod.Spec.Volumes) - sub + len(containerDisksNames)
+
+	if countAttachmentVolumes != len(volumes) {
+		return false
+	}
+
+	podVolumeMap := make(map[string]struct{})
+	for _, volume := range attachmentPod.Spec.Volumes {
+		if volume.PersistentVolumeClaim != nil {
+			podVolumeMap[volume.Name] = struct{}{}
+		}
+	}
+
 	for _, volume := range volumes {
+		if container_disk.IsHotplugContainerDisk(volume) {
+			delete(containerDisksNames, volume.Name)
+			continue
+		}
 		delete(podVolumeMap, volume.Name)
 	}
-	return len(podVolumeMap) == 0
+	return len(podVolumeMap) == 0 && len(containerDisksNames) == 0
 }
 
 func hasPendingPods(pods []*k8sv1.Pod) bool {

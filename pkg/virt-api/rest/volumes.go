@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -108,6 +109,8 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 		opts.VolumeSource.DataVolume.Hotpluggable = true
 	} else if opts.VolumeSource.PersistentVolumeClaim != nil {
 		opts.VolumeSource.PersistentVolumeClaim.Hotpluggable = true
+	} else if opts.VolumeSource.ContainerDisk != nil {
+		opts.VolumeSource.ContainerDisk.Hotpluggable = true
 	}
 
 	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
@@ -318,7 +321,8 @@ func verifyVolumeOption(volumes []v1.Volume, volumeRequest *v1.VirtualMachineVol
 
 func volumeSourceExists(volume v1.Volume, volumeName string) bool {
 	return (volume.DataVolume != nil && volume.DataVolume.Name == volumeName) ||
-		(volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == volumeName)
+		(volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == volumeName) ||
+		(volume.ContainerDisk != nil && volume.ContainerDisk.Image == volumeName)
 }
 
 func volumeExists(volume v1.Volume, volumeName string) bool {
@@ -335,6 +339,9 @@ func volumeSourceName(volumeSource *v1.HotplugVolumeSource) string {
 	}
 	if volumeSource.PersistentVolumeClaim != nil {
 		return volumeSource.PersistentVolumeClaim.ClaimName
+	}
+	if volumeSource.ContainerDisk != nil {
+		return volumeSource.ContainerDisk.Image
 	}
 	return ""
 }
@@ -373,7 +380,9 @@ func generateVolumeRequestPatch(prefix string, vmiSpec *v1.VirtualMachineInstanc
 }
 
 func volumeHotpluggable(volume v1.Volume) bool {
-	return (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable)
+	return (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) ||
+		(volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable) ||
+		(volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable)
 }
 
 func generateVMVolumeRequestPatch(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest) ([]byte, error) {

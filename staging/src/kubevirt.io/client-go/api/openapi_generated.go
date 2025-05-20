@@ -18574,6 +18574,12 @@ func schema_kubevirtio_api_core_v1_ContainerDiskSource(ref common.ReferenceCallb
 							Enum:        []interface{}{"Always", "IfNotPresent", "Never"},
 						},
 					},
+					"hotpluggable": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"image"},
 			},
@@ -20707,11 +20713,16 @@ func schema_kubevirtio_api_core_v1_HotplugVolumeSource(ref common.ReferenceCallb
 							Ref:         ref("kubevirt.io/api/core/v1.DataVolumeSource"),
 						},
 					},
+					"containerDisk": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.ContainerDiskSource"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource"},
+			"kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource"},
 	}
 }
 

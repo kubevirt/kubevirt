@@ -30,6 +30,7 @@ import (
 
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -46,8 +47,10 @@ import (
 var podsBaseDir = util.KubeletPodsDir
 
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
+var hotplugBaseDir = filepath.Join(util.VirtShareDir, "/hotplug-disks")
 
 type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
+type HotplugSocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeName string, sourceUID types.UID) (string, error)
 type KernelBootSocketPathGetter func(vmi *v1.VirtualMachineInstance) (string, error)
 
 const KernelBootName = "kernel-boot"
@@ -106,6 +109,10 @@ func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
 	return filepath.Join(mountBaseDir, GetDiskTargetName(volumeIndex))
 }
 
+func GetHotplugContainerDiskTargetPathFromLauncherView(volumeName string) string {
+	return filepath.Join(hotplugBaseDir, fmt.Sprintf("%s.img", volumeName))
+}
+
 func GetKernelBootArtifactPathFromLauncherView(artifact string) string {
 	artifactBase := filepath.Base(artifact)
 	return filepath.Join(mountBaseDir, KernelBootName, artifactBase)
@@ -146,6 +153,27 @@ func NewSocketPathGetter(baseDir string) SocketPathGetter {
 				return socketPath, nil
 			}
 		}
+		return "", fmt.Errorf("container disk socket path not found for vmi \"%s\"", vmi.Name)
+	}
+}
+
+func NewHotplugSocketPathGetter(baseDir string) HotplugSocketPathGetter {
+	return func(vmi *v1.VirtualMachineInstance, volumeName string, sourceUID types.UID) (string, error) {
+		for _, v := range vmi.Status.VolumeStatus {
+			if v.Name == volumeName && v.HotplugVolume != nil && v.ContainerDiskVolume != nil {
+				uid := string(sourceUID)
+				if uid == "" {
+					uid = string(v.HotplugVolume.AttachPodUID)
+				}
+				basePath := getHotplugContainerDiskSocketBasePath(baseDir, uid)
+				socketPath := filepath.Join(basePath, fmt.Sprintf("hotplug-container-disk-%s.sock", volumeName))
+				exists, _ := diskutils.FileExists(socketPath)
+				if exists {
+					return socketPath, nil
+				}
+			}
+		}
+
 		return "", fmt.Errorf("container disk socket path not found for vmi \"%s\"", vmi.Name)
 	}
 }
@@ -258,7 +286,7 @@ func generateContainersHelper(vmi *v1.VirtualMachineInstance, config *virtconfig
 }
 
 func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, imageIDs map[string]string, podVolumeName, binVolumeName string, isInit, isKernelBoot bool, volume *v1.Volume, volumeIdx int) *kubev1.Container {
-	if volume.ContainerDisk == nil {
+	if volume.ContainerDisk == nil || volume.ContainerDisk.Hotpluggable {
 		return nil
 	}
 
@@ -358,7 +386,7 @@ func CreateEphemeralImages(
 	// for each disk that requires it.
 
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.ContainerDisk != nil {
+		if volume.VolumeSource.ContainerDisk != nil && !volume.VolumeSource.ContainerDisk.Hotpluggable {
 			info, _ := disksInfo[volume.Name]
 			if info == nil {
 				return fmt.Errorf("no disk info provided for volume %s", volume.Name)
@@ -381,6 +409,10 @@ func CreateEphemeralImages(
 
 func getContainerDiskSocketBasePath(baseDir, podUID string) string {
 	return fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, podUID)
+}
+
+func getHotplugContainerDiskSocketBasePath(baseDir, podUID string) string {
+	return fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/hotplug-container-disks", baseDir, podUID)
 }
 
 // ExtractImageIDsFromSourcePod takes the VMI and its source pod to determine the exact image used by containerdisks and boot container images,

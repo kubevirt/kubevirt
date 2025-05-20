@@ -167,7 +167,7 @@ kind: RoleBinding
 metadata:
   labels:
     kubevirt.io: ""
-  name: kubevirt-operator-rolebinding
+  name: kubevirt-operator
   namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -658,6 +658,13 @@ rules:
   resources:
   - virtualmachines/finalizers
   - virtualmachineinstances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - subresources.virtualization.deckhouse.io
+  resources:
+  - virtualmachines/addvolume
+  - virtualmachines/removevolume
   verbs:
   - update
 - apiGroups:

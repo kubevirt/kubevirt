@@ -615,6 +615,9 @@ func Convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c 
 	if source.DataVolume != nil {
 		return Convert_v1_Hotplug_DataVolume_To_api_Disk(source.Name, disk, c)
 	}
+	if source.ContainerDisk != nil {
+		return Convert_v1_Hotplug_ContainerDisk_To_api_Disk(source.Name, disk, c)
+	}
 	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.GetName())
 }
 
@@ -662,6 +665,10 @@ func GetBlockDeviceVolumePath(volumeName string) string {
 // GetHotplugBlockDeviceVolumePath returns the path and name of a hotplugged block device
 func GetHotplugBlockDeviceVolumePath(volumeName string) string {
 	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", volumeName)
+}
+
+func GetHotplugContainerDiskPath(volumeName string) string {
+	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", fmt.Sprintf("%s.img", volumeName))
 }
 
 func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
@@ -739,6 +746,37 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
 		disk.Driver.Discard = "unmap"
 	}
 	disk.Source.Dev = GetHotplugBlockDeviceVolumePath(volumeName)
+	return nil
+}
+
+var ErrHotplugContainerDiskInfoNotProvided = errors.New("hotplug container disk info not provided")
+
+func Convert_v1_Hotplug_ContainerDisk_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
+	if disk.Type == "lun" {
+		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
+	}
+	info := c.DisksInfo[volumeName]
+	if info == nil {
+		return fmt.Errorf("no disk info provided for volume %s: %w", volumeName, ErrHotplugContainerDiskInfoNotProvided)
+	}
+
+	disk.Type = "file"
+	disk.Driver.Type = info.Format
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
+	disk.ReadOnly = toApiReadOnly(true)
+	if !slices.Contains(c.VolumesDiscardIgnore, volumeName) {
+		disk.Driver.Discard = "unmap"
+	}
+	disk.Source.File = GetHotplugContainerDiskPath(volumeName)
+	disk.BackingStore = &api.BackingStore{
+		Format: &api.BackingStoreFormat{},
+		Source: &api.DiskSource{},
+	}
+
+	//disk.BackingStore.Format.Type = info.Format
+	//disk.BackingStore.Source.File = info.BackingFile
+	//disk.BackingStore.Type = "file"
+
 	return nil
 }
 
@@ -1673,6 +1711,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			err = Convert_v1_Missing_Volume_To_api_Disk(&newDisk)
 		case hpOk:
 			err = Convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, c)
+			if errors.Is(err, ErrHotplugContainerDiskInfoNotProvided) {
+				log.DefaultLogger().Warningf("Hotplug container disk info not provided. Skip hotplug disk %s", disk.Name)
+				continue
+			}
 		default:
 			err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
 		}

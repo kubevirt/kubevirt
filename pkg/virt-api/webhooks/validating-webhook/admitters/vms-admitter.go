@@ -385,6 +385,8 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 				newVolume.VolumeSource.PersistentVolumeClaim = volumeRequest.AddVolumeOptions.VolumeSource.PersistentVolumeClaim
 			} else if volumeRequest.AddVolumeOptions.VolumeSource.DataVolume != nil {
 				newVolume.VolumeSource.DataVolume = volumeRequest.AddVolumeOptions.VolumeSource.DataVolume
+			} else if volumeRequest.AddVolumeOptions.VolumeSource.ContainerDisk != nil {
+				newVolume.VolumeSource.ContainerDisk = volumeRequest.AddVolumeOptions.VolumeSource.ContainerDisk
 			}
 
 			vmVolume, ok := vmVolumeMap[name]
@@ -480,6 +482,14 @@ func validateHotplugDiskConfiguration(disk *v1.Disk, name, messagePrefix, field 
 			}}
 		}
 	case disk.DiskDevice.LUN != nil:
+		if bus != v1.DiskBusSCSI {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s for LUN [%s] requires bus to be 'scsi'. [%s] is not permitted.", messagePrefix, name, bus),
+				Field:   field,
+			}}
+		}
+	case disk.DiskDevice.CDRom != nil:
 		if bus != v1.DiskBusSCSI {
 			return []metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueInvalid,

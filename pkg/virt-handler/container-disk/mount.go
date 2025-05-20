@@ -237,7 +237,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
 
 	record := vmiMountTargetRecord{}
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.ContainerDisk != nil {
+		if volume.ContainerDisk != nil && !volume.ContainerDisk.Hotpluggable {
 			diskTargetDir, err := containerdisk.GetDiskTargetDirFromHostView(vmi)
 			if err != nil {
 				return err
@@ -274,7 +274,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.ContainerDisk != nil {
+		if volume.ContainerDisk != nil && !volume.ContainerDisk.Hotpluggable {
 			diskTargetDir, err := containerdisk.GetDiskTargetDirFromHostView(vmi)
 			if err != nil {
 				return err
@@ -372,7 +372,7 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 		}
 	}
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.ContainerDisk != nil {
+		if volume.ContainerDisk != nil && !volume.ContainerDisk.Hotpluggable {
 			sock, err := m.socketPathGetter(vmi, i)
 			if err == nil {
 				_, err = m.podIsolationDetector.DetectForSocket(vmi, sock)
@@ -692,7 +692,7 @@ func (m *mounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksu
 
 	// compute for containerdisks
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.ContainerDisk == nil {
+		if volume.VolumeSource.ContainerDisk == nil || volume.VolumeSource.ContainerDisk.Hotpluggable {
 			continue
 		}
 

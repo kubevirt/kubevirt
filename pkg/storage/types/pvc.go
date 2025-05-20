@@ -139,6 +139,9 @@ func GetPVCsFromVolumes(volumes []virtv1.Volume) map[string]string {
 func VirtVolumesToPVCMap(volumes []*virtv1.Volume, pvcStore cache.Store, namespace string) (map[string]*k8sv1.PersistentVolumeClaim, error) {
 	volumeNamesPVCMap := make(map[string]*k8sv1.PersistentVolumeClaim)
 	for _, volume := range volumes {
+		if volume.ContainerDisk != nil {
+			continue
+		}
 		claimName := PVCNameFromVirtVolume(volume)
 		if claimName == "" {
 			return nil, fmt.Errorf("volume %s is not a PVC or Datavolume", volume.Name)
@@ -307,6 +310,9 @@ func IsHotplugVolume(vol *virtv1.Volume) bool {
 	}
 	volSrc := vol.VolumeSource
 	if volSrc.MemoryDump != nil && volSrc.MemoryDump.PersistentVolumeClaimVolumeSource.Hotpluggable {
+		return true
+	}
+	if volSrc.ContainerDisk != nil && volSrc.ContainerDisk.Hotpluggable {
 		return true
 	}
 

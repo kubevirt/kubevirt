@@ -227,11 +227,11 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 			}
 		} else {
 			// This is a new volume, ensure that the volume is either DV, PVC or memoryDumpVolume
-			if v.DataVolume == nil && v.PersistentVolumeClaim == nil && v.MemoryDump == nil {
+			if v.DataVolume == nil && v.PersistentVolumeClaim == nil && v.MemoryDump == nil && v.ContainerDisk == nil {
 				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("volume %s is not a PVC or DataVolume", k),
+						Message: fmt.Sprintf("volume %s is not a PVC,DataVolume,MemoryDumpVolume or ContainerDisk", k),
 					},
 				})
 			}

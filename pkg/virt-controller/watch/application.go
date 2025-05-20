@@ -105,10 +105,10 @@ import (
 )
 
 const (
-	defaultPort = 8182
+	defaultPort        = 8182
 	defaultMetricsPort = 8080
 
-	defaultHost = "0.0.0.0"
+	defaultHost        = "0.0.0.0"
 	defaultMetricsHost = defaultHost
 
 	launcherImage       = "virt-launcher"
@@ -805,7 +805,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
-	vca.vmController, err = vm.NewVMController(
+	vca.vmController, err = vm.NewController(
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.dataVolumeInformer,
