@@ -61,6 +61,19 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
 					ServiceAccountName: "kubevirt-operator",
 					RestartPolicy:      k8sv1.RestartPolicyNever,
 					ImagePullSecrets:   config.GetImagePullSecrets(),
+					Tolerations:        []k8sv1.Toleration{{Operator: k8sv1.TolerationOpExists}},
+					Affinity: &k8sv1.Affinity{PodAffinity: &k8sv1.PodAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{{
+							TopologyKey: "kubernetes.io/hostname",
+							LabelSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{{
+									Key:      v1.AppLabel,
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{VirtOperator},
+								}},
+							},
+						}},
+					}},
 
 					Containers: []k8sv1.Container{
 						{
