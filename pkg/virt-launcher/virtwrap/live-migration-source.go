@@ -306,9 +306,9 @@ func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks
 			}
 		case volSrc.ConfigMap != nil || volSrc.Secret != nil || volSrc.DownwardAPI != nil ||
 			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil ||
-			volSrc.CloudInitConfigDrive != nil || (volSrc.ContainerDisk != nil && !volSrc.ContainerDisk.Hotpluggable):
+			volSrc.CloudInitConfigDrive != nil:
 			disks.generated[volume.Name] = true
-		case volSrc.ContainerDisk != nil && volSrc.ContainerDisk.Hotpluggable:
+		case volSrc.ContainerDisk != nil:
 			disks.shared[volume.Name] = true
 		}
 	}
