@@ -335,6 +335,8 @@ type KubeInformerFactory interface {
 	DummyResourceSlice() cache.SharedIndexInformer
 
 	K8SInformerFactory() informers.SharedInformerFactory
+
+	VirtualizationCA() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -1517,4 +1519,13 @@ func VolumeSnapshotClassInformer(clientSet kubecli.KubevirtClient, resyncPeriod 
 	restClient := clientSet.KubernetesSnapshotClient().SnapshotV1().RESTClient()
 	lw := cache.NewListWatchFromClient(restClient, "volumesnapshotclasses", k8sv1.NamespaceAll, fields.Everything())
 	return cache.NewSharedIndexInformer(lw, &vsv1.VolumeSnapshotClass{}, resyncPeriod, cache.Indexers{})
+}
+
+func (f *kubeInformerFactory) VirtualizationCA() cache.SharedIndexInformer {
+	return f.getInformer("extensionsVirtualizationCAConfigMapInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.CoreV1().RESTClient()
+		fieldSelector := fields.OneTermEqualSelector("metadata.name", "virtualization-ca")
+		lw := cache.NewListWatchFromClient(restClient, "configmaps", f.kubevirtNamespace, fieldSelector)
+		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
 }
