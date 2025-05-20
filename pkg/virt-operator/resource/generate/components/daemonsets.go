@@ -133,14 +133,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	pod.InitContainers = []corev1.Container{
 		{
 			Command: []string{
-				"/bin/sh",
-				"-c",
+				"node-labeller",
 			},
 			Image: launcherImage,
 			Name:  "virt-launcher",
-			Args: []string{
-				"node-labeller.sh",
-			},
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: pointer.P(true),
 			},
@@ -376,5 +372,4 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, pullPolicy))
 	}
 	return daemonset
-
 }
