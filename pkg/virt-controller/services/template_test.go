@@ -2876,6 +2876,11 @@ var _ = Describe("Template", func() {
 				MountPath: hooks.HookSocketsSharedDirectory,
 				SubPath:   "hook-sidecar-0",
 			}))
+
+			Expect(pod.Spec.Containers[1].Env).To(ContainElement(k8sv1.EnvVar{
+				Name:  hooks.ContainerNameEnvVar,
+				Value: "hook-sidecar-0",
+			}))
 		})
 
 		Context("with pod networking", func() {

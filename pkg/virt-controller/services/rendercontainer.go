@@ -35,6 +35,7 @@ type ContainerSpecRenderer struct {
 	ports             []k8sv1.ContainerPort
 	capabilities      *k8sv1.Capabilities
 	args              []string
+	extraEnvVars      []k8sv1.EnvVar
 }
 
 type Option func(*ContainerSpecRenderer)
@@ -83,6 +84,8 @@ func (csr *ContainerSpecRenderer) envVars() []k8sv1.EnvVar {
 			Value: strings.Join(csr.sharedFilesystems, ":"),
 		})
 	}
+
+	env = append(env, csr.extraEnvVars...)
 
 	return env
 }
@@ -180,6 +183,12 @@ func WithReadinessProbe(vmi *v1.VirtualMachineInstance) Option {
 		v1.SetDefaults_Probe(vmi.Spec.ReadinessProbe)
 		renderer.readinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
 		updateReadinessProbe(vmi, renderer.readinessProbe)
+	}
+}
+
+func WithExtraEnvVars(envVars []k8sv1.EnvVar) Option {
+	return func(renderer *ContainerSpecRenderer) {
+		renderer.extraEnvVars = append(renderer.extraEnvVars, envVars...)
 	}
 }
 
