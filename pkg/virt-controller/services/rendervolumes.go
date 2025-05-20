@@ -52,6 +52,13 @@ func NewVolumeRenderer(namespace string, ephemeralDisk string, containerDiskDir 
 
 func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
 	volumeMounts := []k8sv1.VolumeMount{
+		mountPath(varRunVolumeName, varRun),
+		mountPath(varLogVolumeName, varLog),
+		mountPath(etcLibvirtVolumeName, etcLibvirt),
+		mountPath(varLibLibvirtVolumeName, varLibLibvirt),
+		mountPath(varCacheLibvirtVolumeName, varCacheLibvirt),
+		mountPath(tmpVolumeName, tmp),
+		mountPath(varLibSWTPMLocalCAVolumeName, varLibSWTPMLocalCA),
 		mountPath("private", util.VirtPrivateDir),
 		mountPath("public", util.VirtShareDir),
 		mountPath("ephemeral-disks", vr.ephemeralDiskDir),
@@ -64,6 +71,13 @@ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
 
 func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
 	volumes := []k8sv1.Volume{
+		emptyDirVolume(varRunVolumeName),
+		emptyDirVolume(varLogVolumeName),
+		emptyDirVolume(etcLibvirtVolumeName),
+		emptyDirVolume(varLibLibvirtVolumeName),
+		emptyDirVolume(varCacheLibvirtVolumeName),
+		emptyDirVolume(tmpVolumeName),
+		emptyDirVolume(varLibSWTPMLocalCAVolumeName),
 		emptyDirVolume("private"),
 		emptyDirVolume("public"),
 		emptyDirVolume("sockets"),

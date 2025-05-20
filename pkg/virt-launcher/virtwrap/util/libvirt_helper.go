@@ -472,7 +472,60 @@ func copyFile(from, to string) error {
 	return err
 }
 
+func copyDir(src, dest string) error {
+	sourceDirInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	if _, err = os.Stat(dest); err != nil {
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(dest, sourceDirInfo.Mode())
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		destPath := filepath.Join(dest, entry.Name())
+
+		if entry.IsDir() {
+			err = copyDir(srcPath, destPath)
+			if err != nil {
+				return err
+			}
+		} else {
+			err = copyFile(srcPath, destPath)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+const (
+	etlLibvirtInit = "/etc/libvirt-init"
+	etcLibvirt     = "/etc/libvirt"
+)
+
 func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
+	if _, err = os.Stat(etlLibvirtInit); err == nil {
+		if err = copyDir(etlLibvirtInit, etcLibvirt); err != nil {
+			return fmt.Errorf("failed to copy %q to %q: %w", etlLibvirtInit, etcLibvirt, err)
+		}
+	}
+
 	runtimeQemuConfPath := qemuConfPath
 	if !l.root() {
 		runtimeQemuConfPath = qemuNonRootConfPath
