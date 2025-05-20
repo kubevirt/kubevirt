@@ -1,9 +1,9 @@
 package components
 
 const (
-	ApiServiceAccountName         = "kubevirt-apiserver"
-	ControllerServiceAccountName  = "kubevirt-controller"
-	ExportProxyServiceAccountName = "kubevirt-exportproxy"
-	HandlerServiceAccountName     = "kubevirt-handler"
+	ApiServiceAccountName         = "kubevirt-internal-virtualization-apiserver"
+	ControllerServiceAccountName  = "kubevirt-internal-virtualization-controller"
+	ExportProxyServiceAccountName = "kubevirt-internal-virtualization-exportproxy"
+	HandlerServiceAccountName     = "kubevirt-internal-virtualization-handler"
 	OperatorServiceAccountName    = "kubevirt-operator"
 )

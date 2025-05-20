@@ -490,7 +490,10 @@ func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMa
 			OwnerReferences: []v1.OwnerReference{
 				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
 			},
-			GenerateName: "kubevirt-disruption-budget-",
+			GenerateName: "kubevirt-internal-virtualization-disruption-budget-",
+			Labels: map[string]string{
+				virtv1.VirtualMachineNameLabel: vmi.GetName(),
+			},
 		},
 		Spec: policyv1.PodDisruptionBudgetSpec{
 			MinAvailable: &minAvailable,

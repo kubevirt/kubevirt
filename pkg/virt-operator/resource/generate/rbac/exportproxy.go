@@ -23,11 +23,12 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
-const ExportProxyServiceAccountName = "kubevirt-exportproxy"
+const ExportProxyServiceAccountName = components.ExportProxyServiceAccountName
 
 func GetAllExportProxy(namespace string) []runtime.Object {
 	return []runtime.Object{

@@ -428,7 +428,7 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 			Kind:       "RoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt-operator-rolebinding",
+			Name:      components.OperatorServiceAccountName,
 			Namespace: namespace,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
