@@ -360,6 +360,10 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		AfterEach(func() {
 			scales.RestoreAllScales()
+			Eventually(func() (bool, error) {
+				ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
+				return ds.Status.CurrentNumberScheduled == ds.Status.DesiredNumberScheduled, err
+			}, time.Minute*5, time.Second*2).Should(BeTrue())
 		})
 
 		It("[QUARANTINE] should fire KubevirtVmHighMemoryUsage alert", decorators.Quarantine, func() {
@@ -398,8 +402,16 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		It("should fire VMCannotBeEvicted alert", func() {
 			By("starting non-migratable VMI with eviction strategy set to LiveMigrate ")
 			vmi := libvmifact.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() v1.VirtualMachineInstancePhase {
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				return vmi.Status.Phase
+			}, 5*time.Minute, 30*time.Second).Should(Equal(v1.Running))
 
 			By("waiting for VMCannotBeEvicted alert")
 			libmonitoring.VerifyAlertExist(virtClient, "VMCannotBeEvicted")
