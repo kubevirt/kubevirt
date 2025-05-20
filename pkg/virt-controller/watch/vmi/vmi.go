@@ -71,6 +71,9 @@ func NewController(templateService services.TemplateService,
 	netStatusUpdater statusUpdater,
 	netSpecValidator specValidator,
 	netMigrationEvaluator migrationEvaluator,
+	allPodInformer cache.SharedIndexInformer,
+	namespaceInformer cache.SharedIndexInformer,
+	nodeInformer cache.SharedIndexInformer,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -100,12 +103,17 @@ func NewController(templateService services.TemplateService,
 		updateNetworkStatus:     netStatusUpdater,
 		validateNetworkSpec:     netSpecValidator,
 		netMigrationEvaluator:   netMigrationEvaluator,
+
+		allPodIndexer:    allPodInformer.GetIndexer(),
+		namespaceIndexer: namespaceInformer.GetIndexer(),
+		nodeIndexer:      nodeInformer.GetIndexer(),
 	}
 
 	c.hasSynced = func() bool {
 		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() &&
 			dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() &&
-			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced()
+			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced() &&
+			allPodInformer.HasSynced() && namespaceInformer.HasSynced() && nodeInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -206,6 +214,10 @@ type Controller struct {
 	updateNetworkStatus     statusUpdater
 	validateNetworkSpec     specValidator
 	netMigrationEvaluator   migrationEvaluator
+
+	allPodIndexer    cache.Indexer
+	namespaceIndexer cache.Indexer
+	nodeIndexer      cache.Indexer
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {

@@ -1468,7 +1468,19 @@ func (f *kubeInformerFactory) StorageClass() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) Pod() cache.SharedIndexInformer {
 	return f.getInformer("podInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{
+			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+			"node": func(obj interface{}) ([]string, error) {
+				pod, ok := obj.(*k8sv1.Pod)
+				if !ok {
+					return nil, nil
+				}
+				if pod.Spec.NodeName == "" {
+					return nil, nil
+				}
+				return []string{pod.Spec.NodeName}, nil
+			},
+		})
 	})
 }
 

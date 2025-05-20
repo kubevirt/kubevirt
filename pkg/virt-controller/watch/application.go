@@ -723,6 +723,9 @@ func (vca *VirtControllerApp) initCommon() {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
 		netmigration.NewEvaluator(),
+		vca.allPodInformer,
+		vca.namespaceInformer,
+		vca.nodeInformer,
 	)
 	if err != nil {
 		panic(err)
@@ -802,7 +805,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
-	vca.vmController, err = vm.NewController(
+	vca.vmController, err = vm.NewVMController(
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.dataVolumeInformer,

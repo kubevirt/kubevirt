@@ -218,7 +218,7 @@ func (c *WorkloadUpdateController) updateVmi(_, obj interface{}) {
 		return
 	}
 
-	if !(isHotplugInProgress(vmi) || isVolumesUpdateInProgress(vmi)) ||
+	if !(isHotplugInProgress(vmi) || isVolumesUpdateInProgress(vmi) || isNodePlacementInProgress(vmi)) ||
 		migrationutils.IsMigrating(vmi) {
 		return
 	}
@@ -329,6 +329,11 @@ func isVolumesUpdateInProgress(vmi *virtv1.VirtualMachineInstance) bool {
 		virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionTrue)
 }
 
+func isNodePlacementInProgress(vmi *virtv1.VirtualMachineInstance) bool {
+	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
+		virtv1.VirtualMachineInstanceNodePlacementNotMatched, k8sv1.ConditionTrue)
+}
+
 func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachineInstance) bool {
 	if vmi.IsFinal() || migrationutils.IsMigrating(vmi) {
 		return false
@@ -340,6 +345,9 @@ func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachi
 		return true
 	}
 	if isVolumesUpdateInProgress(vmi) {
+		return true
+	}
+	if isNodePlacementInProgress(vmi) {
 		return true
 	}
 
@@ -355,6 +363,9 @@ func (c *WorkloadUpdateController) shouldAbortMigration(vmi *virtv1.VirtualMachi
 		return false
 	}
 	if isVolumesUpdateInProgress(vmi) {
+		return false
+	}
+	if isNodePlacementInProgress(vmi) {
 		return false
 	}
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {

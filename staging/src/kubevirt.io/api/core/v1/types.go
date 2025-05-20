@@ -719,6 +719,9 @@ const (
 
 	// VirtualMachineInstanceMigrationRequired Indicates that an automatic migration is required
 	VirtualMachineInstanceMigrationRequired VirtualMachineInstanceConditionType = "MigrationRequired"
+
+	// Indicates that the VMI has affinity or nodeSelector changes
+	VirtualMachineInstanceNodePlacementNotMatched VirtualMachineInstanceConditionType = "NodePlacementNotMatched"
 )
 
 // These are valid reasons for VMI conditions.

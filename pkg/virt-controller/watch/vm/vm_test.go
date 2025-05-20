@@ -26,6 +26,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -36,7 +38,6 @@ import (
 	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 	"kubevirt.io/client-go/log"
 	kvtesting "kubevirt.io/client-go/testing"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
@@ -136,7 +137,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-			controller, _ = NewController(vmiInformer,
+			controller, _ = NewVMController(vmiInformer,
 				vmInformer,
 				dataVolumeInformer,
 				dataSourceInformer,

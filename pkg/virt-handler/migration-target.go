@@ -981,6 +981,7 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to update guest memory")
 	}
 	removeMigratedVolumes(vmi)
+	finalizeNodePlacement(vmi)
 
 	options := &cmdv1.VirtualMachineOptions{}
 	options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
@@ -991,4 +992,8 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 
 	vmi.Status.MigrationState.Completed = true
 	return nil
+}
+
+func finalizeNodePlacement(vmi *v1.VirtualMachineInstance) {
+	controller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceNodePlacementNotMatched)
 }

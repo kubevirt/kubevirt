@@ -33,6 +33,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -43,6 +44,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/util/affinity"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 
@@ -505,6 +507,10 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			c.syncVolumesUpdate(vmiCopy)
 		}
 
+		if err := c.syncNodePlacementCondition(vmiCopy, pod); err != nil {
+			return fmt.Errorf("failed to update condition %s", virtv1.VirtualMachineInstanceNodePlacementNotMatched)
+		}
+
 		c.syncMigrationRequiredCondition(vmiCopy)
 
 	case vmi.IsScheduled():
@@ -580,6 +586,172 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 	}
 
 	return nil
+}
+
+func (c *Controller) syncNodePlacementCondition(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+	status := k8sv1.ConditionFalse
+	templatePod, err := c.templateService.RenderLaunchManifest(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to render pod manifest: %w", err)
+	}
+	changed, err := c.isChangedNodePlacement(pod, templatePod)
+	if err != nil {
+		return fmt.Errorf("could not verify if NodePlacement update is required: %w", err)
+	}
+	if changed {
+		matched, err := c.nodePlacementIsMatched(pod, templatePod)
+		if err != nil {
+			return fmt.Errorf("failed to verify if NodePlacement update is matched: %w", err)
+		}
+		if !matched {
+			status = k8sv1.ConditionTrue
+		}
+	}
+	c.syncNodePlacementNotMatchedCondition(vmi, status)
+	return nil
+}
+
+func (c *Controller) isChangedNodePlacement(pod, templatePod *k8sv1.Pod) (bool, error) {
+	if pod == nil || templatePod == nil {
+		return false, nil
+	}
+
+	// when migration controller creating target pod. It will be created with PodAntiAffinity
+	{
+		var antiAffinityTerm *k8sv1.PodAffinityTerm
+
+		if pod.Spec.Affinity != nil &&
+			pod.Spec.Affinity.PodAntiAffinity != nil &&
+			len(pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution) > 0 {
+			for _, rd := range pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
+				if rd.LabelSelector != nil {
+					if _, found := rd.LabelSelector.MatchLabels[virtv1.CreatedByLabel]; found {
+						antiAffinityTerm = rd.DeepCopy()
+					}
+				}
+			}
+		}
+		if antiAffinityTerm != nil {
+			antiAffinityRule := &k8sv1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{*antiAffinityTerm},
+			}
+			if templatePod.Spec.Affinity == nil {
+				templatePod.Spec.Affinity = &k8sv1.Affinity{
+					PodAntiAffinity: antiAffinityRule,
+				}
+			} else if templatePod.Spec.Affinity.PodAntiAffinity == nil {
+				templatePod.Spec.Affinity.PodAntiAffinity = antiAffinityRule
+			} else {
+				templatePod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(templatePod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution, *antiAffinityTerm)
+			}
+		}
+	}
+
+	return !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, templatePod.Spec.NodeSelector) ||
+		!equality.Semantic.DeepEqual(pod.Spec.Affinity, templatePod.Spec.Affinity), nil
+}
+
+func (c *Controller) nodePlacementIsMatched(pod, templatePod *k8sv1.Pod) (bool, error) {
+	if pod == nil || templatePod == nil {
+		return false, fmt.Errorf("pod or templatePod must not be nil")
+	}
+	templatePod.Namespace = pod.Namespace
+	templatePod.Name = pod.Name
+	obj, exist, err := c.nodeIndexer.GetByKey(pod.Spec.NodeName)
+	if err != nil {
+		return false, err
+	}
+	node := obj.(*k8sv1.Node)
+	if !exist || node == nil {
+		return false, fmt.Errorf("not found node %s", pod.Spec.NodeName)
+	}
+
+	requiredNodeSelectorAndAffinity := affinity.GetRequiredNodeAffinity(templatePod)
+	match, err := requiredNodeSelectorAndAffinity.Match(node)
+	if err != nil {
+		return false, fmt.Errorf("failed to match required node selector and affinity: %w", err)
+	}
+	if !match {
+		return false, nil
+	}
+
+	pods, err := c.listPodsByNode(pod.Spec.NodeName)
+	if err != nil {
+		return false, err
+	}
+
+	podNamespaces := make(map[string]struct{})
+	for _, p := range pods {
+		podNamespaces[p.GetNamespace()] = struct{}{}
+	}
+	allNamespaces := c.namespaceIndexer.List()
+	namespaceLabels := make(map[string]labels.Set, len(podNamespaces))
+	for _, o := range allNamespaces {
+		ns := o.(*k8sv1.Namespace)
+		if _, ok := podNamespaces[ns.GetName()]; ok {
+			namespaceLabels[ns.GetName()] = ns.GetLabels()
+		}
+	}
+
+	podAffinityTerms, err := affinity.GetAffinityTerms(templatePod, affinity.GetPodAffinityTerms(templatePod.Spec.Affinity))
+	if err != nil {
+		return false, err
+	}
+	podAntiAffinityTerms, err := affinity.GetAffinityTerms(templatePod, affinity.GetPodAntiAffinityTerms(templatePod.Spec.Affinity))
+	if err != nil {
+		return false, err
+	}
+
+	var (
+		podMatchedByPodAffinityFound bool
+	)
+
+	for _, p := range pods {
+		if p.GetUID() == pod.GetUID() {
+			continue
+		}
+		if p.Status.Phase == k8sv1.PodSucceeded || p.Status.Phase == k8sv1.PodFailed {
+			continue
+		}
+		nsLabels := namespaceLabels[p.GetNamespace()]
+
+		// If at least one matches the podAffinity, then node placement is suitable.
+		if !podMatchedByPodAffinityFound && affinity.MatchPodAffinityTerms(podAffinityTerms, p, nsLabels) {
+			podMatchedByPodAffinityFound = true
+		}
+		// If at least one matches the podAntiAffinity, then node placement is not suitable. return false
+		if affinity.MatchPodAntiAffinityTerms(podAntiAffinityTerms, p, nsLabels) {
+			return false, nil
+		}
+	}
+
+	return podMatchedByPodAffinityFound, nil
+}
+
+// listPodsByNode takes a node and returns all Pods from the pod cache which run on this node
+func (c *Controller) listPodsByNode(node string) ([]*k8sv1.Pod, error) {
+	objs, err := c.allPodIndexer.ByIndex("node", node)
+	if err != nil {
+		return nil, err
+	}
+	pods := make([]*k8sv1.Pod, 0, len(objs))
+	for _, obj := range objs {
+		pod, ok := obj.(*k8sv1.Pod)
+		if ok {
+			pods = append(pods, pod)
+		}
+	}
+	return pods, nil
+}
+
+func (c *Controller) syncNodePlacementNotMatchedCondition(vmi *virtv1.VirtualMachineInstance, status k8sv1.ConditionStatus) {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	condition := virtv1.VirtualMachineInstanceCondition{
+		Type:               virtv1.VirtualMachineInstanceNodePlacementNotMatched,
+		Status:             status,
+		LastTransitionTime: v1.Now(),
+	}
+	vmiConditions.UpdateCondition(vmi, &condition)
 }
 
 // prepareVMIPatch generates a patch set for updating the VMI status.
