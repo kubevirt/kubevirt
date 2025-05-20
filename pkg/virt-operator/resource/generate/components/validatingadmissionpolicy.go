@@ -117,7 +117,7 @@ func NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount string) *ad
 			Variables: []admissionregistrationv1.Variable{
 				{
 					Name:       "oldNonKubevirtLabels",
-					Expression: `oldObject.metadata.labels.filter(k, !k.contains("kubevirt.io") && k != "cpumanager")`,
+					Expression: `oldObject.metadata.labels.filter(k, !k.contains("kubevirt") && k != "cpumanager" && !k.contains("virtualization.deckhouse.io"))`,
 				},
 				{
 					Name:       "oldLabels",
@@ -125,7 +125,7 @@ func NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount string) *ad
 				},
 				{
 					Name:       "newNonKubevirtLabels",
-					Expression: `object.metadata.labels.filter(k, !k.contains("kubevirt.io") && k != "cpumanager")`,
+					Expression: `object.metadata.labels.filter(k, !k.contains("kubevirt") && k != "cpumanager" && !k.contains("virtualization.deckhouse.io"))`,
 				},
 				{
 					Name:       "newLabels",
@@ -133,11 +133,11 @@ func NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount string) *ad
 				},
 				{
 					Name:       "oldNonKubevirtAnnotations",
-					Expression: `oldObject.metadata.annotations.filter(k, !k.contains("kubevirt.io"))`,
+					Expression: `oldObject.metadata.annotations.filter(k, !k.contains("kubevirt") && !k.contains("virtualization.deckhouse.io"))`,
 				},
 				{
 					Name:       "newNonKubevirtAnnotations",
-					Expression: `object.metadata.annotations.filter(k, !k.contains("kubevirt.io"))`,
+					Expression: `object.metadata.annotations.filter(k, !k.contains("kubevirt") && !k.contains("virtualization.deckhouse.io"))`,
 				},
 				{
 					Name:       "oldAnnotations",
