@@ -382,9 +382,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	if tempPod {
 		logger := log.DefaultLogger()
 		logger.Infof("RUNNING doppleganger pod for %s", vmi.Name)
-		command = []string{"/bin/bash",
-			"-c",
-			"echo", "bound PVCs"}
+		command = []string{"temp_pod"}
 	} else {
 		command = []string{"/usr/bin/virt-launcher-monitor",
 			"--qemu-timeout", generateQemuTimeoutWithJitter(t.launcherQemuTimeout),
@@ -921,7 +919,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 	zero := int64(0)
 	runUser := int64(util.NonRootUID)
 	sharedMount := k8sv1.MountPropagationHostToContainer
-	command := []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
+	command := []string{"/usr/bin/container-disk", "--copy-path", "/path/hp"}
 
 	tmpTolerations := make([]k8sv1.Toleration, len(ownerPod.Spec.Tolerations))
 	copy(tmpTolerations, ownerPod.Spec.Tolerations)
@@ -1076,11 +1074,9 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string
 	if tempPod {
-		command = []string{"/bin/bash",
-			"-c",
-			"exit", "0"}
+		command = []string{"temp_pod"}
 	} else {
-		command = []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
+		command = []string{"/usr/bin/container-disk", "--copy-path", "/path/hp"}
 	}
 
 	annotationsList := make(map[string]string)
