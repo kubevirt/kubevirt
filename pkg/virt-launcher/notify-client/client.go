@@ -3,6 +3,7 @@ package eventsclient
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -528,6 +529,39 @@ func (n *Notifier) StartDomainNotifier(
 		}
 	}
 
+	domainQemuMonitorEventShutdownCallback := func(_ *libvirt.Connect, _ *libvirt.Domain, event *libvirt.DomainQemuMonitorEvent) {
+
+		type Result struct {
+			Event   string `json:"event"`
+			Details string `json:"details"`
+		}
+
+		log.Log.Infof("Domain Qemu Monitor Shutdown event received")
+
+		f, err := os.OpenFile("/dev/termination-log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Log.Reason(err).Error("Failed to open /dev/termination-log")
+			return
+		}
+		defer f.Close()
+
+		r := Result{
+			Event:   event.Event,
+			Details: event.Details,
+		}
+
+		b, err := json.Marshal(r)
+		if err != nil {
+			log.Log.Reason(err).Errorf("Failed to marshal result to JSON. event: %s, details: %s", event.Event, event.Details)
+			return
+		}
+		b = append(b, '\n')
+
+		if _, err = f.Write(b); err != nil {
+			log.Log.Reason(err).Error("Failed to write to termination-log")
+		}
+	}
+
 	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
@@ -566,6 +600,15 @@ func (n *Notifier) StartDomainNotifier(
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
 		return err
+	}
+	for _, event := range []string{
+		"SHUTDOWN",
+	} {
+		err = domainConn.DomainQemuMonitorEventRegister(event, domainQemuMonitorEventShutdownCallback)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
+			return err
+		}
 	}
 
 	log.Log.Infof("Registered libvirt event notify callback")

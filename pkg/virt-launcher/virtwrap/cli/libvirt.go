@@ -65,6 +65,9 @@ type Connection interface {
 	GetDomainStats(statsTypes libvirt.DomainStatsTypes, l *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error)
 	GetQemuVersion() (string, error)
 	GetSEVInfo() (*api.SEVNodeParameters, error)
+
+	DomainQemuMonitorEventRegister(event string, callback libvirt.DomainQemuMonitorEventCallback) (err error)
+	QemuMonitorCommand(command string, domainName string) (string, error)
 }
 
 type Stream interface {
@@ -92,6 +95,7 @@ type LibvirtConnection struct {
 	domainEventMigrationIterationCallbacks      []libvirt.DomainEventMigrationIterationCallback
 	agentEventCallbacks                         []libvirt.DomainEventAgentLifecycleCallback
 	domainDeviceMemoryDeviceSizeChangeCallbacks []libvirt.DomainEventMemoryDeviceSizeChangeCallback
+	domainQemuMonitorEventCallbacks             []qemuMonitorEventRegister
 }
 
 func (s *VirStream) Write(p []byte) (n int, err error) {
@@ -195,6 +199,29 @@ func (l *LibvirtConnection) DomainEventMemoryDeviceSizeChangeRegister(callback l
 	return
 }
 
+type qemuMonitorEventRegister struct {
+	event    string
+	callback libvirt.DomainQemuMonitorEventCallback
+}
+
+func (l *LibvirtConnection) DomainQemuMonitorEventRegister(event string, callback libvirt.DomainQemuMonitorEventCallback) (err error) {
+	if err = l.reconnectIfNecessary(); err != nil {
+		return
+	}
+	l.domainQemuMonitorEventCallbacks = append(l.domainQemuMonitorEventCallbacks, qemuMonitorEventRegister{
+		event:    event,
+		callback: callback,
+	})
+	err = l.domainQemuMonitorEventRegister(event, callback)
+	l.checkConnectionLost(err)
+	return
+}
+
+func (l *LibvirtConnection) domainQemuMonitorEventRegister(event string, callback libvirt.DomainQemuMonitorEventCallback) (err error) {
+	_, err = l.Connect.DomainQemuMonitorEventRegister(nil, event, callback, libvirt.CONNECT_DOMAIN_QEMU_MONITOR_EVENT_REGISTER_NOCASE)
+	return
+}
+
 func (l *LibvirtConnection) DomainEventDeregister(registrationID int) error {
 	return l.Connect.DomainEventDeregister(registrationID)
 }
@@ -249,6 +276,19 @@ func (l *LibvirtConnection) QemuAgentCommand(command string, domainName string) 
 	}
 	defer domain.Free()
 	result, err := domain.QemuAgentCommand(command, libvirt.DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, uint32(0))
+	return result, err
+}
+
+func (l *LibvirtConnection) QemuMonitorCommand(command string, domainName string) (string, error) {
+	if err := l.reconnectIfNecessary(); err != nil {
+		return "", err
+	}
+	domain, err := l.Connect.LookupDomainByName(domainName)
+	if err != nil {
+		return "", err
+	}
+	defer domain.Free()
+	result, err := domain.QemuMonitorCommand(command, libvirt.DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
 	return result, err
 }
 
@@ -460,6 +500,10 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 		for _, callback := range l.domainDeviceMemoryDeviceSizeChangeCallbacks {
 			log.Log.Info("Re-registered domain memory device size change callback")
 			_, err = l.Connect.DomainEventMemoryDeviceSizeChangeRegister(nil, callback)
+		}
+		for _, reg := range l.domainQemuMonitorEventCallbacks {
+			log.Log.Info("Re-registered domain qemu monitor events callback")
+			err = l.domainQemuMonitorEventRegister(reg.event, reg.callback)
 		}
 
 		log.Log.Error("Re-registered domain and agent callbacks for new connection")

@@ -180,7 +180,6 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	if err != nil {
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
 	}
-
 	if shouldBlockMigrationTargetPreparation(vmi) {
 		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
 	}
