@@ -3468,6 +3468,7 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to update guest memory")
 	}
 	removeMigratedVolumes(vmi)
+	finalizeNodePlacement(vmi)
 
 	options := &cmdv1.VirtualMachineOptions{}
 	options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, d.clusterConfig.GetNetworkBindings())
@@ -3682,6 +3683,10 @@ func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance,
 	vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
 	vmi.Status.Memory.GuestRequested = vmi.Spec.Domain.Memory.Guest
 	return nil
+}
+
+func finalizeNodePlacement(vmi *v1.VirtualMachineInstance) {
+	controller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceNodePlacementNotMatched)
 }
 
 func removeMigratedVolumes(vmi *v1.VirtualMachineInstance) {

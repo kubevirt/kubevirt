@@ -568,6 +568,9 @@ const (
 
 	// Summarizes that all the DataVolumes attached to the VMI are Ready or not
 	VirtualMachineInstanceDataVolumesReady VirtualMachineInstanceConditionType = "DataVolumesReady"
+
+	// Indicates that the VMI has affinity or nodeSelector changes
+	VirtualMachineInstanceNodePlacementNotMatched VirtualMachineInstanceConditionType = "NodePlacementNotMatched"
 )
 
 // These are valid reasons for VMI conditions.
