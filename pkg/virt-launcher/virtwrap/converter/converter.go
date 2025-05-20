@@ -37,6 +37,7 @@ import (
 	"syscall"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"golang.org/x/sys/unix"
@@ -168,10 +169,15 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	if diskDevice.Disk != nil {
 		var unit int
 		disk.Device = "disk"
+		disk.Serial = diskDevice.Serial
 		disk.Target.Bus = diskDevice.Disk.Bus
 		disk.Target.Device, unit = makeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
 		if diskDevice.Disk.Bus == "scsi" {
 			assignDiskToSCSIController(disk, unit)
+			// Force truncation of serial number to MaxSCSISerialLen characters, as QEMU no longer does this automatically.
+			// This is required to maintain backward compatibility. Specifying devices with serial numbers longer than MaxSCSISerialLen
+			// characters is not allowed now.
+			disk.Serial = hwutil.TruncateSCSIDiskSerial(diskDevice.Serial)
 		}
 		if diskDevice.Disk.PciAddress != "" {
 			if diskDevice.Disk.Bus != v1.DiskBusVirtio {
@@ -187,7 +193,6 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
-		disk.Serial = diskDevice.Serial
 		if diskDevice.Shareable != nil {
 			if *diskDevice.Shareable {
 				if diskDevice.Cache == "" {

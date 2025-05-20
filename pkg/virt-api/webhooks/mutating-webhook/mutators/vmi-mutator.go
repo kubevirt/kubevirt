@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
+	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -96,6 +97,22 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		if util.IsSEVESVMI(newVMI) {
 			log.Log.V(4).Info("Add SEV-ES node label selector")
 			addNodeSelector(newVMI, v1.SEVESLabel)
+		}
+
+		// To maintain backward compatibility, a mutation webhook was added.
+		// This ensures that if a VMI is created by another controller within KubeVirt (instead of a user), the serial number is automatically truncated to MaxSCSISerialLen.
+		// This prevents issues where an existing VM with an invalid serial length would fail validation when starting a VMI.
+		// Without this, such a VM could break due to the validation webhook rejecting the creation of VMI, effectively blocking its startup.
+		for _, ref := range newVMI.OwnerReferences {
+			if ref.APIVersion == v1.SchemeGroupVersion.String() {
+				for i := range newVMI.Spec.Domain.Devices.Disks {
+					d := &newVMI.Spec.Domain.Devices.Disks[i]
+					if d.Disk != nil && d.Disk.Bus == v1.DiskBusSCSI {
+						d.Serial = hwutil.TruncateSCSIDiskSerial(d.Serial)
+					}
+				}
+				break
+			}
 		}
 
 		if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
