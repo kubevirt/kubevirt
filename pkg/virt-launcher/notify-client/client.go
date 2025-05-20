@@ -389,6 +389,14 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 			domain.Status.FSFreezeStatus = *fsFreezeStatus
 		}
 
+		if libvirtEvent.Event != nil && libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirtEvent.Event.Detail == int(libvirt.DOMAIN_EVENT_SUSPENDED_MIGRATED) {
+			if domain.Annotations == nil {
+				domain.Annotations = make(map[string]string)
+			}
+
+			domain.Annotations[v1.VirtualMachineSuspendedMigratedAnnotation] = ""
+		}
+
 		err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 		if err != nil {
 			log.Log.Reason(err).Error("Could not send domain notify event.")

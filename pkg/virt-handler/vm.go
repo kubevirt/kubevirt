@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -121,6 +122,7 @@ type VirtualMachineController struct {
 	multipathSocketMonitor   *multipath_monitor.MultipathSocketMonitor
 
 	hotplugContainerDiskMounter container_disk.HotplugMounter
+	nam                         *migrations.NetworkAccessibilityManager
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
@@ -202,6 +204,7 @@ func NewVirtualMachineController(
 			clusterConfig,
 			hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
 		),
+		nam: migrations.NewNetworkAccessibilityManager(clientset),
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -217,6 +220,13 @@ func NewVirtualMachineController(
 		AddFunc:    c.addDomainFunc,
 		DeleteFunc: c.deleteDomainFunc,
 		UpdateFunc: c.updateDomainFunc,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateNetworkPriorityFunc,
 	})
 	if err != nil {
 		return nil, err
@@ -2501,4 +2511,44 @@ func parseLibvirtQuantity(value int64, unit string) *resource.Quantity {
 		return resource.NewQuantity(value*1024*1024*1024*1024, resource.BinarySI)
 	}
 	return nil
+}
+
+func (d *VirtualMachineController) updateNetworkPriorityFunc(_, new interface{}) {
+	newDomain := new.(*api.Domain)
+
+	_, ok := newDomain.Annotations[v1.VirtualMachineSuspendedMigratedAnnotation]
+	if !ok {
+		return
+	}
+
+	key, err := controller.KeyFunc(new)
+	if err != nil {
+		log.Log.Object(newDomain).Reason(err).Error("Failed to call key func: cannot update network priority")
+		return
+	}
+
+	vmi, _, err := d.getVMIFromCache(key)
+	if err != nil {
+		log.Log.Object(newDomain).Reason(err).With("key", key).Errorf("Failed to get vmi from cache: cannot update network priority")
+		return
+	}
+
+	if vmi == nil {
+		log.Log.Object(newDomain).With("key", key).Error("Got nil vmi: cannot update network priority")
+		return
+	}
+
+	if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.TargetPod == "" {
+		log.Log.Object(newDomain).With("key", key).Error("Cannot determine target pod name: cannot update network priority")
+		return
+	}
+
+	err = d.nam.SetTheHighestNetworkPriority(context.Background(), types.NamespacedName{
+		Namespace: vmi.Namespace,
+		Name:      vmi.Status.MigrationState.TargetPod,
+	})
+	if err != nil {
+		log.Log.Object(newDomain).Reason(err).With("key", key).Error("Failed to set network priority high for the target pod")
+		return
+	}
 }
