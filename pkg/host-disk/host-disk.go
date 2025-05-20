@@ -22,6 +22,7 @@ package hostdisk
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"syscall"
@@ -184,6 +185,15 @@ func createSparseRaw(fullPath string, size int64) (err error) {
 	return nil
 }
 
+func createQcow2(fullPath string, size int64) (err error) {
+	log.Log.Infof("Create %s with qcow2 format", fullPath)
+	cmd := exec.Command("qemu-img", "create", "-f", "qcow2", fullPath, fmt.Sprintf("%db", size))
+	if err = cmd.Run(); err != nil {
+		return fmt.Errorf("failed to create qcow2: %w", err)
+	}
+	return nil
+}
+
 func getPVCDiskImgPath(volumeName string, diskName string) string {
 	return path.Join(pvcBaseDir, volumeName, diskName)
 }
@@ -249,7 +259,7 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 		return err
 	}
 	if !fileExists {
-		if err := hdc.handleRequestedSizeAndCreateSparseRaw(vmi, diskDir, diskPath, hostDisk); err != nil {
+		if err := hdc.handleRequestedSizeAndCreateQcow2(vmi, diskDir, diskPath, hostDisk); err != nil {
 			return err
 		}
 	}
@@ -261,7 +271,7 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 	return nil
 }
 
-func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.VirtualMachineInstance, diskDir string, diskPath string, hostDisk *v1.HostDisk) error {
+func (hdc *DiskImgCreator) handleRequestedSizeAndCreateQcow2(vmi *v1.VirtualMachineInstance, diskDir string, diskPath string, hostDisk *v1.HostDisk) error {
 	size, err := hdc.dirBytesAvailableFunc(diskDir, hdc.minimumPVCReserveBytes)
 	availableSize := int64(size)
 	if err != nil {
@@ -274,9 +284,9 @@ func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.Virtual
 			return err
 		}
 	}
-	err = createSparseRaw(diskPath, requestedSize)
+	err = createQcow2(diskPath, requestedSize)
 	if err != nil {
-		log.Log.Reason(err).Errorf("Couldn't create a sparse raw file for disk path: %s, error: %v", diskPath, err)
+		log.Log.Reason(err).Errorf("Couldn't create a qcow2 file for disk path: %s, error: %v", diskPath, err)
 		return err
 	}
 	return nil

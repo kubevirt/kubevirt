@@ -723,7 +723,7 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *C
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
-	disk.Driver.Type = "raw"
+	disk.Driver.Type = "qcow2"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	disk.Source.File = GetFilesystemVolumePath(volumeName)
 	if !contains(volumesDiscardIgnore, volumeName) {
@@ -735,7 +735,7 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
 // Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
 func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
-	disk.Driver.Type = "raw"
+	disk.Driver.Type = "qcow2"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	if !contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
@@ -773,7 +773,35 @@ func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.D
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
+	return overrideDiskTypeForFile(disk)
+}
+
+func overrideDiskTypeForFile(disk *api.Disk) error {
+	diskType, err := getDiskTypeFromPath(disk.Source.File)
+	if err != nil {
+		return err
+	}
+	disk.Driver.Type = diskType
 	return nil
+}
+
+func getDiskTypeFromPath(path string) (string, error) {
+	const (
+		formatQcow2 = "qcow2"
+		formatRaw   = "raw"
+	)
+	info, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return formatQcow2, nil
+		}
+		return "", err
+	}
+	mode := info.Mode()
+	if mode&os.ModeDevice != 0 {
+		return formatRaw, nil
+	}
+	return formatQcow2, nil
 }
 
 func Convert_v1_SysprepSource_To_api_Disk(volumeName string, disk *api.Disk) error {
