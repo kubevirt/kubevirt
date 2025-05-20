@@ -43,6 +43,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+
+  "github.com/gorilla/websocket"
 )
 
 type ConsoleHandler struct {
@@ -324,7 +326,7 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 
 	select {
 	case <-stopCh:
-		break
+		clientSocket.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseGoingAway, "close by another connection"))
 	case err := <-errCh:
 		if err != nil && err != io.EOF {
 			log.Log.Object(vmi).Reason(err).Error("Error in proxing websocket and unix socket")
