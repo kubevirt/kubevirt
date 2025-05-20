@@ -2637,6 +2637,19 @@ type MigrateOptions struct {
 	AddedNodeSelector map[string]string `json:"addedNodeSelector,omitempty"`
 }
 
+// EvacuateCancelOptions may be provided on evacuate cancel request.
+type EvacuateCancelOptions struct {
+	metav1.TypeMeta `json:",inline"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,1,rep,name=dryRun"`
+}
+
 // VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
