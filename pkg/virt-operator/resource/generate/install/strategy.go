@@ -86,7 +86,6 @@ type StrategyInterface interface {
 	DaemonSets() []*appsv1.DaemonSet
 	ValidatingWebhookConfigurations() []*admissionregistrationv1.ValidatingWebhookConfiguration
 	MutatingWebhookConfigurations() []*admissionregistrationv1.MutatingWebhookConfiguration
-	APIServices() []*apiregv1.APIService
 	CertificateSecrets() []*corev1.Secret
 	SCCs() []*secv1.SecurityContextConstraints
 	ServiceMonitors() []*promv1.ServiceMonitor
@@ -116,7 +115,6 @@ type Strategy struct {
 	daemonSets                        []*appsv1.DaemonSet
 	validatingWebhookConfigurations   []*admissionregistrationv1.ValidatingWebhookConfiguration
 	mutatingWebhookConfigurations     []*admissionregistrationv1.MutatingWebhookConfiguration
-	apiServices                       []*apiregv1.APIService
 	certificateSecrets                []*corev1.Secret
 	sccs                              []*secv1.SecurityContextConstraints
 	serviceMonitors                   []*promv1.ServiceMonitor
@@ -208,10 +206,6 @@ func (ins *Strategy) ValidatingWebhookConfigurations() []*admissionregistrationv
 
 func (ins *Strategy) MutatingWebhookConfigurations() []*admissionregistrationv1.MutatingWebhookConfiguration {
 	return ins.mutatingWebhookConfigurations
-}
-
-func (ins *Strategy) APIServices() []*apiregv1.APIService {
-	return ins.apiServices
 }
 
 func (ins *Strategy) CertificateSecrets() []*corev1.Secret {
@@ -417,9 +411,6 @@ func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
 	for _, entry := range strategy.validatingAdmissionPolicies {
 		marshalutil.MarshallObject(entry, writer)
 	}
-	for _, entry := range strategy.apiServices {
-		marshalutil.MarshallObject(entry, writer)
-	}
 	for _, entry := range strategy.deployments {
 		marshalutil.MarshallObject(entry, writer)
 	}
@@ -590,7 +581,6 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 
 	strategy.daemonSets = append(strategy.daemonSets, handler)
 	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
-	strategy.apiServices = components.NewVirtAPIAPIServices(config.GetNamespace())
 	strategy.certificateSecrets = components.NewCertSecrets(config.GetNamespace(), operatorNamespace)
 	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecrets(operatorNamespace)...)
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
@@ -741,12 +731,6 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
 			}
 			validatingAdmissionPolicy.TypeMeta = obj
 			strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, validatingAdmissionPolicy)
-		case "APIService":
-			apiService := &apiregv1.APIService{}
-			if err := yaml.Unmarshal([]byte(entry), &apiService); err != nil {
-				return nil, err
-			}
-			strategy.apiServices = append(strategy.apiServices, apiService)
 		case "Secret":
 			secret := &corev1.Secret{}
 			if err := yaml.Unmarshal([]byte(entry), &secret); err != nil {

@@ -217,8 +217,6 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.stores.ValidationWebhookCache = k.informers.ValidationWebhook.GetStore()
 	k.informers.MutatingWebhook, k.mutatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
 	k.stores.MutatingWebhookCache = k.informers.MutatingWebhook.GetStore()
-	k.informers.APIService, k.apiserviceSource = testutils.NewFakeInformerFor(&apiregv1.APIService{})
-	k.stores.APIServiceCache = k.informers.APIService.GetStore()
 
 	k.informers.SCC, k.sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 	k.stores.SCCCache = k.informers.SCC.GetStore()
@@ -551,8 +549,6 @@ func (k *KubeVirtTestData) deleteResource(resource string, key string) {
 		k.deleteValidationWebhook(key)
 	case "mutatingwebhookconfigurations":
 		k.deleteMutatingWebhook(key)
-	case "apiservices":
-		k.deleteAPIService(key)
 	case "jobs":
 		k.deleteInstallStrategyJob(key)
 	case "configmaps":
@@ -666,14 +662,6 @@ func (k *KubeVirtTestData) deleteMutatingWebhook(key string) {
 	k.mockQueue.ExpectAdds(1)
 	if obj, exists, _ := k.informers.MutatingWebhook.GetStore().GetByKey(key); exists {
 		k.mutatingWebhookSource.Delete(obj.(runtime.Object))
-	}
-	k.mockQueue.Wait()
-}
-
-func (k *KubeVirtTestData) deleteAPIService(key string) {
-	k.mockQueue.ExpectAdds(1)
-	if obj, exists, _ := k.informers.APIService.GetStore().GetByKey(key); exists {
-		k.apiserviceSource.Delete(obj.(runtime.Object))
 	}
 	k.mockQueue.Wait()
 }
@@ -1400,12 +1388,6 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 		mutatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
 	}
 	all = append(all, mutatingWebhook)
-
-	apiServices := components.NewVirtAPIAPIServices(config.GetNamespace())
-	for _, apiService := range apiServices {
-		apiService.Spec.CABundle = caBundle
-		all = append(all, apiService)
-	}
 
 	validatingWebhook = components.NewOpertorValidatingWebhookConfiguration(NAMESPACE)
 	for i := range validatingWebhook.Webhooks {
@@ -3188,7 +3170,6 @@ func syncCaches(stop chan struct{}, kvInformer cache.SharedIndexInformer, inform
 	go informers.DaemonSet.Run(stop)
 	go informers.ValidationWebhook.Run(stop)
 	go informers.MutatingWebhook.Run(stop)
-	go informers.APIService.Run(stop)
 	go informers.SCC.Run(stop)
 	go informers.InstallStrategyJob.Run(stop)
 	go informers.InstallStrategyConfigMap.Run(stop)
@@ -3214,7 +3195,6 @@ func syncCaches(stop chan struct{}, kvInformer cache.SharedIndexInformer, inform
 	cache.WaitForCacheSync(stop, informers.DaemonSet.HasSynced)
 	cache.WaitForCacheSync(stop, informers.ValidationWebhook.HasSynced)
 	cache.WaitForCacheSync(stop, informers.MutatingWebhook.HasSynced)
-	cache.WaitForCacheSync(stop, informers.APIService.HasSynced)
 	cache.WaitForCacheSync(stop, informers.SCC.HasSynced)
 	cache.WaitForCacheSync(stop, informers.InstallStrategyJob.HasSynced)
 	cache.WaitForCacheSync(stop, informers.InstallStrategyConfigMap.HasSynced)

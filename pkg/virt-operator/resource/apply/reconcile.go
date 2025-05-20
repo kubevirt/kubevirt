@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -879,31 +878,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 					if err != nil {
 						r.expectations.MutatingWebhook.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused APIServices
-	objects = r.stores.APIServiceCache.List()
-	for _, obj := range objects {
-		if apiService, ok := obj.(*apiregv1.APIService); ok && apiService.DeletionTimestamp == nil {
-			found := false
-			for _, targetAPIService := range r.targetStrategy.APIServices() {
-				if targetAPIService.Name == apiService.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(apiService); err == nil {
-					r.expectations.APIService.AddExpectedDeletion(r.kvKey, key)
-					err := r.aggregatorclient.Delete(context.Background(), apiService.Name, deleteOptions)
-					if err != nil {
-						r.expectations.APIService.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete apiService %+v: %v", apiService, err)
 						return err
 					}
 				}
