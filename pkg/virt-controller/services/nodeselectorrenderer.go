@@ -28,6 +28,9 @@ type NodeSelectorRenderer struct {
 
 type NodeSelectorRendererOption func(renderer *NodeSelectorRenderer)
 
+// DeckhouseVirtualizationPlatformGenericCPUModel is a name of additional empty CPU model for Discovery type of VMClass.
+const DeckhouseVirtualizationPlatformGenericCPUModel = "kvm64"
+
 func NewNodeSelectorRenderer(
 	vmiNodeSelectors map[string]string,
 	clusterWideConfNodeSelectors map[string]string,
@@ -56,7 +59,8 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 	if nsr.hyperv {
 		maps.Copy(nsr.podNodeSelectors, hypervNodeSelectors(nsr.vmiFeatures))
 	}
-	if nsr.cpuModelLabel != "" && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostModel) && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostPassthrough) {
+	// Prevent adding node selector for host-model, host-passthrough and an empty CPU model.
+	if nsr.cpuModelLabel != "" && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostModel) && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostPassthrough) && nsr.cpuModelLabel != cpuModelLabel(DeckhouseVirtualizationPlatformGenericCPUModel) {
 		nsr.enableSelectorLabel(nsr.cpuModelLabel)
 	}
 
