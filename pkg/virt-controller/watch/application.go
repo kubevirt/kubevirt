@@ -487,7 +487,8 @@ func Execute() {
 	app.initSnapshotController()
 	app.initRestoreController()
 	app.initExportController()
-	app.initWorkloadUpdaterController()
+	// Disable workload-updater
+	// app.initWorkloadUpdaterController()
 	app.initCloneController()
 	go app.Run()
 
@@ -644,7 +645,8 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the export controller: %v", err)
 			}
 		}()
-		go vca.workloadUpdateController.Run(stop)
+		// Disable workloadUpdateController
+		// go vca.workloadUpdateController.Run(stop)
 		go vca.nodeTopologyUpdater.Run(vca.nodeTopologyUpdatePeriod, stop)
 		go func() {
 			if err := vca.vmCloneController.Run(vca.cloneControllerThreads, stop); err != nil {
