@@ -51,7 +51,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 
 	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	InjectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec, RequireControlPlanePreferNonWorker)
+	InjectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec, AnyNode)
 
 	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil {
 		replicas := int32(*kv.Spec.Infra.Replicas)
