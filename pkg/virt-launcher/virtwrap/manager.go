@@ -202,6 +202,8 @@ type LibvirtDomainManager struct {
 	setTimeOnce                   sync.Once
 
 	checksum syncobject.SyncObject[string]
+
+	rebootShutdownPolicyWasSet bool
 }
 
 type pausedVMIs struct {
@@ -1260,6 +1262,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			return nil, err
 		}
 		logger.Info("Domain unpaused.")
+	}
+
+	if err := l.setRebootShutdownPolicy(dom); err != nil {
+		return nil, fmt.Errorf("failed to set reboot shutdown policy: %v", err)
 	}
 
 	oldSpec, err := getDomainSpec(dom)
@@ -2762,4 +2768,20 @@ func calculateHotplugPortCount(vmi *v1.VirtualMachineInstance, domainSpec *api.D
 
 func (l *LibvirtDomainManager) GetAppliedVMIChecksum() string {
 	return l.checksum.Get()
+}
+
+func (l *LibvirtDomainManager) setRebootShutdownPolicy(dom cli.VirDomain) error {
+	if l.rebootShutdownPolicyWasSet {
+		return nil
+	}
+	name, err := dom.GetName()
+	if err != nil {
+		return err
+	}
+	_, err = l.virConn.QemuMonitorCommand(`{"execute": "set-action", "arguments":{"reboot":"shutdown"}}`, name)
+	if err != nil {
+		return err
+	}
+	l.rebootShutdownPolicyWasSet = true
+	return nil
 }
