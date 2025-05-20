@@ -878,6 +878,14 @@ const (
 	// Machine Instance migration job. Needed because with CRDs we can't use field
 	// selectors. Used on VirtualMachineInstance.
 	MigrationTargetNodeNameLabel string = "kubevirt.io/migrationTargetNodeName"
+	// A special label allows setting the priority of pod for cilium relative to other pods with the same IP address.
+	// Network traffic will be directed to the pod with the higher priority.
+	// Absence of the label means the lowest priority (pod with a network priority label is more prioritized than a pod without a label).
+	// The lower the numerical value, the higher the priority.
+	NetworkPriorityLabel string = "network.deckhouse.io/pod-common-ip-priority"
+	// A special annotation through which information is passed from virt-launcher to virt-handler indicating
+	// that the virtual machine has been suspended for offline migration.
+	VirtualMachineSuspendedMigratedAnnotation string = "kubevirt.io/vm-suspended-migrated"
 	// This annotation indicates that a migration is the result of an
 	// automated evacuation
 	EvacuationMigrationAnnotation string = "kubevirt.io/evacuationMigration"

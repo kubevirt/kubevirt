@@ -115,6 +115,8 @@ type MigrationController struct {
 	handOffLock sync.Mutex
 	handOffMap  map[string]struct{}
 
+	nam *migrations.NetworkAccessibilityManager
+
 	unschedulablePendingTimeoutSeconds int64
 	catchAllPendingTimeoutSeconds      int64
 }
@@ -151,6 +153,8 @@ func NewMigrationController(templateService services.TemplateService,
 		clusterConfig:        clusterConfig,
 		statusUpdater:        status.NewMigrationStatusUpdater(clientset),
 		handOffMap:           make(map[string]struct{}),
+
+		nam: migrations.NewNetworkAccessibilityManager(clientset),
 
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
@@ -712,6 +716,9 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 			}
 		}
 	}
+
+	// Create the new pod with the lowest network priority to prevent Cilium from directing traffic to it.
+	templatePod.Labels[virtv1.NetworkPriorityLabel] = migrations.NetworkPriorityDeferred
 
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
@@ -1284,6 +1291,18 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				// Once the VMI is in a final state or deleted the migration
 				// will be marked as failed too.
 				return nil
+			}
+
+			priority := sourcePod.Labels[virtv1.NetworkPriorityLabel]
+			if priority != migrations.NetworkPriorityDecreased {
+				err = c.nam.DecreaseNetworkPriority(context.Background(), types.NamespacedName{
+					Namespace: sourcePod.Namespace,
+					Name:      sourcePod.Name,
+				})
+				if err != nil {
+					log.Log.Reason(err).Error("Failed to decrease the network priority for the source pod, please report a bug")
+					return fmt.Errorf("decrease network priority: %w", err)
+				}
 			}
 
 			if _, exists := migration.GetAnnotations()[virtv1.EvacuationMigrationAnnotation]; exists {
