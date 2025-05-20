@@ -16,9 +16,10 @@
 # Copyright 2024 Red Hat, Inc.
 #
 
-KIND_VERSION=0.19.0
+KIND_VERSION=0.27.0
 export KIND_IMAGE=kindest/node
-export K8S_VERSION=v1.28.0@sha256:dad5a6238c5e41d7cac405fae3b5eda2ad1de6f1190fa8bfc64ff5bb86173213
+#export K8S_VERSION=v1.28.0@sha256:dad5a6238c5e41d7cac405fae3b5eda2ad1de6f1190fa8bfc64ff5bb86173213
+export K8S_VERSION=v1.32.3
 
 KIND_PATH=${KIND_PATH:-"${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/_kind"}
 CLUSTER_PATH=${CLUSTER_PATH:-"${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/_ovnk"}
@@ -71,8 +72,10 @@ EOF
 function up() {
     cluster::install
     fetch_kind
-    pushd $CLUSTER_PATH/contrib ; ./kind.sh --cluster-name $CLUSTER_NAME --multi-network-enable -mtu $MTU --local-kind-registry --enable-interconnect; popd
-    cp ~/$CLUSTER_NAME.conf "${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
+    pushd $CLUSTER_PATH/contrib ; ./kind.sh --cluster-name $CLUSTER_NAME  --network-segmentation-enable --multi-network-enable -ep podman -mtu $MTU --local-kind-registry --enable-interconnect; popd
+
+    #cp ~/$CLUSTER_NAME.conf "${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
+    cp ~/ovn.conf "${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
     prepare_config
 }
 

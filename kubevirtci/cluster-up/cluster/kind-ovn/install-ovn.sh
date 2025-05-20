@@ -18,8 +18,9 @@
 #
 
 export OVNK_COMMIT=c77ee8c38c6a6d9e55131a1272db5fad5b606e44
-
-OVNK_REPO='https://github.com/ovn-org/ovn-kubernetes.git'
+export OVNK_COMMIT=kind-enable-podman-local-reg
+#OVNK_REPO='https://github.com/ovn-org/ovn-kubernetes.git
+OVNK_REPO='https://github.com/ormergi/ovn-kubernetes.git'
 CLUSTER_PATH=${CLUSTER_PATH:-"${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/_ovnk"}
 
 function cluster::_get_repo() {
@@ -37,6 +38,7 @@ function cluster::install() {
         fi
     fi
 
+    echo "DEBUG: installing to  ${CLUSTER_PATH}"
     if [ ! -d ${CLUSTER_PATH} ]; then
         git clone ${OVNK_REPO} ${CLUSTER_PATH}
         (
