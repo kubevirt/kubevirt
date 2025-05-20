@@ -28,7 +28,7 @@ go_library(
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/libkubevirt:go_default_library",
-        "//tests/libnet:go_default_library",
+        "//tests/libnamespace:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/libsecret:go_default_library",
         "//tests/libstorage:go_default_library",
