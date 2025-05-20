@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"syscall"
@@ -201,6 +202,20 @@ func createSparseRaw(diskdir *safepath.Path, diskName string, size int64) (err e
 	return nil
 }
 
+func createQcow2(diskdir *safepath.Path, diskName string, size int64) (err error) {
+	diskPath, err := safepath.JoinNoFollow(diskdir, diskName)
+	if err != nil {
+		return err
+	}
+
+	log.Log.Infof("Create %s with qcow2 format", diskPath)
+	cmd := exec.Command("qemu-img", "create", "-f", "qcow2", diskPath.String(), fmt.Sprintf("%db", size))
+	if err = cmd.Run(); err != nil {
+		return fmt.Errorf("failed to create qcow2: %w", err)
+	}
+	return nil
+}
+
 func getPVCDiskImgPath(volumeName string, diskName string) string {
 	return path.Join(pvcBaseDir, volumeName, diskName)
 }
@@ -263,7 +278,7 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 	}
 
 	if fileNotExists {
-		if err = hdc.handleRequestedSizeAndCreateSparseRaw(vmi, diskDir, filepath.Base(hostDisk.Path), hostDisk); err != nil {
+		if err = hdc.handleRequestedSizeAndCreateQcow2(vmi, diskDir, filepath.Base(hostDisk.Path), hostDisk); err != nil {
 			return err
 		}
 
@@ -280,7 +295,7 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 	return nil
 }
 
-func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.VirtualMachineInstance, diskDir *safepath.Path, diskName string, hostDisk *v1.HostDisk) error {
+func (hdc *DiskImgCreator) handleRequestedSizeAndCreateQcow2(vmi *v1.VirtualMachineInstance, diskDir *safepath.Path, diskName string, hostDisk *v1.HostDisk) error {
 	size, err := hdc.dirBytesAvailableFunc(unsafepath.UnsafeAbsolute(diskDir.Raw()), hdc.minimumPVCReserveBytes)
 	availableSize := int64(size)
 	if err != nil {
@@ -293,10 +308,10 @@ func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.Virtual
 			return err
 		}
 	}
-	err = createSparseRaw(diskDir, diskName, requestedSize)
+	err = createQcow2(diskDir, diskName, requestedSize)
 	if err != nil {
 		fullPath := filepath.Join(unsafepath.UnsafeAbsolute(diskDir.Raw()), diskName)
-		log.Log.Reason(err).Errorf("Couldn't create a sparse raw file for disk path: %s, error: %v", fullPath, err)
+		log.Log.Reason(err).Errorf("Couldn't create a qcow2 file for disk path: %s, error: %v", fullPath, err)
 		return err
 	}
 	return nil
