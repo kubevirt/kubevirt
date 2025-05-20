@@ -2643,7 +2643,7 @@ func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInsta
 
 }
 
-func (d *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
 	// handle starting/stopping target migration proxy
 	migrationTargetSockets := []string{}
 	res, err := d.podIsolationDetector.Detect(vmi)
@@ -2651,8 +2651,10 @@ func (d *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMac
 		return err
 	}
 
-	// Get the libvirt connection socket file on the destination pod.
-	socketFile := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "libvirt/virtqemud-sock"), res.Pid())
+	// Get the virt-launcher migration proxy connection socket file on the destination pod.
+	socketFile := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "kubevirt/migrationproxy/wrap-virtqemud-sock"), res.Pid())
+	//// Get the libvirt connection socket file on the destination pod.
+	//socketFile := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "libvirt/virtqemud-sock"), res.Pid())
 	// the migration-proxy is no longer shared via host mount, so we
 	// pass in the virt-launcher's baseDir to reach the unix sockets.
 	baseDir := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
@@ -2666,6 +2668,10 @@ func (d *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMac
 		destSocketFile := migrationproxy.SourceUnixFile(baseDir, key)
 		migrationTargetSockets = append(migrationTargetSockets, destSocketFile)
 	}
+	err = d.StartMigrationProxyInVirtLauncher(client)
+	if err != nil {
+		return err
+	}
 	err = d.migrationProxy.StartTargetListener(string(vmi.UID), migrationTargetSockets)
 	if err != nil {
 		return err
@@ -2673,11 +2679,21 @@ func (d *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMac
 	return nil
 }
 
-func (d *VirtualMachineController) handlePostMigrationProxyCleanup(vmi *v1.VirtualMachineInstance) {
+func (d *VirtualMachineController) handlePostMigrationProxyCleanup(vmi *v1.VirtualMachineInstance) error {
 	if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.Completed || vmi.Status.MigrationState.Failed {
+		if !d.isMigrationSource(vmi) {
+			client, err := d.getLauncherClient(vmi)
+			if err != nil {
+				return fmt.Errorf("failed to get virt-launcher client")
+			}
+			if err = d.StopMigrationProxyInVirtLauncher(client); err != nil {
+				return fmt.Errorf("failed to stop migration proxy in virt launcher")
+			}
+		}
 		d.migrationProxy.StopTargetListener(string(vmi.UID))
 		d.migrationProxy.StopSourceListener(string(vmi.UID))
 	}
+	return nil
 }
 
 func (d *VirtualMachineController) handleSourceMigrationProxy(vmi *v1.VirtualMachineInstance) error {
@@ -2968,7 +2984,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 
-	err = d.handleTargetMigrationProxy(vmi)
+	err = d.handleTargetMigrationProxy(vmi, client)
 	if err != nil {
 		return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
 	}
@@ -3405,7 +3421,9 @@ func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstanc
 		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
 	}
 
-	d.handlePostMigrationProxyCleanup(vmi)
+	if err = d.handlePostMigrationProxyCleanup(vmi); err != nil {
+		return err
+	}
 
 	if d.isPreMigrationTarget(vmi) {
 		return d.vmUpdateHelperMigrationTarget(vmi)
@@ -3912,4 +3930,12 @@ func (d *VirtualMachineController) HotplugHostDevices(client cmdclient.LauncherC
 	}
 	d.checksumCtrl.Set(control)
 	return nil
+}
+
+func (d *VirtualMachineController) StartMigrationProxyInVirtLauncher(client cmdclient.LauncherClient) error {
+	return client.MigrationProxy(cmdclient.MigrationProxyActionStart)
+}
+
+func (d *VirtualMachineController) StopMigrationProxyInVirtLauncher(client cmdclient.LauncherClient) error {
+	return client.MigrationProxy(cmdclient.MigrationProxyActionStop)
 }

@@ -220,6 +220,7 @@ func (l LibvirtWrapper) StartVirtquemud(stopChan chan struct{}) {
 			exitChan := make(chan struct{})
 			args := []string{"-f", "/var/run/libvirt/virtqemud.conf", "--no-admin-srv", "--no-ro-srv"}
 			cmd := exec.Command("/usr/sbin/virtqemud", args...)
+			cmd.Env = append(cmd.Env, fmt.Sprintf("LIBVIRT_UNIX_SOCKET_AUTH_PID=%d", os.Getpid()))
 			if l.user != 0 {
 				cmd.SysProcAttr = &syscall.SysProcAttr{
 					AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE},

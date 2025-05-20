@@ -374,7 +374,22 @@ func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls
 		clientTLSConfig: clientTLSConfig,
 		logger:          log.Log.With("uid", vmiUID).With("outbound", filepath.Base(virtqemudSocketPath)),
 	}
+}
 
+func NewVirtLauncherProxy() *migrationProxy {
+	const (
+		migrationProxySock = "/var/run/kubevirt/migrationproxy/wrap-virtqemud-sock"
+		virtQemudSock      = "/var/run/libvirt/virtqemud-sock"
+	)
+	return &migrationProxy{
+		unixSocketPath: migrationProxySock,
+		targetAddress:  virtQemudSock,
+		targetProtocol: "unix",
+		stopChan:       make(chan struct{}),
+		fdChan:         make(chan net.Conn, 1),
+		listenErrChan:  make(chan error, 1),
+		logger:         log.Log.With("migrationProxySock", migrationProxySock, "virtQemudSock", virtQemudSock, "proxy", "virt-launcher"),
+	}
 }
 
 func (m *migrationProxy) createTcpListener() error {

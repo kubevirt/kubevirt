@@ -35,6 +35,7 @@ service Cmd {
   rpc GetLaunchMeasurement(VMIRequest) returns (LaunchMeasurementResponse) {}
   rpc InjectLaunchSecret(InjectLaunchSecretRequest) returns (Response) {}
   rpc GetAppliedVMIChecksum(EmptyRequest) returns (VMIChecksumResponse) {}
+  rpc MigrationProxy(MigrationProxyRequest) returns (Response);
 }
 
 message QemuVersionResponse {
@@ -210,4 +211,13 @@ message InjectLaunchSecretRequest {
 message VMIChecksumResponse {
   Response response = 1;
   string checksum = 2;
+}
+
+enum MigrationProxyAction {
+  START = 0;
+  STOP = 1;
+}
+
+message MigrationProxyRequest {
+  MigrationProxyAction action = 1;
 }
