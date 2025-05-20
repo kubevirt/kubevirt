@@ -218,7 +218,7 @@ func (l LibvirtWrapper) StartVirtquemud(stopChan chan struct{}) {
 	go func() {
 		for {
 			exitChan := make(chan struct{})
-			args := []string{"-f", "/var/run/libvirt/virtqemud.conf"}
+			args := []string{"-f", "/var/run/libvirt/virtqemud.conf", "--no-admin-srv", "--no-ro-srv"}
 			cmd := exec.Command("/usr/sbin/virtqemud", args...)
 			if l.user != 0 {
 				cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -273,7 +273,7 @@ func (l LibvirtWrapper) StartVirtquemud(stopChan chan struct{}) {
 
 func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot bool) {
 	for {
-		cmd := exec.Command("/usr/sbin/virtlogd", "-f", "/etc/libvirt/virtlogd.conf")
+		cmd := exec.Command("/usr/sbin/virtlogd", "-f", "/etc/libvirt/virtlogd.conf", "--no-admin-srv")
 
 		exitChan := make(chan struct{})
 
