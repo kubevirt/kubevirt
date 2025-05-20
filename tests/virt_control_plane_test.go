@@ -147,7 +147,7 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 			eventuallyWithTimeout(waitForDeploymentsToStabilize)
 		})
 
-		DescribeTable("evicting pods of control plane", func(podName string, isMultiReplica bool, msg string) {
+		DescribeTable("evicting pods of control plane", func(podName string, isMultiReplica bool) {
 			By(fmt.Sprintf("Try to evict all pods %s\n", podName))
 			podList, err := getPodList()
 			Expect(err).ToNot(HaveOccurred())
@@ -157,23 +157,19 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 				err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).EvictV1beta1(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				if index == len(runningPods)-1 {
 					if isMultiReplica {
-						Expect(err).To(HaveOccurred(), msg)
+						Expect(err).To(HaveOccurred(), fmt.Sprintf("no error occurred on evict of last %s pod", podName))
 					} else {
-						Expect(err).ToNot(HaveOccurred(), msg)
+						Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error occurred on eviction of single-replica %s pod", podName))
 					}
 				} else {
 					Expect(err).ToNot(HaveOccurred())
 				}
 			}
 		},
-			Entry("[test_id:2830]last eviction should fail for multi-replica virt-controller pods", decorators.MultiReplica,
-				"virt-controller", multiReplica, "no error occurred on evict of last virt-controller pod"),
-			Entry("[test_id:2799]last eviction should fail for multi-replica virt-api pods", decorators.MultiReplica,
-				"virt-api", multiReplica, "no error occurred on evict of last virt-api pod"),
-			Entry("eviction of single-replica virt-controller pod should succeed",
-				"virt-controller", singleReplica, "error occurred on eviction of single-replica virt-controller pod"), decorators.SingleReplica,
-			Entry("eviction of multi-replica virt-api pod should succeed", decorators.SingleReplica,
-				"virt-api", singleReplica, "error occurred on eviction of single-replica virt-api pod"),
+			Entry("[test_id:2830]last eviction should fail for multi-replica virt-controller pods", decorators.MultiReplica, "virt-controller", multiReplica),
+			Entry("[test_id:2799]last eviction should fail for multi-replica virt-api pods", decorators.MultiReplica, "virt-api", multiReplica),
+			Entry("eviction of single-replica virt-controller pod should succeed", decorators.SingleReplica, "virt-controller", singleReplica),
+			Entry("eviction of single-replica virt-api pod should succeed", decorators.SingleReplica, "virt-api", singleReplica),
 		)
 	})
 
