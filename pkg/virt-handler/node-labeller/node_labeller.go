@@ -22,7 +22,7 @@ package nodelabeller
 import (
 	"context"
 	"fmt"
-	"os/exec"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -328,11 +328,12 @@ const kernelSchedRealtimeRuntimeInMicrosecods = "kernel.sched_rt_runtime_us"
 // workloads at peak performance.
 
 func isNodeRealtimeCapable() (bool, error) {
-	ret, err := exec.Command("sysctl", kernelSchedRealtimeRuntimeInMicrosecods).CombinedOutput()
+	ret, err := os.ReadFile("/proc/sys/kernel/sched_rt_runtime_us")
 	if err != nil {
 		return false, err
 	}
-	st := strings.Trim(string(ret), "\n")
+	sched_rt_runtime_us := strings.Trim(string(ret), "\n")
+	st := fmt.Sprintf("%s = %s", kernelSchedRealtimeRuntimeInMicrosecods, sched_rt_runtime_us)
 	return fmt.Sprintf("%s = -1", kernelSchedRealtimeRuntimeInMicrosecods) == st, nil
 }
 
