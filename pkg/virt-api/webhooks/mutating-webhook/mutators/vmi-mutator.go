@@ -125,6 +125,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
 		if !equality.Semantic.DeepEqual(newVMI.Status, oldVMI.Status) {
 			if _, isKubeVirtServiceAccount := mutator.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]; !isKubeVirtServiceAccount {
+				log.Log.Infof("Ignore status update for unknown service account %s, ", ar.Request.UserInfo.Username)
 				patchSet.AddOption(patch.WithReplace("/status", oldVMI.Status))
 			}
 		}

@@ -7,4 +7,7 @@ const (
 	SynchronizationControllerServiceAccountName = "kubevirt-internal-virtualization-synchronization-controller"
 	HandlerServiceAccountName                   = "kubevirt-internal-virtualization-handler"
 	OperatorServiceAccountName                  = "kubevirt-operator"
+
+	VirtualizationController = "virtualization-controller"
+	VirtualizationApi        = "virtualization-api"
 )

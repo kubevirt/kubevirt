@@ -33,5 +33,7 @@ func KubeVirtServiceAccounts(kubeVirtNamespace string) map[string]struct{} {
 		fmt.Sprintf("%s:%s", prefix, components.ControllerServiceAccountName):                {},
 		fmt.Sprintf("%s:%s", prefix, components.HandlerServiceAccountName):                   {},
 		fmt.Sprintf("%s:%s", prefix, components.SynchronizationControllerServiceAccountName): {},
+		fmt.Sprintf("%s:%s", prefix, components.VirtualizationController):     {},
+		fmt.Sprintf("%s:%s", prefix, components.VirtualizationApi):            {},
 	}
 }
