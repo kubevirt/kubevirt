@@ -483,7 +483,8 @@ func Execute() {
 	app.initPool()
 	app.initVirtualMachines()
 	app.initDisruptionBudgetController()
-	app.initEvacuationController()
+	// Disable evacuation controller
+	// app.initEvacuationController()
 	app.initSnapshotController()
 	app.initRestoreController()
 	app.initExportController()
@@ -618,8 +619,8 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		if err := metrics.CreateVMIMigrationHandler(vca.migrationInformer); err != nil {
 			golog.Fatalf("failed to add vmi phase transition time handler: %v", err)
 		}
-
-		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
+		// Disable evacuation controller
+		// go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
 		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
 		go vca.vmiController.Run(vca.vmiControllerThreads, stop)
