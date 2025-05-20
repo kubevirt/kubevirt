@@ -309,6 +309,10 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		AfterEach(func() {
 			scales.RestoreAllScales()
+			Eventually(func() (bool, error) {
+				ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
+				return ds.Status.CurrentNumberScheduled == ds.Status.DesiredNumberScheduled, err
+			}, time.Minute*5, time.Second*2).Should(BeTrue())
 		})
 
 		It("should fire KubevirtVmHighMemoryUsage alert", func() {
