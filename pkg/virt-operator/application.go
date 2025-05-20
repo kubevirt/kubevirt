@@ -341,8 +341,6 @@ func Execute() {
 }
 
 func (app *VirtOperatorApp) Run() {
-	promTLSConfig := kvtls.SetupPromTLS(app.operatorCertManager, app.clusterConfig)
-
 	go func() {
 
 		mux := http.NewServeMux()
@@ -361,14 +359,33 @@ func (app *VirtOperatorApp) Run() {
 		restfulContainer.Add(webService)
 
 		server := http.Server{
+			Addr:      app.ServiceListen.MetricsAddress(),
+			Handler:   mux,
+		}
+		if err := server.ListenAndServe(); err != nil {
+			golog.Fatal(err)
+		}
+	}()
+	go func() {
+		var handle200 = restful.RouteFunction(func(req *restful.Request, resp *restful.Response) {
+			resp.WriteHeader(http.StatusOK)
+		})
+		mux := http.NewServeMux()
+
+		webService := new(restful.WebService)
+		webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+		webService.Route(webService.GET("/healthz").To(handle200).
+		Produces(restful.MIME_JSON).
+		Returns(200, "OK", nil))
+
+		restfulContainer := restful.NewContainer()
+		restfulContainer.ServeMux = mux
+		restfulContainer.Add(webService)
+		server := http.Server{
 			Addr:      app.ServiceListen.Address(),
 			Handler:   mux,
-			TLSConfig: promTLSConfig,
-			// Disable HTTP/2
-			// See CVE-2023-44487
-			TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 		}
-		if err := server.ListenAndServeTLS("", ""); err != nil {
+		if err := server.ListenAndServe(); err != nil {
 			golog.Fatal(err)
 		}
 	}()
