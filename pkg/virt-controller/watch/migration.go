@@ -582,7 +582,9 @@ func (c *MigrationController) processMigrationPhase(
 			}
 		}
 	case virtv1.MigrationScheduled:
+		// External migration configuration: switch to MigrationPreparingTarget on MigrationConfiguration presence.
 		if vmi.Status.MigrationState != nil &&
+			vmi.Status.MigrationState.MigrationConfiguration != nil &&
 			vmi.Status.MigrationState.MigrationUID == migration.UID &&
 			vmi.Status.MigrationState.TargetNode != "" {
 			migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
@@ -911,14 +913,9 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 		}
 	}
 
-	clusterMigrationConfigs := c.clusterConfig.GetMigrationConfiguration().DeepCopy()
-	err := c.matchMigrationPolicy(vmiCopy, clusterMigrationConfigs)
-	if err != nil {
-		return fmt.Errorf("failed to match migration policy: %v", err)
-	}
-
-	if !c.isMigrationPolicyMatched(vmiCopy) {
-		vmiCopy.Status.MigrationState.MigrationConfiguration = clusterMigrationConfigs
+	// External migration configuration: Do not set migrationConfiguration from MigrationPolicies, just preserve it for the running migration if was set externally.
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationConfiguration != nil && vmi.Status.MigrationState.EndTimestamp == nil {
+		vmiCopy.Status.MigrationState.MigrationConfiguration = vmi.Status.MigrationState.MigrationConfiguration.DeepCopy()
 	}
 
 	if controller.VMIHasHotplugCPU(vmi) && vmi.IsCPUDedicated() {
@@ -937,7 +934,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 		vmiCopy.ObjectMeta.Labels[virtv1.VirtualMachinePodMemoryRequestsLabel] = memoryReq
 	}
 
-	err = c.patchVMI(vmi, vmiCopy)
+	err := c.patchVMI(vmi, vmiCopy)
 	if err != nil {
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
 		return err

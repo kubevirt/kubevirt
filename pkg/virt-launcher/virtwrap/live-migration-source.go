@@ -696,11 +696,11 @@ func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.Doma
 	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
 		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
 		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB ExpectedDowntime:%dms `+
-		`DiskMbps:%d`,
+		`DiskMbps:%d AutoConvergeThrottleSet:%v AutoConvergeThrottle:%d`,
 		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
 		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
 		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), info.Downtime,
-		bpsToMbps(info.DiskBps),
+		bpsToMbps(info.DiskBps), info.AutoConvergeThrottleSet, info.AutoConvergeThrottle,
 	))
 }
 

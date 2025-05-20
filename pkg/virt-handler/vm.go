@@ -2767,6 +2767,13 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			return nil
 		}
 
+		// External migration configuration: interrupt reconcile and wait for the next VMI update with filled MigrationConfiguration.
+		if origVMI.Status.MigrationState.MigrationConfiguration == nil {
+			// Wait for migration options.
+			log.DefaultLogger().Infof("external migration configuration is enabled, wait until VMI receives migration configuration, vmi phase is %s", origVMI.Status.Phase)
+			return nil
+		}
+
 		err = d.handleSourceMigrationProxy(origVMI)
 		if err != nil {
 			return fmt.Errorf("failed to handle migration proxy: %v", err)
