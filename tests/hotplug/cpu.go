@@ -125,7 +125,10 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				maxSockets uint32 = 2
 			)
 
-			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
+			vmi := libvmifact.NewAlpineWithTestTooling(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithNetworkInterfaceMultiQueue(true),
+			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Sockets:    1,
