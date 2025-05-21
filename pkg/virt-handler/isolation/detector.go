@@ -70,7 +70,7 @@ func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
 
 func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error) {
 	// Look up the socket of the virt-launcher Pod which was created for that VM, and extract the PID from it
-	socket, err := cmdclient.FindSocketOnHost(vm)
+	socket, err := cmdclient.FindSocket(vm)
 	if err != nil {
 		return nil, err
 	}

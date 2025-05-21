@@ -87,7 +87,7 @@ var _ = Describe("Virt remote commands", func() {
 
 	Context("client", func() {
 		It("socket from UID", func() {
-			sock, err := FindSocketOnHost(vmi)
+			sock, err := FindSocket(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sock).To(Equal(podSocketFile))
 
@@ -107,7 +107,7 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 		It("Detect unresponsive socket", func() {
-			sock, err := FindSocketOnHost(vmi)
+			sock, err := FindSocket(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(IsSocketUnresponsive(sock)).To(BeFalse())
