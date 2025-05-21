@@ -184,7 +184,7 @@ func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationR
 	if socket == "" {
 		isolationRes, err = detector.Detect(vm)
 	} else {
-		isolationRes, err = detector.DetectForSocket(vm, socket)
+		isolationRes, err = detector.DetectForSocket(socket)
 	}
 
 	if err != nil {
