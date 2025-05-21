@@ -375,7 +375,7 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 		if volume.ContainerDisk != nil {
 			sock, err := m.socketPathGetter(vmi, i)
 			if err == nil {
-				_, err = m.podIsolationDetector.DetectForSocket(vmi, sock)
+				_, err = m.podIsolationDetector.DetectForSocket(sock)
 			}
 
 			if err != nil {
@@ -392,7 +392,7 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 	if util.HasKernelBootContainerImage(vmi) {
 		sock, err := m.kernelBootSocketPathGetter(vmi)
 		if err == nil {
-			_, err = m.podIsolationDetector.DetectForSocket(vmi, sock)
+			_, err = m.podIsolationDetector.DetectForSocket(sock)
 		}
 		if err != nil {
 			log.DefaultLogger().Object(vmi).Reason(err).Info("kernelboot container not yet ready")
@@ -614,7 +614,7 @@ func (m *mounter) getContainerDiskPath(vmi *v1.VirtualMachineInstance, volume *v
 		return nil, ErrDiskContainerGone
 	}
 
-	res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
+	res, err := m.podIsolationDetector.DetectForSocket(sock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
 	}
@@ -633,7 +633,7 @@ func (m *mounter) getKernelArtifactPaths(vmi *v1.VirtualMachineInstance) (*kerne
 		return nil, ErrDiskContainerGone
 	}
 
-	res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
+	res, err := m.podIsolationDetector.DetectForSocket(sock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect socket for kernelboot container: %v", err)
 	}
