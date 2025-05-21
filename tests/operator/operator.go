@@ -384,7 +384,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Ports[0].Port).To(Equal(int32(123)))
 
-			By("Test that the port is revered to the original")
+			By("Test that the port is reverted to the original")
 			Eventually(func() int32 {
 				service, err := virtClient.CoreV1().Services(originalKv.Namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -513,7 +513,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				Expect(err).ToNot(HaveOccurred())
 				return vc.Annotations[v1.KubeVirtGenerationAnnotation]
 			}, 90*time.Second, 5*time.Second).Should(Equal(strconv.FormatInt(generation, 10)),
-				"Rsource generation numbers should be identical on both the Kubevirt CR and the virt-controller resource")
+				"Resource generation numbers should be identical on both the Kubevirt CR and the virt-controller resource")
 
 			By("Test that patch was applied to deployment")
 			vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
@@ -542,7 +542,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				Expect(err).ToNot(HaveOccurred())
 				return vc.Annotations[v1.KubeVirtGenerationAnnotation]
 			}, 90*time.Second, 5*time.Second).Should(Equal(strconv.FormatInt(generation, 10)),
-				"Rsource generation numbers should be identical on both the Kubevirt CR and the virt-controller resource")
+				"Resource generation numbers should be identical on both the Kubevirt CR and the virt-controller resource")
 
 			By("Test that patch was removed from deployment")
 			vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
@@ -790,7 +790,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			// Create VM on previous release using a specific API.
 			// NOTE: we are testing with yaml here and explicitly _NOT_ generating
-			// this vm using the latest api code. We want to guarrantee there are no
+			// this vm using the latest api code. We want to guarantee there are no
 			// surprises when it comes to backwards compatibility with previous
 			// virt apis.  As we progress our api from v1alpha3 -> v1 there
 			// needs to be a VM created for every api. This is how we will ensure
@@ -1595,7 +1595,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(patchKVInfra(originalKv, infra)).To(Succeed())
 
 			for _, deploymentName := range []string{"virt-controller", "virt-api"} {
-				errMsg := "NodeSelector should be propegated to the deployment eventually"
+				errMsg := "NodeSelector should be propagated to the deployment eventually"
 				Eventually(func() bool {
 					return nodeSelectorExistInDeployment(virtClient, deploymentName, fakeLabelKey, fakeLabelValue)
 				}, 60*time.Second, 1*time.Second).Should(BeTrue(), errMsg)
@@ -2418,7 +2418,7 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 		return "", fmt.Errorf("no kubevirt releases found")
 	}
 
-	// decending order from most recent.
+	// descending order from most recent.
 	sort.Sort(sort.Reverse(semver.Versions(vs)))
 
 	// most recent tag
@@ -2547,7 +2547,7 @@ func allKvInfraPodsAreReady(kv *v1.KubeVirt) {
 			return err
 		}
 		if curKv.Status.TargetDeploymentID != curKv.Status.ObservedDeploymentID {
-			return fmt.Errorf("target and obeserved id don't match")
+			return fmt.Errorf("target and observed id don't match")
 		}
 
 		foundReadyAndOwnedPod := false

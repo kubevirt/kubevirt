@@ -909,7 +909,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				))
 				Eventually(ThisPVCWith(testsuite.NamespaceTestAlternative, dataVolume.Name), 10*time.Second, 1*time.Second).Should(BeGone())
 
-				// We check if the VM is succesfully created
+				// We check if the VM is successfully created
 				By("Creating VM")
 				Eventually(func() error {
 					_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})

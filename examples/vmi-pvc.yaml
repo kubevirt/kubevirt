@@ -12,9 +12,9 @@ spec:
       - disk:
           bus: virtio
         name: pvcdisk
-    resources:
-      requests:
-        memory: 128Mi
+    memory:
+      guest: 128Mi
+    resources: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - name: pvcdisk
