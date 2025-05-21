@@ -773,9 +773,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			It("[test_id:4119]should migrate a running VM", func() {
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
-				if len(nodes.Items) < 2 {
-					Fail("Migration tests require at least 2 nodes")
-				}
+
+				Expect(len(nodes.Items)).To(BeNumerically(">", 1), "Migration tests require at least 2 nodes")
+
 				By("Creating a VM with RunStrategyAlways")
 				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -792,11 +792,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Ensuring the VirtualMachineInstance is migrated")
-				Eventually(func() bool {
+				Eventually(func(g Gomega) {
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed
-				}, 240*time.Second, 1*time.Second).Should(BeTrue())
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(vmi.Status.MigrationState).ToNot(BeNil(), "vmi.Status.MigrationState should not be nil")
+					g.Expect(vmi.Status.MigrationState.Completed).To(BeTrueBecause("migration should be completed"))
+				}, 240*time.Second, 1*time.Second).Should(Succeed())
 			})
 
 			It("[test_id:7743]should not migrate a running vm if dry-run option is passed", func() {
