@@ -1635,8 +1635,13 @@ func applyVolumeRestoreOverride(restorePVC *corev1.PersistentVolumeClaim, volume
 		// The volume we're trying to restore has a matching override
 		if override.VolumeName == volumeBackup.VolumeName {
 			// Override labels/annotations
-			maps.Copy(restorePVC.Labels, override.Labels)
-			maps.Copy(restorePVC.Annotations, override.Annotations)
+			if restorePVC.Labels != nil && override.Labels != nil {
+				maps.Copy(restorePVC.Labels, override.Labels)
+			}
+
+			if restorePVC.Annotations != nil && override.Annotations != nil {
+				maps.Copy(restorePVC.Annotations, override.Annotations)
+			}
 			break
 		}
 	}
