@@ -1,8 +1,11 @@
 name: Label Approved VEP PRs
 on:
-  pull_request:
-    types: [opened, edited, synchronize]
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+  workflow_dispatch:
+
 permissions:
+  contents: read
   issues: write
 
 jobs:
@@ -22,6 +25,6 @@ jobs:
 
       - name: Run VEP check script
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: python automation/label-approved-veps.py
