@@ -49,7 +49,7 @@ type PodIsolationDetector interface {
 	// It returns an IsolationResult containing all isolation information
 	Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error)
 
-	DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error)
+	DetectForSocket(socket string) (IsolationResult, error)
 
 	// Adjust system resources to run the passed VM
 	AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error
@@ -76,20 +76,18 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 		return nil, err
 	}
 
-	return s.DetectForSocket(vm, socket)
+	return s.DetectForSocket(socket)
 }
 
-func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
+func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (IsolationResult, error) {
 	pid, err := s.getPid(socket)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
-		return nil, err
+		return nil, fmt.Errorf("Could not get owner Pid of socket %s: %w", socket, err)
 	}
 
 	ppid, err := getPPid(pid)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("Could not get owner PPid of socket %s", socket)
-		return nil, err
+		return nil, fmt.Errorf("Could not get owner PPid of socket %s: %w", socket, err)
 	}
 
 	return NewIsolationResult(pid, ppid), nil

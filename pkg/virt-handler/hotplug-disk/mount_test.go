@@ -1031,7 +1031,7 @@ func (i *mockIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (isolation.
 	return isolation.NewIsolationResult(i.pid, i.ppid), i.err
 }
 
-func (i *mockIsolationDetector) DetectForSocket(_ *v1.VirtualMachineInstance, _ string) (isolation.IsolationResult, error) {
+func (i *mockIsolationDetector) DetectForSocket(_ string) (isolation.IsolationResult, error) {
 	if i.pid != 9999 {
 		return isolation.NewIsolationResult(i.pid, i.ppid), nil
 	}
