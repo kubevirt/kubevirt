@@ -909,14 +909,13 @@ var _ = Describe("Restore controller", func() {
 
 				ur := r.DeepCopy()
 				ur.ResourceVersion = "1"
-				pvcName := "alpine-dv"
 				ur.Status.Restores = []snapshotv1.VolumeRestore{
 					{
 						VolumeName:                diskName,
-						PersistentVolumeClaimName: pvcName, // Name is identical to the original PVC
+						PersistentVolumeClaimName: "alpine-dv", // Name is identical to the original PVC
 						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
-						MustWipe:                  false,    // PVC should have been wiped and the volume marked as such
-						DataVolumeName:            &pvcName, // This property was set to add the DV as owner of the PVC
+						MustWipe:                  false,                                // PVC should have been wiped and the volume marked as such
+						DataVolumeName:            &vm.Spec.DataVolumeTemplates[0].Name, // This property was set to add the DV as owner of the PVC
 					},
 				}
 

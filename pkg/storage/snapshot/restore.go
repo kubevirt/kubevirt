@@ -133,7 +133,7 @@ func getRestoreNameOverride(vmRestore *snapshotv1.VirtualMachineRestore, volumeN
 // volumeName is the name of the volume being restored
 // backendName is the name of the original backend for that same volume (a PVC or a DataVolume)
 func restoreVolumeBackendName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, backendName string) string {
-	// Check if the user isn't overriding the restore name
+	// Check if the user is overriding the restore name
 	if restoreOverride := getRestoreNameOverride(vmRestore, volumeName); restoreOverride != "" {
 		return restoreOverride
 	}
@@ -488,10 +488,9 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			// To prevent race conditions and possible reconciles of the DV during the PVC restore, we mark it as prePopulated to prevent any
 			// accidental creation of a PVC by the DataVolume.
 			var ownerDV string
-			for _, reference := range pvc.OwnerReferences {
-				if reference.Kind == "DataVolume" {
-					ownerDV = reference.Name
-				}
+			ownerReference := metav1.GetControllerOf(pvc)
+			if ownerReference != nil && ownerReference.Kind == "DataVolume" {
+				ownerDV = ownerReference.Name
 			}
 
 			if ownerDV != "" {
