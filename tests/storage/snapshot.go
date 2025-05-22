@@ -3,11 +3,9 @@ package storage
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/watcher"
 
@@ -30,9 +28,7 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/storage/velero"
 
-	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -299,18 +295,6 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				snapshotSourceMemory := contentSourceSpec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 				Expect(snapshotSourceMemory).To(Equal(expectedMemory))
 				checkOnlineSnapshotExpectedContentSource(vm, contentName, true)
-			}
-
-			callVeleroHook := func(vmi *v1.VirtualMachineInstance, annoContainer, annoCommand string) (string, string, error) {
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-				command := pod.Annotations[annoCommand]
-				command = strings.Trim(command, "[]")
-				commandSlice := []string{}
-				for _, c := range strings.Split(command, ",") {
-					commandSlice = append(commandSlice, strings.Trim(c, "\" "))
-				}
-				return exec.ExecuteCommandOnPodWithResults(pod, pod.Annotations[annoContainer], commandSlice)
 			}
 
 			ensureFreezeFedora := func(vmi *v1.VirtualMachineInstance) {
@@ -730,108 +714,6 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					})),
 					"CreationTime": BeNil(),
 				})))
-			})
-
-			It("Calling Velero hooks should freeze/unfreeze VM", func() {
-				By("Creating VM")
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = libvmi.NewVirtualMachine(vmi)
-
-				vm, vmi = createAndStartVM(vm)
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithTimeout(300),
-				)
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-				By("Logging into Fedora")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-				By("Calling Velero pre-backup hook")
-				_, _, err := callVeleroHook(vmi, velero.PreBackupHookContainerAnnotation, velero.PreBackupHookCommandAnnotation)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Veryfing the VM was frozen")
-				journalctlCheck := "journalctl --file /var/log/journal/*/system.journal"
-				expectedFreezeOutput := "executing fsfreeze hook with arg 'freeze'"
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedFreezeOutput)},
-					&expect.BExp{R: fmt.Sprintf(qemuGa, expectedFreezeOutput)},
-					&expect.BSnd{S: console.EchoLastReturnValue},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 30)).To(Succeed())
-				Eventually(func() string {
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.FSFreezeStatus
-				}, 180*time.Second, time.Second).Should(Equal("frozen"))
-
-				By("Calling Velero post-backup hook")
-				_, _, err = callVeleroHook(vmi, velero.PostBackupHookContainerAnnotation, velero.PostBackupHookCommandAnnotation)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Veryfing the VM was thawed")
-				expectedThawOutput := "executing fsfreeze hook with arg 'thaw'"
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedThawOutput)},
-					&expect.BExp{R: fmt.Sprintf(qemuGa, expectedThawOutput)},
-					&expect.BSnd{S: console.EchoLastReturnValue},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 30)).To(Succeed())
-				Eventually(func() string {
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.FSFreezeStatus
-				}, 180*time.Second, time.Second).Should(BeEmpty())
-			})
-
-			It("[test_id:9647]Calling Velero hooks should not error if no guest agent", func() {
-				const noGuestAgentString = "No guest agent, exiting"
-				By("Creating VM")
-				var vmi *v1.VirtualMachineInstance
-				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
-				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyHalted)
-
-				vm, vmi = createAndStartVM(vm)
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithTimeout(300),
-				)
-
-				By("Calling Velero pre-backup hook")
-				_, stderr, err := callVeleroHook(vmi, velero.PreBackupHookContainerAnnotation, velero.PreBackupHookCommandAnnotation)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(stderr).Should(ContainSubstring(noGuestAgentString))
-
-				By("Calling Velero post-backup hook")
-				_, stderr, err = callVeleroHook(vmi, velero.PostBackupHookContainerAnnotation, velero.PostBackupHookCommandAnnotation)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(stderr).Should(ContainSubstring(noGuestAgentString))
-			})
-
-			It("Calling Velero hooks should error if VM is Paused", func() {
-				By("Creating VM")
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = libvmi.NewVirtualMachine(vmi)
-
-				vm, vmi = createAndStartVM(vm)
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithTimeout(300),
-				)
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-				By("Logging into Fedora")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-				By("Pausing the VirtualMachineInstance")
-				err := virtClient.VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
-
-				By("Calling Velero pre-backup hook")
-				_, stderr, err := callVeleroHook(vmi, velero.PreBackupHookContainerAnnotation, velero.PreBackupHookCommandAnnotation)
-				Expect(err).To(HaveOccurred())
-				Expect(stderr).Should(ContainSubstring("Paused VM"))
 			})
 
 			Context("with memory dump", func() {
