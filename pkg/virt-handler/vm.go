@@ -295,7 +295,6 @@ type VirtualMachineController struct {
 	host               string
 	migrationIpAddress string
 	virtShareDir             string
-	virtPrivateDir           string
 	queue                    workqueue.TypedRateLimitingInterface[string]
 	vmiSourceStore           cache.Store
 	vmiTargetStore           cache.Store
