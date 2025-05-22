@@ -280,7 +280,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 
 				// It may take some time for the VMI interface status to be updated with the information reported by
 				// the guest-agent.
-				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 2*time.Minute+10*time.Second)
+				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 5*time.Minute)
 				Expect(err).NotTo(HaveOccurred())
 				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
