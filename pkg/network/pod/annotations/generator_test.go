@@ -445,16 +445,6 @@ var _ = Describe("Annotations Generator", func() {
 
 			expectedNetInfo := []downwardapi.Interface{
 				{
-					Network: networkName2,
-					DeviceInfo: &networkv1.DeviceInfo{
-						Type:    "pci",
-						Version: "1.0.0",
-						Pci: &networkv1.PciDevice{
-							PciAddress: "0000:65:00.2",
-						},
-					},
-				},
-				{
 					Network: networkName3,
 					DeviceInfo: &networkv1.DeviceInfo{
 						Type:    "pci",
@@ -464,9 +454,19 @@ var _ = Describe("Annotations Generator", func() {
 						},
 					},
 				},
+				{
+					Network: networkName2,
+					DeviceInfo: &networkv1.DeviceInfo{
+						Type:    "pci",
+						Version: "1.0.0",
+						Pci: &networkv1.PciDevice{
+							PciAddress: "0000:65:00.2",
+						},
+					},
+				},
 			}
 
-			Expect(actualNetInfo.Interfaces).To(ConsistOf(expectedNetInfo))
+			Expect(actualNetInfo.Interfaces).To(Equal(expectedNetInfo))
 		})
 	})
 
