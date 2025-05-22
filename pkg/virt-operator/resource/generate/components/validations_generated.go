@@ -911,8 +911,14 @@ var CRDsValidation map[string]string = map[string]string{
                   - memoryLimit
                   type: object
                 featureGates:
-                  description: FeatureGates is the list of experimental features to
-                    enable. Defaults to none
+                  description: |-
+                    FeatureGates is the list of experimental features to enable. Defaults to none.
+                    In order to enable a feature gate, the feature gate name can either be added
+                    to the list, or a string with a format of "<Feature-Gate>=true" can be used.
+                    In order to disable a feature gate, a string with a format of "<Feature-Gate>=false" can be used,
+                    which is mostly valuable for non-stable features that are enbaled by default, which is
+                    common with Beta features.
+                    If both formats are being used, the explicit format takes precedence.
                   items:
                     type: string
                   type: array

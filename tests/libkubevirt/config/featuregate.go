@@ -20,6 +20,10 @@
 package config
 
 import (
+	"fmt"
+	"slices"
+	"strings"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -28,7 +32,15 @@ import (
 )
 
 func DisableFeatureGate(feature string) {
-	if !checks.HasFeature(feature) {
+	setFeatureGateState(feature, false)
+}
+
+func EnableFeatureGate(feature string) {
+	setFeatureGateState(feature, true)
+}
+
+func setFeatureGateState(feature string, toEnable bool) {
+	if toEnable == checks.HasFeature(feature) {
 		return
 	}
 	virtClient := kubevirt.Client()
@@ -40,36 +52,12 @@ func DisableFeatureGate(feature string) {
 		}
 	}
 
-	var newArray []string
-	featureGates := kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
-	for _, fg := range featureGates {
-		if fg == feature {
-			continue
-		}
+	featureGates := slices.DeleteFunc(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, func(definedFeatureGate string) bool {
+		return definedFeatureGate == feature || strings.HasPrefix(definedFeatureGate, feature+"=")
+	})
 
-		newArray = append(newArray, fg)
-	}
-
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = newArray
+	featureGates = append(featureGates, fmt.Sprintf("%s=%t", feature, toEnable))
+	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = featureGates
 
 	UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-}
-
-func EnableFeatureGate(feature string) *v1.KubeVirt {
-	virtClient := kubevirt.Client()
-
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if checks.HasFeature(feature) {
-		return kv
-	}
-
-	if kv.Spec.Configuration.DeveloperConfiguration == nil {
-		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-			FeatureGates: []string{},
-		}
-	}
-
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, feature)
-
-	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
