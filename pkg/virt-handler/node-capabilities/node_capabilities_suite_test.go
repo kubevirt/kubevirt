@@ -17,27 +17,14 @@
  *
  */
 
-package nodelabeller
+package nodecapabilities_test
 
-// Ensure that there is a compile error should the struct not implement the archLabeller interface anymore.
-var _ = archLabeller(&archLabellerAMD64{})
+import (
+	"testing"
 
-type archLabellerAMD64 struct {
-	defaultArchLabeller
-}
+	"kubevirt.io/client-go/testutils"
+)
 
-func (archLabellerAMD64) hasHostSupportedFeatures() bool {
-	return true
-}
-
-func (archLabellerAMD64) supportsHostModel() bool {
-	return true
-}
-
-func (archLabellerAMD64) supportsNamedModels() bool {
-	return true
-}
-
-func (archLabellerAMD64) arch() string {
-	return amd64
+func TestNodeLabeller(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }

@@ -25,7 +25,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	nodecapabilities "kubevirt.io/kubevirt/pkg/virt-handler/node-capabilities"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -231,7 +231,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			if featureState.Enabled == nil || *featureState.Enabled == true {
 				Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).ToNot(BeNil(), "vapic should not be nil")
 				Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(1), "cpu topology has to contain 1 feature")
-				Expect(vmi.Spec.Domain.CPU.Features[0].Name).To(Equal(nodelabellerutil.VmxFeature), "vmx cpu feature should be requested")
+				Expect(vmi.Spec.Domain.CPU.Features[0].Name).To(Equal(nodecapabilities.VmxFeature), "vmx cpu feature should be requested")
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUModelVendorLabel+"Intel", "true"))
 			} else {
 				Expect(pod.Spec.NodeSelector).ShouldNot(HaveKeyWithValue(v1.CPUModelVendorLabel+"Intel", "true"))
