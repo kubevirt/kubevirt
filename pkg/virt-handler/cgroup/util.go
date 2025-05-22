@@ -214,6 +214,13 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 			Permissions: permissions,
 			Allow:       toAllow,
 		},
+		{ // /dev/zero
+			Type:        devices.CharDevice,
+			Major:       1,
+			Minor:       5,
+			Permissions: permissions,
+			Allow:       toAllow,
+		},
 		{ // /dev/kvm (hardware virtualization extensions)
 			Type:        devices.CharDevice,
 			Major:       10,
