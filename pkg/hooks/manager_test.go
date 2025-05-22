@@ -25,6 +25,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"google.golang.org/grpc"
@@ -92,7 +93,9 @@ var _ = Describe("HooksManager", func() {
 		It("Should find sidecar", func() {
 			hookPointName := hooksInfo.OnDefineDomainHookPointName
 
-			socketPath := filepath.Join(socketDir, "hook1.sock")
+			hookPath := filepath.Join(socketDir, "hook-sidecar-0")
+			os.MkdirAll(hookPath, os.ModePerm)
+			socketPath := filepath.Join(hookPath, "hook1.sock")
 			socket, err := hookListenAndServe(socketPath, "hook1", hookPointName, 0)
 			Expect(err).ToNot(HaveOccurred())
 			defer socket.Close()
@@ -111,8 +114,10 @@ var _ = Describe("HooksManager", func() {
 			hookPointName := hooksInfo.OnDefineDomainHookPointName
 			hookNames := []string{"hook1", "hook2"}
 
-			for _, hookName := range hookNames {
-				socketPath := filepath.Join(socketDir, fmt.Sprintf("%s.sock", hookName))
+			for i, hookName := range hookNames {
+				hookPath := filepath.Join(socketDir, "hook-sidecar-"+strconv.Itoa(i))
+				os.MkdirAll(hookPath, os.ModePerm)
+				socketPath := filepath.Join(hookPath, fmt.Sprintf("%s.sock", hookName))
 				socket, err := hookListenAndServe(socketPath, hookName, hookPointName, 0)
 				Expect(err).ToNot(HaveOccurred())
 				defer socket.Close()
@@ -129,27 +134,32 @@ var _ = Describe("HooksManager", func() {
 		})
 
 		It("Should find multiple sidecars on different hook points", func() {
-			hookNameMap := map[string]string{
-				"hook1": hooksInfo.OnDefineDomainHookPointName,
-				"hook2": hooksInfo.PreCloudInitIsoHookPointName,
+			hookNameList := []struct {
+				hookName      string
+				hookPointName string
+			}{
+				{"hook1", hooksInfo.OnDefineDomainHookPointName},
+				{"hook2", hooksInfo.PreCloudInitIsoHookPointName},
 			}
-			for hookName, hookPointName := range hookNameMap {
-				socketPath := filepath.Join(socketDir, fmt.Sprintf("%s.sock", hookName))
-				socket, err := hookListenAndServe(socketPath, hookName, hookPointName, 0)
+			for i, hook := range hookNameList {
+				hookPath := filepath.Join(socketDir, "hook-sidecar-"+strconv.Itoa(i))
+				os.MkdirAll(hookPath, os.ModePerm)
+				socketPath := filepath.Join(hookPath, fmt.Sprintf("%s.sock", hook.hookName))
+				socket, err := hookListenAndServe(socketPath, hook.hookName, hook.hookPointName, 0)
 				Expect(err).ToNot(HaveOccurred())
 				defer socket.Close()
 				defer os.Remove(socketPath)
 			}
 
 			manager := newManager(socketDir)
-			err := manager.Collect(uint(len(hookNameMap)), 10*time.Second)
+			err := manager.Collect(uint(len(hookNameList)), 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
 			callbackMaps := manager.CallbacksPerHookPoint
 
-			for _, hookPointName := range hookNameMap {
-				Expect(callbackMaps).Should(HaveKey(hookPointName))
-				Expect(callbackMaps[hookPointName]).Should(HaveLen(1))
+			for _, hook := range hookNameList {
+				Expect(callbackMaps).Should(HaveKey(hook.hookPointName))
+				Expect(callbackMaps[hook.hookPointName]).Should(HaveLen(1))
 			}
 		})
 
