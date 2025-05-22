@@ -319,10 +319,10 @@ var _ = Describe("CRDs", func() {
 		Entry("for VirtualMachineClone", NewVirtualMachineCloneCrd,
 			clonev1beta1.VirtualMachineClone{
 				Spec: clonev1beta1.VirtualMachineCloneSpec{
-					Source: &k8sv1.TypedLocalObjectReference{
+					Source: &k8sv1.TypedObjectReference{
 						Name: "test-source",
 					},
-					Target: &k8sv1.TypedLocalObjectReference{
+					Target: &k8sv1.TypedObjectReference{
 						Name: "test-target",
 					},
 				},

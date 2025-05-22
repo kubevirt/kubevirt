@@ -35,7 +35,7 @@ var _ = Describe("Clone mutating webhook", func() {
 		mutator := mutators.NewCloneCreateMutatorWithTargetSuffix(expectedTargetSuffix)
 
 		expectedVirtualMachineCloneSpec := vmClone.Spec.DeepCopy()
-		expectedVirtualMachineCloneSpec.Target = &k8sv1.TypedLocalObjectReference{
+		expectedVirtualMachineCloneSpec.Target = &k8sv1.TypedObjectReference{
 			APIGroup: pointer.P(virtualMachineAPIGroup),
 			Kind:     virtualMachineKind,
 			Name:     fmt.Sprintf("clone-%s-%s", expectedVirtualMachineCloneSpec.Source.Name, expectedTargetSuffix),
@@ -124,7 +124,7 @@ const (
 
 func withVirtualMachineSource(virtualMachineName string) option {
 	return func(vmClone *clone.VirtualMachineClone) {
-		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
+		vmClone.Spec.Source = &k8sv1.TypedObjectReference{
 			APIGroup: pointer.P(virtualMachineAPIGroup),
 			Kind:     virtualMachineKind,
 			Name:     virtualMachineName,
@@ -134,7 +134,7 @@ func withVirtualMachineSource(virtualMachineName string) option {
 
 func withVirtualMachineSnapshotSource(virtualMachineSnapshotName string) option {
 	return func(vmClone *clone.VirtualMachineClone) {
-		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
+		vmClone.Spec.Source = &k8sv1.TypedObjectReference{
 			APIGroup: pointer.P(virtualMachineSnapshotAPIGroup),
 			Kind:     virtualMachineSnapshotKind,
 			Name:     virtualMachineSnapshotName,
@@ -144,7 +144,7 @@ func withVirtualMachineSnapshotSource(virtualMachineSnapshotName string) option 
 
 func withVirtualMachineTarget(virtualMachineName string) option {
 	return func(vmClone *clone.VirtualMachineClone) {
-		vmClone.Spec.Target = &k8sv1.TypedLocalObjectReference{
+		vmClone.Spec.Target = &k8sv1.TypedObjectReference{
 			APIGroup: pointer.P(virtualMachineAPIGroup),
 			Kind:     virtualMachineKind,
 			Name:     virtualMachineName,
