@@ -278,7 +278,7 @@ func (c *Controller) execute(key string) error {
 		c.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, v1.UpdateOptions{})
 		if err != nil {
-			c.vmiExpectations.LowerExpectations(key, 1, 0)
+			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
 		return nil
@@ -458,7 +458,7 @@ func (c *Controller) lowerVMIExpectation(curr interface{}) {
 	if err != nil {
 		return
 	}
-	c.vmiExpectations.LowerExpectations(key, 1, 0)
+	c.vmiExpectations.SetExpectations(key, 0, 0)
 }
 
 func (c *Controller) enqueueVirtualMachine(obj interface{}) {

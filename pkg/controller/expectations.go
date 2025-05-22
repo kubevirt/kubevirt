@@ -176,7 +176,7 @@ func (r *ControllerExpectations) ExpectDeletions(controllerKey string, dels int)
 	r.SetExpectations(controllerKey, 0, dels)
 }
 
-// Decrements the expectation counts of the given controller.
+// LowerExpectations decrements the expectation counts of the given controller.
 func (r *ControllerExpectations) LowerExpectations(controllerKey string, add, del int) {
 	if exp, exists, err := r.GetExpectations(controllerKey); err == nil && exists {
 		exp.Add(int64(-add), int64(-del))
@@ -185,7 +185,7 @@ func (r *ControllerExpectations) LowerExpectations(controllerKey string, add, de
 	}
 }
 
-// Increments the expectation counts of the given controller.
+// RaiseExpectations increments the expectation counts of the given controller.
 func (r *ControllerExpectations) RaiseExpectations(controllerKey string, add, del int) {
 	if exp, exists, err := r.GetExpectations(controllerKey); err == nil && exists {
 		exp.Add(int64(add), int64(del))

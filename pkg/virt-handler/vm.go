@@ -685,7 +685,7 @@ func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		c.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err := c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
-			c.vmiExpectations.LowerExpectations(key, 1, 0)
+			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
 	}
@@ -798,7 +798,7 @@ func (c *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		c.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err := c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmiCopy, metav1.UpdateOptions{})
 		if err != nil {
-			c.vmiExpectations.LowerExpectations(key, 1, 0)
+			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
 	}
@@ -1435,7 +1435,7 @@ func (c *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 		c.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
-			c.vmiExpectations.LowerExpectations(key, 1, 0)
+			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
 	}
@@ -3453,21 +3453,21 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 func (c *VirtualMachineController) addFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
-		c.vmiExpectations.LowerExpectations(key, 1, 0)
+		c.vmiExpectations.SetExpectations(key, 0, 0)
 		c.queue.Add(key)
 	}
 }
 func (c *VirtualMachineController) deleteFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
-		c.vmiExpectations.LowerExpectations(key, 1, 0)
+		c.vmiExpectations.SetExpectations(key, 0, 0)
 		c.queue.Add(key)
 	}
 }
 func (c *VirtualMachineController) updateFunc(_, new interface{}) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
-		c.vmiExpectations.LowerExpectations(key, 1, 0)
+		c.vmiExpectations.SetExpectations(key, 0, 0)
 		c.queue.Add(key)
 	}
 }
