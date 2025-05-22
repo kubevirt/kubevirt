@@ -349,8 +349,9 @@ func (s *vmSnapshotSource) Freeze() error {
 	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
-		log.Log.Errorf("%s %s: %v", failedFreezeMsg, s.vm.Name, err.Error())
-		return err
+		formattedErr := fmt.Errorf("%s %s: %v", failedFreezeMsg, s.vm.Name, err)
+		log.Log.Errorf(formattedErr.Error())
+		return formattedErr
 	}
 
 	return nil
