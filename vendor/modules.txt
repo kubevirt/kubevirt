@@ -229,6 +229,12 @@ github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8
 # github.com/kisielk/errcheck v1.6.2
 ## explicit; go 1.14
 github.com/kisielk/errcheck/errcheck
+# github.com/klauspost/compress v1.17.9
+## explicit; go 1.20
+github.com/klauspost/compress/flate
+# github.com/klauspost/pgzip v1.2.6
+## explicit
+github.com/klauspost/pgzip
 # github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 ## explicit
 github.com/krolaw/dhcp4
