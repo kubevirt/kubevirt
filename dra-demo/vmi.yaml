@@ -1,0 +1,46 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-fedora
+  namespace: pgpu-test
+  name: vmi-fedora-pgpu
+spec:
+  resourceClaims:
+    - name: pgpu-resource-claim
+      resourceClaimTemplateName: pgpu-resource-claim-tmpl
+  domain:
+    devices:
+      gpus:
+        - name: example-gpu
+          claimName: pgpu-resource-claim
+          requestName: pgpu
+      disks:
+        - disk:
+            bus: virtio
+          name: containerdisk
+        - disk:
+            bus: virtio
+          name: cloudinitdisk
+      interfaces:
+        - masquerade: { }
+          name: default
+      rng: { }
+    resources:
+      requests:
+        memory: 1024M
+  networks:
+    - name: default
+      pod: { }
+  terminationGracePeriodSeconds: 0
+  volumes:
+    - containerDisk:
+        image: registry:5000/kubevirt/fedora-with-test-tooling-container-disk:devel
+      name: containerdisk
+    - cloudInitNoCloud:
+        userData: |-
+          #cloud-config
+          password: fedora
+          chpasswd: { expire: False }
+      name: cloudinitdisk
