@@ -700,12 +700,14 @@ var _ = Describe("VM Stats Collector", func() {
 											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
 												Bridge: &k6tv1.InterfaceBridge{},
 											},
+											Model: "virtio",
 										},
 										{
 											Name: "iface2",
 											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
 												Masquerade: &k6tv1.InterfaceMasquerade{},
 											},
+											Model: "e1000e",
 										},
 										{
 											Name: "iface3",
@@ -746,10 +748,10 @@ var _ = Describe("VM Stats Collector", func() {
 			metrics := CollectVmsVnicInfo([]*k6tv1.VirtualMachine{vm})
 			Expect(metrics).To(HaveLen(4), "Expected metrics for all vNICs")
 
-			Expect(metrics[0].Labels).To(Equal([]string{"test-vm", "test-ns", "iface1", "core", "pod networking", "bridge"}))
-			Expect(metrics[1].Labels).To(Equal([]string{"test-vm", "test-ns", "iface2", "core", "pod networking", "masquerade"}))
-			Expect(metrics[2].Labels).To(Equal([]string{"test-vm", "test-ns", "iface3", "core", "multus-net", "sriov"}))
-			Expect(metrics[3].Labels).To(Equal([]string{"test-vm", "test-ns", "iface4", "plugin", "custom-net", "custom-plugin"}))
+			Expect(metrics[0].Labels).To(Equal([]string{"test-vm", "test-ns", "iface1", "core", "pod networking", "bridge", "virtio"}))
+			Expect(metrics[1].Labels).To(Equal([]string{"test-vm", "test-ns", "iface2", "core", "pod networking", "masquerade", "e1000e"}))
+			Expect(metrics[2].Labels).To(Equal([]string{"test-vm", "test-ns", "iface3", "core", "multus-net", "sriov", "<none>"}))
+			Expect(metrics[3].Labels).To(Equal([]string{"test-vm", "test-ns", "iface4", "plugin", "custom-net", "custom-plugin", "<none>"}))
 		})
 		It("should not collect kubevirt_vm_vnic_info metric if no network defined", func() {
 			vm := &k6tv1.VirtualMachine{
