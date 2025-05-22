@@ -6,6 +6,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -35,6 +36,7 @@ type ContainerSpecRenderer struct {
 	ports             []k8sv1.ContainerPort
 	capabilities      *k8sv1.Capabilities
 	args              []string
+	extraEnvVars      []k8sv1.EnvVar
 }
 
 type Option func(*ContainerSpecRenderer)
@@ -83,6 +85,8 @@ func (csr *ContainerSpecRenderer) envVars() []k8sv1.EnvVar {
 			Value: strings.Join(csr.sharedFilesystems, ":"),
 		})
 	}
+
+	env = append(env, csr.extraEnvVars...)
 
 	return env
 }
@@ -180,6 +184,15 @@ func WithReadinessProbe(vmi *v1.VirtualMachineInstance) Option {
 		v1.SetDefaults_Probe(vmi.Spec.ReadinessProbe)
 		renderer.readinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
 		updateReadinessProbe(vmi, renderer.readinessProbe)
+	}
+}
+
+func WithContainerName(containerName string) Option {
+	return func(renderer *ContainerSpecRenderer) {
+		renderer.extraEnvVars = append(renderer.extraEnvVars, k8sv1.EnvVar{
+			Name:  hooks.ContainerNameEnvVar,
+			Value: containerName,
+		})
 	}
 }
 
