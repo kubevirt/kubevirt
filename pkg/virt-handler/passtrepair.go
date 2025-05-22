@@ -25,19 +25,26 @@ func (e *UnixDomainSocketError) Error() string {
 }
 
 func passtRepairInternal(passtLivbirtDir string) error {
-	var err error
-	cmd := exec.Command("passt-repair", passtLivbirtDir)
+	ll(passtLivbirtDir)
+	socketFile, err := findSocketRepairFile(passtLivbirtDir)
+	if err != nil {
+		return err
+	}
+	passtRepairArg := passtLivbirtDir
+	if socketFile != "" {
+		passtRepairArg = socketFile
+	}
+	fmt.Printf("DEBUG: calling passt-repair with arg %q\n", passtRepairArg)
 
+	cmd := exec.Command("passt-repair", passtRepairArg)
 	var stderrBuf bytes.Buffer
 	cmd.Stderr = &stderrBuf
 
 	cmd.Stdout = os.Stdout
 
-	ll(passtLivbirtDir)
 	if err = cmd.Start(); err != nil {
-		fmt.Printf("ERROR: could not start passt-repair: %q", err)
+		fmt.Printf("ERROR: could not start passt-repair: %q\n", err)
 		return err
-
 	}
 
 	done := make(chan error)
@@ -54,7 +61,9 @@ func passtRepairInternal(passtLivbirtDir string) error {
 		case err = <-done:
 			if err != nil {
 				repairErrorString := stderrBuf.String()
-				fmt.Printf("DEBUG: passt-repair %s,%q, %q\n", passtLivbirtDir, err, repairErrorString)
+				fmt.Printf("DEBUG: passt-repair done err:<%q>, %s\n", err, repairErrorString)
+				ll(passtLivbirtDir)
+				os.Stdout.Sync()
 				if strings.Contains(repairErrorString, "Connection refused") ||
 					strings.Contains(repairErrorString, "No such file or directory") {
 					return &UnixDomainSocketError{socket: passtLivbirtDir}
@@ -63,6 +72,22 @@ func passtRepairInternal(passtLivbirtDir string) error {
 			return nil
 		}
 	}
+}
+func findSocketRepairFile(dirPath string) (string, error) {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read directory %s: %w", dirPath, err)
+	}
+
+	for _, entry := range entries {
+		fileName := entry.Name()
+		fmt.Printf("DEBUG: findSocketRepairFile type %v\n", entry.Type().String())
+		if strings.HasSuffix(fileName, ".socket.repair") {
+			fullPath := filepath.Join(dirPath, fileName)
+			return fullPath, nil
+		}
+	}
+	return "", nil
 }
 
 func passtRepair(vmi *v1.VirtualMachineInstance) {
@@ -74,7 +99,10 @@ func passtRepair(vmi *v1.VirtualMachineInstance) {
 	}
 	passtLibvirtDir := filepath.Join(laucherSock, passtLibvirtDirRelativeToLauncherSock)
 
-	passtRepairInternal(passtLibvirtDir)
+	err = passtRepairInternal(passtLibvirtDir)
+	if err != nil {
+		fmt.Printf("DEBUG: passt-repair returned error , %q\n", err)
+	}
 
 	//for err = passtRepairInternal(passtLibvirtDir); goerror.As(err, &unixDomainSocketError) && count < 100; count++ {
 	//	fmt.Printf("DEBUG: passt-repair %s, waiting. count=%d\n", socket, count)
