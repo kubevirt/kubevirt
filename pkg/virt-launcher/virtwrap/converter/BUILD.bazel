@@ -35,7 +35,6 @@ go_library(
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/vcpu:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
-        "//pkg/virt-launcher/virtwrap/launchsecurity:go_default_library",
         "//pkg/virtiofs:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
