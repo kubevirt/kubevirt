@@ -106,6 +106,9 @@ const (
 	affectDeviceLiveAndConfigLibvirtFlags     = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
 	affectDomainLiveAndConfigLibvirtFlags     = libvirt.DOMAIN_AFFECT_LIVE | libvirt.DOMAIN_AFFECT_CONFIG
 	affectDomainVCPULiveAndConfigLibvirtFlags = libvirt.DOMAIN_VCPU_LIVE | libvirt.DOMAIN_VCPU_CONFIG
+
+	memRequiredForExtraHotplugPorts = 2 * 1024 * 1024 * 1024 // 2GB
+	hotplugPortLimit                = 32
 )
 
 const maxConcurrentHotplugHostDevices = 1
@@ -1342,11 +1345,8 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 		return nil, err
 	}
 
-	setDomainFn := func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
-		return l.setDomainSpecWithHooks(v, s)
-	}
-
-	if dom, err = withNetworkIfacesResources(vmi, &domain.Spec, setDomainFn); err != nil {
+	if dom, err = l.allocateHotplugPorts(vmi, &domain.Spec); err != nil {
+		logger.Reason(err).Error("failed to allocate hotplug ports")
 		return nil, err
 	}
 
@@ -1356,6 +1356,45 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 	)
 	logger.Info("Domain defined.")
 	return dom, err
+}
+
+func (l *LibvirtDomainManager) allocateHotplugPorts(
+	vmi *v1.VirtualMachineInstance,
+	domainSpec *api.DomainSpec,
+) (cli.VirDomain, error) {
+	logger := log.Log.Object(vmi)
+	// old behavior for small VMs
+	portsToAllocate := getHotplugNetworkInterfaceCount(vmi)
+	pciDevsOnRoot := vmi.Annotations[v1.PlacePCIDevicesOnRootComplex] == "true"
+
+	if domainSpec.Memory.Value >= memRequiredForExtraHotplugPorts {
+		count, err := converter.CountVirtIOPortsUsed(domainSpec)
+		if err != nil {
+			logger.Reason(err).Error("failed to count non-root PCI devices")
+			return nil, err
+		}
+		portsToAllocate = hotplugPortLimit - count
+	}
+
+	if pciDevsOnRoot || portsToAllocate <= 0 {
+		logger.V(1).Info("Not allocating any hotplug ports")
+		return l.setDomainSpecWithHooks(vmi, domainSpec)
+	}
+
+	logger.V(1).Infof("Allocating %d hotplug ports", portsToAllocate)
+
+	setDomainFn := func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+		return l.setDomainSpecWithHooks(v, s)
+	}
+
+	// leverate existing hotplug nic code to allocate ports
+	// should work for disks and any other devices as well
+	dom, err := withNetworkIfacesResources(vmi, domainSpec, portsToAllocate, setDomainFn)
+	if err != nil {
+		return nil, err
+	}
+
+	return dom, nil
 }
 
 func getSourceFile(disk api.Disk) string {

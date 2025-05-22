@@ -210,13 +210,21 @@ func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
 	return domainInterfaces
 }
 
+func getHotplugNetworkInterfaceCount(vmi *v1.VirtualMachineInstance) int {
+	interfacesDecleared := len(vmi.Spec.Domain.Devices.Interfaces)
+	if interfacesDecleared == 0 || interfacesDecleared > ReservedInterfaces {
+		return 0
+	}
+	return ReservedInterfaces - interfacesDecleared
+}
+
 // withNetworkIfacesResources adds network interfaces as placeholders to the domain spec
 // to trigger the addition of the dependent resources/devices (e.g. PCI controllers).
 // As its last step, it reads the generated configuration and removes the network interfaces
 // so none will be created with the domain creation.
 // The dependent devices are left in the configuration, to allow future hotplug.
-func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
-	domainSpecWithIfacesResource := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec)
+func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
+	domainSpecWithIfacesResource := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
 	dom, err := f(vmi, domainSpecWithIfacesResource)
 	if err != nil {
 		return nil, err
@@ -240,16 +248,9 @@ func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.
 	return f(vmi, domainSpec)
 }
 
-func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
-	if len(vmi.Spec.Domain.Devices.Interfaces) == 0 {
-		return domainSpec
-	}
-	if val := vmi.Annotations[v1.PlacePCIDevicesOnRootComplex]; val == "true" {
-		return domainSpec
-	}
+func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int) *api.DomainSpec {
 	domainSpecWithIfacesResource := domainSpec.DeepCopy()
-	interfacePlaceholderCount := ReservedInterfaces - len(vmi.Spec.Domain.Devices.Interfaces)
-	for i := 0; i < interfacePlaceholderCount; i++ {
+	for i := 0; i < count; i++ {
 		domainSpecWithIfacesResource.Devices.Interfaces = append(
 			domainSpecWithIfacesResource.Devices.Interfaces,
 			newInterfacePlaceholder(i, converter.InterpretTransitionalModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional, vmi.Spec.Architecture)),
