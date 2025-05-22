@@ -40,6 +40,7 @@ func (VirtualMachinePoolSpec) SwaggerDoc() map[string]string {
 		"virtualMachineTemplate": "Template describes the VM that will be created.",
 		"paused":                 "Indicates that the pool is paused.\n+optional",
 		"nameGeneration":         "Options for the name generation in a pool.\n+optional",
+		"maxUnavailable":         "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.\n+optional",
 	}
 }
 
