@@ -344,13 +344,11 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 				By("Update volumes")
 				updateVMWithPVC(vm, volName, destPVC)
-				Eventually(func() bool {
-					vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
-						metav1.GetOptions{})
+				Eventually(func() string {
+					vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
-					return claim == destPVC
-				}, 120*time.Second, time.Second).Should(BeTrue())
+					return storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
+				}, 120*time.Second, time.Second).Should(Equal(destPVC))
 				waitForMigrationToSucceed(virtClient, vm.Name, ns)
 
 				By("Expanding the destination PVC")
@@ -387,13 +385,11 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			destDV := createBlankDV(virtClient, ns, "2Gi")
 			By("Update volumes")
 			updateVMWithDV(vm, volName, destDV.Name)
-			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
-					metav1.GetOptions{})
+			Eventually(func() string {
+				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
-				return claim == destDV.Name
-			}, 120*time.Second, time.Second).Should(BeTrue())
+				return storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
+			}, 120*time.Second, time.Second).Should(Equal(destDV.Name))
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 
 			By("Rollback to the original volumes")
@@ -435,13 +431,12 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 			By("Update volumes")
 			updateVMWithDV(vm, volName, destDV.Name)
-			Eventually(func() bool {
+			Eventually(func() string {
 				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
 					metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
-				return claim == destDV.Name
-			}, 120*time.Second, time.Second).Should(BeTrue())
+				return storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
+			}, 120*time.Second, time.Second).Should(Equal(destDV.Name))
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 			By("Expecting the VirtualMachineInstance console")
 			vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
@@ -465,18 +460,16 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				srcDV, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(err).ToNot(HaveOccurred())
 			destDV := createBlankDV(virtClient, ns, size)
 			vm := createVMWithDV(srcDV, volName)
 			By("Update volumes")
 			updateVMWithDV(vm, volName, destDV.Name)
-			Eventually(func() bool {
+			Eventually(func() string {
 				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
 					metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
-				return claim == destDV.Name
-			}, 120*time.Second, time.Second).Should(BeTrue())
+				return storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
+			}, 120*time.Second, time.Second).Should(Equal(destDV.Name))
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 
 			By("Expecting the VirtualMachineInstance console")
@@ -508,19 +501,20 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
-			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
-					metav1.GetOptions{})
+			Eventually(func() []virtv1.Volume {
+				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				for _, v := range vmi.Spec.Volumes {
-					if v.PersistentVolumeClaim != nil {
-						if v.PersistentVolumeClaim.ClaimName == destPVC {
-							return true
-						}
-					}
-				}
-				return false
-			}, 120*time.Second, time.Second).Should(BeTrue())
+				return vmi.Spec.Volumes
+			}, 120*time.Second, time.Second).Should(
+				ContainElement(
+					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"PersistentVolumeClaim": gstruct.PointTo(
+							gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+								"ClaimName": Equal(destPVC),
+							}),
+						),
+					}),
+				))
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -1222,37 +1216,27 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 }
 
 func waitMigrationToExist(virtClient kubecli.KubevirtClient, vmiName, ns string) {
-	Eventually(func() bool {
+	Eventually(func() []virtv1.VirtualMachineInstanceMigration {
 		ls := labels.Set{
 			virtv1.VolumesUpdateMigration: vmiName,
 		}
-		migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(),
-			metav1.ListOptions{
-				LabelSelector: ls.String(),
-			})
+		migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(), metav1.ListOptions{
+			LabelSelector: ls.String(),
+		})
 		Expect(err).ToNot(HaveOccurred())
-		if len(migList.Items) < 0 {
-			return false
-		}
-		return true
-
-	}, 120*time.Second, time.Second).Should(BeTrue())
+		return migList.Items
+	}, 120*time.Second, time.Second).Should(BeEmpty())
 }
 
 func waitForMigrationToSucceed(virtClient kubecli.KubevirtClient, vmiName, ns string) {
 	waitMigrationToExist(virtClient, vmiName, ns)
-	Eventually(func() bool {
-		vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName,
-			metav1.GetOptions{})
+	Eventually(func() *virtv1.VirtualMachineInstanceMigrationState {
+		vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		if vmi.Status.MigrationState == nil {
-			return false
-		}
-		if !vmi.Status.MigrationState.Completed {
-			return false
-		}
-
-		Expect(vmi.Status.MigrationState.Failed).To(BeFalse())
-		return true
-	}, 120*time.Second, time.Second).Should(BeTrue())
+		return vmi.Status.MigrationState
+	}, 120*time.Second, time.Second).Should(gstruct.PointTo(
+		ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"Failed":    BeFalse(),
+			"Completed": BeTrue(),
+		}))))
 }
