@@ -664,6 +664,20 @@ func hotplugContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceLi
 	}
 }
 
+func hotplugPodTolerations(config *virtconfig.ClusterConfig) []k8sv1.Toleration {
+	tolerations := []k8sv1.Toleration{
+		{
+			Key:      k8sv1.TaintNodeUnschedulable,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+	}
+	if tol := config.GetSupportPodTolerations(); len(tol) > 0 {
+		tolerations = tol
+	}
+	return tolerations
+}
+
 func vmExportContainerResourceRequirements(config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
 	return k8sv1.ResourceRequirements{
 		Limits:   vmExportContainerLimits(config),

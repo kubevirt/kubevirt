@@ -119,6 +119,12 @@ spec:
           tokenBucketRateLimiter:
             burst: -5
             qps: -3
+    hotplugPodTolerations:
+    - effect: effectValue
+      key: keyValue
+      operator: operatorValue
+      tolerationSeconds: 5
+      value: valueValue
     imagePullPolicy: imagePullPolicyValue
     instancetype:
       referencePolicy: referencePolicyValue

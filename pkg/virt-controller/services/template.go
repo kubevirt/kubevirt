@@ -922,8 +922,18 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	command := []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 
-	tmpTolerations := make([]k8sv1.Toleration, len(ownerPod.Spec.Tolerations))
-	copy(tmpTolerations, ownerPod.Spec.Tolerations)
+	tmpTolerations := hotplugPodTolerations(t.clusterConfig)
+	tmpTolerations = append(tmpTolerations, ownerPod.Spec.Tolerations...)
+
+	// Remove duplicates
+	tolerationsMap := make(map[k8sv1.Toleration]bool)
+	tolerations := []k8sv1.Toleration{}
+	for _, value := range tmpTolerations {
+		if !tolerationsMap[value] {
+			tolerationsMap[value] = true
+			tolerations = append(tolerations, value)
+		}
+	}
 
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -989,7 +999,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					},
 				},
 			},
-			Tolerations:                   tmpTolerations,
+			Tolerations:                   tolerations,
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
 		},

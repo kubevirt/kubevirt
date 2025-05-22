@@ -205,6 +205,15 @@
           }
         }
       ],
+      "hotplugPodTolerations": [
+        {
+          "key": "keyValue",
+          "operator": "operatorValue",
+          "value": "valueValue",
+          "effect": "effectValue",
+          "tolerationSeconds": 5
+        }
+      ],
       "supportedGuestAgentVersions": [
         "supportedGuestAgentVersionsValue"
       ],
