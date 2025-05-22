@@ -20,6 +20,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -152,6 +153,28 @@ func VirtVolumesToPVCMap(volumes []*virtv1.Volume, pvcStore cache.Store, namespa
 		volumeNamesPVCMap[volume.Name] = pvc
 	}
 	return volumeNamesPVCMap, nil
+}
+
+var ErrPVCNotFound = errors.New("PVC not found")
+
+type PVCNotFoundError struct {
+	PVCName string
+	Err     error
+}
+
+func NewPVCNotFoundError(pvcName string) error {
+	return &PVCNotFoundError{PVCName: pvcName, Err: ErrPVCNotFound}
+}
+
+func (e *PVCNotFoundError) Error() string {
+	if e.PVCName == "" {
+		return "persistent volume claim not defined"
+	}
+	return fmt.Sprintf("the pvc %s doesn't exist", e.PVCName)
+}
+
+func (e *PVCNotFoundError) Unwrap() error {
+	return e.Err
 }
 
 func GetPersistentVolumeClaimFromCache(namespace, name string, pvcStore cache.Store) (*k8sv1.PersistentVolumeClaim, error) {
