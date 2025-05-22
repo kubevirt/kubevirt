@@ -169,11 +169,13 @@ func IsSocketUnresponsive(socket string) bool {
 	// if the unresponsive socket monitor marked this socket
 	// as being unresponsive, return true
 	if exists {
+		fmt.Printf("IsSocketUnresponsive exists %v\n", exists)
 		return true
 	}
 
 	exists, _ = diskutils.FileExists(socket)
 	// if the socket file doesn't exist, it's definitely unresponsive as well
+	fmt.Printf("IsSocketUnresponsive unresponsive %v\n", !exists)
 	return !exists
 }
 
