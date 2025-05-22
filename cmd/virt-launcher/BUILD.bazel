@@ -66,6 +66,14 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
+pkg_tar(
+    name = "past-script-tar",
+    srcs = [
+        "passt",
+    ],
+    package_dir = "/usr/local/bin",
+)
+
 xattrs(
     name = "setcaps",
     capabilities = {
@@ -176,7 +184,6 @@ pkg_tar(
 container_image(
     name = "version-container",
     directory = "/",
-    files = ["//:get-version"],
     tars = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
             ":libvirt-config",
@@ -199,6 +206,7 @@ container_image(
             ":qemu-hook-tar",
             ":qemu-kvm-modules-dir-tar",
             "//rpm:launcherbase_x86_64",
+            ":past-script-tar",
         ],
     }),
 )
