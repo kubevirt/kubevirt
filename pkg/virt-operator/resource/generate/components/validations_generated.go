@@ -6759,6 +6759,11 @@ var CRDsValidation map[string]string = map[string]string{
                         acpi:
                           description: Information that can be set in the ACPI table
                           properties:
+                            msdmNameRef:
+                              description: |-
+                                Similar to @SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                                The above points to the spec of MSDM too.
+                              type: string
                             slicNameRef:
                               description: |-
                                 SlicNameRef should match the volume name of a secret object. The data in the secret should
@@ -12072,6 +12077,11 @@ var CRDsValidation map[string]string = map[string]string{
                 acpi:
                   description: Information that can be set in the ACPI table
                   properties:
+                    msdmNameRef:
+                      description: |-
+                        Similar to @SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                        The above points to the spec of MSDM too.
+                      type: string
                     slicNameRef:
                       description: |-
                         SlicNameRef should match the volume name of a secret object. The data in the secret should
@@ -15534,6 +15544,11 @@ var CRDsValidation map[string]string = map[string]string{
                 acpi:
                   description: Information that can be set in the ACPI table
                   properties:
+                    msdmNameRef:
+                      description: |-
+                        Similar to @SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                        The above points to the spec of MSDM too.
+                      type: string
                     slicNameRef:
                       description: |-
                         SlicNameRef should match the volume name of a secret object. The data in the secret should
@@ -17975,6 +17990,11 @@ var CRDsValidation map[string]string = map[string]string{
                         acpi:
                           description: Information that can be set in the ACPI table
                           properties:
+                            msdmNameRef:
+                              description: |-
+                                Similar to @SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                                The above points to the spec of MSDM too.
+                              type: string
                             slicNameRef:
                               description: |-
                                 SlicNameRef should match the volume name of a secret object. The data in the secret should
@@ -22495,6 +22515,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: Information that can be set in the
                                     ACPI table
                                   properties:
+                                    msdmNameRef:
+                                      description: |-
+                                        Similar to @SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                                        The above points to the spec of MSDM too.
+                                      type: string
                                     slicNameRef:
                                       description: |-
                                         SlicNameRef should match the volume name of a secret object. The data in the secret should
@@ -27710,6 +27735,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Information that can be set in
                                         the ACPI table
                                       properties:
+                                        msdmNameRef:
+                                          description: |-
+                                            Similar to @SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                                            The above points to the spec of MSDM too.
+                                          type: string
                                         slicNameRef:
                                           description: |-
                                             SlicNameRef should match the volume name of a secret object. The data in the secret should
