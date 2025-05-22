@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pgpu-test
+---
+apiVersion: resource.k8s.io/v1beta1
+kind: ResourceClaimTemplate
+metadata:
+  namespace: pgpu-test
+  name: pgpu-resource-claim-tmpl
+spec:
+  spec:
+    devices:
+      requests:
+        - name: pgpu
+          deviceClassName: gpu.example.com
