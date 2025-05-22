@@ -290,12 +290,11 @@ type netBindingPluginMemoryCalculator interface {
 }
 
 type VirtualMachineController struct {
-	recorder                 record.EventRecorder
-	clientset                kubecli.KubevirtClient
-	host                     string
-	migrationIpAddress       string
+	recorder           record.EventRecorder
+	clientset          kubecli.KubevirtClient
+	host               string
+	migrationIpAddress string
 	virtShareDir             string
-	virtPrivateDir           string
 	queue                    workqueue.TypedRateLimitingInterface[string]
 	vmiSourceStore           cache.Store
 	vmiTargetStore           cache.Store
