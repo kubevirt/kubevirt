@@ -58,6 +58,7 @@ const (
 	ipNeighShow                  = "ip neigh show"
 	bridgeJVlanShow              = "bridge -j vlan show"
 	bridgeFdb                    = "bridge fdb"
+	systemctlStatus              = "systemctl --failed --no-legend --no-pager --plain --full"
 	devVFio                      = "ls -lsh -Z -St /dev/vfio"
 	failedExecuteCmdFmt          = "failed to execute command %s on %s, stdout: %s, stderr: %s, error: %v"
 	failedExecuteCmdOnNodeFmt    = "failed to execute command %s on node %s, stdout: %s, error: %v"
@@ -1276,6 +1277,7 @@ func (r *KubernetesReporter) executeVMICommands(vmi v12.VirtualMachineInstance, 
 			{command: ipNeighShow, fileNameSuffix: "ipneigh"},
 			{command: bridgeJVlanShow, fileNameSuffix: "brvlan"},
 			{command: bridgeFdb, fileNameSuffix: "brfdb"},
+			{command: systemctlStatus, fileNameSuffix: "systemctl_failed"},
 			{command: "nmcli connection", fileNameSuffix: "nmcon"},
 			{command: "nmcli device", fileNameSuffix: "nmdev"}}...)
 	} else if vmiType == "cirros" || vmiType == "alpine" {

@@ -272,7 +272,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				Expect(libnet.CheckMacAddress(vmi, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
 			})
 
-			It("[QUARANTINE]should be successful with a running VMI on the target", decorators.Quarantine, func() {
+			It("should be successful with a running VMI on the target", func() {
 				By("starting the migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
@@ -534,9 +534,16 @@ func defaultCloudInitNetworkData() string {
 func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, mac string, timeout time.Duration) (string, error) {
 	var ifaceName string
 	err := virtwait.PollImmediately(5*time.Second, timeout, func(ctx context.Context) (done bool, err error) {
-		vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(ctx, vmi.GetName(), k8smetav1.GetOptions{})
+		if err := ctx.Err(); err != nil {
+			return false, fmt.Errorf("findIfaceByMAC polling context error: %w", err)
+		}
+
+		getCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(getCtx, vmi.GetName(), k8smetav1.GetOptions{})
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("failed get vmi: %w", err)
 		}
 
 		ifaceName, err = getInterfaceNameByMAC(vmi, mac)
