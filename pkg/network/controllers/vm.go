@@ -167,15 +167,15 @@ func applyDynamicIfaceRequestOnVMI(
 func clearDetachedInterfaces(
 	specIfaces []v1.Interface,
 	specNets []v1.Network,
-	statusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface,
+	ifaceStatusesByName map[string]v1.VirtualMachineInstanceNetworkInterface,
 ) ([]v1.Interface, []v1.Network) {
-	var ifaces []v1.Interface
+	var retainedIfaces []v1.Interface
+
 	for _, iface := range specIfaces {
-		if _, existInStatus := statusIfaces[iface.Name]; (existInStatus && iface.State == v1.InterfaceStateAbsent) ||
-			iface.State != v1.InterfaceStateAbsent {
-			ifaces = append(ifaces, iface)
+		if _, existsInStatus := ifaceStatusesByName[iface.Name]; iface.State != v1.InterfaceStateAbsent || existsInStatus {
+			retainedIfaces = append(retainedIfaces, iface)
 		}
 	}
 
-	return ifaces, vmispec.FilterNetworksByInterfaces(specNets, ifaces)
+	return retainedIfaces, vmispec.FilterNetworksByInterfaces(specNets, retainedIfaces)
 }
