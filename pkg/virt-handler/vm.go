@@ -3312,7 +3312,6 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 			return v1.Failed, nil
 		}
 	} else {
-
 		switch domain.Status.Status {
 		case api.Shutoff, api.Crashed:
 			switch domain.Status.Reason {
@@ -3332,7 +3331,14 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 				// if the domain migrated, we no longer know the phase.
 				return vmi.Status.Phase, nil
 			}
-		case api.Running, api.Paused, api.Blocked, api.PMSuspended:
+		case api.Paused:
+			switch domain.Status.Reason {
+			case api.ReasonPausedPostcopyFailed:
+				return v1.Failed, nil
+			default:
+				return v1.Running, nil
+			}
+		case api.Running, api.Blocked, api.PMSuspended:
 			return v1.Running, nil
 		}
 	}
