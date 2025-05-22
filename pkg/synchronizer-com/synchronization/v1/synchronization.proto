@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package kubevirt.synchronization;
+option go_package = "v1";
+
+service Synchronize {
+  rpc SyncSourceMigrationStatus(VMIStatusRequest) returns (VMIStatusResponse) {}
+  rpc SyncTargetMigrationStatus(VMIStatusRequest) returns (VMIStatusResponse) {}
+}
+
+message VMI {
+    bytes vmiJson = 1;
+}
+
+message VMIStatus {
+  bytes vmiStatusJson = 1;
+}
+
+message VMIStatusRequest {
+  string migrationID = 1;
+  VMIStatus vmiStatus = 2;
+}
+
+message VMIStatusResponse {
+  string message = 1;
+}

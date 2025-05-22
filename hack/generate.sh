@@ -207,6 +207,7 @@ virtlauncher_version=$(getVersion ".VirtLauncherSha")
 virtoperator_version=$(getVersion ".VirtOperatorSha")
 virtexportproxy_version=$(getVersion ".VirtExportProxySha")
 virtexportserver_version=$(getVersion ".VirtExportServerSha")
+virtsynchronizationcontroller_version=$(getVersion ".VirtSynchronizationControllerSha")
 
 # used as env var for operator
 function getShasum() {
@@ -223,6 +224,7 @@ virthandler_sha=$(getShasum ".VirtHandlerSha")
 virtlauncher_sha=$(getShasum ".VirtLauncherSha")
 virtexportproxy_sha=$(getShasum ".VirtExportProxySha")
 virtexportserver_sha=$(getShasum ".VirtExportServerSha")
+virtsynchronizationcontroller_sha=$(getShasum ".VirtSynchronizationControllerSha")
 gs_sha=$(getShasum ".GsSha")
 pr_helper_sha=$(getShasum ".PrHelperSha")
 sidecar_shim_sha=$(getShasum ".SidecarShimSha")
@@ -233,6 +235,7 @@ virthandler_rawsha=$(getRawShasum ".VirtHandlerSha")
 virtlauncher_rawsha=$(getRawShasum ".VirtLauncherSha")
 virtexportproxy_rawsha=$(getRawShasum ".VirtExportProxySha")
 virtexportserver_rawsha=$(getRawShasum ".VirtExportServerSha")
+virtsynchronizationcontroller_rawsha=$(getRawShasum ".VirtSynchronizationControllerSha")
 gs_rawsha=$(getRawShasum ".GsSha")
 prhelper_rawsha=$(getRawShasum ".PrHelperSha")
 sidecar_shim_rawsha=$(getRawShasum ".SidecarShimSha")
@@ -252,6 +255,7 @@ ${KUBEVIRT_DIR}/tools/csv-generator/csv-generator \
     --dockerPrefix={{.DockerPrefix}} \
     --exportProxySha="$virtexportproxy_rawsha" \
     --exportServerSha="$virtexportserver_rawsha" \
+    --synchronizationControllerSha="$virtsynchronizationcontroller_rawsha" \
     --gsSha="$gs_rawsha" \
     --handlerSha="$virthandler_rawsha" \
     --kubevirtLogo={{.KubeVirtLogo}} \

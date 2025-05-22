@@ -275,7 +275,9 @@ func (c *Controller) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) er
 	patchSet := patch.New()
 	if !equality.Semantic.DeepEqual(origVMI.Status.MigrationState, newVMI.Status.MigrationState) {
 		if origVMI.Status.MigrationState == nil {
-			patchSet.AddOption(patch.WithAdd("/status/migrationState", newVMI.Status.MigrationState))
+			patchSet.AddOption(
+				patch.WithTest("/status/migrationState", origVMI.Status.MigrationState),
+				patch.WithAdd("/status/migrationState", newVMI.Status.MigrationState))
 		} else {
 			patchSet.AddOption(
 				patch.WithTest("/status/migrationState", origVMI.Status.MigrationState),
@@ -296,6 +298,7 @@ func (c *Controller) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) er
 		if err != nil {
 			return err
 		}
+		log.Log.Object(origVMI).Infof("Patch VMI with %s", string(patchBytes))
 		if _, err = c.clientset.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
 			return err
 		}

@@ -331,6 +331,7 @@ const (
 	virtController
 	virtOperator
 	virtLauncher
+	virtSynchronizationController
 )
 
 // Gets the component verbosity. nodeName can be empty, then it's ignored.
@@ -354,6 +355,8 @@ func (c *ClusterConfig) getComponentVerbosity(component virtComponent, nodeName 
 		return logConf.VirtOperator
 	case virtLauncher:
 		return logConf.VirtLauncher
+	case virtSynchronizationController:
+		return logConf.VirtSynchronizationController
 	default:
 		log.Log.Errorf("getComponentVerbosity called with an unknown virtComponent: %v", component)
 		return 0
@@ -378,6 +381,10 @@ func (c *ClusterConfig) GetVirtOperatorVerbosity(nodeName string) uint {
 
 func (c *ClusterConfig) GetVirtLauncherVerbosity() uint {
 	return c.getComponentVerbosity(virtLauncher, "")
+}
+
+func (c *ClusterConfig) GetVirtSynchronizationControllerVerbosity() uint {
+	return c.getComponentVerbosity(virtSynchronizationController, "")
 }
 
 // GetMinCPUModel return minimal cpu which is used in node-labeller

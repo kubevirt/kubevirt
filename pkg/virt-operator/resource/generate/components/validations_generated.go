@@ -935,6 +935,8 @@ var CRDsValidation map[string]string = map[string]string{
                       type: integer
                     virtOperator:
                       type: integer
+                    virtSynchronizationController:
+                      type: integer
                   type: object
                 memoryOvercommit:
                   description: |-
@@ -2721,6 +2723,10 @@ var CRDsValidation map[string]string = map[string]string{
             The namespace the service monitor will be deployed
              When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace
             otherwise we will use the monitoring namespace.
+          type: string
+        synchronizationPort:
+          description: Specify the port to listen on for VMI status synchronization
+            traffic. Default is 9185
           type: string
         uninstallStrategy:
           description: |-
