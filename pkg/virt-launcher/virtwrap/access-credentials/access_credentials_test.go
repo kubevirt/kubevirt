@@ -44,12 +44,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 var _ = Describe("AccessCredentials", func() {
-	var mockConn *cli.MockConnection
-	var mockDomain *cli.MockVirDomain
+	var mockLibvirt *testing.Libvirt
 	var ctrl *gomock.Controller
 	var manager *AccessCredentialManager
 	var tmpDir string
@@ -58,10 +58,9 @@ var _ = Describe("AccessCredentials", func() {
 	BeforeEach(func() {
 		var err error
 		ctrl = gomock.NewController(GinkgoT())
-		mockConn = cli.NewMockConnection(ctrl)
-		mockDomain = cli.NewMockVirDomain(ctrl)
+		mockLibvirt = testing.NewLibvirt(ctrl)
 
-		manager = NewManager(mockConn, &lock, metadata.NewCache())
+		manager = NewManager(mockLibvirt.VirtConnection, &lock, metadata.NewCache())
 		manager.resyncCheckIntervalSeconds = 1
 		tmpDir, err = os.MkdirTemp("", "credential-test")
 		Expect(err).ToNot(HaveOccurred())
@@ -93,8 +92,8 @@ var _ = Describe("AccessCredentials", func() {
 		expectedCmd := `{"execute": "guest-exec", "arguments": { "path": "some-command", "arg": [ "arg1", "arg2" ], "capture-output":true } }`
 		expectedStatusCmd := `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
 
-		mockConn.EXPECT().QemuAgentCommand(expectedCmd, domName).Return(`{"return":{"pid":789}}`, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(`{"return":{"exitcode":0,"out-data":"c3NoIHNvbWVrZXkxMjMgdGVzdC1rZXkK","exited":true}}`, nil)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedCmd, domName).Return(`{"return":{"pid":789}}`, nil)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(`{"return":{"exitcode":0,"out-data":"c3NoIHNvbWVrZXkxMjMgdGVzdC1rZXkK","exited":true}}`, nil)
 
 		Expect(manager.agentGuestExec(domName, command, args)).To(Equal("ssh somekey123 test-key\n"))
 	})
@@ -104,9 +103,9 @@ var _ = Describe("AccessCredentials", func() {
 		user := "myuser"
 		password := "1234"
 
-		mockConn.EXPECT().LookupDomainByName(domName).Return(mockDomain, nil).Times(1)
-		mockDomain.EXPECT().Free()
-		mockDomain.EXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).Times(1)
+		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
+		mockLibvirt.DomainEXPECT().Free()
+		mockLibvirt.DomainEXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).Times(1)
 
 		Expect(manager.agentSetUserPassword(domName, user, password)).To(Succeed())
 	})
@@ -117,9 +116,9 @@ var _ = Describe("AccessCredentials", func() {
 
 		authorizedKeys := []string{"ssh some injected key"}
 
-		mockConn.EXPECT().LookupDomainByName(domName).Return(mockDomain, nil).Times(1)
-		mockDomain.EXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(nil).Times(1)
-		mockDomain.EXPECT().Free().Times(1)
+		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
+		mockLibvirt.DomainEXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(nil).Times(1)
+		mockLibvirt.DomainEXPECT().Free().Times(1)
 
 		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
 	})
@@ -131,10 +130,10 @@ var _ = Describe("AccessCredentials", func() {
 
 		authorizedKeys := []string{"ssh some injected key"}
 
-		mockConn.EXPECT().LookupDomainByName(domName).Return(mockDomain, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
 		// The AuthorizedSSHKeysSet method fails so a backward compatible code will be used.
-		mockDomain.EXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(libvirt.ERR_INTERNAL_ERROR).Times(1)
-		mockDomain.EXPECT().Free().Times(1)
+		mockLibvirt.DomainEXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(libvirt.ERR_INTERNAL_ERROR).Times(1)
+		mockLibvirt.DomainEXPECT().Free().Times(1)
 
 		expectedOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"r" } }`, filePath)
 		expectedWriteOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"w" } }`, filePath)
@@ -172,35 +171,35 @@ var _ = Describe("AccessCredentials", func() {
 		expectedFileChmodRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
 		// Detect user home dir
-		mockConn.EXPECT().QemuAgentCommand(expectedHomeDirCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedHomeDirCmdRes, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedHomeDirCmd, domName).Return(expectedExecReturn, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedHomeDirCmdRes, nil).Times(1)
 
 		// Expected Read File
-		mockConn.EXPECT().QemuAgentCommand(expectedOpenCmd, domName).Return(expectedOpenCmdRes, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedReadCmd, domName).Return(expectedReadCmdRes, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedCloseCmd, domName).Return("", nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedOpenCmd, domName).Return(expectedOpenCmdRes, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedReadCmd, domName).Return(expectedReadCmdRes, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedCloseCmd, domName).Return("", nil).Times(1)
 
 		// Expected prepare directory
-		mockConn.EXPECT().QemuAgentCommand(expectedMkdirCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedMkdirRes, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedMkdirCmd, domName).Return(expectedExecReturn, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedMkdirRes, nil).Times(1)
 
-		mockConn.EXPECT().QemuAgentCommand(expectedParentChownCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentChownRes, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedParentChownCmd, domName).Return(expectedExecReturn, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentChownRes, nil).Times(1)
 
-		mockConn.EXPECT().QemuAgentCommand(expectedParentChmodCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentChmodRes, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedParentChmodCmd, domName).Return(expectedExecReturn, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentChmodRes, nil).Times(1)
 
 		// Expected Write file
-		mockConn.EXPECT().QemuAgentCommand(expectedWriteOpenCmd, domName).Return(expectedOpenCmdRes, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedWriteCmd, domName).Return("", nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedCloseCmd, domName).Return("", nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedWriteOpenCmd, domName).Return(expectedOpenCmdRes, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedWriteCmd, domName).Return("", nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedCloseCmd, domName).Return("", nil).Times(1)
 
 		// Expected set file permissions
-		mockConn.EXPECT().QemuAgentCommand(expectedFileChownCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChownRes, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedFileChownCmd, domName).Return(expectedExecReturn, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChownRes, nil).Times(1)
 
-		mockConn.EXPECT().QemuAgentCommand(expectedFileChmodCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChmodRes, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedFileChmodCmd, domName).Return(expectedExecReturn, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChmodRes, nil).Times(1)
 
 		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
 	})
@@ -211,13 +210,13 @@ var _ = Describe("AccessCredentials", func() {
 
 		authorizedKeys := []string{"ssh some injected key"}
 
-		mockConn.EXPECT().LookupDomainByName(domName).Return(mockDomain, nil).Times(1)
+		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
 		// The AuthorizedSSHKeysSet method fails so a backward compatible code will be used.
-		mockDomain.EXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(libvirt.ERR_INTERNAL_ERROR).Times(1)
-		mockDomain.EXPECT().Free().Times(1)
+		mockLibvirt.DomainEXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(libvirt.ERR_INTERNAL_ERROR).Times(1)
+		mockLibvirt.DomainEXPECT().Free().Times(1)
 
 		// Detect user home dir
-		mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return("", libvirt.ERR_INTERNAL_ERROR).AnyTimes()
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return("", libvirt.ERR_INTERNAL_ERROR).AnyTimes()
 
 		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).
 			To(MatchError(ContainSubstring("failed to set SSH keys")))
@@ -257,10 +256,10 @@ var _ = Describe("AccessCredentials", func() {
 		domName := util.VMINamespaceKeyFunc(vmi)
 
 		cmdPing := `{"execute":"guest-ping"}`
-		mockConn.EXPECT().QemuAgentCommand(cmdPing, domName).AnyTimes().Return("", nil)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(cmdPing, domName).AnyTimes().Return("", nil)
 
-		mockConn.EXPECT().LookupDomainByName(domName).Return(mockDomain, nil).Times(1)
-		mockDomain.EXPECT().AuthorizedSSHKeysSet(user, gomock.Any(), gomock.Any()).Times(1).DoAndReturn(func(_ string, keys []string, _ any) error {
+		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
+		mockLibvirt.DomainEXPECT().AuthorizedSSHKeysSet(user, gomock.Any(), gomock.Any()).Times(1).DoAndReturn(func(_ string, keys []string, _ any) error {
 			defer GinkgoRecover()
 
 			Expect(keys).To(Equal([]string{"first key", "second key"}))
@@ -268,7 +267,7 @@ var _ = Describe("AccessCredentials", func() {
 			close(keysLoaded)
 			return nil
 		})
-		mockDomain.EXPECT().Free().Times(1)
+		mockLibvirt.DomainEXPECT().Free().Times(1)
 
 		Expect(manager.HandleQemuAgentAccessCredentials(vmi)).To(Succeed())
 		defer manager.Stop()
@@ -318,27 +317,27 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
 
 		cmdPing := `{"execute":"guest-ping"}`
-		mockConn.EXPECT().QemuAgentCommand(cmdPing, domName).AnyTimes().Return("", nil)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(cmdPing, domName).AnyTimes().Return("", nil)
 
 		domainSpec := expectIsolationDetectionForVMI(vmi)
 		xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 		Expect(err).NotTo(HaveOccurred())
 
-		mockDomain.EXPECT().Free().AnyTimes()
-		mockConn.EXPECT().LookupDomainByName(domName).AnyTimes().Return(mockDomain, nil)
-		mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-		mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(xml), nil)
+		mockLibvirt.DomainEXPECT().Free().AnyTimes()
+		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).AnyTimes().Return(mockLibvirt.VirtDomain, nil)
+		mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+		mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(xml), nil)
 
-		mockConn.EXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
+		mockLibvirt.ConnectionEXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
 
 			match := `			<accessCredential>
 				<succeeded>true</succeeded>
 			</accessCredential>`
 			Expect(strings.Contains(xml, match)).To(BeTrue())
-			return mockDomain, nil
+			return mockLibvirt.VirtDomain, nil
 		})
 
-		mockDomain.EXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).MinTimes(1)
+		mockLibvirt.DomainEXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).MinTimes(1)
 
 		// and wait
 		go func() {
@@ -357,7 +356,7 @@ var _ = Describe("AccessCredentials", func() {
 		password = password + "morefake"
 		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
 
-		mockDomain.EXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).MinTimes(1).Return(nil)
+		mockLibvirt.DomainEXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).MinTimes(1).Return(nil)
 
 		go func() {
 			watchTimeout := time.NewTicker(2 * time.Second)
