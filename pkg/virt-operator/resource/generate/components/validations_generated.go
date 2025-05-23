@@ -19578,6 +19578,28 @@ var CRDsValidation map[string]string = map[string]string{
             zero and not specified. Defaults to 1.
           format: int32
           type: integer
+        scaleInStrategy:
+          description: ScaleInStrategy specifies how the VMPool controller manages
+            scaling in VMs within a VMPool
+          properties:
+            proactive:
+              description: Proactive scale-in by forcing VMs to shutdown during scale-in
+                (Default)
+              properties:
+                selectionPolicy:
+                  description: |-
+                    SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in
+                    Defaults to "Random" base policy when no SelectionPolicy is configured
+                  properties:
+                    basePolicy:
+                      description: BasePolicy is a catch-all policy [Random|DescendingOrder]
+                      enum:
+                      - Random
+                      - DescendingOrder
+                      type: string
+                  type: object
+              type: object
+          type: object
         selector:
           description: |-
             Label selector for pods. Existing Poolss whose pods are
