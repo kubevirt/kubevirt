@@ -11583,10 +11583,11 @@
     "type": "object",
     "properties": {
      "name": {
-      "description": "Required.",
+      "description": "Name is this DNS resolver option's name. Required.",
       "type": "string"
      },
      "value": {
+      "description": "Value is this DNS resolver option's value.",
       "type": "string"
      }
     }
@@ -11782,6 +11783,7 @@
     "x-kubernetes-map-type": "atomic"
    },
    "k8s.io.api.core.v1.TypedObjectReference": {
+    "description": "TypedObjectReference contains enough information to let you locate the typed referenced object",
     "type": "object",
     "required": [
      "kind",
@@ -12053,6 +12055,10 @@
       "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
       "type": "integer",
       "format": "int64"
+     },
+     "ignoreStoreReadErrorWithClusterBreakingPotential": {
+      "description": "if set to true, it will trigger an unsafe deletion of the resource in case the normal deletion flow fails with a corrupt object error. A resource is considered corrupt if it can not be retrieved from the underlying storage successfully because of a) its data can not be transformed e.g. decryption failure, or b) it fails to decode into an object. NOTE: unsafe deletion ignores finalizer constraints, skips precondition checks, and removes the object from the storage. WARNING: This may potentially break the cluster if the workload associated with the resource being unsafe-deleted relies on normal deletion flow. Use only if you REALLY know what you are doing. The default value is false, and the user must opt in to enable it",
+      "type": "boolean"
      },
      "kind": {
       "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
