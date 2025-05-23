@@ -41,6 +41,7 @@ func (VirtualMachinePoolSpec) SwaggerDoc() map[string]string {
 		"paused":                 "Indicates that the pool is paused.\n+optional",
 		"nameGeneration":         "Options for the name generation in a pool.\n+optional",
 		"maxUnavailable":         "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.\n+optional",
+		"downscalePolicy":        "DownscalePolicy defines how VMs should be selected for deletion during downscale operations\n+optional",
 	}
 }
 
@@ -53,5 +54,12 @@ func (VirtualMachinePoolNameGeneration) SwaggerDoc() map[string]string {
 func (VirtualMachinePoolList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "VirtualMachinePoolList is a list of VirtualMachinePool resources.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
+	}
+}
+
+func (VirtualMachinePoolDownscalePolicy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "DownscalePolicy defines the policy for selecting VMs during downscale operations\n+k8s:openapi-gen=true",
+		"strategy": "Strategy defines the strategy to use for selecting VMs to delete during downscale\nValid values are \"random\" and \"ordered\"\n\"random\" (default): randomly select VMs for deletion\n\"ordered\": delete VMs with highest ordinal numbers first (like StatefulSet)\n+optional\n+kubebuilder:validation:Enum=\"random\";\"ordered\"",
 	}
 }

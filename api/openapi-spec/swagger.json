@@ -18400,6 +18400,16 @@
      }
     }
    },
+   "v1alpha1.VirtualMachinePoolDownscalePolicy": {
+    "description": "DownscalePolicy defines the policy for selecting VMs during downscale operations",
+    "type": "object",
+    "properties": {
+     "strategy": {
+      "description": "Strategy defines the strategy to use for selecting VMs to delete during downscale Valid values are \"random\" and \"ordered\" \"random\" (default): randomly select VMs for deletion \"ordered\": delete VMs with highest ordinal numbers first (like StatefulSet)",
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.VirtualMachinePoolList": {
     "description": "VirtualMachinePoolList is a list of VirtualMachinePool resources.",
     "type": "object",
@@ -18446,6 +18456,10 @@
      "virtualMachineTemplate"
     ],
     "properties": {
+     "downscalePolicy": {
+      "description": "DownscalePolicy defines how VMs should be selected for deletion during downscale operations",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolDownscalePolicy"
+     },
      "maxUnavailable": {
       "description": "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.util.intstr.IntOrString"

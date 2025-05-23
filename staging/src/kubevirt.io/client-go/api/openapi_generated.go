@@ -670,6 +670,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/migrations/v1alpha1.Selectors":                                              schema_kubevirtio_api_migrations_v1alpha1_Selectors(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePool":                                           schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePool(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolCondition":                                  schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolCondition(ref),
+		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolDownscalePolicy":                            schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolDownscalePolicy(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolList":                                       schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolList(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolNameGeneration":                             schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolNameGeneration(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolSpec":                                       schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolSpec(ref),
@@ -32600,6 +32601,26 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolCondition(ref common.
 	}
 }
 
+func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolDownscalePolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DownscalePolicy defines the policy for selecting VMs during downscale operations",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"strategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Strategy defines the strategy to use for selecting VMs to delete during downscale Valid values are \"random\" and \"ordered\" \"random\" (default): randomly select VMs for deletion \"ordered\": delete VMs with highest ordinal numbers first (like StatefulSet)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -32717,12 +32738,18 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolSpec(ref common.Refer
 							Ref:         ref("k8s.io/apimachinery/pkg/util/intstr.IntOrString"),
 						},
 					},
+					"downscalePolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DownscalePolicy defines how VMs should be selected for deletion during downscale operations",
+							Ref:         ref("kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolDownscalePolicy"),
+						},
+					},
 				},
 				Required: []string{"selector", "virtualMachineTemplate"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "k8s.io/apimachinery/pkg/util/intstr.IntOrString", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolNameGeneration", "kubevirt.io/api/pool/v1alpha1.VirtualMachineTemplateSpec"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "k8s.io/apimachinery/pkg/util/intstr.IntOrString", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolDownscalePolicy", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolNameGeneration", "kubevirt.io/api/pool/v1alpha1.VirtualMachineTemplateSpec"},
 	}
 }
 

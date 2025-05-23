@@ -22,13 +22,19 @@ package v1alpha1
 import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
+
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
 const (
 	VirtualMachinePoolKind = "VirtualMachinePool"
+)
+
+const (
+	// Default downscale strategy: "random"
+	VirtualMachinePoolDownscaleStrategyRandom  VirtualMachinePoolDownscaleStrategy = "random"
+	VirtualMachinePoolDownscaleStrategyOrdered VirtualMachinePoolDownscaleStrategy = "ordered"
 )
 
 // VirtualMachinePool resource contains a VirtualMachine configuration
@@ -117,6 +123,10 @@ type VirtualMachinePoolSpec struct {
 	// (Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.
 	// +optional
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty" protobuf:"bytes,3,opt,name=maxUnavailable"`
+
+	// DownscalePolicy defines how VMs should be selected for deletion during downscale operations
+	// +optional
+	DownscalePolicy *VirtualMachinePoolDownscalePolicy `json:"downscalePolicy,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -134,3 +144,18 @@ type VirtualMachinePoolList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualMachinePool `json:"items"`
 }
+
+// DownscalePolicy defines the policy for selecting VMs during downscale operations
+// +k8s:openapi-gen=true
+type VirtualMachinePoolDownscalePolicy struct {
+	// Strategy defines the strategy to use for selecting VMs to delete during downscale
+	// Valid values are "random" and "ordered"
+	// "random" (default): randomly select VMs for deletion
+	// "ordered": delete VMs with highest ordinal numbers first (like StatefulSet)
+	// +optional
+	// +kubebuilder:validation:Enum="random";"ordered"
+	Strategy VirtualMachinePoolDownscaleStrategy `json:"strategy,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type VirtualMachinePoolDownscaleStrategy string
