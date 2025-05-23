@@ -107,3 +107,11 @@ func WithTPM(persistent bool) Option {
 		}
 	}
 }
+
+func WithVideo(videoType string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Video = &v1.VideoDevice{
+			Type: videoType,
+		}
+	}
+}

@@ -34,15 +34,28 @@ func (converterS390X) GetArchitecture() string {
 	return s390x
 }
 
-func (converterS390X) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
-	domain.Spec.Devices.Video = []api.Video{
-		{
+func (converterS390X) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
+	vt := getVideoType(vmi)
+	var video api.Video
+
+	switch {
+	case vt != "":
+		video = api.Video{
+			Model: api.VideoModel{
+				Type:  vt,
+				Heads: pointer.P(graphicsDeviceDefaultHeads),
+			},
+		}
+	default:
+		video = api.Video{
 			Model: api.VideoModel{
 				Type:  v1.VirtIO,
 				Heads: pointer.P(graphicsDeviceDefaultHeads),
 			},
-		},
+		}
 	}
+
+	domain.Spec.Devices.Video = []api.Video{video}
 
 	domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
 		api.Input{
