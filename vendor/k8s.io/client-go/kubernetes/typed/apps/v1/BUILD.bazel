@@ -26,5 +26,6 @@ go_library(
         "//vendor/k8s.io/client-go/gentype:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/scheme:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/client-go/util/apply:go_default_library",
     ],
 )
