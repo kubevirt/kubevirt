@@ -686,6 +686,50 @@ var _ = Describe("Pool", func() {
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
+		It("should delete VMs with highest ordinals first when using DescendingOrder base scale-in strategy", func() {
+			pool, vm := DefaultPool(2)
+
+			basePolicy := poolv1.VirtualMachinePoolBasePolicyDescendingOrder
+			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+				Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+						BasePolicy: &basePolicy,
+					},
+				},
+			}
+
+			addPool(pool)
+
+			for x := range 5 {
+				newVM := vm.DeepCopy()
+				newVM.Name = fmt.Sprintf("%s-%d", pool.Name, x)
+				addVM(newVM)
+			}
+
+			var deletedVMs []string
+			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				deleteAction, ok := action.(k8stesting.DeleteAction)
+				Expect(ok).To(BeTrue())
+				deletedVMs = append(deletedVMs, deleteAction.GetName())
+				return true, nil, nil
+			})
+
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(k8stesting.UpdateAction)
+				Expect(ok).To(BeTrue())
+				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
+				Expect(updateObj.Status.Replicas).To(Equal(int32(5)))
+				return true, update.GetObject(), nil
+			})
+
+			sanityExecute()
+
+			Expect(deletedVMs).To(ConsistOf("my-pool-4", "my-pool-3", "my-pool-2"))
+			for range 3 {
+				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
+			}
+		})
+
 		DescribeTable("should respect name generation settings", func(appendIndex *bool) {
 			const (
 				cmName     = "configmap"
