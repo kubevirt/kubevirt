@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "allocateddevicestatus.go",
         "allocationresult.go",
         "basicdevice.go",
         "celdeviceselector.go",
@@ -20,13 +21,10 @@ go_library(
         "devicerequest.go",
         "devicerequestallocationresult.go",
         "deviceselector.go",
+        "networkdevicedata.go",
         "opaquedeviceconfiguration.go",
-        "podschedulingcontext.go",
-        "podschedulingcontextspec.go",
-        "podschedulingcontextstatus.go",
         "resourceclaim.go",
         "resourceclaimconsumerreference.go",
-        "resourceclaimschedulingstatus.go",
         "resourceclaimspec.go",
         "resourceclaimstatus.go",
         "resourceclaimtemplate.go",
