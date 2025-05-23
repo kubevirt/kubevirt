@@ -19553,6 +19553,21 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        downscalePolicy:
+          description: DownscalePolicy defines how VMs should be selected for deletion
+            during downscale operations
+          properties:
+            strategy:
+              description: |-
+                Strategy defines the strategy to use for selecting VMs to delete during downscale
+                Valid values are "random" and "ordered"
+                "random" (default): randomly select VMs for deletion
+                "ordered": delete VMs with highest ordinal numbers first (like StatefulSet)
+              enum:
+              - ordered
+              - random
+              type: string
+          type: object
         nameGeneration:
           description: Options for the name generation in a pool.
           properties:

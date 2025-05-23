@@ -18228,6 +18228,16 @@
      }
     }
    },
+   "v1alpha1.DownscalePolicy": {
+    "description": "DownscalePolicy defines the policy for selecting VMs during downscale operations",
+    "type": "object",
+    "properties": {
+     "strategy": {
+      "description": "Strategy defines the strategy to use for selecting VMs to delete during downscale Valid values are \"random\" and \"ordered\" \"random\" (default): randomly select VMs for deletion \"ordered\": delete VMs with highest ordinal numbers first (like StatefulSet)",
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.MigrationPolicy": {
     "description": "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs",
     "type": "object",
@@ -18446,6 +18456,10 @@
      "virtualMachineTemplate"
     ],
     "properties": {
+     "downscalePolicy": {
+      "description": "DownscalePolicy defines how VMs should be selected for deletion during downscale operations",
+      "$ref": "#/definitions/v1alpha1.DownscalePolicy"
+     },
      "nameGeneration": {
       "description": "Options for the name generation in a pool.",
       "$ref": "#/definitions/v1alpha1.VirtualMachinePoolNameGeneration"

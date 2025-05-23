@@ -112,6 +112,10 @@ type VirtualMachinePoolSpec struct {
 	// Options for the name generation in a pool.
 	// +optional
 	NameGeneration *VirtualMachinePoolNameGeneration `json:"nameGeneration,omitempty"`
+
+	// DownscalePolicy defines how VMs should be selected for deletion during downscale operations
+	// +optional
+	DownscalePolicy *DownscalePolicy `json:"downscalePolicy,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -128,4 +132,15 @@ type VirtualMachinePoolList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualMachinePool `json:"items"`
+}
+
+// DownscalePolicy defines the policy for selecting VMs during downscale operations
+type DownscalePolicy struct {
+	// Strategy defines the strategy to use for selecting VMs to delete during downscale
+	// Valid values are "random" and "ordered"
+	// "random" (default): randomly select VMs for deletion
+	// "ordered": delete VMs with highest ordinal numbers first (like StatefulSet)
+	// +optional
+	// +kubebuilder:validation:Enum="ordered";"random"
+	Strategy string `json:"strategy,omitempty"`
 }

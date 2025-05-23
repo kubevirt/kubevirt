@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -54,6 +55,12 @@ type Controller struct {
 	burstReplicas   uint
 	hasSynced       func() bool
 }
+
+const (
+	// Default downscale strategy: "random"
+	DownscaleStrategyRandom  = "random"
+	DownscaleStrategyOrdered = "ordered"
+)
 
 const (
 	FailedUpdateVirtualMachineReason     = "FailedUpdate"
@@ -508,6 +515,21 @@ func filterVMs(vms []*virtv1.VirtualMachine, f func(vmi *virtv1.VirtualMachine) 
 	return filtered
 }
 
+func resolveDownscaleStrategy(policy *poolv1.DownscalePolicy) string {
+	if policy == nil || policy.Strategy == "" {
+		return DownscaleStrategyRandom
+	}
+
+	strategy := strings.ToLower(policy.Strategy)
+	switch strategy {
+	case DownscaleStrategyRandom, DownscaleStrategyOrdered:
+		return strategy
+	default:
+		log.Log.Warningf("Unrecognized downscale strategy '%s', defaulting to '%s'", policy.Strategy, DownscaleStrategyRandom)
+		return DownscaleStrategyRandom
+	}
+}
+
 func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, count int) error {
 
 	poolKey, err := controller.KeyFunc(pool)
@@ -526,10 +548,38 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 		count = len(elgibleVMs)
 	}
 
-	// random delete strategy
-	rand.Shuffle(len(elgibleVMs), func(i, j int) {
-		elgibleVMs[i], elgibleVMs[j] = elgibleVMs[j], elgibleVMs[i]
-	})
+	// Determine downscale strategy
+	strategy := resolveDownscaleStrategy(pool.Spec.DownscalePolicy)
+
+	// Apply the appropriate downscale strategy
+	switch strategy {
+	case DownscaleStrategyOrdered:
+		// Sort VMs by ordinal number (highest first) for ordered deletion
+		sort.Slice(elgibleVMs, func(i, j int) bool {
+			ordinalI, errI := indexFromName(elgibleVMs[i].Name)
+			ordinalJ, errJ := indexFromName(elgibleVMs[j].Name)
+
+			// If we can't parse the ordinal, treat it as 0 for sorting purposes
+			if errI != nil {
+				ordinalI = 0
+			}
+			if errJ != nil {
+				ordinalJ = 0
+			}
+
+			// Sort in descending order (higher ordinals first)
+			return ordinalI > ordinalJ
+		})
+		log.Log.Object(pool).Infof("Using ordered downscale strategy - removing VMs with highest ordinals first")
+	case DownscaleStrategyRandom:
+		fallthrough
+	default:
+		// Random delete strategy (existing behavior)
+		rand.Shuffle(len(elgibleVMs), func(i, j int) {
+			elgibleVMs[i], elgibleVMs[j] = elgibleVMs[j], elgibleVMs[i]
+		})
+		log.Log.Object(pool).Infof("Using random downscale strategy")
+	}
 
 	log.Log.Object(pool).Infof("Removing %d VMs from pool", count)
 
