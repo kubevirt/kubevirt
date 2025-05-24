@@ -1186,6 +1186,7 @@ rpmtree(
         "@qemu-kvm-core-17__9.1.0-19.el9.x86_64//rpm",
         "@qemu-kvm-device-display-virtio-gpu-17__9.1.0-19.el9.x86_64//rpm",
         "@qemu-kvm-device-display-virtio-gpu-pci-17__9.1.0-19.el9.x86_64//rpm",
+        "@qemu-kvm-device-display-virtio-vga-17__9.1.0-19.el9.x86_64//rpm",
         "@qemu-kvm-device-usb-host-17__9.1.0-19.el9.x86_64//rpm",
         "@qemu-kvm-device-usb-redirect-17__9.1.0-19.el9.x86_64//rpm",
         "@readline-0__8.1-4.el9.x86_64//rpm",
