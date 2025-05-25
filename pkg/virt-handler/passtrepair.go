@@ -90,6 +90,37 @@ func findSocketRepairFile(dirPath string) (string, error) {
 	return "", nil
 }
 
+func createShortenedSymlink(inputPath string) (string, error) {
+	cleanedPath := filepath.Clean(inputPath)
+	segments := strings.Split(cleanedPath, string(filepath.Separator))
+	var nonEmptySegments []string
+	for _, s := range segments {
+		if s != "" {
+			nonEmptySegments = append(nonEmptySegments, s)
+		}
+	}
+
+	// We need at least two segments to form the base of the shortened path
+	if len(nonEmptySegments) < 2 {
+		return "", fmt.Errorf("input path '%s' does not contain enough segments to create a shortened path", inputPath)
+	}
+
+	symlinkParentDir := filepath.Join(string(filepath.Separator), nonEmptySegments[0], nonEmptySegments[1])
+	symlinkPath := filepath.Join(symlinkParentDir, "p")
+
+	if err := os.Symlink(inputPath, symlinkPath); err != nil {
+		if os.IsExist(err) {
+			existingTarget, linkErr := os.Readlink(symlinkPath)
+			if linkErr == nil && existingTarget == inputPath {
+				fmt.Printf("Symlink '%s' already exists and points to the correct target '%s'. Proceeding.\n", symlinkPath, inputPath)
+				return symlinkPath, nil
+			}
+		}
+		return "", fmt.Errorf("failed to create symbolic link from '%s' to '%s': %w", inputPath, symlinkPath, err)
+	}
+	return symlinkPath, nil
+}
+
 func passtRepair(vmi *v1.VirtualMachineInstance) {
 	const passtLibvirtDirRelativeToLauncherSock = "../../libvirt-runtime/qemu/run/passt/"
 
@@ -98,8 +129,13 @@ func passtRepair(vmi *v1.VirtualMachineInstance) {
 		log.Log.Object(vmi).Error("failed to find launcher cmd socket on host for pod " + err.Error())
 	}
 	passtLibvirtDir := filepath.Join(laucherSock, passtLibvirtDirRelativeToLauncherSock)
+	symlink, err := createShortenedSymlink(passtLibvirtDir)
+	if err != nil {
+		fmt.Printf("Error: failed to create shortened symlink: %s\n", err)
+		return
+	}
 
-	err = passtRepairInternal(passtLibvirtDir)
+	err = passtRepairInternal(symlink)
 	if err != nil {
 		fmt.Printf("DEBUG: passt-repair returned error , %q\n", err)
 	}
