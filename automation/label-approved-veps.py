@@ -48,8 +48,7 @@ def execute_graphql_query(query, variables):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"GraphQL request failed: {e}")
-        return None
+        raise RuntimeError(f"GraphQL request failed: {e}") from e
 
 def get_tracked_enhancement_issues_from_project(project_number):
     # Get VEP issue numbers from kubevirt/enhancements that are tracked in the target project
@@ -115,43 +114,47 @@ def get_tracked_enhancement_issues_from_project(project_number):
         if not project_data or not project_data.get("items"):
             print(f"Warning: No items found for kubevirt project number {project_number}.")
             break
-        
+
         items_data = project_data.get("items", {})
         nodes = items_data.get("nodes", [])
-        
+
         for item_node in nodes:
             content = item_node.get("content")
-            
+
             # Check if this is an Issue from the enhancements repo.
             if not (content and content.get("__typename") == "Issue" and
                     content.get("repository", {}).get("nameWithOwner") == "kubevirt/enhancements" and
                     "number" in content):
                 continue
 
-            # Check the status
-            is_status_match = False
+            issue_number = content["number"]
+            is_tracked = False
             for field_value_node in item_node.get("fieldValues", {}).get("nodes", []):
                 if field_value_node.get("__typename") == "ProjectV2ItemFieldSingleSelectValue":
                     field = field_value_node.get("field", {})
-                    if field.get("name") == "Status":
-                        if field_value_node.get("name") == "Tracked":
-                            is_status_match = True
-                            break
-            
-            if is_status_match:
-                tracked_issue_numbers.add(content["number"])
-                print(f"  Found kubevirt/enhancements issue #{content['number']} with Status Tracked.")
-            else:
-                print(f"  Found kubevirt/enhancements issue #{content['number']} but status was not Tracked.")
+                    actual_field_name = field.get("field_definition_name")
+                    if actual_field_name == "Status" and field_value_node.get("selected_option_name") == "Tracked":
+                        is_tracked = True
+                        break
+                            
+                            
 
+            if is_tracked:
+                tracked_issues[issue_number] = True
 
         page_info = items_data.get("pageInfo", {})
         has_next_page = page_info.get("hasNextPage", False)
         current_cursor = page_info.get("endCursor") if has_next_page else None
 
-    return tracked_issue_numbers
+    return tracked_issues
 
 def main():
+    try:
+        project_number = parse_project_url(TARGET_PROJECT_URL)
+    except ValueError as e:
+        print(f"Error parsing project URL '{TARGET_PROJECT_URL}': {e}")
+        return
+
     # Get PR body
     pr_body = get_pr_details()
     if not pr_body:
@@ -159,20 +162,28 @@ def main():
         return
 
     # Extract enhancements reference numbers
-    ref_numbers = extract_enhancements_references(pr_body)
-    if not ref_numbers:
+    ref_numbers_str = extract_enhancements_references(pr_body)
+    if not ref_numbers_str:
         print("No enhancements references found.")
         return
 
-    # Check the first reference
-    ref_number = ref_numbers[0]
-    # search for merged PRs mentioning the issue
-    related_prs = find_related_merged_prs(ref_number)
-    if related_prs:
-        print(f"Found merged PR(s) for enhancements#{ref_number}: {related_prs}")
+    ref_numbers = {int(num_str) for num_str in ref_numbers_str}
+    print(f"Referenced KubeVirt Enhancement issue(s) in PR {KUBEVIRT_REPO}/pulls/{PR_NUMBER}: {ref_numbers}")
+
+    # Get the tracked VEP issue numbers from the enhancements repo
+    tracked_issues_in_project = get_tracked_enhancement_issues_from_project(project_number)
+    first_matching_vep = None
+    for vep_issue_num in ref_numbers:
+        if vep_issue_num in tracked_issues_in_project:
+            first_matching_vep = vep_issue_num
+            break
+
+    if first_matching_vep is not None:
+        print(f"Match: KubeVirt Enhancement issue #{first_matching_vep} (referenced in this PR) is tracked in project {TARGET_PROJECT_URL}.")    
+        print(f"This PR ({KUBEVIRT_REPO}/pulls/{PR_NUMBER}) is related to a VEP tracked for the current release.")
         add_label_to_pr()
     else:
-        print(f"No merged PR found for enhancements#{ref_number}.")
+        print(f"This PR ({KUBEVIRT_REPO}/pulls/{PR_NUMBER}) is not related to any VEP issue currently tracked in project {TARGET_PROJECT_URL}.")
 
 if __name__ == "__main__":
     main()
