@@ -27,4 +27,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          TARGET_PROJECT_URL: "https://github.com/orgs/kubevirt/projects/15"
         run: python automation/label-approved-veps.py
