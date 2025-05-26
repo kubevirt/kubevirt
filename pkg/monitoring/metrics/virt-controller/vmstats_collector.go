@@ -635,7 +635,7 @@ func getDiskSizeValues(vm *k6tv1.VirtualMachine, pvc *k8sv1.PersistentVolumeClai
 		pvcSize = pvc.Spec.Resources.Requests.Storage()
 	}
 
-	volumeMode := "<none>"
+	volumeMode := ""
 	if pvc.Spec.VolumeMode != nil {
 		volumeMode = string(*pvc.Spec.VolumeMode)
 	}
