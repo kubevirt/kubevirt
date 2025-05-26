@@ -21,6 +21,7 @@ package virtexportserver
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -37,7 +38,6 @@ import (
 	"strings"
 	"time"
 
-	gzip "github.com/klauspost/pgzip"
 	flag "github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
