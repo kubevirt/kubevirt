@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,6 +44,7 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -51,6 +53,8 @@ import (
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	gomegatypes "github.com/onsi/gomega/types"
+
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
@@ -76,6 +80,7 @@ var _ = Describe("VirtualMachine", func() {
 		var config *virtconfig.ClusterConfig
 		var kvStore cache.Store
 		var virtFakeClient *fake.Clientset
+		var dataVolumeInformer cache.SharedIndexInformer
 
 		BeforeEach(func() {
 			virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
@@ -93,7 +98,7 @@ var _ = Describe("VirtualMachine", func() {
 			virtFakeClient.PrependReactor("patch", "virtualmachines",
 				PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
 
-			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
@@ -5313,6 +5318,12 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			Context("Volumes", func() {
+				const (
+					diskName  = "disk0"
+					oldDVName = "oldDV"
+					newDVName = "newDV"
+					ns        = metav1.NamespaceDefault
+				)
 				DescribeTable("should set the restart condition", func(strategy *v1.UpdateVolumesStrategy) {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
@@ -5377,6 +5388,61 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
 				})
+
+				DescribeTable("should return an error", func(dvExist bool, err error) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+							},
+						},
+					})
+					virtFakeClient.PrependReactor("patch", "virtualmachineinstance",
+						func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+							a := action.(testing.PatchActionImpl)
+							patch, err := jsonpatch.DecodePatch(a.Patch)
+							Expect(err).ToNot(HaveOccurred())
+
+							vmi := &v1.VirtualMachineInstance{}
+							obj, err := json.Marshal(vmi)
+							Expect(err).ToNot(HaveOccurred())
+
+							obj, err = patch.Apply(obj)
+							Expect(err).ToNot(HaveOccurred())
+
+							vmi = &v1.VirtualMachineInstance{}
+							Expect(json.Unmarshal(obj, vmi)).To(Succeed())
+							Expect(virtcontroller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi,
+								v1.VirtualMachineInstanceVolumesChange)).Should(
+								gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+									"Type":    Equal(v1.VirtualMachineInstanceVolumesChange),
+									"Status":  Equal(k8sv1.ConditionFalse),
+									"Message": ContainSubstring("One of the destination volumes doesn't exist"),
+								}))
+							return true, vmi, nil
+						})
+
+					if dvExist {
+						dv := libdv.NewDataVolume(libdv.WithName(newDVName), libdv.WithNamespace(ns))
+						Expect(dataVolumeInformer.GetStore().Add(dv)).To(Succeed())
+					}
+					vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, oldDVName))
+					vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
+						libvmi.WithDataVolume(diskName, newDVName)),
+						libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm,
+						metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.TODO(),
+						vmi, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					Expect(controller.handleVolumeUpdateRequest(vm, vmi)).Should(Succeed())
+					Expect(virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm,
+						v1.VirtualMachineRestartRequired)).Should(BeNil())
+				},
+					Entry("when the destination DV doesn't exist", false, storagetypes.NewDVNotFoundError(newDVName)),
+					Entry("when the destination DV exist but the PVC", true, storagetypes.NewPVCNotFoundError(newDVName)),
+				)
 			})
 
 			Context("Instance Types and Preferences", func() {
