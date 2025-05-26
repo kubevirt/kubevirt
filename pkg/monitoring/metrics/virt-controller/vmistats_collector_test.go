@@ -276,10 +276,10 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr.Labels).To(HaveLen(17))
 			Expect(cr.Labels[7]).To(Equal(expected))
 		},
-			Entry("with no instance type expect <none>", k6tv1.InstancetypeAnnotation, "", "<none>"),
+			Entry("with no instance type expect empty string", k6tv1.InstancetypeAnnotation, "", ""),
 			Entry("with managed instance type expect its name", k6tv1.InstancetypeAnnotation, "i-managed", "i-managed"),
 			Entry("with custom instance type expect <other>", k6tv1.InstancetypeAnnotation, "i-unmanaged", "<other>"),
-			Entry("with no cluster instance type expect <none>", k6tv1.ClusterInstancetypeAnnotation, "", "<none>"),
+			Entry("with no cluster instance type expect empty string", k6tv1.ClusterInstancetypeAnnotation, "", ""),
 			Entry("with managed cluster instance type expect its name", k6tv1.ClusterInstancetypeAnnotation, "ci-managed", "ci-managed"),
 			Entry("with custom cluster instance type expect <other>", k6tv1.ClusterInstancetypeAnnotation, "ci-unmanaged", "<other>"),
 		)
@@ -313,10 +313,10 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr.Labels).To(HaveLen(17))
 			Expect(cr.Labels[8]).To(Equal(expected))
 		},
-			Entry("with no preference expect <none>", k6tv1.PreferenceAnnotation, "", "<none>"),
+			Entry("with no preference expect empty string", k6tv1.PreferenceAnnotation, "", ""),
 			Entry("with managed preference expect its name", k6tv1.PreferenceAnnotation, "p-managed", "p-managed"),
 			Entry("with custom preference expect <other>", k6tv1.PreferenceAnnotation, "p-unmanaged", "<other>"),
-			Entry("with no cluster preference expect <none>", k6tv1.ClusterPreferenceAnnotation, "", "<none>"),
+			Entry("with no cluster preference expect empty string", k6tv1.ClusterPreferenceAnnotation, "", ""),
 			Entry("with managed cluster preference expect its name", k6tv1.ClusterPreferenceAnnotation, "cp-managed", "cp-managed"),
 			Entry("with custom cluster preference expect <other>", k6tv1.ClusterPreferenceAnnotation, "cp-unmanaged", "<other>"),
 		)
