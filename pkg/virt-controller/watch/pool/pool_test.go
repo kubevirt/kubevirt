@@ -21,7 +21,6 @@ package pool
 import (
 	"encoding/json"
 	"fmt"
-	"maps"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,6 +30,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -38,10 +38,11 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	"kubevirt.io/client-go/testing"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
@@ -273,27 +274,13 @@ var _ = Describe("Pool", func() {
 			newPoolRevision := createPoolRevision(pool)
 
 			vm.Name = fmt.Sprintf("%s-0", pool.Name)
-
 			vm = injectPoolRevisionLabelsIntoVM(vm, poolRevision.Name)
-
-			vmi := api.NewMinimalVMI(vm.Name)
-			vmi.Spec = vm.Spec.Template.Spec
-			vmi.Name = vm.Name
-			vmi.Namespace = vm.Namespace
-			vmi.Labels = vm.Spec.Template.ObjectMeta.Labels
-			vmi.OwnerReferences = []metav1.OwnerReference{{
-				APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-				Kind:               v1.VirtualMachineGroupVersionKind.Kind,
-				Name:               vm.ObjectMeta.Name,
-				UID:                vm.ObjectMeta.UID,
-				Controller:         pointer.P(true),
-				BlockOwnerDeletion: pointer.P(true),
-			}}
-
+			vmi := createReadyVMI(vm, poolRevision)
 			markVmAsReady(vm)
 			watchtesting.MarkAsReady(vmi)
 			addPool(pool)
 			addVM(vm)
+			addVMI(vmi)
 			addCR(poolRevision)
 			// not expecting vmi to cause enqueue of pool because VMI and VM use the same pool revision
 			controller.vmiStore.Add(vmi)
@@ -336,23 +323,7 @@ var _ = Describe("Pool", func() {
 			vm = injectPoolRevisionLabelsIntoVM(vm, newPoolRevision.Name)
 			vm.Name = fmt.Sprintf("%s-0", pool.Name)
 			markVmAsReady(vm)
-
-			vmi := api.NewMinimalVMI(vm.Name)
-			vmi.Spec = vm.Spec.Template.Spec
-			vmi.Name = vm.Name
-			vmi.Namespace = vm.Namespace
-			vmi.Labels = maps.Clone(vm.Spec.Template.ObjectMeta.Labels)
-			vmi.OwnerReferences = []metav1.OwnerReference{{
-				APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-				Kind:               v1.VirtualMachineGroupVersionKind.Kind,
-				Name:               vm.ObjectMeta.Name,
-				UID:                vm.ObjectMeta.UID,
-				Controller:         pointer.P(true),
-				BlockOwnerDeletion: pointer.P(true),
-			}}
-
-			vmi.Labels[v1.VirtualMachinePoolRevisionName] = oldPoolRevision.Name
-
+			vmi := createReadyVMI(vm, oldPoolRevision)
 			addPool(pool)
 			addVM(vm)
 			addVMI(vmi)
@@ -377,11 +348,12 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			vm = injectPoolRevisionLabelsIntoVM(vm, poolRevision.Name)
 			markVmAsReady(vm)
-
+			vmi := createReadyVMI(vm, poolRevision)
 			pool.Status.Replicas = 1
 			pool.Status.ReadyReplicas = 1
 			addPool(pool)
 			addVM(vm)
+			addVMI(vmi)
 			addCR(poolRevision)
 
 			sanityExecute()
@@ -397,11 +369,12 @@ var _ = Describe("Pool", func() {
 
 			oldPoolRevision := poolRevision.DeepCopy()
 			oldPoolRevision.Name = "madeup"
-
+			vmi := createReadyVMI(vm, poolRevision)
 			pool.Status.Replicas = 1
 			pool.Status.ReadyReplicas = 1
 			addPool(pool)
 			addVM(vm)
+			addVMI(vmi)
 			addCR(poolRevision)
 			addCR(oldPoolRevision)
 
@@ -771,6 +744,161 @@ var _ = Describe("Pool", func() {
 			Entry("do not append index if set to false", pointer.P(false)),
 			Entry("append index if set to true", pointer.P(true)),
 		)
+
+		It("should respect maxUnavailable limit during proactive updates", func() {
+			pool, vm := DefaultPool(4)
+			pool.Status.Replicas = 4
+			pool.Status.ReadyReplicas = 4
+			maxUnavailable := intstr.FromString("25%")
+			pool.Spec.MaxUnavailable = &maxUnavailable
+
+			oldPoolRevision := createPoolRevision(pool)
+
+			pool.Generation = 123
+
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{}
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["newkey"] = "newval"
+			newPoolRevision := createPoolRevision(pool)
+
+			addPool(pool)
+			// Create 4 VMs with their VMIs
+			for i := range 4 {
+				vmCopy := vm.DeepCopy()
+				vmCopy.Name = fmt.Sprintf("%s-%d", pool.Name, i)
+				vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, newPoolRevision.Name)
+				markVmAsReady(vmCopy)
+				// Create VMI with old revision to trigger update
+				vmi := createReadyVMI(vmCopy, oldPoolRevision)
+				addVM(vmCopy)
+				addVMI(vmi)
+			}
+
+			addCR(oldPoolRevision)
+			addCR(newPoolRevision)
+			expectControllerRevisionCreation(newPoolRevision)
+			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, nil
+			})
+			sanityExecute()
+			testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
+		})
+		It("should not trigger proactive update when VMs are not ready", func() {
+			pool, vm := DefaultPool(4)
+			pool.Status.Replicas = 4
+			pool.Status.ReadyReplicas = 4
+			maxUnavailable := intstr.FromString("25%")
+			pool.Spec.MaxUnavailable = &maxUnavailable
+
+			oldPoolRevision := createPoolRevision(pool)
+
+			pool.Generation = 123
+
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{}
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["newkey"] = "newval"
+			newPoolRevision := createPoolRevision(pool)
+
+			addPool(pool)
+			// Create 4 VMs with their VMIs, but mark one VMI as not ready
+			for i := 0; i < 4; i++ {
+				vmCopy := vm.DeepCopy()
+				vmCopy.Name = fmt.Sprintf("%s-%d", pool.Name, i)
+				vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, newPoolRevision.Name)
+				markVmAsReady(vmCopy)
+				vmi := createReadyVMI(vmCopy, oldPoolRevision)
+				if i == 3 {
+					// Mark the last VMI as not ready
+					vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+						{
+							Type:   v1.VirtualMachineInstanceReady,
+							Status: k8sv1.ConditionFalse,
+						},
+					}
+				}
+				addVM(vmCopy)
+				addVMI(vmi)
+			}
+
+			addCR(oldPoolRevision)
+			addCR(newPoolRevision)
+
+			expectControllerRevisionCreation(newPoolRevision)
+
+			// Expect pool to be updated with failure condition
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(k8stesting.UpdateAction)
+				Expect(ok).To(BeTrue())
+				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
+				Expect(updateObj.Status.Conditions).To(HaveLen(1))
+				Expect(updateObj.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaFailure))
+				Expect(updateObj.Status.Conditions[0].Reason).To(Equal(FailedUpdateReason))
+				Expect(updateObj.Status.Conditions[0].Message).To(ContainSubstring("timeout occurred while waiting for the VMI to become healthy"))
+				return true, update.GetObject(), nil
+			})
+
+			sanityExecute()
+			// Should not see any VMI deletions since one VMI is not ready
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(BeEmpty())
+		})
+
+		It("should back off and respect maxUnavailable when updates fail", func() {
+			pool, vm := DefaultPool(4)
+			pool.Status.Replicas = 4
+			pool.Status.ReadyReplicas = 4
+			maxUnavailable := intstr.FromString("25%")
+			pool.Spec.MaxUnavailable = &maxUnavailable
+
+			oldPoolRevision := createPoolRevision(pool)
+
+			pool.Generation = 123
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{}
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["newkey"] = "newval"
+			newPoolRevision := createPoolRevision(pool)
+
+			addPool(pool)
+			// Create 4 VMs with their VMIs
+			for i := 0; i < 4; i++ {
+				vmCopy := vm.DeepCopy()
+				vmCopy.Name = fmt.Sprintf("%s-%d", pool.Name, i)
+				vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, newPoolRevision.Name)
+				markVmAsReady(vmCopy)
+				vmi := createReadyVMI(vmCopy, oldPoolRevision)
+				addVM(vmCopy)
+				addVMI(vmi)
+			}
+
+			addCR(oldPoolRevision)
+			addCR(newPoolRevision)
+			expectControllerRevisionCreation(newPoolRevision)
+
+			// Simulate failed VMI deletion
+			deleteCount := 0
+			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				deleteCount++
+				if deleteCount == 1 {
+					// First deletion fails
+					return true, nil, fmt.Errorf("simulated deletion failure")
+				}
+				return true, nil, nil
+			})
+
+			// Expect pool to be updated with failure condition
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(k8stesting.UpdateAction)
+				Expect(ok).To(BeTrue())
+				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
+				Expect(updateObj.Status.Conditions).To(HaveLen(1))
+				Expect(updateObj.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaFailure))
+				Expect(updateObj.Status.Conditions[0].Reason).To(Equal(FailedUpdateReason))
+				return true, update.GetObject(), nil
+			})
+
+			sanityExecute()
+
+			// Verify that only one VMI deletion was attempted
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
+			testutils.ExpectEvent(recorder, common.FailedUpdateVirtualMachineReason)
+		})
 	})
 })
 
@@ -800,9 +928,11 @@ func PoolFromVM(name string, vm *v1.VirtualMachine, replicas int32) *poolv1.Virt
 }
 
 func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine) {
-	vmi := api.NewMinimalVMI("testvmi")
-	vmi.Labels = map[string]string{}
-	vm := watchtesting.VirtualMachineFromVMI(vmi.Name, vmi, true)
+	vmi := libvmi.New(
+		libvmi.WithNamespace(k8sv1.NamespaceDefault),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+	)
+	vm := libvmi.NewVirtualMachine(vmi)
 	vm.Labels = map[string]string{}
 	vm.Labels["selector"] = "value"
 
@@ -816,4 +946,33 @@ func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine
 
 func markVmAsReady(vm *v1.VirtualMachine) {
 	virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{Type: v1.VirtualMachineReady, Status: k8sv1.ConditionTrue})
+}
+
+func createReadyVMI(vm *v1.VirtualMachine, poolRevision *appsv1.ControllerRevision) *v1.VirtualMachineInstance {
+	vmi := libvmi.New(
+		libvmi.WithNamespace(vm.Namespace),
+		libvmi.WithName(vm.Name),
+	)
+	vmi.Spec = vm.Spec.Template.Spec
+	vmi.Labels = make(map[string]string)
+	for k, v := range vm.Spec.Template.ObjectMeta.Labels {
+		vmi.Labels[k] = v
+	}
+	vmi.Labels[v1.VirtualMachinePoolRevisionName] = poolRevision.Name
+	vmi.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+		Name:               vm.ObjectMeta.Name,
+		UID:                vm.ObjectMeta.UID,
+		Controller:         pointer.P(true),
+		BlockOwnerDeletion: pointer.P(true),
+	}}
+	vmi.Status.Phase = v1.Running
+	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+		{
+			Type:   v1.VirtualMachineInstanceReady,
+			Status: k8sv1.ConditionTrue,
+		},
+	}
+	return vmi
 }
