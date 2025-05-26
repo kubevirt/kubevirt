@@ -20,23 +20,31 @@
 package virt_controller
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 )
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo),
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo, vmNadInfo),
 		CollectCallback: vmStatsCollectorCallback,
 	}
 
@@ -186,6 +194,16 @@ var (
 		},
 		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_name", "model"},
 	)
+
+	vmNadInfo = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_network_attachment_definition_info",
+			Help: "Details about additional network interfaces attached to Virtual Machines",
+		},
+		[]string{"namespace", "network", "cni_type", "vlan", "ipam_type", "ovn_subnets", "udn_role", "ovn_topology",
+			"ovn_persistent_ips", "mac_spoof_filtering", "bridge_preserving_default_vlan",
+			"bridge_disable_container_interface"},
+	)
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -208,6 +226,7 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 	results = append(results, reportVmsStats(vms)...)
 	results = append(results, collectVMCreationTimestamp(vms)...)
 	results = append(results, CollectVmsVnicInfo(vms)...)
+	results = append(results, CollectVmsNadInfo(vms)...)
 	return results
 }
 
@@ -693,7 +712,7 @@ func CollectVmsVnicInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.Collector
 				model = iface.Model
 			}
 			bindingType, bindingName := getBinding(iface)
-			networkName, matchFound := getNetworkName(iface.Name, networks)
+			networkName, matchFound := getNetworkName(iface.Name, vm.Namespace, networks)
 
 			if !matchFound {
 				continue
@@ -737,12 +756,13 @@ func getBinding(iface k6tv1.Interface) (bindingType, bindingName string) {
 	return bindingType, bindingName
 }
 
-func getNetworkName(ifaceName string, networks []k6tv1.Network) (string, bool) {
+func getNetworkName(ifaceName, namespace string, networks []k6tv1.Network) (string, bool) {
 	if net := LookupNetworkByName(networks, ifaceName); net != nil {
 		if net.Pod != nil {
 			return "pod networking", true
 		} else if net.Multus != nil {
-			return net.Multus.NetworkName, true
+			netName := multus.NetAttachDefNamespacedName(namespace, net.Multus.NetworkName)
+			return netName.Name, true
 		}
 	}
 	return "", false
@@ -755,4 +775,192 @@ func LookupNetworkByName(networks []k6tv1.Network, name string) *k6tv1.Network {
 		}
 	}
 	return nil
+}
+
+type NadConfigInfo struct {
+	CNIType             string
+	VLAN                string
+	IPAMType            string
+	OVNSubnets          string
+	UDNRole             string
+	OVNTopology         string
+	OVNPersistentIPs    string
+	MACSpoofFiltering   string
+	PreserveDefaultVLAN string
+	DisableIface        string
+}
+
+func CollectVmsNadInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		log.Log.Warningf("Failed to get KubeVirt client: %v", err)
+		return cr
+	}
+
+	vmNamespaces := map[string]struct{}{}
+	for _, vm := range vms {
+		vmNamespaces[vm.Namespace] = struct{}{}
+	}
+
+	for namespace := range vmNamespaces {
+		nadList, err := virtClient.NetworkClient().
+			K8sCniCncfIoV1().
+			NetworkAttachmentDefinitions(namespace).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			log.Log.Warningf("Failed to list NADs in namespace %s: %v", namespace, err)
+			continue
+		}
+
+		for _, nad := range nadList.Items {
+			var configMap map[string]interface{}
+			if err := json.Unmarshal([]byte(nad.Spec.Config), &configMap); err != nil {
+				log.Log.Warningf("Failed to parse NAD config %s/%s: %v", nad.Namespace, nad.Name, err)
+				continue
+			}
+
+			var configs []map[string]interface{}
+			if plugins, ok := configMap["plugins"].([]interface{}); ok {
+				for _, p := range plugins {
+					if pluginMap, ok := p.(map[string]interface{}); ok {
+						configs = append(configs, pluginMap)
+					}
+				}
+			} else {
+				configs = append(configs, configMap)
+			}
+
+			networkName := nad.Name
+			labels := nad.GetLabels()
+			isUDN := labels != nil && labels["k8s.ovn.org/user-defined-network"] != ""
+
+			for _, c := range configs {
+				info := extractNadConfig(c, isUDN)
+
+				cr = append(cr, operatormetrics.CollectorResult{
+					Metric: vmNadInfo,
+					Labels: []string{
+						nad.Namespace,
+						networkName,
+						info.CNIType,
+						info.VLAN,
+						info.IPAMType,
+						info.OVNSubnets,
+						info.UDNRole,
+						info.OVNTopology,
+						info.OVNPersistentIPs,
+						info.MACSpoofFiltering,
+						info.PreserveDefaultVLAN,
+						info.DisableIface,
+					},
+					Value: 1.0,
+				})
+			}
+		}
+	}
+
+	return cr
+}
+
+func extractNadConfig(c map[string]interface{}, isUDN bool) NadConfigInfo {
+	cniType := ""
+	if t, ok := c["type"].(string); ok {
+		cniType = t
+	}
+
+	vlan := "0"
+	if v, ok := c["vlan"]; ok {
+		vlan = fmt.Sprintf("%v", v)
+	} else if v, ok := c["vlanID"]; ok {
+		vlan = fmt.Sprintf("%v", v)
+	}
+
+	ipamType := ""
+	if ipamRaw, ok := c["ipam"]; ok {
+		if ipamMap, ok := ipamRaw.(map[string]interface{}); ok {
+			if t, ok := ipamMap["type"].(string); ok {
+				ipamType = t
+			} else if len(ipamMap) == 0 {
+				ipamType = "disabled"
+			}
+		}
+	}
+
+	ovnSubnets := ""
+	if cniType == "ovn-k8s-cni-overlay" {
+		if v, ok := c["subnets"].(string); ok {
+			ovnSubnets = v
+		}
+	}
+
+	udnRole := ""
+	if cniType == "ovn-k8s-cni-overlay" && isUDN {
+		if v, ok := c["role"].(string); ok {
+			udnRole = v
+		} else {
+			udnRole = "secondary"
+		}
+	}
+
+	ovnTopology := ""
+	if cniType == "ovn-k8s-cni-overlay" {
+		if v, ok := c["topology"].(string); ok {
+			ovnTopology = v
+		}
+	}
+
+	ovnPersistentIps := "false"
+	if cniType == "ovn-k8s-cni-overlay" {
+		if v, ok := c["allowPersistentIPs"].(bool); ok {
+			ovnPersistentIps = strconv.FormatBool(v)
+		}
+	}
+
+	macSpoofFiltering := ""
+	switch cniType {
+	case "bridge", "cnv-bridge":
+		if v, ok := c["macspoofchk"].(bool); ok {
+			macSpoofFiltering = strconv.FormatBool(v)
+		} else {
+			macSpoofFiltering = "false"
+		}
+	case "sriov":
+		if v, ok := c["spoofchk"].(string); ok {
+			macSpoofFiltering = v
+		} else {
+			macSpoofFiltering = "off"
+		}
+	}
+
+	preserveDefaultVlan := ""
+	if cniType == "bridge" || cniType == "cnv-bridge" {
+		if v, ok := c["preserveDefaultVlan"].(bool); ok {
+			preserveDefaultVlan = strconv.FormatBool(v)
+		} else {
+			preserveDefaultVlan = "true"
+		}
+	}
+
+	disableIface := ""
+	if cniType == "bridge" || cniType == "cnv-bridge" {
+		if v, ok := c["disableContainerInterface"].(bool); ok {
+			disableIface = strconv.FormatBool(v)
+		} else {
+			disableIface = "false"
+		}
+	}
+
+	return NadConfigInfo{
+		CNIType:             cniType,
+		VLAN:                vlan,
+		IPAMType:            ipamType,
+		OVNSubnets:          ovnSubnets,
+		UDNRole:             udnRole,
+		OVNTopology:         ovnTopology,
+		OVNPersistentIPs:    ovnPersistentIps,
+		MACSpoofFiltering:   macSpoofFiltering,
+		PreserveDefaultVLAN: preserveDefaultVlan,
+		DisableIface:        disableIface,
+	}
 }
