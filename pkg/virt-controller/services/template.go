@@ -25,6 +25,8 @@ import (
 	"maps"
 	"math/rand"
 	"os"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -923,8 +925,13 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	command := []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 
-	tmpTolerations := make([]k8sv1.Toleration, len(ownerPod.Spec.Tolerations))
-	copy(tmpTolerations, ownerPod.Spec.Tolerations)
+	tolerations := append(hotplugPodTolerations(), ownerPod.Spec.Tolerations...)
+
+	// Remove duplicates
+	sort.Slice(tolerations, func(i, j int) bool {
+		return tolerations[i].Key < tolerations[j].Key
+	})
+	tolerations = slices.Compact(tolerations)
 
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -990,7 +997,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					},
 				},
 			},
-			Tolerations:                   tmpTolerations,
+			Tolerations:                   tolerations,
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
 		},

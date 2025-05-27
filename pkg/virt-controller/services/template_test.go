@@ -4080,7 +4080,9 @@ var _ = Describe("Template", func() {
 
 		It("should compute the correct tolerations when rendering hotplug attachment pods", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
-			vmi.Spec.Tolerations = append(vmi.Spec.Tolerations, k8sv1.Toleration{Key: "test"})
+			duplicateToleration := []k8sv1.Toleration{{Key: "test", Operator: k8sv1.TolerationOpExists, Effect: k8sv1.TaintEffectNoSchedule},
+				{Key: "test", Operator: k8sv1.TolerationOpExists, Effect: k8sv1.TaintEffectNoSchedule}} // Add duplicate on purpose to validate deduplication logic
+			vmi.Spec.Tolerations = append(vmi.Spec.Tolerations, duplicateToleration...)
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -4089,7 +4091,39 @@ var _ = Describe("Template", func() {
 			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(vmi.Spec.Tolerations))
+			expectedTolerations := []k8sv1.Toleration{
+				{
+					Key:      "test",
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+				{
+					Key:      k8sv1.TaintNodeUnschedulable,
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+				{
+					Key:      k8sv1.TaintNodeNetworkUnavailable,
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+				{
+					Key:      k8sv1.TaintNodeDiskPressure,
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+				{
+					Key:      k8sv1.TaintNodeMemoryPressure,
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+				{
+					Key:      k8sv1.TaintNodePIDPressure,
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+			}
+			Expect(pod.Spec.Tolerations).To(ConsistOf(expectedTolerations))
 		})
 
 		It("should compute the correct tolerations when rendering hotplug attachment trigger pods", func() {
@@ -4259,7 +4293,7 @@ var _ = Describe("Template", func() {
 			verifyPodRequestLimits(pod)
 		})
 
-		DescribeTable("hould compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {
+		DescribeTable("should compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
