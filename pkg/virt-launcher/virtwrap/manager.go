@@ -54,6 +54,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -152,6 +153,7 @@ type DomainManager interface {
 	Exec(string, string, []string, int32) (string, error)
 	GuestPing(string) error
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
+	BackupVirtualMachine(*v1.VirtualMachineInstance, *backupv1.BackupOptions) error
 	GetQemuVersion() (string, error)
 	UpdateVCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	GetSEVInfo() (*v1.SEVPlatformInfo, error)
@@ -186,7 +188,7 @@ type LibvirtDomainManager struct {
 	ephemeralDiskCreator   ephemeraldisk.EphemeralDiskCreatorInterface
 	directIOChecker        converter.DirectIOChecker
 	disksInfo              map[string]*osdisk.DiskInfo
-	migrateInfoStats       *stats.DomainJobInfo
+	domainInfoStats        *stats.DomainJobInfo
 	diskMemoryLimitBytes   int64
 
 	metadataCache             *metadata.Cache
@@ -239,13 +241,14 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		paused: pausedVMIs{
 			paused: make(map[types.UID]bool, 0),
 		},
+
 		agentData:            agentStore,
 		efiEnvironment:       efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
 		ephemeralDiskCreator: ephemeralDiskCreator,
 		directIOChecker:      directIOChecker,
 		disksInfo:            map[string]*osdisk.DiskInfo{},
+		domainInfoStats:      &stats.DomainJobInfo{},
 
-		migrateInfoStats:              &stats.DomainJobInfo{},
 		metadataCache:                 metadataCache,
 		cpuSetGetter:                  cpuSetGetter,
 		setTimeOnce:                   sync.Once{},
@@ -1968,7 +1971,7 @@ func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 
-	domstats, err := l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
+	domstats, err := l.virConn.GetDomainStats(statsTypes, l.domainInfoStats, flags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get domain stats: %v", err)
 	}
@@ -2510,4 +2513,14 @@ func calculateHotplugPortCount(vmi *v1.VirtualMachineInstance, domainSpec *api.D
 	}
 
 	return max(defaultTotalPorts-portsInUse, minFreePorts), nil
+}
+
+func (l *LibvirtDomainManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
+	switch backupOptions.Cmd {
+	case backupv1.Start:
+		return l.storageManager.BackupVirtualMachine(vmi, backupOptions)
+	default:
+		// TODO: Implement backup abort functionality
+		return fmt.Errorf("recieved unknown backup command")
+	}
 }
