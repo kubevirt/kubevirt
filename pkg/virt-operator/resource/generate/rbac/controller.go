@@ -394,6 +394,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachines/stop",
 					"virtualmachineinstances/addvolume",
 					"virtualmachineinstances/removevolume",
+					"virtualmachineinstances/backup",
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/reset",
