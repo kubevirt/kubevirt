@@ -51,6 +51,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/controller:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//pkg/network/multus:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/types:go_default_library",
