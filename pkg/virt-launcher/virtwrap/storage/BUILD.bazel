@@ -34,6 +34,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "backup_test.go",
         "fsfreeze_test.go",
         "memoryDump_test.go",
         "storage_suite_test.go",

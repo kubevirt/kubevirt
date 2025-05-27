@@ -551,7 +551,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	now := time.Now().UTC().UnixNano()
 	elapsed := now - m.start
 
-	m.l.migrateInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
+	m.l.domainInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
 	if (m.progressWatermark == 0) || (m.remainingData < m.progressWatermark) {
 		m.lastProgressUpdate = now
 	}
@@ -642,7 +642,7 @@ func (m *migrationMonitor) startMonitor() {
 
 	logger := log.Log.Object(vmi)
 	defer func() {
-		m.l.migrateInfoStats = &stats.DomainJobInfo{}
+		m.l.domainInfoStats = &stats.DomainJobInfo{}
 	}()
 
 	domName := api.VMINamespaceKeyFunc(vmi)
