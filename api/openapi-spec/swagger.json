@@ -8231,6 +8231,61 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/backup": {
+    "put": {
+     "description": "Initiate a VirtualMachineInstance backup.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1Backup",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.BackupOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
@@ -9935,6 +9990,61 @@
       },
       "401": {
        "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/backup": {
+    "put": {
+     "description": "Initiate a VirtualMachineInstance backup.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3Backup",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.BackupOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
       }
      }
     },
@@ -19086,6 +19196,30 @@
       "description": "Name of the watchdog.",
       "type": "string",
       "default": ""
+     }
+    }
+   },
+   "v1alpha1.BackupOptions": {
+    "description": "BackupOptions are options used to configure virtual machine backup job",
+    "type": "object",
+    "properties": {
+     "backupName": {
+      "type": "string"
+     },
+     "backupStartTime": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "cmd": {
+      "type": "string"
+     },
+     "mode": {
+      "type": "string"
+     },
+     "pushPath": {
+      "type": "string"
+     },
+     "skipQuiesce": {
+      "type": "boolean"
      }
     }
    },
