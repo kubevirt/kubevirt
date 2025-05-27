@@ -78,8 +78,6 @@ var _ = Describe("Notify", func() {
 				notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
 			}()
 
-			time.Sleep(1 * time.Second)
-
 			client = NewNotifier(shareDir)
 
 			DeferCleanup(
