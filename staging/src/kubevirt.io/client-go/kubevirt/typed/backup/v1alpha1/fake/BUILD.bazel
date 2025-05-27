@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "fake_backup_client.go",
+    ],
+    importpath = "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1/fake",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/client-go/testing:go_default_library",
+    ],
+)

@@ -27,6 +27,8 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
 	clientset "kubevirt.io/client-go/kubevirt"
+	backupv1alpha1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
+	fakebackupv1alpha1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1/fake"
 	clonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
 	fakeclonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1/fake"
 	clonev1beta1 "kubevirt.io/client-go/kubevirt/typed/clone/v1beta1"
@@ -104,6 +106,11 @@ var (
 	_ clientset.Interface = &Clientset{}
 	_ testing.FakeClient  = &Clientset{}
 )
+
+// BackupV1alpha1 retrieves the BackupV1alpha1Client
+func (c *Clientset) BackupV1alpha1() backupv1alpha1.BackupV1alpha1Interface {
+	return &fakebackupv1alpha1.FakeBackupV1alpha1{Fake: &c.Fake}
+}
 
 // CloneV1alpha1 retrieves the CloneV1alpha1Client
 func (c *Clientset) CloneV1alpha1() clonev1alpha1.CloneV1alpha1Interface {
