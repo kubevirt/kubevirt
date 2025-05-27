@@ -2871,6 +2871,11 @@ var _ = Describe("Template", func() {
 			Expect(pod.Spec.Containers).To(HaveLen(2))
 			Expect(pod.Spec.Containers[1].Image).To(Equal(testHookSidecar.Image))
 			Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(testHookSidecar.ImagePullPolicy))
+			Expect(pod.Spec.Containers[1].VolumeMounts[0]).To(Equal(k8sv1.VolumeMount{
+				Name:      hookSidecarSocks,
+				MountPath: hooks.HookSocketsSharedDirectory,
+				SubPath:   "hook-sidecar-0",
+			}))
 		})
 
 		Context("with pod networking", func() {
