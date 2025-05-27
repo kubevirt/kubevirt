@@ -51,31 +51,26 @@ import (
 var _ = Describe("Notify", func() {
 
 	Describe("Domain Events", func() {
-		var err error
-		var shareDir string
-		var stop chan struct{}
-		var stopped bool
+
 		var eventChan chan watch.Event
 		var deleteNotificationSent chan watch.Event
 		var client *Notifier
-		var metadataCache *metadata.Cache
 
 		var mockDomain *cli.MockVirDomain
 		var mockCon *cli.MockConnection
-		var ctrl *gomock.Controller
 		var e *eventCaller
 
 		BeforeEach(func() {
-			ctrl = gomock.NewController(GinkgoT())
+			ctrl := gomock.NewController(GinkgoT())
 			mockCon = cli.NewMockConnection(ctrl)
 			mockDomain = cli.NewMockVirDomain(ctrl)
 			mockCon.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).AnyTimes()
 
-			stop = make(chan struct{})
+			stop := make(chan struct{})
 			eventChan = make(chan watch.Event, 100)
 			deleteNotificationSent = make(chan watch.Event, 100)
-			stopped = false
-			shareDir, err = os.MkdirTemp("", "kubevirt-share")
+			stopped := false
+			shareDir, err := os.MkdirTemp("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
 			e = &eventCaller{}
 
@@ -87,16 +82,18 @@ var _ = Describe("Notify", func() {
 
 			client = NewNotifier(shareDir)
 
-			metadataCache = metadata.NewCache()
+			DeferCleanup(
+				func() {
+					if stopped == false {
+						close(stop)
+					}
+					client.Close()
+					os.RemoveAll(shareDir)
+				},
+			)
 		})
 
-		AfterEach(func() {
-			if stopped == false {
-				close(stop)
-			}
-			client.Close()
-			os.RemoveAll(shareDir)
-		})
+		metadataCache := func() *metadata.Cache { return metadata.NewCache() }
 
 		Context("server", func() {
 			DescribeTable("should accept Domain notify events", func(state libvirt.DomainState, event libvirt.DomainEventType, kubevirtState api.LifeCycle, kubeEventType watch.EventType) {
@@ -109,7 +106,7 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 
-				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache)
+				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache())
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -140,7 +137,7 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 
-				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache)
+				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache())
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -180,7 +177,7 @@ var _ = Describe("Notify", func() {
 					},
 				}
 
-				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil, nil, nil, metadataCache)
+				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil, nil, nil, metadataCache())
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -211,7 +208,7 @@ var _ = Describe("Notify", func() {
 					Name: guestOsName,
 				}
 
-				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, &osInfoStatus, nil, nil, metadataCache)
+				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, &osInfoStatus, nil, nil, metadataCache())
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -241,7 +238,7 @@ var _ = Describe("Notify", func() {
 					Status: fsFrozenStatus,
 				}
 
-				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, &fsFreezeStatus, metadataCache)
+				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, &fsFreezeStatus, metadataCache())
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
