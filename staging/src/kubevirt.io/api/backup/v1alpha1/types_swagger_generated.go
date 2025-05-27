@@ -7,3 +7,46 @@ func (BackupOptions) SwaggerDoc() map[string]string {
 		"": "BackupOptions are options used to configure virtual machine backup job",
 	}
 }
+
+func (VirtualMachineBackup) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "VirtualMachineBackup defines the operation of backing up a VM\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"status": "+optional",
+	}
+}
+
+func (VirtualMachineBackupList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "VirtualMachineBackupList is a list of VirtualMachineBackup resources\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"items": "+listType=atomic",
+	}
+}
+
+func (VirtualMachineBackupSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource",
+		"source":          "+optional\nSource specifies the VM to backup\nIf not provided, a reference to a VirtualMachineBackupTracker must be specified instead",
+		"mode":            "+optional\nMode specifies the way the backup output will be recieved",
+		"pvcName":         "+optional\nPvcName required in push mode. Specifies the name of the PVC\nwhere the backup output will be stored",
+		"skipQuiesce":     "+optional\nSkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
+		"forceFullBackup": "+optional\nForceFullBackup indicates that a full backup is desired",
+	}
+}
+
+func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
+		"type":       "+optional\nType indicates if the backup was full or incremental",
+		"conditions": "+optional\n+listType=atomic",
+	}
+}
+
+func (Condition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                   "Condition defines conditions",
+		"lastProbeTime":      "+optional\n+nullable",
+		"lastTransitionTime": "+optional\n+nullable",
+		"reason":             "+optional",
+		"message":            "+optional",
+	}
+}
