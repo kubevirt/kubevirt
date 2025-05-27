@@ -758,6 +758,7 @@ func NewSynchronizationControllerDeployment(
 			},
 		},
 	})
+
 	deployment := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
 
 	if deployment.Spec.Template.Annotations == nil {

@@ -537,6 +537,11 @@ func (v *VirtualMachineInstance) IsHighPerformanceVMI() bool {
 	return false
 }
 
+func (v *VirtualMachineInstance) IsMigrationSource() bool {
+	// Can use this after being fully synchronized.
+	return v.Status.MigrationState != nil && v.Status.MigrationState.TargetState != nil && v.Status.MigrationState.TargetState.SyncAddress != nil && v.Status.MigrationState.TargetState.NodeAddress != nil
+}
+
 func (v *VirtualMachineInstance) IsMigrationTarget() bool {
 	return v.GetAnnotations()[CreateMigrationTarget] == "true"
 }
@@ -551,6 +556,20 @@ func (v *VirtualMachineInstance) IsMigrationTargetNodeLabelSet() bool {
 	return ok
 }
 
+// Assume that this only called when in decentralized live migration
+func (v *VirtualMachineInstance) IsMigrationSourceSynchronized() bool {
+	return v.Status.MigrationState != nil && v.Status.MigrationState.SourceState != nil &&
+		v.Status.MigrationState.TargetState != nil &&
+		v.Status.MigrationState.SourceState.MigrationUID != "" &&
+		v.Status.MigrationState.SourceState.Pod != "" &&
+		v.Status.MigrationState.SourceState.NodeSelectors != nil &&
+		v.Status.MigrationState.SourceState.Node != ""
+}
+
+func (v *VirtualMachineInstance) IsMigrationCompleted() bool {
+	return v.Status.MigrationState != nil && v.Status.MigrationState.Completed
+}
+
 func (v *VirtualMachineInstance) IsMigrationSynchronized(decentralized bool) bool {
 	if decentralized {
 		return v.Status.MigrationState != nil && v.Status.MigrationState.SourceState != nil &&
@@ -560,6 +579,25 @@ func (v *VirtualMachineInstance) IsMigrationSynchronized(decentralized bool) boo
 	} else {
 		return v.Status.MigrationState != nil
 	}
+}
+
+func (v *VirtualMachineInstance) IsTargetPreparing(decentralized bool, migrationUID types.UID) bool {
+	if decentralized {
+		return v.IsMigrationSynchronized(decentralized) &&
+			v.Status.MigrationState.TargetState.Pod != "" &&
+			v.Status.MigrationState.TargetState.Node != ""
+	} else {
+		return v.Status.MigrationState.MigrationUID == migrationUID &&
+			v.Status.MigrationState.TargetNode != ""
+	}
+}
+
+func (v *VirtualMachineInstance) IsDecentralizedMigration() bool {
+	return v.Status.MigrationState != nil &&
+		v.Status.MigrationState.TargetState != nil &&
+		v.Status.MigrationState.SourceState != nil &&
+		((v.Status.MigrationState.SourceState.SyncAddress == nil && v.Status.MigrationState.TargetState.SyncAddress != nil) ||
+			(v.Status.MigrationState.SourceState.SyncAddress != nil && v.Status.MigrationState.TargetState.SyncAddress == nil))
 }
 
 type VirtualMachineInstanceConditionType string
@@ -795,6 +833,10 @@ type VirtualMachineInstanceCommonMigrationState struct {
 	SyncAddress *string `json:"syncAddress,omitempty"`
 	// If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here
 	PersistentStatePVCName *string `json:"persistentStatePVCName,omitempty"`
+	// SELinuxContext is the actual SELinux context of the pod
+	SelinuxContext string `json:"selinuxContext,omitempty"`
+	// VirtualMachineInstanceUID is the UID of the target virtual machine instance
+	VirtualMachineInstanceUID *types.UID `json:"virtualMachineInstanceUID,omitempty"`
 }
 
 // +k8s:openapi-gen=true

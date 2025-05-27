@@ -221,6 +221,9 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		// record that we've seen the domain populated on the target's node
 		log.Log.Object(vmi).Info("The target node received the migrated domain")
 		vmi.Status.MigrationState.TargetNodeDomainDetected = true
+		if vmi.Status.MigrationState.TargetState != nil {
+			vmi.Status.MigrationState.TargetState.DomainDetected = true
+		}
 
 		// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
 		// perform hotplug host-devices on post migration.
@@ -235,6 +238,10 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		// This is used as a trigger to help coordinate when CNI drivers
 		// fail over the IP to the new pod.
 		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp = pointer.P(metav1.Now())
+		if vmi.Status.MigrationState.TargetState != nil {
+			vmi.Status.MigrationState.TargetState.DomainReadyTimestamp = vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp
+		}
+
 		log.Log.Object(vmi).Info("The target node received the running migrated domain")
 
 		cm := controller.NewVirtualMachineInstanceConditionManager()
@@ -253,7 +260,11 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		return nil, false
 	}
 
-	destSrcPortsMap := c.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
+	vmiUID := string(vmi.UID)
+	if vmi.Status.MigrationState.SourceState != nil && vmi.Status.MigrationState.SourceState.VirtualMachineInstanceUID != nil {
+		vmiUID = string(*vmi.Status.MigrationState.SourceState.VirtualMachineInstanceUID)
+	}
+	destSrcPortsMap := c.migrationProxy.GetTargetListenerPorts(vmiUID)
 	if len(destSrcPortsMap) == 0 {
 		msg := "target migration listener is not up for this vmi, giving it time"
 		log.Log.Object(vmi).Info(msg)
@@ -261,8 +272,12 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		return nil, true
 	}
 
+	hostAddress := ""
 	// advertise target address
-	if vmi.Status.MigrationState.TargetNodeAddress != c.migrationIpAddress {
+	if vmi.Status.MigrationState != nil {
+		hostAddress = vmi.Status.MigrationState.TargetNodeAddress
+	}
+	if hostAddress != c.migrationIpAddress {
 		portsList := make([]string, 0, len(destSrcPortsMap))
 
 		for k := range destSrcPortsMap {
@@ -272,6 +287,10 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", c.migrationIpAddress, portsStrList))
 		vmi.Status.MigrationState.TargetNodeAddress = c.migrationIpAddress
 		vmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
+		if vmi.Status.MigrationState.TargetState != nil {
+			vmi.Status.MigrationState.TargetState.NodeAddress = pointer.P(c.migrationIpAddress)
+			vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts = destSrcPortsMap
+		}
 	}
 
 	// If the migrated VMI requires dedicated CPUs, report the new pod CPU set to the source node
@@ -549,6 +568,10 @@ func (c *MigrationTargetController) handleTargetMigrationProxy(vmi *v1.VirtualMa
 	if err != nil {
 		return err
 	}
+	vmiUID := string(vmi.UID)
+	if vmi.Status.MigrationState.SourceState != nil && vmi.Status.MigrationState.SourceState.VirtualMachineInstanceUID != nil {
+		vmiUID = string(*vmi.Status.MigrationState.SourceState.VirtualMachineInstanceUID)
+	}
 
 	// Get the libvirt connection socket file on the destination pod.
 	socketFile := fmt.Sprintf(filepath.Join(c.virtLauncherFSRunDirPattern, "libvirt/virtqemud-sock"), res.Pid())
@@ -559,12 +582,12 @@ func (c *MigrationTargetController) handleTargetMigrationProxy(vmi *v1.VirtualMa
 
 	migrationPortsRange := migrationproxy.GetMigrationPortsList(vmi.IsBlockMigration())
 	for _, port := range migrationPortsRange {
-		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
+		key := migrationproxy.ConstructProxyKey(vmiUID, port)
 		// a proxy between the target direct qemu channel and the connector in the destination pod
 		destSocketFile := migrationproxy.SourceUnixFile(baseDir, key)
 		migrationTargetSockets = append(migrationTargetSockets, destSocketFile)
 	}
-	err = c.migrationProxy.StartTargetListener(string(vmi.UID), migrationTargetSockets)
+	err = c.migrationProxy.StartTargetListener(vmiUID, migrationTargetSockets)
 	if err != nil {
 		return err
 	}

@@ -980,6 +980,8 @@
         "domainNamespace": "domainNamespaceValue",
         "syncAddress": "syncAddressValue",
         "persistentStatePVCName": "persistentStatePVCNameValue",
+        "selinuxContext": "selinuxContextValue",
+        "virtualMachineInstanceUID": "virtualMachineInstanceUIDValue",
         "nodeSelectors": {
           "nodeSelectorsKey": "nodeSelectorsValue"
         }
@@ -992,6 +994,8 @@
         "domainNamespace": "domainNamespaceValue",
         "syncAddress": "syncAddressValue",
         "persistentStatePVCName": "persistentStatePVCNameValue",
+        "selinuxContext": "selinuxContextValue",
+        "virtualMachineInstanceUID": "virtualMachineInstanceUIDValue",
         "domainReadyTimestamp": "1980-01-01T01:01:01Z",
         "domainDetected": true,
         "nodeAddress": "nodeAddressValue",
