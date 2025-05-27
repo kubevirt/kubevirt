@@ -385,6 +385,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
 		} else {
+			log.Log.Object(vmi).V(5).Infof("setting VMI to failed during scheduling because pod does not exist")
 			// someone other than the controller deleted the pod unexpectedly
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
@@ -410,6 +411,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 	case vmi.IsRunning():
 		if !vmiPodExists {
+			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while running because pod does not exist")
 			vmiCopy.Status.Phase = virtv1.Failed
 			break
 		}
@@ -440,6 +442,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 	case vmi.IsScheduled():
 		if !vmiPodExists {
+			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while scheduled because pod does not exist")
 			vmiCopy.Status.Phase = virtv1.Failed
 			break
 		}
@@ -456,6 +459,8 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				// if there's no owner VM around still, then remove the VM controller's finalizer if it exists
 				controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineControllerFinalizer)
 			}
+		} else if vmiPodExists {
+			vmiCopy.Status.Phase = virtv1.Scheduling
 		}
 	default:
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
@@ -472,6 +477,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return fmt.Errorf("error preparing VMI patch: %v", err)
 		}
 
+		log.Log.Object(vmi).V(5).Infof("patching VMI: %s", string(patchBytes))
 		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 		// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
 		// So just retry like with any other errors

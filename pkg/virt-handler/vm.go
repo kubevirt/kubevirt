@@ -1701,6 +1701,7 @@ func (c *VirtualMachineController) isMigrationTarget(vmi *v1.VirtualMachineInsta
 
 	if ok &&
 		migrationTargetNodeName != "" &&
+		(migrationTargetNodeName != vmi.Status.NodeName || (vmi.IsMigrationTarget() && vmi.IsMigrationSourceSynchronized() && !vmi.IsMigrationCompleted())) &&
 		migrationTargetNodeName == c.host {
 		return true
 	}

@@ -5176,6 +5176,11 @@ func (in *VirtualMachineInstanceCommonMigrationState) DeepCopyInto(out *VirtualM
 		*out = new(string)
 		**out = **in
 	}
+	if in.VirtualMachineInstanceUID != nil {
+		in, out := &in.VirtualMachineInstanceUID, &out.VirtualMachineInstanceUID
+		*out = new(types.UID)
+		**out = **in
+	}
 	return
 }
 

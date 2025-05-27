@@ -721,7 +721,9 @@ status:
         nodeSelectorsKey: nodeSelectorsValue
       persistentStatePVCName: persistentStatePVCNameValue
       pod: podValue
+      selinuxContext: selinuxContextValue
       syncAddress: syncAddressValue
+      virtualMachineInstanceUID: virtualMachineInstanceUIDValue
     startTimestamp: "1986-01-01T01:01:01Z"
     targetAttachmentPodUID: targetAttachmentPodUIDValue
     targetCPUSet:
@@ -751,7 +753,9 @@ status:
       nodeTopology: nodeTopologyValue
       persistentStatePVCName: persistentStatePVCNameValue
       pod: podValue
+      selinuxContext: selinuxContextValue
       syncAddress: syncAddressValue
+      virtualMachineInstanceUID: virtualMachineInstanceUIDValue
   migrationTransport: migrationTransportValue
   nodeName: nodeNameValue
   phase: phaseValue

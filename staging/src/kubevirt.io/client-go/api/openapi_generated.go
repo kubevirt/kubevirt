@@ -25486,6 +25486,20 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceCommonMigrationState(re
 							Format:      "",
 						},
 					},
+					"selinuxContext": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SELinuxContext is the actual SELinux context of the pod",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtualMachineInstanceUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineInstanceUID is the UID of the target virtual machine instance",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -26275,6 +26289,20 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationSourceState(re
 							Format:      "",
 						},
 					},
+					"selinuxContext": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SELinuxContext is the actual SELinux context of the pod",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtualMachineInstanceUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineInstanceUID is the UID of the target virtual machine instance",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"nodeSelectors": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Node selectors needed by the target to start the receiving pod.",
@@ -26695,6 +26723,20 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationTargetState(re
 					"persistentStatePVCName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"selinuxContext": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SELinuxContext is the actual SELinux context of the pod",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtualMachineInstanceUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineInstanceUID is the UID of the target virtual machine instance",
 							Type:        []string{"string"},
 							Format:      "",
 						},
