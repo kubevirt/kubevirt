@@ -186,7 +186,8 @@ func domainMigrated(domain *api.Domain) bool {
 func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
-		vmi.Status.MigrationState == nil {
+		vmi.Status.MigrationState == nil ||
+		!c.isMigrationSource(vmi) {
 		return
 	}
 
