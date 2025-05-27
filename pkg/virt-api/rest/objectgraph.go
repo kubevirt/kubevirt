@@ -78,6 +78,11 @@ func (app *SubresourceAPIApp) handleObjectGraph(request *restful.Request, respon
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
+	if !app.clusterConfig.ObjectGraphEnabled() {
+		writeError(apierrors.NewBadRequest("ObjectGraph feature gate not enabled: Unable to return object graph."), response)
+		return
+	}
+
 	obj, statErr := fetchFunc(namespace, name)
 	if statErr != nil {
 		writeError(statErr, response)
