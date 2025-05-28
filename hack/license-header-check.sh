@@ -22,10 +22,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
 TARGET_DIRS=(
     "pkg/monitoring"
     "pkg/instancetype"
+    "pkg/network"
 )
 
 IGNORE_FILES=(
-    # Example: "pkg/monitoring/ignore_this_file.go"
+    # Generated files
+    "pkg/network/dhcp/generated_mock_configurator.go"
+    "pkg/network/driver/generated_mock_common.go"
 )
 
 MISSING_LICENSE_FILES=()
