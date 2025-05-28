@@ -1300,11 +1300,7 @@ func waitMigrationToExist(virtClient kubecli.KubevirtClient, vmiName, ns string)
 				LabelSelector: ls.String(),
 			})
 		Expect(err).ToNot(HaveOccurred())
-		if len(migList.Items) < 0 {
-			return false
-		}
-		return true
-
+		return len(migList.Items) > 0
 	}, 120*time.Second, time.Second).Should(BeTrue())
 }
 
