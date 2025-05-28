@@ -740,6 +740,11 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 	sidecarOpts := []Option{
 		WithResourceRequirements(resources),
 		WithArgs(requestedHookSidecar.Args),
+		WithExtraEnvVars([]k8sv1.EnvVar{
+			k8sv1.EnvVar{
+				Name:  hooks.ContainerNameEnvVar,
+				Value: sidecarName,
+			}}),
 	}
 
 	var mounts []k8sv1.VolumeMount
