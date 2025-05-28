@@ -20,9 +20,10 @@
 package hostdevice_test
 
 import (
-	v1 "kubevirt.io/api/core/v1"
 	"os"
 	"strings"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
