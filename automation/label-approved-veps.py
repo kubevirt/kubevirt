@@ -11,6 +11,47 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 GRAPHQL_API_URL = "https://api.github.com/graphql"
+_TRACKED_ISSUES_QUERY = """
+    query($orgName: String!, $projectNumber: Int!, $cursor: String) {
+      organization(login: $orgName) {
+        projectV2(number: $projectNumber) {
+          items(first: 100, after: $cursor) {
+            nodes {
+              id
+              content {
+                __typename
+                ... on Issue {
+                  number
+                  repository {
+                    nameWithOwner
+                  }
+                }
+              }
+              fieldValues(first: 20) {
+                nodes {
+                  __typename
+                  ... on ProjectV2ItemFieldSingleSelectValue {
+                    selected_option_name: name
+                    field {
+                      field_actual_typename: __typename
+                      ... on ProjectV2SingleSelectField {
+                          field_definition_id: id
+                          field_definition_name: name
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+      }
+    }
+"""
 
 
 def get_pr_details():
@@ -80,6 +121,87 @@ def execute_graphql_query(query, variables):
         return None
 
 
+def _is_item_field_tracked_status(field_value_node):
+    """Checks if a specific field value node represents 'Status: Tracked'."""
+    expected_node_type = "ProjectV2ItemFieldSingleSelectValue"
+    if field_value_node.get("__typename") != expected_node_type:
+        return False
+
+    field_node = field_value_node.get("field", {})
+    field_name = field_node.get("field_definition_name")
+    option_name = field_value_node.get("selected_option_name")
+
+    return field_name == "Status" and option_name == "Tracked"
+
+
+def _check_item_fields_for_tracked_status(field_value_nodes):
+    for field_value_node in field_value_nodes:
+        if _is_item_field_tracked_status(field_value_node):
+            return True
+    return False
+
+
+def _extract_issue_if_tracked(item_node):
+    """
+    Processes a single project item. Returns the issue number if it's a
+    KubeVirt enhancement issue and is marked as 'Tracked'. Otherwise, None.
+    """
+    content = item_node.get("content")
+
+    # Guard clauses for item validity
+    if not content or content.get("__typename") != "Issue":
+        return None
+
+    repo_info = content.get("repository", {})
+    if repo_info.get("nameWithOwner") != "kubevirt/enhancements":
+        return None
+
+    issue_number = content.get("number")
+    if not issue_number:
+        return None
+
+    field_values_data = item_node.get("fieldValues", {})
+    field_value_nodes = field_values_data.get("nodes", [])
+
+    if _check_item_fields_for_tracked_status(field_value_nodes):
+        return issue_number
+    return None
+
+
+def _process_page_items(nodes, tracked_issues_accumulator):
+    """Processes all items from a single page and updates the accumulator."""
+    for item_node in nodes:
+        tracked_issue_number = _extract_issue_if_tracked(item_node)
+        if tracked_issue_number is not None:
+            tracked_issues_accumulator[tracked_issue_number] = True
+
+
+def _extract_page_data_from_gql_result(result, project_number_for_logging):
+    """
+    Extracts item nodes and page info from a GraphQL query result.
+    """
+    if not result or "errors" in result:
+        error_payload = result.get('errors') if result else 'No response'
+        print(f"GraphQL query errors: {error_payload}")
+        return None, None
+
+    data = result.get("data", {})
+    organization = data.get("organization", {})
+    project_data = organization.get("projectV2", {})
+
+    if not project_data or not project_data.get("items"):
+        print(
+            f"Warning: No items found for kubevirt project number "
+            f"{project_number_for_logging} in GraphQL response."
+        )
+        return None, None
+
+    items_data = project_data.get("items", {})
+    nodes = items_data.get("nodes", [])
+    page_info = items_data.get("pageInfo", {})
+    return nodes, page_info
+
+
 def get_tracked_enhancement_issues_from_project(project_number):
     """
     Get VEP issue numbers from kubevirt/enhancements that are tracked
@@ -88,48 +210,6 @@ def get_tracked_enhancement_issues_from_project(project_number):
     A "Tracked" issue means that it is approved for the release.
     """
     tracked_issues = {}
-
-    query = """
-    query($orgName: String!, $projectNumber: Int!, $cursor: String) {
-      organization(login: $orgName) {
-        projectV2(number: $projectNumber) {
-          items(first: 100, after: $cursor) {
-            nodes {
-              id
-              content {
-                __typename
-                ... on Issue {
-                  number
-                  repository {
-                    nameWithOwner
-                  }
-                }
-              }
-              fieldValues(first: 20) {
-                nodes {
-                  __typename
-                  ... on ProjectV2ItemFieldSingleSelectValue {
-                    selected_option_name: name
-                    field {
-                      field_actual_typename: __typename
-                      ... on ProjectV2SingleSelectField {
-                          field_definition_id: id
-                          field_definition_name: name
-                      }
-                    }
-                  }
-                }
-              }
-            }
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-          }
-        }
-      }
-    }
-    """
     variables = {"orgName": "kubevirt", "projectNumber": project_number}
     has_next_page = True
     current_cursor = None
@@ -138,65 +218,19 @@ def get_tracked_enhancement_issues_from_project(project_number):
         f"Fetching items from project 'kubevirt/projects/{project_number}' "
         "to check for 'Status: Tracked'"
     )
+
     while has_next_page:
         variables["cursor"] = current_cursor
-        result = execute_graphql_query(query, variables)
+        result = execute_graphql_query(_TRACKED_ISSUES_QUERY, variables)
 
-        if not result or "errors" in result:
-            error_payload = result.get('errors') if result else 'No response'
-            print(f"GraphQL query errors: {error_payload}")
+        nodes, page_info = _extract_page_data_from_gql_result(
+                                result, project_number)
+
+        if nodes is None or page_info is None:
             break
 
-        data = result.get("data", {})
-        organization = data.get("organization", {})
-        project_data = organization.get("projectV2", {})
+        _process_page_items(nodes, tracked_issues)
 
-        if not project_data or not project_data.get("items"):
-            print(
-                f"Warning: No items found for kubevirt project number "
-                f"{project_number}."
-            )
-            break
-
-        items_data = project_data.get("items", {})
-        nodes = items_data.get("nodes", [])
-
-        for item_node in nodes:
-            content = item_node.get("content")
-
-            if not content:
-                continue
-            if content.get("__typename") != "Issue":
-                continue
-            repo_info = content.get("repository", {})
-            if repo_info.get("nameWithOwner") != "kubevirt/enhancements":
-                continue
-            if "number" not in content:
-                continue
-
-            issue_number = content["number"]
-            is_tracked = False
-            field_values_data = item_node.get("fieldValues", {})
-            field_value_nodes = field_values_data.get("nodes", [])
-
-            for field_value_node in field_value_nodes:
-                expected_type = "ProjectV2ItemFieldSingleSelectValue"
-                if field_value_node.get("__typename") == expected_type:
-                    field = field_value_node.get("field", {})
-                    actual_field_name = field.get("field_definition_name")
-                    is_status_field = actual_field_name == "Status"
-                    is_tracked_value = (
-                        field_value_node.get(
-                            "selected_option_name") == "Tracked"
-                    )
-                    if is_status_field and is_tracked_value:
-                        is_tracked = True
-                        break
-
-            if is_tracked:
-                tracked_issues[issue_number] = True
-
-        page_info = items_data.get("pageInfo", {})
         has_next_page = page_info.get("hasNextPage", False)
         current_cursor = page_info.get("endCursor") if has_next_page else None
 
