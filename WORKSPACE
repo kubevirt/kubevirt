@@ -6531,10 +6531,7 @@ rpm(
 rpm(
     name = "qemu-img-17__9.1.0-15.el9.x86_64",
     sha256 = "6149224d6968142db7c12330dd4d9f6882af2ad73a97e591214a3869603b663f",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-img-9.1.0-15.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/6149224d6968142db7c12330dd4d9f6882af2ad73a97e591214a3869603b663f",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/6149224d6968142db7c12330dd4d9f6882af2ad73a97e591214a3869603b663f"],
 )
 
 rpm(
@@ -6567,10 +6564,7 @@ rpm(
 rpm(
     name = "qemu-kvm-common-17__9.1.0-15.el9.x86_64",
     sha256 = "345b3dae626a756f160321e025774d3d3e193a767388e69ffc832ea75988b166",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-common-9.1.0-15.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/345b3dae626a756f160321e025774d3d3e193a767388e69ffc832ea75988b166",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/345b3dae626a756f160321e025774d3d3e193a767388e69ffc832ea75988b166"],
 )
 
 rpm(
@@ -6603,10 +6597,7 @@ rpm(
 rpm(
     name = "qemu-kvm-core-17__9.1.0-15.el9.x86_64",
     sha256 = "aa36521b947a78d2d06d90e1a8f5d74bab5ffbbb6d8ca8d939497477c4878565",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-core-9.1.0-15.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/aa36521b947a78d2d06d90e1a8f5d74bab5ffbbb6d8ca8d939497477c4878565",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/aa36521b947a78d2d06d90e1a8f5d74bab5ffbbb6d8ca8d939497477c4878565"],
 )
 
 rpm(
