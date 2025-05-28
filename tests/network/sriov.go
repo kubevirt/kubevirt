@@ -272,7 +272,9 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				Expect(libnet.CheckMacAddress(vmi, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
 			})
 
-			It("[QUARANTINE]should be successful with a running VMI on the target", decorators.Quarantine, func() {
+			FIt("should be successful with a running VMI on the target", func() {
+				//for i := 0; i < 10; i++ {
+				//By(fmt.Sprintf("Starting migration iteration %d", i+1))
 				By("starting the migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
@@ -285,6 +287,9 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(libnet.CheckMacAddress(updatedVMI, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
+				//By("Going to sleep")
+				//time.Sleep(30 * time.Minute)
+				//}
 			})
 		})
 	})
