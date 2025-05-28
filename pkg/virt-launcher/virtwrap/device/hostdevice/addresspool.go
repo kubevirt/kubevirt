@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	virtv1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
