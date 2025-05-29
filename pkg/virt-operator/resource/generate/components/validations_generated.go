@@ -14882,6 +14882,10 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        synchronizationAddress:
+          description: The synchronization address one can use to connect to the synchronization
+            controller, includes the port
+          type: string
       type: object
   required:
   - spec

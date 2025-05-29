@@ -110,6 +110,7 @@ type Controller struct {
 	storageClassStore    cache.Store
 	storageProfileStore  cache.Store
 	migrationPolicyStore cache.Store
+	kubevirtStore        cache.Store
 	resourceQuotaIndexer cache.Indexer
 	recorder             record.EventRecorder
 	podExpectations      *controller.UIDTrackingControllerExpectations
@@ -137,6 +138,7 @@ func NewController(templateService services.TemplateService,
 	storageProfileInformer cache.SharedIndexInformer,
 	migrationPolicyInformer cache.SharedIndexInformer,
 	resourceQuotaInformer cache.SharedIndexInformer,
+	kubevirtInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -156,6 +158,7 @@ func NewController(templateService services.TemplateService,
 		storageProfileStore:  storageProfileInformer.GetStore(),
 		resourceQuotaIndexer: resourceQuotaInformer.GetIndexer(),
 		migrationPolicyStore: migrationPolicyInformer.GetStore(),
+		kubevirtStore:        kubevirtInformer.GetStore(),
 		recorder:             recorder,
 		clientset:            clientset,
 		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -206,6 +209,13 @@ func NewController(templateService services.TemplateService,
 	_, err = resourceQuotaInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateResourceQuota,
 		DeleteFunc: c.deleteResourceQuota,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = kubevirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateKubeVirt,
 	})
 	if err != nil {
 		return nil, err
@@ -557,6 +567,9 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 
 	controller.SetVMIMigrationPhaseTransitionTimestamp(migration, migrationCopy)
 	controller.SetSourcePod(migrationCopy, vmi, c.podIndexer)
+	if err := c.setSynchronizationAddressStatus(migrationCopy); err != nil {
+		return err
+	}
 
 	if !equality.Semantic.DeepEqual(migration.Status, migrationCopy.Status) {
 		var err error
@@ -570,6 +583,20 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (c *Controller) setSynchronizationAddressStatus(migration *virtv1.VirtualMachineInstanceMigration) error {
+	kvs := c.kubevirtStore.List()
+	if len(kvs) > 1 {
+		log.Log.Errorf("More than one KubeVirt custom resource detected: %v", len(kvs))
+		return fmt.Errorf("more than one KubeVirt custom resource detected: %v", len(kvs))
+	}
+
+	if len(kvs) == 1 {
+		kv := kvs[0].(*virtv1.KubeVirt)
+		migration.Status.SynchronizationAddress = kv.Status.SynchronizationAddress
 	}
 	return nil
 }
@@ -1484,7 +1511,6 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 					return err
 				}
 			}
-
 			// patch VMI annotations and set RuntimeUser in preparation for target pod creation
 			patches := c.setupVMIRuntimeUser(vmi)
 			if !patches.IsEmpty() {
@@ -1797,6 +1823,35 @@ func (c *Controller) deleteResourceQuota(obj interface{}) {
 		}
 	}
 	return
+}
+
+func (c *Controller) updateKubeVirt(org, cur interface{}) {
+	curKubevirt := cur.(*virtv1.KubeVirt)
+	orgKubevirt := org.(*virtv1.KubeVirt)
+
+	curSyncAddress := getSynchronizationAddress(curKubevirt)
+	orgSyncAddress := getSynchronizationAddress(orgKubevirt)
+	if curSyncAddress != orgSyncAddress && curSyncAddress != "" {
+		// sync address was updated, update all active migrations
+		for _, obj := range c.migrationIndexer.List() {
+			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+			if !ok {
+				log.Log.Errorf("found unknown object in kubevirt store %v", obj)
+				continue
+			}
+			if !migration.IsFinal() {
+				c.enqueueMigration(migration)
+			}
+		}
+	}
+	return
+}
+
+func getSynchronizationAddress(kv *virtv1.KubeVirt) string {
+	if kv.Status.SynchronizationAddress == nil {
+		return ""
+	}
+	return *kv.Status.SynchronizationAddress
 }
 
 // When a pod is deleted, enqueue the migration that manages the pod and update its podExpectations.

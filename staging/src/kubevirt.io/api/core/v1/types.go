@@ -1664,6 +1664,8 @@ type VirtualMachineInstanceMigrationStatus struct {
 	PhaseTransitionTimestamps []VirtualMachineInstanceMigrationPhaseTransitionTimestamp `json:"phaseTransitionTimestamps,omitempty"`
 	// Represents the status of a live migration
 	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
+	// The synchronization address one can use to connect to the synchronization controller, includes the port
+	SynchronizationAddress *string `json:"synchronizationAddress,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.

@@ -421,6 +421,7 @@ func (VirtualMachineInstanceMigrationStatus) SwaggerDoc() map[string]string {
 		"":                          "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.",
 		"phaseTransitionTimestamps": "PhaseTransitionTimestamp is the timestamp of when the last phase change occurred\n+listType=atomic\n+optional",
 		"migrationState":            "Represents the status of a live migration",
+		"synchronizationAddress":    "The synchronization address one can use to connect to the synchronization controller, includes the port",
 	}
 }
 
