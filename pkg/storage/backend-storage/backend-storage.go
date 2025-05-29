@@ -555,6 +555,10 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 	return pvc, nil
 }
 
+func (bs *BackendStorage) DeletePVCForVMI(vmi *corev1.VirtualMachineInstance, pvcName string) error {
+	return bs.client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
+}
+
 func (bs *BackendStorage) CreatePVCForVMI(vmi *corev1.VirtualMachineInstance) (*v1.PersistentVolumeClaim, error) {
 	pvc := PVCForVMI(bs.pvcStore, vmi)
 	if pvc == nil {
