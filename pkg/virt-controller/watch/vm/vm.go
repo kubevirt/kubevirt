@@ -1236,6 +1236,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	}
 
 	util.SetDefaultVolumeDisk(&vmi.Spec)
+	backup.SetChangedBlockTrackingOnVMI(vm, vmi, c.clusterConfig, c.namespaceStore)
 
 	autoAttachInputDevice(vmi)
 
