@@ -1294,6 +1294,8 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, err
 	}
 
+	backup.SetChangedBlockTrackingOnVMI(vm, vmi, c.clusterConfig, c.namespaceStore)
+
 	AutoAttachInputDevice(vmi)
 
 	err = netvmispec.SetDefaultNetworkInterface(c.clusterConfig, &vmi.Spec)
