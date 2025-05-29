@@ -189,7 +189,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		launcherClientManager := &launcher_clients.MockLauncherClientManager{
 			Initialized: true,
 		}
-		controller, _ = NewController(recorder,
+		controller, _ = NewVirtualMachineController(recorder,
 			virtClient,
 			host,
 			podIpAddress,
