@@ -115,14 +115,18 @@ func (app *synchronizationControllerApp) prepareCertManager() (err error) {
 	return
 }
 
-// Update virt-handler log verbosity on relevant config changes
+// Update synchronization controller log verbosity on relevant config changes
 func (app *synchronizationControllerApp) shouldChangeLogVerbosity() {
 	verbosity := app.clusterConfig.GetVirtSynchronizationControllerVerbosity()
-	log.Log.SetVerbosityLevel(int(verbosity))
-	log.Log.V(2).Infof("set verbosity to %d", verbosity)
+	err := log.Log.SetVerbosityLevel(int(verbosity))
+	if err != nil {
+		log.Log.Errorf("unable to change log verbosity to %d, %v", verbosity, err)
+	} else {
+		log.Log.V(2).Infof("set verbosity to %d", verbosity)
+	}
 }
 
-// Update virt-handler rate limiter
+// Update synchronization controller rate limiter
 func (app *synchronizationControllerApp) shouldChangeRateLimiter() {
 	config := app.clusterConfig.GetConfig()
 	qps := config.HandlerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
@@ -133,10 +137,12 @@ func (app *synchronizationControllerApp) shouldChangeRateLimiter() {
 
 func (app *synchronizationControllerApp) setupTLS(factory controller.KubeInformerFactory) error {
 	kubevirtCAConfigInformer := factory.KubeVirtCAConfigMap()
-	kubevirtCAConfigInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+	if err := kubevirtCAConfigInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
 		cache.DefaultWatchErrorHandler(r, err)
-	})
+	}); err != nil {
+		return err
+	}
 	app.caManager = kvtls.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
 
 	app.serverTLSConfig = kvtls.SetupTLSForVirtSynchronizationControllerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
@@ -232,7 +238,7 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 		panic(err)
 	}
 
-	tlsConfig := SetupTLS(app.servercertmanager, app.clusterConfig)
+	tlsConfig := SetupTLS(app.servercertmanager)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", app.healthzHandler)
 
@@ -341,7 +347,7 @@ func main() {
 	app.Run()
 }
 
-func SetupTLS(certManager certificate.Manager, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
+func SetupTLS(certManager certificate.Manager) *tls.Config {
 	tlsConfig := &tls.Config{
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()

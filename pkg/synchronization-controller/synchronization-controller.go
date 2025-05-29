@@ -53,9 +53,6 @@ import (
 const (
 	defaultTimeout = 30
 
-	isSourceVMI = true
-	isTargetVMI = false
-
 	MyPodIP = "MY_POD_IP"
 
 	noSourceStatusErrorMsg               = "must pass source status"
@@ -98,7 +95,7 @@ func NewSynchronizationController(
 	bindAddress string,
 	bindPort int,
 ) (*SynchronizationController, error) {
-	controller := &SynchronizationController{
+	syncController := &SynchronizationController{
 		vmiInformer:       vmiInformer,
 		migrationInformer: migrationInformer,
 		clientTLSConfig:   clientTLSConfig,
@@ -113,41 +110,45 @@ func NewSynchronizationController(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "sync-vmi-status"},
 	)
-	controller.queue = queue
+	syncController.queue = queue
 
-	controller.hasSynced = func() bool {
+	syncController.hasSynced = func() bool {
 		return vmiInformer.HasSynced()
 	}
 
-	controller.syncOutboundConnectionMap = &sync.Map{}
-	controller.syncReceivingConnectionMap = &sync.Map{}
+	syncController.syncOutboundConnectionMap = &sync.Map{}
+	syncController.syncReceivingConnectionMap = &sync.Map{}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addVmiFunc,
-		DeleteFunc: controller.deleteVmiFunc,
-		UpdateFunc: controller.updateVmiFunc,
+		AddFunc:    syncController.addVmiFunc,
+		DeleteFunc: syncController.deleteVmiFunc,
+		UpdateFunc: syncController.updateVmiFunc,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	controller.migrationInformer.AddIndexers(map[string]cache.IndexFunc{
+	if err := syncController.migrationInformer.AddIndexers(map[string]cache.IndexFunc{
 		"byUID":               indexByMigrationUID,
 		"byVMIName":           indexByVmiName,
 		"byTargetMigrationID": indexByTargetMigrationID,
 		"bySourceMigrationID": indexBySourceMigrationID,
-	})
+	}); err != nil {
+		return nil, err
+	}
 
-	controller.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.addMigrationFunc,
-		DeleteFunc: controller.deleteMigrationFunc,
-		UpdateFunc: controller.updateMigrationFunc,
-	})
+	if _, err := syncController.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    syncController.addMigrationFunc,
+		DeleteFunc: syncController.deleteMigrationFunc,
+		UpdateFunc: syncController.updateMigrationFunc,
+	}); err != nil {
+		return nil, err
+	}
 
-	controller.grpcServer = grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLSConfig)))
-	syncv1.RegisterSynchronizeServer(controller.grpcServer, controller)
+	syncController.grpcServer = grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLSConfig)))
+	syncv1.RegisterSynchronizeServer(syncController.grpcServer, syncController)
 
-	return controller, nil
+	return syncController, nil
 }
 
 func (s *SynchronizationController) addVmiFunc(addObj interface{}) {
@@ -308,10 +309,15 @@ func (s *SynchronizationController) execute(key string) error {
 		return err
 	}
 	if migration != nil && migration.IsDecentralized() {
-		if err := s.handleSourceState(vmi); err != nil {
-			return err
+		if migration.IsSource() {
+			if err := s.handleSourceState(vmi); err != nil {
+				return err
+			}
 		}
-		return s.handleTargetState(vmi)
+		if migration.IsTarget() {
+			return s.handleTargetState(vmi)
+		}
+		return nil
 	} else {
 		// No migration found don't do anything
 		log.Log.Object(vmi).V(4).Info("no decentralized migration found for VMI")
@@ -407,33 +413,30 @@ func (s *SynchronizationController) handleSourceState(vmi *virtv1.VirtualMachine
 		sourceState.SyncAddress = &syncAddress
 	}
 	targetState := vmi.Status.MigrationState.TargetState
-	if targetState != nil && targetState.SyncAddress != nil && sourceState != nil && sourceState.MigrationUID != "" {
-		log.Log.Error("Calling get outbound")
+	if targetState.SyncAddress != nil && sourceState.MigrationUID != "" {
 		if outboundConnection, err = s.getOutboundSourceConnection(vmi, vmi.Status.MigrationState); err != nil {
 			return err
 		}
 	}
-	log.Log.Errorf("Outbound connection %v", outboundConnection)
-	if outboundConnection != nil {
-		vmiStatusJson, err := json.Marshal(vmi.Status)
-		if err != nil {
-			return err
-		}
-		client := syncv1.NewSynchronizeClient(outboundConnection.grpcClientConnection)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.timeout)*time.Second)
-		defer cancel()
-
-		_, err = client.SyncSourceMigrationStatus(ctx, &syncv1.VMIStatusRequest{
-			MigrationID: outboundConnection.migrationID,
-			VmiStatus: &syncv1.VMIStatus{
-				VmiStatusJson: vmiStatusJson,
-			},
-		})
-		if err != nil {
-			return err
-		}
-	} else {
+	if outboundConnection == nil {
 		log.Log.Object(vmi).V(4).Info("no synchronization connection found for source, doing nothing")
+		return nil
+	}
+	vmiStatusJson, err := json.Marshal(vmi.Status)
+	if err != nil {
+		return err
+	}
+	client := syncv1.NewSynchronizeClient(outboundConnection.grpcClientConnection)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.timeout)*time.Second)
+	defer cancel()
+
+	if _, err := client.SyncSourceMigrationStatus(ctx, &syncv1.VMIStatusRequest{
+		MigrationID: outboundConnection.migrationID,
+		VmiStatus: &syncv1.VMIStatus{
+			VmiStatusJson: vmiStatusJson,
+		},
+	}); err != nil {
+		return err
 	}
 	return nil
 }
@@ -460,31 +463,31 @@ func (s *SynchronizationController) handleTargetState(vmi *virtv1.VirtualMachine
 		targetState.SyncAddress = &syncAddress
 	}
 
-	if sourceState != nil && sourceState.SyncAddress != nil && targetState != nil && targetState.MigrationUID != "" {
+	if sourceState.SyncAddress != nil && targetState.MigrationUID != "" {
 		if outboundConnection, err = s.getOutboundTargetConnection(vmi, vmi.Status.MigrationState); err != nil {
 			return err
 		}
 	}
-	if outboundConnection != nil {
-		vmiStatusJson, err := json.Marshal(vmi.Status)
-		if err != nil {
-			return err
-		}
-		client := syncv1.NewSynchronizeClient(outboundConnection.grpcClientConnection)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.timeout)*time.Second)
-		defer cancel()
-
-		_, err = client.SyncTargetMigrationStatus(ctx, &syncv1.VMIStatusRequest{
-			MigrationID: outboundConnection.migrationID,
-			VmiStatus: &syncv1.VMIStatus{
-				VmiStatusJson: vmiStatusJson,
-			},
-		})
-		if err != nil {
-			return err
-		}
-	} else {
+	if outboundConnection == nil {
 		log.Log.Object(vmi).V(4).Info("no synchronization connection found for target, doing nothing")
+		return nil
+	}
+	vmiStatusJson, err := json.Marshal(vmi.Status)
+	if err != nil {
+		return err
+	}
+	client := syncv1.NewSynchronizeClient(outboundConnection.grpcClientConnection)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.timeout)*time.Second)
+	defer cancel()
+
+	_, err = client.SyncTargetMigrationStatus(ctx, &syncv1.VMIStatusRequest{
+		MigrationID: outboundConnection.migrationID,
+		VmiStatus: &syncv1.VMIStatus{
+			VmiStatusJson: vmiStatusJson,
+		},
+	})
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -682,6 +685,7 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	if vmi.Status.MigrationState == nil {
 		vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
+
 	log.Log.Object(vmi).V(5).Infof("vmi migration target state: %#v", vmi.Status.MigrationState.TargetState)
 	log.Log.Object(vmi).V(5).Infof("remote migration target state: %#v", remoteStatus.MigrationState.TargetState)
 	vmi.Status.MigrationState.TargetState = remoteStatus.MigrationState.TargetState.DeepCopy()
@@ -699,7 +703,7 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	}, nil
 }
 
-func (c *SynchronizationController) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) error {
+func (s *SynchronizationController) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) error {
 	patchSet := patch.New()
 
 	if origVMI.Status.MigrationState == nil {
@@ -738,7 +742,7 @@ func (c *SynchronizationController) patchVMI(origVMI, newVMI *virtv1.VirtualMach
 			return err
 		}
 		log.Log.Object(origVMI).Infof("patch VMI with %s", string(patchBytes))
-		if _, err := c.client.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+		if _, err := s.client.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
 		}
 	}

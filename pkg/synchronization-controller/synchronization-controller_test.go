@@ -618,10 +618,12 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			key, err := kvcontroller.KeyFunc(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			controller.execute(key)
+			err = controller.execute(key)
+			Expect(err).ToNot(HaveOccurred())
 			key, err = kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			controller.execute(key)
+			err = controller.execute(key)
+			Expect(err).ToNot(HaveOccurred())
 			verifyTarget(controller, targetVMI, localTCPConn.Addr().String())
 			verifySource(controller, sourceVMI, localTCPConn.Addr().String())
 		})
@@ -637,7 +639,8 @@ var _ = Describe("VMI status synchronization controller", func() {
 		)
 
 		BeforeEach(func() {
-			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9186)
+			remoteMigrationInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
+			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9186)
 			Expect(err).ToNot(HaveOccurred())
 			remoteTCPConn, err := remoteController.createTcpListener()
 			Expect(err).ToNot(HaveOccurred())
@@ -657,7 +660,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			_, err = virtClient.VirtualMachineInstance(targetVMI.Namespace).Create(context.TODO(), targetVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			targetMigration := createTargetMigration(testMigrationID, targetVMI.Name, targetVMI.Namespace)
-			err = migrationInformer.GetStore().Add(targetMigration)
+			err = remoteMigrationInformer.GetStore().Add(targetMigration)
 			Expect(err).ToNot(HaveOccurred())
 
 			sourceVMI = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
@@ -703,19 +706,28 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+
 			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			controller.execute(sourceKey)
+			By(fmt.Sprintf("Execute 1, source %s", sourceKey))
+			err = controller.execute(sourceKey)
+			Expect(err).ToNot(HaveOccurred())
+
 			targetKey, err := kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			remoteController.execute(targetKey)
+			By(fmt.Sprintf("Execute 2, target %s", targetKey))
+			err = remoteController.execute(targetKey)
+			Expect(err).ToNot(HaveOccurred())
+
 			verifySource(controller, sourceVMI, remoteURL)
 			verifyTarget(remoteController, targetVMI, localURL)
 			//Update the source state.
 			sourceVMI.Status.MigrationState.SourceState.Pod = sourcePodName
 			err = controller.vmiInformer.GetStore().Update(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			controller.execute(sourceKey)
+			By(fmt.Sprintf("Execute 3, source %s", sourceKey))
+			err = controller.execute(sourceKey)
+			Expect(err).ToNot(HaveOccurred())
 			verifyTarget(controller, targetVMI, localURL)
 			updatedTargetVMI, err := remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Get(context.Background(), targetVMI.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -730,7 +742,10 @@ var _ = Describe("VMI status synchronization controller", func() {
 			targetVMI.Status.MigrationState.TargetState.Pod = targetPodName
 			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			remoteController.execute(targetKey)
+
+			By(fmt.Sprintf("Execute 4, target %s", targetKey))
+			err = remoteController.execute(targetKey)
+			Expect(err).ToNot(HaveOccurred())
 			updatedSourceVMI, err := controller.client.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updatedSourceVMI).ToNot(BeNil())
