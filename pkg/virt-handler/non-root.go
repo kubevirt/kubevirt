@@ -153,7 +153,7 @@ func (c *VirtualMachineController) prepareNetwork(vmi *v1.VirtualMachineInstance
 		return err
 	}
 
-	if virtutil.WantVirtioNetDevice(vmi) {
+	if virtutil.NeedVirtioNetDevice(vmi, c.clusterConfig.AllowEmulation()) {
 		if err := c.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
 			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
 		}
