@@ -2586,7 +2586,7 @@ func isVMIPausedDuringMigration(vmi *v1.VirtualMachineInstance) bool {
 func (c *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.SourceNode == c.host &&
-		vmi.IsMigrationSource() &&
+		(!vmi.IsDecentralizedMigration() || vmi.IsMigrationSource()) &&
 		vmi.Status.MigrationState.TargetNodeAddress != "" &&
 		!vmi.Status.MigrationState.Completed {
 
