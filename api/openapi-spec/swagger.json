@@ -17398,6 +17398,10 @@
        "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp"
       },
       "x-kubernetes-list-type": "atomic"
+     },
+     "synchronizationAddress": {
+      "description": "The synchronization address one can use to connect to the synchronization controller, includes the port",
+      "type": "string"
      }
     }
    },

@@ -5548,6 +5548,11 @@ func (in *VirtualMachineInstanceMigrationStatus) DeepCopyInto(out *VirtualMachin
 		*out = new(VirtualMachineInstanceMigrationState)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.SynchronizationAddress != nil {
+		in, out := &in.SynchronizationAddress, &out.SynchronizationAddress
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

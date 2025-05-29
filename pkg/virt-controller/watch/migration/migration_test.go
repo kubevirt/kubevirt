@@ -240,7 +240,7 @@ var _ = Describe("Migration watcher", func() {
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
-
+		kubevirtInformer, _ := testutils.NewFakeInformerFor(&virtv1.KubeVirt{})
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		controller, _ = NewController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
@@ -253,6 +253,7 @@ var _ = Describe("Migration watcher", func() {
 			storageProfileInformer,
 			migrationPolicyInformer,
 			resourceQuotaInformer,
+			kubevirtInformer,
 			recorder,
 			virtClient,
 			config,
