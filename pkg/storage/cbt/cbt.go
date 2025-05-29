@@ -20,6 +20,8 @@
 package cbt
 
 import (
+	"path/filepath"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -27,6 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -52,6 +55,10 @@ func SetCBTState(status **v1.ChangedBlockTrackingStatus, state v1.ChangedBlockTr
 
 func CompareCBTState(status *v1.ChangedBlockTrackingStatus, state v1.ChangedBlockTrackingState) bool {
 	return CBTState(status) == state
+}
+
+func cbtStateUndefined(status *v1.ChangedBlockTrackingStatus) bool {
+	return status == nil || CompareCBTState(status, v1.ChangedBlockTrackingUndefined)
 }
 
 func cbtStateDisabled(status *v1.ChangedBlockTrackingStatus) bool {
@@ -239,4 +246,27 @@ func disableChangedBlockTracking(vm *v1.VirtualMachine, vmi *v1.VirtualMachineIn
 func resetInvalidState(vm *v1.VirtualMachine) {
 	log.Log.Object(vm).Warningf("invalid changedBlockTracking state %s, resetting to undefined", vm.Status.ChangedBlockTracking)
 	SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingUndefined)
+}
+
+func SetChangedBlockTrackingOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig, nsStore cache.Store) {
+	vmMatchesSelector := vmMatchesChangedBlockTrackingSelectors(vm, clusterConfig, nsStore)
+	if vmMatchesSelector {
+		SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
+	} else if !cbtStateUndefined(vm.Status.ChangedBlockTracking) {
+		SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingDisabled)
+	}
+}
+
+func PathForCBT(vmi *v1.VirtualMachineInstance) string {
+	cbtPath := "/var/lib/libvirt/qemu/cbt"
+	if util.IsNonRootVMI(vmi) {
+		cbtPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "cbt")
+	}
+
+	return cbtPath
+}
+
+func GetQCOW2OverlayPath(vmi *v1.VirtualMachineInstance, volumeName string) string {
+	cbtPath := PathForCBT(vmi)
+	return filepath.Join(cbtPath, volumeName+".qcow2")
 }

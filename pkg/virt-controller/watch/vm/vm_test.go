@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
@@ -1934,6 +1935,39 @@ var _ = Describe("VirtualMachine", func() {
 			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
+		})
+
+		It("should create VMI with ChangedBlockTrackingState when VM matches cbt selector", func() {
+			labelSelector := &metav1.LabelSelector{
+				MatchLabels: cbt.CBTLabel,
+			}
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
+							VirtualMachineLabelSelector: labelSelector,
+						},
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
+			libvmi.WithLabels(cbt.CBTLabel)(vm)
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+			addVirtualMachine(vm)
+
+			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingInitializing))
+
+			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingInitializing))
 		})
 
 		Context("VM generation tests", func() {
