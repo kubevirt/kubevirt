@@ -2196,8 +2196,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(machineType).ToNot(BeEmpty(), "VMI should have a valid machine type in its status")
 
 				By("Fetching all nodes in the cluster")
-				nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				nodeList := libnode.GetAllSchedulableNodes(virtClient)
 				Expect(nodeList.Items).ToNot(BeEmpty())
 
 				By("Patching all nodes to remove the supported machine type label")
