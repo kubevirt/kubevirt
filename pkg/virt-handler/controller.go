@@ -158,9 +158,9 @@ func (c *BaseController) getDomainFromCache(key string) (domain *api.Domain, exi
 func (c *BaseController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.SourceNode == c.host &&
-		vmi.IsMigrationSource() &&
+		(!vmi.IsDecentralizedMigration() || vmi.IsMigrationSource()) &&
 		vmi.Status.MigrationState.TargetNodeAddress != "" &&
-		!vmi.Status.MigrationState.Completed {
+		!vmi.Status.MigrationState.Completed
 }
 
 func (c *BaseController) claimDeviceOwnership(virtLauncherRootMount *safepath.Path, deviceName string) error {
