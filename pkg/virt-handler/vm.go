@@ -88,6 +88,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	multipath_monitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
@@ -166,6 +167,7 @@ func NewController(
 	virtShareDir string,
 	virtPrivateDir string,
 	kubeletPodsDir string,
+	launcherClients launcher_clients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
@@ -199,6 +201,7 @@ func NewController(
 
 	c := &VirtualMachineController{
 		queue:                            queue,
+		launcherClients:                  launcherClients,
 		recorder:                         recorder,
 		clientset:                        clientset,
 		host:                             host,
@@ -257,8 +260,6 @@ func NewController(
 		return nil, err
 	}
 
-	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
-
 	c.downwardMetricsManager = downwardMetricsManager
 
 	c.domainNotifyPipes = make(map[string]string)
@@ -303,7 +304,7 @@ type VirtualMachineController struct {
 	vmiSourceStore           cache.Store
 	vmiTargetStore           cache.Store
 	domainStore              cache.Store
-	launcherClients          virtcache.LauncherClientInfoByVMI
+	launcherClients          launcher_clients.LauncherClientsManager
 	heartBeatInterval        time.Duration
 	deviceManagerController  *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
@@ -1122,7 +1123,7 @@ func (c *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMac
 	}
 
 	if condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected) {
-		client, err := c.getLauncherClient(vmi)
+		client, err := c.launcherClients.GetLauncherClient(vmi)
 		if err != nil {
 			return err
 		}
@@ -2108,7 +2109,7 @@ func (c *VirtualMachineController) execute(key string) error {
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
 		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
-		expired, initialized, err := c.isLauncherClientUnresponsive(oldVMI)
+		expired, initialized, err := c.launcherClients.IsLauncherClientUnresponsive(oldVMI)
 		if err != nil {
 			return err
 		}
@@ -2185,9 +2186,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	c.sriovHotplugExecutorPool.Delete(vmi.UID)
 
 	// Watch dog file and command client must be the last things removed here
-	if err := c.closeLauncherClient(vmi); err != nil {
-		return err
-	}
+	c.launcherClients.CloseLauncherClient(vmi)
 
 	// Remove the domain from cache in the event that we're performing
 	// a final cleanup and never received the "DELETE" event. This is
@@ -2196,126 +2195,6 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	domain := api.NewDomainReferenceFromName(vmi.Namespace, vmi.Name)
 	log.Log.Object(domain).Infof("Removing domain from cache during final cleanup")
 	return c.domainStore.Delete(domain)
-}
-
-func (c *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineInstance) error {
-
-	// UID is required in order to close socket
-	if string(vmi.GetUID()) == "" {
-		return nil
-	}
-
-	clientInfo, exists := c.launcherClients.Load(vmi.UID)
-	if exists && clientInfo.Client != nil {
-		clientInfo.Client.Close()
-		close(clientInfo.DomainPipeStopChan)
-	}
-
-	err := virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
-	if err != nil {
-		return err
-	}
-
-	c.launcherClients.Delete(vmi.UID)
-	return nil
-}
-
-// used by unit tests to add mock clients
-func (c *VirtualMachineController) addLauncherClient(vmUID types.UID, info *virtcache.LauncherClientInfo) error {
-	c.launcherClients.Store(vmUID, info)
-	return nil
-}
-
-func (c *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {
-	var socketFile string
-
-	clientInfo, exists := c.launcherClients.Load(vmi.UID)
-	if exists {
-		if clientInfo.Ready {
-			// use cached socket if we previously established a connection
-			socketFile = clientInfo.SocketFile
-		} else {
-			socketFile, err = cmdclient.FindSocket(vmi)
-			if err != nil {
-				// socket does not exist, but let's see if the pod is still there
-				if _, err = cmdclient.FindPodDirOnHost(vmi, cmdclient.SocketDirectoryOnHost); err != nil {
-					// no pod meanst that waiting for it to initialize makes no sense
-					return true, true, nil
-				}
-
-				// pod is still there, if there is no socket let's wait for it to become ready
-				if c.hotplugVolumesReady(vmi) && clientInfo.NotInitializedSince.Before(time.Now().Add(-3*time.Minute)) {
-					return true, true, nil
-				}
-				return false, false, nil
-			}
-			clientInfo.Ready = true
-			clientInfo.SocketFile = socketFile
-		}
-	} else {
-		clientInfo := &virtcache.LauncherClientInfo{
-			NotInitializedSince: time.Now(),
-			Ready:               false,
-		}
-		c.launcherClients.Store(vmi.UID, clientInfo)
-		// attempt to find the socket if the established connection doesn't currently exist.
-		socketFile, err = cmdclient.FindSocket(vmi)
-		// no socket file, no VMI, so it's unresponsive
-		if err != nil {
-			// socket does not exist, but let's see if the pod is still there
-			if _, err = cmdclient.FindPodDirOnHost(vmi, cmdclient.SocketDirectoryOnHost); err != nil {
-				// no pod meanst that waiting for it to initialize makes no sense
-				return true, true, nil
-			}
-			return false, false, nil
-		}
-		clientInfo.Ready = true
-		clientInfo.SocketFile = socketFile
-	}
-	return cmdclient.IsSocketUnresponsive(socketFile), true, nil
-}
-
-func (c *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
-	var err error
-
-	clientInfo, exists := c.launcherClients.Load(vmi.UID)
-	if exists && clientInfo.Client != nil {
-		return clientInfo.Client, nil
-	}
-
-	socketFile, err := cmdclient.FindSocket(vmi)
-	if err != nil {
-		return nil, err
-	}
-
-	err = virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := cmdclient.NewClient(socketFile)
-	if err != nil {
-		return nil, err
-	}
-
-	domainPipeStopChan := make(chan struct{})
-	//we pipe in the domain socket into the VMI's filesystem
-	err = c.startDomainNotifyPipe(domainPipeStopChan, vmi)
-	if err != nil {
-		client.Close()
-		close(domainPipeStopChan)
-		return nil, err
-	}
-
-	c.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
-		Client:              client,
-		SocketFile:          socketFile,
-		DomainPipeStopChan:  domainPipeStopChan,
-		NotInitializedSince: time.Now(),
-		Ready:               true,
-	})
-
-	return client, nil
 }
 
 func (c *VirtualMachineController) processVmDestroy(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -2448,7 +2327,7 @@ func (c *VirtualMachineController) hasStaleClientConnections(vmi *v1.VirtualMach
 }
 
 func (c *VirtualMachineController) getVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error) {
-	client, err = c.getLauncherClient(vmi)
+	client, err = c.launcherClients.GetLauncherClient(vmi)
 	if err != nil {
 		return
 	}
@@ -2651,14 +2530,6 @@ func (c *VirtualMachineController) handleSourceMigrationProxy(vmi *v1.VirtualMac
 	return nil
 }
 
-func (c *VirtualMachineController) getLauncherClientInfo(vmi *v1.VirtualMachineInstance) *virtcache.LauncherClientInfo {
-	launcherInfo, exists := c.launcherClients.Load(vmi.UID)
-	if !exists {
-		return nil
-	}
-	return launcherInfo
-}
-
 func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	var domainMigrationMetadata *api.MigrationMetadata
 
@@ -2678,7 +2549,7 @@ func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) b
 
 func (c *VirtualMachineController) vmUpdateHelperMigrationSource(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 
-	client, err := c.getLauncherClient(vmi)
+	client, err := c.launcherClients.GetLauncherClient(vmi)
 	if err != nil {
 		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
 	}
@@ -2757,7 +2628,7 @@ func replaceMigratedVolumesStatus(vmi *v1.VirtualMachineInstance) {
 
 func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.VirtualMachineInstance) error {
 
-	client, err := c.getLauncherClient(origVMI)
+	client, err := c.launcherClients.GetLauncherClient(origVMI)
 	if err != nil {
 		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
 	}
@@ -2791,7 +2662,7 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// give containerDisks some time to become ready before throwing errors on retries
-	info := c.getLauncherClientInfo(vmi)
+	info := c.launcherClients.GetLauncherClientInfo(vmi)
 	if ready, err := c.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
 		if err != nil {
 			return err
@@ -2988,7 +2859,7 @@ func (c *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 }
 
 func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineInstance, domainExists bool) error {
-	client, err := c.getLauncherClient(vmi)
+	client, err := c.launcherClients.GetLauncherClient(vmi)
 	if err != nil {
 		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
 	}
@@ -3085,7 +2956,7 @@ func (c *VirtualMachineController) handleStartingVMI(
 	cgroupManager cgroup.Manager,
 ) (bool, error) {
 	// give containerDisks some time to become ready before throwing errors on retries
-	info := c.getLauncherClientInfo(vmi)
+	info := c.launcherClients.GetLauncherClientInfo(vmi)
 	if ready, err := c.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
 		if err != nil {
 			return false, err
@@ -3390,7 +3261,7 @@ func (d *VirtualMachineController) hotplugVolumesReady(vmi *v1.VirtualMachineIns
 
 func (c *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 
-	isUnresponsive, isInitialized, err := c.isLauncherClientUnresponsive(vmi)
+	isUnresponsive, isInitialized, err := c.launcherClients.IsLauncherClientUnresponsive(vmi)
 	if err != nil {
 		return err
 	}
@@ -3425,7 +3296,7 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 	if domain == nil {
 		switch {
 		case vmi.IsScheduled():
-			isUnresponsive, isInitialized, err := c.isLauncherClientUnresponsive(vmi)
+			isUnresponsive, isInitialized, err := c.launcherClients.IsLauncherClientUnresponsive(vmi)
 
 			if err != nil {
 				return vmi.Status.Phase, err

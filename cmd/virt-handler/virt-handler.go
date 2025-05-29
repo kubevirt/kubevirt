@@ -32,6 +32,7 @@ import (
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 
@@ -334,6 +335,8 @@ func (app *virtHandlerApp) Run() {
 
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
+	launcherClientsManager := launcher_clients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
+
 	vmController, err := virthandler.NewController(
 		recorder,
 		app.virtCli,
@@ -342,6 +345,7 @@ func (app *virtHandlerApp) Run() {
 		app.VirtShareDir,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
+		launcherClientsManager,
 		vmiInformer,
 		vmiSourceInformer,
 		vmiTargetInformer,
