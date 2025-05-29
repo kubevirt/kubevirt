@@ -93,13 +93,7 @@ import (
 	multipath_monitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
-
-type netconf interface {
-	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int) error
-	Teardown(vmi *v1.VirtualMachineInstance) error
-}
 
 type netstat interface {
 	UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
@@ -114,52 +108,11 @@ type downwardMetricsManager interface {
 	StopServer(vmi *v1.VirtualMachineInstance)
 }
 
-const (
-	failedDetectIsolationFmt              = "failed to detect isolation for launcher pod: %v"
-	unableCreateVirtLauncherConnectionFmt = "unable to create virt-launcher client connection: %v"
-	// This value was determined after consulting with libvirt developers and performing extensive testing.
-	parallelMultifdMigrationThreads = uint(8)
-)
-
-const (
-	//VolumeReadyReason is the reason set when the volume is ready.
-	VolumeReadyReason = "VolumeReady"
-	//VolumeUnMountedFromPodReason is the reason set when the volume is unmounted from the virtlauncher pod
-	VolumeUnMountedFromPodReason = "VolumeUnMountedFromPod"
-	//VolumeMountedToPodReason is the reason set when the volume is mounted to the virtlauncher pod
-	VolumeMountedToPodReason = "VolumeMountedToPod"
-	//VolumeUnplugged is the reason set when the volume is completely unplugged from the VMI
-	VolumeUnplugged = "VolumeUnplugged"
-	//VMIDefined is the reason set when a VMI is defined
-	VMIDefined = "VirtualMachineInstance defined."
-	//VMIStarted is the reason set when a VMI is started
-	VMIStarted = "VirtualMachineInstance started."
-	//VMIShutdown is the reason set when a VMI is shutdown
-	VMIShutdown = "The VirtualMachineInstance was shut down."
-	//VMICrashed is the reason set when a VMI crashed
-	VMICrashed = "The VirtualMachineInstance crashed."
-	//VMIAbortingMigration is the reason set when migration is being aborted
-	VMIAbortingMigration = "VirtualMachineInstance is aborting migration."
-	//VMIMigrating in the reason set when the VMI is migrating
-	VMIMigrating = "VirtualMachineInstance is migrating."
-	//VMIMigrationTargetPrepared is the reason set when the migration target has been prepared
-	VMIMigrationTargetPrepared = "VirtualMachineInstance Migration Target Prepared."
-	//VMIStopping is the reason set when the VMI is stopping
-	VMIStopping = "VirtualMachineInstance stopping"
-	//VMIGracefulShutdown is the reason set when the VMI is gracefully shut down
-	VMIGracefulShutdown = "Signaled Graceful Shutdown"
-	//VMISignalDeletion is the reason set when the VMI has signal deletion
-	VMISignalDeletion = "Signaled Deletion"
-
-	// MemoryHotplugFailedReason is the reason set when the VM cannot hotplug memory
-	memoryHotplugFailedReason = "Memory Hotplug Failed"
-)
-
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
 	return cgroup.NewManagerFromVM(vmi, host)
 }
 
-func NewController(
+func NewVirtualMachineController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	host string,
@@ -184,6 +137,17 @@ func NewController(
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
 ) (*VirtualMachineController, error) {
 
+	baseCtrl, err := NewBaseController(
+		host,
+		vmiInformer,
+		domainInformer,
+		clusterConfig,
+		podIsolationDetector,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vm"},
@@ -200,6 +164,7 @@ func NewController(
 	}
 
 	c := &VirtualMachineController{
+		BaseController:                   baseCtrl,
 		queue:                            queue,
 		launcherClients:                  launcherClients,
 		recorder:                         recorder,
@@ -233,7 +198,7 @@ func NewController(
 		return domainInformer.HasSynced() && vmiSourceInformer.HasSynced() && vmiTargetInformer.HasSynced() && vmiInformer.HasSynced()
 	}
 
-	_, err := vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addFunc,
 		DeleteFunc: c.deleteFunc,
 		UpdateFunc: c.updateFunc,
@@ -293,6 +258,7 @@ type netBindingPluginMemoryCalculator interface {
 }
 
 type VirtualMachineController struct {
+	*BaseController
 	recorder                 record.EventRecorder
 	clientset                kubecli.KubevirtClient
 	host                     string
@@ -1709,52 +1675,6 @@ func (c *VirtualMachineController) Execute() bool {
 	return true
 }
 
-func (c *VirtualMachineController) getVMIFromCache(key string) (vmi *v1.VirtualMachineInstance, exists bool, err error) {
-
-	// Get it from the global store as during a migration
-	// the VMI could disappear momentarily from both the source store
-	// and the target store
-	obj, exists, err := c.vmiStore.GetByKey(key)
-	if err != nil {
-		return nil, false, err
-	}
-
-	// Retrieve the VirtualMachineInstance
-	if !exists {
-		namespace, name, err := cache.SplitMetaNamespaceKey(key)
-		if err != nil {
-			// TODO log and don't retry
-			return nil, false, err
-		}
-		vmi = v1.NewVMIReferenceFromNameWithNS(namespace, name)
-	} else {
-		vmi = obj.(*v1.VirtualMachineInstance)
-	}
-	return vmi, exists, nil
-}
-
-func (c *VirtualMachineController) getDomainFromCache(key string) (domain *api.Domain, exists bool, cachedUID types.UID, err error) {
-
-	obj, exists, err := c.domainStore.GetByKey(key)
-
-	if err != nil {
-		return nil, false, "", err
-	}
-
-	if exists {
-		domain = obj.(*api.Domain)
-		cachedUID = domain.Spec.Metadata.KubeVirt.UID
-
-		// We're using the DeletionTimestamp to signify that the
-		// Domain is deleted rather than sending the DELETE watch event.
-		if domain.ObjectMeta.DeletionTimestamp != nil {
-			exists = false
-			domain = nil
-		}
-	}
-	return domain, exists, cachedUID, nil
-}
-
 func (c *VirtualMachineController) migrationOrphanedSourceNodeExecute(vmi *v1.VirtualMachineInstance, domainExists bool) error {
 
 	if domainExists {
@@ -2454,19 +2374,6 @@ func isVMIPausedDuringMigration(vmi *v1.VirtualMachineInstance) bool {
 		!vmi.Status.MigrationState.Completed
 }
 
-func (c *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
-
-	if vmi.Status.MigrationState != nil &&
-		vmi.Status.MigrationState.SourceNode == c.host &&
-		vmi.Status.MigrationState.TargetNodeAddress != "" &&
-		!vmi.Status.MigrationState.Completed {
-
-		return true
-	}
-	return false
-
-}
-
 func (c *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMachineInstance) error {
 	// handle starting/stopping target migration proxy
 	var migrationTargetSockets []string
@@ -2528,23 +2435,6 @@ func (c *VirtualMachineController) handleSourceMigrationProxy(vmi *v1.VirtualMac
 	}
 
 	return nil
-}
-
-func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
-	var domainMigrationMetadata *api.MigrationMetadata
-
-	if domain == nil ||
-		vmi.Status.MigrationState == nil ||
-		domain.Spec.Metadata.KubeVirt.Migration == nil {
-		return false
-	}
-	domainMigrationMetadata = domain.Spec.Metadata.KubeVirt.Migration
-
-	if vmi.Status.MigrationState.MigrationUID == domainMigrationMetadata.UID &&
-		domainMigrationMetadata.StartTimestamp != nil {
-		return true
-	}
-	return false
 }
 
 func (c *VirtualMachineController) vmUpdateHelperMigrationSource(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -2992,7 +2882,7 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, fmt.Errorf("failed to configure vmi network: %w", err)
 	}
 
-	if err := c.setupDevicesOwnerships(vmi, isolationRes); err != nil {
+	if err := c.setupDevicesOwnerships(vmi, c.recorder); err != nil {
 		return false, err
 	}
 
@@ -3022,81 +2912,6 @@ func (c *VirtualMachineController) shouldWaitForSEVAttestation(vmi *v1.VirtualMa
 		return sev.Session == "" || sev.DHCert == ""
 	}
 	return false
-}
-
-func (c *VirtualMachineController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) error {
-	virtLauncherRootMount, err := isolationRes.MountRoot()
-	if err != nil {
-		return err
-	}
-
-	err = c.claimDeviceOwnership(virtLauncherRootMount, "kvm")
-	if err != nil {
-		return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
-	}
-
-	if virtutil.IsAutoAttachVSOCK(vmi) {
-		if err := c.claimDeviceOwnership(virtLauncherRootMount, "vhost-vsock"); err != nil {
-			return fmt.Errorf("failed to set up file ownership for /dev/vhost-vsock: %v", err)
-		}
-	}
-
-	if err := c.configureHostDisks(vmi, isolationRes, virtLauncherRootMount); err != nil {
-		return err
-	}
-
-	if err := c.configureSEVDeviceOwnership(vmi, isolationRes, virtLauncherRootMount); err != nil {
-		return err
-	}
-
-	if virtutil.IsNonRootVMI(vmi) {
-		if err := c.nonRootSetup(vmi); err != nil {
-			return err
-		}
-	}
-
-	if err := c.configureVirtioFS(vmi, isolationRes); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *VirtualMachineController) configureHostDisks(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, virtLauncherRootMount *safepath.Path) error {
-	lessPVCSpaceToleration := c.clusterConfig.GetLessPVCSpaceToleration()
-	minimumPVCReserveBytes := c.clusterConfig.GetMinimumReservePVCBytes()
-
-	hostDiskCreator := hostdisk.NewHostDiskCreator(c.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
-	if err := hostDiskCreator.Create(vmi); err != nil {
-		return fmt.Errorf("preparing host-disks failed: %v", err)
-	}
-	return nil
-}
-
-func (c *VirtualMachineController) configureSEVDeviceOwnership(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, virtLauncherRootMount *safepath.Path) error {
-	if virtutil.IsSEVVMI(vmi) {
-		sevDevice, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", "sev"))
-		if err != nil {
-			return err
-		}
-		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(sevDevice); err != nil {
-			return fmt.Errorf("failed to set SEV device owner: %v", err)
-		}
-	}
-	return nil
-}
-
-func (c *VirtualMachineController) configureVirtioFS(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) error {
-	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
-		socketPath, err := isolation.SafeJoin(isolationRes, virtiofs.VirtioFSSocketPath(fs.Name))
-		if err != nil {
-			return err
-		}
-		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherClient, vmi *v1.VirtualMachineInstance, preallocatedVolumes []string) error {
@@ -3472,19 +3287,6 @@ func (c *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineI
 		}
 	}
 	return nil
-}
-
-func (c *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount *safepath.Path, deviceName string) error {
-	softwareEmulation := c.clusterConfig.AllowEmulation()
-	devicePath, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", deviceName))
-	if err != nil {
-		if softwareEmulation && deviceName == "kvm" {
-			return nil
-		}
-		return err
-	}
-
-	return diskutils.DefaultOwnershipManager.SetFileOwnership(devicePath)
 }
 
 func (c *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {

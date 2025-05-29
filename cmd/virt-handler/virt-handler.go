@@ -337,7 +337,7 @@ func (app *virtHandlerApp) Run() {
 
 	launcherClientsManager := launcher_clients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
 
-	vmController, err := virthandler.NewController(
+	vmController, err := virthandler.NewVirtualMachineController(
 		recorder,
 		app.virtCli,
 		app.HostOverride,
