@@ -71,6 +71,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
@@ -185,6 +186,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		networkBindingPluginMemoryCalculator = &stubNetBindingPluginMemoryCalculator{}
 
+		launcherClientManager := &launcher_clients.MockLauncherClientManager{
+			Initialized: true,
+		}
 		controller, _ = NewController(recorder,
 			virtClient,
 			host,
@@ -192,6 +196,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			shareDir,
 			privateDir,
 			podsDir,
+			launcherClientManager,
 			vmiInformer,
 			vmiSourceInformer,
 			vmiTargetInformer,
@@ -236,8 +241,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			DomainPipeStopChan: make(chan struct{}),
 			Ready:              true,
 		}
-		controller.addLauncherClient(vmiTestUUID, clientInfo)
-
+		launcherClientManager.Client = client
+		launcherClientManager.ClientInfo = clientInfo
 	})
 
 	AfterEach(func() {
@@ -400,12 +405,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			createVMI(vmi)
 
 			//Did not initialize yet
-			clientInfo := &virtcache.LauncherClientInfo{
-				DomainPipeStopChan:  make(chan struct{}),
-				Ready:               false,
-				NotInitializedSince: time.Now().Add(-1 * time.Minute),
+			controller.launcherClients = &launcher_clients.MockLauncherClientManager{
+				Initialized: false,
 			}
-			controller.addLauncherClient(vmi.UID, clientInfo)
 
 			sanityExecute()
 
@@ -426,12 +428,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			createVMI(vmi)
 
 			//Did not initialize yet
-			clientInfo := &virtcache.LauncherClientInfo{
-				DomainPipeStopChan:  make(chan struct{}),
-				Ready:               false,
-				NotInitializedSince: time.Now().Add(-4 * time.Minute),
+			controller.launcherClients = &launcher_clients.MockLauncherClientManager{
+				Initialized:  true,
+				UnResponsive: true,
 			}
-			controller.addLauncherClient(vmi.UID, clientInfo)
 
 			sanityExecute()
 

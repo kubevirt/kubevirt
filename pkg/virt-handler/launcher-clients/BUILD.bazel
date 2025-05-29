@@ -1,0 +1,44 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "launcher-clients.go",
+        "mock_launcher-clients.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/safepath:go_default_library",
+        "//pkg/util:go_default_library",
+        "//pkg/virt-handler/cache:go_default_library",
+        "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-handler/isolation:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "launcher-clients_suite_test.go",
+        "launcher-clients_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/testutils:go_default_library",
+        "//pkg/virt-handler/notify-server:go_default_library",
+        "//pkg/virt-launcher/notify-client:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/k8s.io/client-go/tools/record:go_default_library",
+    ],
+)
