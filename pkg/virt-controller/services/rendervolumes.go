@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+	"kubevirt.io/kubevirt/pkg/storage/backup"
 	"kubevirt.io/kubevirt/pkg/tpm"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -458,6 +459,15 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 				ReadOnly:  false,
 				MountPath: PathForNVram(vmi),
 				SubPath:   "nvram",
+			})
+		}
+
+		if backup.HasCBTEnabled(vmi.Status.ChangedBlockTracking) {
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      volumeName,
+				ReadOnly:  false,
+				MountPath: backup.PathForCBT(vmi),
+				SubPath:   "cbt",
 			})
 		}
 
