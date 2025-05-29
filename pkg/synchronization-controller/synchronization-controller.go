@@ -110,7 +110,7 @@ func NewSynchronizationController(
 	)
 	syncController.queue = queue
 
-	controller.hasSynced = func() bool {
+	syncController.hasSynced = func() bool {
 		return vmiInformer.HasSynced() && migrationInformer.HasSynced()
 	}
 
@@ -320,12 +320,12 @@ func (s *SynchronizationController) execute(key string) error {
 	}
 	if migration != nil && migration.IsDecentralized() {
 		if migration.IsSource() {
-			if err := s.handleSourceState(vmi); err != nil {
+			if err := s.handleSourceState(vmi.DeepCopy(), migration); err != nil {
 				return err
 			}
 		}
 		if migration.IsTarget() {
-			return s.handleTargetState(vmi)
+			return s.handleTargetState(vmi.DeepCopy(), migration)
 		}
 		return nil
 	} else {
@@ -707,7 +707,6 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 		}, err
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
-
 	remoteStatus := &virtv1.VirtualMachineInstanceStatus{}
 	if err := json.Unmarshal(request.VmiStatus.VmiStatusJson, remoteStatus); err != nil {
 		return &syncv1.VMIStatusResponse{
@@ -725,9 +724,7 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	}
 
 	log.Log.Object(vmi).V(5).Infof("vmi migration target state: %#v", vmi.Status.MigrationState.TargetState)
-	log.Log.Object(vmi).V(5).Infof("vmi migration target state sync address: %s", *vmi.Status.MigrationState.TargetState.SyncAddress)
 	log.Log.Object(vmi).V(5).Infof("remote migration target state: %#v", remoteStatus.MigrationState.TargetState)
-	log.Log.Object(vmi).V(5).Infof("remote migration target state sync address: %s", *remoteStatus.MigrationState.TargetState.SyncAddress)
 	vmi.Status.MigrationState.TargetState = remoteStatus.MigrationState.TargetState.DeepCopy()
 	copyLegacyTargetFields(vmi, remoteStatus.MigrationState)
 	if !apiequality.Semantic.DeepEqual(origVMI.Status.MigrationState, vmi.Status.MigrationState) {

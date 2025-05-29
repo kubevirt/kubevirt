@@ -653,7 +653,7 @@ func (v *VirtualMachineInstance) IsTargetPreparing(decentralized bool, migration
 			v.Status.MigrationState.TargetState.Pod != "" &&
 			v.Status.MigrationState.TargetState.Node != ""
 	} else {
-		return v.Status.MigrationState.MigrationUID == migrationUID &&
+		return v.Status.MigrationState != nil && v.Status.MigrationState.MigrationUID == migrationUID &&
 			v.Status.MigrationState.TargetNode != ""
 	}
 }

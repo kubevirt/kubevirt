@@ -423,7 +423,6 @@ func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
 }
 
 func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
-	log.Log.Infof("domain name: %s, vmiUID %s", name, vmiUID)
 	namespace, name := SplitVMINamespaceKey(name)
 
 	domain := api.NewDomainReferenceFromName(namespace, name)
