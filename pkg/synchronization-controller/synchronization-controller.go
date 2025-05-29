@@ -64,8 +64,6 @@ const (
 
 type SynchronizationController struct {
 	client   kubecli.KubevirtClient
-	stopChan chan struct{}
-	errChan  chan error
 	connChan chan io.ReadWriteCloser
 
 	vmiInformer       cache.SharedIndexInformer
@@ -223,13 +221,12 @@ func (s *SynchronizationController) enqueueVirtualMachineInstanceFromMigration(o
 	}
 }
 
-func (s *SynchronizationController) Run(threadiness int, stopCh <-chan struct{}) {
+func (s *SynchronizationController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer controller.HandlePanic()
 	defer s.queue.ShutDown()
-	defer s.grpcServer.Stop()
 	defer s.closeConnections()
 
-	log.Log.Info("Starting vmi controller.")
+	log.Log.Info("starting vmi status synchronization controller.")
 
 	// Wait for cache sync before we start the pod controller
 	cache.WaitForCacheSync(stopCh, s.hasSynced)
@@ -241,28 +238,38 @@ func (s *SynchronizationController) Run(threadiness int, stopCh <-chan struct{})
 
 	conn, err := s.createTcpListener()
 	if err != nil {
-		s.errChan <- err
+		log.Log.Criticalf("received error %v, exiting", err)
+		return err
 	} else {
 		go func() {
 			s.grpcServer.Serve(conn)
 		}()
 	}
 
+	log.Log.Info("waiting on stop signal")
 	<-stopCh
-	log.Log.Info("stopping vmi status synchronization controller.")
+	log.Log.Info("normally stopping vmi status synchronization controller.")
+	return nil
 }
 
 func (s *SynchronizationController) closeConnections() {
+	log.Log.V(1).Info("closing listener and grpcserver")
 	if s.listener != nil {
 		s.listener.Close()
 	}
+	if s.grpcServer != nil {
+		s.grpcServer.GracefulStop()
+	}
+	log.Log.V(1).Infof("closing outbound connections")
 	s.syncOutboundConnectionMap.Range(closeMapConnections)
+	log.Log.V(1).Infof("closing inbound connections")
 	s.syncReceivingConnectionMap.Range(closeMapConnections)
 }
 
 func closeMapConnections(k, obj interface{}) bool {
 	outboundConnection, ok := obj.(*SynchronizationConnection)
 	if ok {
+		log.Log.V(1).Infof("closing connection for migration ID: %s", outboundConnection.migrationID)
 		if err := outboundConnection.Close(); err != nil {
 			log.Log.Warningf("unable to close connection for VMI %s during shutdown, %v", k, err)
 		}

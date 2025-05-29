@@ -21,13 +21,16 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
+	"time"
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/leaderelection"
@@ -37,6 +40,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/healthz"
@@ -72,6 +76,9 @@ const (
 	defaultTlsCertFilePath    = "/etc/virt-sync-controller/servercertificates/tls.crt"
 	defaultTlsKeyFilePath     = "/etc/virt-sync-controller/servercertificates/tls.key"
 	noSrvCertMessage          = "No server certificate, server is not yet ready to receive traffic"
+
+	defaultGracefulShutdownSeconds = 30
+	maxRetryCount                  = 10
 )
 
 const (
@@ -85,9 +92,8 @@ var (
 type synchronizationControllerApp struct {
 	service.ServiceListen
 
-	virtCli   kubecli.KubevirtClient
-	namespace string
-
+	virtCli        kubecli.KubevirtClient
+	namespace      string
 	LeaderElection leaderelectionconfig.Configuration
 
 	caConfigMapName    string
@@ -118,6 +124,10 @@ func (app *synchronizationControllerApp) prepareCertManager() (err error) {
 // Update synchronization controller log verbosity on relevant config changes
 func (app *synchronizationControllerApp) shouldChangeLogVerbosity() {
 	verbosity := app.clusterConfig.GetVirtSynchronizationControllerVerbosity()
+	if verbosity == 0 {
+		// If the verbosity gets set in kubevirt CR, this will not be 0, but it is otherwise.
+		verbosity = 2
+	}
 	err := log.Log.SetVerbosityLevel(int(verbosity))
 	if err != nil {
 		log.Log.Errorf("unable to change log verbosity to %d, %v", verbosity, err)
@@ -143,28 +153,45 @@ func (app *synchronizationControllerApp) setupTLS(factory controller.KubeInforme
 	}); err != nil {
 		return err
 	}
+
 	app.caManager = kvtls.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
 
 	app.serverTLSConfig = kvtls.SetupTLSForVirtSynchronizationControllerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
 	app.clientTLSConfig = kvtls.SetupTLSForVirtSynchronizationControllerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
-
 	return nil
 }
 
 func (app *synchronizationControllerApp) Run() {
 	var err error
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	app.ctx = ctx
+
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtControllerQPS, virtconfig.DefaultVirtHandlerBurst))
-	clientConfig, err := kubecli.GetKubevirtClientConfig()
-	if err != nil {
-		panic(err)
+	var clientConfig *rest.Config
+	for i := 0; i < maxRetryCount; i++ {
+		clientConfig, err = kubecli.GetKubevirtClientConfig()
+		if err != nil {
+			log.Log.Errorf("unable to get kubevirt client config %v", err)
+			waitTime := 2 ^ (i + 1)
+			time.Sleep(time.Duration(waitTime) * time.Millisecond)
+			continue
+		}
+		i = maxRetryCount
 	}
 	clientConfig.RateLimiter = app.reloadableRateLimiter
-	app.virtCli, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
-	if err != nil {
-		panic(err)
+	for i := 0; i < maxRetryCount; i++ {
+		app.virtCli, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
+		if err != nil {
+			log.Log.Errorf("unable to get kubevirt client from rest config %v", err)
+			waitTime := 2 ^ (i + 1)
+			time.Sleep(time.Duration(waitTime) * time.Millisecond)
+			continue
+		}
+		i = maxRetryCount
 	}
 
 	app.namespace, err = clientutil.GetNamespace()
@@ -172,16 +199,7 @@ func (app *synchronizationControllerApp) Run() {
 		log.Log.Criticalf("Error searching for namespace: %v", err)
 		os.Exit(2)
 	}
-
-	go func() {
-		sigint := make(chan os.Signal, 1)
-
-		signal.Notify(sigint, syscall.SIGTERM)
-
-		<-sigint
-		os.Exit(0)
-	}()
-
+	log.Log.V(1).Infof("running in namespace %s", app.namespace)
 	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, nil, app.namespace)
 
 	vmiInformer := factory.VMI()
@@ -206,8 +224,20 @@ func (app *synchronizationControllerApp) Run() {
 		os.Exit(2)
 	}
 
-	stop := make(chan struct{})
-	defer close(stop)
+	stop := app.ctx.Done()
+
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt,
+		os.Kill,
+		syscall.SIGHUP,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
+	go func() {
+		s := <-sigint
+		log.Log.Infof("received signal %s, initiating graceful shutdown", s.String())
+		cancel()
+	}()
 
 	synchronizationController, err := synchronization.NewSynchronizationController(
 		app.virtCli,
@@ -229,7 +259,7 @@ func (app *synchronizationControllerApp) Run() {
 	app.runWithLeaderElection(synchronizationController, stop)
 }
 
-func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationController *synchronization.SynchronizationController, stop chan struct{}) {
+func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationController *synchronization.SynchronizationController, stop <-chan struct{}) {
 	recorder := app.getNewRecorder(k8sv1.NamespaceAll, leaseName)
 
 	id, err := os.Hostname()
@@ -255,9 +285,33 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 
 	go func() {
 		log.Log.V(2).Infof("/healthz listening on %s", server.Addr)
-		if err := server.ListenAndServeTLS("", ""); err != nil {
-			panic(err)
+		for {
+			if err := server.ListenAndServeTLS("", ""); err != nil {
+				if errors.Is(err, http.ErrServerClosed) {
+					// Normal exit, do nothing.
+					log.Log.V(1).Info("shut down healthz http server")
+					return
+				}
+				log.Log.Errorf("unable to listen and serve TLS %v, retrying in 1 second", err)
+			}
+			time.Sleep(time.Second)
 		}
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-stop
+		app.close()
+		httpShutdownnCTX, httpShutdownCancel := context.WithTimeout(context.Background(), defaultGracefulShutdownSeconds*time.Second)
+		defer httpShutdownCancel()
+
+		// Shutdown the server
+		if err := server.Shutdown(httpShutdownnCTX); err != nil {
+			log.Log.Errorf("server shutdown error: %v", err)
+		}
+		log.Log.V(1).Info("completed stop function")
 	}()
 
 	rl, err := resourcelock.New(app.LeaderElection.ResourceLock,
@@ -273,6 +327,9 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 		panic(err)
 	}
 
+	controllerContext, controllerCancel := context.WithCancel(context.Background())
+
+	wg.Add(1)
 	leaderElector, err := leaderelection.NewLeaderElector(
 		leaderelection.LeaderElectionConfig{
 			Lock:          rl,
@@ -282,25 +339,36 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(ctx context.Context) {
 					// run app
-					synchronizationController.Run(10, stop)
+					if err := synchronizationController.Run(10, controllerContext.Done()); err != nil {
+						panic(err)
+					}
+					log.Log.Info("successfully shut down controller")
+					wg.Done()
 				},
 				OnStoppedLeading: func() {
-					log.Log.V(5).Info("stopped being leader")
-					log.Log.Critical("leaderelection lost")
+					log.Log.Error("leaderelection lost, shutting down controller")
+					controllerCancel()
 				},
 			},
 		})
 	if err != nil {
 		panic(err)
 	}
-
 	leaderElector.Run(app.ctx)
+	wg.Wait()
 }
 
 func (app *synchronizationControllerApp) getNewRecorder(namespace string, componentName string) record.EventRecorder {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.virtCli.CoreV1().Events(namespace)})
 	return eventBroadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: componentName})
+}
+
+func (app *synchronizationControllerApp) close() {
+	log.Log.V(1).Info("stopping client and server cert managers")
+	// release resources associated with the application
+	app.clientcertmanager.Stop()
+	app.servercertmanager.Stop()
 }
 
 func (app *synchronizationControllerApp) healthzHandler(w http.ResponseWriter, r *http.Request) {
@@ -339,12 +407,8 @@ func (app *synchronizationControllerApp) AddFlags() {
 func main() {
 	app := &synchronizationControllerApp{}
 	service.Setup(app)
-	log.InitializeLogging("synchronization-controller")
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	app.ctx = ctx
-
 	app.Run()
+	log.Log.Info("successfully shutdown")
 }
 
 func SetupTLS(certManager certificate.Manager) *tls.Config {
