@@ -38,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -121,6 +122,14 @@ func AdjustKubeVirtResource() {
 		featuregate.NodeRestrictionGate,
 		featuregate.DecentralizedLiveMigration,
 	)
+	kv.Spec.Configuration.ChangedBlockTrackingLabelSelectors = &v1.ChangedBlockTrackingSelectors{
+		VirtualMachineLabelSelector: &metav1.LabelSelector{
+			MatchLabels: cbt.CBTLabel,
+		},
+		NamespaceLabelSelector: &metav1.LabelSelector{
+			MatchLabels: cbt.CBTLabel,
+		},
+	}
 
 	storageClass, exists := libstorage.GetVMStateStorageClass()
 	if exists {
