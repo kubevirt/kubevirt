@@ -546,6 +546,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachine":                                                          schema_kubevirtio_api_core_v1_VirtualMachine(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineCondition":                                                 schema_kubevirtio_api_core_v1_VirtualMachineCondition(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstance":                                                  schema_kubevirtio_api_core_v1_VirtualMachineInstance(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineInstanceBackupStatus":                                      schema_kubevirtio_api_core_v1_VirtualMachineInstanceBackupStatus(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceCommonMigrationState":                              schema_kubevirtio_api_core_v1_VirtualMachineInstanceCommonMigrationState(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceCondition":                                         schema_kubevirtio_api_core_v1_VirtualMachineInstanceCondition(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystem":                                        schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystem(ref),
@@ -18247,10 +18248,18 @@ func schema_kubevirtio_api_core_v1_ChangedBlockTrackingStatus(ref common.Referen
 							Format:      "",
 						},
 					},
+					"backupStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BackupStatus represents the status of vmi backup",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineInstanceBackupStatus"),
+						},
+					},
 				},
 				Required: []string{"state"},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.VirtualMachineInstanceBackupStatus"},
 	}
 }
 
@@ -25768,6 +25777,40 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstance(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/core/v1.VirtualMachineInstanceSpec", "kubevirt.io/api/core/v1.VirtualMachineInstanceStatus"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VirtualMachineInstanceBackupStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstanceBackupStatus tracks the information of the executed backup",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"backupName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BackupName is the name of the executed backup",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"completed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Completed indicates the backup completed",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"backupMsg": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BackupMsg resturns any relevant information like failure reason unfreeze failed etc...",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

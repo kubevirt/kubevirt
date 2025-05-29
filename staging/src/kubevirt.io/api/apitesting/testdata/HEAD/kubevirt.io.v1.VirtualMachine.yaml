@@ -801,6 +801,10 @@ spec:
   updateVolumesStrategy: updateVolumesStrategyValue
 status:
   changedBlockTracking:
+    backupStatus:
+      backupMsg: backupMsgValue
+      backupName: backupNameValue
+      completed: true
     state: stateValue
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"
