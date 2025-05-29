@@ -662,7 +662,7 @@ func (c *Controller) processMigrationPhase(
 			}
 		}
 	case virtv1.MigrationScheduled:
-		if vmi.IsTargetPreparing(migration.IsDecentralized(), vmi.Status.MigrationState.MigrationUID) {
+		if vmi.IsTargetPreparing(migration.IsDecentralized(), migration.UID) {
 			migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
 		}
 	case virtv1.MigrationPreparingTarget:
@@ -1226,7 +1226,6 @@ func (c *Controller) markMigrationAbortInVmiStatus(migration *virtv1.VirtualMach
 }
 
 func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
-
 	c.migrationStartLock.Lock()
 	defer c.migrationStartLock.Unlock()
 
@@ -1272,7 +1271,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 
 	// migration was accepted into the system, now see if we
 	// should create the target pod
-	if vmi.IsRunning() {
+	if vmi.IsRunning() || (migration.IsTarget() && migration.IsDecentralized()) {
 		err = c.handleBackendStorage(migration, vmi)
 		if err != nil {
 			return err
@@ -1538,7 +1537,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 				var err error
 				if !migration.IsDecentralized() {
 					log.Log.Object(vmi).V(5).Info("regular migration creating target pod in same namespace as source")
-					sourcePod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
+					sourcePod, err = controller.CurrentVMIPod(vmi, c.podIndexer)
 					if err != nil {
 						log.Log.Reason(err).Error("Failed to fetch pods for namespace from cache.")
 						return err
@@ -1554,6 +1553,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 					log.Log.Object(vmi).V(5).Info("decentralized migration creating target pod in vmi namespace, source pod based on target VMI")
 					// This is a decentralized target, generate the source pod template
 					sourcePod, err = c.templateService.RenderLaunchManifest(vmi)
+					log.Log.Object(sourcePod).Error("Source pod exists decentralized")
 					if err != nil {
 						return fmt.Errorf("failed to render launch manifest: %v", err)
 					}
@@ -1576,7 +1576,6 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 						return fmt.Errorf("failed to set VMI RuntimeUser: %v", err)
 					}
 				}
-
 				return c.handleTargetPodCreation(key, migration, vmi, sourcePod)
 			} else if controller.IsPodReady(pod) {
 				if controller.VMIHasHotplugVolumes(vmi) {

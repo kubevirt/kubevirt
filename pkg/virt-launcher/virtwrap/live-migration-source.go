@@ -816,7 +816,7 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 	if err != nil {
 		return nil, err
 	}
-	if vmi.Status.MigrationState != nil &&
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetState != nil &&
 		vmi.Status.MigrationState.TargetState.VirtualMachineInstanceUID != nil {
 		log.Log.Object(vmi).Infof("Replacing VMI UID %s with target VMI UID %s in the XML", vmi.UID, *vmi.Status.MigrationState.TargetState.VirtualMachineInstanceUID)
 		// Replace all occurances of the VMI UID in the XML with the target UID.

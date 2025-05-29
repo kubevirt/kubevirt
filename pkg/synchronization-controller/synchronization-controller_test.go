@@ -443,10 +443,11 @@ var _ = Describe("VMI status synchronization controller", func() {
 	Context("target controller is same as source", func() {
 		// Migration from one namespace to another in same cluster
 		var (
-			err                  error
-			targetVMI, sourceVMI *virtv1.VirtualMachineInstance
-			localTCPConn         net.Listener
-			done                 chan struct{}
+			err                              error
+			targetVMI, sourceVMI             *virtv1.VirtualMachineInstance
+			localTCPConn                     net.Listener
+			done                             chan struct{}
+			sourceMigration, targetMigration *virtv1.VirtualMachineInstanceMigration
 		)
 
 		BeforeEach(func() {
@@ -465,7 +466,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = virtClient.VirtualMachineInstance(targetVMI.Namespace).Create(context.TODO(), targetVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			targetMigration := createTargetMigration(testMigrationID, targetVMI.Name, targetVMI.Namespace)
+			targetMigration = createTargetMigration(testMigrationID, targetVMI.Name, targetVMI.Namespace)
 			err = migrationInformer.GetStore().Add(targetMigration)
 			Expect(err).ToNot(HaveOccurred())
 			sourceVMI = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
@@ -475,7 +476,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			_, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Create(context.TODO(), sourceVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			remoteURL, err := controller.getMyURL()
-			sourceMigration := createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
+			sourceMigration = createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
 			err = migrationInformer.GetStore().Add(sourceMigration)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -490,17 +491,17 @@ var _ = Describe("VMI status synchronization controller", func() {
 		Context("handleSourceState", func() {
 			It("should not do anything if source doesn't have source migration", func() {
 				// no source migration
-				err := controller.handleSourceState(sourceVMI)
+				err := controller.handleSourceState(sourceVMI, sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 				// no migration at all
 				sourceVMI.Status.MigrationState = nil
-				err = controller.handleSourceState(sourceVMI)
+				err = controller.handleSourceState(sourceVMI, sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("should not do anything if source sync addres is not set", func() {
 				sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{}
-				err := controller.handleSourceState(sourceVMI)
+				err := controller.handleSourceState(sourceVMI, sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -519,7 +520,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 				}
 				err = controller.vmiInformer.GetStore().Delete(targetVMI)
 				Expect(err).ToNot(HaveOccurred())
-				err = controller.handleSourceState(sourceVMI)
+				err = controller.handleSourceState(sourceVMI, sourceMigration)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
 			})
@@ -537,26 +538,26 @@ var _ = Describe("VMI status synchronization controller", func() {
 						MigrationUID: targetTestMigrationUID,
 					},
 				}
-				err := controller.handleSourceState(sourceVMI)
+				err := controller.handleSourceState(sourceVMI, sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 				verifyTarget(controller, targetVMI, localTCPConn.Addr().String())
 			})
 		})
 
-		Context("handleSourceState", func() {
+		Context("handleTargetState", func() {
 			It("should not do anything if target doesn't have target migration", func() {
 				// no source migration
-				err := controller.handleTargetState(targetVMI)
+				err := controller.handleTargetState(targetVMI, targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 				// no migration at all
 				targetVMI.Status.MigrationState = nil
-				err = controller.handleTargetState(targetVMI)
+				err = controller.handleTargetState(targetVMI, targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("should not do anything if target sync addres is not set", func() {
 				targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{}
-				err := controller.handleTargetState(targetVMI)
+				err := controller.handleTargetState(targetVMI, targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -575,7 +576,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 				}
 				err = controller.vmiInformer.GetStore().Delete(sourceVMI)
 				Expect(err).ToNot(HaveOccurred())
-				err = controller.handleTargetState(targetVMI)
+				err = controller.handleTargetState(targetVMI, targetMigration)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
 			})
@@ -593,7 +594,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 						MigrationUID: sourceTestMigrationUID,
 					},
 				}
-				err := controller.handleTargetState(targetVMI)
+				err := controller.handleTargetState(targetVMI, targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 				verifySource(controller, sourceVMI, localTCPConn.Addr().String())
 			})
@@ -619,17 +620,17 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = controller.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.vmiInformer.GetStore().Update(sourceVMI)
-			Expect(err).ToNot(HaveOccurred())
 			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			key, err := kvcontroller.KeyFunc(sourceVMI)
+			err = controller.vmiInformer.GetStore().Update(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(key)
+			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			key, err = kvcontroller.KeyFunc(targetVMI)
+			err = controller.execute(sourceKey)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(key)
+			targetKey, err := kvcontroller.KeyFunc(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.execute(targetKey)
 			Expect(err).ToNot(HaveOccurred())
 			verifyTarget(controller, targetVMI, localTCPConn.Addr().String())
 			verifySource(controller, sourceVMI, localTCPConn.Addr().String())
@@ -729,13 +730,11 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			By(fmt.Sprintf("Execute 1, source %s", sourceKey))
 			err = controller.execute(sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 
 			targetKey, err := kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			By(fmt.Sprintf("Execute 2, target %s", targetKey))
 			err = remoteController.execute(targetKey)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -745,7 +744,8 @@ var _ = Describe("VMI status synchronization controller", func() {
 			sourceVMI.Status.MigrationState.SourceState.Pod = sourcePodName
 			err = controller.vmiInformer.GetStore().Update(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			By(fmt.Sprintf("Execute 3, source %s", sourceKey))
+			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			err = controller.execute(sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 			verifyTarget(controller, targetVMI, localURL)
@@ -763,7 +763,6 @@ var _ = Describe("VMI status synchronization controller", func() {
 			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			By(fmt.Sprintf("Execute 4, target %s", targetKey))
 			err = remoteController.execute(targetKey)
 			Expect(err).ToNot(HaveOccurred())
 			updatedSourceVMI, err := controller.client.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
@@ -775,6 +774,104 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(updatedSourceVMI.Status.MigrationState.TargetState.SyncAddress).ToNot(BeNil())
 			Expect(*updatedSourceVMI.Status.MigrationState.TargetState.SyncAddress).To(Equal(remoteURL))
 			Expect(updatedSourceVMI.Status.MigrationState.TargetState.Pod).To(Equal(targetPodName))
+		})
+	})
+
+	It("should return nil, nil if invalid resource type passed into index function", func() {
+		res, err := indexByMigrationUID("invalid")
+		Expect(res).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+		res, err = indexByVmiName("invalid")
+		Expect(res).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+		res, err = indexBySourceMigrationID("invalid")
+		Expect(res).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+		res, err = indexByTargetMigrationID("invalid")
+		Expect(res).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should properly close connections", func() {
+		testConnection := &SynchronizationConnection{
+			migrationID: testMigrationID,
+		}
+		controller.syncOutboundConnectionMap.Store(testMigrationID, testConnection)
+		controller.syncOutboundConnectionMap.Store("invalidID", "invalidConnection")
+		_, loaded := controller.syncOutboundConnectionMap.Load("invalidID")
+		Expect(loaded).To(BeTrue())
+		_, loaded = controller.syncOutboundConnectionMap.Load(testMigrationID)
+		Expect(loaded).To(BeTrue())
+
+		controller.closeConnectionForMigrationID(controller.syncOutboundConnectionMap, testMigrationID)
+		controller.closeConnectionForMigrationID(controller.syncOutboundConnectionMap, "invalidID")
+		controller.closeConnectionForMigrationID(controller.syncOutboundConnectionMap, "unknownID")
+		_, loaded = controller.syncOutboundConnectionMap.Load("invalidID")
+		Expect(loaded).To(BeFalse())
+		_, loaded = controller.syncOutboundConnectionMap.Load(testMigrationID)
+		Expect(loaded).To(BeFalse())
+		_, loaded = controller.syncOutboundConnectionMap.Load("unknownID")
+		Expect(loaded).To(BeFalse())
+	})
+
+	Context("resource handler functions", func() {
+		var (
+			sourceMigration, targetMigration *virtv1.VirtualMachineInstanceMigration
+		)
+		BeforeEach(func() {
+			sourceMigration = createSourceMigration(testMigrationID, "test-vmi", "", k8sv1.NamespaceDefault)
+			targetMigration = createTargetMigration(testMigrationID, "test-vmi", k8sv1.NamespaceDefault)
+			Expect(controller.queue.Len()).To(Equal(0))
+		})
+
+		It("should add proper key to queue when adding/updating new VMIM", func() {
+			controller.addMigrationFunc(sourceMigration)
+			Expect(controller.queue.Len()).To(Equal(1))
+			key := fmt.Sprintf("%s/%s", sourceMigration.Namespace, sourceMigration.Spec.VMIName)
+			res, shutdown := controller.queue.Get()
+			Expect(shutdown).To(BeFalse())
+			Expect(res).To(Equal(key))
+			controller.queue.Done(key)
+			Expect(controller.queue.Len()).To(Equal(0))
+
+			controller.updateMigrationFunc(nil, sourceMigration)
+			Expect(controller.queue.Len()).To(Equal(1))
+			key = fmt.Sprintf("%s/%s", sourceMigration.Namespace, sourceMigration.Spec.VMIName)
+			res, shutdown = controller.queue.Get()
+			Expect(shutdown).To(BeFalse())
+			Expect(res).To(Equal(key))
+			controller.queue.Done(key)
+			Expect(controller.queue.Len()).To(Equal(0))
+		})
+
+		It("should close existing connections when deleting vmim", func() {
+			testConnection := &SynchronizationConnection{
+				migrationID: testMigrationID,
+			}
+			controller.syncOutboundConnectionMap.Store(testMigrationID, testConnection)
+
+			controller.deleteMigrationFunc(sourceMigration)
+			Expect(controller.queue.Len()).To(Equal(1))
+			key := fmt.Sprintf("%s/%s", sourceMigration.Namespace, sourceMigration.Spec.VMIName)
+			res, shutdown := controller.queue.Get()
+			Expect(shutdown).To(BeFalse())
+			Expect(res).To(Equal(key))
+			controller.queue.Done(key)
+			Expect(controller.queue.Len()).To(Equal(0))
+			_, loaded := controller.syncOutboundConnectionMap.Load(testMigrationID)
+			Expect(loaded).To(BeFalse())
+
+			controller.syncReceivingConnectionMap.Store(testMigrationID, testConnection)
+			controller.deleteMigrationFunc(targetMigration)
+			Expect(controller.queue.Len()).To(Equal(1))
+			key = fmt.Sprintf("%s/%s", targetMigration.Namespace, targetMigration.Spec.VMIName)
+			res, shutdown = controller.queue.Get()
+			Expect(shutdown).To(BeFalse())
+			Expect(res).To(Equal(key))
+			controller.queue.Done(key)
+			Expect(controller.queue.Len()).To(Equal(0))
+			_, loaded = controller.syncReceivingConnectionMap.Load(testMigrationID)
+			Expect(loaded).To(BeFalse())
 		})
 	})
 })
