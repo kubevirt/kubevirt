@@ -446,7 +446,8 @@ func (c *command) uploadData(token string, file *os.File) error {
 		return err
 	}
 
-	bar := pb.Full.Start64(fi.Size())
+	bar := pb.New64(fi.Size())
+	bar.SetTemplate(pb.Full)
 	bar.SetWriter(os.Stdout)
 	bar.Set(pb.Bytes, true)
 	reader := bar.NewProxyReader(file)
@@ -487,6 +488,7 @@ func (c *command) uploadData(token string, file *os.File) error {
 		}
 		retry++
 		if retry < c.uploadRetries {
+			bar.SetCurrent(0)
 			time.Sleep(time.Duration(retry*rand.UintN(50)) * time.Millisecond)
 		}
 	}
