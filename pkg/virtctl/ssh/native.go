@@ -5,6 +5,7 @@ package ssh
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 
@@ -36,12 +37,18 @@ func addAdditionalCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 type NativeSSHConnection struct {
 	Client  kubecli.KubevirtClient
 	Options SSHOptions
+	stdin   io.Reader
+	stdout  io.Writer
+	stderr  io.Writer
 }
 
-func (o *SSH) nativeSSH(kind, namespace, name string, client kubecli.KubevirtClient) error {
+func (o *SSH) nativeSSH(kind, namespace, name string, client kubecli.KubevirtClient, stdin io.Reader, stdout, stderr io.Writer) error {
 	conn := NativeSSHConnection{
 		Client:  client,
 		Options: o.options,
+		stdin:   stdin,
+		stdout:  stdout,
+		stderr:  stderr,
 	}
 	sshClient, err := conn.PrepareSSHClient(kind, namespace, name)
 	if err != nil {
@@ -167,9 +174,9 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client, command string) e
 	}
 	defer session.Close()
 
-	session.Stdin = os.Stdin
-	session.Stderr = os.Stderr
-	session.Stdout = os.Stdout
+	session.Stdin = o.stdin
+	session.Stderr = o.stderr
+	session.Stdout = o.stdout
 
 	if command != "" {
 		if err := session.Run(command); err != nil {
