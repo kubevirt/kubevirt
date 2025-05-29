@@ -93,6 +93,12 @@ func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) && vmi.Spec.Domain.LaunchSecurity.SEV.Attestation != nil
 }
 
+// NeedVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.
+// This happens when the VMI wants to use a "virtio" network interface, and software emulation is disallowed.
+func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
+	return WantVirtioNetDevice(vmi) && !allowEmulation
+}
+
 // WantVirtioNetDevice checks whether a VMI references at least one "virtio" network interface.
 // Note that the reference can be explicit or implicit (unspecified nic models defaults to "virtio").
 func WantVirtioNetDevice(vmi *v1.VirtualMachineInstance) bool {
