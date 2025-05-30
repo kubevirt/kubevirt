@@ -731,7 +731,7 @@ func NewSynchronizationControllerDeployment(
 	verbosity string,
 	extraEnv map[string]string) *appsv1.Deployment {
 
-	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtAPIName})
+	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtSynchronizationControllerName})
 	deploymentName := VirtSynchronizationControllerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 
