@@ -15046,6 +15046,9 @@
      "phase": {
       "type": "string"
      },
+     "synchronizationAddress": {
+      "type": "string"
+     },
      "targetDeploymentConfig": {
       "type": "string"
      },
