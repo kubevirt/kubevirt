@@ -52,7 +52,7 @@ type VirtualMachineInstanceExpansion interface {
 	GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
 	FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error)
-	ObjectGraph(ctx context.Context, name string) (v1.ObjectGraphNode, error)
+	ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error)
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
@@ -276,14 +276,21 @@ func (c *virtualMachineInstances) FilesystemList(ctx context.Context, name strin
 	return fsList, err
 }
 
-func (c *virtualMachineInstances) ObjectGraph(ctx context.Context, name string) (v1.ObjectGraphNode, error) {
+func (c *virtualMachineInstances) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error) {
 	objectGraph := v1.ObjectGraphNode{}
-	err := c.GetClient().Get().
+
+	body, err := json.Marshal(objectGraphOptions)
+	if err != nil {
+		return objectGraph, err
+	}
+
+	err = c.GetClient().Get().
 		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
 		SubResource("objectgraph").
+		Body(body).
 		Do(ctx).
 		Into(&objectGraph)
 
