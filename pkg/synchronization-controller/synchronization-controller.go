@@ -68,6 +68,7 @@ type SynchronizationController struct {
 
 	vmiInformer       cache.SharedIndexInformer
 	migrationInformer cache.SharedIndexInformer
+	kubevirtStore     cache.Store
 
 	listener        net.Listener
 	bindAddress     string
@@ -248,6 +249,9 @@ func (s *SynchronizationController) Run(threadiness int, stopCh <-chan struct{})
 			s.grpcServer.Serve(conn)
 		}()
 	}
+	if err := s.rebuildConnectionsAndUpdateSyncAddress(); err != nil {
+		return err
+	}
 
 	log.Log.Info("waiting on stop signal")
 	<-stopCh
@@ -271,7 +275,7 @@ func (s *SynchronizationController) closeConnections() {
 
 func closeMapConnections(k, obj interface{}) bool {
 	outboundConnection, ok := obj.(*SynchronizationConnection)
-	if ok {
+	if ok && outboundConnection != nil {
 		log.Log.V(1).Infof("closing connection for migration ID: %s", outboundConnection.migrationID)
 		if err := outboundConnection.Close(); err != nil {
 			log.Log.Warningf("unable to close connection for VMI %s during shutdown, %v", k, err)
@@ -361,14 +365,14 @@ func (s *SynchronizationController) getMigrationIDFromUID(migrationUID types.UID
 }
 
 func (s *SynchronizationController) getOutboundSourceConnection(vmi *virtv1.VirtualMachineInstance, migrationState *virtv1.VirtualMachineInstanceMigrationState) (*SynchronizationConnection, error) {
-	if migrationState.TargetState.SyncAddress == nil || *migrationState.TargetState.SyncAddress == "" {
+	if migrationState.TargetState == nil || migrationState.TargetState.SyncAddress == nil || *migrationState.TargetState.SyncAddress == "" {
 		return nil, nil
 	}
 	return s.getOutboundConnection(vmi, migrationState.SourceState.MigrationUID, *migrationState.TargetState.SyncAddress, s.syncOutboundConnectionMap)
 }
 
 func (s *SynchronizationController) getOutboundTargetConnection(vmi *virtv1.VirtualMachineInstance, migrationState *virtv1.VirtualMachineInstanceMigrationState) (*SynchronizationConnection, error) {
-	if migrationState.SourceState.SyncAddress == nil || *migrationState.SourceState.SyncAddress == "" {
+	if migrationState.SourceState == nil || migrationState.SourceState.SyncAddress == nil || *migrationState.SourceState.SyncAddress == "" {
 		return nil, nil
 	}
 	return s.getOutboundConnection(vmi, migrationState.TargetState.MigrationUID, *migrationState.SourceState.SyncAddress, s.syncReceivingConnectionMap)
@@ -543,6 +547,109 @@ func (s *SynchronizationController) getMigrationForVMI(vmi *virtv1.VirtualMachin
 		return res, nil
 	}
 	return nil, nil
+}
+
+func (s *SynchronizationController) rebuildConnectionsAndUpdateSyncAddress() error {
+	// Go and find all active migration resources, if they are decentralized rebuild either
+	// the incoming or outbound connections, and call sync to update the remote with the new
+	// address.
+	objs := s.migrationInformer.GetStore().List()
+	log.Log.V(4).Infof("rebuilding any connections, and updating remote VMIs, found %d migrations", len(objs))
+	for _, obj := range objs {
+		migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+		if !ok {
+			return fmt.Errorf("unknown object in migration store %v", obj)
+		}
+		if isOnGoingMigration(migration) {
+			vmi, err := s.getVMIFromMigration(migration)
+			if err != nil {
+				return err
+			}
+			if vmi == nil {
+				// No VMI found, can't update it, so skip it.
+				continue
+			}
+			// ongoing migration.
+			if migration.Spec.Receive != nil {
+				// We are the target
+				log.Log.Object(migration).Object(vmi).Info("found ongoing target migration for vmi, rebuilding connection")
+				if err := s.rebuildTargetConnection(migration, vmi); err != nil {
+					return err
+				}
+			} else if migration.Spec.SendTo != nil {
+				// We are the source
+				log.Log.Object(migration).Object(vmi).Info("found ongoing source migration for vmi, rebuilding connection")
+				if err := s.rebuildSourceConnection(migration, vmi); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func isOnGoingMigration(migration *virtv1.VirtualMachineInstanceMigration) bool {
+	return migration.IsDecentralized() && migration.Status.Phase != virtv1.MigrationFailed && migration.Status.Phase != virtv1.MigrationSucceeded
+}
+
+func (s *SynchronizationController) rebuildTargetConnection(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+	conn, err := s.getOutboundTargetConnection(vmi, vmi.Status.MigrationState)
+	if err != nil {
+		return err
+	}
+	if conn == nil {
+		return nil
+	}
+	s.syncReceivingConnectionMap.Store(migration.Spec.Receive.MigrationID, conn)
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetState != nil {
+		url, err := s.getMyURL()
+		if err != nil {
+			return err
+		}
+		origVMI := vmi.DeepCopy()
+		vmi.Status.MigrationState.TargetState.SyncAddress = &url
+		// patching will cause reconcile loop to connect to remote to update
+		if err := s.patchVMI(origVMI, vmi); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *SynchronizationController) rebuildSourceConnection(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+	conn, err := s.getOutboundSourceConnection(vmi, vmi.Status.MigrationState)
+	if err != nil {
+		return err
+	}
+	if conn == nil {
+		return nil
+	}
+	s.syncOutboundConnectionMap.Store(migration.Spec.SendTo.MigrationID, conn)
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.SourceState != nil {
+		url, err := s.getMyURL()
+		if err != nil {
+			return err
+		}
+		origVMI := vmi.DeepCopy()
+		vmi.Status.MigrationState.SourceState.SyncAddress = &url
+		// patching will cause reconcile loop to connect to remote to update
+		if err := s.patchVMI(origVMI, vmi); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *SynchronizationController) getVMIFromMigration(migration *virtv1.VirtualMachineInstanceMigration) (*virtv1.VirtualMachineInstance, error) {
+	key := controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName)
+	obj, exists, err := s.vmiInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, nil
+	}
+	return obj.(*virtv1.VirtualMachineInstance).DeepCopy(), nil
 }
 
 func (s *SynchronizationController) getMyURL() (string, error) {

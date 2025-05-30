@@ -2371,7 +2371,8 @@ type KubeVirtStatus struct {
 	ObservedGeneration                      *int64              `json:"observedGeneration,omitempty"`
 	DefaultArchitecture                     string              `json:"defaultArchitecture,omitempty"`
 	// +listType=atomic
-	Generations []GenerationStatus `json:"generations,omitempty" optional:"true"`
+	Generations            []GenerationStatus `json:"generations,omitempty" optional:"true"`
+	SynchronizationAddress *string            `json:"synchronizationAddress,omitempty"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.

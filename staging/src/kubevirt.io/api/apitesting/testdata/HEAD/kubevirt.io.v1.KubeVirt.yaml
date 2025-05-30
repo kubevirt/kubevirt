@@ -572,6 +572,7 @@ status:
   operatorVersion: operatorVersionValue
   outdatedVirtualMachineInstanceWorkloads: -39
   phase: phaseValue
+  synchronizationAddress: synchronizationAddressValue
   targetDeploymentConfig: targetDeploymentConfigValue
   targetDeploymentID: targetDeploymentIDValue
   targetKubeVirtRegistry: targetKubeVirtRegistryValue
