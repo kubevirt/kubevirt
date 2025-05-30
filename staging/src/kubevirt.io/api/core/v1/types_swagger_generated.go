@@ -749,6 +749,13 @@ func (MigrateOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (EvacuateCancelOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "EvacuateCancelOptions may be provided on evacuate cancel request.",
+		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+	}
+}
+
 func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                  "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",

@@ -26,8 +26,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
+
 	k8sv1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -303,6 +306,74 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 			})
 		})
 
+	})
+
+	Context("Evacuation cancellation behavior", func() {
+		var migrationBandwidthLimit = resource.MustParse("1Ki")
+
+		It("should stop recreating migrations after evacuate-cancel", func() {
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+				libvmi.WithMemoryRequest("512Mi"),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			By("Creating a migration policy that prevents migration")
+			CreateMigrationPolicy(kubevirt.Client(), PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
+
+			By("Starting the VMI")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+
+			By("Evicting VMI pod")
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			err = kubevirt.Client().CoreV1().Pods(vmiPod.Namespace).EvictV1(context.Background(), &policy.Eviction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      vmiPod.Name,
+					Namespace: vmiPod.Namespace,
+				},
+			})
+			Expect(err).To(MatchError(ContainSubstring("Eviction triggered evacuation of VMI")))
+
+			By("Waiting for a migration to appear")
+			Eventually(func() ([]v1.VirtualMachineInstanceMigration, error) {
+				migs, err := kubevirt.Client().VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+				return migs.Items, err
+			}, 30*time.Second, 1*time.Second).Should(HaveLen(1))
+
+			By("Cancelling evacuation")
+			err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).EvacuateCancel(context.Background(), vmi.Name, &v1.EvacuateCancelOptions{EvacuationNodeName: vmi.Status.NodeName})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Minute).WithPolling(20 * time.Second).Should(
+				gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"EvacuationNodeName": BeEmpty(),
+					}),
+				})),
+			)
+
+			By("Deleting the current migrations")
+			Eventually(func() ([]v1.VirtualMachineInstanceMigration, error) {
+				migs, err := kubevirt.Client().VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+				if err != nil {
+					return nil, err
+				}
+				for _, mig := range migs.Items {
+					err = kubevirt.Client().VirtualMachineInstanceMigration(mig.Namespace).Delete(context.Background(), mig.Name, metav1.DeleteOptions{})
+					if err != nil {
+						return nil, err
+					}
+				}
+				return migs.Items, err
+			}, 30*time.Second, 1*time.Second).Should(BeEmpty())
+
+			By("Ensuring no new migration is created")
+			Consistently(func() []v1.VirtualMachineInstanceMigration {
+				migs, _ := kubevirt.Client().VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+				return migs.Items
+			}, 10*time.Second, 2*time.Second).Should(BeEmpty())
+		})
 	})
 }))
 
