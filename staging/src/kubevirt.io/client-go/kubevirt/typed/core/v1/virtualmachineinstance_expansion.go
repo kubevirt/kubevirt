@@ -60,6 +60,7 @@ type VirtualMachineInstanceExpansion interface {
 	SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error)
 	SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error
 	SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v1.SEVSecretOptions) error
+	EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error
 }
 
 func (c *virtualMachineInstances) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
@@ -345,7 +346,7 @@ func (c *virtualMachineInstances) SEVFetchCertChain(ctx context.Context, name st
 		Resource("virtualmachineinstances").
 		Name(name).
 		SubResource("sev", "fetchcertchain").
-		Do(context.Background()).
+		Do(ctx).
 		Into(&sevPlatformInfo)
 
 	return sevPlatformInfo, err
@@ -359,7 +360,7 @@ func (c *virtualMachineInstances) SEVQueryLaunchMeasurement(ctx context.Context,
 		Resource("virtualmachineinstances").
 		Name(name).
 		SubResource("sev", "querylaunchmeasurement").
-		Do(context.Background()).
+		Do(ctx).
 		Into(&sevMeasurementInfo)
 
 	return sevMeasurementInfo, err
@@ -378,7 +379,7 @@ func (c *virtualMachineInstances) SEVSetupSession(ctx context.Context, name stri
 		Name(name).
 		SubResource("sev", "setupsession").
 		Body(body).
-		Do(context.Background()).
+		Do(ctx).
 		Error()
 }
 
@@ -394,6 +395,23 @@ func (c *virtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context, nam
 		Name(name).
 		SubResource("sev", "injectlaunchsecret").
 		Body(body).
-		Do(context.Background()).
+		Do(ctx).
+		Error()
+}
+
+func (c *virtualMachineInstances) EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error {
+	body, err := json.Marshal(evacuateCancelOptions)
+	if err != nil {
+		return err
+	}
+
+	return c.GetClient().Put().
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachineinstances").
+		Name(name).
+		SubResource("evacuatecancel").
+		Body(body).
+		Do(ctx).
 		Error()
 }
