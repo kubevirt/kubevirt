@@ -493,10 +493,7 @@ func (s *SynchronizationController) handleTargetState(vmi *virtv1.VirtualMachine
 			VmiStatusJson: vmiStatusJson,
 		},
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (s *SynchronizationController) getMigrationForVMI(vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstanceMigration, error) {

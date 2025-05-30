@@ -51,14 +51,13 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/scheme"
 	"kubevirt.io/client-go/log"
+	clientutil "kubevirt.io/client-go/util"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/synchronization-controller"
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	clientutil "kubevirt.io/client-go/util"
 )
 
 const (
@@ -79,10 +78,7 @@ const (
 
 	defaultGracefulShutdownSeconds = 30
 	maxRetryCount                  = 10
-)
-
-const (
-	leaseName = "virt-synchronization-controller"
+	leaseName                      = "virt-synchronization-controller"
 )
 
 var (
@@ -172,26 +168,34 @@ func (app *synchronizationControllerApp) Run() {
 
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtControllerQPS, virtconfig.DefaultVirtHandlerBurst))
 	var clientConfig *rest.Config
-	for i := 0; i < maxRetryCount; i++ {
+	retryCount := 0
+	for retryCount = 0; retryCount < maxRetryCount; retryCount++ {
 		clientConfig, err = kubecli.GetKubevirtClientConfig()
 		if err != nil {
 			log.Log.Errorf("unable to get kubevirt client config %v", err)
-			waitTime := 2 ^ (i + 1)
+			waitTime := 2 ^ (retryCount + 1)
 			time.Sleep(time.Duration(waitTime) * time.Millisecond)
 			continue
 		}
-		i = maxRetryCount
+		break
 	}
+	if retryCount >= maxRetryCount {
+		panic(fmt.Errorf("unable to get kubevirt client config after %d retries %v", maxRetryCount, err))
+	}
+
 	clientConfig.RateLimiter = app.reloadableRateLimiter
-	for i := 0; i < maxRetryCount; i++ {
+	for retryCount = 0; retryCount < maxRetryCount; retryCount++ {
 		app.virtCli, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
 		if err != nil {
 			log.Log.Errorf("unable to get kubevirt client from rest config %v", err)
-			waitTime := 2 ^ (i + 1)
+			waitTime := 2 ^ (retryCount + 1)
 			time.Sleep(time.Duration(waitTime) * time.Millisecond)
 			continue
 		}
-		i = maxRetryCount
+		break
+	}
+	if retryCount >= maxRetryCount {
+		panic(fmt.Errorf("unable to get kubevirt client from rest config after %d retries %v", maxRetryCount, err))
 	}
 
 	app.namespace, err = clientutil.GetNamespace()
@@ -371,7 +375,7 @@ func (app *synchronizationControllerApp) close() {
 	app.servercertmanager.Stop()
 }
 
-func (app *synchronizationControllerApp) healthzHandler(w http.ResponseWriter, r *http.Request) {
+func (app *synchronizationControllerApp) healthzHandler(w http.ResponseWriter, _ *http.Request) {
 	io.WriteString(w, "OK")
 }
 

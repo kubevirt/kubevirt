@@ -537,11 +537,7 @@ func (v *VirtualMachineInstance) IsHighPerformanceVMI() bool {
 }
 
 func (v *VirtualMachineInstance) IsMigrationTarget() bool {
-	targetMigration := false
-	if value, ok := v.GetAnnotations()[CreateMigrationTarget]; ok && value == "true" {
-		targetMigration = true
-	}
-	return targetMigration
+	return v.GetAnnotations()[CreateMigrationTarget] == "true"
 }
 
 func (v *VirtualMachineInstance) IsWaitingForSync() bool {
