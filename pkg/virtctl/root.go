@@ -119,6 +119,7 @@ func NewVirtctlCommandFn() *cobra.Command {
 		vm.NewAddVolumeCommand(),
 		vm.NewRemoveVolumeCommand(),
 		vm.NewExpandCommand(),
+		vm.NewEvacuateCancelCommand(),
 		memorydump.NewMemoryDumpCommand(),
 		pause.NewCommand(),
 		unpause.NewCommand(),

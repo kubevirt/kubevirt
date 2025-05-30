@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "add_volume.go",
         "common.go",
+        "evacuate_cancel.go",
         "expand.go",
         "fs_list.go",
         "guestosinfo.go",
@@ -35,6 +36,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "add_volume_test.go",
+        "evacuate_cancel_test.go",
         "expand_test.go",
         "fs_list_test.go",
         "guestosinfo_test.go",
