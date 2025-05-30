@@ -3849,6 +3849,8 @@ var CRDsValidation map[string]string = map[string]string{
           description: KubeVirtPhase is a label for the phase of a KubeVirt deployment
             at the current time.
           type: string
+        synchronizationAddress:
+          type: string
         targetDeploymentConfig:
           type: string
         targetDeploymentID:
