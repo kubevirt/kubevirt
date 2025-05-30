@@ -697,6 +697,9 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 		return false, err
 	}
 
+	if err := r.updateSynchronizationAddress(); err != nil {
+		return false, err
+	}
 	if r.commonInstancetypesDeploymentEnabled() {
 		if err := r.createOrUpdateInstancetypes(); err != nil {
 			return false, err

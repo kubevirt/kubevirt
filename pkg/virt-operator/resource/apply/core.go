@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -26,6 +27,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -767,4 +770,46 @@ func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.TypedRate
 		caCert = cert
 	}
 	return caCert, nil
+}
+
+func (r *Reconciler) updateSynchronizationAddress() (err error) {
+	if !r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+		return nil
+	}
+	// Find the lease associated with the virt-synchronization controller
+	lease, err := r.clientset.CoordinationV1().Leases(r.kv.Namespace).Get(context.Background(), components.VirtSynchronizationControllerName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	podName := ""
+	if lease.Spec.HolderIdentity != nil {
+		podName = *lease.Spec.HolderIdentity
+	}
+	if podName == "" {
+		return nil
+	}
+	pod, err := r.clientset.CoreV1().Pods(r.kv.Namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	ip := pod.Status.PodIP
+	if ip == "" {
+		return nil
+	}
+	port := util.DefaultSynchronizationPort
+	if r.kv.Spec.SynchronizationPort != "" {
+		p, err := strconv.Atoi(r.kv.Spec.SynchronizationPort)
+		if err != nil {
+			return err
+		}
+		port = p
+	}
+	r.kv.Status.SynchronizationAddress = pointer.P(fmt.Sprintf("%s:%d", ip, port))
+	return nil
 }
