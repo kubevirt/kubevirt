@@ -270,6 +270,17 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					"get",
 				},
 			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"nodes",
+				},
+				Verbs: []string{
+					"get",
+				},
+			},
 		},
 	}
 }
