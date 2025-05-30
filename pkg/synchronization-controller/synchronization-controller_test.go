@@ -775,6 +775,128 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(*updatedSourceVMI.Status.MigrationState.TargetState.SyncAddress).To(Equal(remoteURL))
 			Expect(updatedSourceVMI.Status.MigrationState.TargetState.Pod).To(Equal(targetPodName))
 		})
+
+		It("should not rebuild anything without migrations", func() {
+			objs := remoteController.migrationInformer.GetStore().List()
+			for _, obj := range objs {
+				remoteController.migrationInformer.GetStore().Delete(obj)
+			}
+			err := remoteController.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			remoteController.syncOutboundConnectionMap.Range(func(key, value any) bool {
+				Fail(fmt.Sprintf("found object in outbound map %v, %v", key, value))
+				return true
+			})
+		})
+
+		It("should not rebuild anything if migrations are not ongoing", func() {
+			objs := remoteController.migrationInformer.GetStore().List()
+			for _, obj := range objs {
+				migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+				Expect(ok).To(BeTrue())
+				migration.Status.Phase = virtv1.MigrationFailed
+				remoteController.migrationInformer.GetStore().Update(migration)
+			}
+			err := remoteController.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			remoteController.syncOutboundConnectionMap.Range(func(key, value any) bool {
+				Fail(fmt.Sprintf("found object in outbound map %v, %v", key, value))
+				return true
+			})
+		})
+
+		It("should not rebuild anything if migration references missing VMI", func() {
+			objs := remoteController.vmiInformer.GetStore().List()
+			for _, obj := range objs {
+				remoteController.vmiInformer.GetStore().Delete(obj)
+			}
+
+			err := remoteController.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			remoteController.syncOutboundConnectionMap.Range(func(key, value any) bool {
+				Fail(fmt.Sprintf("found object in outbound map %v, %v", key, value))
+				return true
+			})
+		})
+
+		It("should not rebuild anything if VMI doesn't have sync address", func() {
+			err := remoteController.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			remoteController.syncOutboundConnectionMap.Range(func(key, value any) bool {
+				Fail(fmt.Sprintf("found object in outbound map %v, %v", key, value))
+				return true
+			})
+			err = controller.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			controller.syncReceivingConnectionMap.Range(func(key, value any) bool {
+				Fail(fmt.Sprintf("found object in outbound map %v, %v", key, value))
+				return true
+			})
+		})
+
+		It("should properly rebuild target", func() {
+			remoteURL, err := remoteController.getMyURL()
+			Expect(err).ToNot(HaveOccurred())
+			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(remoteURL),
+				},
+			}
+			targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: targetTestMigrationUID,
+				},
+			}
+			_, err = remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			err = remoteController.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			count := 0
+			remoteController.syncReceivingConnectionMap.Range(func(key, value any) bool {
+				count++
+				Expect(key).To(Equal(testMigrationID))
+				conn, ok := value.(*SynchronizationConnection)
+				Expect(ok).To(BeTrue())
+				Expect(conn.migrationID).To(Equal(testMigrationID))
+				Expect(conn.grpcClientConnection.CanonicalTarget()).To(ContainSubstring(remoteURL))
+				return true
+			})
+			Expect(count).To(Equal(1), "there should be one item in the map")
+		})
+
+		It("should properly rebuild source", func() {
+			remoteURL, err := controller.getMyURL()
+			Expect(err).ToNot(HaveOccurred())
+			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(remoteURL),
+				},
+			}
+			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: sourceTestMigrationUID,
+				},
+			}
+			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			count := 0
+			controller.syncOutboundConnectionMap.Range(func(key, value any) bool {
+				count++
+				Expect(key).To(Equal(testMigrationID))
+				conn, ok := value.(*SynchronizationConnection)
+				Expect(ok).To(BeTrue())
+				Expect(conn.migrationID).To(Equal(testMigrationID))
+				Expect(conn.grpcClientConnection.CanonicalTarget()).To(ContainSubstring(remoteURL))
+				return true
+			})
+			Expect(count).To(Equal(1), "there should be one item in the map")
+		})
 	})
 
 	It("should return nil, nil if invalid resource type passed into index function", func() {
@@ -873,6 +995,19 @@ var _ = Describe("VMI status synchronization controller", func() {
 			_, loaded = controller.syncReceivingConnectionMap.Load(testMigrationID)
 			Expect(loaded).To(BeFalse())
 		})
+	})
+	It("should be able to find the VMI from the migration", func() {
+		vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+		err := controller.vmiInformer.GetStore().Add(vmi)
+		Expect(err).ToNot(HaveOccurred())
+		migration := createTargetMigration(testMigrationID, vmi.Name, vmi.Namespace)
+		res, err := controller.getVMIFromMigration(migration)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).To(BeEquivalentTo(vmi))
+		migration = createTargetMigration(testMigrationID, "unknown", vmi.Namespace)
+		res, err = controller.getVMIFromMigration(migration)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).To(BeNil())
 	})
 })
 
