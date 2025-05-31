@@ -346,6 +346,15 @@ container_push(
 )
 
 container_push(
+    name = "push-virt-synchronization-controller",
+    format = "Docker",
+    image = "//cmd/synchronization-controller:synchronization-controller-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)virt-synchronization-controller",
+    tag = "$(container_tag)",
+)
+
+container_push(
     name = "push-pr-helper",
     format = "Docker",
     image = "//cmd/pr-helper:pr-helper",

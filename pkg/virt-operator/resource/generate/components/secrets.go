@@ -23,17 +23,19 @@ import (
 
 // #nosec 101, false positives were caused by variables not holding any secret value.
 const (
-	KubeVirtCASecretName            = "kubevirt-ca"
-	KubeVirtExportCASecretName      = "kubevirt-export-ca"
-	VirtHandlerCertSecretName       = "kubevirt-virt-handler-certs"
-	VirtHandlerServerCertSecretName = "kubevirt-virt-handler-server-certs"
-	VirtOperatorCertSecretName      = "kubevirt-operator-certs"
-	VirtApiCertSecretName           = "kubevirt-virt-api-certs"
-	VirtControllerCertSecretName    = "kubevirt-controller-certs"
-	VirtExportProxyCertSecretName   = "kubevirt-exportproxy-certs"
-	CABundleKey                     = "ca-bundle"
-	LocalPodDNStemplateString       = "%s.%s.pod.cluster.local"
-	CaClusterLocal                  = "cluster.local"
+	KubeVirtCASecretName                              = "kubevirt-ca"
+	KubeVirtExportCASecretName                        = "kubevirt-export-ca"
+	VirtHandlerCertSecretName                         = "kubevirt-virt-handler-certs"
+	VirtHandlerServerCertSecretName                   = "kubevirt-virt-handler-server-certs"
+	VirtOperatorCertSecretName                        = "kubevirt-operator-certs"
+	VirtApiCertSecretName                             = "kubevirt-virt-api-certs"
+	VirtControllerCertSecretName                      = "kubevirt-controller-certs"
+	VirtExportProxyCertSecretName                     = "kubevirt-exportproxy-certs"
+	VirtSynchronizationControllerCertSecretName       = "kubevirt-synchronization-controller-certs"
+	VirtSynchronizationControllerServerCertSecretName = "kubevirt-synchronization-controller-server-certs"
+	CABundleKey                                       = "ca-bundle"
+	LocalPodDNStemplateString                         = "%s.%s.pod.cluster.local"
+	CaClusterLocal                                    = "cluster.local"
 )
 
 type CertificateCreationCallback func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey)
@@ -136,6 +138,35 @@ var populationStrategy = map[string]CertificateCreationCallback{
 			caKeyPair,
 			fmt.Sprintf(LocalPodDNStemplateString, VirtExportProxyServiceName, secret.Namespace),
 			VirtExportProxyServiceName,
+			secret.Namespace,
+			CaClusterLocal,
+			nil,
+			nil,
+			duration,
+		)
+		return keyPair.Cert, keyPair.Key
+	},
+	VirtSynchronizationControllerCertSecretName: func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey) {
+		caKeyPair := &triple.KeyPair{
+			Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
+			Cert: caCert.Leaf,
+		}
+		clientKeyPair, _ := triple.NewClientKeyPair(caKeyPair,
+			"kubevirt.io:system:client:virt-synchronization-controller",
+			nil,
+			duration,
+		)
+		return clientKeyPair.Cert, clientKeyPair.Key
+	},
+	VirtSynchronizationControllerServerCertSecretName: func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey) {
+		caKeyPair := &triple.KeyPair{
+			Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
+			Cert: caCert.Leaf,
+		}
+		keyPair, _ := triple.NewServerKeyPair(
+			caKeyPair,
+			"kubevirt.io:system:node:virt-synchronization-controller",
+			VirtSynchronizationControllerServiceName,
 			secret.Namespace,
 			CaClusterLocal,
 			nil,
@@ -295,6 +326,34 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      VirtHandlerCertSecretName,
+				Namespace: installNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
+		},
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      VirtSynchronizationControllerCertSecretName,
+				Namespace: installNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
+		},
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      VirtSynchronizationControllerServerCertSecretName,
 				Namespace: installNamespace,
 				Labels: map[string]string{
 					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,

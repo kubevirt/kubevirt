@@ -1,5 +1,7 @@
 package apply
 
+import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) (bool, error) {
 	// UPDATE PATH IS
 	// 1. daemonsets - ensures all compute nodes are updated to handle new features
@@ -37,6 +39,22 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 	// create/update ExportProxy Deployments
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
 		if r.exportProxyEnabled() {
+			deployment, err := r.syncDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+			err = r.syncPodDisruptionBudgetForDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+		} else if err := r.deleteDeployment(deployment); err != nil {
+			return false, err
+		}
+	}
+
+	// create/update Synchronization controller Deployments
+	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
+		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
 				return false, err

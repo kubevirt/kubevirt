@@ -132,7 +132,15 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 	return tlsConfig
 }
 
+func SetupTLSForVirtSynchronizationControllerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
+	return SetupTLSForServer(caManager, certManager, externallyManaged, clusterConfig, "virt-synchronization-controller")
+}
+
 func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
+	return SetupTLSForServer(caManager, certManager, externallyManaged, clusterConfig, "virt-handler")
+}
+
+func SetupTLSForServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig, commonNameType string) *tls.Config {
 	// #nosec cause: InsecureSkipVerify: true
 	// resolution: Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
 	return &tls.Config{
@@ -174,7 +182,7 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 				InsecureSkipVerify: true,
 				// XXX: We need to verify the cert ourselves because we don't have DNS or IP on the certs at the moment
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-					return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageClientAuth, "client")
+					return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageClientAuth, "client", commonNameType)
 				},
 				ClientAuth: tls.RequireAndVerifyClientCert,
 			}
@@ -183,7 +191,15 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 	}
 }
 
+func SetupTLSForVirtSynchronizationControllerClients(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool) *tls.Config {
+	return SetupTLSForClients(caManager, certManager, externallyManaged, "virt-synchronization-controller")
+}
+
 func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool) *tls.Config {
+	return SetupTLSForClients(caManager, certManager, externallyManaged, "virt-handler")
+}
+
+func SetupTLSForClients(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, commonNameType string) *tls.Config {
 	// #nosec cause: InsecureSkipVerify: true
 	// resolution: Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
 	return &tls.Config{
@@ -210,7 +226,7 @@ func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certif
 				log.Log.Reason(err).Error("Failed to get kubevirt CA")
 				return err
 			}
-			return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageServerAuth, "node")
+			return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageServerAuth, "node", commonNameType)
 		},
 	}
 }
@@ -282,7 +298,7 @@ func TLSVersionName(versionId uint16) string {
 	}
 }
 
-func verifyPeerCert(rawCerts [][]byte, externallyManaged bool, certPool *x509.CertPool, usage x509.ExtKeyUsage, commonName string) error {
+func verifyPeerCert(rawCerts [][]byte, externallyManaged bool, certPool *x509.CertPool, usage x509.ExtKeyUsage, commonName, commonNameType string) error {
 	// impossible with RequireAnyClientCert
 	if len(rawCerts) == 0 {
 		return fmt.Errorf("no client certificate provided.")
@@ -305,7 +321,7 @@ func verifyPeerCert(rawCerts [][]byte, externallyManaged bool, certPool *x509.Ce
 		return fmt.Errorf("could not verify peer certificate: %v", err)
 	}
 
-	fullCommonName := fmt.Sprintf("kubevirt.io:system:%s:virt-handler", commonName)
+	fullCommonName := fmt.Sprintf("kubevirt.io:system:%s:%s", commonName, commonNameType)
 	if !externallyManaged && c.Subject.CommonName != fullCommonName {
 		return fmt.Errorf("common name is invalid, expected %s, but got %s", fullCommonName, c.Subject.CommonName)
 	}
