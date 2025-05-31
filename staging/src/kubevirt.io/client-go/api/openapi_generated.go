@@ -21786,6 +21786,27 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 							Ref:     ref("kubevirt.io/api/core/v1.CustomizeComponents"),
 						},
 					},
+					"kubeletRootHostPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The host path of virt-handler's kubelet-root volume to use",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kubeletPodsHostPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The host path of virt-handler's kubelet-pods volume to use",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kubeletDevicePluginsHostPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The host path of virt-handler's kubelet-device-plugins volume to use",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

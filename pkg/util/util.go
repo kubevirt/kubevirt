@@ -23,6 +23,7 @@ const (
 	VirtPrivateDir                            = "/var/run/kubevirt-private"
 	KubeletRoot                               = "/var/lib/kubelet"
 	KubeletPodsDir                            = KubeletRoot + "/pods"
+	KubeletDevicePluginsDir                   = KubeletRoot + "/device-plugins"
 	HostRootMount                             = "/proc/1/root/"
 
 	NonRootUID        = 107
