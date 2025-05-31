@@ -70,6 +70,7 @@ import (
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/storage/backup"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	pvctypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -1368,6 +1369,7 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	if err = c.updateMemoryInfo(vmi, domain); err != nil {
 		return err
 	}
+	backup.UpdateVMIChangedBlockTrackingFromDomain(vmi, domain)
 	err = c.netStat.UpdateStatus(vmi, domain)
 	return err
 }

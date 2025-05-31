@@ -53,6 +53,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
@@ -67,6 +68,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+)
+
+const (
+	testVmName    = "testvmi"
+	testNamespace = "testnamespace"
 )
 
 var (
@@ -103,8 +109,6 @@ var _ = Describe("Manager", func() {
 	var testEphemeralDiskDir string
 	var metadataCache *metadata.Cache
 	var topology *cmdv1.Topology
-	testVmName := "testvmi"
-	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
 	ephemeralDiskCreatorMock := &fake.MockEphemeralDiskImageCreator{}
 	newLibvirtDomainManagerDefault := func() (DomainManager, error) {
@@ -1474,6 +1478,124 @@ var _ = Describe("Manager", func() {
 
 				err = manager.UpdateGuestMemory(vmi)
 				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+		Context("With CBT enabled", func() {
+			DescribeTable("should create qcow2 overlay and define datastore for a new VMI", func(volume v1.Volume, blockDev bool) {
+				vmi := newVMI(testNamespace, testVmName)
+				vmi.Status.ChangedBlockTracking = v1.ChangedBlockTrackingInitializing
+				vmi.Spec.Volumes = []v1.Volume{volume}
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{createVMIDisk(volume.Name)}
+				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+
+				isBlockDeviceVolume = func(volumeName string) (bool, error) {
+					return blockDev, nil
+				}
+				createQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+					Expect(overlayPath).To(Equal(getCBTImagePath(volume.Name)))
+					if blockDev {
+						Expect(imagePath).To(Equal(getBlockPath(volume.Name)))
+					} else {
+						Expect(imagePath).To(Equal(getFsImagePath(volume.Name)))
+					}
+					return nil
+				}
+				domainSpec := expectedDomainFor(vmi)
+				disk := createDomainDiskWithCBT(volume.Name, blockDev)
+				if volume.VolumeSource.PersistentVolumeClaim == nil &&
+					volume.VolumeSource.DataVolume == nil &&
+					volume.VolumeSource.HostDisk == nil {
+					disk = createDomainDisk(volume.Name)
+				}
+				domainSpec.Devices.Disks = []api.Disk{disk}
+				mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(domainXML string) (cli.VirDomain, error) {
+					var domainSpec api.DomainSpec
+					err := xml.Unmarshal([]byte(domainXML), &domainSpec)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(domainSpec.Devices.Disks[0].Source).To(Equal(disk.Source))
+					return mockDomainWithFreeExpectation(domainXML)
+				})
+				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+				mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
+				xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+				Expect(err).ToNot(HaveOccurred())
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xml), nil)
+				manager, _ := newLibvirtDomainManager(mockConn, "fake", "fake", nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false)
+				newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newspec).ToNot(BeNil())
+			},
+				Entry("with block pvc", v1.Volume{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "pvc",
+						}},
+					},
+				}, true),
+				Entry("with fs pvc", v1.Volume{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "pvc",
+						}},
+					},
+				}, false),
+				Entry("with block dv", v1.Volume{
+					Name: "myvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv",
+						},
+					},
+				}, true),
+				Entry("with fs dv", v1.Volume{
+					Name: "myvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv",
+						},
+					},
+				}, false),
+				Entry("with hostDisk", v1.Volume{
+					Name: "myvolumehost",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+							Shared:   pointer.P(true),
+						},
+					},
+				}, false),
+			)
+			It("should not create qcow2 overlay for non presistent volume for a new VMI", func() {
+				vmi := newVMI(testNamespace, testVmName)
+				vmi.Status.ChangedBlockTracking = v1.ChangedBlockTrackingInitializing
+				userData := "fake\nuser\ndata\n"
+				networkData := ""
+				addCloudInitDisk(vmi, userData, networkData)
+				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+
+				domainSpec := expectedDomainFor(vmi)
+				disk := createCloudInitDisk("cloudinit")
+				domainSpec.Devices.Disks = []api.Disk{disk}
+				mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(domainXML string) (cli.VirDomain, error) {
+					var domainSpec api.DomainSpec
+					err := xml.Unmarshal([]byte(domainXML), &domainSpec)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(domainSpec.Devices.Disks[0].Source).To(Equal(disk.Source))
+					return mockDomainWithFreeExpectation(domainXML)
+				})
+				xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+				Expect(err).ToNot(HaveOccurred())
+				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+				mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xml), nil)
+				manager, _ := newLibvirtDomainManager(mockConn, "fake", "fake", nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false)
+				newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newspec).ToNot(BeNil())
 			})
 		})
 	})
@@ -3048,14 +3170,6 @@ var _ = Describe("Manager helper functions", func() {
 			VolumeMode: &blockMode,
 		}
 
-		getFsImagePath := func(name string) string {
-			return filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
-		}
-
-		getBlockPath := func(name string) string {
-			return filepath.Join(string(filepath.Separator), "dev", name)
-		}
-
 		createDomWithFsImage := func(name string) *libvirtxml.Domain {
 			return &libvirtxml.Domain{
 				Devices: &libvirtxml.DomainDeviceList{
@@ -3237,4 +3351,90 @@ func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkDa
 func isoCreationFunc(isoOutFile, volumeID string, inDir string) error {
 	_, err := os.Create(isoOutFile)
 	return err
+}
+
+func createDomainDisk(volumeName string) api.Disk {
+	return api.Disk{
+		Device: "disk",
+		Type:   "file",
+		Source: api.DiskSource{
+			File: getFsImagePath(volumeName),
+		},
+		Target: api.DiskTarget{
+			Bus:    v1.DiskBusVirtio,
+			Device: "vda",
+		},
+		Driver: &api.DiskDriver{
+			Cache:       string(v1.CacheNone),
+			Name:        "qemu",
+			Type:        "raw",
+			ErrorPolicy: "stop",
+			Discard:     "unmap",
+		},
+		Alias: api.NewUserDefinedAlias(volumeName),
+	}
+}
+
+func createVMIDisk(name string) v1.Disk {
+	return v1.Disk{
+		Name: name,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: v1.DiskBusVirtio,
+			},
+		},
+		Cache: v1.CacheNone,
+	}
+}
+
+func createCloudInitDisk(volumeName string) api.Disk {
+	disk := createDomainDisk(volumeName)
+
+	isoPath := cloudinit.GetIsoFilePath(cloudinit.DataSourceNoCloud, testVmName, testNamespace)
+	disk.Source.File = isoPath
+	disk.Driver.Cache = string(v1.CacheWriteThrough)
+	disk.Driver.IO = v1.IONative
+	return disk
+}
+
+func createDomainDiskWithCBT(volumeName string, block bool) api.Disk {
+	disk := createDomainDisk(volumeName)
+	disk.Driver.Type = "qcow2"
+	disk.Source.File = getCBTImagePath(volumeName)
+	if block {
+		disk.Source.Name = volumeName
+		disk.Source.DataStore = &api.DataStore{
+			Type: "block",
+			Format: &api.DataStoreFormat{
+				Type: "raw",
+			},
+			Source: &api.DiskSource{
+				Dev: getBlockPath(volumeName),
+			},
+		}
+	} else {
+		disk.Source.DataStore = &api.DataStore{
+			Type: "file",
+			Format: &api.DataStoreFormat{
+				Type: "raw",
+			},
+			Source: &api.DiskSource{
+				File: getFsImagePath(volumeName),
+			},
+		}
+	}
+	return disk
+}
+
+func getCBTImagePath(name string) string {
+	cbtPath := filepath.Join("/var", "lib", "libvirt", "qemu", "cbt")
+	return filepath.Join(cbtPath, name+".qcow2")
+}
+
+func getFsImagePath(name string) string {
+	return filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
+}
+
+func getBlockPath(name string) string {
+	return filepath.Join(string(filepath.Separator), "dev", name)
 }
