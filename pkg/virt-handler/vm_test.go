@@ -180,7 +180,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockCgroupManager = cgroup.NewMockManager(ctrl)
 
 		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
-		fakeDownwardMetricsManager := newFakeManager()
 
 		networkBindingPluginMemoryCalculator = &stubNetBindingPluginMemoryCalculator{}
 
@@ -198,7 +197,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			config,
 			mockIsolationDetector,
 			migrationProxy,
-			fakeDownwardMetricsManager,
 			nil,
 			"",
 			&netConfStub{},
@@ -3938,18 +3936,6 @@ func (ns *netStatStub) PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineIn
 }
 func (ns *netStatStub) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodIfaceCacheData) {
 }
-
-func newFakeManager() *fakeManager {
-	return &fakeManager{}
-}
-
-type fakeManager struct{}
-
-func (*fakeManager) Run(_ chan struct{}) {}
-func (*fakeManager) StartServer(_ *v1.VirtualMachineInstance, _ int) error {
-	return nil
-}
-func (*fakeManager) StopServer(_ *v1.VirtualMachineInstance) {}
 
 type stubNetBindingPluginMemoryCalculator struct {
 	calculatedMemoryOverhead bool
