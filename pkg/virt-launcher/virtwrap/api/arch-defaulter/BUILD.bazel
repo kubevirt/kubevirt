@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "amd64.go",
+        "archdefaults.go",
+        "arm64.go",
+        "ppc64le.go",
+        "s390x.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api/arch-defaulter",
+    visibility = ["//visibility:public"],
+    deps = ["//staging/src/kubevirt.io/client-go/log:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "arch_defaulter_suite_test.go",
+        "archdefaults_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)
