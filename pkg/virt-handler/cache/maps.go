@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -11,11 +12,11 @@ import (
 )
 
 type LauncherClientInfo struct {
-	Client              cmdclient.LauncherClient
-	SocketFile          string
-	DomainPipeStopChan  chan struct{}
-	NotInitializedSince time.Time
-	Ready               bool
+	Client               cmdclient.LauncherClient
+	SocketFile           string
+	DomainPipeCancelFunc context.CancelFunc
+	NotInitializedSince  time.Time
+	Ready                bool
 }
 
 type LauncherClientInfoByVMI struct {
