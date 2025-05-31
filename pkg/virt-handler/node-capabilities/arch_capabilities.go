@@ -17,12 +17,10 @@
  *
  */
 
-package nodelabeller
+package nodecapabilities
 
 import (
 	"runtime"
-
-	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 const (
@@ -31,10 +29,10 @@ const (
 	s390x = "s390x"
 )
 
-// Ensure that there is a compile error should the struct not implement the archLabeller interface anymore.
-var _ = archLabeller(&defaultArchLabeller{})
+// Ensure that there is a compile error should the struct not implement the archCapabilities interface anymore.
+var _ = archCapabilities(&defaultArchCapabilities{})
 
-type archLabeller interface {
+type archCapabilities interface {
 	defaultVendor() string
 	requirePolicy(policy string) bool
 	hasHostSupportedFeatures() bool
@@ -43,41 +41,40 @@ type archLabeller interface {
 	arch() string
 }
 
-func newArchLabeller(arch string) archLabeller {
+func NewArchCapabilities(arch string) archCapabilities {
 	switch arch {
 	case amd64:
-		return archLabellerAMD64{}
+		return archCapabilitiesAMD64{}
 	case arm64:
-		return archLabellerARM64{}
+		return archCapabilitiesARM64{}
 	case s390x:
-		return archLabellerS390X{}
+		return archCapabilitiesS390X{}
 	default:
-		return defaultArchLabeller{}
+		return defaultArchCapabilities{}
 	}
 }
 
-type defaultArchLabeller struct{}
+type defaultArchCapabilities struct{}
 
-func (defaultArchLabeller) defaultVendor() string {
+func (defaultArchCapabilities) defaultVendor() string {
 	return ""
 }
 
-func (defaultArchLabeller) requirePolicy(policy string) bool {
-	return policy == util.RequirePolicy
+func (defaultArchCapabilities) requirePolicy(policy string) bool {
+	return policy == RequirePolicy
 }
-
-func (defaultArchLabeller) hasHostSupportedFeatures() bool {
+func (defaultArchCapabilities) hasHostSupportedFeatures() bool {
 	return false
 }
 
-func (defaultArchLabeller) supportsHostModel() bool {
+func (defaultArchCapabilities) supportsHostModel() bool {
 	return false
 }
 
-func (defaultArchLabeller) supportsNamedModels() bool {
+func (defaultArchCapabilities) supportsNamedModels() bool {
 	return false
 }
 
-func (defaultArchLabeller) arch() string {
+func (defaultArchCapabilities) arch() string {
 	return runtime.GOARCH
 }
