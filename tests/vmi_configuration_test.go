@@ -2369,7 +2369,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				Expect(cpuManagerEnabled).To(BeTrue())
 			})
-			It("[test_id:991]should be scheduled on a node with running cpu manager", func() {
+			It("[test_id:991]should be scheduled on a node with running cpu manager", Serial, func() {
 				cpuVmi := libvmifact.NewCirros()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
@@ -2426,7 +2426,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
 				Expect(domXML).To(ContainSubstring("<hint-dedicated state='on'/>"), "should container the hint-dedicated feature")
 			})
-			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
+			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", Serial, func() {
 				Skip("Skip test till issue https://github.com/kubevirt/kubevirt/issues/3910 is fixed")
 				cpuVmi := libvmifact.NewCirros()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -2484,7 +2484,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking if pod memory usage is > 80Mi")
 				Expect(m).To(BeNumerically(">", 83886080), "83886080 B = 80 Mi")
 			})
-			DescribeTable("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func(resources *v1.ResourceRequirements) {
+			DescribeTable("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", Serial, func(resources *v1.ResourceRequirements) {
 				cpuVmi := libvmifact.NewCirros()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
@@ -2605,7 +2605,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).To(HaveOccurred())
 			})
 
-			It("[test_id:802]should configure correct number of vcpus with requests.cpus", func() {
+			It("[test_id:802]should configure correct number of vcpus with requests.cpus", Serial, func() {
 				cpuVmi := libvmifact.NewCirros()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
@@ -2668,7 +2668,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 			})
-			It("[test_id:830]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
+			It("[test_id:830]should start a vm with no cpu pinning after a vm with cpu pinning on same node", Serial, func() {
 				Vmi := libvmifact.NewCirros()
 				cpuVmi := libvmifact.NewCirros()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -2719,7 +2719,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				node = nodes.Items[1].Name
 			})
 
-			It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
+			It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", Serial, func() {
 				cpuvmi := dedicatedCPUVMI()
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				cpuvmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuvmi)).Create(context.Background(), cpuvmi, metav1.CreateOptions{})
@@ -2743,7 +2743,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 			})
 
-			It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", func() {
+			It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", Serial, func() {
 				vmi := noDedicatedCPUVMI()
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
