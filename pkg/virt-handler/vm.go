@@ -36,6 +36,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mitchellh/go-ps"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"golang.org/x/sys/unix"
@@ -2045,6 +2046,9 @@ func (c *VirtualMachineController) defaultExecute(key string,
 		// `syncErr` will be propagated anyway, and it will be logged in `re-enqueueing`
 		// so there is no need to log it twice in hot path without increased verbosity.
 		log.Log.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
+		if c.isMalformedUUID(vmi) {
+			vmi.Status.Phase = v1.Failed
+		}
 	}
 
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists
@@ -3448,6 +3452,13 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 		}
 	}
 	return vmi.Status.Phase, nil
+}
+
+func (c *VirtualMachineController) isMalformedUUID(vmi *v1.VirtualMachineInstance) bool {
+	if err := uuid.Validate(string(vmi.Spec.Domain.Firmware.UUID)); err != nil {
+		return true
+	}
+	return false
 }
 
 func (c *VirtualMachineController) addFunc(obj interface{}) {
