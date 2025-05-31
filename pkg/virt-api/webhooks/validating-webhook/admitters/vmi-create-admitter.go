@@ -144,7 +144,8 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 
 func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []string {
 	var warnings []string
-	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
+	enabledFeatureGates, _ := featuregate.ParseEnableFeatureGates(config.GetConfig().DeveloperConfiguration.FeatureGates)
+	for _, fg := range enabledFeatureGates {
 		deprecatedFeature := featuregate.FeatureGateInfo(fg)
 		if deprecatedFeature != nil && deprecatedFeature.State == featuregate.Deprecated && deprecatedFeature.VmiSpecUsed != nil {
 			if used := deprecatedFeature.VmiSpecUsed(spec); used {
