@@ -97,6 +97,7 @@ launcherbase_main="
 launcherbase_x86_64="
   edk2-ovmf-${EDK2_VERSION}
   qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
+  qemu-kvm-device-display-virtio-vga-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   seabios-${SEABIOS_VERSION}
