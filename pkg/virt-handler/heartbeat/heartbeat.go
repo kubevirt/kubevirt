@@ -74,7 +74,31 @@ func (h *HeartBeat) heartBeat(heartBeatInterval time.Duration, stopCh chan struc
 	// This sets the heartbeat to:
 	// 1 minute with a 1.2 jitter + the time it takes for the heartbeat function to run (sliding == true).
 	// So the amount of time between heartbeats randomly varies between 1min and 2min12sec + the heartbeat function execution time.
-	wait.JitterUntil(h.do, heartBeatInterval, 1.2, true, stopCh)
+	go wait.JitterUntil(h.do, heartBeatInterval, 1.2, true, stopCh)
+
+	err := h.handleKSMForceUpdate()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to force-set KSM labels on node %s", h.host)
+	}
+	h.clusterConfig.SetConfigModifiedCallback(func() {
+		err = h.handleKSM()
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to set KSM labels on node %s", h.host)
+		}
+	})
+	go wait.JitterUntil(func() {
+		for err := h.handleKSM(); err != nil; err = h.handleKSM() {
+			select {
+			case <-stopCh:
+				return
+			default:
+				log.Log.Reason(err).Errorf("failed to set KSM label on node %s, trying again in 1 minute", h.host)
+				time.Sleep(1 * time.Minute)
+			}
+		}
+	}, 20*time.Minute, 0.2, true, stopCh)
+
+	<-stopCh
 }
 
 func (h *HeartBeat) labelNodeUnschedulable() {
@@ -137,19 +161,10 @@ func (h *HeartBeat) do() {
 		cpuManagerEnabled = h.isCPUManagerEnabled(h.cpuManagerPaths)
 	}
 
-	node, err := h.clientset.Nodes().Get(context.Background(), h.host, metav1.GetOptions{})
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Can't get node %s", h.host)
-		return
-	}
-	ksmEnabled, ksmEnabledByUs := handleKSM(node, h.clusterConfig)
-
-	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s": "%t"}, "annotations": {"%s": %s, "%s": "%t"}}}`,
+	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t"}, "annotations": {"%s": %s}}}`,
 		v1.NodeSchedulable, kubevirtSchedulable,
 		v1.CPUManager, cpuManagerEnabled,
-		v1.KSMEnabledLabel, ksmEnabled,
 		v1.VirtHandlerHeartbeat, string(now),
-		v1.KSMHandlerManagedAnnotation, ksmEnabledByUs,
 	))
 	_, err = h.clientset.Nodes().Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
@@ -195,6 +210,51 @@ func (h *HeartBeat) isCPUManagerEnabled(cpuManagerPaths []string) bool {
 		log.DefaultLogger().V(4).Infof("Node has CPU Manager not runnning")
 		return false
 	}
+}
+
+func handleKSMhelper(nodeName string, client k8scli.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig, forceUpdate bool) error {
+	ksmEnabled, ksmEnabledByUs, needsUpdate, err := handleKSM(nodeName, client, clusterConfig)
+	if err != nil {
+		return err
+	}
+	if !forceUpdate && !needsUpdate {
+		return nil
+	}
+
+	// merge patch is being used here to handle the case in which the node has an empty/nil labels/annotations map,
+	// which would cause a JSON patch to fail.
+	patchPayload := struct {
+		Metadata metav1.ObjectMeta `json:"metadata"`
+	}{
+		Metadata: metav1.ObjectMeta{
+			Labels: map[string]string{
+				v1.KSMEnabledLabel: fmt.Sprintf("%t", ksmEnabled),
+			},
+			Annotations: map[string]string{
+				v1.KSMHandlerManagedAnnotation: fmt.Sprintf("%t", ksmEnabledByUs),
+			},
+		},
+	}
+
+	patchBytes, err := json.Marshal(patchPayload)
+	if err != nil {
+		return fmt.Errorf("can't parse json patch: %v", err)
+	}
+
+	_, err = client.Nodes().Patch(context.Background(), nodeName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to patch node %s: %v", nodeName, err)
+	}
+
+	return nil
+}
+
+func (h *HeartBeat) handleKSM() error {
+	return handleKSMhelper(h.host, h.clientset, h.clusterConfig, false)
+}
+
+func (h *HeartBeat) handleKSMForceUpdate() error {
+	return handleKSMhelper(h.host, h.clientset, h.clusterConfig, true)
 }
 
 func detectCPUManagerFile(cpuManagerPaths []string) (string, error) {
