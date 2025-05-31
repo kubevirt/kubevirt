@@ -68,7 +68,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/util/migrations"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
@@ -610,7 +609,7 @@ func (c *Controller) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virt
 		return fmt.Errorf("another CPU hotplug is in progress")
 	}
 
-	if migrations.IsMigrating(vmi) {
+	if vmi.IsMigrating() {
 		return fmt.Errorf("CPU hotplug is not allowed while VMI is migrating")
 	}
 
@@ -723,7 +722,7 @@ func (c *Controller) handleTolerationsChangeRequest(vm *virtv1.VirtualMachine, v
 		return nil
 	}
 
-	if migrations.IsMigrating(vmi) {
+	if vmi.IsMigrating() {
 		return fmt.Errorf("tolerations should not be changed during VMI migration")
 	}
 
@@ -748,7 +747,7 @@ func (c *Controller) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vmi 
 	hasNodeSelectorChanged := !equality.Semantic.DeepEqual(vmCopyWithInstancetype.Spec.Template.Spec.NodeSelector, vmi.Spec.NodeSelector)
 	hasNodeAffinityChanged := !equality.Semantic.DeepEqual(vmCopyWithInstancetype.Spec.Template.Spec.Affinity, vmi.Spec.Affinity)
 
-	if migrations.IsMigrating(vmi) && (hasNodeSelectorChanged || hasNodeAffinityChanged) {
+	if vmi.IsMigrating() && (hasNodeSelectorChanged || hasNodeAffinityChanged) {
 		return fmt.Errorf("Node affinity should not be changed during VMI migration")
 	}
 
@@ -2604,7 +2603,7 @@ func (c *Controller) isVirtualMachineStatusTerminating(vm *virtv1.VirtualMachine
 
 // isVirtualMachineStatusMigrating determines whether the VM status field should be set to "Migrating".
 func (c *Controller) isVirtualMachineStatusMigrating(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	return vmi != nil && migrations.IsMigrating(vmi)
+	return vmi != nil && vmi.IsMigrating()
 }
 
 // isVirtualMachineStatusUnschedulable determines whether the VM status field should be set to "FailedUnschedulable".
@@ -3250,7 +3249,7 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 		return fmt.Errorf("another memory hotplug is in progress")
 	}
 
-	if migrations.IsMigrating(vmi) {
+	if vmi.IsMigrating() {
 		return fmt.Errorf("memory hotplug is not allowed while VMI is migrating")
 	}
 

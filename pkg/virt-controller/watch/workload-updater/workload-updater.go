@@ -218,7 +218,7 @@ func (c *WorkloadUpdateController) updateVmi(_, obj interface{}) {
 	}
 
 	if !(isHotplugInProgress(vmi) || isVolumesUpdateInProgress(vmi)) ||
-		migrationutils.IsMigrating(vmi) {
+		vmi.IsMigrating() {
 		return
 	}
 
@@ -328,7 +328,7 @@ func isVolumesUpdateInProgress(vmi *virtv1.VirtualMachineInstance) bool {
 }
 
 func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachineInstance) bool {
-	if vmi.IsFinal() || migrationutils.IsMigrating(vmi) {
+	if vmi.IsFinal() || vmi.IsMigrating() {
 		return false
 	}
 	if metav1.HasAnnotation(vmi.ObjectMeta, v1.WorkloadUpdateMigrationAbortionAnnotation) {
@@ -406,7 +406,7 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 		// while a migrating workload can still be counted towards
 		// the outDatedVMIs list, we don't want to add it to any
 		// of the lists that results in actions being performed on them
-		if migrationutils.IsMigrating(vmi) {
+		if vmi.IsMigrating() {
 			continue
 		} else if exists := lookup[vmi.Namespace+"/"+vmi.Name]; exists {
 			continue
