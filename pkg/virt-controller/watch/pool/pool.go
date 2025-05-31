@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -515,6 +516,43 @@ func filterVMs(vms []*virtv1.VirtualMachine, f func(vmi *virtv1.VirtualMachine) 
 	return filtered
 }
 
+func resolveDownscaleStrategy(policy *poolv1.VirtualMachinePoolDownscalePolicy) poolv1.VirtualMachinePoolDownscaleStrategy {
+	if policy == nil || policy.Strategy == "" {
+		return poolv1.VirtualMachinePoolDownscaleStrategyRandom
+	}
+	return policy.Strategy
+}
+
+func sortVMsForDownscale(vms []*virtv1.VirtualMachine, strategy poolv1.VirtualMachinePoolDownscaleStrategy) {
+	switch strategy {
+	case poolv1.VirtualMachinePoolDownscaleStrategyOrdered:
+		sortVMsByOrdinalDescending(vms)
+	default:
+		shuffleVMs(vms)
+	}
+}
+
+func sortVMsByOrdinalDescending(vms []*virtv1.VirtualMachine) {
+	sort.Slice(vms, func(i, j int) bool {
+		ordinalI, errI := indexFromName(vms[i].Name)
+		ordinalJ, errJ := indexFromName(vms[j].Name)
+
+		if errI != nil {
+			ordinalI = 0
+		}
+		if errJ != nil {
+			ordinalJ = 0
+		}
+		return ordinalI > ordinalJ
+	})
+}
+
+func shuffleVMs(vms []*virtv1.VirtualMachine) {
+	rand.Shuffle(len(vms), func(i, j int) {
+		vms[i], vms[j] = vms[j], vms[i]
+	})
+}
+
 func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, count int) error {
 
 	poolKey, err := controller.KeyFunc(pool)
@@ -533,10 +571,8 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 		count = len(elgibleVMs)
 	}
 
-	// random delete strategy
-	rand.Shuffle(len(elgibleVMs), func(i, j int) {
-		elgibleVMs[i], elgibleVMs[j] = elgibleVMs[j], elgibleVMs[i]
-	})
+	strategy := resolveDownscaleStrategy(pool.Spec.DownscalePolicy)
+	sortVMsForDownscale(elgibleVMs, strategy)
 
 	log.Log.Object(pool).Infof("Removing %d VMs from pool", count)
 
