@@ -124,6 +124,11 @@ const (
 	// #nosec 101, the variable is not holding any credential
 	// Prefix for env vars that will be passed along
 	PassthroughEnvPrefix = "KV_IO_EXTRA_ENV_"
+
+	// lookup keys in AdditionalProperties
+	KubeletRootHostPath          = "KubeletRootHostPath"
+	KubeletPodsHostPath          = "KubeletPodsHostPath"
+	KubeletDevicePluginsHostPath = "KubeletDevicePluginsHostPath"
 )
 
 // DefaultMonitorNamespaces holds a set of well known prometheus-operator namespaces.
@@ -719,6 +724,42 @@ func (c *KubeVirtDeploymentConfig) GetProductVersion() string {
 		return c.GetKubeVirtVersion()
 	}
 	return productVersion
+}
+
+func (c *KubeVirtDeploymentConfig) GetSpecificHostPath() map[string]string {
+	hostPaths := make(map[string]string)
+
+	// kubelet root host path
+	kubeletRootHostPath := c.GetKubeletRootHostPath()
+	if kubeletRootHostPath != "" {
+		hostPaths["kubelet"] = kubeletRootHostPath
+	}
+
+	// kubelet pods host path
+	kubeletPodsHostPath := c.GetKubeletPodsHostPath()
+	if kubeletPodsHostPath != "" {
+		hostPaths["kubelet-pods"] = kubeletPodsHostPath
+	}
+
+	// kubelet device plugins host path
+	kubeletDevicePluginsHostPath := c.GetKubeletDevicePluginsHostPath()
+	if kubeletDevicePluginsHostPath != "" {
+		hostPaths["kubelet-device-plugins"] = kubeletDevicePluginsHostPath
+	}
+
+	return hostPaths
+}
+
+func (c *KubeVirtDeploymentConfig) GetKubeletRootHostPath() string {
+	return c.AdditionalProperties[KubeletRootHostPath]
+}
+
+func (c *KubeVirtDeploymentConfig) GetKubeletPodsHostPath() string {
+	return c.AdditionalProperties[KubeletPodsHostPath]
+}
+
+func (c *KubeVirtDeploymentConfig) GetKubeletDevicePluginsHostPath() string {
+	return c.AdditionalProperties[KubeletDevicePluginsHostPath]
 }
 
 func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {

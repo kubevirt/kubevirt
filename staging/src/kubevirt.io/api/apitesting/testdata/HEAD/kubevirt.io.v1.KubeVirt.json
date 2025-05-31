@@ -883,7 +883,10 @@
           "handlerKey": "handlerValue"
         }
       }
-    }
+    },
+    "kubeletRootHostPath": "kubeletRootHostPathValue",
+    "kubeletPodsHostPath": "kubeletPodsHostPathValue",
+    "kubeletDevicePluginsHostPath": "kubeletDevicePluginsHostPathValue"
   },
   "status": {
     "phase": "phaseValue",

@@ -29,7 +29,7 @@ import (
 
 func TestMarshallObject(t *testing.T) {
 	var imagePullSecret []v1.LocalObjectReference
-	handler := components.NewHandlerDaemonSet("{{.Namespace}}", "", "{{.DockerPrefix}}", "{{.DockerTag}}", "", "", "", "", "", "", "", "", "", "", v1.PullIfNotPresent, imagePullSecret, nil, "2", nil, false)
+	handler := components.NewHandlerDaemonSet("{{.Namespace}}", "", "{{.DockerPrefix}}", "{{.DockerTag}}", "", "", "", "", "", "", "", "", "", "", v1.PullIfNotPresent, imagePullSecret, nil, "2", nil, nil, false)
 	writer := strings.Builder{}
 
 	MarshallObject(handler, &writer)

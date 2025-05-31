@@ -395,6 +395,9 @@ spec:
         tolerationSeconds: 5
         value: valueValue
     replicas: 248
+  kubeletDevicePluginsHostPath: kubeletDevicePluginsHostPathValue
+  kubeletPodsHostPath: kubeletPodsHostPathValue
+  kubeletRootHostPath: kubeletRootHostPathValue
   monitorAccount: monitorAccountValue
   monitorNamespace: monitorNamespaceValue
   productComponent: productComponentValue
