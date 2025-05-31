@@ -2174,6 +2174,16 @@ type KubeVirtSpec struct {
 	Workloads *ComponentConfig `json:"workloads,omitempty"`
 
 	CustomizeComponents CustomizeComponents `json:"customizeComponents,omitempty"`
+
+	// The host path of virt-handler's kubelet-root volume to use
+	// +optional
+	KubeletRootHostPath string `json:"kubeletRootHostPath,omitempty"`
+	// The host path of virt-handler's kubelet-pods volume to use
+	// +optional
+	KubeletPodsHostPath string `json:"kubeletPodsHostPath,omitempty"`
+	// The host path of virt-handler's kubelet-device-plugins volume to use
+	// +optional
+	KubeletDevicePluginsHostPath string `json:"kubeletDevicePluginsHostPath,omitempty"`
 }
 
 type CustomizeComponents struct {
