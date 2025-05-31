@@ -998,7 +998,7 @@ type OSType struct {
 }
 
 type OSACPI struct {
-	Table ACPITable `xml:"table,omitempty"`
+	Table []ACPITable `xml:"table,omitempty"`
 }
 
 type ACPITable struct {

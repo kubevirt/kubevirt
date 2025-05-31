@@ -576,6 +576,7 @@ spec:
             enabled: true
         firmware:
           acpi:
+            msdmNameRef: msdmNameRefValue
             slicNameRef: slicNameRefValue
           bootloader:
             bios:
