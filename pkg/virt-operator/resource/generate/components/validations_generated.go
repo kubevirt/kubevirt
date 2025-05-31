@@ -8697,11 +8697,16 @@ var CRDsValidation map[string]string = map[string]string{
             name:
               description: Name is the name of resource being referenced
               type: string
+            namespace:
+              description: |-
+                Namespace is the namespace of resource being referenced
+                Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant object is required in the referent namespace to allow that namespace's owner to accept the reference. See the ReferenceGrant documentation for details.
+                (Alpha) This field requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
+              type: string
           required:
           - kind
           - name
           type: object
-          x-kubernetes-map-type: atomic
         target:
           description: |-
             Target is the outcome of the cloning process.
@@ -8724,11 +8729,16 @@ var CRDsValidation map[string]string = map[string]string{
             name:
               description: Name is the name of resource being referenced
               type: string
+            namespace:
+              description: |-
+                Namespace is the namespace of resource being referenced
+                Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant object is required in the referent namespace to allow that namespace's owner to accept the reference. See the ReferenceGrant documentation for details.
+                (Alpha) This field requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
+              type: string
           required:
           - kind
           - name
           type: object
-          x-kubernetes-map-type: atomic
         template:
           description: For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
           properties:
