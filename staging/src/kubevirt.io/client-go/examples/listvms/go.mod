@@ -10,7 +10,6 @@ require (
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic v0.5.7 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/uuid v1.1.5 // indirect
 	github.com/googleapis/gnostic v0.2.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
@@ -18,7 +17,7 @@ require (
 	github.com/imdario/mergo v0.3.15 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/crypto v0.17.0 // indirect
+	golang.org/x/crypto v0.31.0 // indirect
 	k8s.io/apimachinery v0.20.15
 	k8s.io/klog v0.3.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
