@@ -159,3 +159,10 @@ func (c *FakeVirtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context,
 
 	return err
 }
+
+func (c *FakeVirtualMachineInstances) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error) {
+	obj, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(virtualmachineinstancesResource, c.ns, "objectgraph", name, objectGraphOptions), nil)
+
+	return *obj.(*v1.ObjectGraphNode), err
+}
