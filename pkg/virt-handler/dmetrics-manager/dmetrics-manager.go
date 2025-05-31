@@ -108,7 +108,7 @@ func (m *DownwardMetricsManager) StartServer(vmi *v1.VirtualMachineInstance, pid
 		return nil
 	}
 
-	launcherSocketPath, err := cmdclient.FindSocketOnHost(vmi)
+	launcherSocketPath, err := cmdclient.FindSocket(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to get the launcher socket for VMI [%s], error: %v", vmi.GetName(), err)
 	}

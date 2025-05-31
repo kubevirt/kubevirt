@@ -214,8 +214,10 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	return "", fmt.Errorf("No command socketdir for vmi %s", vmi.UID)
 }
 
-// gets the cmd socket for a VMI
-func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
+// Finds exactly one socket on a host based on the hostname.
+// A empty hostname is wildcard.
+// Returns error otherwise.
+func FindSocketOnHost(vmi *v1.VirtualMachineInstance, host string) (string, error) {
 	socketsFound := 0
 	foundSocket := ""
 	// It is possible for multiple pods to be active on a single VMI
@@ -223,7 +225,10 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	// this particular local node if it exists. A active pod not
 	// running on this node will not have a kubelet pods directory,
 	// so it will not be found.
-	for podUID := range vmi.Status.ActivePods {
+	for podUID, phost := range vmi.Status.ActivePods {
+		if host != "" && host != phost {
+			continue
+		}
 		socket := SocketFilePathOnHost(string(podUID))
 		exists, _ := diskutils.FileExists(socket)
 		if exists {
@@ -239,6 +244,12 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	}
 
 	return "", fmt.Errorf("No command socket found for vmi %s", vmi.UID)
+}
+
+// Finds exactly one socket on a host based on the NODE_NAME env. Returns error otherwise.
+func FindSocket(vmi *v1.VirtualMachineInstance) (string, error) {
+	host, _ := os.LookupEnv("NODE_NAME")
+	return FindSocketOnHost(vmi, host)
 }
 
 func SocketOnGuest() string {
