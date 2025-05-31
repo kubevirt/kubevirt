@@ -55,15 +55,16 @@ const (
 	apiVMClones           = "virtualmachineclones"
 	apiVMPools            = "virtualmachinepools"
 
-	apiVMExpandSpec   = "virtualmachines/expand-spec"
-	apiVMPortForward  = "virtualmachines/portforward"
-	apiVMStart        = "virtualmachines/start"
-	apiVMStop         = "virtualmachines/stop"
-	apiVMRestart      = "virtualmachines/restart"
-	apiVMAddVolume    = "virtualmachines/addvolume"
-	apiVMRemoveVolume = "virtualmachines/removevolume"
-	apiVMMigrate      = "virtualmachines/migrate"
-	apiVMMemoryDump   = "virtualmachines/memorydump"
+	apiVMExpandSpec     = "virtualmachines/expand-spec"
+	apiVMPortForward    = "virtualmachines/portforward"
+	apiVMStart          = "virtualmachines/start"
+	apiVMStop           = "virtualmachines/stop"
+	apiVMRestart        = "virtualmachines/restart"
+	apiVMAddVolume      = "virtualmachines/addvolume"
+	apiVMRemoveVolume   = "virtualmachines/removevolume"
+	apiVMMigrate        = "virtualmachines/migrate"
+	apiVMMemoryDump     = "virtualmachines/memorydump"
+	apiVMEvacuateCancel = "virtualmachines/evacuatecancel"
 
 	apiVMInstancesConsole                   = "virtualmachineinstances/console"
 	apiVMInstancesVNC                       = "virtualmachineinstances/vnc"
@@ -85,6 +86,7 @@ const (
 	apiVMInstancesSEVSetupSession           = "virtualmachineinstances/sev/setupsession"
 	apiVMInstancesSEVInjectLaunchSecret     = "virtualmachineinstances/sev/injectlaunchsecret"
 	apiVMInstancesUSBRedir                  = "virtualmachineinstances/usbredir"
+	apiVMInstancesEvacuateCancel            = "virtualmachineinstances/evacuatecancel"
 )
 
 func GetAllCluster() []runtime.Object {
@@ -223,6 +225,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesReset,
 					apiVMInstancesSEVSetupSession,
 					apiVMInstancesSEVInjectLaunchSecret,
+					apiVMInstancesEvacuateCancel,
 				},
 				Verbs: []string{
 					"update",
@@ -251,6 +254,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMAddVolume,
 					apiVMRemoveVolume,
 					apiVMMemoryDump,
+					apiVMEvacuateCancel,
 				},
 				Verbs: []string{
 					"update",
@@ -416,6 +420,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesReset,
 					apiVMInstancesSEVSetupSession,
 					apiVMInstancesSEVInjectLaunchSecret,
+					apiVMInstancesEvacuateCancel,
 				},
 				Verbs: []string{
 					"update",
@@ -444,6 +449,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMAddVolume,
 					apiVMRemoveVolume,
 					apiVMMemoryDump,
+					apiVMEvacuateCancel,
 				},
 				Verbs: []string{
 					"update",

@@ -104,3 +104,10 @@ func (c *FakeVirtualMachines) RemoveVolume(ctx context.Context, name string, rem
 func (c *FakeVirtualMachines) PortForward(name string, port int, protocol string) (kubevirtv1.StreamInterface, error) {
 	return nil, nil
 }
+
+func (c *FakeVirtualMachines) EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "evacuatecancel", name, evacuateCancelOptions), nil)
+
+	return err
+}
