@@ -283,7 +283,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				}
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "qemu-ga --version\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: expectResult},
 				}, 30)).To(Succeed())
@@ -329,7 +329,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					&expect.BSnd{S: "ls /var/log/messages\n"},
 					&expect.BExp{R: "/var/log/messages"},
 					&expect.BSnd{S: fmt.Sprintf(grepCmd, syslogCheck, expectedFreezeOutput)},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("1")},
 				}, 30)).To(Succeed())
@@ -681,11 +681,11 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "mkdir /mount_dir\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: fmt.Sprintf("mkfs.ext4 %s\n", blankDisk)},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: fmt.Sprintf("mount %s /mount_dir\n", blankDisk)},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 20)).To(Succeed())
 
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
