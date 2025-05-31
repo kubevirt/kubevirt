@@ -6,8 +6,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -55,20 +55,28 @@ var _ = Describe("virtiofs container", func() {
 	AfterEach(func() {
 		disableFeatureGates()
 	})
-
-	It("should create unprivileged containers only", func() {
-		vmi := api.NewMinimalVMI("testvm")
+	It("should create containers only if Virtiofs is not nil", func() {
+		vmi := libvmi.New(libvmi.WithSecretFs("sharedtestdisk", "test-volume"))
 
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "sharedtestdisk",
+			Name: "secret-volume",
 			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
+				Secret: &v1.SecretVolumeSource{
+					SecretName: "test-secret",
+				},
 			},
 		})
 		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
-			Name:     "sharedtestdisk",
-			Virtiofs: &v1.FilesystemVirtiofs{},
+			Name:     "secret-volume",
+			Virtiofs: nil,
 		})
+
+		containers := generateVirtioFSContainers(vmi, "virtiofs-container", config)
+		Expect(containers).To(HaveLen(1))
+	})
+
+	It("should create unprivileged containers only", func() {
+		vmi := libvmi.New(libvmi.WithSecretFs("sharedtestdisk", "test-volume"))
 
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "secret-volume",

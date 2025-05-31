@@ -584,7 +584,7 @@ type Filesystem struct {
 	// Name is the device name
 	Name string `json:"name"`
 	// Virtiofs is supported
-	Virtiofs *FilesystemVirtiofs `json:"virtiofs"`
+	Virtiofs *FilesystemVirtiofs `json:"virtiofs,omitempty"`
 }
 
 type FilesystemVirtiofs struct{}
