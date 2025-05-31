@@ -89,7 +89,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			}
 		}
 
-		if c.UseLaunchSecurity {
+		if c.UseLaunchSecuritySEV {
 			// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
 			domainIface.Rom = &api.Rom{Enabled: "no"}
 			if ifaceType == v1.VirtIO {
