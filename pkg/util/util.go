@@ -12,6 +12,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	"kubevirt.io/client-go/log"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 const (
@@ -90,18 +91,7 @@ func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
 // NeedVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.
 // This happens when the VMI wants to use a "virtio" network interface, and software emulation is disallowed.
 func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
-	return hasVirtioIface(vmi) && !allowEmulation
-}
-
-// hasVirtioIface checks whether a VMI references at least one "virtio" network interface.
-// Note that the reference can be explicit or implicit (unspecified nic models defaults to "virtio").
-func hasVirtioIface(vmi *v1.VirtualMachineInstance) bool {
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Model == "" || iface.Model == v1.VirtIO {
-			return true
-		}
-	}
-	return false
+	return netvmispec.HasVirtioIface(vmi) && !allowEmulation
 }
 
 func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {

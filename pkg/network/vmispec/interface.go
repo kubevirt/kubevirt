@@ -190,3 +190,14 @@ func HasBindingPluginDeviceInfo(iface v1.Interface, bindingPlugins map[string]v1
 	}
 	return false
 }
+
+// HasVirtioIface checks whether a VMI references at least one "virtio" network interface.
+// Note that the reference can be explicit or implicit (unspecified nic models defaults to "virtio").
+func HasVirtioIface(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Model == "" || iface.Model == v1.VirtIO {
+			return true
+		}
+	}
+	return false
+}
