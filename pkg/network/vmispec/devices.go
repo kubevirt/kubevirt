@@ -24,7 +24,7 @@ import v1 "kubevirt.io/api/core/v1"
 // NeedVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.
 // This happens when the VMI wants to use a "virtio" network interface, and software emulation is disallowed.
 func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
-	return HasVirtioIface(vmi) && !allowEmulation
+	return hasVirtioIface(vmi) && !allowEmulation
 }
 
 func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
