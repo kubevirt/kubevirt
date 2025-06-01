@@ -90,12 +90,12 @@ func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
 // NeedVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.
 // This happens when the VMI wants to use a "virtio" network interface, and software emulation is disallowed.
 func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
-	return wantVirtioNetDevice(vmi) && !allowEmulation
+	return hasVirtioIface(vmi) && !allowEmulation
 }
 
-// wantVirtioNetDevice checks whether a VMI references at least one "virtio" network interface.
+// hasVirtioIface checks whether a VMI references at least one "virtio" network interface.
 // Note that the reference can be explicit or implicit (unspecified nic models defaults to "virtio").
-func wantVirtioNetDevice(vmi *v1.VirtualMachineInstance) bool {
+func hasVirtioIface(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.Model == "" || iface.Model == v1.VirtIO {
 			return true
