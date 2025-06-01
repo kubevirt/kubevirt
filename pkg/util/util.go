@@ -12,7 +12,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	"kubevirt.io/client-go/log"
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 const (
@@ -86,18 +85,6 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 
 func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi)
-}
-
-// NeedVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.
-// This happens when the VMI wants to use a "virtio" network interface, and software emulation is disallowed.
-func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
-	return netvmispec.HasVirtioIface(vmi) && !allowEmulation
-}
-
-func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
-	return (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
-		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
-		(*vmi.Spec.Domain.Devices.AutoattachPodInterface)
 }
 
 func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
