@@ -547,10 +547,10 @@ func calcVCPUs(cpu *v1.CPU) int64 {
 
 func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
-	if netvmispec.NeedTunDevice(vmi) {
+	if netvmispec.RequiresTunDevice(vmi) {
 		res[TunDevice] = resource.MustParse("1")
 	}
-	if netvmispec.NeedVirtioNetDevice(vmi, allowEmulation) {
+	if netvmispec.RequiresVirtioNetDevice(vmi, allowEmulation) {
 		// Note that about network interface, allowEmulation does not make
 		// any difference on eventual Domain xml, but uniformly making
 		// /dev/vhost-net unavailable and libvirt implicitly fallback
