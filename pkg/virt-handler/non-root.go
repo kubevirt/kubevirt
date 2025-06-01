@@ -153,13 +153,13 @@ func (c *VirtualMachineController) prepareNetwork(vmi *v1.VirtualMachineInstance
 		return err
 	}
 
-	if netvmispec.NeedVirtioNetDevice(vmi, c.clusterConfig.AllowEmulation()) {
+	if netvmispec.RequiresVirtioNetDevice(vmi, c.clusterConfig.AllowEmulation()) {
 		if err := c.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
 			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
 		}
 	}
 
-	if netvmispec.NeedTunDevice(vmi) {
+	if netvmispec.RequiresTunDevice(vmi) {
 		if err := c.claimDeviceOwnership(rootMount, "/net/tun"); err != nil {
 			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up tun device, %s", err))
 		}
