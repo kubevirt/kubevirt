@@ -57,6 +57,7 @@ var _ = Describe("Virt remote commands", func() {
 		vmi.Status = v1.VirtualMachineInstanceStatus{
 			ActivePods: map[types.UID]string{
 				types.UID(podUID): host,
+				types.UID("NA"):   host,
 			},
 		}
 
@@ -127,6 +128,18 @@ var _ = Describe("Virt remote commands", func() {
 			// unresponsive is true when marked as unresponsive
 			MarkSocketUnresponsive(sock)
 			Expect(IsSocketUnresponsive(sock)).To(BeTrue())
+		})
+
+		It("socket dir from UID and file path provider func", func() {
+			path, err := FindPodDirOnHost(vmi, SocketFilePathOnHost)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(path).To(Equal(podSocketFile))
+		})
+
+		It("negative test socket dir not found", func() {
+			_, err := FindPodDirOnHost(vmi, func(string) string { return "no-such-dir" })
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no-such-dir"))
 		})
 
 		Context("exec", func() {
