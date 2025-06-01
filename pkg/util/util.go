@@ -12,6 +12,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	"kubevirt.io/client-go/log"
+
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 const (
@@ -35,15 +37,6 @@ func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
 
 	nonRoot := vmi.Status.RuntimeUser != 0
 	return ok || nonRoot
-}
-
-func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.SRIOV != nil {
-			return true
-		}
-	}
-	return false
 }
 
 // Check if a VMI spec requests GPU
@@ -76,8 +69,9 @@ func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
 
 // Check if a VMI spec requests a VFIO device
 func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
-
-	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || isSRIOVVmi(vmi) {
+	if IsHostDevVMI(vmi) ||
+		IsGPUVMI(vmi) ||
+		netvmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
 		return true
 	}
 	return false
