@@ -1140,11 +1140,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				createVMI(vmi)
 				mockContainerDiskMounter.EXPECT().ContainerDisksReady(vmi, gomock.Any()).Return(false, nil)
 
+				mockQueue.ExpectAdds(1)
 				sanityExecute()
-
-				Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
-				Expect(mockQueue.Len()).To(Equal(0))
-				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+				mockQueue.Wait()
 			})
 
 			It("should retry noisy if a containerDisk is not yet ready and the suppress timeout is over", func() {
