@@ -29,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -45,31 +44,23 @@ import (
 )
 
 var _ = Describe(SIG("VMIDefaults", func() {
-	var virtClient kubecli.KubevirtClient
-
-	var vmi *v1.VirtualMachineInstance
-
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
 
 	Context("Disk defaults", func() {
-		BeforeEach(func() {
+
+		It("[test_id:4115]Should be applied to VMIs", func() {
 			// create VMI with missing disk target
-			vmi = libvmi.New(
+			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithResourceMemory("8192Ki"),
 				libvmi.WithContainerDisk("testdisk", "dummy"),
 			)
-		})
 
-		It("[test_id:4115]Should be applied to VMIs", func() {
 			// create the VMI first
-			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			_, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			newVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// check defaults
@@ -81,7 +72,10 @@ var _ = Describe(SIG("VMIDefaults", func() {
 	})
 
 	Context("MemBalloon defaults", func() {
-		var kvConfiguration v1.KubeVirtConfiguration
+		var (
+			kvConfiguration v1.KubeVirtConfiguration
+			vmi             *v1.VirtualMachineInstance
+		)
 
 		BeforeEach(func() {
 			// create VMI with missing disk target
@@ -91,13 +85,13 @@ var _ = Describe(SIG("VMIDefaults", func() {
 				libvmi.WithResourceMemory("128Mi"),
 			)
 
-			kv := libkubevirt.GetCurrentKv(virtClient)
+			kv := libkubevirt.GetCurrentKv(kubevirt.Client())
 			kvConfiguration = kv.Spec.Configuration
 		})
 
 		It("[test_id:4556]Should be present in domain", func() {
 			By("Creating a virtual machine")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -141,7 +135,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 			}
 
 			By("Creating a virtual machine")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -182,7 +176,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 		It("[test_id:4559]Should not be present in domain ", func() {
 			By("Creating a virtual machine with autoAttachmemballoon set to false")
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -207,12 +201,12 @@ var _ = Describe(SIG("VMIDefaults", func() {
 			By("Creating a VirtualMachine with AutoattachInputDevice enabled")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+			vm, err := kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Getting VirtualMachineInstance")
 			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithPolling(1 * time.Second).WithTimeout(60 * time.Second).Should(matcher.Exist())
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vmi.Spec.Domain.Devices.Inputs).ToNot(BeEmpty(), "There should be input devices")
