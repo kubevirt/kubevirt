@@ -448,6 +448,20 @@ func (mr *MockStrategyInterfaceMockRecorder) Services() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Services", reflect.TypeOf((*MockStrategyInterface)(nil).Services))
 }
 
+// SynchronizationControllerDeployments mocks base method.
+func (m *MockStrategyInterface) SynchronizationControllerDeployments() []*v13.Deployment {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SynchronizationControllerDeployments")
+	ret0, _ := ret[0].([]*v13.Deployment)
+	return ret0
+}
+
+// SynchronizationControllerDeployments indicates an expected call of SynchronizationControllerDeployments.
+func (mr *MockStrategyInterfaceMockRecorder) SynchronizationControllerDeployments() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SynchronizationControllerDeployments", reflect.TypeOf((*MockStrategyInterface)(nil).SynchronizationControllerDeployments))
+}
+
 // ValidatingAdmissionPolicies mocks base method.
 func (m *MockStrategyInterface) ValidatingAdmissionPolicies() []*v12.ValidatingAdmissionPolicy {
 	m.ctrl.T.Helper()

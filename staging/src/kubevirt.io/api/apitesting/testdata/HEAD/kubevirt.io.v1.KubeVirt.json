@@ -81,6 +81,7 @@
     "productVersion": "productVersionValue",
     "productName": "productNameValue",
     "productComponent": "productComponentValue",
+    "synchronizationPort": "synchronizationPortValue",
     "configuration": {
       "cpuModel": "cpuModelValue",
       "cpuRequest": "0",
@@ -106,6 +107,7 @@
           "virtHandler": 18446744073709551605,
           "virtLauncher": 18446744073709551604,
           "virtOperator": 18446744073709551604,
+          "virtSynchronizationController": 18446744073709551587,
           "nodeVerbosity": {
             "nodeVerbosityKey": 18446744073709551603
           }

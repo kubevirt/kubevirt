@@ -31,6 +31,7 @@ default_targets="
     virt-launcher
     virt-exportserver
     virt-exportproxy
+    virt-synchronization-controller
     alpine-container-disk-demo
     fedora-with-test-tooling-container-disk
     vm-killer

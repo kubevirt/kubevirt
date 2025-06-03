@@ -87,9 +87,9 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 78
-	patchCount    = 50
-	updateCount   = 29
+	resourceCount = 85
+	patchCount    = 53
+	updateCount   = 33
 )
 
 type KubeVirtTestData struct {
@@ -1179,12 +1179,32 @@ func enableExportFeatureGate(kv *v1.KubeVirt) {
 	}
 }
 
+func enableSynchronizationControllerFeatureGate(kv *v1.KubeVirt) {
+	kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+		FeatureGates: []string{
+			"DecentralizedLiveMigration",
+		},
+	}
+}
+
 func exportProxyEnabled(kv *v1.KubeVirt) bool {
 	if kv.Spec.Configuration.DeveloperConfiguration == nil {
 		return false
 	}
 	for _, fg := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
 		if fg == "VMExport" {
+			return true
+		}
+	}
+	return false
+}
+
+func synchronizationControllerEnabled(kv *v1.KubeVirt) bool {
+	if kv.Spec.Configuration.DeveloperConfiguration == nil {
+		return false
+	}
+	for _, fg := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
+		if fg == "DecentralizedLiveMigration" {
 			return true
 		}
 	}
@@ -1202,6 +1222,8 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, rbac.GetAllHandler(NAMESPACE)...)
 	all = append(all, rbac.GetAllController(NAMESPACE)...)
 	all = append(all, rbac.GetAllExportProxy(NAMESPACE)...)
+	all = append(all, rbac.GetAllSynchronizationController(NAMESPACE)...)
+
 	// crds
 	functions := []func() (*extv1.CustomResourceDefinition, error){
 		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
@@ -1431,6 +1453,9 @@ func (k *KubeVirtTestData) makeDeploymentsReady(kv *v1.KubeVirt) {
 	deployments := []string{"/virt-api", "/virt-controller"}
 	if exportProxyEnabled(kv) {
 		deployments = append(deployments, "/virt-exportproxy")
+	}
+	if synchronizationControllerEnabled(kv) {
+		deployments = append(deployments, "/virt-synchronization-controller")
 	}
 
 	for _, name := range deployments {
@@ -2411,11 +2436,11 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
 
-			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(4))
-			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(10))
-			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(7))
-			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(5))
-			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(5))
+			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(5))
+			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(11))
+			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(8))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(6))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(6))
 			Expect(kvTestData.controller.stores.OperatorCrdCache.List()).To(HaveLen(16))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
@@ -3294,8 +3319,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(4))
-			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(4))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(5))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.ServiceMonitorCache.List()).To(BeEmpty())
 		})
 	})

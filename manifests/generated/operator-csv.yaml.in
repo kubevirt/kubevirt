@@ -827,6 +827,48 @@ spec:
         - apiGroups:
           - kubevirt.io
           resources:
+          - virtualmachineinstances
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+          - patch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - update
+          - create
+          - patch
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
           - kubevirts
           verbs:
           - get
@@ -1340,6 +1382,8 @@ spec:
                   value: {{if .VirtExportProxySha}}{{.VirtExportProxySha}}{{end}}
                 - name: VIRT_EXPORTSERVER_SHASUM
                   value: {{if .VirtExportServerSha}}{{.VirtExportServerSha}}{{end}}
+                - name: VIRT_SYNCHRONIZATIONCONTROLLER_SHASUM
+                  value: {{if .VirtSynchronizationControllerSha}}{{.VirtSynchronizationControllerSha}}{{end}}
                 - name: GS_SHASUM
                   value: {{if .GsSha}}{{.GsSha}}{{end}}
                 - name: PR_HELPER_SHASUM
@@ -1414,6 +1458,8 @@ spec:
           - kubevirt-virt-api-certs
           - kubevirt-controller-certs
           - kubevirt-exportproxy-certs
+          - kubevirt-synchronization-controller-certs
+          - kubevirt-synchronization-controller-server-certs
           resources:
           - secrets
           verbs:
@@ -1525,6 +1571,28 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - ""
+          resourceNames:
+          - kubevirt-ca
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - update
+          - create
+          - patch
         serviceAccountName: kubevirt-operator
     strategy: deployment
   installModes:

@@ -24,6 +24,7 @@ import (
 	"path"
 	"strings"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -41,10 +42,11 @@ import (
 const (
 	nodeLabellerVolumePath = "/var/lib/kubevirt-node-labeller"
 
-	VirtAPIName         = "virt-api"
-	VirtControllerName  = "virt-controller"
-	VirtOperatorName    = "virt-operator"
-	VirtExportProxyName = "virt-exportproxy"
+	VirtAPIName                       = "virt-api"
+	VirtControllerName                = "virt-controller"
+	VirtOperatorName                  = "virt-operator"
+	VirtExportProxyName               = "virt-exportproxy"
+	VirtSynchronizationControllerName = "virt-synchronization-controller"
 
 	kubevirtLabelKey = "kubevirt.io"
 
@@ -494,7 +496,7 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 
 // Used for manifest generation only
 func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosity, kubeVirtVersionEnv, virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
-	virtExportServerShaEnv, gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv, virtExportServerImageEnv, gsImage, prHelperImage, sidecarShimImage,
+	virtExportServerShaEnv, virtSynchronizationControllerSha, gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv, virtExportServerImageEnv, virtSynchronizationControllerImageEnv, gsImage, prHelperImage, sidecarShimImage,
 	image string, pullPolicy corev1.PullPolicy) *appsv1.Deployment {
 
 	const kubernetesOSLinux = "linux"
@@ -629,8 +631,8 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 
 	envVars := generateVirtOperatorEnvVars(
 		virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv, virtExportServerShaEnv,
-		gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
-		virtExportServerImageEnv, gsImage, prHelperImage, sidecarShimImage, kubeVirtVersionEnv,
+		virtSynchronizationControllerSha, gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
+		virtExportServerImageEnv, virtSynchronizationControllerImageEnv, gsImage, prHelperImage, sidecarShimImage, kubeVirtVersionEnv,
 	)
 
 	if envVars != nil {
@@ -713,6 +715,105 @@ func NewExportProxyDeployment(namespace, repository, imagePrefix, version, produ
 	return deployment
 }
 
+func NewSynchronizationControllerDeployment(
+	namespace,
+	repository,
+	imagePrefix,
+	version,
+	productName,
+	productVersion,
+	productComponent,
+	image string,
+	pullPolicy corev1.PullPolicy,
+	imagePullSecrets []corev1.LocalObjectReference,
+	migrationNetwork *string,
+	syncPort int32,
+	verbosity string,
+	extraEnv map[string]string) *appsv1.Deployment {
+
+	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtSynchronizationControllerName})
+	deploymentName := VirtSynchronizationControllerName
+	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
+
+	env := operatorutil.NewEnvVarMap(extraEnv)
+	*env = append(*env, corev1.EnvVar{
+		Name: "MY_POD_IP",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "status.podIP",
+			},
+		},
+	})
+	deployment := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
+
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
+	if migrationNetwork != nil {
+		// Join the pod to the migration network and name the corresponding interface "migration0"
+		deployment.Spec.Template.ObjectMeta.Annotations[networkv1.NetworkAttachmentAnnot] = *migrationNetwork + "@" + virtv1.MigrationInterfaceName
+	}
+
+	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtSynchronizationControllerCertSecretName, "/etc/virt-sync-controller/clientcertificates")
+	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtSynchronizationControllerServerCertSecretName, "/etc/virt-sync-controller/servercertificates")
+	attachProfileVolume(&deployment.Spec.Template.Spec)
+
+	pod := &deployment.Spec.Template.Spec
+	pod.ServiceAccountName = SynchronizationControllerServiceAccountName
+	pod.SecurityContext = &corev1.PodSecurityContext{
+		RunAsNonRoot: pointer.P(true),
+	}
+
+	const shortName = "sync"
+	container := &deployment.Spec.Template.Spec.Containers[0]
+	// synchronization-controller too long
+	container.Name = shortName
+	container.Command = []string{
+		VirtSynchronizationControllerName,
+		"--v",
+		verbosity,
+		"--port",
+		fmt.Sprintf("%d", syncPort),
+	}
+	container.Ports = []corev1.ContainerPort{
+		{
+			Name:          "metrics",
+			Protocol:      corev1.ProtocolTCP,
+			ContainerPort: 8443,
+		},
+		{
+			Name:          shortName,
+			Protocol:      corev1.ProtocolTCP,
+			ContainerPort: syncPort,
+		},
+	}
+
+	container.ReadinessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+				Path: "/healthz",
+			},
+		},
+		InitialDelaySeconds: 15,
+		PeriodSeconds:       10,
+	}
+
+	container.Resources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("5m"),
+			corev1.ResourceMemory: resource.MustParse("150Mi"),
+		},
+	}
+
+	return deployment
+}
+
 func criticalAddonsToleration() []corev1.Toleration {
 	return []corev1.Toleration{
 		{
@@ -758,8 +859,8 @@ func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *policyv
 }
 
 func generateVirtOperatorEnvVars(virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
-	virtExportServerShaEnv, gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
-	virtExportServerImageEnv, gsImage, prHelperImage, sidecarShimImage, kubeVirtVersionEnv string) (envVars []corev1.EnvVar) {
+	virtExportServerShaEnv, virtSynchronizationControllerShaEnv, gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
+	virtExportServerImageEnv, virtSynchronizationControllerImageEnv, gsImage, prHelperImage, sidecarShimImage, kubeVirtVersionEnv string) (envVars []corev1.EnvVar) {
 
 	addEnvVar := func(envVarName, envVarValue string) {
 		envVars = append(envVars, corev1.EnvVar{
@@ -805,6 +906,12 @@ func generateVirtOperatorEnvVars(virtApiShaEnv, virtControllerShaEnv, virtHandle
 		addEnvVar(operatorutil.VirtExportServerImageEnvName, virtExportServerImageEnv)
 	} else if virtExportServerShaEnv != "" {
 		addEnvVar(operatorutil.VirtExportServerShasumEnvName, virtExportServerShaEnv)
+	}
+
+	if virtSynchronizationControllerImageEnv != "" {
+		addEnvVar(operatorutil.VirtSynchronizationControllerImageEnvName, virtSynchronizationControllerImageEnv)
+	} else if virtSynchronizationControllerShaEnv != "" {
+		addEnvVar(operatorutil.VirtSynchronizationControllerShasumEnvName, virtSynchronizationControllerShaEnv)
 	}
 
 	if gsImage != "" {
