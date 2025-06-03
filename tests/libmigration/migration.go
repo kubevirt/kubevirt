@@ -50,6 +50,23 @@ func New(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
 	}
 }
 
+func NewSource(vmiName, namespace, migrationID, connectURL string) *v1.VirtualMachineInstanceMigration {
+	migration := New(vmiName, namespace)
+	migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+		MigrationID: migrationID,
+		ConnectURL:  connectURL,
+	}
+	return migration
+}
+
+func NewTarget(vmiName, namespace, migrationID string) *v1.VirtualMachineInstanceMigration {
+	migration := New(vmiName, namespace)
+	migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
+		MigrationID: migrationID,
+	}
+	return migration
+}
+
 func ExpectMigrationToSucceed(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	return ExpectMigrationToSucceedWithOffset(2, virtClient, migration, timeout)
 }
@@ -75,6 +92,19 @@ func ExpectMigrationToSucceedWithOffset(offset int, virtClient kubecli.KubevirtC
 
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
 	return migration
+}
+
+func RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient kubecli.KubevirtClient, sourceMigration, targetMigration *v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigration) {
+	return RunDecentralizedMigrationAndExpectToComplete(virtClient, sourceMigration, targetMigration, MigrationWaitTime)
+}
+
+func RunDecentralizedMigrationAndExpectToComplete(virtClient kubecli.KubevirtClient, sourceMigration, targetMigration *v1.VirtualMachineInstanceMigration, timeout int) (*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigration) {
+	sourceMigration = RunMigration(virtClient, sourceMigration)
+	targetMigration = RunMigration(virtClient, targetMigration)
+
+	sourceMigration = ExpectMigrationToSucceed(virtClient, sourceMigration, timeout)
+	targetMigration = ExpectMigrationToSucceed(virtClient, targetMigration, timeout)
+	return sourceMigration, targetMigration
 }
 
 func RunMigrationAndExpectToComplete(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {

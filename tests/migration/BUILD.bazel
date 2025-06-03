@@ -9,6 +9,7 @@ go_library(
         "host_model.go",
         "migration.go",
         "migration_policy.go",
+        "namespace.go",
         "nodeselector.go",
         "paused.go",
         "postcopy.go",

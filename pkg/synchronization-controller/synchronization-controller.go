@@ -418,6 +418,11 @@ func (s *SynchronizationController) handleSourceState(vmi *virtv1.VirtualMachine
 		// No migration state, don't do anything
 		return nil
 	}
+	if migration.IsFinal() {
+		// Migration completed already, no need to synchronize anymore.
+		return nil
+	}
+
 	sourceState := vmi.Status.MigrationState.SourceState
 	if sourceState.SyncAddress == nil || *sourceState.SyncAddress == "" {
 		syncAddress, err := s.getMyURL()
@@ -454,7 +459,7 @@ func (s *SynchronizationController) handleSourceState(vmi *virtv1.VirtualMachine
 	}
 	if migration.IsFinal() {
 		if migration.Spec.SendTo != nil {
-			log.Log.Object(migration).Infof("completed migration for VMI %s/%s, closing connections", migration.Namespace, migration.Spec.VMIName)
+			log.Log.Object(migration).Infof("completed migration for VMI %s/%s, closing outbound connections", migration.Namespace, migration.Spec.VMIName)
 			s.closeConnectionForMigrationID(s.syncOutboundConnectionMap, migration.Spec.SendTo.MigrationID)
 		}
 	}
@@ -469,6 +474,10 @@ func (s *SynchronizationController) handleTargetState(vmi *virtv1.VirtualMachine
 	}
 	if vmi.Status.MigrationState.TargetState == nil || vmi.Status.MigrationState.SourceState == nil {
 		// No migration state, don't do anything
+		return nil
+	}
+	if migration.IsFinal() {
+		// Migration completed already, no need to synchronize anymore.
 		return nil
 	}
 
@@ -512,7 +521,7 @@ func (s *SynchronizationController) handleTargetState(vmi *virtv1.VirtualMachine
 	}
 	if migration.IsFinal() {
 		if migration.Spec.Receive != nil {
-			log.Log.Object(migration).Infof("completed migration for VMI %s/%s, closing connections", migration.Namespace, migration.Spec.VMIName)
+			log.Log.Object(migration).Infof("completed migration for VMI %s/%s, closing receiving connections", migration.Namespace, migration.Spec.VMIName)
 			s.closeConnectionForMigrationID(s.syncReceivingConnectionMap, migration.Spec.Receive.MigrationID)
 		}
 		return nil
@@ -833,6 +842,7 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	log.Log.Object(vmi).V(5).Infof("vmi migration target state: %#v", vmi.Status.MigrationState.TargetState)
 	log.Log.Object(vmi).V(5).Infof("remote migration target state: %#v", remoteStatus.MigrationState.TargetState)
 	vmi.Status.MigrationState.TargetState = remoteStatus.MigrationState.TargetState.DeepCopy()
+	copyTargetNameNodeLabel(vmi, remoteStatus.MigrationState)
 	copyLegacyTargetFields(vmi, remoteStatus.MigrationState)
 	if !apiequality.Semantic.DeepEqual(origVMI.Status.MigrationState, vmi.Status.MigrationState) {
 		if err := s.patchVMI(origVMI, vmi); err != nil {
@@ -859,6 +869,18 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 
 func (s *SynchronizationController) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) error {
 	patchSet := patch.New()
+
+	if !apiequality.Semantic.DeepEqual(origVMI.Labels, newVMI.Labels) {
+		if len(origVMI.Labels) == 0 {
+			patchSet.AddOption(
+				patch.WithAdd("/metadata/labels", newVMI.Labels))
+		} else {
+			patchSet.AddOption(
+				patch.WithTest("/metadata/labels", origVMI.Labels),
+				patch.WithReplace("/metadata/labels", newVMI.Labels),
+			)
+		}
+	}
 
 	if !apiequality.Semantic.DeepEqual(origVMI.Status.MigrationMethod, newVMI.Status.MigrationMethod) {
 		if origVMI.Status.MigrationMethod == "" {
@@ -900,7 +922,7 @@ func (s *SynchronizationController) patchVMI(origVMI, newVMI *virtv1.VirtualMach
 		if err != nil {
 			return err
 		}
-		log.Log.Object(origVMI).Infof("patch VMI with %s", string(patchBytes))
+		log.Log.Object(origVMI).V(3).Infof("patch VMI with %s", string(patchBytes))
 		if _, err := s.client.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
 		}
@@ -976,6 +998,8 @@ func copyLegacySourceFields(vmi *virtv1.VirtualMachineInstance, migrationState *
 	}
 	vmi.Status.MigrationState.SourcePod = migrationState.SourceState.Pod
 	copyCommonLegacyFields(vmi.Status.MigrationState, migrationState)
+	vmi.Status.MigrationState.Completed = migrationState.Completed
+	vmi.Status.MigrationState.Failed = migrationState.Failed
 }
 
 func copyCommonLegacyFields(targetMigrationState, sourceMigrationState *virtv1.VirtualMachineInstanceMigrationState) {
@@ -992,6 +1016,14 @@ func copyCommonLegacyFields(targetMigrationState, sourceMigrationState *virtv1.V
 	if sourceMigrationState.EndTimestamp != nil {
 		targetMigrationState.EndTimestamp = sourceMigrationState.StartTimestamp
 	}
-	targetMigrationState.Completed = sourceMigrationState.Completed
-	targetMigrationState.Failed = sourceMigrationState.Failed
+}
+
+func copyTargetNameNodeLabel(vmi *virtv1.VirtualMachineInstance, migrationState *virtv1.VirtualMachineInstanceMigrationState) {
+	// If the targetState.Node is set, make sure the kubevirt.io/migrationTargetNodeName label is properly updated.
+	if migrationState.TargetState != nil && migrationState.TargetState.Node != "" {
+		if len(vmi.Labels) == 0 {
+			vmi.Labels = make(map[string]string)
+		}
+		vmi.Labels[virtv1.MigrationTargetNodeNameLabel] = migrationState.TargetState.Node
+	}
 }
