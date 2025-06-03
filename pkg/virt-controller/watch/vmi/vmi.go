@@ -2282,7 +2282,7 @@ func (c *Controller) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMachi
 		Status:  k8sv1.ConditionTrue,
 		Type:    virtv1.VirtualMachineInstanceDataVolumesReady,
 		Reason:  virtv1.VirtualMachineInstanceReasonAllDVsReady,
-		Message: "All of the VMI's DVs are bound and not running",
+		Message: "All of the VMI's DVs are bound and ready",
 	}
 
 	for _, dv := range dvs {
