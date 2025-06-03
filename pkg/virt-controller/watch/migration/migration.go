@@ -613,7 +613,7 @@ func (c *Controller) processMigrationPhase(
 		if migration.IsTarget() {
 			if pod != nil {
 				if controller.VMIHasHotplugVolumes(vmi) {
-					if attachmentPod != nil {
+					if attachmentPod != nil && controller.IsPodReady(attachmentPod) {
 						migrationCopy.Status.Phase = virtv1.MigrationScheduling
 					}
 				} else {
@@ -628,8 +628,10 @@ func (c *Controller) processMigrationPhase(
 				migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
 			}
 		} else {
-			// Decentralized source migration, switch to scheduling.
-			migrationCopy.Status.Phase = virtv1.MigrationScheduling
+			if migration.IsSource() && !migration.IsTarget() && vmi.IsRunning() {
+				// Decentralized source migration, switch to scheduling.
+				migrationCopy.Status.Phase = virtv1.MigrationScheduling
+			}
 		}
 	case virtv1.MigrationWaitingForSync:
 		if vmi.IsMigrationSourceSynchronized() {
@@ -1102,7 +1104,7 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 	}
 
 	vmiCopy := vmi.DeepCopy()
-	if vmiCopy.Status.MigrationState == nil {
+	if vmiCopy.Status.MigrationState == nil || !migration.IsDecentralized() {
 		vmiCopy.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
 			MigrationUID: migration.UID,
 			TargetNode:   pod.Spec.NodeName,
@@ -1114,6 +1116,8 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 		vmiCopy.Status.MigrationState.TargetNode = pod.Spec.NodeName
 		vmiCopy.Status.MigrationState.SourceNode = vmi.Status.NodeName
 		vmiCopy.Status.MigrationState.TargetPod = pod.Name
+		vmiCopy.Status.MigrationState.Completed = false
+		vmiCopy.Status.MigrationState.Failed = false
 	}
 	if migration.IsDecentralized() {
 		vmiCopy.Status.MigrationState.TargetState.MigrationUID = migration.UID
@@ -1133,6 +1137,9 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 
 	// By setting this label, virt-handler on the target node will receive
 	// the vmi and prepare the local environment for the migration
+	if len(vmiCopy.ObjectMeta.Labels) == 0 {
+		vmiCopy.ObjectMeta.Labels = make(map[string]string)
+	}
 	vmiCopy.ObjectMeta.Labels[virtv1.MigrationTargetNodeNameLabel] = pod.Spec.NodeName
 
 	if controller.VMIHasHotplugVolumes(vmiCopy) {
@@ -1506,8 +1513,18 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 		if migration.IsSource() && !migration.IsTarget() {
 			log.Log.Object(migration).Object(vmi).V(2).Infof("successfuly migrated, cleaning up source virtual machine instance")
 			// Delete the source VMI since we have migration to another cluster/namespace
-			return c.clientset.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
+			if err := c.clientset.VirtualMachine(vmi.Namespace).Stop(context.Background(), vmi.Name, &virtv1.StopOptions{}); err != nil {
+				if !k8serrors.IsNotFound(err) {
+					return err
+				}
+			}
+			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{}); err != nil {
+				if !k8serrors.IsNotFound(err) {
+					return err
+				}
+			}
 		}
+
 		return nil
 	}
 
@@ -1517,7 +1534,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 	}
 
 	if !canMigrate {
-		return fmt.Errorf("vmi is inelgible for migration because another migration job is running")
+		return fmt.Errorf("vmi is ineligible for migration because another migration job is running")
 	}
 
 	switch migration.Status.Phase {
@@ -1553,7 +1570,6 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 					log.Log.Object(vmi).V(5).Info("decentralized migration creating target pod in vmi namespace, source pod based on target VMI")
 					// This is a decentralized target, generate the source pod template
 					sourcePod, err = c.templateService.RenderLaunchManifest(vmi)
-					log.Log.Object(sourcePod).Error("Source pod exists decentralized")
 					if err != nil {
 						return fmt.Errorf("failed to render launch manifest: %v", err)
 					}
@@ -1597,7 +1613,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 			return c.handlePreHandoffMigrationCancel(migration, vmi, pod)
 		}
 
-		if migration.IsSource() {
+		if migration.IsSource() && vmi.IsRunning() {
 			if err := c.updateVMIMigrationSourceWithPodInfo(migration, vmi); err != nil {
 				return err
 			}
@@ -1660,9 +1676,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 		} else {
 			log.Log.Object(vmi).V(5).Info("migrationSynchronizing not changed, not patching")
 		}
-		return nil
 	}
-
 	return nil
 }
 
