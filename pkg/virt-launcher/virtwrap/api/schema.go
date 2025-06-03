@@ -626,7 +626,9 @@ type HostDevice struct {
 }
 
 type HostDeviceSource struct {
-	Address *Address `xml:"address,omitempty"`
+	Address       *Address `xml:"address,omitempty"`
+	StartupPolicy string   `xml:"startupPolicy,attr,omitempty"`
+	GuestReset    string   `xml:"guestReset,attr,omitempty"`
 }
 
 // END HostDevice -----------------------------
