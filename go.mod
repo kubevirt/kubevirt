@@ -164,7 +164,6 @@ require (
 
 require (
 	github.com/containers/common v0.60.4
-	github.com/golang/mock v1.6.0
 	github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect; indirect github.com/gophercloud/gophercloud v0.4.0 // indirect
 )
 

@@ -236,6 +236,12 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 }
 
 func convertDisks(domSpec *api.DomainSpec, domcfg *libvirtxml.Domain) error {
+	if domcfg == nil || domcfg.Devices == nil || domSpec == nil {
+		return nil
+	}
+	if len(domSpec.Devices.Disks) != len(domcfg.Devices.Disks) {
+		return fmt.Errorf("spec and domain have different disks count")
+	}
 	for i, disk := range domSpec.Devices.Disks {
 		if disk.Source.File != "" {
 			log.Log.Infof("Updating disk %s source file from %s to %s", disk.Alias.GetName(), domcfg.Devices.Disks[i].Source.File.File, disk.Source.File)

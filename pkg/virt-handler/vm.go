@@ -1697,7 +1697,7 @@ func (c *VirtualMachineController) isVMIOwnedByNode(vmi *v1.VirtualMachineInstan
 
 func (c *VirtualMachineController) isMigrationTarget(vmi *v1.VirtualMachineInstance) bool {
 	migrationTargetNodeName, ok := vmi.Labels[v1.MigrationTargetNodeNameLabel]
-
+	log.Log.Object(vmi).V(5).Infof("targetNodeName: %s, is not status nodeName %t, is host %t, target %t, synchronized %t, is not complete %t", migrationTargetNodeName, migrationTargetNodeName != vmi.Status.NodeName, migrationTargetNodeName == c.host, vmi.IsMigrationTarget(), vmi.IsMigrationSourceSynchronized(), !vmi.IsMigrationCompleted())
 	if ok &&
 		migrationTargetNodeName != "" &&
 		(migrationTargetNodeName != vmi.Status.NodeName || (vmi.IsMigrationTarget() && vmi.IsMigrationSourceSynchronized() && !vmi.IsMigrationCompleted())) &&
