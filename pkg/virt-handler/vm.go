@@ -2147,6 +2147,9 @@ func (c *VirtualMachineController) execute(key string) error {
 	// Take different execution paths depending on the state of the migration and the
 	// node this is executed on.
 
+	if vmiExists {
+		log.Log.Object(vmi).V(5).Infof("IsMigrationTarget: %t, isMigrationTargetNodeLabelSet %t, isPreMigrationTarget %t", vmi.IsMigrationTarget(), !vmi.IsMigrationTargetNodeLabelSet(), c.isPreMigrationTarget(vmi))
+	}
 	if vmiExists && vmi.IsMigrationTarget() && !vmi.IsMigrationTargetNodeLabelSet() {
 		log.Log.Object(vmi).V(5).Info("execute: VMI exists, VMI is migration target, and migration target node label not set, doing nothing")
 		// Do nothing, not fully synchronized so not ready to move to preMigrationTarget
@@ -2493,7 +2496,7 @@ func (c *VirtualMachineController) isOrphanedMigrationSource(vmi *v1.VirtualMach
 func (c *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineInstance) bool {
 
 	migrationTargetNodeName, ok := vmi.Labels[v1.MigrationTargetNodeNameLabel]
-
+	log.Log.Object(vmi).V(5).Infof("targetNodeName: %s, is not status nodeName %t, is host %t, target %t, synchronized %t, is not complete %t", migrationTargetNodeName, migrationTargetNodeName != vmi.Status.NodeName, migrationTargetNodeName == c.host, vmi.IsMigrationTarget(), vmi.IsMigrationSourceSynchronized(), !vmi.IsMigrationCompleted())
 	if ok &&
 		migrationTargetNodeName != "" &&
 		(migrationTargetNodeName != vmi.Status.NodeName || (vmi.IsMigrationTarget() && vmi.IsMigrationSourceSynchronized() && !vmi.IsMigrationCompleted())) &&
