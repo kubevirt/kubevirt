@@ -2,8 +2,8 @@
 
 set -ex
 
-source $(dirname "$0")/common.sh
-source $(dirname "$0")/config.sh
+source "$(dirname "$0")/common.sh"
+source "$(dirname "$0")/config.sh"
 
 # update cluster-up if needed
 version_file="kubevirtci/cluster-up/version.txt"
@@ -46,6 +46,7 @@ if [[ "$download_cluster_up" == true ]]; then
     )
 
     echo ${kubevirtci_git_hash} >${version_file}
+    "$(dirname $0)/sync-kubevirtci-stable-provider.sh"
     new_sha=$(getClusterUpShasum)
     echo ${new_sha} >${sha_file}
     echo "KUBEVIRTCI_TAG=${kubevirtci_git_hash}" >>kubevirtci/cluster-up/hack/common.sh
