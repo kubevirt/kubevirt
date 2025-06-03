@@ -196,8 +196,14 @@ func SocketFilePathOnHost(podUID string) string {
 	return fmt.Sprintf("%s/%s", SocketDirectoryOnHost(podUID), StandardLauncherSocketFileName)
 }
 
+// Finds exactly one Pod dir on a host based on the NODE_NAME env. Returns error otherwise.
+func FindPodDir(vmi *v1.VirtualMachineInstance) (string, error) {
+	host, _ := os.LookupEnv("NODE_NAME")
+	return FindPodDirOnHost(vmi, host, SocketDirectoryOnHost)
+}
+
 // gets the cmd socket for a VMI
-func FindPodDirOnHost(vmi *v1.VirtualMachineInstance, socketDirFunc func(string) string) (string, error) {
+func FindPodDirOnHost(vmi *v1.VirtualMachineInstance, host string, socketDirFunc func(string) string) (string, error) {
 
 	var socketDirsForErrorReporting []string
 	// It is possible for multiple pods to be active on a single VMI
@@ -205,7 +211,10 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance, socketDirFunc func(string)
 	// this particular local node if it exists. A active pod not
 	// running on this node will not have a kubelet pods directory,
 	// so it will not be found.
-	for podUID := range vmi.Status.ActivePods {
+	for podUID, nodeName := range vmi.Status.ActivePods {
+		if host != "" && host != nodeName {
+			continue
+		}
 		socketPodDir := socketDirFunc(string(podUID))
 		socketDirsForErrorReporting = append(socketDirsForErrorReporting, socketPodDir)
 		exists, _ := diskutils.FileExists(socketPodDir)
