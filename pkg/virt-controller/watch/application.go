@@ -671,6 +671,7 @@ func (vca *VirtControllerApp) initCommon() {
 		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
+		stubMigrationEvaluator{},
 	)
 	if err != nil {
 		panic(err)
@@ -1061,4 +1062,10 @@ func (vca *VirtControllerApp) setupLeaderElector() (err error) {
 		})
 
 	return
+}
+
+type stubMigrationEvaluator struct{}
+
+func (e stubMigrationEvaluator) Evaluate(_ *v1.VirtualMachineInstance) k8sv1.ConditionStatus {
+	return k8sv1.ConditionUnknown
 }
