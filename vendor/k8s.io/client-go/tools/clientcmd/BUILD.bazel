@@ -10,6 +10,7 @@ go_library(
         "flag.go",
         "helpers.go",
         "loader.go",
+        "merge.go",
         "merged_client_builder.go",
         "overrides.go",
         "validation.go",
@@ -18,7 +19,6 @@ go_library(
     importpath = "k8s.io/client-go/tools/clientcmd",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/github.com/imdario/mergo:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/golang.org/x/term:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
