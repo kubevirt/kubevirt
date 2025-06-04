@@ -97,6 +97,7 @@ func (s *AsyncAgentStore) Store(key, value any) {
 //   - Guest Hostname
 //   - Guest OS version and architecture
 //   - Guest Timezone
+//   - Guest Load (1M, 5M, 15M load averages)
 func (s *AsyncAgentStore) GetSysInfo() api.DomainSysInfo {
 	data, ok := s.store.Load(libvirt.DOMAIN_GUEST_INFO_OS)
 	osinfo := api.GuestOSInfo{}
@@ -116,10 +117,17 @@ func (s *AsyncAgentStore) GetSysInfo() api.DomainSysInfo {
 		timezone = data.(api.Timezone)
 	}
 
+	data, ok = s.store.Load(libvirt.DOMAIN_GUEST_INFO_LOAD)
+	load := api.Load{}
+	if ok {
+		load = data.(api.Load)
+	}
+
 	return api.DomainSysInfo{
 		Hostname: hostname,
 		OSInfo:   osinfo,
 		Timezone: timezone,
+		Load:     load,
 	}
 }
 
@@ -427,6 +435,10 @@ func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, agentPoller 
 	if infoTypes&libvirt.DOMAIN_GUEST_INFO_USERS != 0 {
 		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, convertToUsers(guestInfo))
 	}
+
+	if infoTypes&libvirt.DOMAIN_GUEST_INFO_LOAD != 0 {
+		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_LOAD, convertToLoad(guestInfo))
+	}
 }
 
 func convertToInterfaces(guestInfo *libvirt.DomainGuestInfo) []api.InterfaceStatus {
@@ -511,4 +523,16 @@ func convertToUsers(guestInfo *libvirt.DomainGuestInfo) []api.User {
 		}
 	}
 	return users
+}
+
+func convertToLoad(guestInfo *libvirt.DomainGuestInfo) api.Load {
+	load := api.Load{}
+	if guestInfo.Load != nil {
+		load = api.Load{
+			Load1m:  guestInfo.Load.Load1M,
+			Load5m:  guestInfo.Load.Load5M,
+			Load15m: guestInfo.Load.Load15M,
+		}
+	}
+	return load
 }
