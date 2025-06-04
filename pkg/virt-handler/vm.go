@@ -747,6 +747,9 @@ func (c *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		now := metav1.Now()
 		vmiCopy.Status.MigrationState.TargetNodeDomainReadyTimestamp = &now
 
+		cm := controller.NewVirtualMachineInstanceConditionManager()
+		cm.RemoveCondition(vmiCopy, v1.VirtualMachineInstanceMigrationRequired)
+
 		err := c.finalizeMigration(vmiCopy)
 		if err != nil {
 			return err
