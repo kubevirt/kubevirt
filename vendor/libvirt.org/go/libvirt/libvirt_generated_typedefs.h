@@ -276,6 +276,10 @@ typedef int virConnectFlags;
 typedef int virConnectGetAllDomainStatsFlags;
 #endif
 
+#if !LIBVIR_CHECK_VERSION(11, 0, 0)
+typedef int virConnectGetDomainCapabilitiesFlags;
+#endif
+
 #if !LIBVIR_CHECK_VERSION(0, 9, 13)
 typedef int virConnectListAllDomainsFlags;
 #endif

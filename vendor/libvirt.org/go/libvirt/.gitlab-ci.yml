@@ -44,8 +44,8 @@ stages:
 
 include: '/ci/gitlab.yml'
 
-.api_coverage_job:
-  extents:
+api_coverage_job:
+  extends:
     - .gitlab_native_build_job
   stage: sanity_checks
   script:
@@ -97,6 +97,6 @@ go_1_16:
   image: golang:1.16
 
 # a quite new version
-go_1_20:
+go_1_24:
   <<: *go_build
-  image: golang:1.20
+  image: golang:1.24
