@@ -8,6 +8,7 @@ pkg/network/domainspec
 pkg/network/downwardapi
 pkg/network/errors
 pkg/network/istio
+pkg/network/migration
 pkg/network/multus
 pkg/network/namescheme
 pkg/network/netbinding
