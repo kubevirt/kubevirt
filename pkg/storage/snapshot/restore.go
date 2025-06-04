@@ -443,7 +443,6 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 				VolumeName:                vb.VolumeName,
 				PersistentVolumeClaimName: pvcName,
 				VolumeSnapshotName:        *vb.VolumeSnapshotName,
-				MustWipe:                  isVolumeRestorePolicyInPlace(vmRestore),
 			}
 
 			restores = append(restores, vr)
@@ -482,7 +481,14 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 				return false, err
 			}
 			createdPVC = true
-		} else if restore.MustWipe {
+		} else if isVolumeRestorePolicyInPlace(vmRestore) {
+			// The PVC already exists, but we're in VolumeRestorePolicy InPlace, so we need to delete it
+			// if the PVC hasn't already been restored. To know if the restore process has already happened
+			// on this PVC, we check the restore annotation to see if the ID matches the current job.
+			if hasLastRestoreAnnotation(vmRestore, pvc) {
+				continue
+			}
+
 			// This volume is backed by a DataVolume, and we're about to delete the PVC of that DV. This PVC will be re-created shortly after
 			// from a VolumeSnapshot, and the DV should rebind to its PVC. But that leaves the DV with no PVC for a short amount of time.
 			// To prevent race conditions and possible reconciles of the DV during the PVC restore, we mark it as prePopulated to prevent any
@@ -520,8 +526,6 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 				return false, err
 			}
 
-			// PVC has been deleted, this volume doesn't need to be wiped anymore, mark it as such
-			vmRestore.Status.Restores[i].MustWipe = false
 			deletedPVC = true
 		} else if pvc.Status.Phase == corev1.ClaimPending {
 			bindingMode, err := ctrl.getBindingMode(pvc)
@@ -1575,6 +1579,10 @@ func CreateRestorePVCDefFromVMRestore(vmRestore *snapshotv1.VirtualMachineRestor
 	pvc.Labels[restoreSourceNameLabel] = sourceVmName
 	pvc.Labels[restoreSourceNamespaceLabel] = sourceVmNamespace
 	pvc.Annotations[RestoreNameAnnotation] = vmRestore.Name
+
+	// Mark the ID of the restore job on the PVC
+	// Used to determine if the PVC has already been deleted for InPlace restores
+	setLastRestoreAnnotation(vmRestore, pvc)
 
 	if err := applyVolumeRestoreOverride(pvc, volumeBackup, vmRestore.Spec.VolumeRestoreOverrides); err != nil {
 		return nil, err

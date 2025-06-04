@@ -409,11 +409,6 @@ type VolumeRestore struct {
 
 	// +optional
 	DataVolumeName *string `json:"dataVolumeName,omitempty"`
-
-	// MustWipe is used to signal the volume should be deleted if it already exists before
-	// creating it again. This is used when the VolumeRestorePolicy is set to InPlace, as we
-	// need to delete the original volume before creating one with the same name over it.
-	MustWipe bool `json:"mustWipe,omitempty"`
 }
 
 // VolumeRestoreOverride specifies how a volume should be restored from a VirtualMachineSnapshot

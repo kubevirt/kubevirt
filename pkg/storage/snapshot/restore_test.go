@@ -857,7 +857,6 @@ var _ = Describe("Restore controller", func() {
 						VolumeName:                diskName,
 						PersistentVolumeClaimName: "alpine-dv", // Name is identical to the original PVC
 						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
-						MustWipe:                  true,
 					},
 				}
 
@@ -880,7 +879,6 @@ var _ = Describe("Restore controller", func() {
 						VolumeName:                diskName,
 						PersistentVolumeClaimName: "alpine-dv", // Name is identical to the original PVC
 						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
-						MustWipe:                  true,
 					},
 				}
 
@@ -914,7 +912,6 @@ var _ = Describe("Restore controller", func() {
 						VolumeName:                diskName,
 						PersistentVolumeClaimName: "alpine-dv", // Name is identical to the original PVC
 						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
-						MustWipe:                  false,                                // PVC should have been wiped and the volume marked as such
 						DataVolumeName:            &vm.Spec.DataVolumeTemplates[0].Name, // This property was set to add the DV as owner of the PVC
 					},
 				}
@@ -944,7 +941,6 @@ var _ = Describe("Restore controller", func() {
 						VolumeName:                diskName,
 						PersistentVolumeClaimName: diskName,
 						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
-						MustWipe:                  false, // PVC has already been wiped, flag has been switched to false
 					},
 				}
 
@@ -2430,6 +2426,7 @@ func expectPVCCreates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMa
 		for _, vr := range vmRestore.Status.Restores {
 			if vr.PersistentVolumeClaimName == createObj.Name {
 				Expect(createObj.Spec.Resources.Requests[corev1.ResourceStorage]).To(Equal(expectedSize))
+				Expect(createObj.Annotations[lastRestoreAnnotation]).To(Equal(getRestoreAnnotationValue(vmRestore)))
 				found = true
 				break
 			}

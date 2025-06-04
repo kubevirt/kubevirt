@@ -163,7 +163,6 @@ func (VolumeRestore) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "VolumeRestore contains the data needed to restore a PVC",
 		"dataVolumeName": "+optional",
-		"mustWipe":       "MustWipe is used to signal the volume should be deleted if it already exists before\ncreating it again. This is used when the VolumeRestorePolicy is set to InPlace, as we\nneed to delete the original volume before creating one with the same name over it.",
 	}
 }
 

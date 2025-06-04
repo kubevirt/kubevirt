@@ -34684,13 +34684,6 @@ func schema_kubevirtio_api_snapshot_v1beta1_VolumeRestore(ref common.ReferenceCa
 							Format: "",
 						},
 					},
-					"mustWipe": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MustWipe is used to signal the volume should be deleted if it already exists before creating it again. This is used when the VolumeRestorePolicy is set to InPlace, as we need to delete the original volume before creating one with the same name over it.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 				},
 				Required: []string{"volumeName", "persistentVolumeClaim", "volumeSnapshotName"},
 			},
