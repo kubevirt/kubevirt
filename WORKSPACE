@@ -5,12 +5,12 @@ load("//bazel/toolchain:toolchain.bzl", "register_all_toolchains")
 
 register_all_toolchains()
 
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load(
     "@bazel_tools//tools/build_defs/repo:http.bzl",
     "http_archive",
     "http_file",
 )
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 http_archive(
     name = "rules_python",
@@ -186,19 +186,30 @@ http_file(
 
 http_archive(
     name = "bazeldnf",
-    sha256 = "fb24d80ad9edad0f7bd3000e8cffcfbba89cc07e495c47a7d3b1f803bd527a40",
+    sha256 = "286de512159f34ca3dcec01d0598eb7f502ab73c8f93e2ccb7a5a351c927cd84",
+    strip_prefix = "bazeldnf-e72ea52c428aff923ded3e95d6ddbe7c43835e10",
     urls = [
-        "https://github.com/rmohr/bazeldnf/releases/download/v0.5.9/bazeldnf-v0.5.9.tar.gz",
-        "https://storage.googleapis.com/builddeps/fb24d80ad9edad0f7bd3000e8cffcfbba89cc07e495c47a7d3b1f803bd527a40",
+        "https://github.com/rmohr/bazeldnf/archive/e72ea52c428aff923ded3e95d6ddbe7c43835e10.tar.gz",
     ],
 )
 
+load("@bazeldnf//bazeldnf:defs.bzl", "rpm")
+load(
+    "@bazeldnf//bazeldnf:repositories.bzl",
+    "bazeldnf_dependencies",
+    "bazeldnf_register_toolchains",
+)
 load(
     "@io_bazel_rules_go//go:deps.bzl",
     "go_register_toolchains",
     "go_rules_dependencies",
 )
-load("@bazeldnf//:deps.bzl", "bazeldnf_dependencies", "rpm")
+
+bazeldnf_dependencies()
+
+bazeldnf_register_toolchains(
+    name = "bazeldnf_prebuilt",
+)
 
 go_rules_dependencies()
 
@@ -234,13 +245,6 @@ go_repository(
 )
 
 gazelle_dependencies()
-
-bazeldnf_dependencies()
-
-load(
-    "@bazel_tools//tools/build_defs/repo:git.bzl",
-    "git_repository",
-)
 
 # Winrmcli dependencies
 go_repository(

@@ -1,5 +1,25 @@
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
 # See https://github.com/bazelbuild/bazel/issues/7899
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+load("@bazeldnf//bazeldnf:defs.bzl", "bazeldnf")
+load("@buildifier_prebuilt//:rules.bzl", "buildifier")
+load("@com_github_ash2k_bazel_tools//goimports:def.bzl", "goimports")
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_bundle",
+)
+load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
+
+# heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
+load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
+load(
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
+    container_repositories = "repositories",
+)
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "nogo")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 py_runtime(
     name = "py2_runtime",
@@ -24,12 +44,6 @@ toolchain(
     toolchain = "py_runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
-
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-load("@bazel_gazelle//:def.bzl", "gazelle")
-load("@io_bazel_rules_go//go:def.bzl", "nogo")
-load("@com_github_ash2k_bazel_tools//goimports:def.bzl", "goimports")
-load("@bazeldnf//:def.bzl", "bazeldnf")
 
 goimports(
     name = "goimports",
@@ -95,8 +109,6 @@ gazelle(
 
 bazeldnf(name = "bazeldnf")
 
-load("@buildifier_prebuilt//:rules.bzl", "buildifier")
-
 alias(
     name = "buildozer",
     actual = "@buildifier_prebuilt//:buildozer",
@@ -136,9 +148,6 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
-
 passwd_entry(
     name = "nonroot-user",
     gid = 1001,
@@ -163,12 +172,6 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_bundle",
-)
-load("@rules_oci//oci:defs.bzl", "oci_image")
-
 oci_image(
     name = "passwd-image",
     base = select({
@@ -179,11 +182,6 @@ oci_image(
     tars = [":passwd-tar"],
     user = "1001",
     visibility = ["//visibility:public"],
-)
-
-load(
-    "@io_bazel_rules_docker//repositories:repositories.bzl",
-    container_repositories = "repositories",
 )
 
 config_setting(
@@ -202,10 +200,6 @@ container_bundle(
         "$(container_prefix)/$(image_prefix)virt-operator:$(container_tag)": "//cmd/virt-operator:virt-operator-image",
     },
 )
-
-# heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
-load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
-load("@rules_oci//oci:defs.bzl", "oci_push")
 
 # we need to push virt images with the rule from container:container in order to get the digest file
 oci_push(
