@@ -1607,7 +1607,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 			DescribeTable("Bug #8435 - should create a snapshot successfully", decorators.StorageCritical, func(toRunSourceVM bool) {
 				if !toRunSourceVM {
-					By("Stoping the VM")
+					By("Stopping the VM")
 					vm = libvmops.StopVirtualMachine(vm)
 				}
 
@@ -1708,7 +1708,7 @@ func createDenyVolumeSnapshotCreateWebhook(virtClient kubecli.KubevirtClient, vm
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
 					Service: &admissionregistrationv1.ServiceReference{
 						Namespace: testsuite.GetTestNamespace(nil),
-						Name:      "nonexistant",
+						Name:      "nonexistent",
 						Path:      &whPath,
 					},
 				},

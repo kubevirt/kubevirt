@@ -388,7 +388,7 @@ func checkHTTPPing(vmi *v1.VirtualMachineInstance, ip string, port int) error {
 }
 
 func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
-	ExpectWithOffset(1, vmi.Status.Interfaces[0].IPs).ToNot(BeEmpty(), "should contain a not empy list of ip addresses")
+	ExpectWithOffset(1, vmi.Status.Interfaces[0].IPs).ToNot(BeEmpty(), "should contain a not empty list of ip addresses")
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {

@@ -21,6 +21,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
 
 TARGET_DIRS=(
     "pkg/monitoring"
+    "pkg/instancetype"
 )
 
 IGNORE_FILES=(

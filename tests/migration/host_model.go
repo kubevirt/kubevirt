@@ -176,10 +176,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Starting the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
-				for indx, node := range nodes {
+				for index, node := range nodes {
 					patchedNode := libinfra.ExpectStoppingNodeLabellerToSucceed(node.Name, kubevirt.Client())
 					Expect(patchedNode).ToNot(BeNil())
-					nodes[indx] = *patchedNode
+					nodes[index] = *patchedNode
 				}
 			})
 
