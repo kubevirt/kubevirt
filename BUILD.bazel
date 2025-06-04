@@ -3,7 +3,7 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 
 # See https://github.com/bazelbuild/bazel/issues/7899
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
-load("@bazeldnf//:def.bzl", "bazeldnf")
+load("@bazeldnf//bazeldnf:defs.bzl", "bazeldnf")
 load("@buildifier_prebuilt//:rules.bzl", "buildifier")
 load("@com_github_ash2k_bazel_tools//goimports:def.bzl", "goimports")
 load(

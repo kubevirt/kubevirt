@@ -1,4 +1,4 @@
-load("@bazeldnf//:deps.bzl", "xattrs")
+load("@bazeldnf//bazeldnf:defs.bzl", "xattrs")
 load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
