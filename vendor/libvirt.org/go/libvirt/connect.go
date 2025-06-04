@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"unsafe"
 )
@@ -137,32 +138,34 @@ const (
 type ConnectListAllNodeDeviceFlags uint
 
 const (
-	CONNECT_LIST_NODE_DEVICES_CAP_SYSTEM        = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_SYSTEM)
-	CONNECT_LIST_NODE_DEVICES_CAP_PCI_DEV       = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_PCI_DEV)
-	CONNECT_LIST_NODE_DEVICES_CAP_USB_DEV       = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_USB_DEV)
-	CONNECT_LIST_NODE_DEVICES_CAP_USB_INTERFACE = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_USB_INTERFACE)
-	CONNECT_LIST_NODE_DEVICES_CAP_NET           = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_NET)
-	CONNECT_LIST_NODE_DEVICES_CAP_SCSI_HOST     = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_SCSI_HOST)
-	CONNECT_LIST_NODE_DEVICES_CAP_SCSI_TARGET   = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_SCSI_TARGET)
-	CONNECT_LIST_NODE_DEVICES_CAP_SCSI          = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_SCSI)
-	CONNECT_LIST_NODE_DEVICES_CAP_STORAGE       = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_STORAGE)
-	CONNECT_LIST_NODE_DEVICES_CAP_FC_HOST       = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_FC_HOST)
-	CONNECT_LIST_NODE_DEVICES_CAP_VPORTS        = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_VPORTS)
-	CONNECT_LIST_NODE_DEVICES_CAP_SCSI_GENERIC  = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_SCSI_GENERIC)
-	CONNECT_LIST_NODE_DEVICES_CAP_DRM           = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_DRM)
-	CONNECT_LIST_NODE_DEVICES_CAP_MDEV          = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_MDEV)
-	CONNECT_LIST_NODE_DEVICES_CAP_MDEV_TYPES    = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_MDEV_TYPES)
-	CONNECT_LIST_NODE_DEVICES_CAP_CCW_DEV       = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_CCW_DEV)
-	CONNECT_LIST_NODE_DEVICES_CAP_CSS_DEV       = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_CSS_DEV)
-	CONNECT_LIST_NODE_DEVICES_CAP_VDPA          = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_VDPA)
-	CONNECT_LIST_NODE_DEVICES_CAP_AP_CARD       = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_CARD)
-	CONNECT_LIST_NODE_DEVICES_CAP_AP_QUEUE      = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_QUEUE)
-	CONNECT_LIST_NODE_DEVICES_CAP_AP_MATRIX     = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_MATRIX)
-	CONNECT_LIST_NODE_DEVICES_CAP_VPD           = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_VPD)
-	CONNECT_LIST_NODE_DEVICES_INACTIVE          = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_INACTIVE)
-	CONNECT_LIST_NODE_DEVICES_ACTIVE            = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_ACTIVE)
-	CONNECT_LIST_NODE_DEVICES_PERSISTENT        = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_PERSISTENT)
-	CONNECT_LIST_NODE_DEVICES_TRANSIENT         = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_TRANSIENT)
+	CONNECT_LIST_NODE_DEVICES_CAP_SYSTEM          = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_SYSTEM)
+	CONNECT_LIST_NODE_DEVICES_CAP_PCI_DEV         = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_PCI_DEV)
+	CONNECT_LIST_NODE_DEVICES_CAP_USB_DEV         = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_USB_DEV)
+	CONNECT_LIST_NODE_DEVICES_CAP_USB_INTERFACE   = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_USB_INTERFACE)
+	CONNECT_LIST_NODE_DEVICES_CAP_NET             = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_NET)
+	CONNECT_LIST_NODE_DEVICES_CAP_SCSI_HOST       = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_SCSI_HOST)
+	CONNECT_LIST_NODE_DEVICES_CAP_SCSI_TARGET     = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_SCSI_TARGET)
+	CONNECT_LIST_NODE_DEVICES_CAP_SCSI            = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_SCSI)
+	CONNECT_LIST_NODE_DEVICES_CAP_STORAGE         = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_STORAGE)
+	CONNECT_LIST_NODE_DEVICES_CAP_FC_HOST         = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_FC_HOST)
+	CONNECT_LIST_NODE_DEVICES_CAP_VPORTS          = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_VPORTS)
+	CONNECT_LIST_NODE_DEVICES_CAP_SCSI_GENERIC    = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_SCSI_GENERIC)
+	CONNECT_LIST_NODE_DEVICES_CAP_DRM             = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_DRM)
+	CONNECT_LIST_NODE_DEVICES_CAP_MDEV            = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_MDEV)
+	CONNECT_LIST_NODE_DEVICES_CAP_MDEV_TYPES      = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_MDEV_TYPES)
+	CONNECT_LIST_NODE_DEVICES_CAP_CCW_DEV         = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_CCW_DEV)
+	CONNECT_LIST_NODE_DEVICES_CAP_CSS_DEV         = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_CSS_DEV)
+	CONNECT_LIST_NODE_DEVICES_CAP_VDPA            = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_VDPA)
+	CONNECT_LIST_NODE_DEVICES_CAP_AP_CARD         = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_CARD)
+	CONNECT_LIST_NODE_DEVICES_CAP_AP_QUEUE        = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_QUEUE)
+	CONNECT_LIST_NODE_DEVICES_CAP_AP_MATRIX       = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_AP_MATRIX)
+	CONNECT_LIST_NODE_DEVICES_CAP_VPD             = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_VPD)
+	CONNECT_LIST_NODE_DEVICES_INACTIVE            = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_INACTIVE)
+	CONNECT_LIST_NODE_DEVICES_ACTIVE              = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_ACTIVE)
+	CONNECT_LIST_NODE_DEVICES_PERSISTENT          = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_PERSISTENT)
+	CONNECT_LIST_NODE_DEVICES_TRANSIENT           = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_TRANSIENT)
+	CONNECT_LIST_NODE_DEVICES_CAP_CCWGROUP_DEV    = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_CCWGROUP_DEV)
+	CONNECT_LIST_NODE_DEVICES_CAP_CCWGROUP_MEMBER = ConnectListAllNodeDeviceFlags(C.VIR_CONNECT_LIST_NODE_DEVICES_CAP_CCWGROUP_MEMBER)
 )
 
 type ConnectListAllSecretsFlags uint
@@ -258,6 +261,12 @@ const (
 	CRED_NOECHOPROMPT = ConnectCredentialType(C.VIR_CRED_NOECHOPROMPT)
 	CRED_REALM        = ConnectCredentialType(C.VIR_CRED_REALM)
 	CRED_EXTERNAL     = ConnectCredentialType(C.VIR_CRED_EXTERNAL)
+)
+
+type ConnectGetDomainCapabilitiesFlags uint32
+
+const (
+	DOMAIN_CAPABILITIES_DISABLE_DEPRECATED_FEATURES = ConnectGetDomainCapabilitiesFlags(C.VIR_CONNECT_GET_DOMAIN_CAPABILITIES_DISABLE_DEPRECATED_FEATURES)
 )
 
 type Connect struct {
@@ -2413,7 +2422,7 @@ func (c *Connect) GetCPUModelNames(arch string, flags uint32) ([]string, error) 
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virConnectGetDomainCapabilities
-func (c *Connect) GetDomainCapabilities(emulatorbin string, arch string, machine string, virttype string, flags uint32) (string, error) {
+func (c *Connect) GetDomainCapabilities(emulatorbin string, arch string, machine string, virttype string, flags ConnectGetDomainCapabilitiesFlags) (string, error) {
 	var cemulatorbin *C.char
 	if emulatorbin != "" {
 		cemulatorbin = C.CString(emulatorbin)
@@ -2544,39 +2553,128 @@ type DomainStatsState struct {
 
 func getDomainStatsStateFieldInfo(params *DomainStatsState) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		"state.state": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_STATE_STATE: typedParamsFieldInfo{
 			set: &params.StateSet,
 			i:   (*int)(unsafe.Pointer(&params.State)),
 		},
-		"state.reason": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_STATE_REASON: typedParamsFieldInfo{
 			set: &params.ReasonSet,
 			i:   &params.Reason,
 		},
 	}
 }
 
+type DomainStatsCPUCacheMonitorBank struct {
+	IDSet    bool
+	ID       uint
+	BytesSet bool
+	Bytes    uint64
+}
+
+func getDomainStatsCPUCacheMonitorBankFieldInfo(idx1, idx2 int, params *DomainStatsCPUCacheMonitorBank) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_BANK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_BANK_SUFFIX_ID, idx1, idx2): typedParamsFieldInfo{
+			set: &params.IDSet,
+			ui:  &params.ID,
+		},
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_BANK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_BANK_SUFFIX_BYTES, idx1, idx2): typedParamsFieldInfo{
+			set: &params.BytesSet,
+			ul:  &params.Bytes,
+		},
+	}
+}
+
+type domainStatsCPUCacheMonitorLengths struct {
+	BankCountSet bool
+	BankCount    uint
+}
+
+func getDomainStatsCPUCacheMonitorLengthsFieldInfo(idx int, params *domainStatsCPUCacheMonitorLengths) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_BANK_COUNT, idx): typedParamsFieldInfo{
+			set: &params.BankCountSet,
+			ui:  &params.BankCount,
+		},
+	}
+}
+
+type DomainStatsCPUCacheMonitor struct {
+	NameSet  bool
+	Name     string
+	VcpusSet bool
+	Vcpus    string
+	Banks    []DomainStatsCPUCacheMonitorBank
+}
+
+func getDomainStatsCPUCacheMonitorFieldInfo(idx int, params *DomainStatsCPUCacheMonitor) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_NAME, idx): typedParamsFieldInfo{
+			set: &params.NameSet,
+			s:   &params.Name,
+		},
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_VCPUS, idx): typedParamsFieldInfo{
+			set: &params.VcpusSet,
+			s:   &params.Vcpus,
+		},
+	}
+}
+
+type domainStatsCPULengths struct {
+	CacheMonitorCountSet bool
+	CacheMonitorCount    uint
+}
+
+func getDomainStatsCPULengthsFieldInfo(params *domainStatsCPULengths) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_COUNT: typedParamsFieldInfo{
+			set: &params.CacheMonitorCountSet,
+			ui:  &params.CacheMonitorCount,
+		},
+	}
+}
+
 type DomainStatsCPU struct {
-	TimeSet   bool
-	Time      uint64
-	UserSet   bool
-	User      uint64
-	SystemSet bool
-	System    uint64
+	TimeSet                bool
+	Time                   uint64
+	UserSet                bool
+	User                   uint64
+	SystemSet              bool
+	System                 uint64
+	HaltPollSuccessTimeSet bool
+	HaltPollSuccessTime    uint64
+	HaltPollFailTimeSet    bool
+	HaltPollFailTime       uint64
+	CacheMonitors          []DomainStatsCPUCacheMonitor
 }
 
 func getDomainStatsCPUFieldInfo(params *DomainStatsCPU) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		"cpu.time": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_CPU_TIME: typedParamsFieldInfo{
 			set: &params.TimeSet,
 			ul:  &params.Time,
 		},
-		"cpu.user": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_CPU_USER: typedParamsFieldInfo{
 			set: &params.UserSet,
 			ul:  &params.User,
 		},
-		"cpu.system": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_CPU_SYSTEM: typedParamsFieldInfo{
 			set: &params.SystemSet,
 			ul:  &params.System,
+		},
+		C.VIR_DOMAIN_STATS_CPU_HALTPOLL_SUCCESS_TIME: typedParamsFieldInfo{
+			set: &params.HaltPollSuccessTimeSet,
+			ul:  &params.HaltPollSuccessTime,
+		},
+		C.VIR_DOMAIN_STATS_CPU_HALTPOLL_FAIL_TIME: typedParamsFieldInfo{
+			set: &params.HaltPollFailTimeSet,
+			ul:  &params.HaltPollFailTime,
 		},
 	}
 }
@@ -2614,60 +2712,59 @@ type DomainStatsBalloon struct {
 
 func getDomainStatsBalloonFieldInfo(params *DomainStatsBalloon) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		"balloon.current": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_CURRENT: typedParamsFieldInfo{
 			set: &params.CurrentSet,
 			ul:  &params.Current,
 		},
-		"balloon.maximum": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_MAXIMUM: typedParamsFieldInfo{
 			set: &params.MaximumSet,
 			ul:  &params.Maximum,
 		},
-		"balloon.swap_in": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_SWAP_IN: typedParamsFieldInfo{
 			set: &params.SwapInSet,
 			ul:  &params.SwapIn,
 		},
-		"balloon.swap_out": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_SWAP_OUT: typedParamsFieldInfo{
 			set: &params.SwapOutSet,
 			ul:  &params.SwapOut,
 		},
-		"balloon.major_fault": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_MAJOR_FAULT: typedParamsFieldInfo{
 			set: &params.MajorFaultSet,
 			ul:  &params.MajorFault,
 		},
-		"balloon.minor_fault": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_MINOR_FAULT: typedParamsFieldInfo{
 			set: &params.MinorFaultSet,
 			ul:  &params.MinorFault,
 		},
-		"balloon.unused": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_UNUSED: typedParamsFieldInfo{
 			set: &params.UnusedSet,
 			ul:  &params.Unused,
 		},
-		"balloon.available": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_AVAILABLE: typedParamsFieldInfo{
 			set: &params.AvailableSet,
 			ul:  &params.Available,
 		},
-		"balloon.rss": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_RSS: typedParamsFieldInfo{
 			set: &params.RssSet,
 			ul:  &params.Rss,
 		},
-		"balloon.usable": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_USABLE: typedParamsFieldInfo{
 			set: &params.UsableSet,
 			ul:  &params.Usable,
 		},
-		// note: last-update not last_update, verified in libvirt source
-		"balloon.last-update": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_LAST_UPDATE: typedParamsFieldInfo{
 			set: &params.LastUpdateSet,
 			ul:  &params.LastUpdate,
 		},
-		"balloon.disk_caches": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_DISK_CACHES: typedParamsFieldInfo{
 			set: &params.DiskCachesSet,
 			ul:  &params.DiskCaches,
 		},
-		"balloon.hugetlb_pgalloc": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_HUGETLB_PGALLOC: typedParamsFieldInfo{
 			set: &params.HugetlbPgAllocSet,
 			ul:  &params.HugetlbPgAlloc,
 		},
-		"balloon.hugetlb_pgfail": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BALLOON_HUGETLB_PGFAIL: typedParamsFieldInfo{
 			set: &params.HugetlbPgFailSet,
 			ul:  &params.HugetlbPgFail,
 		},
@@ -2685,27 +2782,33 @@ type DomainStatsVcpu struct {
 	Halted    bool
 	DelaySet  bool
 	Delay     uint64
+	Custom    []TypedParamValue
 }
 
 func getDomainStatsVcpuFieldInfo(idx int, params *DomainStatsVcpu) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		fmt.Sprintf("vcpu.%d.state", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_VCPU_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_VCPU_SUFFIX_STATE, idx): typedParamsFieldInfo{
 			set: &params.StateSet,
 			i:   (*int)(unsafe.Pointer(&params.State)),
 		},
-		fmt.Sprintf("vcpu.%d.time", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_VCPU_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_VCPU_SUFFIX_TIME, idx): typedParamsFieldInfo{
 			set: &params.TimeSet,
 			ul:  &params.Time,
 		},
-		fmt.Sprintf("vcpu.%d.wait", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_VCPU_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_VCPU_SUFFIX_WAIT, idx): typedParamsFieldInfo{
 			set: &params.WaitSet,
 			ul:  &params.Wait,
 		},
-		fmt.Sprintf("vcpu.%d.halted", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_VCPU_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_VCPU_SUFFIX_HALTED, idx): typedParamsFieldInfo{
 			set: &params.HaltedSet,
 			b:   &params.Halted,
 		},
-		fmt.Sprintf("vcpu.%d.delay", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_VCPU_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_VCPU_SUFFIX_DELAY, idx): typedParamsFieldInfo{
 			set: &params.DelaySet,
 			ul:  &params.Delay,
 		},
@@ -2735,39 +2838,48 @@ type DomainStatsNet struct {
 
 func getDomainStatsNetFieldInfo(idx int, params *DomainStatsNet) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		fmt.Sprintf("net.%d.name", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_NET_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_NET_SUFFIX_NAME, idx): typedParamsFieldInfo{
 			set: &params.NameSet,
 			s:   &params.Name,
 		},
-		fmt.Sprintf("net.%d.rx.bytes", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_NET_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_NET_SUFFIX_RX_BYTES, idx): typedParamsFieldInfo{
 			set: &params.RxBytesSet,
 			ul:  &params.RxBytes,
 		},
-		fmt.Sprintf("net.%d.rx.pkts", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_NET_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_NET_SUFFIX_RX_PKTS, idx): typedParamsFieldInfo{
 			set: &params.RxPktsSet,
 			ul:  &params.RxPkts,
 		},
-		fmt.Sprintf("net.%d.rx.errs", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_NET_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_NET_SUFFIX_RX_ERRS, idx): typedParamsFieldInfo{
 			set: &params.RxErrsSet,
 			ul:  &params.RxErrs,
 		},
-		fmt.Sprintf("net.%d.rx.drop", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_NET_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_NET_SUFFIX_RX_DROP, idx): typedParamsFieldInfo{
 			set: &params.RxDropSet,
 			ul:  &params.RxDrop,
 		},
-		fmt.Sprintf("net.%d.tx.bytes", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_NET_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_NET_SUFFIX_TX_BYTES, idx): typedParamsFieldInfo{
 			set: &params.TxBytesSet,
 			ul:  &params.TxBytes,
 		},
-		fmt.Sprintf("net.%d.tx.pkts", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_NET_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_NET_SUFFIX_TX_PKTS, idx): typedParamsFieldInfo{
 			set: &params.TxPktsSet,
 			ul:  &params.TxPkts,
 		},
-		fmt.Sprintf("net.%d.tx.errs", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_NET_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_NET_SUFFIX_TX_ERRS, idx): typedParamsFieldInfo{
 			set: &params.TxErrsSet,
 			ul:  &params.TxErrs,
 		},
-		fmt.Sprintf("net.%d.tx.drop", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_NET_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_NET_SUFFIX_TX_DROP, idx): typedParamsFieldInfo{
 			set: &params.TxDropSet,
 			ul:  &params.TxDrop,
 		},
@@ -2805,69 +2917,91 @@ type DomainStatsBlock struct {
 	Capacity        uint64
 	PhysicalSet     bool
 	Physical        uint64
+	ThresholdSet    bool
+	Threshold       uint64
 }
 
 func getDomainStatsBlockFieldInfo(idx int, params *DomainStatsBlock) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		fmt.Sprintf("block.%d.name", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_NAME, idx): typedParamsFieldInfo{
 			set: &params.NameSet,
 			s:   &params.Name,
 		},
-		fmt.Sprintf("block.%d.backingIndex", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_BACKINGINDEX, idx): typedParamsFieldInfo{
 			set: &params.BackingIndexSet,
 			ui:  &params.BackingIndex,
 		},
-		fmt.Sprintf("block.%d.path", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_PATH, idx): typedParamsFieldInfo{
 			set: &params.PathSet,
 			s:   &params.Path,
 		},
-		fmt.Sprintf("block.%d.rd.reqs", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_RD_REQS, idx): typedParamsFieldInfo{
 			set: &params.RdReqsSet,
 			ul:  &params.RdReqs,
 		},
-		fmt.Sprintf("block.%d.rd.bytes", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_RD_BYTES, idx): typedParamsFieldInfo{
 			set: &params.RdBytesSet,
 			ul:  &params.RdBytes,
 		},
-		fmt.Sprintf("block.%d.rd.times", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_RD_TIMES, idx): typedParamsFieldInfo{
 			set: &params.RdTimesSet,
 			ul:  &params.RdTimes,
 		},
-		fmt.Sprintf("block.%d.wr.reqs", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_WR_REQS, idx): typedParamsFieldInfo{
 			set: &params.WrReqsSet,
 			ul:  &params.WrReqs,
 		},
-		fmt.Sprintf("block.%d.wr.bytes", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_WR_BYTES, idx): typedParamsFieldInfo{
 			set: &params.WrBytesSet,
 			ul:  &params.WrBytes,
 		},
-		fmt.Sprintf("block.%d.wr.times", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_WR_TIMES, idx): typedParamsFieldInfo{
 			set: &params.WrTimesSet,
 			ul:  &params.WrTimes,
 		},
-		fmt.Sprintf("block.%d.fl.reqs", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_FL_REQS, idx): typedParamsFieldInfo{
 			set: &params.FlReqsSet,
 			ul:  &params.FlReqs,
 		},
-		fmt.Sprintf("block.%d.fl.times", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_FL_TIMES, idx): typedParamsFieldInfo{
 			set: &params.FlTimesSet,
 			ul:  &params.FlTimes,
 		},
-		fmt.Sprintf("block.%d.errors", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_ERRORS, idx): typedParamsFieldInfo{
 			set: &params.ErrorsSet,
 			ul:  &params.Errors,
 		},
-		fmt.Sprintf("block.%d.allocation", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_ALLOCATION, idx): typedParamsFieldInfo{
 			set: &params.AllocationSet,
 			ul:  &params.Allocation,
 		},
-		fmt.Sprintf("block.%d.capacity", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_CAPACITY, idx): typedParamsFieldInfo{
 			set: &params.CapacitySet,
 			ul:  &params.Capacity,
 		},
-		fmt.Sprintf("block.%d.physical", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_PHYSICAL, idx): typedParamsFieldInfo{
 			set: &params.PhysicalSet,
 			ul:  &params.Physical,
+		},
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_BLOCK_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_BLOCK_SUFFIX_THRESHOLD, idx): typedParamsFieldInfo{
+			set: &params.ThresholdSet,
+			ul:  &params.Threshold,
 		},
 	}
 }
@@ -2921,91 +3055,91 @@ type DomainStatsPerf struct {
 
 func getDomainStatsPerfFieldInfo(params *DomainStatsPerf) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		"perf.cmt": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_CMT: typedParamsFieldInfo{
 			set: &params.CmtSet,
 			ul:  &params.Cmt,
 		},
-		"perf.mbmt": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_MBMT: typedParamsFieldInfo{
 			set: &params.MbmtSet,
 			ul:  &params.Mbmt,
 		},
-		"perf.mbml": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_MBML: typedParamsFieldInfo{
 			set: &params.MbmlSet,
 			ul:  &params.Mbml,
 		},
-		"perf.cache_misses": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_CACHE_MISSES: typedParamsFieldInfo{
 			set: &params.CacheMissesSet,
 			ul:  &params.CacheMisses,
 		},
-		"perf.cache_references": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_CACHE_REFERENCES: typedParamsFieldInfo{
 			set: &params.CacheReferencesSet,
 			ul:  &params.CacheReferences,
 		},
-		"perf.instructions": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_INSTRUCTIONS: typedParamsFieldInfo{
 			set: &params.InstructionsSet,
 			ul:  &params.Instructions,
 		},
-		"perf.cpu_cycles": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_CPU_CYCLES: typedParamsFieldInfo{
 			set: &params.CpuCyclesSet,
 			ul:  &params.CpuCycles,
 		},
-		"perf.branch_instructions": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_BRANCH_INSTRUCTIONS: typedParamsFieldInfo{
 			set: &params.BranchInstructionsSet,
 			ul:  &params.BranchInstructions,
 		},
-		"perf.branch_misses": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_BRANCH_MISSES: typedParamsFieldInfo{
 			set: &params.BranchMissesSet,
 			ul:  &params.BranchMisses,
 		},
-		"perf.bus_cycles": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_BUS_CYCLES: typedParamsFieldInfo{
 			set: &params.BusCyclesSet,
 			ul:  &params.BusCycles,
 		},
-		"perf.stalled_cycles_frontend": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_STALLED_CYCLES_FRONTEND: typedParamsFieldInfo{
 			set: &params.StalledCyclesFrontendSet,
 			ul:  &params.StalledCyclesFrontend,
 		},
-		"perf.stalled_cycles_backend": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_STALLED_CYCLES_BACKEND: typedParamsFieldInfo{
 			set: &params.StalledCyclesBackendSet,
 			ul:  &params.StalledCyclesBackend,
 		},
-		"perf.ref_cpu_cycles": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_REF_CPU_CYCLES: typedParamsFieldInfo{
 			set: &params.RefCpuCyclesSet,
 			ul:  &params.RefCpuCycles,
 		},
-		"perf.cpu_clock": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_CPU_CLOCK: typedParamsFieldInfo{
 			set: &params.CpuClockSet,
 			ul:  &params.CpuClock,
 		},
-		"perf.task_clock": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_TASK_CLOCK: typedParamsFieldInfo{
 			set: &params.TaskClockSet,
 			ul:  &params.TaskClock,
 		},
-		"perf.page_faults": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_PAGE_FAULTS: typedParamsFieldInfo{
 			set: &params.PageFaultsSet,
 			ul:  &params.PageFaults,
 		},
-		"perf.context_switches": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_CONTEXT_SWITCHES: typedParamsFieldInfo{
 			set: &params.ContextSwitchesSet,
 			ul:  &params.ContextSwitches,
 		},
-		"perf.cpu_migrations": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_CPU_MIGRATIONS: typedParamsFieldInfo{
 			set: &params.CpuMigrationsSet,
 			ul:  &params.CpuMigrations,
 		},
-		"perf.page_faults_min": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_PAGE_FAULTS_MIN: typedParamsFieldInfo{
 			set: &params.PageFaultsMinSet,
 			ul:  &params.PageFaultsMin,
 		},
-		"perf.page_faults_maj": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_PAGE_FAULTS_MAJ: typedParamsFieldInfo{
 			set: &params.PageFaultsMajSet,
 			ul:  &params.PageFaultsMaj,
 		},
-		"perf.alignment_faults": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_ALIGNMENT_FAULTS: typedParamsFieldInfo{
 			set: &params.AlignmentFaultsSet,
 			ul:  &params.AlignmentFaults,
 		},
-		"perf.emulation_faults": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_PERF_EMULATION_FAULTS: typedParamsFieldInfo{
 			set: &params.EmulationFaultsSet,
 			ul:  &params.EmulationFaults,
 		},
@@ -3026,11 +3160,13 @@ type DomainStatsMemoryBandwidthMonitor struct {
 
 func getDomainStatsMemoryBandwidthMonitorFieldInfo(idx int, params *DomainStatsMemoryBandwidthMonitor) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		fmt.Sprintf("memory.bandwidth.monitor.%d.name", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NAME, idx): typedParamsFieldInfo{
 			set: &params.NameSet,
 			s:   &params.Name,
 		},
-		fmt.Sprintf("memory.bandwidth.monitor.%d.vcpus", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_VCPUS, idx): typedParamsFieldInfo{
 			set: &params.VCPUsSet,
 			s:   &params.VCPUs,
 		},
@@ -3044,7 +3180,8 @@ type domainStatsMemoryBandwidthMonitorLengths struct {
 
 func getDomainStatsMemoryBandwidthMonitorLengthsFieldInfo(idx int, params *domainStatsMemoryBandwidthMonitorLengths) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		fmt.Sprintf("memory.bandwidth.monitor.%d.node.count", idx): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_COUNT, idx): typedParamsFieldInfo{
 			set: &params.NodeCountSet,
 			ui:  &params.NodeCount,
 		},
@@ -3062,17 +3199,38 @@ type DomainStatsMemoryBandwidthMonitorNode struct {
 
 func getDomainStatsMemoryBandwidthMonitorNodeFieldInfo(idx1, idx2 int, params *DomainStatsMemoryBandwidthMonitorNode) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		fmt.Sprintf("memory.bandwidth.monitor.%d.node.%d.id", idx1, idx2): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_SUFFIX_ID, idx1, idx2): typedParamsFieldInfo{
 			set: &params.IDSet,
 			ui:  &params.ID,
 		},
-		fmt.Sprintf("memory.bandwidth.monitor.%d.node.%d.bytes.local", idx1, idx2): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_SUFFIX_BYTES_LOCAL, idx1, idx2): typedParamsFieldInfo{
 			set: &params.BytesLocalSet,
 			ul:  &params.BytesLocal,
 		},
-		fmt.Sprintf("memory.bandwidth.monitor.%d.node.%d.bytes.total", idx1, idx2): typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_SUFFIX_BYTES_TOTAL, idx1, idx2): typedParamsFieldInfo{
 			set: &params.BytesTotalSet,
 			ul:  &params.BytesTotal,
+		},
+	}
+}
+
+type DomainStatsDirtyRateVCPU struct {
+	MegabytesPerSecondSet bool
+	MegabytesPerSecond    int64
+}
+
+func getDomainStatsDirtyRateVCPUFieldInfo(idx int, params *DomainStatsDirtyRateVCPU) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_DIRTYRATE_VCPU_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_DIRTYRATE_VCPU_SUFFIX_MEGABYTES_PER_SECOND, idx): typedParamsFieldInfo{
+			set: &params.MegabytesPerSecondSet,
+			l:   &params.MegabytesPerSecond,
 		},
 	}
 }
@@ -3086,25 +3244,65 @@ type DomainStatsDirtyRate struct {
 	CalcPeriod            int
 	MegabytesPerSecondSet bool
 	MegabytesPerSecond    int64
+	CalcModeSet           bool
+	CalcMode              string
+	VCPUS                 []DomainStatsDirtyRateVCPU
 }
 
 func getDomainStatsDirtyRateFieldInfo(params *DomainStatsDirtyRate) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		"dirtyrate.calc_status": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_DIRTYRATE_CALC_STATUS: typedParamsFieldInfo{
 			set: &params.CalcStatusSet,
 			i:   &params.CalcStatus,
 		},
-		"dirtyrate.calc_start_time": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_DIRTYRATE_CALC_START_TIME: typedParamsFieldInfo{
 			set: &params.CalcStartTimeSet,
 			l:   &params.CalcStartTime,
 		},
-		"dirtyrate.calc_period": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_DIRTYRATE_CALC_PERIOD: typedParamsFieldInfo{
 			set: &params.CalcPeriodSet,
 			i:   &params.CalcPeriod,
 		},
-		"dirtyrate.megabytes_per_second": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_DIRTYRATE_MEGABYTES_PER_SECOND: typedParamsFieldInfo{
 			set: &params.MegabytesPerSecondSet,
 			l:   &params.MegabytesPerSecond,
+		},
+		C.VIR_DOMAIN_STATS_DIRTYRATE_CALC_MODE: typedParamsFieldInfo{
+			set: &params.CalcModeSet,
+			s:   &params.CalcMode,
+		},
+	}
+}
+
+type DomainStatsIOThread struct {
+	PollMaxNSSet  bool
+	PollMaxNS     uint64
+	PollGrowSet   bool
+	PollGrow      uint
+	PollGrow64    uint64
+	PollShrinkSet bool
+	PollShrink    uint
+	PollShrink64  uint64
+}
+
+func getDomainStatsIOThreadFieldInfo(idx int, params *DomainStatsIOThread) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_IOTHREAD_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_IOTHREAD_SUFFIX_POLL_MAX_NS, idx): typedParamsFieldInfo{
+			set: &params.PollMaxNSSet,
+			ul:  &params.PollMaxNS,
+		},
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_IOTHREAD_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_IOTHREAD_SUFFIX_POLL_GROW, idx): typedParamsFieldInfo{
+			set: &params.PollGrowSet,
+			ui:  &params.PollGrow,
+			ul:  &params.PollGrow64,
+		},
+		fmt.Sprintf(C.VIR_DOMAIN_STATS_IOTHREAD_PREFIX+"%d"+
+			C.VIR_DOMAIN_STATS_IOTHREAD_SUFFIX_POLL_SHRINK, idx): typedParamsFieldInfo{
+			set: &params.PollShrinkSet,
+			ui:  &params.PollShrink,
+			ul:  &params.PollShrink64,
 		},
 	}
 }
@@ -3121,6 +3319,7 @@ type DomainStats struct {
 	Memory    *DomainStatsMemory
 	DirtyRate *DomainStatsDirtyRate
 	VM        []TypedParamValue
+	IOThread  []DomainStatsIOThread
 }
 
 type domainStatsLengths struct {
@@ -3134,31 +3333,46 @@ type domainStatsLengths struct {
 	BlockCount        uint
 	BandwidthCountSet bool
 	BandwidthCount    uint
+	IOThreadCountSet  bool
+	IOThreadCount     uint
 }
 
 func getDomainStatsLengthsFieldInfo(params *domainStatsLengths) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		"vcpu.current": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_VCPU_CURRENT: typedParamsFieldInfo{
 			set: &params.VcpuCurrentSet,
 			ui:  &params.VcpuCurrent,
 		},
-		"vcpu.maximum": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_VCPU_MAXIMUM: typedParamsFieldInfo{
 			set: &params.VcpuMaximumSet,
 			ui:  &params.VcpuMaximum,
 		},
-		"net.count": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_NET_COUNT: typedParamsFieldInfo{
 			set: &params.NetCountSet,
 			ui:  &params.NetCount,
 		},
-		"block.count": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_BLOCK_COUNT: typedParamsFieldInfo{
 			set: &params.BlockCountSet,
 			ui:  &params.BlockCount,
 		},
-		"memory.bandwidth.monitor.count": typedParamsFieldInfo{
+		C.VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_COUNT: typedParamsFieldInfo{
 			set: &params.BandwidthCountSet,
 			ui:  &params.BandwidthCount,
 		},
+		C.VIR_DOMAIN_STATS_IOTHREAD_COUNT: typedParamsFieldInfo{
+			set: &params.IOThreadCountSet,
+			ui:  &params.IOThreadCount,
+		},
 	}
+}
+
+func filterCustomStats(key string) bool {
+	if !strings.HasSuffix(key, C.VIR_DOMAIN_STATS_CUSTOM_SUFFIX_TYPE_CUR) &&
+		!strings.HasSuffix(key, C.VIR_DOMAIN_STATS_CUSTOM_SUFFIX_TYPE_MAX) &&
+		!strings.HasSuffix(key, C.VIR_DOMAIN_STATS_CUSTOM_SUFFIX_TYPE_SUM) {
+		return false
+	}
+	return true
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virConnectGetAllDomainStats
@@ -3221,6 +3435,47 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 			domstats.Cpu = cpu
 		}
 
+		cpuLengths := domainStatsCPULengths{}
+		cpuLengthsInfo := getDomainStatsCPULengthsFieldInfo(&cpuLengths)
+
+		_, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, cpuLengthsInfo)
+		if gerr != nil {
+			return nil, gerr
+		}
+
+		if cpuLengths.CacheMonitorCountSet && cpuLengths.CacheMonitorCount > 0 {
+			cpu.CacheMonitors = make([]DomainStatsCPUCacheMonitor, cpuLengths.CacheMonitorCount)
+			for i := 0; i < int(cpuLengths.CacheMonitorCount); i++ {
+				cpuCacheInfo := getDomainStatsCPUCacheMonitorFieldInfo(i, &cpu.CacheMonitors[i])
+
+				_, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, cpuCacheInfo)
+				if gerr != nil {
+					return nil, gerr
+				}
+
+				cpuCacheMonitorLengths := domainStatsCPUCacheMonitorLengths{}
+				cpuCacheMonitorLengthsInfo := getDomainStatsCPUCacheMonitorLengthsFieldInfo(i, &cpuCacheMonitorLengths)
+
+				_, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, cpuCacheMonitorLengthsInfo)
+				if gerr != nil {
+					return nil, gerr
+				}
+
+				if cpuCacheMonitorLengths.BankCountSet && cpuCacheMonitorLengths.BankCount > 0 {
+					cpu.CacheMonitors[i].Banks = make([]DomainStatsCPUCacheMonitorBank, cpuCacheMonitorLengths.BankCount)
+					for j := 0; j < int(cpuCacheMonitorLengths.BankCount); j++ {
+						cpuCacheBankInfo := getDomainStatsCPUCacheMonitorBankFieldInfo(i, j, &cpu.CacheMonitors[i].Banks[j])
+
+						_, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, cpuCacheBankInfo)
+						if gerr != nil {
+							return nil, gerr
+						}
+					}
+				}
+
+			}
+		}
+
 		balloon := &DomainStatsBalloon{}
 		balloonInfo := getDomainStatsBalloonFieldInfo(balloon)
 
@@ -3270,6 +3525,14 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 					vcpu.StateSet = true
 					vcpu.State = VCPU_OFFLINE
 				}
+
+				vcpu.Custom, gerr = typedParamsUnpackRaw(
+					fmt.Sprintf("vcpu.%d.", j), filterCustomStats,
+					cdomstats.params, cdomstats.nparams)
+				if gerr != nil {
+					return []DomainStats{}, gerr
+				}
+
 				domstats.Vcpu[j] = vcpu
 			}
 		}
@@ -3361,7 +3624,41 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 			domstats.DirtyRate = dirtyrate
 		}
 
-		domstats.VM, gerr = typedParamsUnpackRaw("vm.", cdomstats.params, cdomstats.nparams)
+		vcpuCount, gerr := domstats.Domain.GetVcpusFlags(DOMAIN_VCPU_MAXIMUM)
+		if vcpuCount > 0 {
+			dirtyrate.VCPUS = make([]DomainStatsDirtyRateVCPU, count)
+			for j := 0; j < int(vcpuCount); j++ {
+				vcpu := DomainStatsDirtyRateVCPU{}
+				vcpuInfo := getDomainStatsDirtyRateVCPUFieldInfo(j, &vcpu)
+
+				count, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, vcpuInfo)
+				if gerr != nil {
+					return []DomainStats{}, gerr
+				}
+				if count != 0 {
+					dirtyrate.VCPUS[j] = vcpu
+				}
+			}
+		}
+
+		if lengths.IOThreadCountSet && lengths.IOThreadCount > 0 {
+			domstats.IOThread = make([]DomainStatsIOThread, lengths.IOThreadCount)
+			for j := 0; j < int(lengths.IOThreadCount); j++ {
+				block := DomainStatsIOThread{}
+				blockInfo := getDomainStatsIOThreadFieldInfo(j, &block)
+
+				count, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, blockInfo)
+				if gerr != nil {
+					return []DomainStats{}, gerr
+				}
+				if count != 0 {
+					domstats.IOThread[j] = block
+				}
+			}
+		}
+
+		domstats.VM, gerr = typedParamsUnpackRaw(C.VIR_DOMAIN_STATS_VM_PREFIX,
+			filterCustomStats, cdomstats.params, cdomstats.nparams)
 		if gerr != nil {
 			return []DomainStats{}, gerr
 		}

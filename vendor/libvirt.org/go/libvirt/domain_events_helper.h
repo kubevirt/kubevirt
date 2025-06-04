@@ -229,6 +229,13 @@ domainEventMemoryDeviceSizeChangeCallbackHelper(virConnectPtr conn,
 						unsigned long long size,
 						void *opaque);
 
+void
+domainEventNICMACChangeCallbackHelper(virConnectPtr conn,
+                                      virDomainPtr dom,
+                                      const char *alias,
+                                      const char *oldMAC,
+                                      const char *newMAC,
+                                      void *opaque);
 
 int
 virConnectDomainEventRegisterAnyHelper(virConnectPtr conn,
