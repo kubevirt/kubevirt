@@ -22,43 +22,36 @@ package passt
 import (
 	"context"
 	"errors"
+
 	"kubevirt.io/client-go/log"
-	"os"
-	"os/exec"
 )
 
-const executableName = "passt-repair"
-
 type PasstRepairRunner struct {
-	cmd                  string
-	unixDomainSocketPath string
+	cmd Command
 }
 
-func NewPasstRepairRunner(unixDomainSocketPath string) *PasstRepairRunner {
+func NewPasstRepairRunner(command Command) *PasstRepairRunner {
 	return &PasstRepairRunner{
-		cmd:                  executableName,
-		unixDomainSocketPath: unixDomainSocketPath,
+		cmd: command,
 	}
 }
 
-func (s *PasstRepairRunner) RunContextual(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, s.cmd, s.unixDomainSocketPath)
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		log.Log.Reason(err).Errorf("failed to start passt-repair with %s", s.unixDomainSocketPath)
+func (s *PasstRepairRunner) RunContextual(ctx context.Context, cleanupFunc func()) error {
+	defer cleanupFunc()
+	if err := s.cmd.Start(); err != nil {
+		log.Log.Reason(err).Errorf("failed to start: %s", s.cmd.String())
 		return err
 	}
-	log.Log.V(4).Infof("passt-repair executed with %s", s.unixDomainSocketPath)
+	log.Log.V(4).Infof("passt-repair executed: %s", s.cmd.String())
 
-	if err := cmd.Wait(); err != nil {
+	if err := s.cmd.Wait(); err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			log.Log.Warningf("deadline exceeded running passt-repair with %s", s.unixDomainSocketPath)
+			log.Log.Warningf("deadline exceeded running: %s", s.cmd.String())
 			return context.DeadlineExceeded
 		}
-		log.Log.Reason(err).Errorf("failure waiting for passt-repair with %s", s.unixDomainSocketPath)
+		log.Log.Reason(err).Errorf("failure waiting for %s to complete", s.cmd.String())
 		return err
 	}
-	log.Log.V(4).Infof("passt-repair execution completed with %s", s.unixDomainSocketPath)
+	log.Log.V(4).Infof("execution of:  %s has completed", s.cmd.String())
 	return nil
 }
