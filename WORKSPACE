@@ -6650,6 +6650,14 @@ rpm(
 )
 
 rpm(
+    name = "qemu-kvm-device-display-virtio-vga-17__9.1.0-19.el9.x86_64",
+    sha256 = "aff5dd2d60bfc1f670430b627a46e6273fe4307eb3efa73152f2ddf3e2d999f3",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-display-virtio-vga-9.1.0-19.el9.x86_64.rpm",
+    ],
+)
+
+rpm(
     name = "qemu-kvm-device-usb-host-17__9.1.0-19.el9.aarch64",
     sha256 = "e4ca3610d6ac9511c93e84f300d23a4b14c3190c4b40573f4c2aa56694fd6e71",
     urls = [
