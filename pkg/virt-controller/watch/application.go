@@ -96,6 +96,7 @@ import (
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	netcontrollers "kubevirt.io/kubevirt/pkg/network/controllers"
+	netmigration "kubevirt.io/kubevirt/pkg/network/migration"
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
 	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
@@ -671,7 +672,7 @@ func (vca *VirtControllerApp) initCommon() {
 		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
-		stubMigrationEvaluator{},
+		netmigration.NewEvaluator(),
 	)
 	if err != nil {
 		panic(err)
@@ -1062,10 +1063,4 @@ func (vca *VirtControllerApp) setupLeaderElector() (err error) {
 		})
 
 	return
-}
-
-type stubMigrationEvaluator struct{}
-
-func (e stubMigrationEvaluator) Evaluate(_ *v1.VirtualMachineInstance) k8sv1.ConditionStatus {
-	return k8sv1.ConditionUnknown
 }

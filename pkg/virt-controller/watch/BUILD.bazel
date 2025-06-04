@@ -17,6 +17,7 @@ go_library(
         "//pkg/monitoring/profiler:go_default_library",
         "//pkg/network/admitter:go_default_library",
         "//pkg/network/controllers:go_default_library",
+        "//pkg/network/migration:go_default_library",
         "//pkg/network/netbinding:go_default_library",
         "//pkg/network/pod/annotations:go_default_library",
         "//pkg/service:go_default_library",
