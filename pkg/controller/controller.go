@@ -549,7 +549,6 @@ func isPodFailed(pod *k8sv1.Pod) bool {
 func PodExists(pod *k8sv1.Pod) bool {
 	return pod != nil
 }
-
 func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) []*v1.Volume {
 	hotplugVolumes := make([]*v1.Volume, 0)
 	podVolumes := virtlauncherPod.Spec.Volumes
