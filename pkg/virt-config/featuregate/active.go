@@ -77,6 +77,14 @@ const (
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 
 	DecentralizedLiveMigration = "DecentralizedLiveMigration"
+
+	// Owner: @nirdothan
+	// Alpha: v1.6.0
+	//
+	// PasstIPStackMigration enables seamless migration with passt network binding.
+	// Technically, enables calling a helper binary from virt-handler, during migration,
+	// to set/clear the TCP_REPAIR socket option.
+	PasstIPStackMigration = "PasstIPStackMigration"
 )
 
 func init() {
@@ -104,4 +112,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 }
