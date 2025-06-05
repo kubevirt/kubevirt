@@ -134,7 +134,7 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 		if !k8serrors.IsNotFound(err) {
 			return err
 		}
-		job = buildRecoveryJob(jobName, launcherImage, migration)
+		job = buildRecoveryJob(jobName, migration.Status.MigrationState.SourcePersistentStatePVCName, launcherImage)
 		job, err = client.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), job, metav1.CreateOptions{})
 		if err != nil {
 			return err
@@ -150,6 +150,9 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 				err = MigrationHandoff(client, pvcStore, migration)
 				if err == nil {
 					migration.Status.Phase = corev1.MigrationSucceeded
+					_ = client.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
+						PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
+					})
 				}
 				return err
 			}
@@ -160,14 +163,12 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 					err = MigrationAbort(client, migration)
 					if err == nil {
 						migration.Status.Phase = corev1.MigrationFailed
+						_ = client.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
+							PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
+						})
 					}
 					return err
 				} else {
-					// The job failed to run properly. Deleting it to retry asap.
-					// Ignoring the deletion error because the job may already be gone, or will get auto-removed anyway.
-					_ = client.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
-						PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
-					})
 					return fmt.Errorf(c.Message)
 				}
 			}
@@ -179,13 +180,10 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 	return fmt.Errorf("migration recovery job still running")
 }
 
-func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMachineInstanceMigration) *batchv1.Job {
+func buildRecoveryJob(jobName, pvcName, launcherImage string) *batchv1.Job {
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: jobName,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(migration, corev1.VirtualMachineInstanceMigrationGroupVersionKind),
-			},
 		},
 		Spec: batchv1.JobSpec{
 			ActiveDeadlineSeconds:   pointer.P(int64(30)),
@@ -235,7 +233,7 @@ func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMa
 						Name: "backend-storage",
 						VolumeSource: v1.VolumeSource{
 							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								ClaimName: migration.Status.MigrationState.SourcePersistentStatePVCName,
+								ClaimName: pvcName,
 							},
 						},
 					}},
