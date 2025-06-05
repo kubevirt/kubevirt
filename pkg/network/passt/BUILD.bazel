@@ -6,6 +6,7 @@ go_library(
         "command.go",
         "fakeCommand.go",
         "passtrepair.go",
+        "socketutils.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/passt",
     visibility = ["//visibility:public"],
@@ -17,6 +18,7 @@ go_test(
     srcs = [
         "passt_suite_test.go",
         "passtrepair_test.go",
+        "socketutils_test.go",
     ],
     deps = [
         ":go_default_library",
