@@ -10,7 +10,6 @@ aliases:
     - enp0s3
     - xpivarc
     - vasiliy-ul
-    - alicefr
     - iholder101
   emeritus_approvers:
     - danielBelenky
@@ -25,6 +24,7 @@ aliases:
     - dhiller # 2024-03-15
     - AlonaKaplan
     - acardace
+    - alicefr # 2025-06-04
   code-reviewers:
     - vladikr
     - enp0s3
@@ -33,7 +33,6 @@ aliases:
     - EdDev
     - xpivarc
     - iholder101
-    - alicefr
     - 0xFelix
     - lyarwood
     - fossedihelm
@@ -86,7 +85,6 @@ aliases:
   #
   sig-storage-approvers:
     - mhenriks
-    - alicefr
     - akalenyu
     - ShellyKa13
   sig-storage-reviewers:
@@ -94,6 +92,8 @@ aliases:
     - akalenyu
     - ShellyKa13
     - alromeros
+  sig-storage-emeritus_approvers:
+    - alicefr
 
   #
   # SIG API
