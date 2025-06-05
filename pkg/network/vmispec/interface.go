@@ -190,3 +190,18 @@ func HasBindingPluginDeviceInfo(iface v1.Interface, bindingPlugins map[string]v1
 	}
 	return false
 }
+
+func GetPodNetworkInterfaceBinding(vmi *v1.VirtualMachineInstance,
+	bindings map[string]v1.InterfaceBindingPlugin,
+) *v1.InterfaceBindingPlugin {
+	if podNetwork := LookupPodNetwork(vmi.Spec.Networks); podNetwork != nil {
+		podInterface := LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, podNetwork.Name)
+		if podInterface != nil && podInterface.Binding != nil {
+			binding, found := bindings[podInterface.Binding.Name]
+			if found {
+				return &binding
+			}
+		}
+	}
+	return nil
+}
