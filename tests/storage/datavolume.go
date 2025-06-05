@@ -1142,18 +1142,10 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 	})
 
 	Context("With VirtualMachinePreference and PreferredStorageClassName", func() {
-		var vm *v1.VirtualMachine
 		var storageClass *storagev1.StorageClass
 		var virtualMachinePreference *instanceType.VirtualMachinePreference
 
 		BeforeEach(func() {
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Fail("Fail test when Filesystem storage class is not present")
-			}
-
-			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-
 			storageClass = &storagev1.StorageClass{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "storageclass-",
@@ -1169,7 +1161,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			virtualMachinePreference = &instanceType.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "virtualmachinepreference-test",
-					Namespace: vm.Namespace,
+					Namespace: testsuite.GetTestNamespace(nil),
 				},
 				Spec: instanceType.VirtualMachinePreferenceSpec{
 					Volumes: &instanceType.VolumePreferences{
@@ -1179,33 +1171,74 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			}
 			_, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(nil)).Create(context.Background(), virtualMachinePreference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-
-			// Bind VirtualMachinePreference to VirtualMachine
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: virtualMachinePreference.Name,
-				Kind: instancetypeapi.SingularPreferenceResourceName,
-			}
 		})
 
 		AfterEach(func() {
 			Expect(virtClient.VirtualMachinePreference(virtualMachinePreference.Namespace).Delete(context.Background(), virtualMachinePreference.Name, metav1.DeleteOptions{})).To(Succeed())
 		})
 
-		It("should use PreferredStorageClassName when storage class not provided by VM", func() {
-			// Remove storage class name from VM definition
-			vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName = nil
+		Context("using storage API", func() {
+			var vm *v1.VirtualMachine
 
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			BeforeEach(func() {
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
+					Fail("Fail test when Filesystem storage class is not present")
+				}
 
-			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).To(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: virtualMachinePreference.Name,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				}
+			})
+
+			It("[test_id:10329]should use PreferredStorageClassName when storage class not provided by VM", func() {
+				vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName = nil
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).To(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+			})
+
+			It("should always use VM defined storage class over PreferredStorageClassName", func() {
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).NotTo(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+			})
 		})
 
-		It("should always use VM defined storage class over PreferredStorageClassName", func() {
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+		Context("using PVC API", func() {
+			var vm *v1.VirtualMachine
 
-			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).NotTo(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+			BeforeEach(func() {
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
+					Fail("Fail test when Filesystem storage class is not present")
+				}
+
+				vm = renderVMWithRegistryImportDataVolumePVCAPI(cd.ContainerDiskAlpine, sc)
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: virtualMachinePreference.Name,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				}
+			})
+
+			It("[test_id:10328]should use PreferredStorageClassName when storage class not provided by VM", func() {
+				vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = nil
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName).To(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+			})
+
+			It("should always use VM defined storage class over PreferredStorageClassName", func() {
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName).NotTo(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
+			})
 		})
 	})
 }))
@@ -1338,5 +1371,20 @@ func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storag
 			libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(importUrl)),
 		),
 	)
+	return libstorage.RenderVMWithDataVolumeTemplate(dv)
+}
+
+func renderVMWithRegistryImportDataVolumePVCAPI(containerDisk cd.ContainerDisk, storageClass string) *v1.VirtualMachine {
+	importUrl := cd.DataVolumeImportUrlForContainerDisk(containerDisk)
+	dv := libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(importUrl),
+		libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+		libdv.WithPVC(
+			libdv.PVCWithStorageClass(storageClass),
+		),
+	)
+	if dv.Spec.PVC != nil {
+		dv.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage] = resource.MustParse(cd.ContainerDiskSizeBySourceURL(importUrl))
+	}
 	return libstorage.RenderVMWithDataVolumeTemplate(dv)
 }
