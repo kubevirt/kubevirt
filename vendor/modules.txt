@@ -1291,7 +1291,7 @@ kubevirt.io/qe-tools/pkg/polarion-xml
 # libvirt.org/go/libvirt v1.10009.1
 ## explicit; go 1.11
 libvirt.org/go/libvirt
-# libvirt.org/go/libvirtxml v1.11000.1
+# libvirt.org/go/libvirtxml v1.10010.0
 ## explicit; go 1.11
 libvirt.org/go/libvirtxml
 # mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2
