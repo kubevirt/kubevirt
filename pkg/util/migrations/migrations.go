@@ -111,18 +111,3 @@ func VMIMigratableOnEviction(clusterConfig *virtconfig.ClusterConfig, vmi *v1.Vi
 	}
 	return false
 }
-
-func ActiveMigrationExistsForVMI(migrationIndexer cache.Indexer, vmi *v1.VirtualMachineInstance) (bool, error) {
-	objs, err := migrationIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
-	if err != nil {
-		return false, err
-	}
-	for _, obj := range objs {
-		migration := obj.(*v1.VirtualMachineInstanceMigration)
-		if migration.Spec.VMIName == vmi.Name && migration.IsRunning() {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}

@@ -57,7 +57,6 @@ func NewController(templateService services.TemplateService,
 	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
-	migrationInformer cache.SharedIndexInformer,
 	storageClassInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
@@ -82,7 +81,6 @@ func NewController(templateService services.TemplateService,
 		vmStore:                 vmInformer.GetStore(),
 		podIndexer:              podInformer.GetIndexer(),
 		pvcIndexer:              pvcInformer.GetIndexer(),
-		migrationIndexer:        migrationInformer.GetIndexer(),
 		recorder:                recorder,
 		clientset:               clientset,
 		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -177,7 +175,6 @@ type Controller struct {
 	vmStore                 cache.Store
 	podIndexer              cache.Indexer
 	pvcIndexer              cache.Indexer
-	migrationIndexer        cache.Indexer
 	topologyHinter          topology.Hinter
 	recorder                record.EventRecorder
 	podExpectations         *controller.UIDTrackingControllerExpectations
