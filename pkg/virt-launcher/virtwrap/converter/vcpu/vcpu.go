@@ -291,6 +291,10 @@ func (p *cpuPool) fitThread() (thread *uint32) {
 }
 
 func GetCPUTopology(vmi *v12.VirtualMachineInstance) *api.CPUTopology {
+	if vmi == nil {
+		return nil
+	}
+
 	cores := uint32(1)
 	threads := uint32(1)
 	sockets := uint32(1)

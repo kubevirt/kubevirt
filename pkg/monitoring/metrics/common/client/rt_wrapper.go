@@ -64,7 +64,7 @@ func parseURLResourceOperation(request *http.Request) (resource string, verb str
 	resource = ""
 	verb = ""
 
-	if request.URL.Path == "" || method == "" {
+	if request.URL == nil || request.URL.Path == "" || method == "" {
 		return
 	}
 

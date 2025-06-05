@@ -108,6 +108,10 @@ func ValidateLiveUpdateMemory(vmSpec *v1.VirtualMachineInstanceSpec, maxGuest *r
 }
 
 func BuildMemoryDevice(vmi *v1.VirtualMachineInstance) (*api.MemoryDevice, error) {
+	if vmi == nil {
+		return nil, fmt.Errorf("VMI is nil")
+	}
+
 	domain := vmi.Spec.Domain
 
 	pluggableMemory := domain.Memory.MaxGuest.DeepCopy()
