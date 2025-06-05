@@ -101,6 +101,12 @@ const (
 	// Owner: @dasionov
 	// Alpha: v1.6.0
 	VideoConfig = "VideoConfig"
+
+	// Owner: @nirdothan
+	// Alpha: v1.6.0
+	//
+	// PasstIPStackMigration enables seamless migration with passt network binding.
+	PasstIPStackMigration = "PasstIPStackMigration"
 )
 
 func init() {
@@ -130,4 +136,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 }
