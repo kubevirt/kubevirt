@@ -367,12 +367,23 @@ func (k *KubeVirtTestData) BeforeTest() {
 		return true, nil, nil
 	})
 	k.virtFakeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-		if action.GetVerb() == "list" && action.GetResource().Resource == apiinstancetype.ClusterPluralResourceName {
-			return true, &v1beta1.VirtualMachineClusterInstancetypeList{}, nil
+		switch action.GetVerb() {
+		case "list":
+			switch action.GetResource().Resource {
+			case apiinstancetype.ClusterPluralResourceName:
+				return true, &v1beta1.VirtualMachineClusterInstancetypeList{}, nil
+			case apiinstancetype.ClusterPluralPreferenceResourceName:
+				return true, &v1beta1.VirtualMachineClusterPreferenceList{}, nil
+			}
+		case "create":
+			switch action.GetResource().Resource {
+			case apiinstancetype.ClusterPluralResourceName:
+				return true, &v1beta1.VirtualMachineClusterInstancetype{}, nil
+			case apiinstancetype.ClusterPluralPreferenceResourceName:
+				return true, &v1beta1.VirtualMachineClusterPreference{}, nil
+			}
 		}
-		if action.GetVerb() == "list" && action.GetResource().Resource == apiinstancetype.ClusterPluralPreferenceResourceName {
-			return true, &v1beta1.VirtualMachineClusterPreferenceList{}, nil
-		}
+
 		// Make sure other unexpected calls fail
 		Expect(action).To(BeNil())
 		return true, nil, nil
