@@ -1281,7 +1281,7 @@ func (c *Controller) createAttachmentPod(migration *virtv1.VirtualMachineInstanc
 		return fmt.Errorf("failed to get current VMI pod: %v", err)
 	}
 
-	volumes := controller.GetHotplugVolumes(vmi, sourcePod)
+	volumes := storagetypes.GetHotplugVolumes(vmi, sourcePod)
 
 	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcStore, virtLauncherPod.Namespace)
 	if err != nil {

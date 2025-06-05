@@ -31,6 +31,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -226,8 +227,8 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 				}
 			}
 		} else {
-			// This is a new volume, ensure that the volume is either DV, PVC or memoryDumpVolume
-			if v.DataVolume == nil && v.PersistentVolumeClaim == nil && v.MemoryDump == nil {
+			// This is a new volume, ensure that it is hotpluggable
+			if !storagetypes.IsHotpluggableVolumeSource(&v) {
 				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,

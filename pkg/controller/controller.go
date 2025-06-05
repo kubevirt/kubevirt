@@ -558,20 +558,3 @@ func isPodFailed(pod *k8sv1.Pod) bool {
 func PodExists(pod *k8sv1.Pod) bool {
 	return pod != nil
 }
-
-func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) []*v1.Volume {
-	hotplugVolumes := make([]*v1.Volume, 0)
-	podVolumes := virtlauncherPod.Spec.Volumes
-	vmiVolumes := vmi.Spec.Volumes
-
-	podVolumeMap := make(map[string]k8sv1.Volume)
-	for _, podVolume := range podVolumes {
-		podVolumeMap[podVolume.Name] = podVolume
-	}
-	for _, vmiVolume := range vmiVolumes {
-		if _, ok := podVolumeMap[vmiVolume.Name]; !ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil || vmiVolume.MemoryDump != nil) {
-			hotplugVolumes = append(hotplugVolumes, vmiVolume.DeepCopy())
-		}
-	}
-	return hotplugVolumes
-}

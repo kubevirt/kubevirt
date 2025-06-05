@@ -136,7 +136,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		oldStatusMap[status.Name] = status
 	}
 
-	hotplugVolumes := controller.GetHotplugVolumes(vmi, virtlauncherPod)
+	hotplugVolumes := storagetypes.GetHotplugVolumes(vmi, virtlauncherPod)
 	hotplugVolumesMap := make(map[string]*virtv1.Volume)
 	for _, volume := range hotplugVolumes {
 		hotplugVolumesMap[volume.Name] = volume

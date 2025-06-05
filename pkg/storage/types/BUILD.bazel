@@ -6,6 +6,7 @@ go_library(
         "cdi.go",
         "dv.go",
         "pvc.go",
+        "volume.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/storage/types",
     visibility = ["//visibility:public"],
@@ -29,6 +30,7 @@ go_test(
         "dv_test.go",
         "pvc_test.go",
         "types_suite_test.go",
+        "volume_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

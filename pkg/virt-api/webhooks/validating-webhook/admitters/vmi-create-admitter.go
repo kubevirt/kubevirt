@@ -30,8 +30,6 @@ import (
 	"slices"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/storage/utils"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -47,7 +45,8 @@ import (
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
-	"kubevirt.io/kubevirt/pkg/storage/types"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -256,7 +255,7 @@ func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.Virtu
 		return causes
 	}
 
-	volumes := types.GetVolumesByName(spec)
+	volumes := storagetypes.GetVolumesByName(spec)
 
 	for _, fs := range spec.Domain.Devices.Filesystems {
 		volume, ok := volumes[fs.Name]
@@ -265,13 +264,13 @@ func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.Virtu
 		}
 
 		switch {
-		case utils.IsConfigVolume(volume) && (!config.VirtiofsConfigVolumesEnabled() && !config.OldVirtiofsEnabled()):
+		case storagetypes.IsConfigVolume(volume) && (!config.VirtiofsConfigVolumesEnabled() && !config.OldVirtiofsEnabled()):
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "virtiofs is not allowed: virtiofs feature gate is not enabled for config volumes",
 				Field:   field.Child("domain", "devices", "filesystems").String(),
 			})
-		case utils.IsStorageVolume(volume) && (!config.VirtiofsStorageEnabled() && !config.OldVirtiofsEnabled()):
+		case storagetypes.IsStorageVolume(volume) && (!config.VirtiofsStorageEnabled() && !config.OldVirtiofsEnabled()):
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "virtiofs is not allowed: virtiofs feature gate is not enabled for PVC",
