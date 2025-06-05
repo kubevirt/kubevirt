@@ -140,7 +140,6 @@ var _ = Describe("Application", func() {
 			vmInformer,
 			podInformer,
 			pvcInformer,
-			migrationInformer,
 			storageClassInformer,
 			recorder,
 			virtClient,
