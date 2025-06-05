@@ -68,14 +68,9 @@ if [ $# -eq 0 ]; then
             # Skip fuzz tests, as they are not part of regular unit testing
             go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" -race -skip FuzzAdmitter -timeout 15m ./pkg/...
         )
-    elif [ "${target}" = "generate" ]; then
-        ln -s ../../staging/src/kubevirt.io/api/ ${KUBEVIRT_DIR}/vendor/kubevirt.io/api
-        ln -s ../../staging/src/kubevirt.io/client-go/ ${KUBEVIRT_DIR}/vendor/kubevirt.io/client-go
-        go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./pkg/... ./staging/src/kubevirt.io/... ./tests/...
-        rm -r ${KUBEVIRT_DIR}/vendor/kubevirt.io/api
-        rm -r ${KUBEVIRT_DIR}/vendor/kubevirt.io/client-go
+    # go generate and others
     else
-        go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./pkg/... ./staging/src/kubevirt.io/... ./tests/...
+        go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./pkg/... ./staging/src/kubevirt.io/client-go/... ./staging/src/kubevirt.io/api/... ./tests/...
     fi
 fi
 
