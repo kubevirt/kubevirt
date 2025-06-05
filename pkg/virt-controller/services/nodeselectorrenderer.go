@@ -14,7 +14,6 @@ import (
 type NodeSelectorRenderer struct {
 	cpuFeatureLabels []string
 	cpuModelLabel    string
-	machineTypeLabel string
 	hasDedicatedCPU  bool
 	hyperv           bool
 	podNodeSelectors map[string]string
@@ -58,11 +57,6 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 	if nsr.cpuModelLabel != "" && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostModel) && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostPassthrough) {
 		nsr.enableSelectorLabel(nsr.cpuModelLabel)
 	}
-
-	if nsr.machineTypeLabel != "" {
-		nsr.enableSelectorLabel(nsr.machineTypeLabel)
-	}
-
 	for _, cpuFeatureLabel := range nsr.cpuFeatureLabels {
 		nsr.enableSelectorLabel(cpuFeatureLabel)
 	}
@@ -124,13 +118,6 @@ func WithModelAndFeatureLabels(modelLabel string, cpuFeatureLabels ...string) No
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.cpuFeatureLabels = cpuFeatureLabels
 		renderer.cpuModelLabel = modelLabel
-	}
-}
-
-func WithMachineType(machineType string) NodeSelectorRendererOption {
-	return func(renderer *NodeSelectorRenderer) {
-		machineTypeLabelKey := v1.SupportedMachineTypeLabel + machineType
-		renderer.machineTypeLabel = machineTypeLabelKey
 	}
 }
 
