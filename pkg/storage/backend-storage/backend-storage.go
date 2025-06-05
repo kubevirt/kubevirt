@@ -24,26 +24,25 @@ import (
 	"fmt"
 	"strings"
 
-	batchv1 "k8s.io/api/batch/v1"
-	v1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
-
-	corev1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/tpm"
-	"kubevirt.io/kubevirt/pkg/util"
+
+	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"k8s.io/client-go/tools/cache"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
+	v1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -113,137 +112,6 @@ func PVCForMigrationTarget(pvcStore cache.Store, migration *corev1.VirtualMachin
 	return pvcForMigrationTargetFromStore(pvcStore, migration)
 }
 
-func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1.VirtualMachineInstanceMigration, pvcStore cache.Store, vmi *corev1.VirtualMachineInstance, launcherImage string) error {
-	if migration.Status.MigrationState == nil ||
-		migration.Status.MigrationState.TargetPersistentStatePVCName == migration.Status.MigrationState.SourcePersistentStatePVCName {
-		// The migration either didn't actually start, or the backend storage is RWX.
-		// In both cases we consider the migration as failed.
-		migration.Status.Phase = corev1.MigrationFailed
-		return nil
-	}
-
-	// An interrupted migration exists. Using a job to check if the source PVC contains /meta/migrated,
-	// which would indicate that the libvirt migration finished.
-	// A JobComplete condition indicates the file is present, the migration was successful and the target PVC prevails
-	// A JobFailed condition indicated the file is absent, the migration didn't finish and the source PVC prevails
-
-	jobName := "recover-" + migration.Name
-
-	job, err := client.BatchV1().Jobs(vmi.Namespace).Get(context.Background(), jobName, metav1.GetOptions{})
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return err
-		}
-		job = buildRecoveryJob(jobName, migration.Status.MigrationState.SourcePersistentStatePVCName, launcherImage)
-		job, err = client.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), job, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
-		// The job was just created, return an error to be re-enqueued to check on the job
-		return fmt.Errorf("a migration recovery had to be initiated")
-	}
-
-	for _, c := range job.Status.Conditions {
-		switch c.Type {
-		case batchv1.JobComplete:
-			if c.Status == v1.ConditionTrue {
-				err = MigrationHandoff(client, pvcStore, migration)
-				if err == nil {
-					migration.Status.Phase = corev1.MigrationSucceeded
-					_ = client.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
-						PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
-					})
-				}
-				return err
-			}
-		case batchv1.JobFailed:
-			if c.Status == v1.ConditionTrue {
-				if c.Reason == batchv1.JobReasonPodFailurePolicy {
-					// The job ran properly but didn't find /meta/migrated, meaning the migration failed
-					err = MigrationAbort(client, migration)
-					if err == nil {
-						migration.Status.Phase = corev1.MigrationFailed
-						_ = client.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
-							PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
-						})
-					}
-					return err
-				} else {
-					return fmt.Errorf(c.Message)
-				}
-			}
-		default:
-			break
-		}
-	}
-
-	return fmt.Errorf("migration recovery job still running")
-}
-
-func buildRecoveryJob(jobName, pvcName, launcherImage string) *batchv1.Job {
-	return &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: jobName,
-		},
-		Spec: batchv1.JobSpec{
-			ActiveDeadlineSeconds:   pointer.P(int64(30)),
-			BackoffLimit:            pointer.P(int32(0)),
-			TTLSecondsAfterFinished: pointer.P(int32(30)),
-			PodFailurePolicy: &batchv1.PodFailurePolicy{
-				Rules: []batchv1.PodFailurePolicyRule{{
-					Action: batchv1.PodFailurePolicyActionFailJob,
-					OnExitCodes: &batchv1.PodFailurePolicyOnExitCodesRequirement{
-						ContainerName: pointer.P("container"),
-						Operator:      "In",
-						Values:        []int32{42},
-					},
-				}},
-			},
-			Template: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: jobName + "-",
-				},
-				Spec: v1.PodSpec{
-					RestartPolicy: v1.RestartPolicyNever,
-					SecurityContext: &v1.PodSecurityContext{
-						RunAsNonRoot: pointer.P(true),
-						RunAsUser:    pointer.P(int64(util.NonRootUID)),
-						RunAsGroup:   pointer.P(int64(util.NonRootUID)),
-						FSGroup:      pointer.P(int64(util.NonRootUID)),
-						SeccompProfile: &v1.SeccompProfile{
-							Type: v1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
-					Containers: []v1.Container{{
-						Name: "container",
-						SecurityContext: &v1.SecurityContext{
-							AllowPrivilegeEscalation: pointer.P(false),
-							Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"ALL"}},
-						},
-						Image:   launcherImage,
-						Command: []string{"bash"},
-						Args:    []string{"-c", "ls /meta/migrated || exit 42"},
-						VolumeMounts: []v1.VolumeMount{{
-							Name:      "backend-storage",
-							MountPath: "/meta",
-							SubPath:   "meta",
-						}},
-					}},
-					Volumes: []v1.Volume{{
-						Name: "backend-storage",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								ClaimName: pvcName,
-							},
-						},
-					}},
-				},
-			},
-		},
-	}
-
-}
-
 func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name string) {
 	labelPatch := patch.New()
 	if len(pvc.Labels) == 0 {
@@ -289,8 +157,6 @@ func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 	return tpm.HasPersistentDevice(&vm.Spec.Template.Spec) || HasPersistentEFI(&vm.Spec.Template.Spec)
 }
 
-// MigrationHandoff runs at the end of a successful live migration.
-// It labels the target backend-storage PVC as current for the VM and deletes the source backend-storage PVC.
 func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) error {
 	if migration == nil || migration.Status.MigrationState == nil ||
 		migration.Status.MigrationState.SourcePersistentStatePVCName == "" ||
@@ -339,15 +205,13 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 	}
 
 	err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err != nil {
 		return fmt.Errorf("failed to delete PVC: %v", err)
 	}
 
 	return nil
 }
 
-// MigrationAbort runs at the end of a failed live migration.
-// It just removes the target backend-storage PVC.
 func MigrationAbort(client kubecli.KubevirtClient, migration *corev1.VirtualMachineInstanceMigration) error {
 	if migration == nil || migration.Status.MigrationState == nil ||
 		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
@@ -363,7 +227,7 @@ func MigrationAbort(client kubecli.KubevirtClient, migration *corev1.VirtualMach
 	}
 
 	err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), targetPVC, metav1.DeleteOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err != nil {
 		return fmt.Errorf("failed to delete PVC: %v", err)
 	}
 

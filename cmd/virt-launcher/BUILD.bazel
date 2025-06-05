@@ -152,15 +152,6 @@ pkg_tar(
     package_dir = "/etc",
 )
 
-pkg_tar(
-    name = "qemu-hook-tar",
-    srcs = [
-        ":qemu",
-    ],
-    mode = "0755",
-    package_dir = "/etc/libvirt/hooks",
-)
-
 # Workaround for https://github.com/moby/moby/issues/44106
 # Need to create the directory upfront, otherwise it gets assigned wrong
 # permissions when unpacked.
@@ -196,7 +187,6 @@ container_image(
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
-            ":qemu-hook-tar",
             ":qemu-kvm-modules-dir-tar",
             "//rpm:launcherbase_x86_64",
         ],

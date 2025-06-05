@@ -47,7 +47,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
@@ -79,6 +78,11 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		// do not return; just log the error
 	}
 
+	backendStoragePVCName, syncErr := c.handleBackendStorage(vmi)
+	if syncErr != nil {
+		return syncErr, pod
+	}
+
 	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.areDataVolumesReady(vmi, dataVolumes)
 	if syncErr != nil {
 		return syncErr, pod
@@ -99,21 +103,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates or while we wait for PVCs to appear.")
 			return nil, pod
 		}
-		// ensure the VMI doesn't have an unfinished migration before creating the pod
-		activeMigration, err := migrations.ActiveMigrationExistsForVMI(c.migrationIndexer, vmi)
-		if err != nil {
-			return common.NewSyncError(err, controller.FailedCreatePodReason), pod
-		}
-		if activeMigration {
-			log.Log.V(3).Object(vmi).Infof("Delaying pod creation because an active migration exists for the VMI.")
-			// We still need to return an error to ensure the VMI gets re-enqueued
-			return common.NewSyncError(fmt.Errorf("active migration exists"), controller.FailedCreatePodReason), pod
-		}
 
-		backendStoragePVCName, syncErr := c.handleBackendStorage(vmi)
-		if syncErr != nil {
-			return syncErr, pod
-		}
 		// If a backend-storage PVC was just created but not yet seen by the informer, give it time
 		if !c.pvcExpectations.SatisfiedExpectations(key) {
 			return nil, pod

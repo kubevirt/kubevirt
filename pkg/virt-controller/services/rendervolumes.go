@@ -410,13 +410,6 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 			},
 		})
 
-		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
-			Name:      volumeName,
-			ReadOnly:  false,
-			MountPath: "/run/kubevirt-private/backend-storage-meta",
-			SubPath:   "meta",
-		})
-
 		if util.IsNonRootVMI(vmi) {
 			// For non-root VMIs, the TPM state lives under /var/run/kubevirt-private/libvirt/qemu/swtpm
 			// To persist it, we need the persistent PVC to be mounted under that location.
