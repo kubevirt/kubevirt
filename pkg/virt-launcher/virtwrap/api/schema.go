@@ -1324,6 +1324,10 @@ func (dl *DomainList) GetListMeta() meta.List {
 // VMINamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
 // namespace_name.
 func VMINamespaceKeyFunc(vmi *v1.VirtualMachineInstance) string {
+	if vmi == nil {
+		return ""
+	}
+
 	domName := fmt.Sprintf("%s_%s", vmi.Namespace, vmi.Name)
 	return domName
 }

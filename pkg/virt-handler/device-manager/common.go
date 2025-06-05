@@ -188,6 +188,10 @@ func (h *DeviceUtilsHandler) ReadMDEVAvailableInstances(mdevType string, parentI
 		return 0, err
 	}
 
+	if len(lines) == 0 {
+		return 0, fmt.Errorf("no data found in %s", path)
+	}
+
 	i, err := strconv.Atoi(string(lines[0]))
 	if err != nil {
 		return 0, err

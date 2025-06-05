@@ -516,7 +516,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 			}
 		}
 
-		if kernelArtifacts.initrd != nil {
+		if kernelArtifacts.initrd != nil && targetInitrdPath != nil {
 			out, err := virt_chroot.MountChroot(kernelArtifacts.initrd, targetInitrdPath, true).CombinedOutput()
 			if err != nil {
 				return fmt.Errorf("failed to bindmount %v: %v : %v", kernelBootName, string(out), err)
