@@ -558,7 +558,7 @@ fi
 
 
 # Run functional tests
-FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
+FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER='--label-filter='${label_filter} make functest
 
 # Run REST API coverage based on k8s audit log and openapi spec
 if [ -n "$RUN_REST_COVERAGE" ]; then
