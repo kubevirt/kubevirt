@@ -1080,8 +1080,6 @@ const (
 	HypervLabel = "hyperv.node.kubevirt.io/"
 	// This label represents vendor of cpu model on the node
 	CPUModelVendorLabel = "cpu-vendor.node.kubevirt.io/"
-	// This label represents supported machine type on the node
-	SupportedMachineTypeLabel = "machine-type.node.kubevirt.io/"
 
 	VirtIO = "virtio"
 
