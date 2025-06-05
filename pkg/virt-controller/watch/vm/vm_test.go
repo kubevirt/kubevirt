@@ -39,7 +39,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/controller"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
@@ -51,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	gomegatypes "github.com/onsi/gomega/types"
 
@@ -4792,6 +4792,33 @@ var _ = Describe("VirtualMachine", func() {
 					expectedCpuLim.Add(*resourcesDelta)
 					Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal(expectedCpuLim.String()))
 				})
+
+				It("should raise RestartRequired condition for ARM64 VM", func() {
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.Architecture = "arm64"
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+						Sockets:    2,
+						MaxSockets: 4,
+					}
+
+					vmi := controller.setupVMIFromVM(vm)
+					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					controller.vmiIndexer.Add(vmi)
+
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+						Sockets: 3,
+					}
+					addVirtualMachine(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vm).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
+				})
 			})
 
 			Context("Memory", func() {
@@ -6323,7 +6350,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 			syncVolumeMigration(vm, vmi)
 			Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).To(Equal(expectedVolumeMigrationState))
-			Expect(controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm,
+			Expect(virtcontroller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm,
 				v1.VirtualMachineManualRecoveryRequired, k8sv1.ConditionTrue)).To(Equal(expectCond))
 		},
 			Entry("without any volume migration in progress", libvmi.NewVirtualMachine(libvmi.New(), libvmistatus.WithVMStatus(libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{})))), libvmi.New(), nil, false),
