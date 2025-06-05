@@ -1,0 +1,45 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+featureGates:
+  DynamicResourceAllocation: true
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry:5000"]
+    endpoint = ["http://registry:5000"]
+# Enable CDI as described in
+# https://tags.cncf.io/container-device-interface#containerd-configuration
+# https://github.com/kubernetes-sigs/dra-example-driver/blob/4a1bf91c32d7ccf43e93d7cd6dfaaf7564a7fae2/demo/scripts/kind-cluster-config.yaml#L5-L10
+- |-
+  [plugins."io.containerd.grpc.v1.cri"]
+    enable_cdi = true
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |-
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        "feature-gates": "CPUManager=true"
+        "cpu-manager-policy": "static"
+        "kube-reserved": "cpu=500m"
+        "system-reserved": "cpu=500m"
+  - |-
+    kind: ClusterConfiguration
+    apiServer:
+        extraArgs:
+          runtime-config: "resource.k8s.io/v1beta1=true"
+    scheduler:
+        extraArgs:
+          v: "1"
+    controllerManager:
+        extraArgs:
+          v: "1"
+  - |-
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        v: "1"
+  extraMounts:
+  - containerPath: /var/log/audit
+    hostPath: /var/log/audit
+    readOnly: true
