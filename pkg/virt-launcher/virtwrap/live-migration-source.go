@@ -274,12 +274,11 @@ func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks
 				disks.shared[volume.Name] = true
 			}
 		case volSrc.HostDisk != nil:
-			if volSrc.HostDisk.Shared != nil && *volSrc.HostDisk.Shared {
-				disks.shared[volume.Name] = true
-			} else if _, ok := migrateDisks[volume.Name]; ok {
+			if _, ok := migrateDisks[volume.Name]; ok {
 				disks.localToMigrate[volume.Name] = true
+			} else if volSrc.HostDisk.Shared != nil && *volSrc.HostDisk.Shared {
+				disks.shared[volume.Name] = true
 			}
-
 		case volSrc.ConfigMap != nil || volSrc.Secret != nil || volSrc.DownwardAPI != nil ||
 			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil ||
 			volSrc.CloudInitConfigDrive != nil || volSrc.ContainerDisk != nil:
