@@ -33,7 +33,6 @@ import (
 	"github.com/opencontainers/selinux/go-selinux"
 
 	k8sv1 "k8s.io/api/core/v1"
-	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,19 +44,20 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/util"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/util"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
-	pdbsutil "kubevirt.io/kubevirt/pkg/util/pdbs"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 
@@ -109,7 +109,6 @@ type Controller struct {
 	pvcStore             cache.Store
 	storageClassStore    cache.Store
 	storageProfileStore  cache.Store
-	pdbIndexer           cache.Indexer
 	migrationPolicyStore cache.Store
 	resourceQuotaIndexer cache.Indexer
 	recorder             record.EventRecorder
@@ -136,7 +135,6 @@ func NewController(templateService services.TemplateService,
 	pvcInformer cache.SharedIndexInformer,
 	storageClassInformer cache.SharedIndexInformer,
 	storageProfileInformer cache.SharedIndexInformer,
-	pdbInformer cache.SharedIndexInformer,
 	migrationPolicyInformer cache.SharedIndexInformer,
 	resourceQuotaInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
@@ -156,7 +154,6 @@ func NewController(templateService services.TemplateService,
 		pvcStore:             pvcInformer.GetStore(),
 		storageClassStore:    storageClassInformer.GetStore(),
 		storageProfileStore:  storageProfileInformer.GetStore(),
-		pdbIndexer:           pdbInformer.GetIndexer(),
 		resourceQuotaIndexer: resourceQuotaInformer.GetIndexer(),
 		migrationPolicyStore: migrationPolicyInformer.GetStore(),
 		recorder:             recorder,
@@ -172,7 +169,7 @@ func NewController(templateService services.TemplateService,
 	}
 
 	c.hasSynced = func() bool {
-		return vmiInformer.HasSynced() && podInformer.HasSynced() && migrationInformer.HasSynced() && pdbInformer.HasSynced() && resourceQuotaInformer.HasSynced()
+		return vmiInformer.HasSynced() && podInformer.HasSynced() && migrationInformer.HasSynced() && resourceQuotaInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -197,13 +194,6 @@ func NewController(templateService services.TemplateService,
 		AddFunc:    c.addMigration,
 		DeleteFunc: c.deleteMigration,
 		UpdateFunc: c.updateMigration,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.updatePDB,
 	})
 	if err != nil {
 		return nil, err
@@ -815,26 +805,6 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 	return nil
 }
 
-func (c *Controller) expandPDB(pdb *policyv1.PodDisruptionBudget, vmi *virtv1.VirtualMachineInstance, vmim *virtv1.VirtualMachineInstanceMigration) error {
-	minAvailable := 2
-
-	if pdb.Spec.MinAvailable != nil && pdb.Spec.MinAvailable.IntValue() == minAvailable && pdb.Labels[virtv1.MigrationNameLabel] == vmim.Name {
-		log.Log.V(4).Object(vmi).Infof("PDB has been already expanded")
-		return nil
-	}
-
-	patchBytes := []byte(fmt.Sprintf(`{"spec":{"minAvailable": %d},"metadata":{"labels":{"%s": "%s"}}}`, minAvailable, virtv1.MigrationNameLabel, vmim.Name))
-
-	_, err := c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.StrategicMergePatchType, patchBytes, v1.PatchOptions{})
-	if err != nil {
-		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, failedUpdatePodDisruptionBudgetReason, "Error expanding the PodDisruptionBudget %s: %v", pdb.Name, err)
-		return err
-	}
-	log.Log.Object(vmi).Infof("expanding pdb for VMI %s/%s to protect migration %s", vmi.Namespace, vmi.Name, vmim.Name)
-	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, successfulUpdatePodDisruptionBudgetReason, "Expanded PodDisruptionBudget %s", pdb.Name)
-	return nil
-}
-
 // handleMigrationBackoff introduce a backoff (when needed) only for migrations
 // created by the evacuation controller.
 func (c *Controller) handleMigrationBackoff(key string, vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration) error {
@@ -1065,21 +1035,6 @@ func (c *Controller) markMigrationAbortInVmiStatus(migration *virtv1.VirtualMach
 	return nil
 }
 
-func isMigrationProtected(pdb *policyv1.PodDisruptionBudget) bool {
-	return pdb.Status.DesiredHealthy == 2 && pdb.Generation == pdb.Status.ObservedGeneration
-}
-
-func filterOutOldPDBs(pdbList []*policyv1.PodDisruptionBudget) []*policyv1.PodDisruptionBudget {
-	var filteredPdbs []*policyv1.PodDisruptionBudget
-
-	for i := range pdbList {
-		if !pdbsutil.IsPDBFromOldMigrationController(pdbList[i]) {
-			filteredPdbs = append(filteredPdbs, pdbList[i])
-		}
-	}
-	return filteredPdbs
-}
-
 func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
 
 	c.migrationStartLock.Lock()
@@ -1128,31 +1083,6 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	// migration was accepted into the system, now see if we
 	// should create the target pod
 	if vmi.IsRunning() {
-		if migrationsutil.VMIMigratableOnEviction(c.clusterConfig, vmi) {
-			pdbs, err := pdbsutil.PDBsForVMI(vmi, c.pdbIndexer)
-			if err != nil {
-				return err
-			}
-			// removes pdbs from old implementation from list.
-			pdbs = filterOutOldPDBs(pdbs)
-
-			if len(pdbs) < 1 {
-				log.Log.Object(vmi).Errorf("Found no PDB protecting the vmi")
-				return fmt.Errorf("Found no PDB protecting the vmi %s", vmi.Name)
-			}
-			pdb := pdbs[0]
-
-			if err := c.expandPDB(pdb, vmi, migration); err != nil {
-				return err
-			}
-
-			// before proceeding we have to check that the k8s pdb controller has processed
-			// the pdb expansion and is actually protecting the VMI migration
-			if !isMigrationProtected(pdb) {
-				log.Log.V(4).Object(migration).Infof("Waiting for the pdb-controller to protect the migration pods, postponing migration start")
-				return nil
-			}
-		}
 		err = c.handleBackendStorage(migration, vmi)
 		if err != nil {
 			return err
@@ -1761,34 +1691,6 @@ func (c *Controller) deletePod(obj interface{}) {
 	}
 	c.podExpectations.DeletionObserved(migrationKey, controller.PodKey(pod))
 	c.enqueueMigration(migration)
-}
-
-func (c *Controller) updatePDB(old, cur interface{}) {
-	curPDB := cur.(*policyv1.PodDisruptionBudget)
-	oldPDB := old.(*policyv1.PodDisruptionBudget)
-	if curPDB.ResourceVersion == oldPDB.ResourceVersion {
-		return
-	}
-
-	// Only process PDBs manipulated by this controller
-	migrationName := curPDB.Labels[virtv1.MigrationNameLabel]
-	if migrationName == "" {
-		return
-	}
-
-	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, curPDB.Namespace)
-	if err != nil {
-		return
-	}
-
-	for _, obj := range objs {
-		vmim := obj.(*virtv1.VirtualMachineInstanceMigration)
-
-		if vmim.Name == migrationName {
-			log.Log.V(4).Object(curPDB).Infof("PDB updated")
-			c.enqueueMigration(vmim)
-		}
-	}
 }
 
 func (c *Controller) addPVC(obj interface{}) {
