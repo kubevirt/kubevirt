@@ -84,6 +84,10 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		return syncErr, pod
 	}
 
+	if vmi.IsMigrationTarget() && !vmi.IsMigrationTargetNodeLabelSet() {
+		// VMI is a receiver VMI, and not fully synced, wait for the sync to complete
+		return nil, pod
+	}
 	if !controller.PodExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
@@ -257,6 +261,8 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			vmiCopy.Status.Phase = virtv1.Scheduling
 		} else if vmi.DeletionTimestamp != nil || hasFailedDataVolume {
 			vmiCopy.Status.Phase = virtv1.Failed
+		} else if vmi.IsMigrationTarget() && !vmi.IsMigrationTargetNodeLabelSet() {
+			vmiCopy.Status.Phase = virtv1.WaitingForSync
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
 			if vmi.Status.TopologyHints == nil {
@@ -377,6 +383,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
 		} else {
+			log.Log.Object(vmi).V(5).Infof("setting VMI to failed during scheduling because pod does not exist")
 			// someone other than the controller deleted the pod unexpectedly
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
@@ -402,6 +409,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 	case vmi.IsRunning():
 		if !vmiPodExists {
+			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while running because pod does not exist")
 			vmiCopy.Status.Phase = virtv1.Failed
 			break
 		}
@@ -430,12 +438,25 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 	case vmi.IsScheduled():
 		if !vmiPodExists {
+			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while scheduled because pod does not exist")
 			vmiCopy.Status.Phase = virtv1.Failed
 			break
 		}
 
 		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
 			return err
+		}
+	case vmi.IsWaitingForSync():
+		if vmi.DeletionTimestamp != nil {
+			// Deleted VMI while waiting for sync, remove finalizers.
+			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
+
+			if !c.hasOwnerVM(vmi) && len(vmiCopy.Finalizers) > 0 {
+				// if there's no owner VM around still, then remove the VM controller's finalizer if it exists
+				controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineControllerFinalizer)
+			}
+		} else if vmiPodExists {
+			vmiCopy.Status.Phase = virtv1.Scheduling
 		}
 	default:
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
@@ -452,6 +473,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return fmt.Errorf("error preparing VMI patch: %v", err)
 		}
 
+		log.Log.Object(vmi).V(5).Infof("patching VMI: %s", string(patchBytes))
 		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 		// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
 		// So just retry like with any other errors

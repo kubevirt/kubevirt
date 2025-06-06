@@ -52,10 +52,14 @@ func NewMigrationCreateAdmitter(virtClient kubevirt.Interface, clusterConfig *vi
 	}
 }
 
-func isMigratable(vmi *v1.VirtualMachineInstance) error {
+func isMigratable(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) error {
 	for _, c := range vmi.Status.Conditions {
 		if c.Type == v1.VirtualMachineInstanceIsMigratable &&
 			c.Status == k8sv1.ConditionFalse {
+			// Allow cross namespace/cluster migrations with non migratable disks.
+			if c.Reason == v1.VirtualMachineInstanceReasonDisksNotMigratable && migration.IsDecentralized() {
+				continue
+			}
 			return fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s", c.Reason, c.Message)
 		}
 	}
@@ -114,7 +118,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 	}
 
 	// Reject migration jobs for non-migratable VMIs
-	err = isMigratable(vmi)
+	err = isMigratable(vmi, migration)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
