@@ -75,7 +75,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, Serial, func() {
+var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, func() {
 	var virtClient kubecli.KubevirtClient
 	var testSc string
 	getCSIStorageClass := libstorage.GetSnapshotStorageClass
@@ -1135,7 +1135,12 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					libvmi.WithNamespace(ns),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory("128Mi"),
+					// CPU manager clashes with hotplugging close to boot time, overriding the allowed hotplug volume
+					// For testing purposes, we're okay with using guaranteed QoS, which ensures CPU set gets set on boot
+					// But really this is a bug in the way that our allowed device list could get overriden
+					// https://github.com/kubevirt/kubevirt/issues/14825
+					libvmi.WithResourceCPU("1"), libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithLimitCPU("1"), libvmi.WithLimitMemory("128Mi"),
 					libvmi.WithDataVolume(rootVolName, rootDV.Name),
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
