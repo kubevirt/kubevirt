@@ -88,6 +88,12 @@ def add_label_to_pr():
     response = requests.post(url, headers=HEADERS, json=payload)
     response.raise_for_status()
 
+def remove_label_from_pr():
+    """Remove the 'approved-vep' label from the kubevirt PR."""
+    url = f"https://api.github.com/repos/{KUBEVIRT_REPO}/issues/{PR_NUMBER}/labels/approved-vep"
+    response = requests.delete(url, headers=HEADERS)
+    if response.status_code not in (204, 404):
+        response.raise_for_status()
 
 def parse_project_url(project_url):
     """
@@ -287,6 +293,7 @@ def main():
             f"This PR ({KUBEVIRT_REPO}/pulls/{PR_NUMBER}) is not related to "
             f"any VEP issue currently tracked in project {TARGET_PROJECT_URL}."
         )
+        remove_label_from_pr()
 
 
 if __name__ == "__main__":
