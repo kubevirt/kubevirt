@@ -77,6 +77,12 @@ const (
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 
 	DecentralizedLiveMigration = "DecentralizedLiveMigration"
+
+	// VideoConfig enables VM owners to specify a video device type (e.g., virtio, vga, bochs, ramfb) via the `Video` field, overriding default settings.
+	// Requires `autoattachGraphicsDevice` to be true or unset. Alpha feature, defaults unchanged.
+	// Owner: @dasionov
+	// Alpha: v1.6.0
+	VideoConfig = "VideoConfig"
 )
 
 func init() {
@@ -104,4 +110,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Alpha})
 }

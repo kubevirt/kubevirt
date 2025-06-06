@@ -269,6 +269,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"clientPassthrough":          "To configure and access client devices such as redirecting USB\n+optional",
 		"sound":                      "Whether to emulate a sound device.\n+optional",
 		"tpm":                        "Whether to emulate a TPM device.\n+optional",
+		"video":                      "Video describes the video device configuration for the vmi.\n+optional",
 	}
 }
 
@@ -290,6 +291,12 @@ func (TPMDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"enabled":    "Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine\nDefaults to True",
 		"persistent": "Persistent indicates the state of the TPM device should be kept accross reboots\nDefaults to false",
+	}
+}
+
+func (VideoDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"type": "Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).\nIf not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).\n+optional",
 	}
 }
 

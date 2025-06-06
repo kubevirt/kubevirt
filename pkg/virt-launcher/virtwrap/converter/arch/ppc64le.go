@@ -34,11 +34,12 @@ func (converterPPC64) GetArchitecture() string {
 	return ppc64le
 }
 
-func (converterPPC64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
+func (c converterPPC64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool) {
+	videoType := c.GetVideoType(vmi, isEFI)
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
-				Type:  "vga",
+				Type:  videoType,
 				Heads: pointer.P(graphicsDeviceDefaultHeads),
 				VRam:  pointer.P(graphicsDeviceDefaultVRAM),
 			},
@@ -94,4 +95,11 @@ func (converterPPC64) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdo
 
 func (converterPPC64) SupportPCIHole64Disabling() bool {
 	return false
+}
+
+func (converterPPC64) GetVideoType(vmi *v1.VirtualMachineInstance, _ bool) string {
+	if vmi.Spec.Domain.Devices.Video != nil {
+		return vmi.Spec.Domain.Devices.Video.Type
+	}
+	return "vga"
 }

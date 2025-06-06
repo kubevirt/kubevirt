@@ -35,27 +35,15 @@ func (converterAMD64) GetArchitecture() string {
 	return amd64
 }
 
-func (converterAMD64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool) {
-	// For AMD64 + EFI, use bochs. For BIOS, use VGA
-	if isEFI {
-		domain.Spec.Devices.Video = []api.Video{
-			{
-				Model: api.VideoModel{
-					Type:  "bochs",
-					Heads: pointer.P(graphicsDeviceDefaultHeads),
-				},
+func (c converterAMD64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool) {
+	videoType := c.GetVideoType(vmi, isEFI)
+	domain.Spec.Devices.Video = []api.Video{
+		{
+			Model: api.VideoModel{
+				Type:  videoType,
+				Heads: pointer.P(graphicsDeviceDefaultHeads),
 			},
-		}
-	} else {
-		domain.Spec.Devices.Video = []api.Video{
-			{
-				Model: api.VideoModel{
-					Type:  "vga",
-					Heads: pointer.P(graphicsDeviceDefaultHeads),
-					VRam:  pointer.P(graphicsDeviceDefaultVRAM),
-				},
-			},
-		}
+		},
 	}
 }
 
@@ -129,4 +117,14 @@ func (converterAMD64) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdo
 
 func (converterAMD64) SupportPCIHole64Disabling() bool {
 	return true
+}
+
+func (converterAMD64) GetVideoType(vmi *v1.VirtualMachineInstance, isEFI bool) string {
+	if vmi.Spec.Domain.Devices.Video != nil {
+		return vmi.Spec.Domain.Devices.Video.Type
+	}
+	if isEFI {
+		return "bochs"
+	}
+	return "vga"
 }
