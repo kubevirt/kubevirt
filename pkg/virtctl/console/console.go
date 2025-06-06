@@ -37,6 +37,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
+const (
+	defaultTimeout     = 5
+	escapeSequenceChar = 29
+	bufferSize         = 1024
+)
+
 type consoleCommand struct {
 	timeout int
 }
@@ -50,16 +56,16 @@ func NewCommand() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE:    c.run,
 	}
-	cmd.Flags().IntVar(&c.timeout, "timeout", 5, "The number of minutes to wait for the virtual machine instance to be ready.")
+	cmd.Flags().IntVar(&c.timeout, "timeout", defaultTimeout, "The number of minutes to wait for the virtual machine instance to be ready.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 func usage() string {
 	usage := `  # Connect to the console on VirtualMachineInstance 'myvmi':
-  {{ProgramName}} console myvmi
-  # Configure one minute timeout (default 5 minutes)
-  {{ProgramName}} console --timeout=1 myvmi`
+   {{ProgramName}} console myvmi
+   # Configure one minute timeout (default 5 minutes)
+   {{ProgramName}} console --timeout=1 myvmi`
 
 	return usage
 }
@@ -88,7 +94,10 @@ func (c *consoleCommand) handleConsoleConnection(client kubecli.KubevirtClient, 
 	signal.Notify(waitInterrupt, os.Interrupt)
 
 	go func() {
-		con, err := client.VirtualMachineInstance(namespace).SerialConsole(vmi, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: time.Duration(c.timeout) * time.Minute})
+		options := &kvcorev1.SerialConsoleOptions{
+			ConnectionTimeout: time.Duration(c.timeout) * time.Minute,
+		}
+		con, err := client.VirtualMachineInstance(namespace).SerialConsole(vmi, options)
 		runningChan <- err
 
 		if err != nil {
@@ -111,80 +120,109 @@ func (c *consoleCommand) handleConsoleConnection(client kubecli.KubevirtClient, 
 			return err
 		}
 	}
-	err := Attach(stdinReader, stdoutReader, stdinWriter, stdoutWriter,
-		fmt.Sprintf("Successfully connected to %s console. Press Ctrl+] or Ctrl+5 to exit console.\n", vmi),
-		resChan)
 
-	if err != nil {
-		if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseAbnormalClosure {
-			fmt.Fprint(os.Stderr, "\n"+
-				"You were disconnected from the console. This could be caused by one of the following:"+
-				"\n - the target VM was powered off"+
-				"\n - another user connected to the console of the target VM"+
-				"\n - network issues\n")
-		}
-		return err
-	}
-	return nil
+	connMsg := fmt.Sprintf("Successfully connected to %s console. Press Ctrl+] or Ctrl+5 to exit console.\n", vmi)
+	return Attach(stdinReader, stdoutReader, stdinWriter, stdoutWriter, connMsg, resChan)
 }
 
-// Attach attaches stdin and stdout to the console
-// in -> stdinWriter | stdinReader -> console
-// out <- stdoutReader | stdoutWriter <- console
-func Attach(stdinReader, stdoutReader *io.PipeReader, stdinWriter, stdoutWriter *io.PipeWriter, message string, resChan <-chan error) (err error) {
-	stopChan := make(chan struct{}, 1)
-	writeStop := make(chan error)
-	readStop := make(chan error)
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		state, err := term.MakeRaw(int(os.Stdin.Fd()))
-		if err != nil {
-			return fmt.Errorf("Make raw terminal failed: %s", err)
-		}
-		defer term.Restore(int(os.Stdin.Fd()), state)
+// setupRawTerminal configures the terminal in raw mode and returns a function to restore it
+func setupRawTerminal() (func() error, error) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return func() error { return nil }, nil
 	}
-	fmt.Fprint(os.Stderr, message)
 
-	in := os.Stdin
-	out := os.Stdout
+	termState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to make raw terminal: %s", err)
+	}
 
+	return func() error {
+		return term.Restore(int(os.Stdin.Fd()), termState)
+	}, nil
+}
+
+// setupInterruptHandler sets up a handler for interrupt signals
+func setupInterruptHandler(stopChan chan<- struct{}) {
 	go func() {
 		interrupt := make(chan os.Signal, 1)
 		signal.Notify(interrupt, os.Interrupt)
 		<-interrupt
 		close(stopChan)
 	}()
+}
 
+// handleOutputCopy copies data from console to stdout
+func handleOutputCopy(stdoutReader *io.PipeReader, out io.Writer, readStop chan<- error) {
 	go func() {
 		_, err := io.Copy(out, stdoutReader)
 		readStop <- err
 	}()
+}
 
+// handleInputCopy copies data from stdin to console
+func handleInputCopy(in io.Reader, stdinWriter *io.PipeWriter, writeStop chan<- error) {
 	go func() {
 		defer close(writeStop)
-		buf := make([]byte, 1024, 1024)
+		buf := make([]byte, bufferSize)
 		for {
-			// reading from stdin
-			n, err := in.Read(buf)
-			if err != nil && err != io.EOF {
-				writeStop <- err
+			n, readErr := in.Read(buf)
+			if readErr != nil && readErr != io.EOF {
+				writeStop <- readErr
 				return
 			}
-			if n == 0 && err == io.EOF {
+			if n == 0 && readErr == io.EOF {
 				return
 			}
 
 			// the escape sequence
-			if buf[0] == 29 {
+			if buf[0] == escapeSequenceChar {
 				return
 			}
+
 			// Writing out to the console connection
-			_, err = stdinWriter.Write(buf[0:n])
-			if err == io.EOF {
+			_, writeErr := stdinWriter.Write(buf[0:n])
+			if writeErr == io.EOF {
 				return
 			}
 		}
 	}()
+}
 
+// Attach attaches stdin and stdout to the console
+// in -> stdinWriter | stdinReader -> console
+// out <- stdoutReader | stdoutWriter <- console
+func Attach(
+	stdinReader, stdoutReader *io.PipeReader,
+	stdinWriter, stdoutWriter *io.PipeWriter,
+	message string,
+	resChan <-chan error,
+) (err error) {
+	// Setup terminal
+	restoreTerminal, err := setupRawTerminal()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		restoreErr := restoreTerminal()
+		if restoreErr != nil && err == nil {
+			err = fmt.Errorf("failed to restore terminal: %v", restoreErr)
+		}
+	}()
+
+	// Print connection message
+	fmt.Fprint(os.Stderr, message)
+
+	// Setup channels for communication
+	stopChan := make(chan struct{}, 1)
+	writeStop := make(chan error)
+	readStop := make(chan error)
+
+	// Setup handlers
+	setupInterruptHandler(stopChan)
+	handleOutputCopy(stdoutReader, os.Stdout, readStop)
+	handleInputCopy(os.Stdin, stdinWriter, writeStop)
+
+	// Wait for any signal to stop
 	select {
 	case <-stopChan:
 	case err = <-readStop:
@@ -193,4 +231,15 @@ func Attach(stdinReader, stdoutReader *io.PipeReader, stdinWriter, stdoutWriter 
 	}
 
 	return err
+}
+
+// HandleWebsocketError produces a helpful error message for websocket errors
+func HandleWebsocketError(err error) {
+	if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseAbnormalClosure {
+		fmt.Fprint(os.Stderr, "\n"+
+			"You were disconnected from the console. This could be caused by one of the following:"+
+			"\n - the target VM was powered off"+
+			"\n - another user connected to the console of the target VM"+
+			"\n - network issues\n")
+	}
 }
