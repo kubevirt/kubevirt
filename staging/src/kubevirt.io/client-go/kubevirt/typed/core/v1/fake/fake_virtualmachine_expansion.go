@@ -105,9 +105,9 @@ func (c *FakeVirtualMachines) PortForward(name string, port int, protocol string
 	return nil, nil
 }
 
-func (c *FakeVirtualMachines) ObjectGraph(ctx context.Context, name string) (v1.ObjectGraphNode, error) {
+func (c *FakeVirtualMachines) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error) {
 	obj, err := c.Fake.
-		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "objectgraph", name, struct{}{}), nil)
+		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "objectgraph", name, objectGraphOptions), nil)
 
 	return *obj.(*v1.ObjectGraphNode), err
 }

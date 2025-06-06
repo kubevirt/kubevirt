@@ -1151,3 +1151,11 @@ func (ObjectGraphNode) SwaggerDoc() map[string]string {
 		"children": "+listType=atomic",
 	}
 }
+
+func (ObjectGraphOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                     "ObjectGraphOptions holds options for the object graph.",
+		"includeOptionalNodes": "IncludeOptionalNodes indicates whether to include optional nodes in the graph.\nTrue by default.",
+		"labelSelector":        "LabelSelector is used to filter nodes in the graph based on their labels.",
+	}
+}

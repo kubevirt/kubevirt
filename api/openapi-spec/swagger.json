@@ -8386,6 +8386,16 @@
       "application/json"
      ],
      "operationId": "v1vmi-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -9255,6 +9265,16 @@
       "application/json"
      ],
      "operationId": "v1vm-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -9962,6 +9982,16 @@
       "application/json"
      ],
      "operationId": "v1alpha3vmi-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -10831,6 +10861,16 @@
       "application/json"
      ],
      "operationId": "v1alpha3vm-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -15504,6 +15544,20 @@
      },
      "optional": {
       "type": "boolean"
+     }
+    }
+   },
+   "v1.ObjectGraphOptions": {
+    "description": "ObjectGraphOptions holds options for the object graph.",
+    "type": "object",
+    "properties": {
+     "includeOptionalNodes": {
+      "description": "IncludeOptionalNodes indicates whether to include optional nodes in the graph. True by default.",
+      "type": "boolean"
+     },
+     "labelSelector": {
+      "description": "LabelSelector is used to filter nodes in the graph based on their labels.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
      }
     }
    },

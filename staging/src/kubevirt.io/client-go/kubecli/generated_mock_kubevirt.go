@@ -1536,18 +1536,18 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) List(ctx, opts any) *
 }
 
 // ObjectGraph mocks base method.
-func (m *MockVirtualMachineInstanceInterface) ObjectGraph(ctx context.Context, name string) (v121.ObjectGraphNode, error) {
+func (m *MockVirtualMachineInstanceInterface) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v121.ObjectGraphOptions) (v121.ObjectGraphNode, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ObjectGraph", ctx, name)
+	ret := m.ctrl.Call(m, "ObjectGraph", ctx, name, objectGraphOptions)
 	ret0, _ := ret[0].(v121.ObjectGraphNode)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ObjectGraph indicates an expected call of ObjectGraph.
-func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) ObjectGraph(ctx, name any) *gomock.Call {
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) ObjectGraph(ctx, name, objectGraphOptions any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectGraph", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).ObjectGraph), ctx, name)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectGraph", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).ObjectGraph), ctx, name, objectGraphOptions)
 }
 
 // Patch mocks base method.
@@ -2371,18 +2371,18 @@ func (mr *MockVirtualMachineInterfaceMockRecorder) Migrate(ctx, name, migrateOpt
 }
 
 // ObjectGraph mocks base method.
-func (m *MockVirtualMachineInterface) ObjectGraph(ctx context.Context, name string) (v121.ObjectGraphNode, error) {
+func (m *MockVirtualMachineInterface) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v121.ObjectGraphOptions) (v121.ObjectGraphNode, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ObjectGraph", ctx, name)
+	ret := m.ctrl.Call(m, "ObjectGraph", ctx, name, objectGraphOptions)
 	ret0, _ := ret[0].(v121.ObjectGraphNode)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ObjectGraph indicates an expected call of ObjectGraph.
-func (mr *MockVirtualMachineInterfaceMockRecorder) ObjectGraph(ctx, name any) *gomock.Call {
+func (mr *MockVirtualMachineInterfaceMockRecorder) ObjectGraph(ctx, name, objectGraphOptions any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectGraph", reflect.TypeOf((*MockVirtualMachineInterface)(nil).ObjectGraph), ctx, name)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectGraph", reflect.TypeOf((*MockVirtualMachineInterface)(nil).ObjectGraph), ctx, name, objectGraphOptions)
 }
 
 // Patch mocks base method.

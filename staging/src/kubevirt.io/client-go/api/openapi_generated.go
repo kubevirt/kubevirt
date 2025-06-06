@@ -466,6 +466,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.NodeMediatedDeviceTypesConfig":                                      schema_kubevirtio_api_core_v1_NodeMediatedDeviceTypesConfig(ref),
 		"kubevirt.io/api/core/v1.NodePlacement":                                                      schema_kubevirtio_api_core_v1_NodePlacement(ref),
 		"kubevirt.io/api/core/v1.ObjectGraphNode":                                                    schema_kubevirtio_api_core_v1_ObjectGraphNode(ref),
+		"kubevirt.io/api/core/v1.ObjectGraphOptions":                                                 schema_kubevirtio_api_core_v1_ObjectGraphOptions(ref),
 		"kubevirt.io/api/core/v1.PITTimer":                                                           schema_kubevirtio_api_core_v1_PITTimer(ref),
 		"kubevirt.io/api/core/v1.PauseOptions":                                                       schema_kubevirtio_api_core_v1_PauseOptions(ref),
 		"kubevirt.io/api/core/v1.PciHostDevice":                                                      schema_kubevirtio_api_core_v1_PciHostDevice(ref),
@@ -22926,6 +22927,34 @@ func schema_kubevirtio_api_core_v1_ObjectGraphNode(ref common.ReferenceCallback)
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.TypedObjectReference", "kubevirt.io/api/core/v1.ObjectGraphNode"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_ObjectGraphOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ObjectGraphOptions holds options for the object graph.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"includeOptionalNodes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IncludeOptionalNodes indicates whether to include optional nodes in the graph. True by default.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"labelSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LabelSelector is used to filter nodes in the graph based on their labels.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 

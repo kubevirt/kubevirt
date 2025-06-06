@@ -487,6 +487,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("objectgraph")).
 			To(subresourceApp.VMIObjectGraph).
 			Consumes(restful.MIME_JSON).
+			Reads(v1.ObjectGraphOptions{}).
 			Produces(restful.MIME_JSON).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vmi-objectgraph").
@@ -497,6 +498,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("objectgraph")).
 			To(subresourceApp.VMObjectGraph).
 			Consumes(restful.MIME_JSON).
+			Reads(v1.ObjectGraphOptions{}).
 			Produces(restful.MIME_JSON).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vm-objectgraph").
