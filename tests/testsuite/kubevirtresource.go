@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -77,6 +78,12 @@ func AdjustKubeVirtResource() {
 	// match default kubevirt-config testing resource
 	if kv.Spec.Configuration.DeveloperConfiguration == nil {
 		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+	}
+
+	lv, err := parseVerbosityEnv()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	if lv != nil {
+		kv.Spec.Configuration.DeveloperConfiguration.LogVerbosity = lv
 	}
 
 	if kv.Spec.Configuration.DeveloperConfiguration.FeatureGates == nil {
@@ -198,4 +205,39 @@ func translateBuildArch() string {
 		return archElements[1]
 	}
 	return archElements[0]
+}
+
+func parseVerbosityEnv() (*v1.LogVerbosity, error) {
+	lv := &v1.LogVerbosity{}
+
+	env := os.Getenv("KUBEVIRT_VERBOSITY")
+	if env == "" {
+		return nil, nil
+	}
+
+	tokens := strings.Split(env, ",")
+	for _, token := range tokens {
+		kv := strings.SplitN(token, ":", 2)
+		if len(kv) != 2 {
+			return nil, fmt.Errorf("failed to split verbosity token %s", token)
+		}
+		key, value := kv[0], kv[1]
+		val, err := strconv.ParseUint(value, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse value %s", value)
+		}
+		switch key {
+		case "virtAPI":
+			lv.VirtAPI = uint(val)
+		case "virtController":
+			lv.VirtController = uint(val)
+		case "virtHandler":
+			lv.VirtHandler = uint(val)
+		case "virtLauncher":
+			lv.VirtLauncher = uint(val)
+		case "virtOperator":
+			lv.VirtOperator = uint(val)
+		}
+	}
+	return lv, nil
 }
