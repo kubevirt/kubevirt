@@ -72,5 +72,4 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     additional_test_args="--nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${additional_test_args}"
 fi
 
-set -x
 functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS} "${KUBEVIRT_FUNC_TEST_LABEL_FILTER}"

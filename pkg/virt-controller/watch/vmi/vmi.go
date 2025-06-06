@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"time"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +40,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -57,7 +58,6 @@ func NewController(templateService services.TemplateService,
 	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
-	migrationInformer cache.SharedIndexInformer,
 	storageClassInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
@@ -82,7 +82,6 @@ func NewController(templateService services.TemplateService,
 		vmStore:                 vmInformer.GetStore(),
 		podIndexer:              podInformer.GetIndexer(),
 		pvcIndexer:              pvcInformer.GetIndexer(),
-		migrationIndexer:        migrationInformer.GetIndexer(),
 		recorder:                recorder,
 		clientset:               clientset,
 		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -177,7 +176,6 @@ type Controller struct {
 	vmStore                 cache.Store
 	podIndexer              cache.Indexer
 	pvcIndexer              cache.Indexer
-	migrationIndexer        cache.Indexer
 	topologyHinter          topology.Hinter
 	recorder                record.EventRecorder
 	podExpectations         *controller.UIDTrackingControllerExpectations

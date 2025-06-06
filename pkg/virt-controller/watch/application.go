@@ -656,7 +656,6 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmInformer,
 		vca.kvPodInformer,
 		vca.persistentVolumeClaimInformer,
-		vca.migrationInformer,
 		vca.storageClassInformer,
 		vca.vmiRecorder,
 		vca.clientSet,

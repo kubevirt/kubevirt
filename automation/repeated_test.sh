@@ -241,7 +241,6 @@ if [[ "${rwofs_sc}" == "local" ]]; then
     add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
 fi
 
-label_filter="(flake-check)||(${label_filter})"
 ginkgo_params="$ginkgo_params -no-color -succinct --label-filter=${label_filter} -randomize-all"
 if [[ -n ${NEW_TESTS} ]]; then
     readarray -t test_names <<<"$(jq -r '.[]' "${NEW_TESTS}")"
