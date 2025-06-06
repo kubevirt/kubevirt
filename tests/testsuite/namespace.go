@@ -377,6 +377,7 @@ func CalculateNamespaces() {
 	NamespaceTestDefault = fmt.Sprintf("%s%d", NamespaceTestDefault, worker)
 	NamespaceTestAlternative = fmt.Sprintf("%s%d", NamespaceTestAlternative, worker)
 	NamespacePrivileged = fmt.Sprintf("%s%d", NamespacePrivileged, worker)
+	NamespaceMigrationTarget = fmt.Sprintf("%s%d", NamespaceMigrationTarget, worker)
 	// TODO, that is not needed, just a shortcut to not have to treat this namespace
 	// differently when running in parallel
 	NamespaceTestOperator = fmt.Sprintf("%s%d", NamespaceTestOperator, worker)
