@@ -6192,7 +6192,6 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmiList.Items).To(BeEmpty())
 			})
 		})
-
 	})
 	Context("syncConditions", func() {
 		var vm *v1.VirtualMachine
@@ -6268,6 +6267,14 @@ var _ = Describe("VirtualMachine", func() {
 				Name: name,
 			}
 		}
+		createCDRom := func(name string) v1.Disk {
+			return v1.Disk{
+				Name: name,
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{},
+				},
+			}
+		}
 		DescribeTable("should be validated for volume updates", func(oldVols, newVols []v1.Volume, expectValid bool) {
 			oldVm, _ := watchtesting.DefaultVirtualMachine(true)
 			newVm := oldVm.DeepCopy()
@@ -6317,6 +6324,10 @@ var _ = Describe("VirtualMachine", func() {
 				createPVCVol("vol2", "test2", false)}, []v1.Disk{createDisk("vol2")}, []v1.Disk{createDisk("vol1"), createDisk("vol2")}, true),
 			Entry("for a removed hotpluggable pvc", []v1.Volume{createPVCVol("vol1", "test1", true)}, []v1.Volume{},
 				[]v1.Disk{createDisk("vol1")}, []v1.Disk{}, true),
+			Entry("cd-rom eject", []v1.Volume{createPVCVol("vol1", "test1", false), createPVCVol("vol2", "test2", true)}, []v1.Volume{createPVCVol("vol1", "test1", false)},
+				[]v1.Disk{createDisk("vol1"), createCDRom("vol2")}, []v1.Disk{createDisk("vol1"), createCDRom("vol2")}, true),
+			Entry("cd-rom inject", []v1.Volume{createPVCVol("vol1", "test1", false)}, []v1.Volume{createPVCVol("vol1", "test1", false), createPVCVol("vol2", "test2", true)},
+				[]v1.Disk{createDisk("vol1"), createCDRom("vol2")}, []v1.Disk{createDisk("vol1"), createCDRom("vol2")}, true),
 		)
 	})
 
