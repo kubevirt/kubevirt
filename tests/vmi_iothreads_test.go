@@ -213,7 +213,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 
 		// IOThread with Emulator Thread
 
-		It("[test_id:4025]Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+		It("[test_id:4025]Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", decorators.RequiresTwoWorkerNodesWithCPUManager, Serial, func() {
 			containerDiskCirros := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
