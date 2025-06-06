@@ -99,6 +99,14 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 					if err != nil {
 						return webhookutils.ToAdmissionResponseError(err)
 					}
+
+					newCauses, err := admitter.validateVolumeOverrides(ctx, vmRestore)
+					if err != nil {
+						return webhookutils.ToAdmissionResponseError(err)
+					}
+					if newCauses != nil {
+						causes = append(causes, newCauses...)
+					}
 				default:
 					causes = []metav1.StatusCause{
 						{
@@ -250,4 +258,35 @@ func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sf
 	}
 
 	return causes
+}
+
+func (admitter *VMRestoreAdmitter) validateVolumeOverrides(ctx context.Context, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause, err error) {
+	// Cancel if there's no volume override
+	if vmRestore.Spec.VolumeRestoreOverrides == nil {
+		return nil, nil
+	}
+
+	// Check each individual override
+	for i, override := range vmRestore.Spec.VolumeRestoreOverrides {
+		if override.VolumeName == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("must provide a volume name"),
+				Field: k8sfield.NewPath("spec").
+					Child("volumeRestoreOverrides").
+					Index(i).Child("volumeName").
+					String(),
+			})
+		}
+
+		if override.RestoreName == "" && override.Annotations == nil && override.Labels == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("must provide at least one overriden field"),
+				Field:   k8sfield.NewPath("spec").Child("volumeRestoreOverrides").Index(i).String(),
+			})
+		}
+	}
+
+	return causes, nil
 }
