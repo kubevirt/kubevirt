@@ -228,5 +228,83 @@ var _ = Describe("Virt remote commands", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
+
+		Context("GetGuestInfo", func() {
+			var (
+				mockCmdClient *cmdv1.MockCmdClient
+				client        LauncherClient
+			)
+
+			BeforeEach(func() {
+				ctrl := gomock.NewController(GinkgoT())
+				mockCmdClient = cmdv1.NewMockCmdClient(ctrl)
+				client = newV1Client(mockCmdClient, nil)
+			})
+
+			var (
+				expectGetGuestInfo = func() *gomock.Call {
+					return mockCmdClient.EXPECT().GetGuestInfo(gomock.Any(), &cmdv1.EmptyRequest{})
+				}
+			)
+
+			It("successfully unmarshals guest agent JSON response", func() {
+				guestAgentJSON := `{
+					"guestAgentVersion": "6.1.0",
+					"supportedCommands": [
+						{
+						"name": "guest-info",
+						"enabled": true
+						}
+					],
+					"hostname": "vmi-fedora",
+					"os": {
+						"name": "Fedora Linux"
+					},
+					"timezone": "UTC, 0",
+					"fsInfo": {
+						"disks": [
+						{
+							"diskName": "vda3",
+							"mountPoint": "/boot/efi",
+							"fileSystemType": "vfat",
+							"usedBytes": 10227712,
+							"totalBytes": 104607744,
+							"disk": [
+							{
+								"busType": "virtio"
+							}
+							]
+						}
+						]
+					},
+					"fsFreezeStatus": "thawed",
+					"load": {}
+				}`
+
+				expectGetGuestInfo().Return(&cmdv1.GuestInfoResponse{
+					Response:          &cmdv1.Response{Success: true},
+					GuestInfoResponse: guestAgentJSON,
+				}, nil)
+
+				guestInfo, err := client.GetGuestInfo()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(guestInfo).ToNot(BeNil())
+
+				Expect(guestInfo.GAVersion).To(Equal("6.1.0"))
+				Expect(guestInfo.Hostname).To(Equal("vmi-fedora"))
+				Expect(guestInfo.Timezone).To(Equal("UTC, 0"))
+				Expect(guestInfo.FSFreezeStatus).To(Equal("thawed"))
+
+				Expect(guestInfo.SupportedCommands).To(HaveLen(1))
+				Expect(guestInfo.SupportedCommands[0].Name).To(Equal("guest-info"))
+				Expect(guestInfo.SupportedCommands[0].Enabled).To(BeTrue())
+
+				Expect(guestInfo.OS.Name).To(Equal("Fedora Linux"))
+
+				Expect(guestInfo.FSInfo.Filesystems).To(HaveLen(1))
+				Expect(guestInfo.FSInfo.Filesystems[0].DiskName).To(Equal("vda3"))
+				Expect(guestInfo.FSInfo.Filesystems[0].FileSystemType).To(Equal("vfat"))
+			})
+		})
 	})
 })

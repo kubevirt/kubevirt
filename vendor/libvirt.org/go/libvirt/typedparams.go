@@ -85,7 +85,9 @@ type typedParamsFieldInfo struct {
 	sl  *[]string
 }
 
-func typedParamsUnpackRaw(prefix string, cparams *C.virTypedParameter, cnparams C.int) ([]TypedParamValue, error) {
+type typedParamsFilter func(key string) bool
+
+func typedParamsUnpackRaw(prefix string, filter typedParamsFilter, cparams *C.virTypedParameter, cnparams C.int) ([]TypedParamValue, error) {
 	ret := []TypedParamValue{}
 	for n := 0; n < int(cnparams); n++ {
 		var param TypedParamValue
@@ -95,7 +97,8 @@ func typedParamsUnpackRaw(prefix string, cparams *C.virTypedParameter, cnparams 
 
 		name := C.GoString(&cparam.field[0])
 
-		if !strings.HasPrefix(name, prefix) {
+		if !strings.HasPrefix(name, prefix) ||
+			!filter(name) {
 			continue
 		}
 
@@ -163,12 +166,30 @@ func typedParamsUnpack(cparams *C.virTypedParameter, cnparams C.int, infomap map
 				ret = C.virTypedParamsGetIntWrapper(cparams, cnparams, cname, &ci, &err)
 				if ret == 1 {
 					*value.i = int(ci)
+				} else if ret < 0 {
+					if value.l != nil {
+						var cl C.longlong
+						C.virResetErrorWrapper(&err)
+						ret = C.virTypedParamsGetLLongWrapper(cparams, cnparams, cname, &cl, &err)
+						if ret == 1 {
+							*value.l = int64(cl)
+						}
+					}
 				}
 			} else if value.ui != nil {
 				var cui C.uint
 				ret = C.virTypedParamsGetUIntWrapper(cparams, cnparams, cname, &cui, &err)
 				if ret == 1 {
 					*value.ui = uint(cui)
+				} else if ret < 0 {
+					if value.ul != nil {
+						var cul C.ulonglong
+						C.virResetErrorWrapper(&err)
+						ret = C.virTypedParamsGetULLongWrapper(cparams, cnparams, cname, &cul, &err)
+						if ret == 1 {
+							*value.ul = uint64(cul)
+						}
+					}
 				}
 			} else if value.l != nil {
 				var cl C.longlong

@@ -43,8 +43,9 @@ type VirtualMachineInstanceReport struct {
 }
 
 type VirtualMachineInstanceStats struct {
-	DomainStats *stats.DomainStats
-	FsStats     k6tv1.VirtualMachineInstanceFileSystemList
+	DomainStats    *stats.DomainStats
+	GuestAgentInfo *k6tv1.VirtualMachineInstanceGuestAgentInfo
+	FsStats        k6tv1.VirtualMachineInstanceFileSystemList
 }
 
 func newVirtualMachineInstanceReport(vmi *k6tv1.VirtualMachineInstance, vmiStats *VirtualMachineInstanceStats) *VirtualMachineInstanceReport {
