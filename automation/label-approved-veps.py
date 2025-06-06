@@ -66,7 +66,7 @@ def extract_enhancements_references(pr_body):
     """Get the enhancements reference numbers from the PR."""
     # Regex to find enhancement issue/pull numbers
     pattern = (
-        r"(?:https://github.com/)?kubevirt/enhancements/(?:issues|pull)/(\d+)"
+        r"(?:https://github.com/)?kubevirt/enhancements/issues/(\d+)"
         r"|(?:kubevirt/)?enhancements#(\d+)"
     )
     matches = re.findall(pattern, pr_body)
@@ -88,6 +88,12 @@ def add_label_to_pr():
     response = requests.post(url, headers=HEADERS, json=payload)
     response.raise_for_status()
 
+def remove_label_from_pr():
+    """Remove the 'approved-vep' label from the kubevirt PR."""
+    url = f"https://api.github.com/repos/{KUBEVIRT_REPO}/issues/{PR_NUMBER}/labels/approved-vep"
+    response = requests.delete(url, headers=HEADERS)
+    if response.status_code not in (204, 404):
+        response.raise_for_status()
 
 def parse_project_url(project_url):
     """
@@ -131,7 +137,7 @@ def _is_item_field_tracked_status(field_value_node):
     field_name = field_node.get("field_definition_name")
     option_name = field_value_node.get("selected_option_name")
 
-    return field_name == "Status" and option_name == "Tracked"
+    return field_name == "Status" and option_name in ("Tracked", "At risk")
 
 
 def _check_item_fields_for_tracked_status(field_value_nodes):
@@ -253,6 +259,7 @@ def main():
     ref_numbers_str = extract_enhancements_references(pr_body)
     if not ref_numbers_str:
         print("No enhancements references found.")
+        remove_label_from_pr()
         return
 
     ref_numbers = {int(num_str) for num_str in ref_numbers_str}
@@ -287,6 +294,7 @@ def main():
             f"This PR ({KUBEVIRT_REPO}/pulls/{PR_NUMBER}) is not related to "
             f"any VEP issue currently tracked in project {TARGET_PROJECT_URL}."
         )
+        remove_label_from_pr()
 
 
 if __name__ == "__main__":
