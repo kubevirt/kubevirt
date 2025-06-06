@@ -3865,7 +3865,59 @@ var _ = Describe("Manager helper functions", func() {
 			Expect(shouldConfigure).To(BeTrue())
 		})
 	})
+})
 
+var _ = Describe("calculateHotplugPortCount", func() {
+	const gb = 1024 * 1024 * 1024
+
+	domainWithDevices := func(num int) *api.DomainSpec {
+		dom := &api.DomainSpec{}
+		for i := 0; i < num; i++ {
+			dom.Devices.Disks = append(dom.Devices.Disks, api.Disk{
+				Target: api.DiskTarget{
+					Bus: v1.DiskBusVirtio,
+				},
+			})
+		}
+		return dom
+	}
+
+	It("should return 0 when PlacePCIDevicesOnRootComplex is true", func() {
+		vmi := newVMI("testns", "kubevirt")
+		vmi.Annotations = map[string]string{
+			v1.PlacePCIDevicesOnRootComplex: "true",
+		}
+
+		count, err := calculateHotplugPortCount(vmi, nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(count).To(Equal(0))
+	})
+
+	DescribeTable("should return the correct port count", func(mem uint64, portsInUse, expectedResult int) {
+		vmi := newVMI("testns", "kubevirt")
+		domainSpec := domainWithDevices(portsInUse)
+		domainSpec.Memory.Value = mem
+		count, err := calculateHotplugPortCount(vmi, domainSpec)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(count).To(Equal(expectedResult))
+	},
+		Entry("with 1G memory and no ports in use", uint64(1*gb), 0, 8),
+		Entry("with 1G memory and 2 ports in use", uint64(1*gb), 2, 6),
+		Entry("with 1G memory and 4 ports in use", uint64(1*gb), 4, 4),
+		Entry("with 1G memory and 5 ports in use", uint64(1*gb), 5, 3),
+		Entry("with 1G memory and 6 ports in use", uint64(1*gb), 6, 3),
+		Entry("with 1G memory and 8 ports in use", uint64(1*gb), 8, 3),
+		Entry("with 2G memory and 2 ports in use", uint64(2*gb), 2, 6),
+		Entry("with 2G memory and 8 ports in use", uint64(2*gb), 8, 3),
+		Entry("with 2G+ memory and 2 ports in use", uint64(2*gb+1), 2, 14),
+		Entry("with 2G+ memory and 8 ports in use", uint64(2*gb+1), 8, 8),
+		Entry("with 3G memory and no ports in use", uint64(3*gb), 0, 16),
+		Entry("with 3G memory and 4 ports in use", uint64(3*gb), 4, 12),
+		Entry("with 3G memory and 8 ports in use", uint64(3*gb), 8, 8),
+		Entry("with 3G memory and 10 ports in use", uint64(3*gb), 10, 6),
+		Entry("with 3G memory and 12 ports in use", uint64(3*gb), 12, 6),
+		Entry("with 3G memory and 16 ports in use", uint64(3*gb), 16, 6),
+	)
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
