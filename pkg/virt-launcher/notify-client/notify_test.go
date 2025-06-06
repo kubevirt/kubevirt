@@ -30,7 +30,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"libvirt.org/go/libvirt"
 
-	api2 "kubevirt.io/client-go/api"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/watch"
@@ -297,7 +297,7 @@ var _ = Describe("Notify", func() {
 
 		It("Should send a k8s event", func() {
 
-			vmi := api2.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(libvmi.WithName("fake-vmi"))
 			vmi.UID = "4321"
 			vmiStore.Add(vmi)
 
@@ -333,7 +333,7 @@ var _ = Describe("Notify", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 			mockDomain.EXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
 
-			vmi := api2.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(libvmi.WithName("fake-vmi"))
 			vmi.UID = "4321"
 			vmiStore.Add(vmi)
 			eventType := "Warning"

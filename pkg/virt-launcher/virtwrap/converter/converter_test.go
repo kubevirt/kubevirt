@@ -44,7 +44,6 @@ import (
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	kvapi "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/defaults"
@@ -3174,7 +3173,7 @@ var _ = Describe("Converter", func() {
 		)
 
 		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
+			vmi = libvmi.New(libvmi.WithName("testvmi"))
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(true)
@@ -3288,7 +3287,7 @@ var _ = Describe("Converter", func() {
 		const fakeFrequency = 12345
 
 		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
+			vmi = libvmi.New(libvmi.WithName("testvmi"))
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.P(int64(fakeFrequency))}
 			c = &ConverterContext{
@@ -3361,7 +3360,7 @@ var _ = Describe("Converter", func() {
 		)
 
 		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
+			vmi = libvmi.New(libvmi.WithName("testvmi"))
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		})
 
@@ -3390,7 +3389,7 @@ var _ = Describe("Converter", func() {
 		)
 
 		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
+			vmi = libvmi.New(libvmi.WithName("testvmi"))
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		})
 
