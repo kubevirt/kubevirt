@@ -13478,7 +13478,9 @@ var CRDsValidation map[string]string = map[string]string{
               description: InitrdInfo show info about the initrd file
               properties:
                 checksum:
-                  description: Checksum is the checksum of the initrd file
+                  description: |-
+                    Checksum is the checksum of the initrd file.
+                    Not reported anymore
                   format: int32
                   type: integer
               type: object
@@ -13486,7 +13488,9 @@ var CRDsValidation map[string]string = map[string]string{
               description: KernelInfo show info about the kernel image
               properties:
                 checksum:
-                  description: Checksum is the checksum of the kernel image
+                  description: |-
+                    Checksum is the checksum of the kernel image.
+                    Not reported anymore
                   format: int32
                   type: integer
               type: object
@@ -14005,8 +14009,9 @@ var CRDsValidation map[string]string = map[string]string{
                   if the volume is a containerdisk
                 properties:
                   checksum:
-                    description: Checksum is the checksum of the rootdisk or kernel
-                      artifacts inside the containerdisk
+                    description: |-
+                      Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk.
+                      Not reported anymore
                     format: int32
                     type: integer
                 type: object

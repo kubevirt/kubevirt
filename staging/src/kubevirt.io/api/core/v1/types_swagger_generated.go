@@ -127,14 +127,14 @@ func (VolumeStatus) SwaggerDoc() map[string]string {
 func (KernelInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "KernelInfo show info about the kernel image",
-		"checksum": "Checksum is the checksum of the kernel image",
+		"checksum": "Checksum is the checksum of the kernel image.\nNot reported anymore",
 	}
 }
 
 func (InitrdInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "InitrdInfo show info about the initrd file",
-		"checksum": "Checksum is the checksum of the initrd file",
+		"checksum": "Checksum is the checksum of the initrd file.\nNot reported anymore",
 	}
 }
 
@@ -167,7 +167,7 @@ func (HotplugVolumeStatus) SwaggerDoc() map[string]string {
 func (ContainerDiskInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "ContainerDiskInfo shows info about the containerdisk",
-		"checksum": "Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk",
+		"checksum": "Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk.\nNot reported anymore",
 	}
 }
 
