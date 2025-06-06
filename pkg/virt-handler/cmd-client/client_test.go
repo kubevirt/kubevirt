@@ -39,6 +39,39 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
+const guestAgentJSON = `{
+	"guestAgentVersion": "6.1.0",
+	"supportedCommands": [
+		{
+		"name": "guest-info",
+		"enabled": true
+		}
+	],
+	"hostname": "vmi-fedora",
+	"os": {
+		"name": "Fedora Linux"
+	},
+	"timezone": "UTC, 0",
+	"fsInfo": {
+		"disks": [
+		{
+			"diskName": "vda3",
+			"mountPoint": "/boot/efi",
+			"fileSystemType": "vfat",
+			"usedBytes": 10227712,
+			"totalBytes": 104607744,
+			"disk": [
+			{
+				"busType": "virtio"
+			}
+			]
+		}
+		]
+	},
+	"fsFreezeStatus": "thawed",
+	"load": {}
+}`
+
 var _ = Describe("Virt remote commands", func() {
 
 	var (
@@ -241,46 +274,11 @@ var _ = Describe("Virt remote commands", func() {
 				client = newV1Client(mockCmdClient, nil)
 			})
 
-			var (
-				expectGetGuestInfo = func() *gomock.Call {
-					return mockCmdClient.EXPECT().GetGuestInfo(gomock.Any(), &cmdv1.EmptyRequest{})
-				}
-			)
+			expectGetGuestInfo := func() *gomock.Call {
+				return mockCmdClient.EXPECT().GetGuestInfo(gomock.Any(), &cmdv1.EmptyRequest{})
+			}
 
 			It("successfully unmarshals guest agent JSON response", func() {
-				guestAgentJSON := `{
-					"guestAgentVersion": "6.1.0",
-					"supportedCommands": [
-						{
-						"name": "guest-info",
-						"enabled": true
-						}
-					],
-					"hostname": "vmi-fedora",
-					"os": {
-						"name": "Fedora Linux"
-					},
-					"timezone": "UTC, 0",
-					"fsInfo": {
-						"disks": [
-						{
-							"diskName": "vda3",
-							"mountPoint": "/boot/efi",
-							"fileSystemType": "vfat",
-							"usedBytes": 10227712,
-							"totalBytes": 104607744,
-							"disk": [
-							{
-								"busType": "virtio"
-							}
-							]
-						}
-						]
-					},
-					"fsFreezeStatus": "thawed",
-					"load": {}
-				}`
-
 				expectGetGuestInfo().Return(&cmdv1.GuestInfoResponse{
 					Response:          &cmdv1.Response{Success: true},
 					GuestInfoResponse: guestAgentJSON,

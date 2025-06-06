@@ -818,8 +818,8 @@ type ConsoleTarget struct {
 }
 
 type ConsoleSource struct {
-	Mode string `xml:"mode,attr"`
-	Path string `xml:"path,attr"`
+	Mode string `xml:"mode,attr,omitempty"`
+	Path string `xml:"path,attr,omitempty"`
 }
 
 // END Serial -----------------------------

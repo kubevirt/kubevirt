@@ -117,9 +117,8 @@ func (s *AsyncAgentStore) GetSysInfo() api.DomainSysInfo {
 		timezone = data.(api.Timezone)
 	}
 
-	data, ok = s.store.Load(libvirt.DOMAIN_GUEST_INFO_LOAD)
 	load := api.Load{}
-	if ok {
+	if data, ok := s.store.Load(libvirt.DOMAIN_GUEST_INFO_LOAD); ok {
 		load = data.(api.Load)
 	}
 

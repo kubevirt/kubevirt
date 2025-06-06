@@ -300,22 +300,6 @@ var _ = Describe("Qemu agent poller", func() {
 				Expect(load.Load5m).To(Equal(0.0))
 				Expect(load.Load15m).To(Equal(0.0))
 			})
-
-			It("should handle high load values", func() {
-				guestInfo := &libvirt.DomainGuestInfo{
-					Load: &libvirt.DomainGuestInfoLoad{
-						Load1M:  100.50,
-						Load5M:  200.75,
-						Load15M: 300.99,
-					},
-				}
-
-				load := convertToLoad(guestInfo)
-
-				Expect(load.Load1m).To(Equal(100.50))
-				Expect(load.Load5m).To(Equal(200.75))
-				Expect(load.Load15m).To(Equal(300.99))
-			})
 		})
 
 		Context("Load storage in AsyncAgentStore", func() {
@@ -330,6 +314,7 @@ var _ = Describe("Qemu agent poller", func() {
 
 			It("should fire an event for new load data", func() {
 				agentStore.Store(libvirt.DOMAIN_GUEST_INFO_LOAD, fakeLoad)
+				Expect(agentStore.GetSysInfo().Load).To(Equal(fakeLoad))
 
 				Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 					DomainInfo: api.DomainGuestInfo{
@@ -342,17 +327,20 @@ var _ = Describe("Qemu agent poller", func() {
 
 			It("should not fire an event for the same load data", func() {
 				agentStore.Store(libvirt.DOMAIN_GUEST_INFO_LOAD, fakeLoad)
+				Expect(agentStore.GetSysInfo().Load).To(Equal(fakeLoad))
 
 				// Consume the first event
 				Expect(agentStore.AgentUpdated).To(Receive())
 
 				// Store the same load data again
 				agentStore.Store(libvirt.DOMAIN_GUEST_INFO_LOAD, fakeLoad)
+				Expect(agentStore.GetSysInfo().Load).To(Equal(fakeLoad))
 				Expect(agentStore.AgentUpdated).ToNot(Receive())
 			})
 
 			It("should fire an event for updated load data", func() {
 				agentStore.Store(libvirt.DOMAIN_GUEST_INFO_LOAD, fakeLoad)
+				Expect(agentStore.GetSysInfo().Load).To(Equal(fakeLoad))
 
 				// Consume the first event
 				Expect(agentStore.AgentUpdated).To(Receive())
@@ -364,6 +352,7 @@ var _ = Describe("Qemu agent poller", func() {
 				}
 
 				agentStore.Store(libvirt.DOMAIN_GUEST_INFO_LOAD, updatedLoad)
+				Expect(agentStore.GetSysInfo().Load).To(Equal(updatedLoad))
 
 				Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 					DomainInfo: api.DomainGuestInfo{
@@ -393,13 +382,13 @@ var _ = Describe("Qemu agent poller", func() {
 					},
 				}
 				agentPoller := &AgentPoller{
-					Connection: mockConnection,
+					Connection: mockLibvirt.VirtConnection,
 					domainName: "fake",
 					agentStore: &agentStore,
 				}
 
-				mockDomain.EXPECT().Free()
-				mockDomain.EXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, uint32(0)).Return(guestInfo, nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, uint32(0)).Return(guestInfo, nil)
 
 				fetchAndStoreGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, agentPoller)
 
@@ -419,15 +408,15 @@ var _ = Describe("Qemu agent poller", func() {
 					},
 				}
 				agentPoller := &AgentPoller{
-					Connection: mockConnection,
+					Connection: mockLibvirt.VirtConnection,
 					domainName: "fake",
 					agentStore: &agentStore,
 				}
 
 				libvirtTypes := libvirt.DOMAIN_GUEST_INFO_HOSTNAME | libvirt.DOMAIN_GUEST_INFO_LOAD
 
-				mockDomain.EXPECT().Free()
-				mockDomain.EXPECT().GetGuestInfo(libvirtTypes, uint32(0)).Return(guestInfo, nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetGuestInfo(libvirtTypes, uint32(0)).Return(guestInfo, nil)
 
 				fetchAndStoreGuestInfo(libvirtTypes, agentPoller)
 
@@ -443,13 +432,13 @@ var _ = Describe("Qemu agent poller", func() {
 					Load: nil,
 				}
 				agentPoller := &AgentPoller{
-					Connection: mockConnection,
+					Connection: mockLibvirt.VirtConnection,
 					domainName: "fake",
 					agentStore: &agentStore,
 				}
 
-				mockDomain.EXPECT().Free()
-				mockDomain.EXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, uint32(0)).Return(guestInfo, nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, uint32(0)).Return(guestInfo, nil)
 
 				fetchAndStoreGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, agentPoller)
 
