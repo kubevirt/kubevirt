@@ -22,6 +22,7 @@ package tests_test
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -542,8 +543,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("with ACPI SLIC table", func() {
-			It("Should configure guest APCI SLIC with Secret file", func() {
+		Context("with ACPI table", func() {
+			It("Should configure guest ACPI SLIC with Secret file", func() {
 				const (
 					volumeSlicSecretName = "volume-slic-secret"
 					secretWithSlicName   = "secret-with-slic-data"
@@ -553,19 +554,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					0x41, 0x53, 0x48, 0x20, 0x4d, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 					0x88, 0x04, 0x00, 0x00, 0x71, 0x65, 0x6d, 0x75, 0x00, 0x00, 0x00, 0x00,
 				}
-				// To easily compare with console output
-				var hexData string
-				for _, b := range slicTable {
-					hexData += fmt.Sprintf("%02x", b)
-				}
-
 				vmi := libvmifact.NewAlpine()
 
 				By("Creating a secret with the binary ACPI SLIC table")
 				secret := libsecret.New(secretWithSlicName, libsecret.DataBytes{"slic.bin": slicTable})
-				secret, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(secret).ToNot(BeNil())
 
 				By("Configuring the volume with the secret")
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -590,7 +584,51 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking the guest ACPI SLIC table matches the one provided")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "xxd -p -c 40 /sys/firmware/acpi/tables/SLIC\n"},
-					&expect.BExp{R: console.RetValue(hexData)},
+					&expect.BExp{R: console.RetValue(hex.EncodeToString(slicTable))},
+				}, 3)).To(Succeed())
+			})
+
+			It("Should configure guest ACPI MSDM with Secret file", func() {
+				const (
+					volumeMsdmSecretName = "volume-msdm-secret"
+					secretWithMsdmName   = "secret-with-msdm-data"
+				)
+				var msdmTable = []byte{
+					0x4d, 0x53, 0x44, 0x4d, 0x24, 0x00, 0x00, 0x00, 0x01, 0x43, 0x43, 0x52,
+					0x41, 0x53, 0x48, 0x20, 0x4d, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+					0x88, 0x04, 0x00, 0x00, 0x71, 0x65, 0x6d, 0x75, 0x00, 0x00, 0x00, 0x00,
+				}
+				vmi := libvmifact.NewAlpine()
+
+				By("Creating a secret with the binary ACPI msdm table")
+				secret := libsecret.New(secretWithMsdmName, libsecret.DataBytes{"msdm.bin": msdmTable})
+				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Configuring the volume with the secret")
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: volumeMsdmSecretName,
+					VolumeSource: v1.VolumeSource{
+						Secret: &v1.SecretVolumeSource{
+							SecretName: secretWithMsdmName,
+						},
+					},
+				})
+
+				// The firmware needs to reference the volume name of msdm secret
+				By("Configuring the firmware option with volume name that contains the secret")
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					ACPI: &v1.ACPI{
+						MsdmNameRef: volumeMsdmSecretName,
+					},
+				}
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 360)
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Checking the guest ACPI MSDM table matches the one provided")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "xxd -p -c 40 /sys/firmware/acpi/tables/MSDM\n"},
+					&expect.BExp{R: console.RetValue(hex.EncodeToString(msdmTable))},
 				}, 3)).To(Succeed())
 			})
 		})
