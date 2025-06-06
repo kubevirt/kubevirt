@@ -1285,6 +1285,33 @@ var _ = Describe("Template", func() {
 				)
 			})
 
+			Context("When scheduling Secure Execution workloads", func() {
+				var vmi *v1.VirtualMachineInstance
+
+				BeforeEach(func() {
+					config, kvStore, svc = configFactory(defaultArch)
+					vmi = api.NewMinimalVMI("testvmi")
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+				})
+
+				It("should add Secure Execution node label selector with Secure Execution workload", func() {
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+					vmi.Spec.Architecture = "s390x"
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.SecureExecutionLabel, "true"))
+				})
+
+				It("should not add Secure Execution node label selector when no Secure Execution workload", func() {
+					vmi.Spec.Architecture = ""
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.SecureExecutionLabel))))
+				})
+			})
+
 			It("should not add node selector for hyperv nodes if VMI does not request hyperv features", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				enableFeatureGate(featuregate.HypervStrictCheckGate)
@@ -4822,6 +4849,29 @@ var _ = Describe("Template", func() {
 			sev, ok := pod.Spec.Containers[0].Resources.Limits[SevDevice]
 			Expect(ok).To(BeTrue())
 			Expect(int(sev.Value())).To(Equal(1))
+		})
+	})
+
+	Context("Secure Execution LaunchSecurity", func() {
+		It("should not run privileged with Secure Execution", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "namespace",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Architecture: "s390x",
+					Domain: v1.DomainSpec{
+						LaunchSecurity: &v1.LaunchSecurity{},
+					},
+				},
+			}
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.Containers).To(HaveLen(1))
+			Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
 		})
 	})
 
