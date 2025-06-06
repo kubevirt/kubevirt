@@ -70,6 +70,7 @@ func NewController(templateService services.TemplateService,
 	netAnnotationsGenerator annotationsGenerator,
 	netStatusUpdater statusUpdater,
 	netSpecValidator specValidator,
+	netMigrationEvaluator migrationEvaluator,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -98,6 +99,7 @@ func NewController(templateService services.TemplateService,
 		netAnnotationsGenerator: netAnnotationsGenerator,
 		updateNetworkStatus:     netStatusUpdater,
 		validateNetworkSpec:     netSpecValidator,
+		netMigrationEvaluator:   netMigrationEvaluator,
 	}
 
 	c.hasSynced = func() bool {
@@ -169,6 +171,10 @@ type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) erro
 
 type specValidator func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []v1.StatusCause
 
+type migrationEvaluator interface {
+	Evaluate(vmi *virtv1.VirtualMachineInstance) k8sv1.ConditionStatus
+}
+
 type Controller struct {
 	templateService         services.TemplateService
 	clientset               kubecli.KubevirtClient
@@ -193,6 +199,7 @@ type Controller struct {
 	netAnnotationsGenerator annotationsGenerator
 	updateNetworkStatus     statusUpdater
 	validateNetworkSpec     specValidator
+	netMigrationEvaluator   migrationEvaluator
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
