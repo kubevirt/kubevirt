@@ -46,6 +46,7 @@ type VirtualMachineExpansion interface {
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
 	RemoveMemoryDump(ctx context.Context, name string) error
+	ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error)
 }
 
 func (c *virtualMachines) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error) {
@@ -196,4 +197,25 @@ func (c *virtualMachines) RemoveMemoryDump(ctx context.Context, name string) err
 		SubResource("removememorydump").
 		Do(ctx).
 		Error()
+}
+
+func (c *virtualMachines) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error) {
+	objectGraph := v1.ObjectGraphNode{}
+
+	body, err := json.Marshal(objectGraphOptions)
+	if err != nil {
+		return objectGraph, err
+	}
+
+	err = c.GetClient().Get().
+		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachines").
+		Name(name).
+		SubResource("objectgraph").
+		Body(body).
+		Do(ctx).
+		Into(&objectGraph)
+
+	return objectGraph, err
 }

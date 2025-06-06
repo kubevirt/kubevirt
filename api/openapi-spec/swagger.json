@@ -8376,6 +8376,52 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine Instance",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1vmi-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/pause": {
     "put": {
      "description": "Pause a VirtualMachineInstance object.",
@@ -9209,6 +9255,52 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1vm-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/portforward/{port}": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the running VMI for the specified VirtualMachine and port.",
@@ -9859,6 +9951,52 @@
        "description": "OK",
        "schema": {
         "$ref": "#/definitions/v1.VirtualMachineInstanceGuestAgentInfo"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine Instance",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1alpha3vmi-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
        }
       },
       "401": {
@@ -10696,6 +10834,52 @@
        "schema": {
         "type": "string"
        }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1alpha3vm-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
       }
      }
     },
@@ -15321,6 +15505,59 @@
        "default": {},
        "$ref": "#/definitions/k8s.io.api.core.v1.Toleration"
       }
+     }
+    }
+   },
+   "v1.ObjectGraphNode": {
+    "description": "ObjectGraphNode represents an individual node in the graph.",
+    "type": "object",
+    "required": [
+     "objectReference"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "children": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.ObjectGraphNode"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "labels": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "objectReference": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.api.core.v1.TypedObjectReference"
+     },
+     "optional": {
+      "type": "boolean"
+     }
+    }
+   },
+   "v1.ObjectGraphOptions": {
+    "description": "ObjectGraphOptions holds options for the object graph.",
+    "type": "object",
+    "properties": {
+     "includeOptionalNodes": {
+      "description": "IncludeOptionalNodes indicates whether to include optional nodes in the graph. True by default.",
+      "type": "boolean"
+     },
+     "labelSelector": {
+      "description": "LabelSelector is used to filter nodes in the graph based on their labels.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
      }
     }
    },

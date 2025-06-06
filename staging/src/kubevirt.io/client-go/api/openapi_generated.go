@@ -465,6 +465,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.NoCloudSSHPublicKeyAccessCredentialPropagation":                     schema_kubevirtio_api_core_v1_NoCloudSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/api/core/v1.NodeMediatedDeviceTypesConfig":                                      schema_kubevirtio_api_core_v1_NodeMediatedDeviceTypesConfig(ref),
 		"kubevirt.io/api/core/v1.NodePlacement":                                                      schema_kubevirtio_api_core_v1_NodePlacement(ref),
+		"kubevirt.io/api/core/v1.ObjectGraphNode":                                                    schema_kubevirtio_api_core_v1_ObjectGraphNode(ref),
+		"kubevirt.io/api/core/v1.ObjectGraphOptions":                                                 schema_kubevirtio_api_core_v1_ObjectGraphOptions(ref),
 		"kubevirt.io/api/core/v1.PITTimer":                                                           schema_kubevirtio_api_core_v1_PITTimer(ref),
 		"kubevirt.io/api/core/v1.PauseOptions":                                                       schema_kubevirtio_api_core_v1_PauseOptions(ref),
 		"kubevirt.io/api/core/v1.PciHostDevice":                                                      schema_kubevirtio_api_core_v1_PciHostDevice(ref),
@@ -22850,6 +22852,109 @@ func schema_kubevirtio_api_core_v1_NodePlacement(ref common.ReferenceCallback) c
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_ObjectGraphNode(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ObjectGraphNode represents an individual node in the graph.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"objectReference": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/api/core/v1.TypedObjectReference"),
+						},
+					},
+					"labels": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"optional": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"children": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.ObjectGraphNode"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"objectReference"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.TypedObjectReference", "kubevirt.io/api/core/v1.ObjectGraphNode"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_ObjectGraphOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ObjectGraphOptions holds options for the object graph.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"includeOptionalNodes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IncludeOptionalNodes indicates whether to include optional nodes in the graph. True by default.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"labelSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LabelSelector is used to filter nodes in the graph based on their labels.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 
