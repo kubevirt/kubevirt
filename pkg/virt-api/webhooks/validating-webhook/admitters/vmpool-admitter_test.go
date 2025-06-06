@@ -34,6 +34,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -98,9 +99,12 @@ var _ = Describe("Validating Pool Admitter", func() {
 				},
 				VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
 					Spec: v1.VirtualMachineSpec{
-						Template: newVirtualMachineBuilder().WithDisk(v1.Disk{
-							Name: "testdisk",
-						}).BuildTemplate(),
+						Template: buildVMITemplate(
+							libvmi.New(
+								libvmi.WithName("testvmi"),
+								withTestDisk(),
+							),
+						),
 					},
 				},
 			},
@@ -119,17 +123,11 @@ var _ = Describe("Validating Pool Admitter", func() {
 						Labels: map[string]string{"notmatch": "val"},
 					},
 					Spec: v1.VirtualMachineSpec{
-						Template: newVirtualMachineBuilder().
-							WithDisk(v1.Disk{
-								Name: "testdisk",
-							}).
-							WithVolume(v1.Volume{
-								Name: "testdisk",
-								VolumeSource: v1.VolumeSource{
-									ContainerDisk: testutils.NewFakeContainerDiskSource(),
-								},
-							}).
-							BuildTemplate(),
+						Template: buildVMITemplate(
+							libvmi.New(
+								libvmi.WithContainerDisk("testdisk", testutils.NewFakeContainerDiskSource().Image),
+							),
+						),
 					},
 				},
 			},
@@ -215,18 +213,12 @@ var _ = Describe("Validating Pool Admitter", func() {
 					},
 					Spec: v1.VirtualMachineSpec{
 						RunStrategy: &always,
-						Template: newVirtualMachineBuilder().
-							WithDisk(v1.Disk{
-								Name: "testdisk",
-							}).
-							WithVolume(v1.Volume{
-								Name: "testdisk",
-								VolumeSource: v1.VolumeSource{
-									ContainerDisk: testutils.NewFakeContainerDiskSource(),
-								},
-							}).
-							WithLabel("match", "me").
-							BuildTemplate(),
+						Template: buildVMITemplate(
+							libvmi.New(
+								libvmi.WithContainerDisk("testdisk", testutils.NewFakeContainerDiskSource().Image),
+								libvmi.WithLabel("match", "me"),
+							),
+						),
 					},
 				},
 			},
