@@ -393,13 +393,13 @@ var _ = Describe("Qemu agent poller", func() {
 					},
 				}
 				agentPoller := &AgentPoller{
-					Connection: mockConnection,
+					Connection: mockLibvirt.VirtConnection,
 					domainName: "fake",
 					agentStore: &agentStore,
 				}
 
-				mockDomain.EXPECT().Free()
-				mockDomain.EXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, uint32(0)).Return(guestInfo, nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, uint32(0)).Return(guestInfo, nil)
 
 				fetchAndStoreGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, agentPoller)
 
@@ -419,15 +419,15 @@ var _ = Describe("Qemu agent poller", func() {
 					},
 				}
 				agentPoller := &AgentPoller{
-					Connection: mockConnection,
+					Connection: mockLibvirt.VirtConnection,
 					domainName: "fake",
 					agentStore: &agentStore,
 				}
 
 				libvirtTypes := libvirt.DOMAIN_GUEST_INFO_HOSTNAME | libvirt.DOMAIN_GUEST_INFO_LOAD
 
-				mockDomain.EXPECT().Free()
-				mockDomain.EXPECT().GetGuestInfo(libvirtTypes, uint32(0)).Return(guestInfo, nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetGuestInfo(libvirtTypes, uint32(0)).Return(guestInfo, nil)
 
 				fetchAndStoreGuestInfo(libvirtTypes, agentPoller)
 
@@ -443,13 +443,13 @@ var _ = Describe("Qemu agent poller", func() {
 					Load: nil,
 				}
 				agentPoller := &AgentPoller{
-					Connection: mockConnection,
+					Connection: mockLibvirt.VirtConnection,
 					domainName: "fake",
 					agentStore: &agentStore,
 				}
 
-				mockDomain.EXPECT().Free()
-				mockDomain.EXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, uint32(0)).Return(guestInfo, nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, uint32(0)).Return(guestInfo, nil)
 
 				fetchAndStoreGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, agentPoller)
 
