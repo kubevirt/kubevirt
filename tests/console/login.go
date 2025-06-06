@@ -241,11 +241,11 @@ func configureConsole(expecter expect.Expecter, shouldSudo bool) error {
 		&expect.BSnd{S: "stty cols 500 rows 500\n"},
 		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")},
+		&expect.BExp{R: RetValueWithPrompt("0")},
 		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
 		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")},
+		&expect.BExp{R: RetValueWithPrompt("0")},
 	}
 	const configureConsoleTimeout = 30 * time.Second
 	resp, err := expecter.ExpectBatch(batch, configureConsoleTimeout)
