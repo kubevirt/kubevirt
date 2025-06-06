@@ -1,4 +1,4 @@
-//go:build s390x
+//go:build arm64
 
 /*
  * This file is part of the KubeVirt project
@@ -15,13 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright the KubeVirt Authors.
+ * Copyright The KubeVirt Authors.
  *
  */
 
-package nodelabeller
+package nodecapabilities
 
-func getCapLabels() []string {
+func GetCapLabels() []string {
 	exposedCaps := []string{}
 	return exposedCaps
 }
