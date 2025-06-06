@@ -40,6 +40,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -1374,22 +1376,8 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	return nil
 }
 
-func (r *Reconciler) isFeatureGateEnabled(featureGate string) bool {
-	if r.kv.Spec.Configuration.DeveloperConfiguration == nil {
-		return false
-	}
-
-	for _, fg := range r.kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-		if fg == featureGate {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (r *Reconciler) exportProxyEnabled() bool {
-	return r.isFeatureGateEnabled(featuregate.VMExportGate)
+	return virtconfig.IsFeatureGateEnabled(featuregate.VMExportGate, r.kv.Spec.Configuration.DeveloperConfiguration)
 }
 
 func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {
