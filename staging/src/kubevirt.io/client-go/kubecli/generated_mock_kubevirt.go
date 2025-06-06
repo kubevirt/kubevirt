@@ -1461,6 +1461,20 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) DeleteCollection(ctx,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCollection", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).DeleteCollection), ctx, opts, listOpts)
 }
 
+// EvacuateCancel mocks base method.
+func (m *MockVirtualMachineInstanceInterface) EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v121.EvacuateCancelOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EvacuateCancel", ctx, name, evacuateCancelOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EvacuateCancel indicates an expected call of EvacuateCancel.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) EvacuateCancel(ctx, name, evacuateCancelOptions any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EvacuateCancel", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).EvacuateCancel), ctx, name, evacuateCancelOptions)
+}
+
 // FilesystemList mocks base method.
 func (m *MockVirtualMachineInstanceInterface) FilesystemList(ctx context.Context, name string) (v121.VirtualMachineInstanceFileSystemList, error) {
 	m.ctrl.T.Helper()
@@ -2280,6 +2294,20 @@ func (m *MockVirtualMachineInterface) DeleteCollection(ctx context.Context, opts
 func (mr *MockVirtualMachineInterfaceMockRecorder) DeleteCollection(ctx, opts, listOpts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCollection", reflect.TypeOf((*MockVirtualMachineInterface)(nil).DeleteCollection), ctx, opts, listOpts)
+}
+
+// EvacuateCancel mocks base method.
+func (m *MockVirtualMachineInterface) EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v121.EvacuateCancelOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EvacuateCancel", ctx, name, evacuateCancelOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EvacuateCancel indicates an expected call of EvacuateCancel.
+func (mr *MockVirtualMachineInterfaceMockRecorder) EvacuateCancel(ctx, name, evacuateCancelOptions any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EvacuateCancel", reflect.TypeOf((*MockVirtualMachineInterface)(nil).EvacuateCancel), ctx, name, evacuateCancelOptions)
 }
 
 // Get mocks base method.
