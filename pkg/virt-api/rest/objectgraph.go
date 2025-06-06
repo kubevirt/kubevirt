@@ -21,6 +21,7 @@ package rest
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
@@ -29,6 +30,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8serrors "k8s.io/apimachinery/pkg/util/errors"
 
@@ -40,41 +42,73 @@ import (
 )
 
 const (
-	virtLauncherLabel = "kubevirt.io=virt-launcher"
-	domainAnnotation  = "kubevirt.io/domain"
+	// ObjectGraphDependencyLabel is used to specify the type of dependency for a node in the object graph.
+	// Possible values are: "storage", "network", "compute", "config".
+	ObjectGraphDependencyLabel = "kubevirt.io/dependency-type"
+
+	// TODO: Add support for additional labels. For example "backup-mandatory", "restore-mandatory", etc.
+)
+
+// DependencyType represents the type of dependency in the object graph
+type DependencyType string
+
+const (
+	DependencyTypeStorage DependencyType = "storage"
+	DependencyTypeNetwork DependencyType = "network"
+	DependencyTypeCompute DependencyType = "compute"
+	DependencyTypeConfig  DependencyType = "config"
 )
 
 type ObjectGraph struct {
 	client   kubecli.KubevirtClient
-	graphMap map[string]schema.GroupResource
+	graphMap map[string]schema.GroupKind
+	options  *v1.ObjectGraphOptions
 }
 
-func NewObjectGraph(client kubecli.KubevirtClient) *ObjectGraph {
+func NewObjectGraph(client kubecli.KubevirtClient, opts *v1.ObjectGraphOptions) *ObjectGraph {
 	return &ObjectGraph{
 		client:   client,
 		graphMap: objectGraphMap,
+		options:  opts,
 	}
 }
 
 // objectGraphMap represents the graph of objects that can be potentially related to a KubeVirt resource
 // This is not strictly needed, but helps to keep the list of objects that we are appending to the graph.
-var objectGraphMap = map[string]schema.GroupResource{
-	"virtualmachines":                    {Group: "kubevirt.io", Resource: "virtualmachines"},
-	"virtualmachineinstances":            {Group: "kubevirt.io", Resource: "virtualmachineinstances"},
-	"virtualmachineinstancetypes":        {Group: "instancetype.kubevirt.io", Resource: "virtualmachineinstancetypes"},
-	"virtualmachineclusterinstancetypes": {Group: "instancetype.kubevirt.io", Resource: "virtualmachineclusterinstancetypes"},
-	"virtualmachinepreferences":          {Group: "instancetype.kubevirt.io", Resource: "virtualmachinepreferences"},
-	"virtualmachineclusterpreferences":   {Group: "instancetype.kubevirt.io", Resource: "virtualmachineclusterpreferences"},
-	"datavolumes":                        {Group: "cdi.kubevirt.io", Resource: "datavolumes"},
-	"controllerrevisions":                {Group: "apps", Resource: "controllerrevisions"},
-	"configmaps":                         {Group: "", Resource: "configmaps"},
-	"persistentvolumeclaims":             {Group: "", Resource: "persistentvolumeclaims"},
-	"serviceaccounts":                    {Group: "", Resource: "serviceaccounts"},
-	"secrets":                            {Group: "", Resource: "secrets"},
-	"pods":                               {Group: "", Resource: "pods"},
+var objectGraphMap = map[string]schema.GroupKind{
+	"virtualmachines":                    {Group: "kubevirt.io", Kind: "VirtualMachine"},
+	"virtualmachineinstances":            {Group: "kubevirt.io", Kind: "VirtualMachineInstance"},
+	"virtualmachineinstancetypes":        {Group: "instancetype.kubevirt.io", Kind: "VirtualMachineInstancetype"},
+	"virtualmachineclusterinstancetypes": {Group: "instancetype.kubevirt.io", Kind: "VirtualMachineClusterInstancetype"},
+	"virtualmachinepreferences":          {Group: "instancetype.kubevirt.io", Kind: "VirtualMachinePreference"},
+	"virtualmachineclusterpreferences":   {Group: "instancetype.kubevirt.io", Kind: "VirtualMachineClusterPreference"},
+	"datavolumes":                        {Group: "cdi.kubevirt.io", Kind: "DataVolume"},
+	"controllerrevisions":                {Group: "apps", Kind: "ControllerRevision"},
+	"configmaps":                         {Group: "", Kind: "ConfigMap"},
+	"persistentvolumeclaims":             {Group: "", Kind: "PersistentVolumeClaim"},
+	"serviceaccounts":                    {Group: "", Kind: "ServiceAccount"},
+	"secrets":                            {Group: "", Kind: "Secret"},
+	"pods":                               {Group: "", Kind: "Pod"},
 }
 
-func (app *SubresourceAPIApp) handleObjectGraph(request *restful.Request, response *restful.Response, fetchFunc func(string, string) (interface{}, *apierrors.StatusError)) {
+// getResourceDependencyType returns the dependency type for a given resource
+func getResourceDependencyType(resource string) DependencyType {
+	switch resource {
+	case "datavolumes", "persistentvolumeclaims":
+		return DependencyTypeStorage
+	case "pods", "virtualmachines", "virtualmachineinstances":
+		return DependencyTypeCompute
+	case "configmaps", "secrets", "virtualmachineinstancetypes", "virtualmachineclusterinstancetypes",
+		"virtualmachinepreferences", "virtualmachineclusterpreferences", "controllerrevisions":
+		return DependencyTypeConfig
+	case "serviceaccounts":
+		return DependencyTypeNetwork
+	default:
+		return DependencyTypeCompute
+	}
+}
+
+func (app *SubresourceAPIApp) handleObjectGraph(request *restful.Request, response *restful.Response, fetchFunc func(string, string) (any, *apierrors.StatusError)) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
@@ -89,7 +123,14 @@ func (app *SubresourceAPIApp) handleObjectGraph(request *restful.Request, respon
 		return
 	}
 
-	graph, err := NewObjectGraph(app.virtCli).GetObjectGraph(obj)
+	objectGraphOpts := &v1.ObjectGraphOptions{}
+	defer request.Request.Body.Close()
+	if err := decodeBody(request, objectGraphOpts); err != nil {
+		writeError(err, response)
+		return
+	}
+
+	graph, err := NewObjectGraph(app.virtCli, objectGraphOpts).GetObjectGraph(obj)
 	if err != nil {
 		writeError(apierrors.NewInternalError(err), response)
 		return
@@ -101,45 +142,104 @@ func (app *SubresourceAPIApp) handleObjectGraph(request *restful.Request, respon
 }
 
 func (app *SubresourceAPIApp) VMIObjectGraph(request *restful.Request, response *restful.Response) {
-	app.handleObjectGraph(request, response, func(ns, name string) (interface{}, *apierrors.StatusError) {
+	app.handleObjectGraph(request, response, func(ns, name string) (any, *apierrors.StatusError) {
 		return app.FetchVirtualMachineInstance(ns, name)
 	})
 }
 
 func (app *SubresourceAPIApp) VMObjectGraph(request *restful.Request, response *restful.Response) {
-	app.handleObjectGraph(request, response, func(ns, name string) (interface{}, *apierrors.StatusError) {
+	app.handleObjectGraph(request, response, func(ns, name string) (any, *apierrors.StatusError) {
 		return app.fetchVirtualMachine(name, ns)
 	})
 }
 
 func (og *ObjectGraph) newGraphNode(name, namespace, resource string, children []v1.ObjectGraphNode, optional bool) *v1.ObjectGraphNode {
-	if groupResource, ok := og.graphMap[resource]; ok {
-		node := &v1.ObjectGraphNode{
-			ObjectReference: k8sv1.TypedObjectReference{
-				Name:      name,
-				Namespace: &namespace,
-				APIGroup:  &groupResource.Group,
-				Kind:      groupResource.Resource,
-			},
-			Children: children,
-		}
-		if optional {
-			node.Optional = &optional
-		}
-		return node
+	groupKind, ok := og.graphMap[resource]
+	if !ok {
+		return nil
 	}
-	return nil
+
+	nodeLabels := map[string]string{
+		ObjectGraphDependencyLabel: string(getResourceDependencyType(resource)),
+	}
+
+	node := &v1.ObjectGraphNode{
+		ObjectReference: k8sv1.TypedObjectReference{
+			Name:      name,
+			Namespace: &namespace,
+			APIGroup:  &groupKind.Group,
+			Kind:      groupKind.Kind,
+		},
+		Labels:   nodeLabels,
+		Children: children,
+	}
+
+	if optional {
+		node.Optional = &optional
+	}
+
+	return node
 }
 
-func (og *ObjectGraph) GetObjectGraph(obj interface{}) (v1.ObjectGraphNode, error) {
+func (og *ObjectGraph) shouldIncludeNode(node *v1.ObjectGraphNode) bool {
+	if og.options == nil {
+		return true
+	}
+
+	// Exclude optional nodes only if IncludeOptionalNodes is explicitly set to false
+	if node.Optional != nil && *node.Optional &&
+		og.options.IncludeOptionalNodes != nil && !*og.options.IncludeOptionalNodes {
+		return false
+	}
+
+	if og.options.LabelSelector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(og.options.LabelSelector)
+		if err != nil {
+			log.Log.Reason(err).Error("Invalid label selector")
+			return true // Include node if selector is invalid
+		}
+
+		if !selector.Matches(labels.Set(node.Labels)) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (og *ObjectGraph) filterNodes(nodes []v1.ObjectGraphNode) []v1.ObjectGraphNode {
+	filtered := make([]v1.ObjectGraphNode, 0, len(nodes))
+
+	for _, node := range nodes {
+		if og.shouldIncludeNode(&node) {
+			node.Children = og.filterNodes(node.Children)
+			log.Log.V(3).Infof("Including node: %s/%s (%s) in the object graph", *node.ObjectReference.Namespace, node.ObjectReference.Name, node.ObjectReference.Kind)
+			filtered = append(filtered, node)
+		}
+	}
+
+	return filtered
+}
+
+func (og *ObjectGraph) GetObjectGraph(obj any) (v1.ObjectGraphNode, error) {
+	var root v1.ObjectGraphNode
+	var err error
+
 	switch obj := obj.(type) {
 	case *v1.VirtualMachine:
-		return og.virtualMachineObjectGraph(obj)
+		root, err = og.virtualMachineObjectGraph(obj)
 	case *v1.VirtualMachineInstance:
-		return og.virtualMachineInstanceObjectGraph(obj)
+		root, err = og.virtualMachineInstanceObjectGraph(obj)
 	default:
 		return v1.ObjectGraphNode{}, nil
 	}
+
+	if err != nil {
+		return root, err
+	}
+
+	root.Children = og.filterNodes(root.Children)
+	return root, nil
 }
 
 func (og *ObjectGraph) virtualMachineObjectGraph(vm *v1.VirtualMachine) (v1.ObjectGraphNode, error) {
@@ -205,12 +305,16 @@ func (og *ObjectGraph) buildChildrenFromVMI(vmi *v1.VirtualMachineInstance) ([]v
 	return children, errs
 }
 
-func (og *ObjectGraph) addVolumeGraph(obj interface{}, namespace string) ([]v1.ObjectGraphNode, error) {
+func (og *ObjectGraph) addVolumeGraph(obj any, namespace string) ([]v1.ObjectGraphNode, error) {
 	var nodes []v1.ObjectGraphNode
 	volumes, err := storageutils.GetVolumes(obj, og.client, storageutils.WithAllVolumes)
-	if err != nil && !storageutils.IsErrNoBackendPVC(err) {
-		return nil, err
+	if err != nil {
+		if !storageutils.IsErrNoBackendPVC(err) {
+			return nil, err
+		}
+		log.Log.Reason(err).Error("Failed to get backend volume, VM might still be provisioning. Proceeding with the remaining volumes.")
 	}
+
 	for _, volume := range volumes {
 		switch {
 		case volume.DataVolume != nil:
@@ -267,13 +371,19 @@ func (og *ObjectGraph) addVolumeGraph(obj interface{}, namespace string) ([]v1.O
 
 func (og *ObjectGraph) getLauncherPodNode(name, namespace string) (*v1.ObjectGraphNode, error) {
 	pods, err := og.client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: virtLauncherLabel,
+		LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, "virt-launcher"),
 	})
 	if err != nil {
 		return nil, err
 	}
 	for _, pod := range pods.Items {
-		if pod.Annotations[domainAnnotation] == name {
+		for _, ownerRef := range pod.OwnerReferences {
+			if ownerRef.Kind == "VirtualMachineInstance" && ownerRef.Name == name {
+				return og.newGraphNode(pod.GetName(), namespace, "pods", nil, false), nil
+			}
+		}
+		// fallback to check annotations in case the owner reference is not set
+		if pod.Annotations[v1.DomainAnnotation] == name {
 			return og.newGraphNode(pod.GetName(), namespace, "pods", nil, false), nil
 		}
 	}
@@ -324,4 +434,5 @@ func (og *ObjectGraph) getInstanceTypeMatcherResource(matcher v1.Matcher, status
 	return nodes
 }
 
-// TODO: Add more as needed
+// TODO: Add more as needed.
+// For example network attachments, vmexports, vmsnapshots, vmimigrations, etc.
