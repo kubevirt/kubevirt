@@ -39,12 +39,12 @@ var _ = Describe("GPU HostDevice", func() {
 	})
 
 	It("creates no device given no GPU/s", func() {
-		Expect(gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)).To(BeEmpty())
+		Expect(gpu.CreateHostDevices(vmi)).To(BeEmpty())
 	})
 
 	It("fails to create devices given no resource", func() {
 		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{{DeviceName: gpuResource0, Name: gpuName0}}
-		_, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+		_, err := gpu.CreateHostDevices(vmi)
 		Expect(err).To(HaveOccurred())
 	})
 
