@@ -48,7 +48,6 @@ var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
 	var kubeClient *fake.Clientset
 	var cpuCounter *libvirtxml.CapsHostCPUCounter
-	var guestsCaps []libvirtxml.CapsGuest
 
 	initNodeLabeller := func(kubevirt *v1.KubeVirt) {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kubevirt)
@@ -56,7 +55,7 @@ var _ = Describe("Node-labeller ", func() {
 		recorder.IncludeObject = true
 
 		var err error
-		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter, guestsCaps)
+		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -65,17 +64,6 @@ var _ = Describe("Node-labeller ", func() {
 			Name:      "tsc",
 			Frequency: 4008012000,
 			Scaling:   "no",
-		}
-
-		guestsCaps = []libvirtxml.CapsGuest{
-			{
-				OSType: "test",
-				Arch: libvirtxml.CapsGuestArch{
-					Machines: []libvirtxml.CapsGuestMachine{
-						{Name: "testmachine"},
-					},
-				},
-			},
 		}
 
 		node := newNode(nodeName)
@@ -131,14 +119,6 @@ var _ = Describe("Node-labeller ", func() {
 
 		node := retrieveNode(kubeClient)
 		Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelCPULabel)))
-	})
-
-	It("should add supported machine type labels", func() {
-		res := nlController.execute()
-		Expect(res).To(BeTrue())
-
-		node := retrieveNode(kubeClient)
-		Expect(node.Labels).To(HaveKey(v1.SupportedMachineTypeLabel + "testmachine"))
 	})
 	It("should add host cpu required features", func() {
 		res := nlController.execute()

@@ -57,7 +57,6 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HostModelCPULabel,
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
-	kubevirtv1.SupportedMachineTypeLabel,
 }
 
 // NodeLabeller struct holds information needed to run node-labeller
@@ -75,17 +74,16 @@ type NodeLabeller struct {
 	volumePath              string
 	domCapabilitiesFileName string
 	cpuCounter              *libvirtxml.CapsHostCPUCounter
-	guestCaps               []libvirtxml.CapsGuest
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
 	arch                    archLabeller
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, guestCaps []libvirtxml.CapsGuest) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter, guestCaps)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, guestCaps []libvirtxml.CapsGuest) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:      recorder,
 		nodeClient:    nodeClient,
@@ -99,9 +97,8 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		cpuCounter:              cpuCounter,
-		guestCaps:               guestCaps,
-		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool)},
-		arch:                    newArchLabeller(runtime.GOARCH),
+		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
+		arch:                    runtime.GOARCH,
 	}
 
 	err := n.loadAll()
@@ -248,9 +245,8 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 		}
 	}
 
-	for _, machine := range n.getSupportedMachines() {
-		labelKey := kubevirtv1.SupportedMachineTypeLabel + machine.Name
-		newLabels[labelKey] = "true"
+	if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; !hostModelObsolete {
+		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+hostCpuModel.Name] = "true"
 	}
 
 	for _, key := range n.hypervFeatures.items {
@@ -350,12 +346,4 @@ func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostMod
 
 func (n *NodeLabeller) hasTSCCounter() bool {
 	return n.cpuCounter != nil && n.cpuCounter.Name == "tsc"
-}
-
-func (n *NodeLabeller) getSupportedMachines() []libvirtxml.CapsGuestMachine {
-	var supportedMachines []libvirtxml.CapsGuestMachine
-	for _, guest := range n.guestCaps {
-		supportedMachines = append(supportedMachines, guest.Arch.Machines...)
-	}
-	return supportedMachines
 }
