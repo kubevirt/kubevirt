@@ -98,6 +98,11 @@ func (d DomainstatsScraper) gatherMetrics(socketFile string) (bool, *VirtualMach
 		return false, nil, fmt.Errorf("failed to update domain stats from socket %s: %w", socketFile, err)
 	}
 
+	vmStats.GuestAgentInfo, err = cli.GetGuestInfo()
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to update guest agent info from socket %s: %w", socketFile, err)
+	}
+
 	vmStats.FsStats, err = cli.GetFilesystems()
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to update filesystem stats from socket %s: %w", socketFile, err)
