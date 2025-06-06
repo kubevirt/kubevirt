@@ -205,6 +205,8 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("cache unsafe", "--cache=unsafe", verifyDiskSerial(volumeName), verifyCache(v1.CacheUnsafe)),
+				Entry("cache directsync", "--cache=directsync", verifyDiskSerial(volumeName), verifyCache(v1.CacheDirectSync)),
 			)
 
 			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
@@ -221,6 +223,8 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("cache unsafe", "--cache=unsafe", verifyDiskSerial(volumeName), verifyCache(v1.CacheUnsafe)),
+				Entry("cache directsync", "--cache=directsync", verifyDiskSerial(volumeName), verifyCache(v1.CacheDirectSync)),
 			)
 
 			It("should fail immediately on non concurrent error", func() {
@@ -281,6 +285,8 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("cache unsafe", "--cache=unsafe", verifyDiskSerial(volumeName), verifyCache(v1.CacheUnsafe)),
+				Entry("cache directsync", "--cache=directsync", verifyDiskSerial(volumeName), verifyCache(v1.CacheDirectSync)),
 			)
 
 			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
@@ -297,6 +303,8 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("cache unsafe", "--cache=unsafe", verifyDiskSerial(volumeName), verifyCache(v1.CacheUnsafe)),
+				Entry("cache directsync", "--cache=directsync", verifyDiskSerial(volumeName), verifyCache(v1.CacheDirectSync)),
 			)
 		})
 	})
