@@ -66,6 +66,7 @@ import (
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	"kubevirt.io/kubevirt/pkg/network/passt"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -2710,6 +2711,13 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			return err
 		}
 
+		if c.clusterConfig.PasstIPStackMigrationEnabled() {
+			binding := netvmispec.GetPodNetworkInterfaceBinding(vmi, c.clusterConfig.GetNetworkBindings())
+			if binding != nil && binding.DomainAttachmentType != v1.ManagedTap {
+				return executePasstRepair(vmi)
+			}
+		}
+
 		err = client.MigrateVirtualMachine(vmi, options)
 		if err != nil {
 			return err
@@ -2838,6 +2846,13 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
+
+	if c.clusterConfig.PasstIPStackMigrationEnabled() {
+		binding := netvmispec.GetPodNetworkInterfaceBinding(vmi, c.clusterConfig.GetNetworkBindings())
+		if binding != nil && binding.DomainAttachmentType != v1.ManagedTap {
+			return executePasstRepair(vmi)
+		}
+	}
 
 	if err := client.SyncMigrationTarget(vmi, options); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err)
@@ -3808,4 +3823,39 @@ func isReadOnlyDisk(disk *v1.Disk) bool {
 	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly)
 
 	return isReadOnlyCDRom
+}
+
+func executePasstRepair(vmi *v1.VirtualMachineInstance) error {
+	repairSocketDir, err := cmdclient.FindPodDirOnHost(vmi, cmdclient.PasstSocketDirOnHost)
+	if err != nil {
+		return err
+	}
+
+	symlinkToDir, err := passt.CreateShortenedSymlink(repairSocketDir, string(filepath.Separator))
+	if err != nil {
+		return err
+	}
+
+	repairSocketPath, err := passt.FindRepairSocketInDir(symlinkToDir)
+	if err != nil {
+		return err
+	}
+
+	//Socket not found
+	if repairSocketPath == "" {
+		repairSocketPath = symlinkToDir
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	passtRepairCommand := passt.NewPasstRepairCommand(ctx, repairSocketPath)
+	runner := passt.NewPasstRepairRunner(passtRepairCommand)
+
+	cleanupFunc := func() {
+		os.Remove(symlinkToDir)
+	}
+
+	go runner.RunContextual(ctx, cleanupFunc)
+	return nil
 }

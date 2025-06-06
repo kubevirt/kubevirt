@@ -24,9 +24,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 fi
 KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL:-false}
 HOST_ARCHITECTURE="$(uname -m)"
-
 sandbox_root=${SANDBOX_DIR}/default/root
-sandbox_hash="314762f5ff21cbf3927e7ea3baeb92d8c4df2b6b"
+sandbox_hash="a4ba21e8f0f13c5252ab62700a6d39279e7d33f8"
 
 function kubevirt::bootstrap::regenerate() {
     (

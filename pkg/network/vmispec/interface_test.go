@@ -196,11 +196,13 @@ var _ = Describe("VMI network spec", func() {
 	const (
 		deviceInfoPlugin    = "deviceinfo"
 		nonDeviceInfoPlugin = "non_deviceinfo"
+		managedTap          = "managedTap"
 	)
 
 	bindingPlugins := map[string]v1.InterfaceBindingPlugin{
 		deviceInfoPlugin:    {DownwardAPI: v1.DeviceInfo},
 		nonDeviceInfoPlugin: {},
+		managedTap:          {DomainAttachmentType: v1.ManagedTap},
 	}
 	Context("binding plugin network with device info", func() {
 		It("returns false given non binding-plugin interface", func() {
@@ -234,6 +236,44 @@ var _ = Describe("VMI network spec", func() {
 			}
 			Expect(netvmispec.BindingPluginNetworkWithDeviceInfoExist(ifaces, bindingPlugins)).To(BeTrue())
 		})
+	})
+
+	Context("pod network interface binding", func() {
+		const podNet0 = "default"
+		network := podNetwork(podNet0)
+		It("is found", func() {
+			vmi := libvmi.New(
+				libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, managedTap)),
+				libvmi.WithNetwork(&network),
+				libvmi.WithInterface(interfaceWithBridgeBinding("")),
+				libvmi.WithNetwork(&v1.Network{}),
+			)
+
+			binding := netvmispec.GetPodNetworkInterfaceBinding(vmi, bindingPlugins)
+			Expect(binding).NotTo(BeNil())
+			Expect(binding.DomainAttachmentType).Should(Equal(v1.ManagedTap))
+		})
+
+		DescribeTable("is not found", func(vmi *v1.VirtualMachineInstance) {
+			binding := netvmispec.GetPodNetworkInterfaceBinding(vmi, bindingPlugins)
+			Expect(binding).To(BeNil())
+		},
+			Entry("pod network has no binding",
+				libvmi.New(
+					libvmi.WithInterface(interfaceWithBridgeBinding(podNet0)),
+					libvmi.WithNetwork(&network)),
+			),
+			Entry("binding is not found",
+				libvmi.New(
+					libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, "nosuchbinding")),
+					libvmi.WithNetwork(&network)),
+			),
+			Entry("no pod network",
+				libvmi.New(
+					libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, deviceInfoPlugin)),
+					libvmi.WithNetwork(&v1.Network{})),
+			),
+		)
 	})
 })
 
