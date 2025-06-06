@@ -41,7 +41,10 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const timeout = 300 * time.Second
+const (
+	timeout                    = 300 * time.Second
+	PreferenceMemoryBelowGuest = 64 * 1024 * 1024
+)
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype and Preferences", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
@@ -237,6 +240,90 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(expectedOverhead).ToNot(Equal(instancetype.Spec.Memory.Guest.Value()))
 			memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
 			Expect(memRequest.Value()).To(Equal(expectedOverhead))
+		})
+		It("should apply 80% memory overcommit from instancetype without a preference", func() {
+			vmi := libvmifact.NewAlpine()
+
+			instancetype := builder.NewInstancetypeFromVMI(vmi)
+			instancetype.Spec.Memory.OvercommitPercent = 80
+
+			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
+				Create(context.Background(), instancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithInstancetype(instancetype.Name),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+			)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).
+				Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).
+				Should(matcher.BeReady())
+
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).
+				Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetype.Spec.Memory.Guest))
+
+			expectedRequest := int64(float32(instancetype.Spec.Memory.Guest.Value()) * (1 - float32(instancetype.Spec.Memory.OvercommitPercent)/100))
+			memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+			Expect(memRequest.Value()).To(Equal(expectedRequest))
+		})
+		It("should apply 80% memory overcommit from instancetype to VMI with preference requirements", func() {
+			vmi := libvmifact.NewAlpine()
+
+			instancetype := builder.NewInstancetypeFromVMI(vmi)
+			instancetype.Spec.Memory.OvercommitPercent = 80
+
+			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
+				Create(context.Background(), instancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			preference := &instancetypev1beta1.VirtualMachinePreference{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "preference-",
+				},
+				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(1),
+						},
+						Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+							Guest: *resource.NewQuantity(instancetype.Spec.Memory.Guest.Value()-PreferenceMemoryBelowGuest, resource.BinarySI),
+						},
+					},
+				},
+			}
+
+			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
+				Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithInstancetype(instancetype.Name),
+				libvmi.WithPreference(preference.Name),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+			)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).
+				Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).
+				Should(matcher.BeReady())
+
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).
+				Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetype.Spec.Memory.Guest))
+
+			expectedRequest := int64(float32(instancetype.Spec.Memory.Guest.Value()) * (1 - float32(instancetype.Spec.Memory.OvercommitPercent)/100))
+			Expect(expectedRequest).ToNot(Equal(instancetype.Spec.Memory.Guest.Value()))
+			memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+			Expect(memRequest.Value()).To(Equal(expectedRequest))
 		})
 	})
 
