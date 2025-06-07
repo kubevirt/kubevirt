@@ -66,6 +66,9 @@ func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.Per
 		if pvc.Namespace != vmi.Namespace {
 			continue
 		}
+		if pvc.DeletionTimestamp != nil {
+			continue
+		}
 		vmName, found := pvc.Labels[PVCPrefix]
 		if found && vmName == vmi.Name {
 			return pvc
