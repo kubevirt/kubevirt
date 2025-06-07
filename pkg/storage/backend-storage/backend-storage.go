@@ -125,8 +125,8 @@ func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name str
 
 func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
 	for _, volume := range vmi.Status.VolumeStatus {
-		if strings.HasPrefix(volume.Name, basePVC(vmi)) {
-			return volume.Name
+		if strings.Contains(volume.Name, basePVC(vmi)) {
+			return volume.PersistentVolumeClaimInfo.ClaimName
 		}
 	}
 
