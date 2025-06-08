@@ -14,6 +14,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -50,20 +51,9 @@ func Has2MiHugepages(node *k8sv1.Node) bool {
 
 func HasFeature(feature string) bool {
 	virtClient := kubevirt.Client()
-
-	var featureGates []string
 	kv := libkubevirt.GetCurrentKv(virtClient)
-	if kv.Spec.Configuration.DeveloperConfiguration != nil {
-		featureGates = kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
-	}
 
-	for _, fg := range featureGates {
-		if fg == feature {
-			return true
-		}
-	}
-
-	return false
+	return virtconfig.IsFeatureGateEnabled(feature, kv.Spec.Configuration)
 }
 
 func IsSEVCapable(node *k8sv1.Node, sevLabel string) bool {

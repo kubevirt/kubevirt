@@ -20,56 +20,39 @@
 package config
 
 import (
+	"slices"
+
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
 
 func DisableFeatureGate(feature string) {
-	if !checks.HasFeature(feature) {
-		return
-	}
-	virtClient := kubevirt.Client()
-
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if kv.Spec.Configuration.DeveloperConfiguration == nil {
-		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-			FeatureGates: []string{},
-		}
-	}
-
-	var newArray []string
-	featureGates := kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
-	for _, fg := range featureGates {
-		if fg == feature {
-			continue
-		}
-
-		newArray = append(newArray, fg)
-	}
-
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = newArray
-
-	UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+	setFeatureGateState(feature, false)
 }
 
-func EnableFeatureGate(feature string) *v1.KubeVirt {
+func EnableFeatureGate(feature string) {
+	setFeatureGateState(feature, true)
+}
+
+func setFeatureGateState(feature string, toEnable bool) {
+	if toEnable == checks.HasFeature(feature) {
+		return
+	}
+
 	virtClient := kubevirt.Client()
+	kv := libkubevirt.GetCurrentKv(virtClient).DeepCopy()
 
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if checks.HasFeature(feature) {
-		return kv
-	}
+	kv.Spec.Configuration.FeatureGates = slices.DeleteFunc(kv.Spec.Configuration.FeatureGates, func(v v1.FeatureGateConfiguration) bool {
+		return v.Name == feature
+	})
+	kv.Spec.Configuration.FeatureGates = append(kv.Spec.Configuration.FeatureGates, v1.FeatureGateConfiguration{
+		Name:    feature,
+		Enabled: pointer.P(toEnable),
+	})
 
-	if kv.Spec.Configuration.DeveloperConfiguration == nil {
-		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-			FeatureGates: []string{},
-		}
-	}
-
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, feature)
-
-	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+	UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
