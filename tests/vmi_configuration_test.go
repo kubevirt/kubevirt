@@ -148,8 +148,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		It("[test_id:3111]lead to get the guaranteed QOS class assigned when limit and requests are identical", decorators.Conformance, func() {
 			vmi := libvmifact.NewAlpine(
-				libvmi.WithResourceCPU("1"), libvmi.WithResourceMemory("64M"),
-				libvmi.WithLimitCPU("1"), libvmi.WithLimitMemory("64M"),
+				libvmi.WithCPURequest("1"), libvmi.WithMemoryRequest("64M"),
+				libvmi.WithCPULimit("1"), libvmi.WithMemoryLimit("64M"),
 			)
 			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
 
@@ -165,7 +165,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		It("[test_id:3112]lead to get the guaranteed QOS class assigned when only limits are set", decorators.Conformance, func() {
 			vmi := libvmifact.NewAlpine(
-				libvmi.WithLimitCPU("1"), libvmi.WithLimitMemory("128Mi"),
+				libvmi.WithCPULimit("1"), libvmi.WithMemoryLimit("128Mi"),
 			)
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 
@@ -190,13 +190,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Describe("VirtualMachineInstance definition", func() {
 		fedoraWithUefiSecuredBoot := libvmifact.NewFedora(
-			libvmi.WithResourceMemory("1Gi"),
+			libvmi.WithMemoryRequest("1Gi"),
 			libvmi.WithUefi(true),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 		alpineWithUefiWithoutSecureBoot := libvmifact.NewAlpine(
-			libvmi.WithResourceMemory("1Gi"),
+			libvmi.WithMemoryRequest("1Gi"),
 			libvmi.WithUefi(false),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -225,17 +225,17 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			),
 			Entry("provided by resources limits",
 				[]libvmi.Option{
-					libvmi.WithLimitMemory("256Mi"),
-					libvmi.WithLimitCPU("1"),
+					libvmi.WithMemoryLimit("256Mi"),
+					libvmi.WithCPULimit("1"),
 				},
 				256,
 			),
 			Entry("provided by resources requests and limits",
 				[]libvmi.Option{
-					libvmi.WithResourceCPU("1"),
-					libvmi.WithLimitCPU("1"),
-					libvmi.WithResourceMemory("64Mi"),
-					libvmi.WithLimitMemory("256Mi"),
+					libvmi.WithCPURequest("1"),
+					libvmi.WithCPULimit("1"),
+					libvmi.WithMemoryRequest("64Mi"),
+					libvmi.WithMemoryLimit("256Mi"),
 				},
 				64,
 			),
@@ -255,7 +255,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:1659]should report 3 cpu cores under guest OS", func() {
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithCPUCount(3, 0, 0),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 				)
 
 				By("Starting a VirtualMachineInstance")
@@ -290,7 +290,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 			It("[test_id:4624]should set a correct memory units", func() {
 				vmi := libvmifact.NewAlpine(
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 				)
 				expectedMemoryInKiB := 128 * 1024
 				expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
@@ -308,7 +308,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:1660]should report 3 sockets under guest OS", func() {
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithCPUCount(2, 0, 3),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 				)
 
 				By("Starting a VirtualMachineInstance")
@@ -328,8 +328,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			It("[test_id:1661]should report 2 sockets from spec.domain.resources.requests under guest OS ", func() {
 				vmi := libvmifact.NewAlpine(
-					libvmi.WithResourceCPU("1200m"),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithCPURequest("1200m"),
+					libvmi.WithMemoryRequest("128Mi"),
 				)
 				vmi.Spec.Domain.CPU = nil
 
@@ -350,8 +350,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			It("[test_id:1662]should report 2 sockets from spec.domain.resources.limits under guest OS ", func() {
 				vmi := libvmifact.NewAlpine(
-					libvmi.WithLimitCPU("1200m"),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithCPULimit("1200m"),
+					libvmi.WithMemoryRequest("128Mi"),
 				)
 				vmi.Spec.Domain.CPU = nil
 
@@ -373,7 +373,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:1663]should report 4 vCPUs under guest OS", func() {
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithCPUCount(1, 2, 2),
-					libvmi.WithResourceMemory("128M"),
+					libvmi.WithMemoryRequest("128M"),
 				)
 
 				By("Starting a VirtualMachineInstance")
@@ -393,8 +393,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			It("[test_id:1664]should map cores to virtio block queues", Serial, func() {
 				vmi := libvmifact.NewAlpine(
-					libvmi.WithResourceMemory("128Mi"),
-					libvmi.WithResourceCPU("3"),
+					libvmi.WithMemoryRequest("128Mi"),
+					libvmi.WithCPURequest("3"),
 				)
 				vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
 
@@ -436,7 +436,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			It("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", func() {
 				vmi := libvmifact.NewAlpine(
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 				)
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
@@ -527,7 +527,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				By("Creating a VMI with no disk and an explicit network interface")
 				vmi := libvmi.New(
-					libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
+					libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(interfaceDeviceWithMasqueradeBinding),
 					withSerialBIOS(),
@@ -656,8 +656,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory", func() {
 			It("[test_id:3115]should show the memory request inside the VMI", func() {
 				vmi := libvmifact.NewCirros(
-					libvmi.WithResourceMemory("256Mi"),
-					libvmi.WithLimitMemory("512Mi"),
+					libvmi.WithMemoryRequest("256Mi"),
+					libvmi.WithMemoryLimit("512Mi"),
 				)
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1013,15 +1013,15 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking that the VM memory equals to a number of consumed hugepages")
 				Eventually(func() bool { return verifyHugepagesConsumption(hugepagesVmi) }, 30*time.Second, 5*time.Second).Should(BeTrue())
 			},
-				Entry("[test_id:1671]hugepages-2Mi", decorators.RequiresHugepages2Mi, Serial, libvmi.WithHugepages("2Mi"), libvmi.WithResourceMemory("64Mi"), noGuestOption()),
-				Entry("[test_id:1672]hugepages-1Gi", decorators.RequiresHugepages1Gi, Serial, libvmi.WithHugepages("1Gi"), libvmi.WithResourceMemory("1Gi"), noGuestOption()),
-				Entry("[test_id:1672]hugepages-2Mi with guest memory set explicitly", decorators.RequiresHugepages2Mi, Serial, libvmi.WithHugepages("2Mi"), libvmi.WithResourceMemory("70Mi"), libvmi.WithGuestMemory("64Mi")),
+				Entry("[test_id:1671]hugepages-2Mi", decorators.RequiresHugepages2Mi, Serial, libvmi.WithHugepages("2Mi"), libvmi.WithMemoryRequest("64Mi"), noGuestOption()),
+				Entry("[test_id:1672]hugepages-1Gi", decorators.RequiresHugepages1Gi, Serial, libvmi.WithHugepages("1Gi"), libvmi.WithMemoryRequest("1Gi"), noGuestOption()),
+				Entry("[test_id:1672]hugepages-2Mi with guest memory set explicitly", decorators.RequiresHugepages2Mi, Serial, libvmi.WithHugepages("2Mi"), libvmi.WithMemoryRequest("70Mi"), libvmi.WithGuestMemory("64Mi")),
 			)
 
 			Context("with unsupported page size", func() {
 				It("[test_id:1673]should failed to schedule the pod", func() {
 					hugepagesVmi := libvmifact.NewCirros(
-						libvmi.WithResourceMemory("66Mi"),
+						libvmi.WithMemoryRequest("66Mi"),
 						libvmi.WithHugepages("3Mi"),
 					)
 
@@ -1523,11 +1523,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("should add guest-to-memory headroom", func() {
 				const guestMemoryStr = "1024M"
 				origVmiWithoutHeadroom := libvmi.New(
-					libvmi.WithResourceMemory(guestMemoryStr),
+					libvmi.WithMemoryRequest(guestMemoryStr),
 					libvmi.WithGuestMemory(guestMemoryStr),
 				)
 				origVmiWithHeadroom := libvmi.New(
-					libvmi.WithResourceMemory(guestMemoryStr),
+					libvmi.WithMemoryRequest(guestMemoryStr),
 					libvmi.WithGuestMemory(guestMemoryStr),
 				)
 
@@ -1702,7 +1702,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		It("[test_id:3124]should set machine type from VMI spec", func() {
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
+				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
 				withMachineType("pc"),
 			)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
@@ -1728,7 +1728,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		It("[test_id:6964]should allow creating VM defined with Machine with an empty Type", func() {
 			// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
+				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
 				withMachineType(""),
 			)
 
@@ -1766,7 +1766,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	Context("with a custom scheduler", func() {
 		It("[test_id:4631]should set the custom scheduler on the pod", func() {
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
+				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
 				WithSchedulerName("my-custom-scheduler"),
 			)
 			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
@@ -1780,8 +1780,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		It("[test_id:3127]should set CPU request from VMI spec", func() {
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
-				libvmi.WithResourceCPU("500m"),
+				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
+				libvmi.WithCPURequest("500m"),
 			)
 			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
 
@@ -1893,7 +1893,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:11214]should set cpu and memory limit in the virt-launcher pod", func() {
 				vmiRequest := resource.MustParse("256Mi")
 				vmi := libvmifact.NewCirros(
-					libvmi.WithResourceMemory(vmiRequest.String()),
+					libvmi.WithMemoryRequest(vmiRequest.String()),
 					libvmi.WithCPUCount(1, 1, 1),
 				)
 
@@ -1951,7 +1951,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithContainerDisk("ephemeral-disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithContainerDisk("ephemeral-disk5", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
@@ -2019,7 +2019,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			libstorage.CreateHostPathPv(alpineHostPath, testsuite.GetTestNamespace(nil), testsuite.HostPathAlpine)
 			libstorage.CreateHostPathPVC(alpineHostPath, testsuite.GetTestNamespace(nil), "1Gi")
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 				// disk[0]
 				libvmi.WithContainerDisk("ephemeral-disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				// disk[1]:  Block, no user-input, cache=none
@@ -2096,7 +2096,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 			)
 
 			By("setting the disk to use custom block sizes")
@@ -2145,7 +2145,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 			)
 
 			By("setting the disk to match the volume block sizes")
@@ -2195,7 +2195,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithHostDisk("host-disk", tmpHostDiskPath, v1.HostDiskExists),
 				libvmi.WithNodeAffinityFor(nodeName),
 				// hostdisk needs a privileged namespace
@@ -2700,7 +2700,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				return libvmifact.NewFedora(
 					libvmi.WithCPUCount(2, 0, 0),
 					libvmi.WithDedicatedCPUPlacement(),
-					libvmi.WithResourceMemory("512M"),
+					libvmi.WithMemoryRequest("512M"),
 					libvmi.WithNodeSelectorFor(node),
 				)
 			}
@@ -2708,7 +2708,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				return libvmifact.NewFedora(
 					libvmi.WithCPUCount(2, 0, 0),
 					libvmi.WithDedicatedCPUPlacement(),
-					libvmi.WithResourceMemory("512M"),
+					libvmi.WithMemoryRequest("512M"),
 					libvmi.WithNodeSelectorFor(node),
 				)
 			}
@@ -2891,7 +2891,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			const bootOrder uint = 1
 			vmi := libvmifact.NewFedora(
 				libnet.WithMasqueradeNetworking(),
-				libvmi.WithResourceMemory("1024M"),
+				libvmi.WithMemoryRequest("1024M"),
 			)
 			vmi.Spec.Domain.Devices.Disks[0].BootOrder = pointer.P(bootOrder)
 

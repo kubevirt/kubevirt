@@ -64,7 +64,7 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 	DescribeTable("should plug extra resources from new instance type", func(withMaxGuestSockets bool) {
 		vmi := libvmifact.NewAlpine(
 			libnet.WithMasqueradeNetworking(),
-			libvmi.WithResourceMemory("1Gi"),
+			libvmi.WithMemoryRequest("1Gi"),
 		)
 		vmi.Namespace = testsuite.GetTestNamespace(vmi)
 
@@ -192,7 +192,7 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 			errMatcher gomegatypes.GomegaMatcher,
 		) {
 			vmi := libvmifact.NewAlpine(
-				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithMemoryRequest("1Gi"),
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 			)
 

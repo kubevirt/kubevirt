@@ -4686,7 +4686,7 @@ var _ = Describe("Template", func() {
 					libvmi.New(
 						libvmi.WithNamespace("default"),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithMemoryRequest("128Mi"),
 						libvmi.WithDataVolume("disk0", "dv-disk0"),
 					),
 					"/var/run/kubevirt-private/vmi-disks/disk0",
@@ -4696,7 +4696,7 @@ var _ = Describe("Template", func() {
 					libvmi.New(
 						libvmi.WithNamespace("default"),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithMemoryRequest("128Mi"),
 						libvmi.WithPersistentVolumeClaim("disk0", "dv-disk0"),
 					),
 					"/var/run/kubevirt-private/vmi-disks/disk0",
@@ -4706,7 +4706,7 @@ var _ = Describe("Template", func() {
 					libvmi.New(
 						libvmi.WithNamespace("default"),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithMemoryRequest("128Mi"),
 						libvmi.WithDataVolume("disk0", "dv-disk0"),
 						libvmi.WithDataVolume("disk1", "dv-disk1"),
 						libvmi.WithDataVolume("disk1", "dv-disk2"),
@@ -4720,7 +4720,7 @@ var _ = Describe("Template", func() {
 					libvmi.New(
 						libvmi.WithNamespace("default"),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithMemoryRequest("128Mi"),
 						libvmi.WithPersistentVolumeClaim("disk0", "dv-disk0"),
 						libvmi.WithPersistentVolumeClaim("disk1", "dv-disk1"),
 						libvmi.WithPersistentVolumeClaim("disk1", "dv-disk2"),
@@ -4734,7 +4734,7 @@ var _ = Describe("Template", func() {
 					libvmi.New(
 						libvmi.WithNamespace("default"),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithMemoryRequest("128Mi"),
 						libvmi.WithDataVolume("disk0", "dv-disk0"),
 					),
 					"",

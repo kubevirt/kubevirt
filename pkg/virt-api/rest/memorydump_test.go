@@ -204,7 +204,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		if vmiRunning {
 			vmi = libvmi.New(
 				libvmi.WithName(testVMIName),
-				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithMemoryRequest("1Gi"),
 				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 			)
 			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
@@ -258,7 +258,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		request.Request.Body = newMemoryDumpBody(memDumpReq)
 		vmi := libvmi.New(
 			libvmi.WithName(testVMIName),
-			libvmi.WithResourceMemory("1Gi"),
+			libvmi.WithMemoryRequest("1Gi"),
 			libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 		)
 		vm := libvmi.NewVirtualMachine(vmi)

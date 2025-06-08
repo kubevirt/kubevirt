@@ -191,7 +191,7 @@ func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 
 	vmi := libvmifact.NewFedora(
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-		libvmi.WithLimitMemory("512Mi"),
+		libvmi.WithMemoryLimit("512Mi"),
 		libvmi.WithPersistentVolumeClaim("testdisk", pvc.Name),
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),

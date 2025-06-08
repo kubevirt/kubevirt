@@ -787,7 +787,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		It("[test_id:1781]should have tx checksumming disabled on interface serving dhcp", func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
 				context.Background(),
-				libvmifact.NewAlpine(libvmi.WithResourceMemory("1024M")),
+				libvmifact.NewAlpine(libvmi.WithMemoryRequest("1024M")),
 				metav1.CreateOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())

@@ -138,7 +138,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 
 		It("ensure successful boot and deletion when VMI has a disk defined", func() {
 			By("Creating VMI with disk and kernel boot")
-			vmi := libvmifact.NewAlpine(libvmi.WithResourceMemory("1Gi"))
+			vmi := libvmifact.NewAlpine(libvmi.WithMemoryRequest("1Gi"))
 
 			utils.AddKernelBootToVMI(vmi)
 			// Remove initrd path from vmi spec

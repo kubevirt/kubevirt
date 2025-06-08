@@ -1188,7 +1188,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				vmi := libvmi.New(
 					libvmi.WithDataVolume("disk0", dataVolume.Name),
-					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithMemoryRequest("256Mi"),
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),

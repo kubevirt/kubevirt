@@ -4241,7 +4241,7 @@ var _ = Describe("additional tests", func() {
 
 func newBaseVmi(opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	opts = append(opts,
-		libvmi.WithResourceMemory("512Mi"),
+		libvmi.WithMemoryRequest("512Mi"),
 		libvmi.WithArchitecture(runtime.GOARCH),
 	)
 	return libvmi.New(opts...)
