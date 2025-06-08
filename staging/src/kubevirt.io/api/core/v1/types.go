@@ -2680,11 +2680,26 @@ type ReloadableComponentConfiguration struct {
 	RestClient *RESTClientConfiguration `json:"restClient,omitempty"`
 }
 
+type FeatureGateConfiguration struct {
+	Name string `json:"name"`
+	// Enabled indicates whether the feature gate is enabled or not. Defaults to true.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+func (fg FeatureGateConfiguration) IsEnabled() bool {
+	return fg.Enabled == nil || *fg.Enabled
+}
+
 // KubeVirtConfiguration holds all kubevirt configurations
 type KubeVirtConfiguration struct {
-	CPUModel               string                  `json:"cpuModel,omitempty"`
-	CPURequest             *resource.Quantity      `json:"cpuRequest,omitempty"`
-	DeveloperConfiguration *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
+	// FeatureGates is the list of experimental features to enable. Defaults to none.
+	// +listType=atomic
+	// +optional
+	FeatureGates           []FeatureGateConfiguration `json:"featureGates,omitempty"`
+	CPUModel               string                     `json:"cpuModel,omitempty"`
+	CPURequest             *resource.Quantity         `json:"cpuRequest,omitempty"`
+	DeveloperConfiguration *DeveloperConfiguration    `json:"developerConfiguration,omitempty"`
 	// Deprecated. Use architectureConfiguration instead.
 	EmulatedMachines       []string                `json:"emulatedMachines,omitempty"`
 	ImagePullPolicy        k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
@@ -2964,7 +2979,8 @@ type DiskVerification struct {
 
 // DeveloperConfiguration holds developer options
 type DeveloperConfiguration struct {
-	// FeatureGates is the list of experimental features to enable. Defaults to none
+	// FeatureGates is the list of experimental features to enable. Defaults to none.
+	// Deprecated: use KubeVirtConfiguration.FeatureGates instead.
 	FeatureGates []string `json:"featureGates,omitempty"`
 	// LessPVCSpaceToleration determines how much smaller, in percentage, disk PVCs are
 	// allowed to be compared to the requested size (to account for various overheads).

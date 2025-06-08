@@ -83,6 +83,12 @@
     "productComponent": "productComponentValue",
     "synchronizationPort": "synchronizationPortValue",
     "configuration": {
+      "featureGates": [
+        {
+          "name": "nameValue",
+          "enabled": true
+        }
+      ],
       "cpuModel": "cpuModelValue",
       "cpuRequest": "0",
       "developerConfiguration": {
