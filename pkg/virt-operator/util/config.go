@@ -32,6 +32,8 @@ import (
 	"strconv"
 	"strings"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -221,12 +223,9 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
 		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
 	}
-	if kv.Spec.Configuration.DeveloperConfiguration != nil && len(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates) > 0 {
-		for _, v := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-			if v == featuregate.PersistentReservation {
-				additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
-			}
-		}
+	if virtconfig.IsFeatureGateEnabled(featuregate.PersistentReservation, kv.Spec.Configuration) {
+		additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
