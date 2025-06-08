@@ -134,10 +134,13 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
+		featureGatesConfigs := clusterCfg.FeatureGates
+		var legacyFeatureGates []string
 		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-			if causes = featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec); len(causes) > 0 {
-				return webhookutils.ToAdmissionResponse(causes)
-			}
+			legacyFeatureGates = devCfg.FeatureGates
+		}
+		if causes = append(causes, featuregate.ValidateFeatureGates(featureGatesConfigs, legacyFeatureGates, &vm.Spec.Template.Spec)...); len(causes) > 0 {
+			return webhookutils.ToAdmissionResponse(causes)
 		}
 
 		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmCopy.Spec.Template.Spec, admitter.ClusterConfig)

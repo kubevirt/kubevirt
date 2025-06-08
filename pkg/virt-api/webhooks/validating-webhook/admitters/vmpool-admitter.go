@@ -86,12 +86,12 @@ func (admitter *VMPoolAdmitter) Admit(_ context.Context, ar *admissionv1.Admissi
 
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
+		featureGatesConfigs := clusterCfg.FeatureGates
+		var legacyFeatureGates []string
 		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-			causes = append(
-				causes,
-				featuregate.ValidateFeatureGates(devCfg.FeatureGates, &pool.Spec.VirtualMachineTemplate.Spec.Template.Spec)...,
-			)
+			legacyFeatureGates = devCfg.FeatureGates
 		}
+		causes = append(causes, featuregate.ValidateFeatureGates(featureGatesConfigs, legacyFeatureGates, &pool.Spec.VirtualMachineTemplate.Spec.Template.Spec)...)
 	}
 
 	if len(causes) > 0 {

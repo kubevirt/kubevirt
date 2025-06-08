@@ -48,7 +48,7 @@ var _ = Describe("Validator", func() {
 		DeferCleanup(featuregate.UnregisterFeatureGate, fgName)
 		vmi := libvmi.New()
 
-		Expect(featuregate.ValidateFeatureGates([]string{fgName}, &vmi.Spec)).To(ConsistOf(expected))
+		Expect(featuregate.ValidateFeatureGates(nil, []string{fgName}, &vmi.Spec)).To(ConsistOf(expected))
 	},
 		Entry("that is GA", featuregate.GA, nil),
 		Entry("that is Deprecated", featuregate.Deprecated, nil),
