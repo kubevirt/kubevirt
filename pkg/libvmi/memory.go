@@ -74,3 +74,23 @@ func WithLimitMemory(value string) Option {
 		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse(value)
 	}
 }
+
+// WithMemoryRequest specifies the vmi memory resource.
+func WithMemoryRequest(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Requests == nil {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(value)
+	}
+}
+
+// WithMemoryLimit specifies the VMI memory limit.
+func WithMemoryLimit(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Limits == nil {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse(value)
+	}
+}
