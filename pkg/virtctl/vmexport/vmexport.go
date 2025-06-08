@@ -54,6 +54,7 @@ import (
 
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -830,16 +831,19 @@ func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.Vi
 		return nil, err
 	}
 
+	ownerRef := metav1.NewControllerRef(vmexport, schema.GroupVersionKind{
+		Group:   exportv1.SchemeGroupVersion.Group,
+		Version: exportv1.SchemeGroupVersion.Version,
+		Kind:    "VirtualMachineExport",
+	})
+	// This requires more RBAC on certain k8s distributions and isn't really needed
+	ownerRef.BlockOwnerDeletion = pointer.P(false)
 	secret := &k8sv1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getExportSecretName(vmexport.Name),
 			Namespace: vmexport.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(vmexport, schema.GroupVersionKind{
-					Group:   exportv1.SchemeGroupVersion.Group,
-					Version: exportv1.SchemeGroupVersion.Version,
-					Kind:    "VirtualMachineExport",
-				}),
+				*ownerRef,
 			},
 		},
 		Type: k8sv1.SecretTypeOpaque,
