@@ -911,8 +911,9 @@ var CRDsValidation map[string]string = map[string]string{
                   - memoryLimit
                   type: object
                 featureGates:
-                  description: FeatureGates is the list of experimental features to
-                    enable. Defaults to none
+                  description: |-
+                    FeatureGates is the list of experimental features to enable. Defaults to none.
+                    Deprecated: use KubeVirtConfiguration.FeatureGates instead.
                   items:
                     type: string
                   type: array
@@ -988,6 +989,22 @@ var CRDsValidation map[string]string = map[string]string{
                 migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific
                 field is set it overrides the cluster level one.
               type: string
+            featureGates:
+              description: FeatureGates is the list of experimental features to enable.
+                Defaults to none.
+              items:
+                properties:
+                  enabled:
+                    description: Enabled indicates whether the feature gate is enabled
+                      or not. Defaults to true.
+                    type: boolean
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
             handlerConfiguration:
               description: |-
                 ReloadableComponentConfiguration holds all generic k8s configuration options which can
