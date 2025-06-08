@@ -20,8 +20,10 @@
 package featuregate
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"slices"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -39,4 +41,30 @@ func ValidateFeatureGates(featureGates []string, vmiSpec *v1.VirtualMachineInsta
 		}
 	}
 	return causes
+}
+
+func GetEnabledFeatureGates(featureGates []v1.FeatureGateConfiguration, legacyFeatureGates []string) []string {
+	enabledFeatureGates := sets.New[string](legacyFeatureGates...)
+
+	for _, fgConfig := range featureGates {
+		if fgConfig.IsEnabled() {
+			enabledFeatureGates.Insert(fgConfig.Name)
+		} else {
+			enabledFeatureGates.Delete(fgConfig.Name)
+		}
+	}
+
+	if len(enabledFeatureGates) == 0 {
+		return nil
+	}
+
+	enabledFeatureGatesSlice := enabledFeatureGates.UnsortedList()
+
+	// Sort the feature gates to ensure a consistent order.
+	// This is important for any comparison logic, as we want ["fg1", "fg2"] to be considered equal to ["fg2", "fg1"].
+	// Without this, the test suite, as well as out-of-tree components would need to re-implement the sorting logic.
+	// In addition, since this list is expected to be very small, the performance impact of sorting is negligible.
+	slices.Sort(enabledFeatureGatesSlice)
+
+	return enabledFeatureGatesSlice
 }

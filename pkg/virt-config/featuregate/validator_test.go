@@ -28,6 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -57,5 +58,16 @@ var _ = Describe("Validator", func() {
 				Message: fgWarning,
 			}},
 		),
+	)
+
+	DescribeTable("get enabled feature gates", func(featureGates []v1.FeatureGateConfiguration, legacyFeatureGates []string, expected []string) {
+		Expect(featuregate.GetEnabledFeatureGates(featureGates, legacyFeatureGates)).To(BeEquivalentTo(expected))
+	},
+		Entry("with no feature gates", nil, nil, nil),
+		Entry("with only legacy feature gates", nil, []string{"legacy1", "legacy2"}, []string{"legacy1", "legacy2"}),
+		Entry("with only feature gate configurations", []v1.FeatureGateConfiguration{{Name: "fgconfig1"}, {Name: "fgconfig2"}}, nil, []string{"fgconfig1", "fgconfig2"}),
+		Entry("with feature gate configurations being disabled", []v1.FeatureGateConfiguration{{Name: "fg1"}, {Name: "fg2", Enabled: pointer.P(false)}}, nil, []string{"fg1"}),
+		Entry("new feature gate configuration should take precedence over legacy feature gates", []v1.FeatureGateConfiguration{{Name: "fg1"}, {Name: "fg2", Enabled: pointer.P(false)}}, []string{"fg2"}, []string{"fg1"}),
+		Entry("new feature gate configuration is enabled and also the legacy feature gates", []v1.FeatureGateConfiguration{{Name: "fg1"}, {Name: "fg2", Enabled: pointer.P(true)}}, []string{"fg2"}, []string{"fg1", "fg2"}),
 	)
 })
