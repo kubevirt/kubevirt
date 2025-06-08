@@ -1,4 +1,4 @@
-package heartbeat
+package virthandler
 
 /*
  * This file is part of the KubeVirt project

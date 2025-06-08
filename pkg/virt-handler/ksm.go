@@ -17,7 +17,7 @@
  *
  */
 
-package heartbeat
+package virthandler
 
 import (
 	"bufio"
