@@ -27,9 +27,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func ValidateFeatureGates(featureGates []string, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func ValidateFeatureGates(featureGatesConfigs []v1.FeatureGateConfiguration, legacyFeatureGates []string, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	enabledFeatureGates := GetEnabledFeatureGates(featureGatesConfigs, legacyFeatureGates)
+
 	var causes []metav1.StatusCause
-	for _, fgName := range featureGates {
+	for _, fgName := range enabledFeatureGates {
 		fg := FeatureGateInfo(fgName)
 		if fg != nil && fg.State == Discontinued && fg.VmiSpecUsed != nil {
 			if used := fg.VmiSpecUsed(vmiSpec); used {
