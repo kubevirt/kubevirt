@@ -35,12 +35,14 @@ import (
 
 var _ = Describe("VM Firmware Controller", func() {
 	It("sync does nothing when a vm already has a uuid", func() {
-		fc := NewFirmwareController(fake.NewSimpleClientset())
+		clientset := fake.NewSimpleClientset()
+		fc := NewFirmwareController(clientset)
 		vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithFirmwareUUID("some-existing-uid")))
 		originalVM := vm.DeepCopy()
 		updatedVM, err := fc.Sync(vm, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedVM).To(Equal(originalVM))
+		Expect(clientset.Actions()).To(BeEmpty())
 	})
 
 	It("sync fails when VM patch returns an error", func() {
@@ -85,12 +87,13 @@ var _ = Describe("VM Firmware Controller", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		legacyUUID := CalculateLegacyUUID(vm.Name)
-		originalVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{UUID: legacyUUID}
-		Expect(updatedVM).To(Equal(originalVM))
+		expectedVM := originalVM.DeepCopy()
+		expectedVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{UUID: legacyUUID}
+		Expect(updatedVM).To(Equal(expectedVM))
 
 		updatedServerVM, err := clientset.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(updatedServerVM.Spec.Template.Spec.Domain.Firmware).To(Equal(updatedVM.Spec.Template.Spec.Domain.Firmware))
+		Expect(updatedServerVM.Spec.Template.Spec.Domain.Firmware).To(Equal(expectedVM.Spec.Template.Spec.Domain.Firmware))
 	},
 		Entry("when the VM has no firmware", nil),
 		Entry("when the VM has firmware with an empty UUID", &v1.Firmware{UUID: ""}),
