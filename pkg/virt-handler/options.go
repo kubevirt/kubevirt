@@ -25,6 +25,7 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
@@ -33,14 +34,14 @@ func virtualMachineOptions(
 	period uint32,
 	preallocatedVolumes []string,
 	capabilities *libvirtxml.Caps,
+	disksInfo map[string]*containerdisk.DiskInfo,
 	clusterConfig *virtconfig.ClusterConfig,
 ) *cmdv1.VirtualMachineOptions {
 	options := &cmdv1.VirtualMachineOptions{
 		MemBalloonStatsPeriod: period,
 		PreallocatedVolumes:   preallocatedVolumes,
 		Topology:              capabilitiesToTopology(capabilities),
-		// New virt-launcher images no longer use this value, it's kept empty for backward compatibility.
-		DisksInfo: map[string]*cmdv1.DiskInfo{},
+		DisksInfo:             disksInfoToDisksInfo(disksInfo),
 	}
 	if smbios != nil {
 		options.VirtualMachineSMBios = &cmdv1.SMBios{
@@ -129,6 +130,21 @@ func cpuToCPU(cpu libvirtxml.CapsHostNUMACPU) *cmdv1.CPU {
 		Id:       uint32(cpu.ID),
 		Siblings: convertListOfIntStringToSlice(cpu.Siblings),
 	}
+}
+
+func disksInfoToDisksInfo(disksInfo map[string]*containerdisk.DiskInfo) map[string]*cmdv1.DiskInfo {
+	info := map[string]*cmdv1.DiskInfo{}
+	for k, v := range disksInfo {
+		if v != nil {
+			info[k] = &cmdv1.DiskInfo{
+				Format:      v.Format,
+				BackingFile: v.BackingFile,
+				ActualSize:  uint64(v.ActualSize),
+				VirtualSize: uint64(v.VirtualSize),
+			}
+		}
+	}
+	return info
 }
 
 func convertListOfIntStringToSlice(siblings string) []uint32 {

@@ -15,6 +15,8 @@ import (
 
 	gomock "go.uber.org/mock/gomock"
 	v1 "kubevirt.io/api/core/v1"
+
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 )
 
 // MockMounter is a mock of Mounter interface.
@@ -72,11 +74,12 @@ func (mr *MockMounterMockRecorder) ContainerDisksReady(vmi, notInitializedSince 
 }
 
 // MountAndVerify mocks base method.
-func (m *MockMounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
+func (m *MockMounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MountAndVerify", vmi)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(map[string]*containerdisk.DiskInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // MountAndVerify indicates an expected call of MountAndVerify.

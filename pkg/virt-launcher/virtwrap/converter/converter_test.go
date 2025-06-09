@@ -52,7 +52,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -1176,8 +1175,8 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			})
-			c.DisksInfo = make(map[string]*disk.DiskInfo)
-			c.DisksInfo[name] = &disk.DiskInfo{}
+			c.DisksInfo = make(map[string]*cmdv1.DiskInfo)
+			c.DisksInfo[name] = &cmdv1.DiskInfo{}
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			reserv := domainSpec.Devices.Disks[0].Source.Reservations
 			Expect(reserv.Managed).To(Equal("no"))

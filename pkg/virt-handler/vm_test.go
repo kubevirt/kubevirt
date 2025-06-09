@@ -1172,7 +1172,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(notReadySince.Before(time.Now())).To(BeTrue())
 					return true, nil
 				})
-				mockContainerDiskMounter.EXPECT().MountAndVerify(gomock.Any()).Return(fmt.Errorf("aborting since we only want to reach this point"))
+				mockContainerDiskMounter.EXPECT().MountAndVerify(gomock.Any()).Return(nil, fmt.Errorf("aborting since we only want to reach this point"))
 
 				sanityExecute()
 

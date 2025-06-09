@@ -56,7 +56,7 @@ type mounter struct {
 
 type Mounter interface {
 	ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error)
-	MountAndVerify(vmi *v1.VirtualMachineInstance) error
+	MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error)
 	Unmount(vmi *v1.VirtualMachineInstance) error
 	// ComputeChecksums method, along with the code added in this commit, can be removed after the 1.7 release.
 	// By then, we can be sure that during upgrades older versions of virt-handler no longer expect the checksum
@@ -223,39 +223,42 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 
 // Mount takes a vmi and mounts all container disks of the VMI, so that they are visible for the qemu process.
 // Additionally qcow2 images are validated if "verify" is true. The validation happens with rlimits set, to avoid DOS.
-func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
+
+func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error) {
 	if m.clusterConfig.ImageVolumeEnabled() {
 		bindMountNeeded, err := m.needsBindMountFunc(vmi)
 		if err != nil {
-			return fmt.Errorf("fail to detect if bind mount needed for vmi: %s in namespace: %v. err: %v", vmi.Name, vmi.Namespace, err)
+			return nil, fmt.Errorf("fail to detect if bind mount needed for vmi: %s in namespace: %v. err: %v", vmi.Name, vmi.Namespace, err)
 		}
 		if !bindMountNeeded {
-			return nil
+			return nil, nil
 		}
 	}
 
 	record := vmiMountTargetRecord{}
+	disksInfo := map[string]*containerdisk.DiskInfo{}
+
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
 			diskTargetDir, err := containerdisk.GetDiskTargetDirFromHostView(vmi)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			diskName := containerdisk.GetDiskTargetName(i)
 			// If diskName is a symlink it will fail if the target exists.
 			if err := safepath.TouchAtNoFollow(diskTargetDir, diskName, os.ModePerm); err != nil {
 				if !os.IsExist(err) {
-					return fmt.Errorf("failed to create mount point target: %v", err)
+					return nil, fmt.Errorf("failed to create mount point target: %v", err)
 				}
 			}
 			targetFile, err := safepath.JoinNoFollow(diskTargetDir, diskName)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			sock, err := m.socketPathGetter(vmi, i)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
@@ -268,45 +271,59 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
 	if len(record.MountTargetEntries) > 0 {
 		err := m.setMountTargetRecord(vmi, &record)
 		if err != nil {
-			return err
+			return nil, err
 		}
+	}
+
+	vmiRes, err := m.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect VMI pod: %v", err)
 	}
 
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
 			diskTargetDir, err := containerdisk.GetDiskTargetDirFromHostView(vmi)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			diskName := containerdisk.GetDiskTargetName(i)
 			targetFile, err := safepath.JoinNoFollow(diskTargetDir, diskName)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if isMounted, err := isolation.IsMounted(targetFile); err != nil {
-				return fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
+				return nil, fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
 			} else if !isMounted {
 
 				sourceFile, err := m.getContainerDiskPath(vmi, &volume, i)
 				if err != nil {
-					return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
+					return nil, fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
 				}
 
 				log.DefaultLogger().Object(vmi).Infof("Bind mounting container disk at %s to %s", sourceFile, targetFile)
 				out, err := virt_chroot.MountChroot(sourceFile, targetFile, true).CombinedOutput()
 				if err != nil {
-					return fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
+					return nil, fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
 				}
 			}
+
+			imageInfo, err := isolation.GetImageInfo(containerdisk.GetDiskTargetPathFromLauncherView(i), vmiRes, m.clusterConfig.GetDiskVerification())
+			if err != nil {
+				return nil, fmt.Errorf("failed to get image info: %v", err)
+			}
+			if err := containerdisk.VerifyImage(imageInfo); err != nil {
+				return nil, fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
+			}
+			disksInfo[volume.Name] = imageInfo
 		}
 	}
-	err := m.mountKernelArtifacts(vmi, true)
+	err = m.mountKernelArtifacts(vmi, true)
 	if err != nil {
-		return fmt.Errorf("error mounting kernel artifacts: %v", err)
+		return nil, fmt.Errorf("error mounting kernel artifacts: %v", err)
 	}
 
-	return nil
+	return disksInfo, nil
 }
 
 // Unmount unmounts all container disks of a given VMI.

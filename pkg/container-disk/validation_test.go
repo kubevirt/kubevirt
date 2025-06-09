@@ -3,17 +3,15 @@ package containerdisk
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/pkg/os/disk"
 )
 
 var _ = Describe("Validation", func() {
 
-	var diskInfo disk.DiskInfo
+	var diskInfo DiskInfo
 	var sizeStub int64
 
 	BeforeEach(func() {
-		diskInfo = disk.DiskInfo{}
+		diskInfo = DiskInfo{}
 		sizeStub = 12345
 	})
 

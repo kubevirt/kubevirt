@@ -67,7 +67,6 @@ import (
 	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -175,7 +174,7 @@ type LibvirtDomainManager struct {
 	ovmfPath                 string
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
 	directIOChecker          converter.DirectIOChecker
-	disksInfo                map[string]*osdisk.DiskInfo
+	disksInfo                map[string]*cmdv1.DiskInfo
 	cancelSafetyUnfreezeChan chan struct{}
 	migrateInfoStats         *stats.DomainJobInfo
 
@@ -231,7 +230,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		efiEnvironment:                efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
 		ephemeralDiskCreator:          ephemeralDiskCreator,
 		directIOChecker:               directIOChecker,
-		disksInfo:                     map[string]*osdisk.DiskInfo{},
+		disksInfo:                     map[string]*cmdv1.DiskInfo{},
 		cancelSafetyUnfreezeChan:      make(chan struct{}),
 		migrateInfoStats:              &stats.DomainJobInfo{},
 		metadataCache:                 metadataCache,
@@ -744,6 +743,18 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
 
+	disksInfo := map[string]*containerdisk.DiskInfo{}
+	for k, v := range l.disksInfo {
+		if v != nil {
+			disksInfo[k] = &containerdisk.DiskInfo{
+				Format:      v.Format,
+				BackingFile: v.BackingFile,
+				ActualSize:  int64(v.ActualSize),
+				VirtualSize: int64(v.VirtualSize),
+			}
+		}
+	}
+
 	// generate cloud-init data
 	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, config.SecretSourceDir)
 	if err != nil {
@@ -793,7 +804,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	// Create ephemeral disk for container disks
-	err = containerdisk.CreateEphemeralImages(vmi, l.ephemeralDiskCreator, l.disksInfo)
+	err = containerdisk.CreateEphemeralImages(vmi, l.ephemeralDiskCreator, disksInfo)
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral container disk images failed: %v", err)
 	}
@@ -935,7 +946,7 @@ func getUsableDiskSize(path string) (int64, error) {
 	}
 
 	availableSize := int64(statfs.Bavail) * int64(statfs.Bsize)
-	diskInfo, err := osdisk.GetDiskInfo(path)
+	diskInfo, err := converter.GetImageInfo(path)
 	if err != nil {
 		return int64(-1), err
 	}
@@ -952,7 +963,7 @@ func shouldExpandOffline(disk api.Disk) bool {
 		// Block devices don't need to be expanded
 		return false
 	}
-	diskInfo, err := osdisk.GetDiskInfo(getSourceFile(disk))
+	diskInfo, err := converter.GetImageInfo(getSourceFile(disk))
 	if err != nil {
 		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
 		return false
@@ -987,7 +998,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	// Check if PVC volumes are block volumes
 	isBlockPVCMap := make(map[string]bool)
 	isBlockDVMap := make(map[string]bool)
-	for diskIndex, volume := range vmi.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.Ephemeral != nil {
 			isBlockPVC := false
 			if _, ok := hotplugVolumes[volume.Name]; ok {
@@ -1004,15 +1015,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 				isBlockDV, _ = isBlockDeviceVolume(volume.Name)
 			}
 			isBlockDVMap[volume.Name] = isBlockDV
-		}
-
-		_, existInCache := l.disksInfo[volume.Name]
-		if volume.ContainerDisk != nil && !existInCache {
-			info, err := osdisk.GetDiskInfo(containerdisk.GetDiskTargetPathFromLauncherView(diskIndex))
-			if err != nil {
-				return nil, fmt.Errorf("failed to get container disk info: %v", err)
-			}
-			l.disksInfo[volume.Name] = info
 		}
 	}
 
@@ -1061,6 +1063,10 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		c.MemBalloonStatsPeriod = uint(options.MemBalloonStatsPeriod)
 		// Add preallocated and thick-provisioned volumes for which we need to avoid the discard=unmap option
 		c.VolumesDiscardIgnore = options.PreallocatedVolumes
+
+		if len(options.DisksInfo) > 0 {
+			l.disksInfo = options.DisksInfo
+		}
 
 		if options.GetClusterConfig() != nil {
 			c.ExpandDisksEnabled = options.GetClusterConfig().GetExpandDisksEnabled()
