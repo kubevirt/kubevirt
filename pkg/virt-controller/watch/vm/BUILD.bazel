@@ -80,6 +80,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/testing:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//tests/framework/matcher:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/google/uuid:go_default_library",
