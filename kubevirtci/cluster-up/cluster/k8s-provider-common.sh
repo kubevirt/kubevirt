@@ -114,13 +114,11 @@ function cli_scp_command() {
 }
 
 function change_permissions() {
-    if [[ ${_cri_bin} = podman* ]]; then
-        args="-v ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER:/kubevirtci_config"
-        ${_cri_bin} run --privileged --rm $args \
-            --entrypoint /bin/sh ${_cli_container} \
-            -c "chmod 755 /kubevirtci_config/.kubectl"
-        ${_cri_bin} run --privileged --rm $args \
-            --entrypoint /bin/sh ${_cli_container} \
-            -c "chmod 766 /kubevirtci_config/.kubeconfig"
-    fi
+    args="-v ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER:/kubevirtci_config"
+    ${_cri_bin} run --privileged --rm $args \
+        --entrypoint /bin/sh ${_cli_container} \
+        -c "chmod 755 /kubevirtci_config/.kubectl"
+    ${_cri_bin} run --privileged --rm $args \
+        --entrypoint /bin/sh ${_cli_container} \
+        -c "chmod 766 /kubevirtci_config/.kubeconfig"
 }
