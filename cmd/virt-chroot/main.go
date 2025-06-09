@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"runtime"
 	"strconv"
 	"strings"
@@ -16,6 +17,9 @@ import (
 
 var (
 	mntNamespace string
+	cpuTime      uint64
+	memoryBytes  uint64
+	targetUser   string
 )
 
 func init() {
@@ -24,6 +28,7 @@ func init() {
 }
 
 func main() {
+
 	rootCmd := &cobra.Command{
 		Use: "virt-chroot",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -43,14 +48,74 @@ func main() {
 					return fmt.Errorf("failed to join the mount namespace: %v", err)
 				}
 			}
+
+			// Looking up users needs resources, let's do it before we set rlimits.
+			var u *user.User
+			if targetUser != "" {
+				var err error
+				u, err = user.Lookup(targetUser)
+				if err != nil {
+					return fmt.Errorf("failed to look up user: %v", err)
+				}
+			}
+
+			if cpuTime > 0 {
+				value := &syscall.Rlimit{
+					Cur: cpuTime,
+					Max: cpuTime,
+				}
+				err := syscall.Setrlimit(unix.RLIMIT_CPU, value)
+				if err != nil {
+					return fmt.Errorf("error setting prlimit on cpu time with value %d: %v", value, err)
+				}
+			}
+
+			if memoryBytes > 0 {
+				value := &syscall.Rlimit{
+					Cur: memoryBytes,
+					Max: memoryBytes,
+				}
+				err := syscall.Setrlimit(unix.RLIMIT_AS, value)
+				if err != nil {
+					return fmt.Errorf("error setting prlimit on virtual memory with value %d: %v", value, err)
+				}
+			}
+
+			// Now let's switch users and drop privileges
+			if u != nil {
+				uid, err := strconv.ParseInt(u.Uid, 10, 32)
+				if err != nil {
+					return fmt.Errorf("failed to parse uid: %v", err)
+				}
+				gid, err := strconv.ParseInt(u.Gid, 10, 32)
+				if err != nil {
+					return fmt.Errorf("failed to parse gid: %v", err)
+				}
+				err = unix.Setgroups([]int{int(gid)})
+				if err != nil {
+					return fmt.Errorf("failed to drop auxiliary groups: %v", err)
+				}
+				_, _, errno := syscall.Syscall(syscall.SYS_SETGID, uintptr(gid), 0, 0)
+				if errno != 0 {
+					return fmt.Errorf("failed to join the group of the user: %v", err)
+				}
+				_, _, errno = syscall.Syscall(syscall.SYS_SETUID, uintptr(uid), 0, 0)
+				if errno != 0 {
+					return fmt.Errorf("failed to switch to user: %v", err)
+				}
+			}
 			return nil
+
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Printf(cmd.UsageString())
 		},
 	}
 
+	rootCmd.PersistentFlags().Uint64Var(&cpuTime, "cpu", 0, "cpu time in seconds for the process")
+	rootCmd.PersistentFlags().Uint64Var(&memoryBytes, "memory", 0, "memory in bytes for the process")
 	rootCmd.PersistentFlags().StringVar(&mntNamespace, "mount", "", "mount namespace to use")
+	rootCmd.PersistentFlags().StringVar(&targetUser, "user", "", "switch to this targetUser to e.g. drop privileges")
 
 	execCmd := &cobra.Command{
 		Use:   "exec",

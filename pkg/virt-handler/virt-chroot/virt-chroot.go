@@ -113,6 +113,11 @@ func RemoveMDEVType(mdevUUID string) *exec.Cmd {
 	return exec.Command(binaryPath, args...)
 }
 
+// For general purposes
+func ExecChroot(args ...string) *exec.Cmd {
+	return exec.Command(binaryPath, args...)
+}
+
 func trimProcPrefix(path *safepath.Path) string {
 	return strings.TrimPrefix(unsafepath.UnsafeAbsolute(path.Raw()), "/proc/1/root")
 }
