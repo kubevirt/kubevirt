@@ -1,3 +1,4 @@
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
@@ -17,5 +18,18 @@ go_binary(
     name = "kubevirt-passt-binding",
     embed = [":go_default_library"],
     static = "on",
+    visibility = ["//visibility:public"],
+)
+
+container_image(
+    name = "network-passt-binding-cni-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = "@busybox//image",
+    directory = "/cni",
+    entrypoint = ["/cni/kubevirt-passt-binding"],
+    files = [":kubevirt-passt-binding"],
     visibility = ["//visibility:public"],
 )

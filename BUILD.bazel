@@ -220,6 +220,7 @@ build_other_images_aarch64_x86_64 = dicts.add(
         "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)network-slirp-binding:$(container_tag)": "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
         "$(container_prefix)/$(image_prefix)network-passt-binding:$(container_tag)": "//cmd/sidecars/network-passt-binding:network-passt-binding-image",
+        "$(container_prefix)/$(image_prefix)network-passt-binding-cni:$(container_tag)": "//cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image",
         "$(container_prefix)/$(image_prefix)pr-helper:$(container_tag)": "//cmd/pr-helper:pr-helper",
         # container-disk images
         "$(container_prefix)/$(image_prefix)cirros-container-disk-demo:$(container_tag)": "//containerimages:cirros-container-disk-image",
@@ -389,6 +390,15 @@ container_push(
     image = "//cmd/sidecars/network-passt-binding:network-passt-binding-image",
     registry = "$(container_prefix)",
     repository = "$(image_prefix)network-passt-binding",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-network-passt-binding-cni",
+    format = "Docker",
+    image = "//cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)network-passt-binding-cni",
     tag = "$(container_tag)",
 )
 
