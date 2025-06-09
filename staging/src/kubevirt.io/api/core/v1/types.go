@@ -2069,6 +2069,10 @@ const (
 
 	// ChangedBlockTrackingDisabled VM no longer matches changedBlockTracking label selector
 	ChangedBlockTrackingDisabled ChangedBlockTrackingState = "Disabled"
+
+	// ChangedBlockTrackingFGDisabled indicates the vm matches the labelselector but the IncrementalBackupGate is disabled
+	// so until the gate is enabled no changed will be made.
+	ChangedBlockTrackingFGDisabled ChangedBlockTrackingState = "IncrementalBackupFeatureGateDisabled"
 )
 
 // ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM
