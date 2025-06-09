@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -49,6 +50,7 @@ var (
 
 var _ = Describe("CBT", func() {
 	var (
+		kv             *v1.KubeVirt
 		k8sClient      *k8sfake.Clientset
 		virtClient     *kubecli.MockKubevirtClient
 		virtFakeClient *fake.Clientset
@@ -75,8 +77,8 @@ var _ = Describe("CBT", func() {
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 	})
 
-	updateKubeVirtWithLabelSelector := func(vmLabelSelector, nsLabelSelector *metav1.LabelSelector) {
-		kv := &v1.KubeVirt{
+	updateKubeVirtWithLabelSelector := func(vmLabelSelector, nsLabelSelector *metav1.LabelSelector, enableFeatureGate bool) {
+		kv = &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
@@ -86,24 +88,34 @@ var _ = Describe("CBT", func() {
 				},
 			},
 		}
+		if enableFeatureGate {
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.IncrementalBackupGate},
+			}
+		}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+	}
+
+	disableFeatureGate := func() {
+		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 
 	// Helper functions for test setup
 	setupVMMatchingLabelSelector := func() {
-		updateKubeVirtWithLabelSelector(labelSelector, nil)
+		updateKubeVirtWithLabelSelector(labelSelector, nil, true)
 		vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 		vm = libvmi.NewVirtualMachine(vmi, libvmi.WithLabels(cbt.CBTLabel))
 	}
 
 	setupVMNotMatchingSelector := func() {
-		updateKubeVirtWithLabelSelector(labelSelector, nil)
+		updateKubeVirtWithLabelSelector(labelSelector, nil, true)
 		vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 		vm = libvmi.NewVirtualMachine(vmi) // No CBT labels
 	}
 
 	setupNamespaceMatchingSelector := func() {
-		updateKubeVirtWithLabelSelector(nil, labelSelector)
+		updateKubeVirtWithLabelSelector(nil, labelSelector, true)
 		ns := &k8sv1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   k8sv1.NamespaceDefault,
@@ -117,11 +129,15 @@ var _ = Describe("CBT", func() {
 
 	Context("SyncVMChangedBlockTrackingState", func() {
 		DescribeTable("No kubevirt CR ChangedBlockTrackingLabelSelectors expect no updates", func(vmiExists bool) {
-			kv := &v1.KubeVirt{Spec: v1.KubeVirtSpec{Configuration: v1.KubeVirtConfiguration{}}}
+			kv = &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{},
+				},
+			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
 			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
-			vm = libvmi.NewVirtualMachine(vmi)
+			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithLabels(cbt.CBTLabel))
 			updatedVM := vm.DeepCopy()
 			var updatedVMI *v1.VirtualMachineInstance
 			if vmiExists {
@@ -275,6 +291,35 @@ var _ = Describe("CBT", func() {
 			})
 		})
 
+		Context("VM matches VM Label Selector", func() {
+			BeforeEach(func() {
+				setupVMMatchingLabelSelector()
+			})
+
+			DescribeTable("should set CBT state to ", func(vmiExists, fgDisabled bool, expectedStatus v1.ChangedBlockTrackingState) {
+				if fgDisabled {
+					disableFeatureGate()
+				}
+				if !vmiExists {
+					vmi = nil
+				}
+				cbt.SyncVMChangedBlockTrackingState(vm, vmi, config, nsStore)
+				Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(expectedStatus))
+			},
+				Entry("Initializing if VMI does not exist", false, false, v1.ChangedBlockTrackingInitializing),
+				Entry("PendingRestart if VMI exists and cbtStatus is undefined", true, false, v1.ChangedBlockTrackingPendingRestart),
+				Entry("IncrementalBackupFeatureGateDisabled if FG is disabled VMI does not exist", false, true, v1.ChangedBlockTrackingFGDisabled),
+				Entry("IncrementalBackupFeatureGateDisabled if FG is disabled VMI exist", true, true, v1.ChangedBlockTrackingFGDisabled),
+			)
+
+			It("should set CBT state to enabled if vmi state is enabled", func() {
+				cbt.SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
+				cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+				cbt.SyncVMChangedBlockTrackingState(vm, vmi, config, nsStore)
+				Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingEnabled))
+			})
+		})
+
 		Context("VM namespace matches Namespace Label Selector", func() {
 			BeforeEach(func() {
 				setupNamespaceMatchingSelector()
@@ -285,10 +330,21 @@ var _ = Describe("CBT", func() {
 				Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingInitializing))
 			})
 
-			It("should set VM CBT state to PendingRestart when namespace matches if VMI exists", func() {
+			DescribeTable("should set CBT state to ", func(vmiExists, fgDisabled bool, expectedStatus v1.ChangedBlockTrackingState) {
+				if fgDisabled {
+					disableFeatureGate()
+				}
+				if !vmiExists {
+					vmi = nil
+				}
 				cbt.SyncVMChangedBlockTrackingState(vm, vmi, config, nsStore)
-				Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingPendingRestart))
-			})
+				Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(expectedStatus))
+			},
+				Entry("Initializing  for VM when namespace matches if VMI does not exist", false, false, v1.ChangedBlockTrackingInitializing),
+				Entry("PendingRestart for VM when namespace matches if VMI exist", true, false, v1.ChangedBlockTrackingPendingRestart),
+				Entry("IncrementalBackupFeatureGateDisabled if FG is disabled VMI does not exist", false, true, v1.ChangedBlockTrackingFGDisabled),
+				Entry("IncrementalBackupFeatureGateDisabled if FG is disabled VMI exist", true, true, v1.ChangedBlockTrackingFGDisabled),
+			)
 		})
 
 		Context("Edge Cases and Error Handling", func() {
@@ -300,45 +356,65 @@ var _ = Describe("CBT", func() {
 				Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingUndefined))
 			})
 
-			It("should handle empty CBT state as Undefined", func() {
-				cbt.SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingUndefined)
-				cbt.SyncVMChangedBlockTrackingState(vm, nil, config, nsStore)
-				Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingInitializing))
+			Context("VM no longer matches Label Selector", func() {
+				BeforeEach(func() {
+					setupVMNotMatchingSelector()
+				})
+
+				It("should handle empty CBT state as Undefined", func() {
+					cbt.SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingUndefined)
+					cbt.SyncVMChangedBlockTrackingState(vm, nil, config, nsStore)
+					Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingUndefined))
+				})
+
+				It("should disable CBT if VMI is nil and vm has CBT state", func() {
+					cbt.SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+					cbt.SyncVMChangedBlockTrackingState(vm, nil, config, nsStore)
+					Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingDisabled))
+				})
+
+				DescribeTable("should set CBT to", func(vmCBTState, expectedState v1.ChangedBlockTrackingState, vmiStateExists bool) {
+					cbt.SetCBTState(&vm.Status.ChangedBlockTracking, vmCBTState)
+					if vmiStateExists {
+						cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
+					}
+					cbt.SyncVMChangedBlockTrackingState(vm, vmi, config, nsStore)
+					Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(expectedState))
+				},
+					Entry("PendingRestart if VMI exists and has CBT enabled", v1.ChangedBlockTrackingEnabled, v1.ChangedBlockTrackingPendingRestart, true),
+					Entry("PendingRestart if VMI exists and has CBT Initializing", v1.ChangedBlockTrackingInitializing, v1.ChangedBlockTrackingPendingRestart, true),
+					Entry("PendingRestart if VMI exists and has CBT PendingRestart", v1.ChangedBlockTrackingPendingRestart, v1.ChangedBlockTrackingPendingRestart, true),
+					Entry("Disabled if VMI doesnt exists and has CBT enabled", v1.ChangedBlockTrackingEnabled, v1.ChangedBlockTrackingDisabled, false),
+					Entry("Disabled if VMI doesnt exists and has CBT Initializing", v1.ChangedBlockTrackingInitializing, v1.ChangedBlockTrackingDisabled, false),
+					Entry("Disabled if VMI doesnt exists and has CBT PendingRestart", v1.ChangedBlockTrackingPendingRestart, v1.ChangedBlockTrackingDisabled, false),
+				)
 			})
 		})
 	})
-	Context("SetChangedBlockTrackingOnVMI", func() {
-		It("VM matches VM Label Selector should set VMI state to Initializing", func() {
-			labelSelector := &metav1.LabelSelector{
-				MatchLabels: cbt.CBTLabel,
-			}
-			kv := &v1.KubeVirt{
-				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
-							VirtualMachineLabelSelector: labelSelector,
-						},
-					},
-				},
-			}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
+	Context("SetChangedBlockTrackingOnVMI", func() {
+		BeforeEach(func() {
+			setupVMNotMatchingSelector()
+		})
+		It("IncrementalBackup featuregate disabled VMI cbt state should be undefined", func() {
+			disableFeatureGate()
 			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithLabels(cbt.CBTLabel))
+			cbt.SetChangedBlockTrackingOnVMI(vm, vmi, config, nsStore)
+			Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingUndefined))
+		})
+		It("VM matches VM Label Selector should set VMI state to Initializing", func() {
+			setupVMMatchingLabelSelector()
 			cbt.SetChangedBlockTrackingOnVMI(vm, vmi, config, nsStore)
 			Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingInitializing))
 		})
 		It("VM doesnt match VM Label Selector and VM CBT state exists should set VMI state to Disabled", func() {
-			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
-			vm = libvmi.NewVirtualMachine(vmi)
 			cbt.SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 			cbt.SetChangedBlockTrackingOnVMI(vm, vmi, config, nsStore)
 			Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingDisabled))
 		})
 
 		It("VM doesnt match VM Label Selector and VM CBT state doesnt exist shouldn't set VMI CBT state", func() {
-			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
-			vm = libvmi.NewVirtualMachine(vmi)
 			cbt.SetChangedBlockTrackingOnVMI(vm, vmi, config, nsStore)
 			Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingUndefined))
 		})
