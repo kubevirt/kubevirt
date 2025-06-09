@@ -2264,20 +2264,25 @@ func getNodeSelectorsFromVMIMigrationSourceState(sourceState *virtv1.VirtualMach
 func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod, sourcePodNodeSelector map[string]string) (map[string]string, error) {
 	result := make(map[string]string)
 
+	migratedAtLeastOnce := false
 	// if the vmi already migrated before it should include node selector that consider CPUModelLabel
 	for key, value := range sourcePodNodeSelector {
 		if strings.Contains(key, virtv1.CPUFeatureLabel) || strings.Contains(key, virtv1.SupportedHostModelMigrationCPU) {
-			pod.Spec.NodeSelector[key] = value
-			return pod.Spec.NodeSelector, nil
+			result[key] = value
+			migratedAtLeastOnce = true
 		}
 	}
 
-	result, nodeSelectorKeyForHostModel, err := getHostCpuModelFromMap(node.Labels)
-	if err != nil {
-		return nil, err
+	if !migratedAtLeastOnce {
+		// only copy node label keys when the VM has not migrated before. Otherwise if we migrate again
+		// we could be adding labels we don't want which could prevent migrating back to the original node.
+		hostCpuModelMap, nodeSelectorKeyForHostModel, err := getHostCpuModelFromMap(node.Labels)
+		if err != nil {
+			return nil, err
+		}
+		maps.Copy(result, hostCpuModelMap)
+		log.Log.Object(pod).V(5).Infof("cpu model label selector (\"%s\") defined for migration target pod", nodeSelectorKeyForHostModel)
 	}
-
-	log.Log.Object(pod).V(5).Infof("cpu model label selector (\"%s\") defined for migration target pod", nodeSelectorKeyForHostModel)
 
 	return result, nil
 }

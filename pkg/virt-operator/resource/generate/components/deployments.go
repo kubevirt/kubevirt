@@ -764,6 +764,8 @@ func NewSynchronizationControllerDeployment(
 	if deployment.Spec.Template.Annotations == nil {
 		deployment.Spec.Template.Annotations = make(map[string]string)
 	}
+	// remove the prometheus label key, so prometheus doesn't try to scrape anything of the synchronization controller.
+	delete(deployment.Spec.Template.Labels, prometheusLabelKey)
 	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
 	if migrationNetwork != nil {
 		// Join the pod to the migration network and name the corresponding interface "migration0"
