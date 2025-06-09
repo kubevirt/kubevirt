@@ -23,8 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

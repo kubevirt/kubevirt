@@ -12,6 +12,6 @@ go_library(
     deps = [
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/common/workqueue:go_default_library",
-        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics:go_default_library",
     ],
 )

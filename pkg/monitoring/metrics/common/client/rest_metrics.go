@@ -19,8 +19,8 @@
 package client
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 )
 
 var (

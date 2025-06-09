@@ -14,7 +14,7 @@ go_library(
         "//pkg/monitoring/metrics/virt-handler/domainstats:go_default_library",
         "//pkg/monitoring/metrics/virt-handler/migrationdomainstats:go_default_library",
         "//staging/src/kubevirt.io/client-go/version:go_default_library",
-        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
 )

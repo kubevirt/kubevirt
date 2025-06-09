@@ -19,8 +19,8 @@
 package virt_controller
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	ioprometheusclient "github.com/prometheus/client_model/go"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 )
 
 var (

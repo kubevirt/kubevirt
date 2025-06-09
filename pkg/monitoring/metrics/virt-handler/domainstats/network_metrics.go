@@ -19,7 +19,7 @@
 
 package domainstats
 
-import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+import "github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
 var (
 	networkTrafficBytesDeprecated = operatormetrics.NewCounter(

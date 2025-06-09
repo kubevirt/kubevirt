@@ -22,7 +22,7 @@ package domainstats
 import (
 	"fmt"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )

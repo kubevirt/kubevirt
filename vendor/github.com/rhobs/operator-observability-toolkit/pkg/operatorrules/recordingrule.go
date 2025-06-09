@@ -3,7 +3,7 @@ package operatorrules
 import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 )
 
 // RecordingRule is a struct that represents a Prometheus recording rule.

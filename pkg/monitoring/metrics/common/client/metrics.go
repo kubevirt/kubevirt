@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/metrics"
 	"kubevirt.io/client-go/kubecli"

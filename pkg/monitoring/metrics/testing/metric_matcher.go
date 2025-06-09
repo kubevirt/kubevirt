@@ -22,8 +22,8 @@ package testing
 import (
 	"fmt"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/onsi/gomega/format"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 )
 
 const (

@@ -19,8 +19,8 @@
 package workqueue
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	k8sworkqueue "k8s.io/client-go/util/workqueue"
 )
 
