@@ -50,7 +50,7 @@ func (v VirtCHRoot) addTapDeviceCmd(name string, mtu int, queues int, ownerID in
 		"--queue-number", strconv.Itoa(queues),
 		"--mtu", strconv.Itoa(mtu),
 	}
-	// #nosec No risk for attacker injection. cmdArgs includes predefined strings
+	// #nosec No risk for attacket injection. cmdArgs includes predefined strings
 	return exec.Command(virtChrootBin, cmdArgs...)
 }
 

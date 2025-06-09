@@ -65,7 +65,7 @@ func filePathForVolumeName(basedir string, volumeName string) string {
 }
 
 func createQCOW(file string, size string) error {
-	// #nosec No risk for attacker injection. Parameters are predefined strings
+	// #nosec No risk for attacket injection. Parameters are predefined strings
 	return exec.Command("qemu-img", "create", "-f", "qcow2", file, size).Run()
 }
 

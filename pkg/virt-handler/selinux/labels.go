@@ -25,7 +25,7 @@ type execFunc = func(binary string, args ...string) ([]byte, error)
 type copyPolicy = func(policyName string, dir string) (err error)
 
 func defaultExecFunc(binary string, args ...string) ([]byte, error) {
-	// #nosec No risk for attacker injection. args get specific selinux exec parameters
+	// #nosec No risk for attacket injection. args get specific selinux exec parameters
 	return exec.Command(binary, args...).CombinedOutput()
 }
 

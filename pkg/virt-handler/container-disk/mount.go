@@ -345,7 +345,7 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			return fmt.Errorf(failedCheckMountPointFmt, file, err)
 		} else if mounted {
 			log.DefaultLogger().Object(vmi).Infof("unmounting container disk at path %s", file)
-			// #nosec No risk for attacker injection. Parameters are predefined strings
+			// #nosec No risk for attacket injection. Parameters are predefined strings
 			out, err := virt_chroot.UmountChroot(file.Path()).CombinedOutput()
 			if err != nil {
 				return fmt.Errorf(failedUnmountFmt, file, string(out), err)

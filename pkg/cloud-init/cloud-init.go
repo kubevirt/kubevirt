@@ -438,7 +438,7 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 
 	isoBinary := "xorrisofs"
 
-	// #nosec No risk for attacker injection. Parameters are predefined strings
+	// #nosec No risk for attacket injection. Parameters are predefined strings
 	cmd := exec.Command(isoBinary, args...)
 
 	err := cmd.Start()

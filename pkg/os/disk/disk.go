@@ -19,7 +19,7 @@ const (
 )
 
 func GetDiskInfo(imagePath string) (*DiskInfo, error) {
-	// #nosec No risk for attacker injection. Only get information about an image
+	// #nosec No risk for attacket injection. Only get information about an image
 	args := []string{"info", imagePath, "--output", "json"}
 	cmd := exec.Command(QEMUIMGPath, args...)
 	stderr, err := cmd.StderrPipe()
