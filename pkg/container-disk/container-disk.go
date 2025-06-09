@@ -175,7 +175,7 @@ func GetImage(root *safepath.Path, imagePath string) (*safepath.Path, error) {
 		}
 		return resolvedPath, nil
 	} else {
-		fallbackPath, err := root.AppendAndResolveWithRelativeRoot(disk.DiskSourceFallbackPath)
+		fallbackPath, err := root.AppendAndResolveWithRelativeRoot(DiskSourceFallbackPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine default image path %v: %v", fallbackPath, err)
 		}
@@ -188,12 +188,12 @@ func GetImage(root *safepath.Path, imagePath string) (*safepath.Path, error) {
 			return nil, fmt.Errorf("failed to check default image path %s: %v", fallbackPath, err)
 		}
 		if len(files) == 0 {
-			return nil, fmt.Errorf("no file found in folder %s, no disk present", disk.DiskSourceFallbackPath)
+			return nil, fmt.Errorf("no file found in folder %s, no disk present", DiskSourceFallbackPath)
 		} else if len(files) > 1 {
-			return nil, fmt.Errorf("more than one file found in folder %s, only one disk is allowed", disk.DiskSourceFallbackPath)
+			return nil, fmt.Errorf("more than one file found in folder %s, only one disk is allowed", DiskSourceFallbackPath)
 		}
 		fileName := files[0].Name()
-		resolvedPath, err := root.AppendAndResolveWithRelativeRoot(disk.DiskSourceFallbackPath, fileName)
+		resolvedPath, err := root.AppendAndResolveWithRelativeRoot(DiskSourceFallbackPath, fileName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check default image path %s: %v", imagePath, err)
 		}

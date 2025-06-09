@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["container-disk.go"],
+    srcs = [
+        "container-disk.go",
+        "validation.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/container-disk",
     visibility = ["//visibility:public"],
     deps = [
@@ -23,11 +26,13 @@ go_test(
     srcs = [
         "container-disk_suite_test.go",
         "container-disk_test.go",
+        "validation_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/status:go_default_library",
+        "//pkg/os/disk:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/unsafepath:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",

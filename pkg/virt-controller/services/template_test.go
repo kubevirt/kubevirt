@@ -495,9 +495,7 @@ var _ = Describe("Template", func() {
 					"--container-disk-dir", "/var/run/kubevirt/container-disks",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
-					"--ovmf-path", ovmfPath,
-					"--disk-memory-limit", strconv.Itoa(virtconfig.DefaultDiskVerificationMemoryLimitBytes),
-				}))
+					"--ovmf-path", ovmfPath}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(k8sv1.PullPolicy("IfNotPresent")))
@@ -1074,9 +1072,7 @@ var _ = Describe("Template", func() {
 					"--container-disk-dir", "/var/run/kubevirt/container-disks",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
-					"--ovmf-path", ovmfPath,
-					"--disk-memory-limit", strconv.Itoa(virtconfig.DefaultDiskVerificationMemoryLimitBytes),
-				}))
+					"--ovmf-path", ovmfPath}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(k8sv1.PullPolicy("IfNotPresent")))
