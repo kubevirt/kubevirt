@@ -659,6 +659,41 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	setNodeAffinityForPod(vmi, &pod)
 
+	if vmi.IsCPUDedicated() {
+		if pod.Spec.Affinity == nil {
+			pod.Spec.Affinity = &k8sv1.Affinity{}
+		}
+		if pod.Spec.Affinity.NodeAffinity == nil {
+			pod.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+		}
+
+		if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+			pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{}
+		}
+
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+			pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+			k8sv1.NodeSelectorTerm{
+				MatchExpressions: []k8sv1.NodeSelectorRequirement{
+					{
+						Key:      v1.DeprecatedCPUManager,
+						Operator: k8sv1.NodeSelectorOpIn,
+						Values:   []string{"true"},
+					},
+				},
+			},
+			k8sv1.NodeSelectorTerm{
+				MatchExpressions: []k8sv1.NodeSelectorRequirement{
+					{
+						Key:      v1.CPUManager,
+						Operator: k8sv1.NodeSelectorOpIn,
+						Values:   []string{"true"},
+					},
+				},
+			},
+		)
+	}
+
 	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
 	if len(serviceAccountName) > 0 {
 		pod.Spec.ServiceAccountName = serviceAccountName
@@ -679,9 +714,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance) *NodeSelectorRenderer {
 	var opts []NodeSelectorRendererOption
-	if vmi.IsCPUDedicated() {
-		opts = append(opts, WithDedicatedCPU())
-	}
 	if t.clusterConfig.HypervStrictCheckEnabled() {
 		opts = append(opts, WithHyperv(vmi.Spec.Domain.Features))
 	}
