@@ -694,16 +694,6 @@ genrule(
     executable = 1,
 )
 
-genrule(
-    name = "build-cni-passt-binding",
-    srcs = [
-        "//cmd/cniplugins/passt-binding/cmd:kubevirt-passt-binding",
-    ],
-    outs = ["kubevirt-passt-binding-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
-    executable = 1,
-)
-
 filegroup(
     name = "coverage_files",
     srcs = glob(["bazel-out/k8-fastbuild/testlogs/**/coverage.dat"]),
