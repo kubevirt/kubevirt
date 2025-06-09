@@ -1586,6 +1586,20 @@ var _ = Describe("Template", func() {
 								Values:   nil,
 							},
 							{
+								Key:      v1.DeprecatedCPUManager,
+								Operator: k8sv1.NodeSelectorOpIn,
+								Values:   []string{"true"},
+							},
+						},
+					},
+					k8sv1.NodeSelectorTerm{
+						MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{
+								Key:      "node-labeller.kubevirt.io/obsolete-host-model",
+								Operator: "DoesNotExist",
+								Values:   nil,
+							},
+							{
 								Key:      v1.CPUManager,
 								Operator: k8sv1.NodeSelectorOpIn,
 								Values:   []string{"true"},

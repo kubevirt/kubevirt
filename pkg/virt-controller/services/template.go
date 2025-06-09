@@ -211,6 +211,11 @@ func setNodeAffinityForCPUManager(pod *k8sv1.Pod) {
 		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{}
 	}
 
+	oldLabel := k8sv1.NodeSelectorRequirement{
+		Key:      v1.DeprecatedCPUManager,
+		Operator: k8sv1.NodeSelectorOpIn,
+		Values:   []string{"true"},
+	}
 	newLabel := k8sv1.NodeSelectorRequirement{
 		Key:      v1.CPUManager,
 		Operator: k8sv1.NodeSelectorOpIn,
@@ -221,6 +226,9 @@ func setNodeAffinityForCPUManager(pod *k8sv1.Pod) {
 		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms =
 			[]k8sv1.NodeSelectorTerm{
 				{
+					MatchExpressions: []k8sv1.NodeSelectorRequirement{oldLabel},
+				},
+				{
 					MatchExpressions: []k8sv1.NodeSelectorRequirement{newLabel},
 				},
 			}
@@ -228,8 +236,10 @@ func setNodeAffinityForCPUManager(pod *k8sv1.Pod) {
 		copies := []k8sv1.NodeSelectorTerm{}
 		for i := range pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
 			newTerm := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].DeepCopy()
-			newTerm.MatchExpressions = append(newTerm.MatchExpressions, newLabel)
+			newTerm.MatchExpressions = append(newTerm.MatchExpressions, oldLabel)
 
+			pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions = append(
+				pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions, newLabel)
 			copies =
 				append(copies,
 					*newTerm,
