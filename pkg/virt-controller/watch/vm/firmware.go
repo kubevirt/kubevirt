@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -29,31 +28,15 @@ import (
 	"kubevirt.io/client-go/kubevirt"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
 type FirmwareController struct {
 	clientset kubevirt.Interface
 }
 
-type syncError struct {
-	err    error
-	reason string
-}
-
-func (e *syncError) Error() string {
-	return e.err.Error()
-}
-
-func (e *syncError) Reason() string {
-	return e.reason
-}
-
-func (e *syncError) RequiresRequeue() bool {
-	return true
-}
-
 const (
-	FirmwareUUIDErrorReason = "FirmwareUUIDError"
+	firmwareUUIDErrorReason = "FirmwareUUIDError"
 )
 
 func NewFirmwareController(clientset kubevirt.Interface) *FirmwareController {
@@ -63,43 +46,38 @@ func NewFirmwareController(clientset kubevirt.Interface) *FirmwareController {
 }
 
 func (fc *FirmwareController) Sync(vm *v1.VirtualMachine, _ *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
-	vmCopy := vm.DeepCopy()
-	legacyUUID := CalculateLegacyUUID(vmCopy.Name)
-
-	if vmCopy.Spec.Template.Spec.Domain.Firmware == nil {
-		vmCopy.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
-	}
-	if vmCopy.Spec.Template.Spec.Domain.Firmware.UUID == "" {
-		vmCopy.Spec.Template.Spec.Domain.Firmware.UUID = legacyUUID
+	firmware := vm.Spec.Template.Spec.Domain.Firmware
+	if firmware == nil {
+		firmware = &v1.Firmware{}
 	}
 
-	if err := fc.vmFirmwarePatch(vmCopy.Spec.Template.Spec.Domain.Firmware, vm); err != nil {
-		return vm, &syncError{
-			err:    fmt.Errorf("error encountered when trying to patch VM firmware: %w", err),
-			reason: FirmwareUUIDErrorReason,
-		}
+	if firmware.UUID != "" {
+		return vm, nil
 	}
 
-	return vmCopy, nil
+	firmware = firmware.DeepCopy()
+	firmware.UUID = CalculateLegacyUUID(vm.Name)
+
+	updatedVM, err := fc.vmFirmwarePatch(firmware, vm)
+	if err != nil {
+		return vm, common.NewSyncError(fmt.Errorf("error encountered when trying to patch VM firmware: %w", err), firmwareUUIDErrorReason)
+	}
+
+	return updatedVM, nil
 }
 
-func (fc *FirmwareController) vmFirmwarePatch(updatedFirmware *v1.Firmware, vm *v1.VirtualMachine) error {
-	if equality.Semantic.DeepEqual(vm.Spec.Template.Spec.Domain.Firmware, updatedFirmware) {
-		return nil
-	}
-
+func (fc *FirmwareController) vmFirmwarePatch(updatedFirmware *v1.Firmware, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	patchBytes, err := patch.New(
 		patch.WithTest("/spec/template/spec/domain/firmware", vm.Spec.Template.Spec.Domain.Firmware),
 		patch.WithAdd("/spec/template/spec/domain/firmware", updatedFirmware),
 	).GeneratePayload()
 	if err != nil {
-		return err
+		return vm, err
 	}
 
-	_, err = fc.clientset.KubevirtV1().
+	return fc.clientset.KubevirtV1().
 		VirtualMachines(vm.Namespace).
 		Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-	return err
 }
 
 const magicUUID = "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
