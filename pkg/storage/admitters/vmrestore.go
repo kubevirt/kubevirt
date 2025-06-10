@@ -100,18 +100,12 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 						return webhookutils.ToAdmissionResponseError(err)
 					}
 
-					newCauses, err := admitter.validateVolumeOverrides(ctx, vmRestore)
-					if err != nil {
-						return webhookutils.ToAdmissionResponseError(err)
-					}
+					newCauses := admitter.validateVolumeOverrides(ctx, vmRestore)
 					if newCauses != nil {
 						causes = append(causes, newCauses...)
 					}
 
-					newCauses, err = admitter.validateVolumeRestorePolicy(ctx, vmRestore)
-					if err != nil {
-						return webhookutils.ToAdmissionResponseError(err)
-					}
+					newCauses = admitter.validateVolumeRestorePolicy(ctx, vmRestore)
 					if newCauses != nil {
 						causes = append(causes, newCauses...)
 					}
@@ -268,10 +262,10 @@ func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sf
 	return causes
 }
 
-func (admitter *VMRestoreAdmitter) validateVolumeOverrides(ctx context.Context, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause, err error) {
+func (admitter *VMRestoreAdmitter) validateVolumeOverrides(ctx context.Context, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause) {
 	// Cancel if there's no volume override
 	if vmRestore.Spec.VolumeRestoreOverrides == nil {
-		return nil, nil
+		return nil
 	}
 
 	// Check each individual override
@@ -296,13 +290,13 @@ func (admitter *VMRestoreAdmitter) validateVolumeOverrides(ctx context.Context, 
 		}
 	}
 
-	return causes, nil
+	return causes
 }
 
-func (admitter *VMRestoreAdmitter) validateVolumeRestorePolicy(ctx context.Context, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause, err error) {
+func (admitter *VMRestoreAdmitter) validateVolumeRestorePolicy(ctx context.Context, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause) {
 	// Cancel if there's no volume restore policy
 	if vmRestore.Spec.VolumeRestorePolicy == nil {
-		return nil, nil
+		return nil
 	}
 
 	policy := *vmRestore.Spec.VolumeRestorePolicy
@@ -310,7 +304,8 @@ func (admitter *VMRestoreAdmitter) validateVolumeRestorePolicy(ctx context.Conte
 	// Verify the policy provided is among the ones that are allowed
 	switch policy {
 	case snapshotv1.VolumeRestorePolicyInPlace:
-		return nil, nil
+	case snapshotv1.VolumeRestorePolicyRandomizeNames:
+		return nil
 	default:
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -321,5 +316,5 @@ func (admitter *VMRestoreAdmitter) validateVolumeRestorePolicy(ctx context.Conte
 		})
 	}
 
-	return causes, nil
+	return causes
 }

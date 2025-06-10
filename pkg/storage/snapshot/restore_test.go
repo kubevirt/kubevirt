@@ -35,8 +35,6 @@ import (
 	kvtesting "kubevirt.io/client-go/testing"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"k8s.io/utils/ptr"
-
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -873,7 +871,7 @@ var _ = Describe("Restore controller", func() {
 					newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 					newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
 				}
-				r.Spec.VolumeRestorePolicy = ptr.To(snapshotv1.VolumeRestorePolicyInPlace)
+				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyInPlace)
 				r.Status.Restores = []snapshotv1.VolumeRestore{
 					{
 						VolumeName:                diskName,
@@ -940,7 +938,7 @@ var _ = Describe("Restore controller", func() {
 					newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 					newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
 				}
-				r.Spec.VolumeRestorePolicy = ptr.To(snapshotv1.VolumeRestorePolicyInPlace)
+				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyInPlace)
 				r.Status.Restores = []snapshotv1.VolumeRestore{
 					{
 						VolumeName:                diskName,

@@ -38,8 +38,6 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinstancetype"
 
-	"k8s.io/utils/ptr"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -1753,7 +1751,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 				// Create the restore definition of the VM, change the name of the restored volume
 				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
-				restoreDef.Spec.TargetReadinessPolicy = ptr.To(snapshotv1.VirtualMachineRestoreStopTarget)
+				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
 				restoreDef.Spec.VolumeRestoreOverrides = []snapshotv1.VolumeRestoreOverride{
 					{
 						VolumeName:  "disk0",
@@ -1793,10 +1791,10 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				snapshot = createSnapshot(vm)
 
 				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
-				restoreDef.Spec.TargetReadinessPolicy = ptr.To(snapshotv1.VirtualMachineRestoreStopTarget)
+				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
 
 				// We want to overwrite existing volumes during the restore, that means deleting the existing PVCs
-				restoreDef.Spec.VolumeRestorePolicy = ptr.To(snapshotv1.VolumeRestorePolicyInPlace)
+				restoreDef.Spec.VolumeRestorePolicy = virtpointer.P(snapshotv1.VolumeRestorePolicyInPlace)
 
 				// We're about to restore a VM in such a way that the restored volumes are identical to the source volumes.
 				// We need to make sure they're indeed new, and not that nothing happened during the test. We add
@@ -1884,10 +1882,10 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				snapshot = createSnapshot(vm)
 
 				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
-				restoreDef.Spec.TargetReadinessPolicy = ptr.To(snapshotv1.VirtualMachineRestoreStopTarget)
+				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
 
 				// We want to overwrite existing volumes during the restore, that means deleting the existing PVCs
-				restoreDef.Spec.VolumeRestorePolicy = ptr.To(snapshotv1.VolumeRestorePolicyInPlace)
+				restoreDef.Spec.VolumeRestorePolicy = virtpointer.P(snapshotv1.VolumeRestorePolicyInPlace)
 
 				// We're about to restore a VM in such a way that the restored volumes are identical to the source volumes.
 				// We need to make sure they're indeed new, and not that nothing happened during the test. We add
@@ -1981,10 +1979,10 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				snapshot = createSnapshot(vm)
 
 				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
-				restoreDef.Spec.TargetReadinessPolicy = ptr.To(snapshotv1.VirtualMachineRestoreStopTarget)
+				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
 
 				// We want to overwrite existing volumes during the restore, that means deleting the existing PVCs
-				restoreDef.Spec.VolumeRestorePolicy = ptr.To(snapshotv1.VolumeRestorePolicyInPlace)
+				restoreDef.Spec.VolumeRestorePolicy = virtpointer.P(snapshotv1.VolumeRestorePolicyInPlace)
 
 				// We're about to restore a VM in such a way that the restored volumes are identical to the source volumes.
 				// We need to make sure they're indeed new, and not that nothing happened during the test. We add

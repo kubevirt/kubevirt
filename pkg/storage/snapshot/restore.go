@@ -131,8 +131,8 @@ func getRestoreNameOverride(vmRestore *snapshotv1.VirtualMachineRestore, volumeN
 
 // restoreVolumeName computes the name of the restored volume for a given volume within a backup
 // volumeName is the original name of the volume being restored
-// backendName is the name of the original backend for that same volume (a PVC or a DataVolume)
-func restoreVolumeName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, backendName string) string {
+// claimName is the name of the original claim for that same volume (a PVC or a DataVolume)
+func restoreVolumeName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, claimName string) string {
 	// Check if the user is overriding the restore name
 	if restoreOverride := getRestoreNameOverride(vmRestore, volumeName); restoreOverride != "" {
 		return restoreOverride
@@ -140,7 +140,7 @@ func restoreVolumeName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, 
 
 	// If the policy is to overwrite the volume, we must return the same backendName name as the source
 	if isVolumeRestorePolicyInPlace(vmRestore) {
-		return backendName
+		return claimName
 	}
 
 	// Auto-compute the name of the restored backendName from the VMRestore ID and from the original volume name
