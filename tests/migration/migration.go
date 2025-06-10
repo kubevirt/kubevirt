@@ -94,7 +94,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/watcher"
-	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
 const (
@@ -3103,11 +3102,28 @@ func haveMigrationState(matcher gomegatypes.GomegaMatcher) gomegatypes.GomegaMat
 
 func withKernelBoot() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		kernelBootFirmware := utils.GetVMIKernelBootWithRandName().Spec.Domain.Firmware
+		const (
+			kernelArgs = "console=ttyS0"
+			kernelPath = "/boot/vmlinuz-virt"
+			initrdPath = "/boot/initramfs-virt"
+		)
+
+		image := cd.ContainerDiskFor(cd.KernelBoot)
+		kb := &v1.KernelBoot{
+			KernelArgs: kernelArgs,
+			Container: &v1.KernelBootContainer{
+				Image:      image,
+				KernelPath: kernelPath,
+				InitrdPath: initrdPath,
+			},
+		}
+
 		if vmi.Spec.Domain.Firmware == nil {
-			vmi.Spec.Domain.Firmware = kernelBootFirmware
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				KernelBoot: kb,
+			}
 		} else {
-			vmi.Spec.Domain.Firmware.KernelBoot = kernelBootFirmware.KernelBoot
+			vmi.Spec.Domain.Firmware.KernelBoot = kb
 		}
 	}
 }
