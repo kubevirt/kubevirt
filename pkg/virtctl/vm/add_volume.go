@@ -40,6 +40,7 @@ const (
 	serialArg       = "serial"
 	cacheArg        = "cache"
 	diskTypeArg     = "disk-type"
+	busTypeArg      = "bus"
 	concurrentError = "the server rejected our request due to an error in our request"
 	maxRetries      = 15
 )
@@ -48,6 +49,7 @@ var (
 	serial   string
 	cache    string
 	diskType string
+	busType  string
 )
 
 func NewAddVolumeCommand() *cobra.Command {
@@ -66,6 +68,7 @@ func NewAddVolumeCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&persist, persistArg, false, "if set, the added volume will be persisted in the VM spec (if it exists)")
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.Flags().StringVar(&diskType, diskTypeArg, "disk", "specifies disk type to be hotplugged (disk/lun). Disk by default.")
+	cmd.Flags().StringVar(&busType, busTypeArg, string(v1.DiskBusSCSI), fmt.Sprintf("specifies disk bus. %s by default.", v1.DiskBusSCSI))
 
 	return cmd
 }
@@ -137,14 +140,21 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 		DryRun:       *dryRunOption,
 	}
 
+	bus := v1.DiskBus(busType)
 	switch diskType {
 	case "disk":
+		if bus != v1.DiskBusSCSI && bus != v1.DiskBusVirtio {
+			return fmt.Errorf("Invalid bus type '%s' for disk. Only '%s' and '%s' are supported.", busType, v1.DiskBusSCSI, v1.DiskBusVirtio)
+		}
 		hotplugRequest.Disk.DiskDevice.Disk = &v1.DiskTarget{
-			Bus: "scsi",
+			Bus: bus,
 		}
 	case "lun":
+		if bus != v1.DiskBusSCSI {
+			return fmt.Errorf("Invalid bus type '%s' for LUN disk. Only '%s' bus is supported.", busType, v1.DiskBusSCSI)
+		}
 		hotplugRequest.Disk.DiskDevice.LUN = &v1.LunTarget{
-			Bus: "scsi",
+			Bus: bus,
 		}
 	default:
 		return fmt.Errorf("Invalid disk type '%s'. Only LUN and Disk are supported.", diskType)
