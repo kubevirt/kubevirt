@@ -1772,21 +1772,6 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) Update(ctx, virtualMa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).Update), ctx, virtualMachineInstance, opts)
 }
 
-// UpdateStatus mocks base method.
-func (m *MockVirtualMachineInstanceInterface) UpdateStatus(ctx context.Context, virtualMachineInstance *v121.VirtualMachineInstance, opts v12.UpdateOptions) (*v121.VirtualMachineInstance, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateStatus", ctx, virtualMachineInstance, opts)
-	ret0, _ := ret[0].(*v121.VirtualMachineInstance)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateStatus indicates an expected call of UpdateStatus.
-func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) UpdateStatus(ctx, virtualMachineInstance, opts any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).UpdateStatus), ctx, virtualMachineInstance, opts)
-}
-
 // UserList mocks base method.
 func (m *MockVirtualMachineInstanceInterface) UserList(ctx context.Context, name string) (v121.VirtualMachineInstanceGuestOSUserList, error) {
 	m.ctrl.T.Helper()
