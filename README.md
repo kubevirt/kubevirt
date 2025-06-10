@@ -1,5 +1,4 @@
 # KubeVirt
-
 <p align="center">
 <img src="https://github.com/kubevirt/community/blob/main/logo/KubeVirt_icon.png" width="100">
 </p>
