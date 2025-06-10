@@ -978,17 +978,34 @@ func (alias *Alias) UnmarshalJSON(data []byte) error {
 //BEGIN OS --------------------
 
 type OS struct {
-	Type       OSType    `xml:"type"`
-	ACPI       *OSACPI   `xml:"acpi,omitempty"`
-	SMBios     *SMBios   `xml:"smbios,omitempty"`
-	BootOrder  []Boot    `xml:"boot"`
-	BootMenu   *BootMenu `xml:"bootmenu,omitempty"`
-	BIOS       *BIOS     `xml:"bios,omitempty"`
-	BootLoader *Loader   `xml:"loader,omitempty"`
-	NVRam      *NVRam    `xml:"nvram,omitempty"`
-	Kernel     string    `xml:"kernel,omitempty"`
-	Initrd     string    `xml:"initrd,omitempty"`
-	KernelArgs string    `xml:"cmdline,omitempty"`
+	Type             OSType             `xml:"type"`
+	FirmwareType     OSFirmwareType     `xml:"firmware,attr,omitempty"`
+	FirmwareFeatures OSFirmwareFeatures `xml:"firmware,omitempty"`
+	ACPI             *OSACPI            `xml:"acpi,omitempty"`
+	SMBios           *SMBios            `xml:"smbios,omitempty"`
+	BootOrder        []Boot             `xml:"boot"`
+	BootMenu         *BootMenu          `xml:"bootmenu,omitempty"`
+	BIOS             *BIOS              `xml:"bios,omitempty"`
+	BootLoader       *Loader            `xml:"loader,omitempty"`
+	NVRam            *NVRam             `xml:"nvram,omitempty"`
+	Kernel           string             `xml:"kernel,omitempty"`
+	Initrd           string             `xml:"initrd,omitempty"`
+	KernelArgs       string             `xml:"cmdline,omitempty"`
+}
+
+type OSFirmwareType string
+
+const (
+	OSFirmwareEFI OSFirmwareType = "efi"
+)
+
+type OSFirmwareFeature struct {
+	Name    string `xml:"name,attr"`
+	Enabled string `xml:"enabled,attr"`
+}
+
+type OSFirmwareFeatures struct {
+	Features []OSFirmwareFeature `xml:"feature"`
 }
 
 type OSType struct {
