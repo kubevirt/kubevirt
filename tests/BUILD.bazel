@@ -47,6 +47,7 @@ go_test(
         "dryrun_test.go",
         "hyperv_test.go",
         "mdev_configuration_allocation_test.go",
+        "objectgraph_test.go",
         "pdb_test.go",
         "pool_test.go",
         "portforward_test.go",

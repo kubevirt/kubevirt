@@ -116,6 +116,7 @@ func AdjustKubeVirtResource() {
 		featuregate.WorkloadEncryptionSEV,
 		featuregate.VMExportGate,
 		featuregate.KubevirtSeccompProfile,
+		featuregate.ObjectGraph,
 	)
 
 	storageClass, exists := libstorage.GetVMStateStorageClass()
