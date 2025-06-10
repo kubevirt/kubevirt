@@ -495,11 +495,10 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			if ownerDV != "" {
 				log.Log.Object(vmRestore).Infof("marking datavolume %s/%s as prepopulated before deleting its PVC", vmRestore.Namespace, ownerDV)
 
+				vmRestore.Status.Restores[i].DataVolumeName = &ownerDV
 				if err := ctrl.prepopulateDataVolume(vmRestore.Namespace, ownerDV, vmRestore.Name); err != nil {
 					return false, err
 				}
-
-				vmRestore.Status.Restores[i].DataVolumeName = &ownerDV
 			}
 
 			// If we're here, the PVC associated with that volume exists, and needs to be wiped before we restore in its place
@@ -1653,29 +1652,29 @@ func isVolumeRestorePolicyInPlace(vmRestore *snapshotv1.VirtualMachineRestore) b
 
 // prepopulateDataVolume marks a DataVolume as already populated, effectively blocking it
 // from creating new PVCs. This function is useful when deleting the PVCs associated with DVs
-// during a restore process, as we want to create the new PVCs ourselves and don't want to CDI
+// during a restore process, as we want to create the new PVCs ourselves and don't want the CDI
 // to start reconciliation.
 func (ctrl *VMRestoreController) prepopulateDataVolume(namespace, dataVolume, restoreName string) error {
-	// Retrieve the DataVolume we want to prepopulate
-	dv, err := ctrl.getDV(namespace, dataVolume)
-	if err != nil {
-		return err
-	}
-
-	if dv.Annotations == nil {
-		dv.Annotations = make(map[string]string)
-	}
-
 	// Mark the DV as being part of a restore
-	dv.Annotations[RestoreNameAnnotation] = restoreName
+	restoreNameAnnotation := fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(RestoreNameAnnotation))
+	restoreNamePatch := patch.WithAdd(restoreNameAnnotation, restoreName)
 
 	// Set the DV as prepopulated so that it doesn't reconcile itself
 	// This value is arbitrarily set to "true", it will be replaced with the name of the PVC
 	// backing this DataVolume by the CDI once it finds the associated PVC
 	// As long as the annotation is present (no matter the value), the population process is blocked
-	dv.Annotations[cdiv1.AnnPrePopulated] = "true"
+	prePopulatedAnnotation := fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(cdiv1.AnnPrePopulated))
+	prePopulatedPatch := patch.WithAdd(prePopulatedAnnotation, "true")
 
-	_, err = ctrl.Client.CdiClient().CdiV1beta1().DataVolumes(namespace).Update(context.Background(), dv, metav1.UpdateOptions{})
+	// Craft the patch payload
+	dvPatch := patch.New(restoreNamePatch, prePopulatedPatch)
+	patchBytes, err := dvPatch.GeneratePayload()
+	if err != nil {
+		return err
+	}
+
+	// Patch the DataVolume
+	_, err = ctrl.Client.CdiClient().CdiV1beta1().DataVolumes(namespace).Patch(context.Background(), dataVolume, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	return err
 }
 
