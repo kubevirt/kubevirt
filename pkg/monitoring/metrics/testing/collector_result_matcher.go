@@ -19,9 +19,9 @@
 package testing
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 )
 
 func GomegaContainsCollectorResultMatcher(metric operatormetrics.Metric, expectedValue float64) types.GomegaMatcher {

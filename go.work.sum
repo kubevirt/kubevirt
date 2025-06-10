@@ -101,8 +101,8 @@ github.com/jsimonetti/rtnetlink v0.0.0-20201110080708-d2c240429e6c/go.mod h1:huN
 github.com/letsencrypt/boulder v0.0.0-20240418210053-89b07f4543e0/go.mod h1:srVwm2N3DC/tWqQ+igZXDrmKlNRN8X/dmJ1wEZrv760=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de/go.mod h1:zAbeS9B/r2mtpb6U+EI2rYA5OAXxsYw6wTamcNW+zcE=
 github.com/lithammer/dedent v1.1.0/go.mod h1:jrXYCQtgg0nJiN+StA2KgR7w6CiQNv9Fd/Z9BP0jIOc=
-github.com/machadovilaca/operator-observability v0.0.27 h1:TGzMkmiUC14x7/P6Ia2oJHbrwahp2lCTEMx4bRiMg5M=
-github.com/machadovilaca/operator-observability v0.0.27/go.mod h1:trC+BjI6zhvZMBcX0q7vHrKKRX3lWZdwJxgVUmRJCfw=
+github.com/rhobs/operator-observability-toolkit v0.0.27 h1:TGzMkmiUC14x7/P6Ia2oJHbrwahp2lCTEMx4bRiMg5M=
+github.com/rhobs/operator-observability-toolkit v0.0.27/go.mod h1:trC+BjI6zhvZMBcX0q7vHrKKRX3lWZdwJxgVUmRJCfw=
 github.com/manifoldco/promptui v0.9.0/go.mod h1:ka04sppxSGFAtxX0qhlYQjISsg9mR4GWtQEhdbn6Pgg=
 github.com/mattn/go-shellwords v1.0.12/go.mod h1:EZzvwXDESEeg03EKmM+RmDnNOPKG4lLtQsUlTZDWQ8Y=
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=

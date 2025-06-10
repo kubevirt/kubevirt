@@ -23,7 +23,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 )
 
 type latencyAdapter struct {

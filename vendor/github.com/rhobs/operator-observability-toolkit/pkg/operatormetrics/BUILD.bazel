@@ -17,8 +17,8 @@ go_library(
         "summary_vec.go",
         "wrapper_registry.go",
     ],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics",
-    importpath = "github.com/machadovilaca/operator-observability/pkg/operatormetrics",
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics",
+    importpath = "github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics",
     visibility = ["//visibility:public"],
     deps = ["//vendor/github.com/prometheus/client_golang/prometheus:go_default_library"],
 )

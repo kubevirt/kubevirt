@@ -10,12 +10,12 @@ go_library(
         "problem.go",
         "recording_rule_validation.go",
     ],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/machadovilaca/operator-observability/pkg/testutil",
-    importpath = "github.com/machadovilaca/operator-observability/pkg/testutil",
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/rhobs/operator-observability-toolkit/pkg/testutil",
+    importpath = "github.com/rhobs/operator-observability-toolkit/pkg/testutil",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/grafana/regexp:go_default_library",
-        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatorrules:go_default_library",
         "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatorrules:go_default_library",
     ],
 )
