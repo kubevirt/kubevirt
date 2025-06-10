@@ -518,7 +518,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		return res
 	}
 
-	makeDisks := func(indexes ...int) []v1.Disk {
+	makeDisksWithBus := func(bus v1.DiskBus, indexes ...int) []v1.Disk {
 		res := make([]v1.Disk, 0)
 		for _, index := range indexes {
 			bootOrder := uint(index + 1)
@@ -526,13 +526,17 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				Name: fmt.Sprintf("volume-name-%d", index),
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
-						Bus: "scsi",
+						Bus: bus,
 					},
 				},
 				BootOrder: &bootOrder,
 			})
 		}
 		return res
+	}
+
+	makeDisks := func(indexes ...int) []v1.Disk {
+		return makeDisksWithBus(v1.DiskBusSCSI, indexes...)
 	}
 
 	makeLUNDisks := func(indexes ...int) []v1.Disk {
@@ -571,41 +575,40 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	makeDisksInvalidBusLastDisk := func(indexes ...int) []v1.Disk {
 		res := makeDisks(indexes...)
-		for i, index := range indexes {
-			if i == len(indexes)-1 {
-				res[index].Disk.Bus = "invalid"
-			}
+		if len(res) > 0 {
+			res[len(res)-1].Disk.Bus = "invalid"
 		}
 		return res
 	}
 
 	makeLUNDisksInvalidBusLastDisk := func(indexes ...int) []v1.Disk {
 		res := makeLUNDisks(indexes...)
-		for i, index := range indexes {
-			if i == len(indexes)-1 {
-				res[index].LUN.Bus = "invalid"
-			}
+		if len(res) > 0 {
+			res[len(res)-1].LUN.Bus = "invalid"
+		}
+		return res
+	}
+
+	makeDisksWithIOThreadsAndBus := func(bus v1.DiskBus, indexes ...int) []v1.Disk {
+		res := makeDisksWithBus(bus, indexes...)
+		if len(res) > 0 {
+			res[len(res)-1].DedicatedIOThread = pointer.P(true)
 		}
 		return res
 	}
 
 	makeDisksWithIOThreads := func(indexes ...int) []v1.Disk {
 		res := makeDisks(indexes...)
-		for i, index := range indexes {
-			if i == len(indexes)-1 {
-				res[index].DedicatedIOThread = pointer.P(true)
-			}
+		if len(res) > 0 {
+			res[len(res)-1].DedicatedIOThread = pointer.P(true)
 		}
 		return res
 	}
 
 	makeDisksInvalidBootOrder := func(indexes ...int) []v1.Disk {
 		res := makeDisks(indexes...)
-		bootOrder := uint(0)
-		for i, index := range indexes {
-			if i == len(indexes)-1 {
-				res[index].BootOrder = &bootOrder
-			}
+		if len(res) > 0 {
+			res[len(res)-1].BootOrder = pointer.P(uint(0))
 		}
 		return res
 	}
@@ -725,7 +728,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeDisksNoVolume(0),
 			makeFilesystems(),
 			makeStatus(1, 0),
-			makeExpected("Disk volume-name-1 does not exist", "")),
+			makeExpected("disk volume-name-1 does not exist", "")),
 		Entry("Should reject if we modify existing volume to be invalid",
 			makeVolumes(0, 1),
 			makeVolumes(0, 1),
@@ -758,6 +761,14 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeFilesystems(),
 			makeStatus(2, 1),
 			nil),
+		Entry("Should accept if we add volumes and disk properly (virtio bus)",
+			makeVolumes(0, 1),
+			makeVolumes(0),
+			makeDisksWithBus(v1.DiskBusVirtio, 0, 1),
+			makeDisksWithBus(v1.DiskBusVirtio, 0),
+			makeFilesystems(),
+			makeStatus(1, 0),
+			nil),
 		Entry("Should reject if we hotplug a volume with dedicated IOThreads",
 			makeVolumes(0, 1),
 			makeVolumes(0),
@@ -765,7 +776,15 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeDisks(0),
 			makeFilesystems(),
 			makeStatus(1, 0),
-			makeExpected("hotplugged Disk volume-name-1 can't use dedicated IOThread: scsi bus is unsupported.", "")),
+			makeExpected("Hotplug configuration for [volume-name-1] requires virtio bus for IOThreads.", "")),
+		Entry("Should accept if we hotplug a virtio volume with dedicated IOThreads",
+			makeVolumes(0, 1),
+			makeVolumes(0),
+			makeDisksWithIOThreadsAndBus(v1.DiskBusVirtio, 0, 1),
+			makeDisksWithBus(v1.DiskBusVirtio, 0),
+			makeFilesystems(),
+			makeStatus(1, 0),
+			nil),
 		Entry("Should accept if we add LUN disk with valid SCSI bus",
 			makeVolumes(0, 1),
 			makeVolumes(0, 1),
@@ -781,7 +800,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeDisks(0),
 			makeFilesystems(),
 			makeStatus(1, 0),
-			makeExpected("hotplugged Disk volume-name-1 does not use a scsi bus", "")),
+			makeExpected("Hotplug configuration for disk [volume-name-1] requires bus to be 'scsi' or 'virtio'. [invalid] is not permitted.", "")),
 		Entry("Should reject if we add LUN disk with invalid bus",
 			makeVolumes(0, 1),
 			makeVolumes(0),
@@ -789,15 +808,15 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeLUNDisks(0),
 			makeFilesystems(),
 			makeStatus(1, 0),
-			makeExpected("hotplugged Disk volume-name-1 does not use a scsi bus", "")),
-		Entry("Should allow cd-rom",
+			makeExpected("Hotplug configuration for LUN [volume-name-1] requires bus to be 'scsi'. [invalid] is not permitted.", "")),
+		Entry("Should reject if we add disk with neither Disk nor LUN type",
 			makeVolumes(0, 1),
 			makeVolumes(0),
 			makeCDRomDisks(0, 1),
 			makeCDRomDisks(0),
 			makeFilesystems(),
 			makeStatus(1, 0),
-			nil),
+			makeExpected("Hotplug configuration for [volume-name-1] requires diskDevice of type 'disk' or 'lun' to be used.", "")),
 		Entry("Should allow cd-rom inject",
 			makeVolumes(0, 1),
 			makeVolumes(0),
