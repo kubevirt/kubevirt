@@ -128,7 +128,7 @@ func collectVMIInfo(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Coll
 	var cr []operatormetrics.CollectorResult
 
 	for _, vmi := range vmis {
-		os, workload, flavor := getVMISystemInfo(vmi)
+		os, workload, flavor := getSystemInfoFromAnnotations(vmi.Annotations)
 		instanceType := getVMIInstancetype(vmi)
 		preference := getVMIPreference(vmi)
 		kernelRelease, machine, name, versionID := getGuestOSInfo(vmi)
@@ -151,20 +151,20 @@ func getVMIPhase(vmi *k6tv1.VirtualMachineInstance) string {
 	return strings.ToLower(string(vmi.Status.Phase))
 }
 
-func getVMISystemInfo(vmi *k6tv1.VirtualMachineInstance) (os, workload, flavor string) {
+func getSystemInfoFromAnnotations(annotations map[string]string) (os, workload, flavor string) {
 	os = none
 	workload = none
 	flavor = none
 
-	if val, ok := vmi.Annotations[annotationPrefix+"os"]; ok {
+	if val, ok := annotations[annotationPrefix+"os"]; ok {
 		os = val
 	}
 
-	if val, ok := vmi.Annotations[annotationPrefix+"workload"]; ok {
+	if val, ok := annotations[annotationPrefix+"workload"]; ok {
 		workload = val
 	}
 
-	if val, ok := vmi.Annotations[annotationPrefix+"flavor"]; ok {
+	if val, ok := annotations[annotationPrefix+"flavor"]; ok {
 		flavor = val
 	}
 

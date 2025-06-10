@@ -87,6 +87,9 @@ The total number of VMs created by namespace, since install. Type: Counter.
 ### kubevirt_vm_error_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to error status. Type: Counter.
 
+### kubevirt_vm_info
+Information about Virtual Machines. Type: Gauge.
+
 ### kubevirt_vm_migrating_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to migrating status. Type: Counter.
 

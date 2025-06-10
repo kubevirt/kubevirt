@@ -20,18 +20,45 @@
 package virt_controller
 
 import (
+	"strings"
+
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"kubevirt.io/client-go/log"
+	"k8s.io/apimachinery/pkg/types"
 
 	k6tv1 "kubevirt.io/api/core/v1"
+	instancetypeapi "kubevirt.io/api/instancetype"
+	"kubevirt.io/client-go/log"
 )
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits),
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo),
 		CollectCallback: vmStatsCollectorCallback,
 	}
+
+	vmInfo = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_info",
+			Help: "Information about Virtual Machines.",
+		},
+		[]string{
+			// Basic info
+			"name", "namespace",
+
+			// VM annotations
+			"os", "workload", "flavor",
+
+			// VM Machine Type
+			"machine_type",
+
+			// Instance type
+			"instance_type", "preference",
+
+			// Status
+			"status", "status_group",
+		},
+	)
 
 	vmResourceRequests = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
@@ -145,9 +172,102 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 	}
 
 	var results []operatormetrics.CollectorResult
+	results = append(results, CollectVMsInfo(vms)...)
 	results = append(results, CollectResourceRequestsAndLimits(vms)...)
 	results = append(results, reportVmsStats(vms)...)
 	return results
+}
+
+func CollectVMsInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var results []operatormetrics.CollectorResult
+
+	for _, vm := range vms {
+		os, workload, flavor, machineType := none, none, none, none
+		if vm.Spec.Template != nil {
+			os, workload, flavor = getSystemInfoFromAnnotations(vm.Spec.Template.ObjectMeta.Annotations)
+
+			if vm.Spec.Template.Spec.Domain.Machine != nil {
+				machineType = vm.Spec.Template.Spec.Domain.Machine.Type
+			}
+		}
+
+		instanceType := getVMInstancetype(vm)
+		preference := getVMPreference(vm)
+
+		results = append(results, operatormetrics.CollectorResult{
+			Metric: vmInfo,
+			Labels: []string{
+				vm.Name, vm.Namespace,
+				os, workload, flavor, machineType,
+				instanceType, preference,
+				string(vm.Status.PrintableStatus), getVMStatusGroup(vm.Status.PrintableStatus),
+			},
+			Value: 1.0,
+		})
+	}
+
+	return results
+}
+
+func getVMInstancetype(vm *k6tv1.VirtualMachine) string {
+	instancetype := vm.Spec.Instancetype
+
+	if instancetype == nil {
+		return none
+	}
+
+	if strings.EqualFold(instancetype.Kind, instancetypeapi.SingularResourceName) {
+		key := types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      instancetype.Name,
+		}
+		return fetchResourceName(key.String(), instancetypeMethods.InstancetypeStore)
+	}
+
+	if strings.EqualFold(instancetype.Kind, instancetypeapi.ClusterSingularResourceName) {
+		return fetchResourceName(instancetype.Name, instancetypeMethods.ClusterInstancetypeStore)
+	}
+
+	return none
+}
+
+func getVMPreference(vm *k6tv1.VirtualMachine) string {
+	preference := vm.Spec.Preference
+
+	if preference == nil {
+		return none
+	}
+
+	if strings.EqualFold(preference.Kind, instancetypeapi.SingularPreferenceResourceName) {
+		key := types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      preference.Name,
+		}
+		return fetchResourceName(key.String(), instancetypeMethods.PreferenceStore)
+	}
+
+	if strings.EqualFold(preference.Kind, instancetypeapi.ClusterSingularPreferenceResourceName) {
+		return fetchResourceName(preference.Name, instancetypeMethods.ClusterPreferenceStore)
+	}
+
+	return none
+}
+
+func getVMStatusGroup(status k6tv1.VirtualMachinePrintableStatus) string {
+	switch {
+	case containsStatus(status, startingStatuses):
+		return "starting"
+	case containsStatus(status, runningStatuses):
+		return "running"
+	case containsStatus(status, migratingStatuses):
+		return "migrating"
+	case containsStatus(status, nonRunningStatuses):
+		return "non_running"
+	case containsStatus(status, errorStatuses):
+		return "error"
+	}
+
+	return "<unknown>"
 }
 
 func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {

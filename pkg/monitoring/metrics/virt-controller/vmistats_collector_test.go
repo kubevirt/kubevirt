@@ -134,7 +134,7 @@ var _ = Describe("VMI Stats Collector", func() {
 				Expect(cr.Labels).To(HaveLen(13))
 
 				Expect(cr.Labels[3]).To(Equal(getVMIPhase(vmis[i])))
-				os, workload, flavor := getVMISystemInfo(vmis[i])
+				os, workload, flavor := getSystemInfoFromAnnotations(vmis[i].Annotations)
 				Expect(cr.Labels[4]).To(Equal(os))
 				Expect(cr.Labels[5]).To(Equal(workload))
 				Expect(cr.Labels[6]).To(Equal(flavor))
