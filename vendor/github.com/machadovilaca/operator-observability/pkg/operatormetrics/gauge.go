@@ -31,6 +31,6 @@ func (c *Gauge) GetBaseType() MetricType {
 	return GaugeType
 }
 
-func (c *Gauge) getCollector() prometheus.Collector {
+func (c *Gauge) GetCollector() prometheus.Collector {
 	return c.Gauge
 }
