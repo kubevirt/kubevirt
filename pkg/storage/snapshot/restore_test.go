@@ -867,49 +867,6 @@ var _ = Describe("Restore controller", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			FIt("can prepopulate a datavolume", func() {
-				r := createRestoreWithOwner()
-				r.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
-					newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
-				}
-				r.Spec.VolumeRestorePolicy = ptr.To(snapshotv1.VolumeRestorePolicyInPlace)
-				r.Status.Restores = []snapshotv1.VolumeRestore{
-					{
-						VolumeName:                diskName,
-						PersistentVolumeClaimName: "alpine-dv", // Name is identical to the original PVC
-						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
-					},
-				}
-
-				vm := createRestoreInProgressVM()
-				vmSource.Add(vm)
-
-				dv := &cdiv1.DataVolume{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      vm.Spec.DataVolumeTemplates[0].Name,
-						Namespace: vm.Namespace,
-					},
-					Status: cdiv1.DataVolumeStatus{
-						Phase: cdiv1.Succeeded,
-					},
-				}
-
-				dataVolumeSource.Add(dv)
-
-				pvc := getRestorePVCs(r)[0]
-				pvc.OwnerReferences = []metav1.OwnerReference{
-					*metav1.NewControllerRef(dv, schema.GroupVersionKind{Group: "cdi.kubevirt.io", Version: "v1beta1", Kind: "DataVolume"}),
-				}
-
-				pvcSource.Add(&pvc)
-
-				addVirtualMachineRestore(r)
-
-				err := controller.prepopulateDataVolume(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name, r.Name)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
 			It("source volume/DV gets deleted when volume restore policy is InPlace", func() {
 				r := createRestoreWithOwner()
 				r.Status.Conditions = []snapshotv1.Condition{
@@ -933,6 +890,9 @@ var _ = Describe("Restore controller", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      vm.Spec.DataVolumeTemplates[0].Name,
 						Namespace: vm.Namespace,
+						Annotations: map[string]string{
+							"test": "test",
+						},
 					},
 					Status: cdiv1.DataVolumeStatus{
 						Phase: cdiv1.Succeeded,
@@ -962,17 +922,14 @@ var _ = Describe("Restore controller", func() {
 				addVirtualMachineRestore(r)
 
 				deletePVCCalls := expectPVCDeletion(k8sClient, r)
-				updateDVCalls := expectDataVolumeUpdate(cdiClient, vm.Spec.DataVolumeTemplates[0].Name)
 
 				updatedDV := dv.DeepCopy()
-				updatedDV.Annotations = make(map[string]string)
 				updatedDV.Annotations[RestoreNameAnnotation] = r.Name
 				updatedDV.Annotations[cdiv1.AnnPrePopulated] = "true"
 				patchDVCalls := expectDataVolumePatch(cdiClient, dv, updatedDV)
 
 				controller.processVMRestoreWorkItem()
 
-				Expect(*updateDVCalls).To(Equal(1))  // DV associated with PVC edited to be prePopulate
 				Expect(*patchDVCalls).To(Equal(1))   // DV associated with PVC edited to be prePopulated
 				Expect(*deletePVCCalls).To(Equal(1)) // Original PVC got deleted
 			})
@@ -2656,24 +2613,6 @@ func expectVMRestorePatch(client *kubevirtfake.Clientset, orig, newObj *snapshot
 	return &calls
 }
 
-func expectDataVolumeUpdate(client *cdifake.Clientset, name string) *int {
-	calls := 0
-	client.Fake.PrependReactor("update", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-		a, ok := action.(testing.UpdateAction)
-		Expect(ok).To(BeTrue())
-
-		dv, ok := a.GetObject().(*cdiv1.DataVolume)
-		Expect(ok).To(BeTrue())
-		Expect(dv.Name).To(Equal(name))
-		Expect(dv.Annotations[cdiv1.AnnPrePopulated]).To(Equal("true"))
-
-		calls++
-
-		return true, nil, nil
-	})
-	return &calls
-}
-
 func expectDataVolumeCreate(client *cdifake.Clientset, name string) *int {
 	calls := 0
 	client.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -2700,13 +2639,15 @@ func expectDataVolumePatch(client *cdifake.Clientset, orig, newObj *cdiv1.DataVo
 
 		patched := &cdiv1.DataVolume{}
 		if err := applyPatch(patch.GetPatch(), orig, patched); err != nil {
+			Expect(err).NotTo(HaveOccurred())
 			return false, nil, err
 		}
 
 		Expect(patched).To(Equal(newObj))
+
 		calls++
 
-		return true, nil, nil
+		return true, patched, nil
 	})
 	return &calls
 }
@@ -2731,6 +2672,7 @@ func expectDataVolumeDeletes(client *cdifake.Clientset, names []string) *int {
 
 		return true, nil, nil
 	})
+
 	return &calls
 }
 
