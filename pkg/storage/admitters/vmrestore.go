@@ -107,6 +107,14 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 					if newCauses != nil {
 						causes = append(causes, newCauses...)
 					}
+
+					newCauses, err = admitter.validateVolumeRestorePolicy(ctx, vmRestore)
+					if err != nil {
+						return webhookutils.ToAdmissionResponseError(err)
+					}
+					if newCauses != nil {
+						causes = append(causes, newCauses...)
+					}
 				default:
 					causes = []metav1.StatusCause{
 						{
@@ -286,6 +294,31 @@ func (admitter *VMRestoreAdmitter) validateVolumeOverrides(ctx context.Context, 
 				Field:   k8sfield.NewPath("spec").Child("volumeRestoreOverrides").Index(i).String(),
 			})
 		}
+	}
+
+	return causes, nil
+}
+
+func (admitter *VMRestoreAdmitter) validateVolumeRestorePolicy(ctx context.Context, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause, err error) {
+	// Cancel if there's no volume restore policy
+	if vmRestore.Spec.VolumeRestorePolicy == nil {
+		return nil, nil
+	}
+
+	policy := *vmRestore.Spec.VolumeRestorePolicy
+
+	// Verify the policy provided is among the ones that are allowed
+	switch policy {
+	case snapshotv1.VolumeRestorePolicyInPlace:
+		return nil, nil
+	default:
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("volume restore policy \"%s\" doesn't exist", policy),
+			Field: k8sfield.NewPath("spec").
+				Child("volumeRestorePolicy").
+				String(),
+		})
 	}
 
 	return causes, nil

@@ -129,10 +129,10 @@ func getRestoreNameOverride(vmRestore *snapshotv1.VirtualMachineRestore, volumeN
 	return ""
 }
 
-// restoreVolumeBackendName computes the name of the restored backend for a given volume within a backup
-// volumeName is the name of the volume being restored
+// restoreVolumeName computes the name of the restored volume for a given volume within a backup
+// volumeName is the original name of the volume being restored
 // backendName is the name of the original backend for that same volume (a PVC or a DataVolume)
-func restoreVolumeBackendName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, backendName string) string {
+func restoreVolumeName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, backendName string) string {
 	// Check if the user is overriding the restore name
 	if restoreOverride := getRestoreNameOverride(vmRestore, volumeName); restoreOverride != "" {
 		return restoreOverride
@@ -151,14 +151,14 @@ func restoreVolumeBackendName(vmRestore *snapshotv1.VirtualMachineRestore, volum
 // volumeName is the name of the volume being restored
 // pvcName is the name of the original PVC for that same volume
 func restorePVCName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, pvcName string) string {
-	return restoreVolumeBackendName(vmRestore, volumeName, pvcName)
+	return restoreVolumeName(vmRestore, volumeName, pvcName)
 }
 
 // restoreDVName computes the name of a restored DataVolume for a given volume within a backup
 // volumeName is the name of the volume being restored
 // dvName is the name of the dataVolume being restored
 func restoreDVName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, dvName string) string {
-	return restoreVolumeBackendName(vmRestore, volumeName, dvName)
+	return restoreVolumeName(vmRestore, volumeName, dvName)
 }
 
 func vmRestoreFailed(vmRestore *snapshotv1.VirtualMachineRestore) bool {
@@ -481,14 +481,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 				return false, err
 			}
 			createdPVC = true
-		} else if isVolumeRestorePolicyInPlace(vmRestore) {
-			// The PVC already exists, but we're in VolumeRestorePolicy InPlace, so we need to delete it
-			// if the PVC hasn't already been restored. To know if the restore process has already happened
-			// on this PVC, we check the restore annotation to see if the ID matches the current job.
-			if hasLastRestoreAnnotation(vmRestore, pvc) {
-				continue
-			}
-
+		} else if isVolumeRestorePolicyInPlace(vmRestore) && !hasLastRestoreAnnotation(vmRestore, pvc) {
 			// This volume is backed by a DataVolume, and we're about to delete the PVC of that DV. This PVC will be re-created shortly after
 			// from a VolumeSnapshot, and the DV should rebind to its PVC. But that leaves the DV with no PVC for a short amount of time.
 			// To prevent race conditions and possible reconciles of the DV during the PVC restore, we mark it as prePopulated to prevent any
@@ -502,21 +495,11 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			if ownerDV != "" {
 				log.Log.Object(vmRestore).Infof("marking datavolume %s/%s as prepopulated before deleting its PVC", vmRestore.Namespace, ownerDV)
 
-				dv, err := ctrl.getDV(vmRestore.Namespace, ownerDV)
-				if err != nil {
+				if err := ctrl.prepopulateDataVolume(vmRestore.Namespace, ownerDV, vmRestore.Name); err != nil {
 					return false, err
 				}
 
-				if dv.Annotations == nil {
-					dv.Annotations = make(map[string]string)
-				}
-				dv.Annotations[RestoreNameAnnotation] = vmRestore.Name
-				dv.Annotations[cdiv1.AnnPrePopulated] = "true"
-				vmRestore.Status.Restores[i].DataVolumeName = &dv.Name
-
-				if _, err = ctrl.Client.CdiClient().CdiV1beta1().DataVolumes(vmRestore.Namespace).Update(context.Background(), dv, metav1.UpdateOptions{}); err != nil {
-					return false, err
-				}
+				vmRestore.Status.Restores[i].DataVolumeName = &ownerDV
 			}
 
 			// If we're here, the PVC associated with that volume exists, and needs to be wiped before we restore in its place
@@ -1666,6 +1649,34 @@ func isVolumeRestorePolicyInPlace(vmRestore *snapshotv1.VirtualMachineRestore) b
 	}
 
 	return *vmRestore.Spec.VolumeRestorePolicy == snapshotv1.VolumeRestorePolicyInPlace
+}
+
+// prepopulateDataVolume marks a DataVolume as already populated, effectively blocking it
+// from creating new PVCs. This function is useful when deleting the PVCs associated with DVs
+// during a restore process, as we want to create the new PVCs ourselves and don't want to CDI
+// to start reconciliation.
+func (ctrl *VMRestoreController) prepopulateDataVolume(namespace, dataVolume, restoreName string) error {
+	// Retrieve the DataVolume we want to prepopulate
+	dv, err := ctrl.getDV(namespace, dataVolume)
+	if err != nil {
+		return err
+	}
+
+	if dv.Annotations == nil {
+		dv.Annotations = make(map[string]string)
+	}
+
+	// Mark the DV as being part of a restore
+	dv.Annotations[RestoreNameAnnotation] = restoreName
+
+	// Set the DV as prepopulated so that it doesn't reconcile itself
+	// This value is arbitrarily set to "true", it will be replaced with the name of the PVC
+	// backing this DataVolume by the CDI once it finds the associated PVC
+	// As long as the annotation is present (no matter the value), the population process is blocked
+	dv.Annotations[cdiv1.AnnPrePopulated] = "true"
+
+	_, err = ctrl.Client.CdiClient().CdiV1beta1().DataVolumes(namespace).Update(context.Background(), dv, metav1.UpdateOptions{})
+	return err
 }
 
 func setLegacyFirmwareUUID(vm *kubevirtv1.VirtualMachine) {

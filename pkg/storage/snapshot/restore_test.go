@@ -841,7 +841,7 @@ var _ = Describe("Restore controller", func() {
 					newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
 					newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
 				}
-				r.Spec.VolumeRestorePolicy = ptr.To(snapshotv1.VolumeRestorePolicyInPlace)
+				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyInPlace)
 
 				vm := createRestoreInProgressVM()
 				vmSource.Add(vm)
@@ -920,13 +920,13 @@ var _ = Describe("Restore controller", func() {
 
 				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, ur)
 				updateDVCalls := expectDataVolumeUpdate(cdiClient, vm.Spec.DataVolumeTemplates[0].Name)
-				deleteStatusCalls := expectPVCDeletion(k8sClient, r)
+				deletePVCCalls := expectPVCDeletion(k8sClient, r)
 
 				controller.processVMRestoreWorkItem()
 
 				Expect(*updateStatusCalls).To(Equal(1)) // Status is updated to signal volume is wiped
 				Expect(*updateDVCalls).To(Equal(1))     // DV associated with PVC edited to be prePopulated
-				Expect(*deleteStatusCalls).To(Equal(1)) // Original PVC got deleted
+				Expect(*deletePVCCalls).To(Equal(1))    // Original PVC got deleted
 			})
 
 			It("new volume gets created when volume restore policy is InPlace", func() {
