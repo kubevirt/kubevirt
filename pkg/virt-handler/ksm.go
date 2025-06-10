@@ -17,20 +17,26 @@
  *
  */
 
-package heartbeat
+package virthandler
 
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/tools/cache"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	k8sv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -248,50 +254,113 @@ func getIntParam(node *v1.Node, param string, defaultValue, lowerBound, upperBou
 // will set the outcome value to the n.KSM struct
 // If the node labels match the selector terms, the ksm will be enabled.
 // Empty Selector will enable ksm for every node
-func handleKSM(node *v1.Node, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs bool) {
+func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs, needsUpdate bool) {
 	available, enabled := loadKSM()
 	if !available {
-		return false, false
+		return
+	}
+
+	nodeCache, err := cache.NewOneShotCache(func() (*v1.Node, error) {
+		node, err := client.Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			log.Log.Reason(err).Errorf("Can't get node %s", nodeName)
+		}
+		return node, err
+	})
+
+	if err != nil {
+		log.Log.Reason(err).Errorf("An error occurred while creating the node cache")
+		return
 	}
 
 	ksmConfig := clusterConfig.GetKSMConfiguration()
 	if ksmConfig == nil {
 		if enabled {
-			disableKSM(node)
+			disableKSM(nodeCache)
+			needsUpdate = true
 		}
 
-		return false, false
+		return
 	}
 
 	selector, err := metav1.LabelSelectorAsSelector(ksmConfig.NodeLabelSelector)
 	if err != nil {
 		log.DefaultLogger().Errorf("An error occurred while converting the ksm selector: %s", err)
-		return false, false
+		return
 	}
 
-	if !selector.Matches(labels.Set(node.ObjectMeta.Labels)) {
+	node, err := nodeCache.Get()
+	if err != nil {
+		return
+	}
+
+	if !selector.Matches(labels.Set(node.Labels)) {
 		if enabled {
-			disableKSM(node)
+			disableKSM(nodeCache)
+			needsUpdate = true
 		}
 
-		return false, false
+		return
 	}
+
+	ksmLabelValue = true
+	needsUpdate = true
+
 	ksm, err := calculateNewRunSleepAndPages(node, enabled)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("An error occurred while calculating the new KSM values")
-		return true, false
+		return
 	}
 
 	err = writeKsmValuesToFiles(ksm)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("An error occurred while writing the new KSM values")
-		return true, false
+		return
 	}
 
-	return true, ksm.running
+	ksmEnabledByUs = ksm.running
+
+	return
 }
 
-func disableKSM(node *v1.Node) {
+func HandleKSMUpdate(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig, forceUpdate bool) {
+	ksmEnabled, ksmEnabledByUs, needsUpdate := handleKSM(nodeName, client, clusterConfig)
+	if !forceUpdate && !needsUpdate {
+		return
+	}
+
+	// merge patch is being used here to handle the case in which the node has an empty/nil labels/annotations map,
+	// which would cause a JSON patch to fail.
+	patchPayload := struct {
+		Metadata metav1.ObjectMeta `json:"metadata"`
+	}{
+		Metadata: metav1.ObjectMeta{
+			Labels: map[string]string{
+				kubevirtv1.KSMEnabledLabel: fmt.Sprintf("%t", ksmEnabled),
+			},
+			Annotations: map[string]string{
+				kubevirtv1.KSMHandlerManagedAnnotation: fmt.Sprintf("%t", ksmEnabledByUs),
+			},
+		},
+	}
+
+	patchBytes, err := json.Marshal(patchPayload)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Can't parse json patch")
+	}
+
+	_, err = client.Nodes().Patch(context.Background(), nodeName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", nodeName)
+	}
+}
+
+func disableKSM(nodeCache *cache.OneShotCache[*v1.Node]) {
+	node, err := nodeCache.Get()
+	if err != nil {
+		return
+	}
+
 	if value, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; found && value == "true" {
 		err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644)
 		if err != nil {
