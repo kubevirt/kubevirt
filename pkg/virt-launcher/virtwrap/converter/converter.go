@@ -81,9 +81,8 @@ type deviceNamer struct {
 }
 
 type EFIConfiguration struct {
-	EFICode      string
-	EFIVars      string
-	SecureLoader bool
+	EFICode string
+	EFIVars string
 }
 
 type ConverterContext struct {
@@ -1168,10 +1167,12 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 	}
 
 	if vmi.IsBootloaderEFI() {
+		secureBootRequested := vmi.IsSecureBootEnabled()
+
 		domain.Spec.OS.BootLoader = &api.Loader{
 			Path:     c.EFIConfiguration.EFICode,
 			ReadOnly: "yes",
-			Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
+			Secure:   boolToYesNo(&secureBootRequested, false),
 			Type:     "pflash",
 		}
 
