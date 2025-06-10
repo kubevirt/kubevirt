@@ -178,7 +178,7 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			targetVMI = sourceVMI.DeepCopy()
-			targetVMI.Namespace = testsuite.NamespaceMigrationTarget
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
 			sourceVM = createAndStartVMFromVMISpec(sourceVMI)
 			num := 4
 			for i := 0; i < num; i++ {
@@ -228,7 +228,7 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 				libvmi.WithDataVolume("disk1", sourceDV.Name),
 			)
 			targetVMI = sourceVMI.DeepCopy()
-			targetVMI.Namespace = testsuite.NamespaceMigrationTarget
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
 			targetDV := sourceDV.DeepCopy()
 			targetDV.Namespace = targetVMI.Namespace
 			sourceDV, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(sourceDV)).Create(context.Background(), sourceDV, metav1.CreateOptions{})
@@ -327,7 +327,7 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 				libvmi.WithResourceMemory("128Mi"),
 			)
 			targetVMI = sourceVMI.DeepCopy()
-			targetVMI.Namespace = testsuite.NamespaceMigrationTarget
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
 
 			sourceVM = createAndStartVMFromVMISpec(sourceVMI)
 			Expect(sourceVM).ToNot(BeNil())
@@ -341,7 +341,7 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 				// execute a migration, wait for finalized state
 				if i%2 == 0 {
 					// source -> target
-					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceMigrationTarget)
+					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative)
 					targetVM = createReceiverVMFromVMISpec(targetVMI)
 					time.Sleep(time.Minute)
 					sourceMigration = libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
