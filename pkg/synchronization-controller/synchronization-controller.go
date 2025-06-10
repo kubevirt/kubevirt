@@ -323,12 +323,12 @@ func (s *SynchronizationController) execute(key string) error {
 		return err
 	}
 	if migration != nil && migration.IsDecentralized() {
-		if migration.IsSource() {
+		if migration.IsDecentralizedSource() {
 			if err := s.handleSourceState(vmi.DeepCopy(), migration); err != nil {
 				return err
 			}
 		}
-		if migration.IsTarget() {
+		if migration.IsDecentralizedTarget() {
 			return s.handleTargetState(vmi.DeepCopy(), migration)
 		}
 		return nil

@@ -636,8 +636,9 @@ func (v *VirtualMachineInstance) IsMigrationCompleted() bool {
 	return v.Status.MigrationState != nil && v.Status.MigrationState.Completed
 }
 
-func (v *VirtualMachineInstance) IsMigrationSynchronized(decentralized bool) bool {
-	if decentralized {
+func (v *VirtualMachineInstance) IsMigrationSynchronized(migration *VirtualMachineInstanceMigration) bool {
+
+	if migration.IsDecentralized() {
 		return v.Status.MigrationState != nil && v.Status.MigrationState.SourceState != nil &&
 			v.Status.MigrationState.TargetState != nil &&
 			v.Status.MigrationState.SourceState.MigrationUID != "" &&
@@ -647,13 +648,13 @@ func (v *VirtualMachineInstance) IsMigrationSynchronized(decentralized bool) boo
 	}
 }
 
-func (v *VirtualMachineInstance) IsTargetPreparing(decentralized bool, migrationUID types.UID) bool {
-	if decentralized {
-		return v.IsMigrationSynchronized(decentralized) &&
+func (v *VirtualMachineInstance) IsTargetPreparing(migration *VirtualMachineInstanceMigration) bool {
+	if migration.IsDecentralized() {
+		return v.IsMigrationSynchronized(migration) &&
 			v.Status.MigrationState.TargetState.Pod != "" &&
 			v.Status.MigrationState.TargetState.Node != ""
 	} else {
-		return v.Status.MigrationState != nil && v.Status.MigrationState.MigrationUID == migrationUID &&
+		return v.Status.MigrationState != nil && v.Status.MigrationState.MigrationUID == migration.UID &&
 			v.Status.MigrationState.TargetNode != ""
 	}
 }
@@ -1689,12 +1690,20 @@ const (
 	MigrationSynchronizing VirtualMachineInstanceMigrationPhase = "Synchronizing"
 )
 
-func (m *VirtualMachineInstanceMigration) IsSource() bool {
+func (m *VirtualMachineInstanceMigration) IsLocalOrDecentralizedSource() bool {
 	return !m.IsDecentralized() || m.Spec.SendTo != nil
 }
 
-func (m *VirtualMachineInstanceMigration) IsTarget() bool {
+func (m *VirtualMachineInstanceMigration) IsDecentralizedSource() bool {
+	return m.IsDecentralized() && m.Spec.SendTo != nil
+}
+
+func (m *VirtualMachineInstanceMigration) IsLocalOrDecentralizedTarget() bool {
 	return !m.IsDecentralized() || m.Spec.Receive != nil
+}
+
+func (m *VirtualMachineInstanceMigration) IsDecentralizedTarget() bool {
+	return m.IsDecentralized() && m.Spec.Receive != nil
 }
 
 func (m *VirtualMachineInstanceMigration) IsDecentralized() bool {

@@ -785,7 +785,7 @@ func generateDomainName(vmi *v1.VirtualMachineInstance) string {
 		name = *vmi.Status.MigrationState.TargetState.DomainName
 		namespace = *vmi.Status.MigrationState.TargetState.DomainNamespace
 	}
-	domainName := fmt.Sprintf("%s_%s", namespace, name)
+	domainName := util.DomainFromNamespaceName(namespace, name)
 	log.Log.Object(vmi).Infof("generated target domain name %s", domainName)
 	return domainName
 }
@@ -825,7 +825,7 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetState != nil &&
 		vmi.Status.MigrationState.TargetState.VirtualMachineInstanceUID != nil {
 		log.Log.Object(vmi).Infof("Replacing VMI UID %s with target VMI UID %s in the XML", vmi.UID, *vmi.Status.MigrationState.TargetState.VirtualMachineInstanceUID)
-		// Replace all occurances of the VMI UID in the XML with the target UID.
+		// Replace all occurences of the VMI UID in the XML with the target UID.
 		xmlstr = strings.ReplaceAll(xmlstr, string(vmi.UID), string(*vmi.Status.MigrationState.TargetState.VirtualMachineInstanceUID))
 	}
 
