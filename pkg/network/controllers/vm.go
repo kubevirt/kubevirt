@@ -78,20 +78,8 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 			func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
 		)
 
-		vmiCopy := vmi.DeepCopy()
-		hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
-		updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmiCopy, hasOrdinalIfaces)
-		vmiCopy.Spec = *updatedVmiSpec
-
-		ifaces, networks := clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
-		vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
-		vmiCopy.Spec.Networks = networks
-
-		if err := v.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
-			return vm, &syncError{
-				fmt.Errorf("error encountered when trying to patch vmi: %v", err),
-				hotPlugNetworkInterfaceErrorReason,
-			}
+		if err := v.syncVMIInterfaces(vm, vmi, indexedStatusIfaces); err != nil {
+			return vm, err
 		}
 	}
 
@@ -104,6 +92,29 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	vmCopy.Spec.Template.Spec.Networks = networks
 
 	return vmCopy, nil
+}
+
+func (v *VMController) syncVMIInterfaces(
+	vm *v1.VirtualMachine,
+	vmi *v1.VirtualMachineInstance,
+	indexedStatusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface,
+) error {
+	vmiCopy := vmi.DeepCopy()
+	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
+	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmiCopy, hasOrdinalIfaces)
+	vmiCopy.Spec = *updatedVmiSpec
+
+	ifaces, networks := clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
+	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
+	vmiCopy.Spec.Networks = networks
+
+	if err := v.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
+		return &syncError{
+			fmt.Errorf("error encountered when trying to patch vmi: %v", err),
+			hotPlugNetworkInterfaceErrorReason,
+		}
+	}
+	return nil
 }
 
 func (v *VMController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceSpec, vmi *v1.VirtualMachineInstance) error {
