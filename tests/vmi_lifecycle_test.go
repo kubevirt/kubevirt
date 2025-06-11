@@ -108,7 +108,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
 
-		It("[test_id:6095]should start in paused state if start strategy set to paused", decorators.WgS390x, decorators.Conformance, func() {
+		It("[test_id:6095][UNQUARANTINE-TEST]should start in paused state if start strategy set to paused", decorators.WgS390x, decorators.Conformance, func() {
 			vmi := libvmifact.NewAlpine(libvmi.WithStartStrategy(v1.StartStrategyPaused))
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
