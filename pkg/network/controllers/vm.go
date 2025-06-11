@@ -77,6 +77,22 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 		indexedStatusIfaces = vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
 			func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
 		)
+
+		vmiCopy := vmi.DeepCopy()
+		hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
+		updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmiCopy, hasOrdinalIfaces)
+		vmiCopy.Spec = *updatedVmiSpec
+
+		ifaces, networks := clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
+		vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
+		vmiCopy.Spec.Networks = networks
+
+		if err := v.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
+			return vm, &syncError{
+				fmt.Errorf("error encountered when trying to patch vmi: %v", err),
+				hotPlugNetworkInterfaceErrorReason,
+			}
+		}
 	}
 
 	vmCopy := vm.DeepCopy()
@@ -86,26 +102,6 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	)
 	vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
 	vmCopy.Spec.Template.Spec.Networks = networks
-
-	if vmi == nil {
-		return vmCopy, nil
-	}
-
-	vmiCopy := vmi.DeepCopy()
-	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
-	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
-	vmiCopy.Spec = *updatedVmiSpec
-
-	ifaces, networks = clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
-	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
-	vmiCopy.Spec.Networks = networks
-
-	if err := v.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
-		return vm, &syncError{
-			fmt.Errorf("error encountered when trying to patch vmi: %v", err),
-			hotPlugNetworkInterfaceErrorReason,
-		}
-	}
 
 	return vmCopy, nil
 }
