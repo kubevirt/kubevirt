@@ -92,13 +92,13 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	}
 
 	vmiCopy := vmi.DeepCopy()
-	ifaces, networks = clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
-	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
-	vmiCopy.Spec.Networks = networks
-
 	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
 	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
 	vmiCopy.Spec = *updatedVmiSpec
+
+	ifaces, networks = clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
+	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
+	vmiCopy.Spec.Networks = networks
 
 	if err := v.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
 		return vm, &syncError{
