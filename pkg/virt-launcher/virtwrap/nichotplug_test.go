@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
 const defaultNet = "default"
@@ -147,7 +148,7 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 
 	It("hotplugVirtioInterface SUCCEEDS with link state down", func() {
 		networkInterfaceManager := newVirtIOInterfaceManager(
-			expectAttachDeviceLinkStateDown(gomock.NewController(GinkgoT())),
+			expectAttachDeviceLinkStateDown(gomock.NewController(GinkgoT())).VirtDomain,
 			&fakeVMConfigurator{},
 		)
 
@@ -177,7 +178,7 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 		"hotplugVirtioInterface SUCCEEDS for",
 		func(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain, result libvirtClientResult) {
 			networkInterfaceManager := newVirtIOInterfaceManager(
-				mockLibvirtClient(gomock.NewController(GinkgoT()), result),
+				mockLibvirtClient(gomock.NewController(GinkgoT()), result).VirtDomain,
 				&fakeVMConfigurator{},
 			)
 			Expect(networkInterfaceManager.hotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(Succeed())
@@ -201,7 +202,7 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 		"hotplugVirtioInterface FAILS when",
 		func(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain, configurator vmConfigurator, result libvirtClientResult) {
 			networkInterfaceManager := newVirtIOInterfaceManager(
-				mockLibvirtClient(gomock.NewController(GinkgoT()), result),
+				mockLibvirtClient(gomock.NewController(GinkgoT()), result).VirtDomain,
 				configurator,
 			)
 			Expect(networkInterfaceManager.hotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(MatchError("boom"))
@@ -318,11 +319,11 @@ var _ = Describe("domain network interfaces resources", func() {
 		}
 
 		ctrl := gomock.NewController(GinkgoT())
-		mockDomain := cli.NewMockVirDomain(ctrl)
+		mockLibvirt := testing.NewLibvirt(ctrl)
 		domxml, err := xml.MarshalIndent(domainSpec, "", "\t")
 		Expect(err).ToNot(HaveOccurred())
-		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_INACTIVE).Return(string(domxml), nil)
-		mockDomain.EXPECT().Free()
+		mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_INACTIVE).Return(string(domxml), nil)
+		mockLibvirt.DomainEXPECT().Free()
 
 		originalDomainSpec := domainSpec.DeepCopy()
 		countCalls := 0
@@ -338,7 +339,7 @@ var _ = Describe("domain network interfaces resources", func() {
 				Expect(s.Devices.Interfaces).To(Equal(originalDomainSpec.Devices.Interfaces))
 			}
 
-			return mockDomain, nil
+			return mockLibvirt.VirtDomain, nil
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(countCalls).To(Equal(2))
@@ -350,10 +351,10 @@ var _ = Describe("interface link state update", func() {
 	DescribeTable("no change in state",
 		func(domainFrom *api.Domain,
 			domainTo *api.Domain,
-			expectMockFunc func(*gomock.Controller) *cli.MockVirDomain) {
+			expectMockFunc func(*gomock.Controller) *testing.Libvirt) {
 
 			networkInterfaceManager := newVirtIOInterfaceManager(
-				expectMockFunc(gomock.NewController(GinkgoT())),
+				expectMockFunc(gomock.NewController(GinkgoT())).VirtDomain,
 				&fakeVMConfigurator{})
 			Expect(networkInterfaceManager.updateDomainLinkState(domainFrom, domainTo)).To(Succeed())
 		},
@@ -386,45 +387,45 @@ type libvirtClientResult struct {
 	expectedAttachedDevices int
 }
 
-func mockLibvirtClient(mockController *gomock.Controller, clientResult libvirtClientResult) *cli.MockVirDomain {
-	mockClient := cli.NewMockVirDomain(mockController)
+func mockLibvirtClient(mockController *gomock.Controller, clientResult libvirtClientResult) *testing.Libvirt {
+	mockClient := testing.NewLibvirt(mockController)
 	if clientResult.expectedError != nil {
-		mockClient.EXPECT().AttachDeviceFlags(gomock.Any(), gomock.Any()).Return(clientResult.expectedError)
+		mockClient.DomainEXPECT().AttachDeviceFlags(gomock.Any(), gomock.Any()).Return(clientResult.expectedError)
 		return mockClient
 	}
-	mockClient.EXPECT().AttachDeviceFlags(gomock.Any(), gomock.Any()).Times(clientResult.expectedAttachedDevices).Return(nil)
+	mockClient.DomainEXPECT().AttachDeviceFlags(gomock.Any(), gomock.Any()).Times(clientResult.expectedAttachedDevices).Return(nil)
 	return mockClient
 }
 
-func expectAttachDeviceLinkStateDown(mockController *gomock.Controller) *cli.MockVirDomain {
+func expectAttachDeviceLinkStateDown(mockController *gomock.Controller) *testing.Libvirt {
 	const interfaceWithLinkStateDownXML = `<interface type=""><source></source><link state="down"></link><alias name="ua-n1"></alias></interface>`
-	mockClient := cli.NewMockVirDomain(mockController)
-	mockClient.EXPECT().AttachDeviceFlags(interfaceWithLinkStateDownXML, gomock.Any()).Times(1).Return(nil)
+	mockClient := testing.NewLibvirt(mockController)
+	mockClient.DomainEXPECT().AttachDeviceFlags(interfaceWithLinkStateDownXML, gomock.Any()).Times(1).Return(nil)
 
 	return mockClient
 }
 
-func expectUpdateDeviceNotCalled(mockController *gomock.Controller) *cli.MockVirDomain {
-	mockClient := cli.NewMockVirDomain(mockController)
-	mockClient.EXPECT().UpdateDeviceFlags(gomock.Any(), gomock.Any()).Times(0).Return(nil)
+func expectUpdateDeviceNotCalled(mockController *gomock.Controller) *testing.Libvirt {
+	mockClient := testing.NewLibvirt(mockController)
+	mockClient.DomainEXPECT().UpdateDeviceFlags(gomock.Any(), gomock.Any()).Times(0).Return(nil)
 
 	return mockClient
 }
 
-func expectUpdateDeviceLinkStateDown(mockController *gomock.Controller) *cli.MockVirDomain {
-	mockClient := cli.NewMockVirDomain(mockController)
+func expectUpdateDeviceLinkStateDown(mockController *gomock.Controller) *testing.Libvirt {
+	mockClient := testing.NewLibvirt(mockController)
 
 	const interfaceWithLinkStateDownXML = `<interface type=""><source></source><link state="down"></link><alias name="ua-default"></alias></interface>`
-	mockClient.EXPECT().UpdateDeviceFlags(interfaceWithLinkStateDownXML, gomock.Any()).Times(1).Return(nil)
+	mockClient.DomainEXPECT().UpdateDeviceFlags(interfaceWithLinkStateDownXML, gomock.Any()).Times(1).Return(nil)
 
 	return mockClient
 }
 
-func expectUpdateDeviceLinkStateNone(mockController *gomock.Controller) *cli.MockVirDomain {
-	mockClient := cli.NewMockVirDomain(mockController)
+func expectUpdateDeviceLinkStateNone(mockController *gomock.Controller) *testing.Libvirt {
+	mockClient := testing.NewLibvirt(mockController)
 
 	const interfaceWithoutLinkStateXML = `<interface type=""><source></source><alias name="ua-default"></alias></interface>`
-	mockClient.EXPECT().UpdateDeviceFlags(interfaceWithoutLinkStateXML, gomock.Any()).Times(1).Return(nil)
+	mockClient.DomainEXPECT().UpdateDeviceFlags(interfaceWithoutLinkStateXML, gomock.Any()).Times(1).Return(nil)
 	return mockClient
 }
 
