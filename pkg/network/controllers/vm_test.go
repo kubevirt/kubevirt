@@ -608,6 +608,56 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVMI.Spec.Networks).To(Equal(originalVM.Spec.Template.Spec.Networks))
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(originalVM.Spec.Template.Spec.Domain.Devices.Interfaces))
 	})
+
+	It("sync does not hotunplug interfaces when a pending hotplug without a status entry exists", func() {
+		const (
+			netToDetachName    = "detach-me"
+			netToDetachNADName = "detach-me-nad"
+		)
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(clientset)
+
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(netToDetachName)),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithNetwork(libvmi.MultusNetwork(netToDetachName, netToDetachNADName)),
+			libvmistatus.WithStatus(
+				libvmistatus.New(
+					libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+						Name:             defaultNetName,
+						PodInterfaceName: namescheme.PrimaryPodInterfaceName,
+						InfoSource:       vmispec.InfoSourceDomain,
+					}),
+				),
+			),
+		)
+
+		originalVMI := vmi.DeepCopy()
+		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
+
+		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Mark the secondary interface for hotunplug
+		vm.Spec.Template.Spec.Domain.Devices.Interfaces[1].State = v1.InterfaceStateAbsent
+
+		originalVM := vm.DeepCopy()
+		updatedVM, err := c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVM.Spec.Template.Spec.Networks).To(Equal(originalVM.Spec.Template.Spec.Networks))
+		Expect(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces).To(Equal(originalVM.Spec.Template.Spec.Domain.Devices.Interfaces))
+
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVMI.Spec.Networks).To(Equal(originalVMI.Spec.Networks))
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(originalVMI.Spec.Domain.Devices.Interfaces))
+	})
 })
 
 type syncError interface {
