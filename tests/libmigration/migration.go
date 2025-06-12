@@ -162,7 +162,11 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(string(migration.UID)), "the VMI migration UID must be the expected one")
 
 	By("Verifying the VMI's is in the running state")
-	Expect(vmi.Status.Phase).To(Equal(v1.Running), "the VMI must be in `Running` state after the migration")
+	Eventually(func() v1.VirtualMachineInstancePhase {
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
+		return vmi.Status.Phase
+	}, 60*time.Second, 1*time.Second).Should(Equal(v1.Running), fmt.Sprintf("the VMI %s/%s must be in `Running` state after the migration", vmi.Namespace, vmi.Name))
 
 	return vmi
 }
