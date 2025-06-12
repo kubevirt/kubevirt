@@ -313,11 +313,11 @@ func createRandomizedObject(fdp *fuzz.Fuzzer, resourceType string) runtime.Objec
 		// rather than letting the fuzzer run, hence the panic.
 		panic(fmt.Sprintf("should not happen: '%s'", resourceType))
 	}
-		// This should not happen. If it does, it is an indicator that
-		// the fuzzer is not efficient, and we prefer to know about it
-		// rather than letting the fuzzer run, hence the panic.
-		panic("should not happen")
-		return nil
+	// This should not happen. If it does, it is an indicator that
+	// the fuzzer is not efficient, and we prefer to know about it
+	// rather than letting the fuzzer run, hence the panic.
+	panic("should not happen")
+	return nil
 }
 
 func createManifests(fdp *fuzz.Fuzzer) ([]byte, error) {
