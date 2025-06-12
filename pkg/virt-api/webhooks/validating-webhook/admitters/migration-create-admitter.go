@@ -136,7 +136,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 		found := false
 		for _, fgName := range clusterCfg.DeveloperConfiguration.FeatureGates {
 			fg := featuregate.FeatureGateInfo(fgName)
-			if fg.Name == featuregate.DecentralizedLiveMigration {
+			if fg != nil && fg.Name == featuregate.DecentralizedLiveMigration {
 				found = true
 			}
 		}
