@@ -79,7 +79,7 @@ func FuzzExecute(f *testing.F) {
 		fdp := gfh.NewConsumer(data)
 
 		//vm *v1.VirtualMachine
-		vms := make([]*v1.VirtualMachine, 0)
+		vms := make([]*v1.VirtualMachine)
 		for _ = range int(numberOfVMs) % maxResources {
 			vm := &v1.VirtualMachine{}
 			err := fdp.GenerateStruct(vm)
