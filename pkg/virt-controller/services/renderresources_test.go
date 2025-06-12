@@ -358,10 +358,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 		kvConfig.SupportContainerResources[0].Resources.Requests = req
 		kvConfig.SupportContainerResources[0].Resources.Limits = lim
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
-		vmi := &v1.VirtualMachineInstance{
-			Spec: v1.VirtualMachineInstanceSpec{},
-		}
-		res := hotplugContainerResourceRequirementsForVMI(vmi, clusterConfig)
+
+		res := hotplugContainerResourceRequirementsForVMI(clusterConfig)
 		Expect(res.Requests).To(BeEquivalentTo(expectedReq))
 		Expect(res.Limits).To(BeEquivalentTo(expectedLim))
 	},

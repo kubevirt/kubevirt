@@ -951,7 +951,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					Name:      hotplugDisk,
 					Image:     t.launcherImage,
 					Command:   command,
-					Resources: hotplugContainerResourceRequirementsForVMI(vmi, t.clusterConfig),
+					Resources: hotplugContainerResourceRequirementsForVMI(t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
 						AllowPrivilegeEscalation: pointer.P(false),
 						RunAsNonRoot:             pointer.P(true),
@@ -1094,7 +1094,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					Name:      hotplugDisk,
 					Image:     t.launcherImage,
 					Command:   command,
-					Resources: hotplugContainerResourceRequirementsForVMI(vmi, t.clusterConfig),
+					Resources: hotplugContainerResourceRequirementsForVMI(t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
 						AllowPrivilegeEscalation: pointer.P(false),
 						RunAsNonRoot:             pointer.P(true),
