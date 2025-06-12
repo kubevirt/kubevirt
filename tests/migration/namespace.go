@@ -171,7 +171,7 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 			sourceVM, targetVM   *virtv1.VirtualMachine
 		)
 
-		It("should live migration a container disk vm, several times", func() {
+		It("should live migrate a container disk vm, several times", func() {
 			sourceVMI = libvmifact.NewCirros(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -185,7 +185,7 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 				var sourceMigration, targetMigration *virtv1.VirtualMachineInstanceMigration
 				var expectedVMI *virtv1.VirtualMachineInstance
 				sourceRunStrategy := sourceVM.Spec.RunStrategy
-				// execute a migration, wait for finalized state
+				By(fmt.Sprintf("executing a migration, and waiting for finalized state, run %d", i))
 				if i%2 == 0 {
 					// source -> target
 					targetVM = createReceiverVMFromVMISpec(targetVMI)
@@ -215,7 +215,7 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 			}
 		})
 
-		It("should live migration a container disk vm", func() {
+		It("should live migrate a container disk vm, with an additional PVC mounted, should stay mounted after migration", func() {
 			sourceDV := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
 				libdv.WithStorage(),
@@ -247,7 +247,7 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 					}
 				}
 				return ""
-			}).WithTimeout(60 * time.Second).WithPolling(2 * time.Second).ShouldNot(BeEmpty())
+			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).ShouldNot(BeEmpty())
 
 			for _, volume := range sourceVMI.Status.VolumeStatus {
 				if volume.Name == "disk1" {
@@ -283,7 +283,7 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 					}
 				}
 				return ""
-			}).WithTimeout(60 * time.Second).WithPolling(2 * time.Second).ShouldNot(BeEmpty())
+			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).ShouldNot(BeEmpty())
 			Expect(console.LoginToCirros(targetVMI)).To(Succeed())
 			Expect(console.RunCommand(targetVMI, "cat /home/cirros/test/data.txt", 30*time.Second)).To(Succeed())
 		})
@@ -338,7 +338,7 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 				var sourceMigration, targetMigration *virtv1.VirtualMachineInstanceMigration
 				var expectedVMI *virtv1.VirtualMachineInstance
 				sourceRunStrategy := sourceVM.Spec.RunStrategy
-				// execute a migration, wait for finalized state
+				By(fmt.Sprintf("executing a migration, and waiting for finalized state, run %d", i))
 				if i%2 == 0 {
 					// source -> target
 					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative)
@@ -358,14 +358,14 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 				sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
 				libmigration.ConfirmVMIPostMigration(virtClient, expectedVMI, targetMigration)
 				Expect(console.LoginToAlpine(expectedVMI)).To(Succeed())
-				// Ensure the runStrategy is properly updated to be what the source was.
+				By("ensuring the runStrategy is properly updated to be what the source was")
 				updateRunStrategy(targetVM, sourceRunStrategy)
-				// Clean up migrations
+				By("cleaning up migration resources")
 				err = deleteMigration(sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 				err = deleteMigration(targetMigration)
 				Expect(err).ToNot(HaveOccurred())
-				By("Checking that the VirtualMachineInstance console has expected output")
+				By("checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(expectedVMI)).To(Succeed())
 
 				By(fmt.Sprintf("deleting source VM %s/%s", sourceVM.Namespace, sourceVM.Name))
