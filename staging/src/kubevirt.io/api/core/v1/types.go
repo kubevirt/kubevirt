@@ -636,6 +636,10 @@ func (v *VirtualMachineInstance) IsMigrationCompleted() bool {
 	return v.Status.MigrationState != nil && v.Status.MigrationState.Completed
 }
 
+// IsMigrationSynchronized is true after a decentralized migration VMI has sync with the other side. It
+// checks if the SourceState and TargetState are not nil, and the migrationUIDs are set. This can only
+// happen when both sides have synchronized at least once. For 'local' migrations this returns true if the
+// migration state is not nil. Essentially this happens after the migration resource is created.
 func (v *VirtualMachineInstance) IsMigrationSynchronized(migration *VirtualMachineInstanceMigration) bool {
 
 	if migration.IsDecentralized() {
