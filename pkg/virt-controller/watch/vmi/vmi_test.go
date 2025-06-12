@@ -874,7 +874,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	})
 
 	It("should fail which when network VMI spec validator fail", func() {
-		controller.validateNetworkSpec = validateNetVMISpecStub(metav1.StatusCause{Type: "test", Message: "test", Field: "test"})
+		controller.validateVMISpec = validateNetVMISpecStub(metav1.StatusCause{Type: "test", Message: "test", Field: "test"})
 
 		vmi := newPendingVirtualMachine("testvmi")
 		addVirtualMachine(vmi)

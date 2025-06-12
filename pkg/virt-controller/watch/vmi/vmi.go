@@ -71,6 +71,7 @@ func NewController(templateService services.TemplateService,
 	netStatusUpdater statusUpdater,
 	netSpecValidator specValidator,
 	netMigrationEvaluator migrationEvaluator,
+	vmiSpecValidator specValidator,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -100,6 +101,7 @@ func NewController(templateService services.TemplateService,
 		updateNetworkStatus:     netStatusUpdater,
 		validateNetworkSpec:     netSpecValidator,
 		netMigrationEvaluator:   netMigrationEvaluator,
+		validateVMISpec:         vmiSpecValidator,
 	}
 
 	c.hasSynced = func() bool {
@@ -206,6 +208,7 @@ type Controller struct {
 	updateNetworkStatus     statusUpdater
 	validateNetworkSpec     specValidator
 	netMigrationEvaluator   migrationEvaluator
+	validateVMISpec         specValidator
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {

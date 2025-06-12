@@ -143,7 +143,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 
 		var validateErrors []error
-		for _, cause := range c.validateNetworkSpec(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig) {
+		for _, cause := range c.validateVMISpec(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig) {
 			validateErrors = append(validateErrors, errors.New(cause.String()))
 		}
 		if validateErr := errors.Join(validateErrors...); validateErrors != nil {
