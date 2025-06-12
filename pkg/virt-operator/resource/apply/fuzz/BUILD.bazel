@@ -6,7 +6,6 @@ go_test(
         "fuzz_suite_test.go",
         "fuzz_test.go",
     ],
-    data = glob(["testdata/**"]),
     deps = [
         "//pkg/controller:go_default_library",
         "//pkg/testutils:go_default_library",
