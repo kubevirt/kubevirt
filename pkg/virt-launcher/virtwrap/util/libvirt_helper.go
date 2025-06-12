@@ -209,6 +209,15 @@ func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*a
 	return domain, nil
 }
 
+func DomainIsPaused(dom cli.VirDomain) (bool, error) {
+	state, _, err := dom.GetState()
+	if err != nil {
+		return false, fmt.Errorf("get state failed: %w", err)
+	}
+
+	return state == libvirt.DOMAIN_PAUSED, nil
+}
+
 func (l LibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
 	// we spawn libvirt from virt-launcher in order to ensure the virtqemud+qemu process
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals

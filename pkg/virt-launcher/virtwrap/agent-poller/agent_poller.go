@@ -30,6 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 // AgentCommand is a command executable on guest agent
@@ -353,6 +354,21 @@ func (p *AgentPoller) Stop() {
 // GET_AGENT - According to libvirt engineers this command shouldn't be used
 // by KubeVirt, because it provides irrelevant information (version and supported commands).
 func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
+	dom, err := agentPoller.Connection.LookupDomainByName(agentPoller.domainName)
+	if err != nil {
+		log.Log.Errorf("Error getting domain: %v", err)
+		return
+	}
+	defer dom.Free()
+
+	if paused, err := util.DomainIsPaused(dom); err != nil {
+		log.Log.Errorf("cannot determine domain state: %v", err)
+		return
+	} else if paused {
+		log.Log.Infof("domain %s is paused; skipping guest-agent commands", agentPoller.domainName)
+		return
+	}
+
 	log.Log.Infof("Polling command: %v", commands)
 
 	for _, command := range commands {
