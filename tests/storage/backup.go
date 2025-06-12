@@ -38,12 +38,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/storage/backup"
 
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnamespace"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -59,7 +62,7 @@ var _ = Describe(SIG("Backup", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	It("VM matches cbt label selector", func() {
+	It("VM matches cbt label selector, then unmatches", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
 			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -70,8 +73,9 @@ var _ = Describe(SIG("Backup", func() {
 		)
 		volumeName := vm.Spec.Template.Spec.Volumes[0].Name
 
-		By(fmt.Sprintf("Creating VM %s", vm.Name))
-		virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		By(fmt.Sprintf("Creating VM %s with CBT label", vm.Name))
+		_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
 		Eventually(func() v1.ChangedBlockTrackingState {
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -82,10 +86,55 @@ var _ = Describe(SIG("Backup", func() {
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 			return vmi.Status.ChangedBlockTracking
-		}, 3*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingEnabled))
+		}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingEnabled))
 
+		By("Verify CBT overlay exists")
 		stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", backup.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", volumeName)})
 		Expect(stdout).To(ContainSubstring(backup.GetQCOW2OverlayPath(vmi, volumeName)))
+
+		By("Remove CBT Label")
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+		delete(vm.Labels, backup.CBTKey)
+		patch, err := patch.New(patch.WithAdd("/metadata/labels", vm.Labels)).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verify CBT state PendingRestart")
+		Eventually(func() v1.ChangedBlockTrackingState {
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			return vm.Status.ChangedBlockTracking
+		}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingPendingRestart))
+
+		By("Restarting the VM")
+		err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verify CBT state disabled")
+		Eventually(func() v1.ChangedBlockTrackingState {
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			return vm.Status.ChangedBlockTracking
+		}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingDisabled))
+
+		Eventually(func() v1.ChangedBlockTrackingState {
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			return vmi.Status.ChangedBlockTracking
+		}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingDisabled))
+
+		By("Verify CBT overlay deleted")
+		libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod).NotTo(BeNil())
+
+		output, err := exec.ExecuteCommandOnPod(pod, "compute", []string{"ls", "-d", backup.PathForCBT(vmi)})
+		Expect(err.Error()).To(ContainSubstring("No such file or directory"))
+		Expect(output).To(BeEmpty())
 	})
 	DescribeTable("Patch to match cbt label selector", func(patchFunc func(vm *v1.VirtualMachine)) {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
