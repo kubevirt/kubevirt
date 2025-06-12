@@ -39,11 +39,15 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -53,15 +57,20 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("Live Migration across namespaces", func() {
+var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.RequiresDecentralizedLiveMigration, func() {
 	var (
-		virtClient    kubecli.KubevirtClient
-		migrationID   string
-		connectionURL string
-		err           error
+		virtClient         kubecli.KubevirtClient
+		migrationID        string
+		connectionURL      string
+		err                error
+		featureGateEnabled bool
 	)
 
 	BeforeEach(func() {
+		featureGateEnabled = checks.HasFeature(featuregate.DecentralizedLiveMigration)
+		if !featureGateEnabled {
+			kvconfig.EnableFeatureGate(featuregate.DecentralizedLiveMigration)
+		}
 		if !libstorage.HasCDI() {
 			Fail("Fail DataVolume tests when CDI is not present")
 		}
@@ -69,6 +78,12 @@ var _ = Describe(SIG("Live Migration across namespaces", func() {
 		migrationID = fmt.Sprintf("mig-%s", rand.String(5))
 		connectionURL, err = getKubevirtSynchronizationSyncAddress(virtClient)
 		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		if !featureGateEnabled {
+			kvconfig.DisableFeatureGate(featuregate.DecentralizedLiveMigration)
+		}
 	})
 
 	createAndStartVMFromVMISpec := func(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachine {

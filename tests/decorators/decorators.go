@@ -89,6 +89,8 @@ var (
 	StorageCritical = Label("StorageCritical")
 	// RequiresVolumeExpansion requires a storage class with volume expansion support
 	RequiresVolumeExpansion = Label("RequiresVolumeExpansion")
+	// RequiresDecentralizedLiveMigration request the feature gate is enabled
+	RequiresDecentralizedLiveMigration = Label("RequiresDecentralizedLiveMigration")
 
 	/* Provisioner */
 
