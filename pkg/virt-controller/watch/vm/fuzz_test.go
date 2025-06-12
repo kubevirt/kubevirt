@@ -80,7 +80,7 @@ func FuzzExecute(f *testing.F) {
 
 		//vm *v1.VirtualMachine
 		vms := make([]*v1.VirtualMachine)
-		for _ = range int(numberOfVMs) % maxResources {
+		for range int(numberOfVMs) % maxResources {
 			vm := &v1.VirtualMachine{}
 			err := fdp.GenerateStruct(vm)
 			if err != nil {
