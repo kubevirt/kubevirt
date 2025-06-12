@@ -711,64 +711,6 @@ func (c *Controller) processMigrationPhase(
 	return nil
 }
 
-func (c *Controller) appendMigratedVolume(vmi *virtv1.VirtualMachineInstance, claimName string, volume virtv1.Volume) error {
-	key := controller.NamespacedKey(vmi.Namespace, claimName)
-	obj, exists, err := c.pvcStore.GetByKey(key)
-	if err != nil {
-		return err
-	}
-	if exists {
-		pvc := obj.(*k8sv1.PersistentVolumeClaim)
-		vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, virtv1.StorageMigratedVolumeInfo{
-			VolumeName: volume.Name,
-			SourcePVCInfo: &virtv1.PersistentVolumeClaimInfo{
-				ClaimName:   claimName,
-				AccessModes: pvc.Spec.AccessModes,
-				VolumeMode:  pvc.Spec.VolumeMode,
-				Requests:    pvc.Spec.Resources.Requests,
-				Capacity:    pvc.Status.Capacity,
-			},
-			DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{
-				ClaimName:   claimName,
-				AccessModes: pvc.Spec.AccessModes,
-				VolumeMode:  pvc.Spec.VolumeMode,
-				Requests:    pvc.Spec.Resources.Requests,
-				Capacity:    pvc.Status.Capacity,
-			},
-		})
-	}
-	return nil
-}
-
-func (c *Controller) patchMigratedVolumesForDecentralizedMigration(vmi *virtv1.VirtualMachineInstance) error {
-	vmiCopy := vmi.DeepCopy()
-	vmiCopy.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{}
-	// Mark all DV/PVC volumes as migrateable in the VMI status.
-	for _, volume := range vmiCopy.Spec.Volumes {
-		if volume.PersistentVolumeClaim != nil {
-			if err := c.appendMigratedVolume(vmiCopy, volume.PersistentVolumeClaim.ClaimName, volume); err != nil {
-				return err
-			}
-		} else if volume.DataVolume != nil {
-			if err := c.appendMigratedVolume(vmiCopy, volume.DataVolume.Name, volume); err != nil {
-				return err
-			}
-		}
-	}
-	patch, err := patch.New(
-		patch.WithTest("/status/migratedVolumes", vmi.Status.MigratedVolumes),
-		patch.WithReplace("/status/migratedVolumes", vmiCopy.Status.MigratedVolumes),
-	).GeneratePayload()
-	if err != nil {
-		return err
-	}
-	vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func setTargetPodSELinuxLevel(pod *k8sv1.Pod, vmiSeContext string) error {
 	// The target pod may share resources with the sources pod (RWX disks for example)
 	// Therefore, it needs to share the same SELinux categories to inherit the same permissions
@@ -1105,20 +1047,16 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 
 	vmiCopy := vmi.DeepCopy()
 	if vmiCopy.Status.MigrationState == nil || !migration.IsDecentralized() {
-		vmiCopy.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-			MigrationUID: migration.UID,
-			TargetNode:   pod.Spec.NodeName,
-			SourceNode:   vmi.Status.NodeName,
-			TargetPod:    pod.Name,
-		}
+		vmiCopy.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	} else {
-		vmiCopy.Status.MigrationState.MigrationUID = migration.UID
-		vmiCopy.Status.MigrationState.TargetNode = pod.Spec.NodeName
-		vmiCopy.Status.MigrationState.SourceNode = vmi.Status.NodeName
-		vmiCopy.Status.MigrationState.TargetPod = pod.Name
 		vmiCopy.Status.MigrationState.Completed = false
 		vmiCopy.Status.MigrationState.Failed = false
 	}
+	vmiCopy.Status.MigrationState.MigrationUID = migration.UID
+	vmiCopy.Status.MigrationState.TargetNode = pod.Spec.NodeName
+	vmiCopy.Status.MigrationState.SourceNode = vmi.Status.NodeName
+	vmiCopy.Status.MigrationState.TargetPod = pod.Name
+
 	if migration.IsDecentralized() {
 		vmiCopy.Status.MigrationState.TargetState.MigrationUID = migration.UID
 		vmiCopy.Status.MigrationState.TargetState.Node = pod.Spec.NodeName
@@ -1548,7 +1486,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 			return nil
 		}
 
-		if !migration.IsDecentralized() || migration.IsDecentralizedTarget() {
+		if migration.IsLocalOrDecentralizedTarget() {
 			if !targetPodExists {
 				var sourcePod *k8sv1.Pod
 				var err error
@@ -1678,34 +1616,6 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 		}
 	}
 	return nil
-}
-
-func (c *Controller) initializeMigrateSourceState(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) {
-	if vmi.Status.MigrationState == nil || vmi.IsMigrationCompleted() {
-		vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
-	}
-	if vmi.Status.MigrationState.SourceState == nil {
-		vmi.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{}
-	}
-	if vmi.Status.MigrationState.TargetState == nil {
-		vmi.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{}
-	}
-	vmi.Status.MigrationState.SourceState.MigrationUID = migration.UID
-	vmi.Status.MigrationState.SourceState.VirtualMachineInstanceUID = &vmi.UID
-
-	vmi.Status.MigrationState.TargetState.SyncAddress = &migration.Spec.SendTo.ConnectURL
-}
-
-func (c *Controller) initializeMigrateTargetState(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) {
-	if vmi.Status.MigrationState == nil || vmi.IsMigrationCompleted() {
-		vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
-	}
-	if vmi.Status.MigrationState.TargetState == nil {
-		vmi.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{}
-	}
-	vmi.Status.MigrationState.TargetState.Pod = vmi.Status.MigrationState.TargetPod
-	vmi.Status.MigrationState.TargetState.Node = vmi.Status.MigrationState.TargetNode
-	vmi.Status.MigrationState.TargetState.MigrationUID = migration.UID
 }
 
 func (c *Controller) setupVMIRuntimeUser(vmi *virtv1.VirtualMachineInstance) *patch.PatchSet {
