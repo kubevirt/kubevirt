@@ -488,8 +488,15 @@ func (c *MigrationTargetController) execute(key string) error {
 		return err
 	}
 
-	if !vmiExists || vmi.IsFinal() || vmi.DeletionTimestamp != nil {
-		log.Log.V(4).Infof("vmi for key %v is terminating, final or does not exists", key)
+	if !vmiExists {
+		log.Log.V(4).Infof("vmi for key %v does not exists", key)
+		return nil
+	}
+
+	if vmi.IsFinal() || vmi.DeletionTimestamp != nil {
+		log.Log.V(4).Infof("vmi for key %v is terminating or final, doing only a best-effort cleanup", key)
+		_ = c.netConf.Teardown(vmi)
+		c.netStat.Teardown(vmi)
 		return nil
 	}
 
