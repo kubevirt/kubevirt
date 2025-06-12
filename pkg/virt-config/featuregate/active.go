@@ -77,6 +77,14 @@ const (
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 
 	DecentralizedLiveMigration = "DecentralizedLiveMigration"
+
+	// Owner: sig-storage / @alromeros
+	// Alpha: v1.6.0
+	//
+	// ObjectGraph introduces a new subresource for VMs and VMIs.
+	// This subresource returns a structured list of k8s objects that are related
+	// to the specified VM or VMI, enabling better dependency tracking.
+	ObjectGraph = "ObjectGraph"
 )
 
 func init() {

@@ -484,6 +484,28 @@ func (app *virtAPIApp) composeSubresources() {
 			Writes(v1.VirtualMachineInstanceFileSystemList{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceFileSystemList{}))
 
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("objectgraph")).
+			To(subresourceApp.VMIObjectGraph).
+			Consumes(restful.MIME_JSON).
+			Reads(v1.ObjectGraphOptions{}).
+			Produces(restful.MIME_JSON).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vmi-objectgraph").
+			Doc("Get graph of objects related to a Virtual Machine Instance").
+			Writes(v1.ObjectGraphNode{}).
+			Returns(http.StatusOK, "OK", v1.ObjectGraphNode{}))
+
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("objectgraph")).
+			To(subresourceApp.VMObjectGraph).
+			Consumes(restful.MIME_JSON).
+			Reads(v1.ObjectGraphOptions{}).
+			Produces(restful.MIME_JSON).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vm-objectgraph").
+			Doc("Get graph of objects related to a Virtual Machine").
+			Writes(v1.ObjectGraphNode{}).
+			Returns(http.StatusOK, "OK", v1.ObjectGraphNode{}))
+
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("addvolume")).
 			To(subresourceApp.VMIAddVolumeRequestHandler).
 			Consumes(mime.MIME_ANY).
@@ -658,6 +680,10 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
+						Name:       "virtualmachines/objectgraph",
+						Namespaced: true,
+					},
+					{
 						Name:       "virtualmachineinstances/guestosinfo",
 						Namespaced: true,
 					},
@@ -675,6 +701,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/removevolume",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachinesinstances/objectgraph",
 						Namespaced: true,
 					},
 					{

@@ -110,6 +110,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get",
+					"list",
 				},
 			},
 			{
