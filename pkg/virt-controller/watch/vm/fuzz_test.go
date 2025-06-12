@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
-var (
+const (
 	maxResources = 3
 	kvObjectNamespace = "kubevirt"
 	kvObjectName      = "kubevirt"
