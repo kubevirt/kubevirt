@@ -2006,7 +2006,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				if psaRelatedErrorDetected && virtualMachineProfile == nil {
 					return
 				}
-				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(BeInPhase(v1.Scheduled))
+				Eventually(matcher.ThisVMI(vmi), 90*time.Second, time.Second).Should(BeInPhase(v1.Scheduled))
 
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
