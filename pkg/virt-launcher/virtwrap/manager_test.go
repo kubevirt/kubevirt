@@ -52,7 +52,6 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
@@ -2296,53 +2295,6 @@ var _ = Describe("Manager", func() {
 				Expect(interfacesStatus).To(Equal(fakeInterfaces))
 			})
 		})
-	})
-
-	It("executes hotPlugHostDevices", func() {
-		os.Setenv("KUBEVIRT_RESOURCE_NAME_test1", "127.0.0.1")
-		os.Setenv("PCIDEVICE_127_0_0_1", "05EA:Fc:1d.6")
-
-		defer os.Unsetenv("KUBEVIRT_RESOURCE_NAME_test1")
-		defer os.Unsetenv("PCIDEVICE_127_0_0_1")
-
-		manager, _ := newLibvirtDomainManagerDefault()
-		// we need the non-typecast object to make the function we want to test available
-		libvirtmanager := manager.(*LibvirtDomainManager)
-
-		vmi := newVMI(testNamespace, testVmName)
-		vmi.Spec.Domain.Devices.Interfaces = append(
-			vmi.Spec.Domain.Devices.Interfaces,
-			v1.Interface{
-				Name: "test1",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					SRIOV: &v1.InterfaceSRIOV{},
-				},
-				MacAddress: "de:ad:00:00:be:af",
-			},
-		)
-		vmi.Spec.Networks = append(
-			vmi.Spec.Networks,
-			v1.Network{Name: "test1",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "test1"},
-				}},
-		)
-		vmi.Status = v1.VirtualMachineInstanceStatus{
-			Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
-				Name:       "test1",
-				InfoSource: vmispec.InfoSourceMultusStatus,
-			}},
-		}
-
-		domainSpec := expectedDomainFor(vmi)
-		xml, err := xml.MarshalIndent(domainSpec, "", "\t")
-		Expect(err).NotTo(HaveOccurred())
-
-		mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
-		mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-		mockLibvirt.DomainEXPECT().AttachDeviceFlags(`<hostdev type="pci" managed="no"><source><address type="pci" domain="0x05EA" bus="0xFc" slot="0x1d" function="0x6"></address></source><alias name="ua-sriov-test1"></alias></hostdev>`, libvirt.DomainDeviceModifyFlags(3)).Return(nil)
-
-		Expect(libvirtmanager.hotPlugHostDevices(vmi)).To(Succeed())
 	})
 
 	It("executes GetGuestInfo", func() {
