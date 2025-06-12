@@ -27,7 +27,7 @@ type ResourceRenderer struct {
 	vmRequests         k8sv1.ResourceList
 	calculatedLimits   k8sv1.ResourceList
 	calculatedRequests k8sv1.ResourceList
-	claims             []k8sv1.ResourceClaim
+	resourceClaims     []k8sv1.ResourceClaim
 }
 
 type resourcePredicate func(*v1.VirtualMachineInstance) bool
@@ -66,7 +66,7 @@ func NewResourceRenderer(vmLimits k8sv1.ResourceList, vmRequests k8sv1.ResourceL
 		vmRequests:         requests,
 		calculatedLimits:   map[k8sv1.ResourceName]resource.Quantity{},
 		calculatedRequests: map[k8sv1.ResourceName]resource.Quantity{},
-		claims:             []k8sv1.ResourceClaim{},
+		resourceClaims:     []k8sv1.ResourceClaim{},
 	}
 
 	for _, opt := range options {
@@ -90,7 +90,7 @@ func (rr *ResourceRenderer) Requests() k8sv1.ResourceList {
 }
 
 func (rr *ResourceRenderer) Claims() []k8sv1.ResourceClaim {
-	return rr.claims
+	return rr.resourceClaims
 }
 
 func (rr *ResourceRenderer) ResourceRequirements() k8sv1.ResourceRequirements {
@@ -271,23 +271,15 @@ func WithNetworkResources(networkToResourceMap map[string]string) ResourceRender
 	}
 }
 
-func WithGPUsDevicePlugin(gpus []v1.GPU) ResourceRendererOption {
+func WithGPUs(gpus []v1.GPU) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		resources := renderer.ResourceRequirements()
 		for _, gpu := range gpus {
+			// Handle device plugin GPUs
 			if gpu.DeviceName != "" {
 				requestResource(&resources, gpu.DeviceName)
 			}
-		}
-		copyResources(resources.Limits, renderer.calculatedLimits)
-		copyResources(resources.Requests, renderer.calculatedRequests)
-	}
-}
-
-func WithGPUsDRA(gpus []v1.GPU) ResourceRendererOption {
-	return func(renderer *ResourceRenderer) {
-		resources := renderer.ResourceRequirements()
-		for _, gpu := range gpus {
+			// Handle DRA GPUs
 			if gpu.ClaimRequest != nil && gpu.ClaimRequest.ClaimName != nil && gpu.ClaimRequest.RequestName != nil {
 				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
 					Name:    *gpu.ClaimRequest.ClaimName,
@@ -295,27 +287,21 @@ func WithGPUsDRA(gpus []v1.GPU) ResourceRendererOption {
 				})
 			}
 		}
-		copyResourceClaims(&resources, &renderer.claims)
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
+		copyResourceClaims(&resources, &renderer.resourceClaims)
 	}
 }
 
-func WithHostDevicesDevicePlugin(hostDevices []v1.HostDevice) ResourceRendererOption {
+func WithHostDevices(hostDevices []v1.HostDevice) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		resources := renderer.ResourceRequirements()
 		for _, hostDev := range hostDevices {
+			// Handle device plugin host devices
 			if hostDev.DeviceName != "" {
 				requestResource(&resources, hostDev.DeviceName)
 			}
-		}
-		copyResources(resources.Limits, renderer.calculatedLimits)
-		copyResources(resources.Requests, renderer.calculatedRequests)
-	}
-}
-
-func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
-	return func(renderer *ResourceRenderer) {
-		resources := renderer.ResourceRequirements()
-		for _, hostDev := range hostDevices {
+			// Handle DRA host devices
 			if hostDev.ClaimRequest != nil && hostDev.ClaimRequest.ClaimName != nil && hostDev.ClaimRequest.RequestName != nil {
 				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
 					Name:    *hostDev.ClaimRequest.ClaimName,
@@ -323,25 +309,10 @@ func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
 				})
 			}
 		}
-		copyResourceClaims(&resources, &renderer.claims)
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
+		copyResourceClaims(&resources, &renderer.resourceClaims)
 	}
-}
-
-func validateHostDeviceConfig(hostDev v1.HostDevice) error {
-	if hostDev.DeviceName != "" && hostDev.ClaimRequest != nil &&
-		hostDev.ClaimRequest.ClaimName != nil &&
-		hostDev.ClaimRequest.RequestName != nil {
-		return fmt.Errorf("HostDevice %s cannot specify both DeviceName and ClaimRequest", hostDev.Name)
-	}
-	return nil
-}
-
-func IsHostDeviceDevicePlugin(hostDev v1.HostDevice) bool {
-	return hostDev.DeviceName != "" && hostDev.ClaimRequest == nil
-}
-
-func IsHostDeviceDRA(hostDev v1.HostDevice) bool {
-	return hostDev.DeviceName == "" && hostDev.ClaimRequest != nil
 }
 
 func WithSEV() ResourceRendererOption {
