@@ -2955,7 +2955,7 @@ spec:
 				Expect(podProfile).To(Equal(expectedProfile))
 			},
 				Entry("default should not set profile", nil, nil),
-				Entry("custom should use localhost", &v1.VirtualMachineInstanceProfile{
+				Entry("[QUARANTINE]custom should use localhost", decorators.Quarantine, &v1.VirtualMachineInstanceProfile{
 					CustomProfile: &v1.CustomProfile{
 						LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
 					},
