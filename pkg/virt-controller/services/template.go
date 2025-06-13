@@ -693,17 +693,6 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		)
 	}
 
-	var machineType string
-	if vmi.Status.Machine != nil && vmi.Status.Machine.Type != "" {
-		machineType = vmi.Status.Machine.Type
-	} else if vmi.Spec.Domain.Machine != nil && vmi.Spec.Domain.Machine.Type != "" {
-		machineType = vmi.Spec.Domain.Machine.Type
-	}
-
-	if machineType != "" {
-		opts = append(opts, WithMachineType(machineType))
-	}
-
 	if topology.IsManualTSCFrequencyRequired(vmi) {
 		opts = append(opts, WithTSCTimer(vmi.Status.TopologyHints.TSCFrequency))
 	}

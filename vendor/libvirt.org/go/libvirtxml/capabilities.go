@@ -298,10 +298,9 @@ type CapsHostMemoryBandwidthMonitorFeature struct {
 }
 
 type CapsGuestMachine struct {
-	Name       string `xml:",chardata"`
-	MaxCPUs    int    `xml:"maxCpus,attr,omitempty"`
-	Deprecated string `xml:"deprecated,attr,omitempty"`
-	Canonical  string `xml:"canonical,attr,omitempty"`
+	Name      string `xml:",chardata"`
+	MaxCPUs   int    `xml:"maxCpus,attr,omitempty"`
+	Canonical string `xml:"canonical,attr,omitempty"`
 }
 
 type CapsGuestDomain struct {
