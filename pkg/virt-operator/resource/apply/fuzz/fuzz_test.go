@@ -69,7 +69,7 @@ import (
 	fuzz "github.com/google/gofuzz"
 )
 
-var (
+const (
 	Namespace = "ns"
 	resources = map[int]string{
 		0:  "Route",
