@@ -283,7 +283,7 @@ func RenderPVC(size *resource.Quantity, claimName, namespace, storageClass, acce
 	return pvc
 }
 
-func IsHotplugVolume(vol *virtv1.Volume) bool {
+func IsDeclarativeHotplugVolume(vol *virtv1.Volume) bool {
 	if vol == nil {
 		return false
 	}
@@ -294,6 +294,18 @@ func IsHotplugVolume(vol *virtv1.Volume) bool {
 	if volSrc.DataVolume != nil && volSrc.DataVolume.Hotpluggable {
 		return true
 	}
+
+	return false
+}
+
+func IsHotplugVolume(vol *virtv1.Volume) bool {
+	if vol == nil {
+		return false
+	}
+	if IsDeclarativeHotplugVolume(vol) {
+		return true
+	}
+	volSrc := vol.VolumeSource
 	if volSrc.MemoryDump != nil && volSrc.MemoryDump.PersistentVolumeClaimVolumeSource.Hotpluggable {
 		return true
 	}

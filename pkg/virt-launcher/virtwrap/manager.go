@@ -45,6 +45,7 @@ import (
 	"libvirt.org/go/libvirt"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -1182,7 +1183,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
-	if err := l.syncDiskHotplug(domain, oldSpec, dom, vmi); err != nil {
+	if err := l.syncDisks(domain, oldSpec, dom, vmi); err != nil {
 		return nil, err
 	}
 
@@ -1194,7 +1195,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	return oldSpec, nil
 }
 
-func (l *LibvirtDomainManager) syncDiskHotplug(
+func (l *LibvirtDomainManager) syncDisks(
 	domain *api.Domain,
 	spec *api.DomainSpec,
 	dom cli.VirDomain,
@@ -1244,6 +1245,33 @@ func (l *LibvirtDomainManager) syncDiskHotplug(
 		err = dom.AttachDeviceFlags(strings.ToLower(string(attachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("attaching device")
+			return err
+		}
+	}
+	// Look up all the disks to UPDATE
+	for _, updateDisk := range getUpdatedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
+		sourceFile := getSourceFile(updateDisk)
+		if sourceFile != "" {
+			allowUpdate, err := checkIfDiskReadyToUse(getSourceFile(updateDisk))
+			if err != nil {
+				return err
+			}
+			if !allowUpdate {
+				continue
+			}
+		}
+
+		logger.V(1).Infof("Updating disk %s, target %s", updateDisk.Alias.GetName(), updateDisk.Target.Device)
+
+		updateBytes, err := xml.Marshal(updateDisk)
+		if err != nil {
+			logger.Reason(err).Error("marshalling updated disk failed")
+			return err
+		}
+
+		err = dom.UpdateDeviceFlags(strings.ToLower(string(updateBytes)), affectDeviceLiveAndConfigLibvirtFlags)
+		if err != nil {
+			logger.Reason(err).Error("updating device")
 			return err
 		}
 	}
@@ -1406,17 +1434,14 @@ func isHotplugDisk(disk api.Disk) bool {
 func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	newDiskMap := make(map[string]api.Disk)
 	for _, disk := range newDisks {
-		file := getSourceFile(disk)
-		if file != "" {
-			newDiskMap[file] = disk
-		}
+		newDiskMap[disk.Target.Device] = disk
 	}
 	res := make([]api.Disk, 0)
 	for _, oldDisk := range oldDisks {
 		if !isHotplugDisk(oldDisk) {
 			continue
 		}
-		if _, ok := newDiskMap[getSourceFile(oldDisk)]; !ok {
+		if _, ok := newDiskMap[oldDisk.Target.Device]; !ok {
 			// This disk got detached, add it to the list
 			res = append(res, oldDisk)
 		}
@@ -1427,20 +1452,62 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	oldDiskMap := make(map[string]api.Disk)
 	for _, disk := range oldDisks {
-		file := getSourceFile(disk)
-		if file != "" {
-			oldDiskMap[file] = disk
-		}
+		oldDiskMap[disk.Target.Device] = disk
 	}
 	res := make([]api.Disk, 0)
 	for _, newDisk := range newDisks {
 		if !isHotplugDisk(newDisk) {
 			continue
 		}
-		if _, ok := oldDiskMap[getSourceFile(newDisk)]; !ok {
+		if _, ok := oldDiskMap[newDisk.Target.Device]; !ok {
 			// This disk got attached, add it to the list
 			res = append(res, newDisk)
 		}
+	}
+	return res
+}
+
+func isHotPlugDiskOrEmpty(disk api.Disk) bool {
+	return isHotplugDisk(disk) || getSourceFile(disk) == ""
+}
+
+func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
+	oldDiskMap := make(map[string]api.Disk)
+	for _, disk := range oldDisks {
+		oldDiskMap[disk.Target.Device] = disk
+	}
+	var res []api.Disk
+	for _, newDisk := range newDisks {
+		oldDisk, ok := oldDiskMap[newDisk.Target.Device]
+		if !ok {
+			continue
+		}
+		// only support cd-rom for now
+		if oldDisk.Device != "cdrom" || newDisk.Device != "cdrom" {
+			continue
+		}
+		if !isHotPlugDiskOrEmpty(newDisk) || !isHotPlugDiskOrEmpty(oldDisk) {
+			continue
+		}
+		if equality.Semantic.DeepEqual(oldDisk.Source, newDisk.Source) {
+			continue
+		}
+		newDiskCpy := oldDisk.DeepCopy()
+		if getSourceFile(newDisk) == "" {
+			newDiskCpy.Source = api.DiskSource{}
+		} else {
+			newDiskCpy.Source = *newDisk.Source.DeepCopy()
+		}
+
+		newDiskCpy.Type = "block"
+		if newDiskCpy.Source.File != "" {
+			newDiskCpy.Type = "file"
+		}
+		if newDiskCpy.Driver == nil {
+			newDiskCpy.Driver = &api.DiskDriver{}
+		}
+		newDiskCpy.Driver.Type = "raw"
+		res = append(res, *newDiskCpy)
 	}
 	return res
 }

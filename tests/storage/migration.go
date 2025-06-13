@@ -909,19 +909,13 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 	})
 
 	Context("Hotplug volumes", func() {
-		var fgDisabled bool
-		BeforeEach(func() {
-			fgDisabled = !checks.HasFeature(featuregate.HotplugVolumesGate)
-			if fgDisabled {
+
+		enableLegacyHotplug := func() {
+			// even if DeclarativeHotplugVolumesGate is enabled this takes precedence
+			if !checks.HasFeature(featuregate.HotplugVolumesGate) {
 				config.EnableFeatureGate(featuregate.HotplugVolumesGate)
 			}
-
-		})
-		AfterEach(func() {
-			if fgDisabled {
-				config.DisableFeatureGate(featuregate.HotplugVolumesGate)
-			}
-		})
+		}
 
 		waitForHotplugVol := func(vmName, ns, volName string) {
 			Eventually(func() string {
@@ -938,6 +932,11 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 		DescribeTable("should be able to add and remove a volume with the volume migration feature gate enabled", func(persist bool) {
 			const volName = "vol0"
+
+			if !persist {
+				enableLegacyHotplug()
+			}
+
 			ns := testsuite.GetTestNamespace(nil)
 			dv := createBlankDV(virtClient, ns, "1Gi")
 			vmi := libvmifact.NewCirros(
@@ -1004,7 +1003,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			)
 		},
 			Entry("with a persistent volume", true),
-			Entry("with an ephemeral volume", false),
+			Entry("with an ephemeral volume", Serial, false),
 		)
 
 		Context("should be able to volume migrate a VM", func() {

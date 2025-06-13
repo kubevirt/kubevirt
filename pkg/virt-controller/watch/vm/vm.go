@@ -64,6 +64,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -2892,26 +2893,26 @@ func validLiveUpdateDisks(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.Virtu
 	vols := storagetypes.GetVolumesByName(&vm.Spec.Template.Spec)
 	// Evaluate if any disk has changed or has been added
 	for _, newDisk := range vm.Spec.Template.Spec.Domain.Devices.Disks {
-		v := vols[newDisk.Name]
-		oldDisk, okOld := oldDisks[newDisk.Name]
+		newVolume, okNewVolume := vols[newDisk.Name]
+		oldDisk, okOldDisk := oldDisks[newDisk.Name]
 		switch {
 		// Changes for disks associated to a hotpluggable volume are valid
-		case storagetypes.IsHotplugVolume(v):
-			delete(oldDisks, v.Name)
+		case okNewVolume && storagetypes.IsHotplugVolume(newVolume):
+			delete(oldDisks, newDisk.Name)
 		// The disk has been freshly added
-		case !okOld:
+		case !okOldDisk:
 			return false
 		// The disk has changed
 		case !equality.Semantic.DeepEqual(*oldDisk, newDisk):
 			return false
 		default:
-			delete(oldDisks, v.Name)
+			delete(oldDisks, newDisk.Name)
 		}
 	}
 	// Evaluate if any disks were removed and they were hotplugged volumes
 	for _, d := range oldDisks {
-		v := oldVols[d.Name]
-		if !storagetypes.IsHotplugVolume(v) {
+		v, ok := oldVols[d.Name]
+		if ok && !storagetypes.IsHotplugVolume(v) {
 			return false
 		}
 	}
@@ -3116,6 +3117,10 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	if err := c.handleVolumeRequests(vmCopy, vmi); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), hotplugVolumeErrorReason), nil
+	}
+
+	if err := c.handleDeclarativeVolumeHotplug(vmCopy, vmi); err != nil {
+		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling declarative hotplug volumes: %v", err), hotplugVolumeErrorReason), nil
 	}
 
 	if err := memorydump.HandleRequest(c.clientset, vmCopy, vmi, c.pvcStore); err != nil {
@@ -3326,4 +3331,13 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 	log.Log.Object(vmi).Infof(logMsg)
 
 	return nil
+}
+
+func (c *Controller) handleDeclarativeVolumeHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if c.clusterConfig.HotplugVolumesEnabled() || !c.clusterConfig.DeclarativeHotplugVolumesEnabled() {
+		log.Log.Object(vm).Info("Declarative hotplug volumes are not enabled, skipping")
+		return nil
+	}
+
+	return storagehotplug.HandleDeclarativeVolumes(c.clientset, vm, vmi)
 }
