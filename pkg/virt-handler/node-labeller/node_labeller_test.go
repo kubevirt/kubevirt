@@ -164,6 +164,22 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(HaveKey(v1.SEVESLabel))
 	})
 
+	It("should add SEV-SNP label", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(v1.SEVSNPLabel))
+	})
+
+	It("should add SEV-SNP label with value set to true", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKeyWithValue(v1.SEVSNPLabel, "true"))
+	})
+
 	It("should add usable cpu model labels for the host cpu model", func() {
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
