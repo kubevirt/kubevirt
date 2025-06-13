@@ -38,6 +38,7 @@ go_library(
         "//pkg/virt-handler/dmetrics-manager:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
+        "//pkg/virt-handler/node-capabilities:go_default_library",
         "//pkg/virt-handler/node-labeller:go_default_library",
         "//pkg/virt-handler/rest:go_default_library",
         "//pkg/virt-handler/seccomp:go_default_library",
@@ -58,7 +59,6 @@ go_library(
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/certificate:go_default_library",
         "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
-        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )
 

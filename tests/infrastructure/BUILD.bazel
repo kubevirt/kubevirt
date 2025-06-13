@@ -26,7 +26,7 @@ go_library(
         "//pkg/libvmi/replicaset:go_default_library",
         "//pkg/util/tls:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
-        "//pkg/virt-handler/node-labeller/util:go_default_library",
+        "//pkg/virt-handler/node-labeller:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",

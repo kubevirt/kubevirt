@@ -17,37 +17,37 @@
  *
  */
 
-package nodelabeller
+package nodecapabilities
 
-import "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+// Ensure that there is a compile error should the struct not implement the archCapabilities interface anymore.
+var _ = archCapabilities(&archCapabilitiesS390X{})
 
-// Ensure that there is a compile error should the struct not implement the archLabeller interface anymore.
-var _ = archLabeller(&archLabellerS390X{})
+type archCapabilitiesS390X struct {
+	defaultArchCapabilities
+}
 
-type archLabellerS390X struct{}
-
-func (archLabellerS390X) defaultVendor() string {
+func (archCapabilitiesS390X) defaultVendor() string {
 	// On s390x the xml does not include a CPU Vendor, however there is only one company selling them anyway.
 	return "IBM"
 }
 
-func (archLabellerS390X) requirePolicy(policy string) bool {
+func (archCapabilitiesS390X) requirePolicy(policy string) bool {
 	// On s390x, the policy is not set
-	return policy == util.RequirePolicy || policy == ""
+	return policy == RequirePolicy || policy == ""
 }
 
-func (archLabellerS390X) hasHostSupportedFeatures() bool {
+func (archCapabilitiesS390X) hasHostSupportedFeatures() bool {
 	return true
 }
 
-func (archLabellerS390X) supportsHostModel() bool {
+func (archCapabilitiesS390X) supportsHostModel() bool {
 	return true
 }
 
-func (archLabellerS390X) supportsNamedModels() bool {
+func (archCapabilitiesS390X) supportsNamedModels() bool {
 	return true
 }
 
-func (archLabellerS390X) arch() string {
+func (archCapabilitiesS390X) arch() string {
 	return s390x
 }

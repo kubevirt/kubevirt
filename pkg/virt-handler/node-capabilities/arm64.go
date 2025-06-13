@@ -17,15 +17,15 @@
  *
  */
 
-package nodelabeller
+package nodecapabilities
 
-// Ensure that there is a compile error should the struct not implement the archLabeller interface anymore.
-var _ = archLabeller(&archLabellerARM64{})
+// Ensure that there is a compile error should the struct not implement the archCapabilities interface anymore.
+var _ = archCapabilities(&archCapabilitiesARM64{})
 
-type archLabellerARM64 struct {
-	defaultArchLabeller
+type archCapabilitiesARM64 struct {
+	defaultArchCapabilities
 }
 
-func (archLabellerARM64) arch() string {
+func (archCapabilitiesARM64) arch() string {
 	return arm64
 }
