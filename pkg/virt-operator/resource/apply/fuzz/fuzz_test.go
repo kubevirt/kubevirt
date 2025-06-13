@@ -317,7 +317,6 @@ func createRandomizedObject(fdp *fuzz.Fuzzer, resourceType string) runtime.Objec
 	// the fuzzer is not efficient, and we prefer to know about it
 	// rather than letting the fuzzer run, hence the panic.
 	panic("should not happen")
-	return nil
 }
 
 func createManifests(fdp *fuzz.Fuzzer) ([]byte, error) {
