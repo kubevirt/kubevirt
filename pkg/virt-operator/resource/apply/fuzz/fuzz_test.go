@@ -542,10 +542,7 @@ func FuzzReconciler(f *testing.F) {
 		clientset.EXPECT().RbacV1().Return(rbacClient.RbacV1()).AnyTimes()
 		clientset.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
 
-		secClient := &secv1fake.FakeSecurityV1{
-			Fake: &fake.NewSimpleClientset().Fake,
-		}
-		clientset.EXPECT().SecClient().Return(secClient).AnyTimes()
+		clientset.EXPECT().SecClient().Return(fake.NewSimpleClientset()).AnyTimes()
 		aggregatorclient := install.NewMockAPIServiceInterface(ctrl)
 		aggregatorclient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "apiservices"}, "whatever"))
 		aggregatorclient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(ctx context.Context, obj runtime.Object, opts metav1.CreateOptions) {})
