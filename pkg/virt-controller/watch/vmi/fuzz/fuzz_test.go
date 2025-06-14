@@ -1,20 +1,22 @@
-package vmi
+package fuzz
 
 import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	stdruntime "runtime"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	gfh "github.com/AdaLogics/go-fuzz-headers"
 	"github.com/golang/mock/gomock"
+	fuzz "github.com/google/gofuzz"
 	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
@@ -26,12 +28,15 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
+
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 )
 
 var (
@@ -71,23 +76,50 @@ func NewFakeClusterConfigUsingKVConfig(kv *virtv1.KubeVirt) (*virtconfig.Cluster
 	return NewFakeClusterConfigUsingKV(kv)
 }
 
+func catchKnownPanics() {
+	if r := recover(); r != nil {
+		var err string
+		switch r.(type) {
+		case string:
+			err = r.(string)
+		case stdruntime.Error:
+			err = r.(stdruntime.Error).Error()
+		case error:
+			err = r.(error).Error()
+		}
+		if err == "String must not be empty" {
+			return
+		} else {
+			panic(err)
+		}
+	}
+}
+
 // FuzzExecute add up to 3 virtual machine instances,
 // pods, persistent volume claims and data volumes
 // to the context and then runs the controller.
 func FuzzExecute(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte, numberOfVMI, numberOfPods, numberOfPVC, numberOfDataVolumes uint8) {
-		fdp := gfh.NewConsumer(data)
+		currentName := 1
+		fuzzConsumer := fuzz.NewFromGoFuzz(data)
 		VMIs := make([]*virtv1.VirtualMachineInstance, 0)
 		for _ = range int(numberOfVMI) % maxResources {
 			vmi := &virtv1.VirtualMachineInstance{}
-			err := fdp.GenerateStruct(vmi)
-			if err != nil {
-				return
+			fuzzConsumer.Fuzz(vmi)
+			if vmi.GetObjectMeta().GetName() == "" {
+				name := fmt.Sprintf("name-%d", currentName)
+				currentName += 1
+				vmi.Name = name
 			}
-			setLatestAnnotation, err := fdp.GetBool()
-			if err != nil {
-				return
+			if vmi.GetObjectMeta().GetNamespace() == "" {
+				vmi.Namespace = k8sv1.NamespaceDefault
 			}
+			vmi.TypeMeta = metav1.TypeMeta{
+				Kind:       "VirtualMachineInstance",
+				APIVersion: virtv1.SchemeGroupVersion.String(),
+			}
+			var setLatestAnnotation bool
+			fuzzConsumer.Fuzz(&setLatestAnnotation)
 			// This helps the vm overcome some checks early in the callgraph
 			if setLatestAnnotation {
 				kvcontroller.SetLatestApiVersionAnnotation(vmi)
@@ -97,27 +129,30 @@ func FuzzExecute(f *testing.F) {
 		pods := make([]*k8sv1.Pod, 0)
 		for _ = range int(numberOfPods) % maxResources {
 			pod := &k8sv1.Pod{}
-			err := fdp.GenerateStruct(pod)
-			if err != nil {
-				return
+			fuzzConsumer.Fuzz(pod)
+			pod.TypeMeta = metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: k8sv1.SchemeGroupVersion.String(),
 			}
 			pods = append(pods, pod)
 		}
 		PVCs := make([]*k8sv1.PersistentVolumeClaim, 0)
 		for _ = range int(numberOfPVC) % maxResources {
 			pvc := &k8sv1.PersistentVolumeClaim{}
-			err := fdp.GenerateStruct(pvc)
-			if err != nil {
-				return
+			fuzzConsumer.Fuzz(pvc)
+			pvc.TypeMeta = metav1.TypeMeta{
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: k8sv1.SchemeGroupVersion.String(),
 			}
 			PVCs = append(PVCs, pvc)
 		}
 		dataVolumes := make([]*cdiv1.DataVolume, 0)
 		for _ = range int(numberOfDataVolumes) % maxResources {
 			dataVolume := &cdiv1.DataVolume{}
-			err := fdp.GenerateStruct(dataVolume)
-			if err != nil {
-				return
+			fuzzConsumer.Fuzz(dataVolume)
+			dataVolume.TypeMeta = metav1.TypeMeta{
+				Kind:       "DataVolume",
+				APIVersion: cdiv1.SchemeGroupVersion.String(),
 			}
 			dataVolumes = append(dataVolumes, dataVolume)
 		}
@@ -135,15 +170,10 @@ func FuzzExecute(f *testing.F) {
 		log.Log.SetIOWriter(bufio.NewWriter(&b))
 
 		// Create the controller
-		var recorder *record.FakeRecorder
-		var fuzzVirtClientset *kubevirtfake.Clientset
-		var config *virtconfig.ClusterConfig
-		var controller *Controller
-		var mockQueue *testutils.MockWorkQueue[string]
-		var kubeClient *fake.Clientset
+		kubeClient := fake.NewSimpleClientset()
 
-		fuzzVirtClient := kubecli.NewMockKubevirtClient(gomock.NewController(t))
-		fuzzVirtClientset = kubevirtfake.NewSimpleClientset()
+		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(t))
+		virtClientset := kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, vmiCs := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
 
@@ -151,7 +181,7 @@ func FuzzExecute(f *testing.F) {
 		podInformer, podCs := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		dataVolumeInformer, dataVolumeCs := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		storageProfileInformer, storageProfileCs := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
-		recorder = record.NewFakeRecorder(100)
+		recorder := record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
 		kv := &virtv1.KubeVirt{
@@ -215,8 +245,66 @@ func FuzzExecute(f *testing.F) {
 		defer vmiCs.Shutdown()
 		defer vmCs.Shutdown()
 
-		controller, err := NewController(
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), fuzzVirtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
+		for _, vmi := range VMIs {
+			// index and queue or create:
+			var indexAndQueue bool
+			fuzzConsumer.Fuzz(&indexAndQueue)
+			if indexAndQueue {
+				err := vmiInformer.GetIndexer().Add(vmi)
+				if err != nil {
+					return
+				}
+			} else {
+				_, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				if err != nil {
+					return
+				}
+				virtClient.EXPECT().VirtualMachineInstance(vmi.ObjectMeta.Namespace).Return(
+					virtClientset.KubevirtV1().VirtualMachineInstances(vmi.ObjectMeta.Namespace),
+				).AnyTimes()
+			}
+		}
+		for _, pod := range pods {
+			// index and queue or create:
+			var indexAndQueue bool
+			fuzzConsumer.Fuzz(&indexAndQueue)
+			if indexAndQueue {
+				err := podInformer.GetIndexer().Add(pod)
+				if err != nil {
+					return
+				}
+			} else {
+				_, err := kubeClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+				if err != nil {
+					return
+				}
+			}
+		}
+		for _, pvc := range PVCs {
+			// index and queue or create:
+			var indexAndQueue bool
+			fuzzConsumer.Fuzz(&indexAndQueue)
+			if indexAndQueue {
+				err := pvcInformer.GetIndexer().Add(pvc)
+				if err != nil {
+					return
+				}
+			} else {
+				_, err := kubeClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+				if err != nil {
+					return
+				}
+			}
+		}
+		for _, dataVolume := range dataVolumes {
+			err := dataVolumeInformer.GetIndexer().Add(dataVolume)
+			if err != nil {
+				return
+			}
+		}
+
+		controller, err := vmi.NewController(
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			vmiInformer,
 			vmInformer,
 			podInformer,
@@ -224,7 +312,7 @@ func FuzzExecute(f *testing.F) {
 			migrationInformer,
 			storageClassInformer,
 			recorder,
-			fuzzVirtClient,
+			virtClient,
 			dataVolumeInformer,
 			storageProfileInformer,
 			cdiInformer,
@@ -244,58 +332,48 @@ func FuzzExecute(f *testing.F) {
 		}
 
 		// Shut down the default queue to avoid excessive memory usage.
-		controller.Queue.ShutDown()
+		defer controller.Queue.ShutDown()
 		// Wrap our workqueue to have a way to detect when we are done processing updates
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
+		mockQueue := testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 
 		// Set up mock client
-		kubeClient = fake.NewSimpleClientset()
-		fuzzVirtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		networkClient := fakenetworkclient.NewSimpleClientset()
+		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 
 		// Add the resources to the context
 		for _, vmi := range VMIs {
 			// index and queue or create:
-			indexAndQueue, err := fdp.GetBool()
-			if err != nil {
-				return
-			}
+			var indexAndQueue bool
+			fuzzConsumer.Fuzz(&indexAndQueue)
 			if indexAndQueue {
-				err := controller.vmiIndexer.Add(vmi)
-				if err != nil {
-					return
-				}
 				key, err := kvcontroller.KeyFunc(vmi)
 				if err != nil {
 					return
 				}
-				mockQueue.Add(key)
+				controller.Queue.Add(key)
+
 			} else {
-				_, err = fuzzVirtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				_, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				if err != nil {
 					return
 				}
-				fuzzVirtClient.EXPECT().VirtualMachineInstance(vmi.ObjectMeta.Namespace).Return(
-					fuzzVirtClientset.KubevirtV1().VirtualMachineInstances(vmi.ObjectMeta.Namespace),
-				).AnyTimes()
 			}
+			virtClient.EXPECT().VirtualMachineInstance(vmi.ObjectMeta.Namespace).Return(
+				virtClientset.KubevirtV1().VirtualMachineInstances(vmi.ObjectMeta.Namespace),
+			).AnyTimes()
 		}
 		for _, pod := range pods {
 			// index and queue or create:
-			indexAndQueue, err := fdp.GetBool()
-			if err != nil {
-				return
-			}
+			var indexAndQueue bool
+			fuzzConsumer.Fuzz(&indexAndQueue)
 			if indexAndQueue {
-				err := controller.podIndexer.Add(pod)
-				if err != nil {
-					return
-				}
 				key, err := kvcontroller.KeyFunc(pod)
 				if err != nil {
 					return
 				}
-				mockQueue.Add(key)
+				controller.Queue.Add(key)
 			} else {
 				_, err = kubeClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 				if err != nil {
@@ -305,20 +383,14 @@ func FuzzExecute(f *testing.F) {
 		}
 		for _, pvc := range PVCs {
 			// index and queue or create:
-			indexAndQueue, err := fdp.GetBool()
-			if err != nil {
-				return
-			}
+			var indexAndQueue bool
+			fuzzConsumer.Fuzz(&indexAndQueue)
 			if indexAndQueue {
-				err := controller.pvcIndexer.Add(pvc)
-				if err != nil {
-					return
-				}
 				key, err := kvcontroller.KeyFunc(pvc)
 				if err != nil {
 					return
 				}
-				mockQueue.Add(key)
+				controller.Queue.Add(key)
 			} else {
 				_, err = kubeClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 				if err != nil {
@@ -327,21 +399,35 @@ func FuzzExecute(f *testing.F) {
 			}
 		}
 		for _, dataVolume := range dataVolumes {
-			err := controller.dataVolumeIndexer.Add(dataVolume)
-			if err != nil {
-				return
-			}
 			key, err := kvcontroller.KeyFunc(dataVolume)
 			if err != nil {
 				return
 			}
-			mockQueue.Add(key)
+			controller.Queue.Add(key)
 		}
-		if mockQueue.Len() == 0 {
+		if controller.Queue.Len() == 0 {
 			return
 		}
 
 		// Run the controller
-		controller.Execute()
+		defer catchKnownPanics()
+		for i := controller.Queue.Len(); i > 0; i-- {
+			controller.Execute()
+		}
+
 	})
+}
+
+func validateNetVMISpecStub(causes ...metav1.StatusCause) func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []metav1.StatusCause {
+	return func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []metav1.StatusCause {
+		return causes
+	}
+}
+
+type stubNetworkAnnotationsGenerator struct {
+	annotations map[string]string
+}
+
+func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
+	return s.annotations
 }

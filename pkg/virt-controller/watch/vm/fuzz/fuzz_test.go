@@ -1,32 +1,37 @@
-package vm
+package fuzz
 
 import (
 	"bufio"
 	"bytes"
 	"context"
-	"k8s.io/apimachinery/pkg/util/rand"
+	"fmt"
 	stdruntime "runtime"
 	"testing"
+	"time"
 
-	gfh "github.com/AdaLogics/go-fuzz-headers"
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	"github.com/golang/mock/gomock"
+	fuzz "github.com/google/gofuzz"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	k8sTesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"k8s.io/client-go/tools/record"
-	v1 "kubevirt.io/api/core/v1"
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	KVv1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 
 	framework "k8s.io/client-go/tools/cache/testing"
 
@@ -36,7 +41,7 @@ import (
 )
 
 const (
-	maxResources = 3
+	maxResources      = 3
 	kvObjectNamespace = "kubevirt"
 	kvObjectName      = "kubevirt"
 )
@@ -76,27 +81,117 @@ func NewFakeClusterConfigUsingKVConfig(kv *KVv1.KubeVirt) (*virtconfig.ClusterCo
 // to the context and then runs the controller.
 func FuzzExecute(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte, numberOfVMs uint8) {
-		fdp := gfh.NewConsumer(data)
+		if len(data) < 100 {
+			return
+		}
+		currentName := 1
+		fuzzConsumer := fuzz.NewFromGoFuzz(data)
 
-		//vm *v1.VirtualMachine
-		vms := make([]*v1.VirtualMachine)
+		namespaceInformer, nsCs := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+		vms := make([]*v1.VirtualMachine, 0)
 		for range int(numberOfVMs) % maxResources {
-			vm := &v1.VirtualMachine{}
-			err := fdp.GenerateStruct(vm)
-			if err != nil {
-				return
+			virtualMachine := &v1.VirtualMachine{}
+			fuzzConsumer.Fuzz(virtualMachine)
+			virtualMachine.TypeMeta = metav1.TypeMeta{
+				Kind:       "VirtualMachine",
+				APIVersion: k8sv1.SchemeGroupVersion.String(),
 			}
-			vm.Namespace = metav1.NamespaceDefault
+			if virtualMachine.GetObjectMeta().GetName() == "" {
+				name := fmt.Sprintf("name-%d", currentName)
+				currentName += 1
+				virtualMachine.Name = name
+			}
+			if virtualMachine.GetObjectMeta().GetNamespace() == "" {
+				virtualMachine.Namespace = k8sv1.NamespaceDefault
+			}
 
-			setLatestAnnotation, err := fdp.GetBool()
-			if err != nil {
-				return
+			if virtualMachine.Spec.Template == nil {
+				virtualMachine.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   virtualMachine.ObjectMeta.Name,
+						Labels: virtualMachine.ObjectMeta.Labels,
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{
+								Cores: 4,
+							},
+						},
+					},
+				}
 			}
+
+			if virtualMachine.Status.StartFailure != nil {
+				oldRetry := time.Now().Add(1 * time.Millisecond)
+				virtualMachine.Status.StartFailure = &v1.VirtualMachineStartFailure{
+					LastFailedVMIUID:     "123",
+					ConsecutiveFailCount: 1,
+					RetryAfterTimestamp: &metav1.Time{
+						Time: oldRetry,
+					},
+				}
+			}
+			volRequests := make([]v1.VirtualMachineVolumeRequest, 0)
+			for _, request := range virtualMachine.Status.VolumeRequests {
+				hpSource := v1.HotplugVolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name:         fmt.Sprintf("hotplug-dv-%d", currentName),
+						Hotpluggable: true,
+					},
+				}
+				currentName += 1
+				disk := v1.Disk{
+					Name: fmt.Sprintf("hotplug-dv-%d", currentName),
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+					},
+				}
+				currentName += 1
+
+				request = v1.VirtualMachineVolumeRequest{
+					AddVolumeOptions: &v1.AddVolumeOptions{
+						Name:         fmt.Sprintf("hotplug-dv-%d", currentName),
+						VolumeSource: &hpSource,
+						Disk:         &disk,
+					},
+				}
+				currentName += 1
+
+				if request.AddVolumeOptions == nil {
+					request.AddVolumeOptions = &v1.AddVolumeOptions{
+						Name:         fmt.Sprintf("hotplug-dv-%d", currentName),
+						VolumeSource: &hpSource,
+						Disk:         &disk,
+					}
+					currentName += 1
+					volRequests = append(volRequests, request)
+					continue
+				}
+				if request.AddVolumeOptions.VolumeSource == nil {
+					request.AddVolumeOptions.VolumeSource = &hpSource
+					volRequests = append(volRequests, request)
+					continue
+				}
+			}
+			virtualMachine.Status.VolumeRequests = volRequests
+
+			var setLatestAnnotation bool
+			fuzzConsumer.Fuzz(&setLatestAnnotation)
 			// This helps the vm overcome some checks early in the callgraph
 			if setLatestAnnotation {
-				virtcontroller.SetLatestApiVersionAnnotation(vm)
+				virtcontroller.SetLatestApiVersionAnnotation(virtualMachine)
 			}
-			vms = append(vms, vm)
+			ns := &k8sv1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: virtualMachine.Namespace,
+				},
+			}
+			if err := namespaceInformer.GetStore().Add(ns); err != nil {
+				panic(err)
+				continue
+			}
+			defer namespaceInformer.GetStore().Delete(virtualMachine.Namespace)
+			vms = append(vms, virtualMachine)
 		}
 		// There is no point in continuing
 		// if we have not created any resources.
@@ -110,21 +205,33 @@ func FuzzExecute(f *testing.F) {
 		// if you need to prepend reactor it need to not handle the object or use the
 		// modify function
 		virtFakeClient.PrependReactor("update", "virtualmachines",
-			UpdateReactor(SubresourceHandle, virtFakeClient.Tracker(), ModifyStatusOnlyVM))
+			vm.UpdateReactor(vm.SubresourceHandle, virtFakeClient.Tracker(), vm.ModifyStatusOnlyVM))
 		virtFakeClient.PrependReactor("update", "virtualmachines",
-			UpdateReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
+			vm.UpdateReactor(vm.Handle, virtFakeClient.Tracker(), vm.ModifyVM))
 
 		virtFakeClient.PrependReactor("patch", "virtualmachines",
-			PatchReactor(SubresourceHandle, virtFakeClient.Tracker(), ModifyStatusOnlyVM))
+			vm.PatchReactor(vm.SubresourceHandle, virtFakeClient.Tracker(), vm.ModifyStatusOnlyVM))
 		virtFakeClient.PrependReactor("patch", "virtualmachines",
-			PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
+			vm.PatchReactor(vm.Handle, virtFakeClient.Tracker(), vm.ModifyVM))
+
+		for _, virtualMachine := range vms {
+			virtClient.EXPECT().VirtualMachineInstance(virtualMachine.Namespace).Return(
+				virtFakeClient.KubevirtV1().VirtualMachineInstances(virtualMachine.Namespace),
+			).AnyTimes()
+		}
 
 		dataVolumeInformer, dvCs := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		dataSourceInformer, dsCs := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 		vmiInformer, viCs := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 		vmInformer, vCs := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 		pvcInformer, piCs := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
-		namespaceInformer, nsCs := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+
+		for _, virtualMachine := range vms {
+			err := vmInformer.GetIndexer().Add(virtualMachine)
+			if err != nil {
+				return
+			}
+		}
 
 		// When running this fuzzer on OSS-Fuzz, we need to shut down
 		// the controller sources to avoid consuming too much memory.
@@ -188,8 +295,8 @@ func FuzzExecute(f *testing.F) {
 		defer cs1.Shutdown()
 		defer cs2.Shutdown()
 		defer kubeVirtInformerStore.Delete(kv)
-		defer func(){
-				for _, obj := range crdInformer.GetStore().List() {
+		defer func() {
+			for _, obj := range crdInformer.GetStore().List() {
 				err := crdInformer.GetStore().Delete(obj)
 				if err != nil {
 					panic(err)
@@ -197,7 +304,7 @@ func FuzzExecute(f *testing.F) {
 			}
 		}()
 
-		controller, err := NewController(vmiInformer,
+		controller, err := vm.NewController(vmiInformer,
 			vmInformer,
 			dataVolumeInformer,
 			dataSourceInformer,
@@ -214,18 +321,12 @@ func FuzzExecute(f *testing.F) {
 			return
 		}
 		// Shutdown default queue to avoid memory creep
-		controller.Queue.ShutDown()
+		defer controller.Queue.ShutDown()
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue := testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 
-		// Set up mock client
-		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(
-			virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault),
-		).AnyTimes()
-
-		
 		// TODO Remove GeneratedKubeVirtClient (like in vm_test.go)
 		virtClient.EXPECT().GeneratedKubeVirtClient().Return(virtFakeClient).AnyTimes()
 
@@ -240,30 +341,23 @@ func FuzzExecute(f *testing.F) {
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 		// Add the resources to the context
-		for _, vm := range vms {
+		for _, virtualMachine := range vms {
 			// We can create the VM by way of the client or put the vm in the queue.
-			create, err := fdp.GetBool() 
-			if err != nil {
-				return
-			}
+			var create bool
+			fuzzConsumer.Fuzz(&create)
 			if create {
-				_, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+				_, err := virtFakeClient.KubevirtV1().VirtualMachines(virtualMachine.Namespace).Create(context.Background(), virtualMachine, metav1.CreateOptions{})
 				if err != nil {
 					return
 				}
-				continue
 			}
-			key, err := virtcontroller.KeyFunc(vm)
+			key, err := virtcontroller.KeyFunc(virtualMachine)
 			if err != nil {
 				return
 			}
 			controller.Queue.Add(key)
-			err = controller.vmIndexer.Add(vm)
-			if err != nil {
-				return
-			}
-			virtClient.EXPECT().VirtualMachine(vm.Namespace).Return(
-				virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace),
+			virtClient.EXPECT().VirtualMachine(virtualMachine.Namespace).Return(
+				virtFakeClient.KubevirtV1().VirtualMachines(virtualMachine.Namespace),
 			).AnyTimes()
 		}
 		// An empty queue will block the fuzzer and it will timeout
@@ -275,6 +369,8 @@ func FuzzExecute(f *testing.F) {
 		log.Log.SetIOWriter(bufio.NewWriter(&b))
 
 		// Run the controller
-		controller.Execute()
+		for i := controller.Queue.Len(); i > 0; i-- {
+			controller.Execute()
+		}
 	})
 }

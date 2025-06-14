@@ -1,0 +1,6 @@
+go test fuzz v1
+[]byte("4\x03+Zz\xde")
+byte('\n')
+byte('E')
+byte('\x00')
+byte('7')
