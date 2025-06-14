@@ -253,10 +253,10 @@ func FuzzExecute(f *testing.F) {
 			},
 		}
 		if namespaceInformer.GetStore().Add(ns1) != nil {
-			panic("Should not happen")
+			t.Fatal("Should not happen")
 		}
 		if namespaceInformer.GetStore().Add(ns2) != nil {
-			panic("Should not happen")
+			t.Fatal("Should not happen")
 		}
 		defer namespaceInformer.GetStore().Delete(ns1)
 		defer namespaceInformer.GetStore().Delete(ns2)
