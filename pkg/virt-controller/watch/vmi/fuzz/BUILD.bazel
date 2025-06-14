@@ -20,7 +20,6 @@ go_test(
         "//staging/src/kubevirt.io/client-go/kubevirt/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/networkattachmentdefinitionclient/fake:go_default_library",
-        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/google/gofuzz:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

@@ -61,8 +61,6 @@ go_test(
     name = "go_default_test",
     srcs = [
         "firmware_test.go",
-        "patchreactor.go",
-        "updatereactor.go",
         "vm_suite_test.go",
         "vm_test.go",
     ],
@@ -96,7 +94,6 @@ go_test(
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",
-        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/google/uuid:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
