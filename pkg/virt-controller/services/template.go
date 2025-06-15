@@ -356,7 +356,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		userId = util.NonRootUID
 	}
 
-	gracePeriodSeconds := gracePeriodInSeconds(vmi)
+	// Pad the virt-launcher grace period.
+	// Ideally we want virt-handler to handle tearing down
+	// the vmi without virt-launcher's termination forcing
+	// the vmi down.
+	gracePeriodSeconds := gracePeriodInSeconds(vmi) + int64(15)
 
 	imagePullSecrets := imgPullSecrets(vmi.Spec.Volumes...)
 	if util.HasKernelBootContainerImage(vmi) && vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret != "" {
@@ -369,13 +373,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			Name: t.imagePullSecret,
 		})
 	}
-
-	// Pad the virt-launcher grace period.
-	// Ideally we want virt-handler to handle tearing down
-	// the vmi without virt-launcher's termination forcing
-	// the vmi down.
-	gracePeriodSeconds = gracePeriodSeconds + int64(15)
-	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	networkToResourceMap, err := multus.NetworkToResource(t.virtClient, vmi)
 	if err != nil {
@@ -624,7 +621,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			Hostname:                      hostName,
 			Subdomain:                     vmi.Spec.Subdomain,
 			SecurityContext:               computePodSecurityContext(vmi, podSeccompProfile),
-			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
+			TerminationGracePeriodSeconds: &gracePeriodSeconds,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
 			InitContainers:                initContainers,
