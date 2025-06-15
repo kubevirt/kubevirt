@@ -834,6 +834,72 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					}
 				})
 			})
+			It("should not include pending volumes", func() {
+				blankDv := func() *cdiv1.DataVolume {
+					return libdv.NewDataVolume(
+						libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+						libdv.WithBlankImageSource(),
+						libdv.WithStorage(
+							libdv.StorageWithStorageClass(snapshotStorageClass),
+							libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+						),
+						libdv.WithForceBindAnnotation(),
+					)
+				}
+
+				Expect(err).ToNot(HaveOccurred())
+				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+				vmi.Namespace = testsuite.GetTestNamespace(nil)
+				vm = libvmi.NewVirtualMachine(vmi)
+				vm, vmi = createAndStartVM(vm)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(300),
+				)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Adding a pending disk to the VM (non-hotplug)")
+				pendingDV := blankDv()
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).
+					Create(context.Background(), pendingDV, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				patchset := patch.New(
+					patch.WithTest("/spec/template/spec/volumes", vm.Spec.Template.Spec.Volumes),
+					patch.WithTest("/spec/template/spec/domain/devices/disks", vm.Spec.Template.Spec.Domain.Devices.Disks),
+				)
+				libstorage.AddDataVolume(vm, pendingDV.Name, pendingDV)
+				patchset.AddOption(patch.WithReplace("/spec/template/spec/volumes", vm.Spec.Template.Spec.Volumes))
+				patchset.AddOption(patch.WithReplace("/spec/template/spec/domain/devices/disks", vm.Spec.Template.Spec.Domain.Devices.Disks))
+				patchBytes, err := patchset.GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Create Snapshot")
+				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
+				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				contentVMTemplate := content.Spec.Source.VirtualMachine.Spec.Template
+				contentVolumeBackups := content.Spec.VolumeBackups
+
+				Expect(containsVolume(updatedVM.Spec.Template.Spec.Volumes, pendingDV.Name)).To(BeTrue())
+				Expect(containsDisk(updatedVM.Spec.Template.Spec.Domain.Devices.Disks, pendingDV.Name)).To(BeTrue())
+
+				Expect(containsVolume(contentVMTemplate.Spec.Volumes, pendingDV.Name)).To(BeFalse())
+				Expect(containsDisk(contentVMTemplate.Spec.Domain.Devices.Disks, pendingDV.Name)).To(BeFalse())
+
+				Expect(containsVolumeBackup(contentVolumeBackups, pendingDV.Name)).To(BeFalse())
+			})
 		})
 
 		Context("With more complicated VM", func() {
@@ -1618,4 +1684,32 @@ func createDenyVolumeSnapshotCreateWebhook(virtClient kubecli.KubevirtClient, vm
 	wh, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return wh
+}
+
+func containsVolume(volumes []v1.Volume, name string) bool {
+	for _, vol := range volumes {
+		if vol.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func containsDisk(disks []v1.Disk, name string) bool {
+	for _, disk := range disks {
+		if disk.Name == name {
+			return true
+		}
+	}
+	return false
+
+}
+
+func containsVolumeBackup(volumeBackups []snapshotv1.VolumeBackup, name string) bool {
+	for _, volumeBackup := range volumeBackups {
+		if volumeBackup.VolumeName == name {
+			return true
+		}
+	}
+	return false
 }
