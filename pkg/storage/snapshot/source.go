@@ -389,9 +389,9 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 			return snapshotv1.SourceSpec{}, err
 		}
 		vmCpy.ObjectMeta = metaObj
-
-		vmCpy.Spec.Template.Spec.Volumes = s.vm.Spec.Template.Spec.Volumes
-		vmCpy.Spec.Template.Spec.Domain.Devices.Disks = s.vm.Spec.Template.Spec.Domain.Devices.Disks
+		if err := s.handleVolumes(vmCpy); err != nil {
+			return snapshotv1.SourceSpec{}, err
+		}
 	} else {
 		vmCpy.ObjectMeta = metaObj
 		vmCpy.Spec = *s.vm.Spec.DeepCopy()
@@ -405,6 +405,55 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 	return snapshotv1.SourceSpec{
 		VirtualMachine: vmCpy,
 	}, nil
+}
+
+func (s *vmSnapshotSource) handleVolumes(vmCpy *snapshotv1.VirtualMachine) error {
+	vmi, exists, err := s.controller.getVMI(s.vm)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("can't get vm revision, vmi doesn't exist")
+	}
+
+	vmVolMap := map[string]kubevirtv1.Volume{}
+	for _, vol := range s.vm.Spec.Template.Spec.Volumes {
+		vmVolMap[vol.Name] = vol
+	}
+
+	vmDiskMap := map[string]kubevirtv1.Disk{}
+	for _, disk := range s.vm.Spec.Template.Spec.Domain.Devices.Disks {
+		if _, ok := vmVolMap[disk.Name]; ok {
+			vmDiskMap[disk.Name] = disk
+		}
+	}
+
+	vmiVolNames := sets.New[string]()
+	for _, vol := range vmi.Spec.Volumes {
+		vmiVolNames.Insert(vol.Name)
+	}
+
+	vmCpyVolNames := sets.New[string]()
+	for _, vol := range vmCpy.Spec.Template.Spec.Volumes {
+		vmCpyVolNames.Insert(vol.Name)
+	}
+
+	// Persistent Hotplug
+	for name := range vmDiskMap {
+		if vmiVolNames.Has(name) && !vmCpyVolNames.Has(name) {
+			vmCpy.Spec.Template.Spec.Volumes = append(vmCpy.Spec.Template.Spec.Volumes, vmVolMap[name])
+			vmCpy.Spec.Template.Spec.Domain.Devices.Disks = append(vmCpy.Spec.Template.Spec.Domain.Devices.Disks, vmDiskMap[name])
+		}
+	}
+
+	// Memory Dump
+	for name, vol := range vmVolMap {
+		if vol.MemoryDump != nil && !vmCpyVolNames.Has(name) {
+			vmCpy.Spec.Template.Spec.Volumes = append(vmCpy.Spec.Template.Spec.Volumes, vol)
+		}
+	}
+
+	return nil
 }
 
 func (s *vmSnapshotSource) Online() bool {

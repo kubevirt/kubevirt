@@ -7,7 +7,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/watcher"
 
@@ -30,7 +29,6 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -566,12 +564,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				}, 30*time.Second, 2*time.Second).Should(BeEmpty())
 			})
 
-			DescribeTable("should succeed online snapshot with hot plug disk", func(withEphemeralHotplug bool) {
-				if withEphemeralHotplug {
-					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
-					kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
-				}
-
+			It("should succeed online snapshot with hot plug disk", func() {
 				var vmi *v1.VirtualMachineInstance
 				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 				vm, vmi = createAndStartVM(vm)
@@ -580,11 +573,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 				By("Add persistent hotplug disk")
 				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
-				var tempVolName string
-				if withEphemeralHotplug {
-					By("Add temporary hotplug disk")
-					tempVolName = AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
-				}
+
 				By("Create Snapshot")
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -606,8 +595,6 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				for _, volume := range contentVMTemplate.Spec.Volumes {
 					if volume.Name == persistVolName {
 						foundHotPlug = true
-					} else if volume.Name == tempVolName {
-						foundTempHotPlug = true
 					}
 				}
 				Expect(foundHotPlug).To(BeTrue())
@@ -644,10 +631,8 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					}
 					Expect(found).To(BeTrue())
 				}
-			},
-				Entry("[test_id:7472] with ephemeral hotplug disk", Serial, true),
-				Entry("without ephemeral hotplug disk", false),
-			)
+
+			})
 
 			It("should report appropriate event when freeze fails", func() {
 				// Activate SELinux and reboot machine so we can force fsfreeze failure
