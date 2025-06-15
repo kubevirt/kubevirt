@@ -952,6 +952,11 @@ var _ = Describe("Snapshot controlleer", func() {
 						}},
 					},
 				})
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "disk2",
+				})
+				vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+				vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
 				// the content source will have the a combination of the vm revision, the vmi and the vm volumes
 				vm.ObjectMeta.Generation = 2
 				pvcs := createPersistentVolumeClaims()
