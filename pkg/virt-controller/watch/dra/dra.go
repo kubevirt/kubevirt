@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	k8sv1 "k8s.io/api/core/v1"
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -37,7 +38,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 )
@@ -46,6 +46,8 @@ const (
 	deleteNotifFailed             = "Failed to process delete notification"
 	tombstoneGetObjectErrFmt      = "couldn't get object from tombstone %+v"
 	draAttributesAvailableMessage = "All DRA device have been allocated and attributes have been reconciled"
+
+	indexByNodeName = "byNodeName"
 )
 
 type DeviceInfo struct {
@@ -61,11 +63,11 @@ type DRAStatusController struct {
 	clientset   kubecli.KubevirtClient
 
 	podIndexer           cache.Indexer
-	vmiIndexer           cache.Indexer
-	resourceClaimIndexer cache.Indexer
 	resourceSliceIndexer cache.Indexer
+	vmiIndexer           cache.Store
+	resourceClaimIndexer cache.Store
 
-	Queue workqueue.RateLimitingInterface
+	Queue workqueue.TypedRateLimitingInterface[string]
 
 	hasSynced func() bool
 }
@@ -84,11 +86,14 @@ func NewDRAStatusController(
 		clientset:   clientset,
 
 		podIndexer:           podInformer.GetIndexer(),
-		vmiIndexer:           vmiInformer.GetIndexer(),
-		resourceClaimIndexer: resourceClaimInformer.GetIndexer(),
+		vmiIndexer:           vmiInformer.GetStore(),
+		resourceClaimIndexer: resourceClaimInformer.GetStore(),
 		resourceSliceIndexer: resourceSliceInformer.GetIndexer(),
 
-		Queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "dra-status-controller"),
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "dra-status-controller"},
+		),
 	}
 
 	c.hasSynced = func() bool {
@@ -114,15 +119,26 @@ func NewDRAStatusController(
 		return nil, err
 	}
 
+	err = c.resourceSliceIndexer.AddIndexers(map[string]cache.IndexFunc{
+		indexByNodeName: indexResourceSliceByNodeName,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
+
 func (c *DRAStatusController) enqueueVirtualMachine(obj interface{}) {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 	logger := log.Log.Object(vmi)
-	if vmi.Status.Phase == virtv1.Scheduled || vmi.Status.Phase == virtv1.Running {
+	if controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
+		virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable,
+		k8sv1.ConditionTrue) {
 		logger.V(6).Infof("skipping enqueing vmi to dra status controller queue")
 		return
 	}
+
 	key, err := controller.KeyFunc(vmi)
 	if err != nil {
 		logger.Object(vmi).Reason(err).Error("Failed to extract key from virtualmachine.")
@@ -240,11 +256,6 @@ func (c *DRAStatusController) updatePod(old interface{}, cur interface{}) {
 		}
 	}
 
-	if curPod.Status.Phase == k8sv1.PodRunning {
-		log.Log.V(6).Object(curPod).Infof("skipping enqueing vmi to dra status controller queue")
-		return
-	}
-
 	vmi := c.resolveControllerRef(curPod.Namespace, curControllerRef)
 	if vmi == nil {
 		return
@@ -320,7 +331,7 @@ func (c *DRAStatusController) Execute() bool {
 	//defer virtControllerVMIWorkQueueTracer.StopTrace(key.(string))
 
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
@@ -342,6 +353,9 @@ func (c *DRAStatusController) execute(key string) error {
 		return nil
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
+	if vmi == nil {
+		return fmt.Errorf("nil vmi reference")
+	}
 	logger := log.Log.Object(vmi)
 
 	if vmi.DeletionTimestamp != nil {
@@ -359,9 +373,6 @@ func (c *DRAStatusController) execute(key string) error {
 	if pod == nil {
 		return fmt.Errorf("nil pod reference for vmi")
 	}
-	if vmi == nil {
-		return fmt.Errorf("nil vmi reference")
-	}
 
 	err = c.updateStatus(logger, vmi, pod)
 	if err != nil {
@@ -373,7 +384,7 @@ func (c *DRAStatusController) execute(key string) error {
 }
 
 func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-	if !c.isPodResourceClaimStatusFilled(pod) {
+	if !c.isPodResourceClaimStatusFilled(logger, pod) {
 		logger.V(4).Infof("Waiting for pod %s/%s resource claim status to be filled", pod.Namespace, pod.Name)
 		return nil
 	}
@@ -419,10 +430,9 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *virt
 					return err
 				}
 			}
-		} else {
-			logger.V(4).Infof("Not all DRA GPUs are reconciled yet, waiting for complete status")
+			return nil
 		}
-		return nil
+		logger.V(4).Infof("Not all DRA GPUs are reconciled yet, waiting for complete status")
 	}
 
 	ps := patch.New(
@@ -446,30 +456,23 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *virt
 
 // isAllDRAGPUsReconciled checks if all GPUs with DRA in the spec have corresponding status entries with attributes
 func isAllDRAGPUsReconciled(vmi *virtv1.VirtualMachineInstance, status *virtv1.DeviceStatus) bool {
-	// Count GPUs with DRA in spec
-	gpusWithDRACount := 0
 	draGPUNames := make(map[string]struct{})
-
 	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
 		if gpu.ClaimRequest != nil {
-			gpusWithDRACount++
 			draGPUNames[gpu.Name] = struct{}{}
 		}
 	}
-
-	if gpusWithDRACount == 0 {
-		return true // No DRA GPUs to reconcile
+	if len(draGPUNames) == 0 {
+		return true
 	}
 
-	// Check if status has entries for all DRA GPUs
 	reconciledCount := 0
 	if status != nil {
 		for _, gpuStatus := range status.GPUStatuses {
 			if _, isDRAGPU := draGPUNames[gpuStatus.Name]; !isDRAGPU {
-				continue // Skip non-DRA GPUs
+				continue
 			}
 
-			// Check if this GPU is fully reconciled (has attributes)
 			if gpuStatus.DeviceResourceClaimStatus != nil &&
 				gpuStatus.DeviceResourceClaimStatus.ResourceClaimName != nil &&
 				gpuStatus.DeviceResourceClaimStatus.Name != nil &&
@@ -480,19 +483,33 @@ func isAllDRAGPUsReconciled(vmi *virtv1.VirtualMachineInstance, status *virtv1.D
 			}
 		}
 	}
-
-	return reconciledCount == gpusWithDRACount
+	return reconciledCount == len(draGPUNames)
 }
 
-func (c *DRAStatusController) isPodResourceClaimStatusFilled(pod *k8sv1.Pod) bool {
+func (c *DRAStatusController) isPodResourceClaimStatusFilled(logger *log.FilteredLogger, pod *k8sv1.Pod) bool {
 	if pod.Status.ResourceClaimStatuses == nil {
 		return false
 	}
-	return len(pod.Spec.ResourceClaims) == len(pod.Status.ResourceClaimStatuses)
+	var want, got []string
+	for _, status := range pod.Status.ResourceClaimStatuses {
+		if status.ResourceClaimName != nil {
+			got = append(got, status.Name)
+		}
+	}
+	for _, rc := range pod.Spec.ResourceClaims {
+		want = append(want, rc.Name)
+	}
+	if len(pod.Spec.ResourceClaims) != len(pod.Status.ResourceClaimStatuses) {
+		logger.V(4).Infof("do not have enough resource claim statuses to proceed further, want vs got: %v",
+			cmp.Diff(want, got))
+		return false
+	}
+	logger.V(6).Infof("all the pod resource claim statuses have been filled")
+	return true
 }
 
 func (c *DRAStatusController) getGPUDevicesFromVMISpec(vmi *virtv1.VirtualMachineInstance) ([]DeviceInfo, error) {
-	gpuDevices := []DeviceInfo{}
+	var gpuDevices []DeviceInfo
 	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
 		if gpu.ClaimRequest == nil {
 			continue
@@ -510,7 +527,7 @@ func (c *DRAStatusController) getGPUDevicesFromVMISpec(vmi *virtv1.VirtualMachin
 }
 
 func (c *DRAStatusController) getGPUStatusUpdate(gpuInfos []DeviceInfo, pod *k8sv1.Pod) ([]virtv1.DeviceStatusInfo, error) {
-	gpuStatuses := []virtv1.DeviceStatusInfo{}
+	var gpuStatuses []virtv1.DeviceStatusInfo
 	for _, gpuInfo := range gpuInfos {
 		gpuStatus := virtv1.DeviceStatusInfo{
 			Name: gpuInfo.Name,
@@ -581,8 +598,11 @@ func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourc
 }
 
 // getDeviceAttributes returns the pciAddress and mdevUUID of the device. It will return both if found, otherwise it will return empty strings
-func (c *DRAStatusController) getDeviceAttributes(nodeName string, Name, driverName string) (string, string, error) {
-	resourceSlices := c.resourceSliceIndexer.List()
+func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, driverName string) (string, string, error) {
+	resourceSlices, err := c.resourceSliceIndexer.ByIndex(indexByNodeName, nodeName)
+	if err != nil {
+		return "", "", err
+	}
 	if len(resourceSlices) == 0 {
 		return "", "", fmt.Errorf("no resource slice objects found in cache")
 	}
@@ -591,9 +611,9 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, Name, driverN
 	mdevUUID := ""
 	for _, obj := range resourceSlices {
 		rs := obj.(*resourcev1beta1.ResourceSlice)
-		if rs.Spec.Driver == driverName && rs.Spec.NodeName == nodeName {
+		if rs.Spec.Driver == driverName {
 			for _, device := range rs.Spec.Devices {
-				if device.Name == Name {
+				if device.Name == deviceName {
 					for key, value := range device.Basic.Attributes {
 						if string(key) == "pciAddress" {
 							pciAddress = *value.StringValue
@@ -601,10 +621,21 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, Name, driverN
 							mdevUUID = *value.StringValue
 						}
 					}
+					if pciAddress == "" && mdevUUID == "" {
+						return "", "", fmt.Errorf("neither pciAddress nor mdevUUID found for device %s", deviceName)
+					}
+					return pciAddress, mdevUUID, nil
 				}
 			}
-
 		}
 	}
 	return pciAddress, mdevUUID, nil
+}
+
+func indexResourceSliceByNodeName(obj interface{}) ([]string, error) {
+	rs, ok := obj.(*resourcev1beta1.ResourceSlice)
+	if !ok {
+		return nil, nil
+	}
+	return []string{rs.Spec.NodeName}, nil
 }
