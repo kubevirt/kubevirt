@@ -1012,32 +1012,6 @@ func (c *Controller) getNodeSelectorsFromNodeName(nodeName string) (map[string]s
 	return res, nil
 }
 
-func (c *Controller) updateVMIMigrationSourceWithPodInfo(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
-	vmiCopy := vmi.DeepCopy()
-
-	if migration.IsDecentralized() {
-		vmiCopy.Status.MigrationState.SourceNode = vmi.Status.NodeName
-		vmiCopy.Status.MigrationState.SourcePod = migration.Status.MigrationState.SourcePod
-		vmiCopy.Status.MigrationState.MigrationUID = vmiCopy.Status.MigrationState.SourceState.MigrationUID
-		vmiCopy.Status.MigrationState.SourceState.Node = vmi.Status.NodeName
-		vmiCopy.Status.MigrationState.SourceState.Pod = migration.Status.MigrationState.SourcePod
-		vmiCopy.Status.MigrationState.SourceState.PersistentStatePVCName = &migration.Status.MigrationState.SourcePersistentStatePVCName
-		vmiCopy.Status.MigrationState.SourceState.SelinuxContext = vmi.Status.SelinuxContext
-		nodeSelectors, err := c.getNodeSelectorsFromNodeName(vmi.Status.NodeName)
-		if err != nil {
-			return err
-		}
-		vmiCopy.Status.MigrationState.SourceState.NodeSelectors = nodeSelectors
-
-		if err := c.patchVMI(vmi, vmiCopy); err != nil {
-			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("failed to set migration SourceState in VMI status. :%v", err))
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 
 	if vmi.IsMigrationSynchronized(migration) && vmi.Status.MigrationState.MigrationUID == migration.UID {
@@ -1486,65 +1460,66 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 			return nil
 		}
 
-		if migration.IsLocalOrDecentralizedTarget() {
-			if !targetPodExists {
-				var sourcePod *k8sv1.Pod
-				var err error
-				if !migration.IsDecentralized() {
-					log.Log.Object(vmi).V(5).Info("regular migration creating target pod in same namespace as source")
-					sourcePod, err = controller.CurrentVMIPod(vmi, c.podIndexer)
-					if err != nil {
-						log.Log.Reason(err).Error("Failed to fetch pods for namespace from cache.")
-						return err
-					}
-					if !controller.PodExists(sourcePod) {
-						// for instance sudden deletes can cause this. In this
-						// case we don't have to do anything in the creation flow anymore.
-						// Once the VMI is in a final state or deleted the migration
-						// will be marked as failed too.
-						return nil
-					}
-				} else {
-					log.Log.Object(vmi).V(5).Info("decentralized migration creating target pod in vmi namespace, source pod based on target VMI")
-					// This is a decentralized target, generate the source pod template
-					sourcePod, err = c.templateService.RenderLaunchManifest(vmi)
-					if err != nil {
-						return fmt.Errorf("failed to render launch manifest: %v", err)
-					}
+		if !migration.IsLocalOrDecentralizedTarget() {
+			return nil
+		}
+		if !targetPodExists {
+			var sourcePod *k8sv1.Pod
+			var err error
+			if !migration.IsDecentralized() {
+				log.Log.Object(vmi).V(5).Info("regular migration creating target pod in same namespace as source")
+				sourcePod, err = controller.CurrentVMIPod(vmi, c.podIndexer)
+				if err != nil {
+					log.Log.Reason(err).Error("Failed to fetch pods for namespace from cache.")
+					return err
 				}
-				if _, exists := migration.GetAnnotations()[virtv1.EvacuationMigrationAnnotation]; exists {
-					if err = descheduler.MarkEvictionInProgress(c.clientset, sourcePod); err != nil {
-						return err
-					}
-				}
-
-				// patch VMI annotations and set RuntimeUser in preparation for target pod creation
-				patches := c.setupVMIRuntimeUser(vmi)
-				if !patches.IsEmpty() {
-					patchBytes, err := patches.GeneratePayload()
-					if err != nil {
-						return err
-					}
-					vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
-					if err != nil {
-						return fmt.Errorf("failed to set VMI RuntimeUser: %v", err)
-					}
-				}
-				return c.handleTargetPodCreation(key, migration, vmi, sourcePod)
-			} else if controller.IsPodReady(pod) {
-				if controller.VMIHasHotplugVolumes(vmi) {
-					attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
-					if err != nil {
-						return fmt.Errorf(failedGetAttractionPodsFmt, err)
-					}
-					if len(attachmentPods) == 0 {
-						log.Log.Object(migration).V(5).Infof("Creating attachment pod for vmi %s/%s on node %s", vmi.Namespace, vmi.Name, pod.Spec.NodeName)
-						return c.createAttachmentPod(migration, vmi, pod)
-					}
+				if !controller.PodExists(sourcePod) {
+					// for instance sudden deletes can cause this. In this
+					// case we don't have to do anything in the creation flow anymore.
+					// Once the VMI is in a final state or deleted the migration
+					// will be marked as failed too.
+					return nil
 				}
 			} else {
-				return c.handlePendingPodTimeout(migration, vmi, pod)
+				log.Log.Object(vmi).V(5).Info("decentralized migration creating target pod in vmi namespace, source pod based on target VMI")
+				// This is a decentralized target, generate the source pod template
+				sourcePod, err = c.templateService.RenderLaunchManifest(vmi)
+				if err != nil {
+					return fmt.Errorf("failed to render launch manifest: %v", err)
+				}
 			}
+			if _, exists := migration.GetAnnotations()[virtv1.EvacuationMigrationAnnotation]; exists {
+				if err = descheduler.MarkEvictionInProgress(c.clientset, sourcePod); err != nil {
+					return err
+				}
+			}
+
+			// patch VMI annotations and set RuntimeUser in preparation for target pod creation
+			patches := c.setupVMIRuntimeUser(vmi)
+			if !patches.IsEmpty() {
+				patchBytes, err := patches.GeneratePayload()
+				if err != nil {
+					return err
+				}
+				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to set VMI RuntimeUser: %v", err)
+				}
+			}
+			return c.handleTargetPodCreation(key, migration, vmi, sourcePod)
+		} else if controller.IsPodReady(pod) {
+			if controller.VMIHasHotplugVolumes(vmi) {
+				attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
+				if err != nil {
+					return fmt.Errorf(failedGetAttractionPodsFmt, err)
+				}
+				if len(attachmentPods) == 0 {
+					log.Log.Object(migration).V(5).Infof("Creating attachment pod for vmi %s/%s on node %s", vmi.Namespace, vmi.Name, pod.Spec.NodeName)
+					return c.createAttachmentPod(migration, vmi, pod)
+				}
+			}
+		} else {
+			return c.handlePendingPodTimeout(migration, vmi, pod)
 		}
 	case virtv1.MigrationScheduling:
 		if migration.DeletionTimestamp != nil {
