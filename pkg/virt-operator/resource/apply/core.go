@@ -2,7 +2,10 @@ package apply
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -306,6 +309,80 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.TypedRateL
 	return nil
 }
 
+func getValidCerts(certs []*x509.Certificate) []*tls.Certificate {
+	externalCAList := make([]*tls.Certificate, 0)
+	certMap := make(map[string]*x509.Certificate)
+	for _, cert := range certs {
+		hash := sha256.Sum256(cert.Raw)
+		hashString := hex.EncodeToString(hash[:])
+		if _, ok := certMap[hashString]; ok {
+			continue
+		}
+		tlsCert := &tls.Certificate{
+			Leaf: cert,
+		}
+		now := time.Now()
+		if now.After(cert.NotBefore) && now.Before(cert.NotAfter) {
+			// cert is still valid
+			log.Log.V(2).Infof("adding CA from external CA list because it is still valid %s, %s, now %s, not before %s, not after %s", cert.Issuer, cert.Subject, now.Format(time.RFC3339), cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
+			externalCAList = append(externalCAList, tlsCert)
+			certMap[hashString] = cert
+		} else if now.Before(cert.NotBefore) {
+			log.Log.V(2).Infof("skipping CA from external CA because it is not yet valid %s, %s", cert.Issuer, cert.Subject)
+		} else if now.After(cert.NotAfter) {
+			log.Log.V(2).Infof("skipping CA from external CA because it is expired %s, %s", cert.Issuer, cert.Subject)
+		}
+	}
+	return externalCAList
+}
+
+func (r *Reconciler) getRemotePublicCas() []*tls.Certificate {
+	obj, exists, err := r.stores.ConfigMapCache.GetByKey(controller.NamespacedKey(r.kv.Namespace, components.ExternalKubeVirtCAConfigMapName))
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get external CA configmap")
+		return nil
+	} else if !exists {
+		log.Log.V(3).Infof("external CA configmap does not exist, returning empty list")
+		return nil
+	}
+	externalCaConfigMap := obj.(*corev1.ConfigMap)
+	externalCAData := externalCaConfigMap.Data[components.CABundleKey]
+	if externalCAData == "" {
+		log.Log.V(3).Infof("external CA configmap is empty, returning empty list")
+		return nil
+	}
+	log.Log.V(4).Infof("external CA data: %s", externalCAData)
+	certs, err := cert.ParseCertsPEM([]byte(externalCAData))
+	if err != nil {
+		log.Log.Infof("failed to parse external CA certificates: %v", err)
+		return nil
+	}
+	return getValidCerts(certs)
+}
+
+func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
+	if configMap == nil {
+		return nil
+	}
+	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+	injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
+
+	configMap.Data = map[string]string{components.CABundleKey: ""}
+	_, exists, _ := r.stores.ConfigMapCache.Get(configMap)
+	if !exists {
+		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
+		}
+	} else {
+		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Update(context.Background(), configMap, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to update configMap %+v: %v", configMap, err)
+		}
+	}
+	return nil
+}
+
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.TypedRateLimitingInterface[string]) error {
 	caDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	caExportDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
@@ -320,20 +397,33 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ty
 		return err
 	}
 
-	// create/update CA Certificate secret
+	// create/update export CA Certificate secret
 	caExportCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtExportCASecretName, caExportDuration, caExportRenewBefore)
 	if err != nil {
 		return err
 	}
 
+	err = r.createExternalKubeVirtCAConfigMap(findRequiredCAConfigMap(components.ExternalKubeVirtCAConfigMapName, r.targetStrategy.ConfigMaps()))
+	if err != nil {
+		return err
+	}
+
+	log.Log.V(3).Info("reading external CA configmap")
+	externalCACerts := r.getRemotePublicCas()
+	log.Log.V(3).Infof("found %d external CA certificates", len(externalCACerts))
 	// create/update CA config map
-	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(queue, caCert, caRenewBefore, findRequiredCAConfigMap(components.KubeVirtCASecretName, r.targetStrategy.ConfigMaps()))
+	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(queue, caCert, externalCACerts, caRenewBefore, findRequiredCAConfigMap(components.KubeVirtCASecretName, r.targetStrategy.ConfigMaps()))
+	if err != nil {
+		return err
+	}
+
+	err = r.cleanupExternalCACerts(findRequiredCAConfigMap(components.ExternalKubeVirtCAConfigMapName, r.targetStrategy.ConfigMaps()))
 	if err != nil {
 		return err
 	}
 
 	// create/update export CA config map
-	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caExportCert, caExportRenewBefore, findRequiredCAConfigMap(components.KubeVirtExportCASecretName, r.targetStrategy.ConfigMaps()))
+	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caExportCert, nil, caExportRenewBefore, findRequiredCAConfigMap(components.KubeVirtExportCASecretName, r.targetStrategy.ConfigMaps()))
 	if err != nil {
 		return err
 	}
@@ -529,7 +619,17 @@ func findRequiredCAConfigMap(name string, configmaps []*corev1.ConfigMap) *corev
 	return nil
 }
 
-func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, overlapInterval *metav1.Duration) (bool, error) {
+func buildCertMap(certs []*x509.Certificate) map[string]*x509.Certificate {
+	certMap := make(map[string]*x509.Certificate)
+	for _, cert := range certs {
+		hash := sha256.Sum256(cert.Raw)
+		hashString := hex.EncodeToString(hash[:])
+		certMap[hashString] = cert
+	}
+	return certMap
+}
+
+func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, externalCACerts []*tls.Certificate, overlapInterval *metav1.Duration) (bool, error) {
 	bundle, certCount, err := components.MergeCABundle(caCert, []byte(existing.Data[components.CABundleKey]), overlapInterval.Duration)
 	if err != nil {
 		// the only error that can be returned form MergeCABundle is if the CA caBundle
@@ -542,16 +642,49 @@ func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue 
 		queue.AddAfter(key, overlapInterval.Duration)
 	}
 
-	updateBundle := false
-	required.Data = map[string]string{components.CABundleKey: string(bundle)}
-	if !equality.Semantic.DeepEqual(required.Data, existing.Data) {
-		updateBundle = true
+	bundleCerts, err := cert.ParseCertsPEM(bundle)
+	if err != nil {
+		return true, err
 	}
+	bundleCertMap := buildCertMap(bundleCerts)
 
-	return updateBundle, nil
+	bundleString := string(bundle)
+	for _, externalCACert := range externalCACerts {
+		pem := string(cert.EncodeCertPEM(externalCACert.Leaf))
+		hash := sha256.Sum256(externalCACert.Leaf.Raw)
+		hashString := hex.EncodeToString(hash[:])
+		if _, ok := bundleCertMap[hashString]; ok {
+			continue
+		}
+		bundleCertMap[hashString] = externalCACert.Leaf
+		bundleString += pem
+	}
+	required.Data = map[string]string{components.CABundleKey: bundleString}
+	return !equality.Semantic.DeepEqual(required.Data, existing.Data), nil
 }
 
-func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, overlapInterval *metav1.Duration, configMap *corev1.ConfigMap) (caBundle []byte, err error) {
+func (r *Reconciler) createExternalKubeVirtCAConfigMap(configMap *corev1.ConfigMap) error {
+	if configMap == nil {
+		log.Log.V(2).Infof("cannot create external CA configmap because it is nil")
+		return nil
+	}
+	_, exists, _ := r.stores.ConfigMapCache.Get(configMap)
+	if !exists {
+		log.Log.V(4).Infof("checking external ca config map %v", configMap.Name)
+
+		version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+		injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
+
+		configMap.Data = map[string]string{components.CABundleKey: ""}
+		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
+		}
+	}
+	return nil
+}
+
+func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, externalCACerts []*tls.Certificate, overlapInterval *metav1.Duration, configMap *corev1.ConfigMap) (caBundle []byte, err error) {
 	if configMap == nil {
 		return nil, nil
 	}
@@ -561,11 +694,14 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRate
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 	injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
 
+	data := ""
 	obj, exists, _ := r.stores.ConfigMapCache.Get(configMap)
-
 	if !exists {
-		configMap.Data = map[string]string{components.CABundleKey: string(cert.EncodeCertPEM(caCert.Leaf))}
-
+		for _, externalCert := range externalCACerts {
+			data = data + string(cert.EncodeCertPEM(externalCert.Leaf))
+		}
+		data = data + string(cert.EncodeCertPEM(caCert.Leaf))
+		configMap.Data = map[string]string{components.CABundleKey: data}
 		r.expectations.ConfigMap.RaiseExpectations(r.kvKey, 1, 0)
 		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil {
@@ -577,13 +713,13 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRate
 	}
 
 	existing := obj.(*corev1.ConfigMap)
-	updateBundle, err := shouldUpdateBundle(configMap, existing, r.kvKey, queue, caCert, overlapInterval)
+	updateBundle, err := shouldUpdateBundle(configMap, existing, r.kvKey, queue, caCert, externalCACerts, overlapInterval)
 	if err != nil {
 		if !updateBundle {
 			return nil, err
 		}
-
-		configMap.Data = map[string]string{components.CABundleKey: string(cert.EncodeCertPEM(caCert.Leaf))}
+		data = data + string(cert.EncodeCertPEM(caCert.Leaf))
+		configMap.Data = map[string]string{components.CABundleKey: data}
 		log.Log.Reason(err).V(2).Infof("There was an error validating the CA bundle stored in configmap %s. We are updating the bundle.", configMap.GetName())
 	}
 
