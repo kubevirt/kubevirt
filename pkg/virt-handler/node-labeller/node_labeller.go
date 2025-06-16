@@ -78,6 +78,7 @@ type NodeLabeller struct {
 	guestCaps               []libvirtxml.CapsGuest
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
+	SecureExecution         SecureExecutionConfiguration
 	arch                    archLabeller
 }
 
@@ -295,6 +296,9 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 
 	if n.SEV.SupportedES == "yes" {
 		newLabels[kubevirtv1.SEVESLabel] = ""
+	}
+	if n.SecureExecution.Supported == "yes" {
+		newLabels[kubevirtv1.SecureExecutionLabel] = "true"
 	}
 
 	return newLabels

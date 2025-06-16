@@ -64,7 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
 const (
@@ -1456,20 +1455,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	// Set SEV launch security parameters: https://libvirt.org/formatdomain.html#launch-security
 	if c.UseLaunchSecurity {
-		sevPolicyBits := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
-		// Cbitpos and ReducedPhysBits will be filled automatically by libvirt from the domain capabilities
-		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
-			Type:    "sev",
-			Policy:  "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
-			DHCert:  vmi.Spec.Domain.LaunchSecurity.SEV.DHCert,
-			Session: vmi.Spec.Domain.LaunchSecurity.SEV.Session,
-		}
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
 		}
+		domain.Spec.LaunchSecurity = c.Architecture.LaunchSecurity(vmi)
 	}
+
 	if c.SMBios != nil {
 		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
 			api.Entry{

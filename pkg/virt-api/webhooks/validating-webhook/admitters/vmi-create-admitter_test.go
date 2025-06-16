@@ -77,9 +77,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config, KubeVirtServiceAccounts: kubeVirtServiceAccounts}
 
 	dnsConfigTestOption := "test"
-	enableFeatureGate := func(featureGate string) {
+	enableFeatureGates := func(featureGates ...string) {
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = featureGates
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 	disableFeatureGates := func() {
@@ -459,7 +459,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 
 		DescribeTable("should accept annotations which require feature gate enabled", func(annotations map[string]string, featureGate string) {
-			enableFeatureGate(featureGate)
+			enableFeatureGates(featureGate)
 			vmi := newBaseVmi()
 			vmi.Annotations = annotations
 
@@ -489,7 +489,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi = api.NewMinimalVMI("testvmi")
 		})
 		DescribeTable("should accept valid machine type", func(arch string, machineType string) {
-			enableFeatureGate(featuregate.MultiArchitecture)
+			enableFeatureGates(featuregate.MultiArchitecture)
 
 			vmi.Spec.Architecture = arch
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
@@ -504,7 +504,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 
 		DescribeTable("should reject invalid machine type", func(arch string, machineType string) {
-			enableFeatureGate(featuregate.MultiArchitecture)
+			enableFeatureGates(featuregate.MultiArchitecture)
 
 			vmi.Spec.Architecture = arch
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
@@ -577,7 +577,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk",
 			})
 
-			enableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+			enableFeatureGates(featuregate.DeclarativeHotplugVolumesGate)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
@@ -1082,7 +1082,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
 			})
 			DeferCleanup(featuregate.UnregisterFeatureGate, testsFGName)
-			enableFeatureGate(testsFGName)
+			enableFeatureGates(testsFGName)
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).NotTo(HaveOccurred())
@@ -1221,7 +1221,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		DescribeTable("virtiofs filesystems using", func(featureGate string, shouldAllow bool, vmiOption libvmi.Option) {
 			if featureGate != "" {
-				enableFeatureGate(featureGate)
+				enableFeatureGates(featureGate)
 			}
 
 			vmi := libvmi.New(vmiOption)
@@ -1550,7 +1550,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject vmi with threads > 1 for arm64 arch", func() {
-			enableFeatureGate(featuregate.MultiArchitecture)
+			enableFeatureGates(featuregate.MultiArchitecture)
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "arm64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -1560,7 +1560,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept vmi with threads == 1 for arm64 arch", func() {
-			enableFeatureGate(featuregate.MultiArchitecture)
+			enableFeatureGates(featuregate.MultiArchitecture)
 			vmi.Spec.Domain.CPU.Threads = 1
 			vmi.Spec.Architecture = "arm64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -1568,7 +1568,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept vmi with threads > 1 for amd64 arch", func() {
-			enableFeatureGate(featuregate.MultiArchitecture)
+			enableFeatureGates(featuregate.MultiArchitecture)
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "amd64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -2518,7 +2518,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept a single virtio serial", func() {
-			enableFeatureGate(featuregate.DownwardMetricsFeatureGate)
+			enableFeatureGates(featuregate.DownwardMetricsFeatureGate)
 			causes := validate()
 			Expect(causes).To(BeEmpty())
 		})
@@ -2540,7 +2540,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept a single downwardmetrics volume", func() {
-			enableFeatureGate(featuregate.DownwardMetricsFeatureGate)
+			enableFeatureGates(featuregate.DownwardMetricsFeatureGate)
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testDownwardMetrics",
@@ -2567,7 +2567,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject downwardMetrics volumes if more than one exist", func() {
-			enableFeatureGate(featuregate.DownwardMetricsFeatureGate)
+			enableFeatureGates(featuregate.DownwardMetricsFeatureGate)
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes,
 				v1.Volume{
@@ -2604,7 +2604,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept hostDisk volumes if the feature gate is enabled", func() {
-			enableFeatureGate(featuregate.HostDiskGate)
+			enableFeatureGates(featuregate.HostDiskGate)
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testHostDisk",
@@ -2999,7 +2999,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			enableFeatureGate(featuregate.WorkloadEncryptionSEV)
+			enableFeatureGates(featuregate.WorkloadEncryptionSEV)
 		})
 
 		It("should accept when the feature gate is enabled and OVMF is configured", func() {
@@ -3071,12 +3071,36 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 	})
 
+	Context("with Secure Execution LaunchSecurity", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+			vmi.Spec.Architecture = "s390x"
+		})
+
+		It("should accept when the feature gate is enabled", func() {
+			enableFeatureGates(featuregate.MultiArchitecture, featuregate.SecureExecution)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject when the feature gate is disabled", func() {
+			enableFeatureGates(featuregate.MultiArchitecture)
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.SecureExecution)))
+		})
+	})
+
 	Context("with vsocks defined", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			vmi = api.NewMinimalVMI("testvmi")
-			enableFeatureGate(featuregate.VSOCKGate)
+			enableFeatureGates(featuregate.VSOCKGate)
 		})
 
 		Context("feature gate enabled", func() {
@@ -3746,7 +3770,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		BeforeEach(func() {
 			vmi = api.NewMinimalVMI("testvmi")
-			enableFeatureGate(featuregate.PersistentReservation)
+			enableFeatureGates(featuregate.PersistentReservation)
 		})
 
 		Context("feature gate enabled", func() {

@@ -557,13 +557,23 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	launchSecurity := spec.Domain.LaunchSecurity
-	if launchSecurity != nil && !config.WorkloadEncryptionSEVEnabled() {
+	if launchSecurity == nil {
+		return causes
+	}
+	if !config.SecureExecutionEnabled() && webhooks.IsS390X(spec) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.SecureExecution),
+			Field:   field.Child("launchSecurity").String(),
+		})
+	}
+	if !config.WorkloadEncryptionSEVEnabled() && launchSecurity.SEV != nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.WorkloadEncryptionSEV),
 			Field:   field.Child("launchSecurity").String(),
 		})
-	} else if launchSecurity != nil && launchSecurity.SEV != nil {
+	} else if launchSecurity.SEV != nil {
 		firmware := spec.Domain.Firmware
 		if !efiBootEnabled(firmware) {
 			causes = append(causes, metav1.StatusCause{

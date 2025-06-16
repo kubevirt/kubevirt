@@ -48,3 +48,7 @@ func validateWatchdogS390x(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 func isOnlyDiag288Watchdog(watchdog *v1.Watchdog) bool {
 	return watchdog.WatchdogDevice.Diag288 != nil && watchdog.WatchdogDevice.I6300ESB == nil
 }
+
+func IsS390X(spec *v1.VirtualMachineInstanceSpec) bool {
+	return spec.Architecture == "s390x"
+}

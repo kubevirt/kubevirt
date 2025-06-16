@@ -89,6 +89,12 @@ const (
 	// DeclarativeHotplugVolumes enables adding/removing volumes declaratively
 	// also implicitly handles inject/eject CDROM
 	DeclarativeHotplugVolumesGate = "DeclarativeHotplugVolumes"
+
+	// Owner: sig-conpute / @jschintag
+	// Alpha: v1.6.0
+	//
+	// SecureExecution introduces secure execution of VMs on IBM Z architecture
+	SecureExecution = "SecureExecution"
 )
 
 func init() {

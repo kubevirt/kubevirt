@@ -202,6 +202,26 @@ var _ = Describe("Node-labeller config", func() {
 		)
 	})
 
+	DescribeTable("return correct SecureExecution capabilities",
+		func(isSupported bool) {
+			if isSupported {
+				nlController.domCapabilitiesFileName = "s390x/domcapabilities_s390-pv.xml"
+			} else {
+				nlController.domCapabilitiesFileName = "s390x/virsh_domcapabilities.xml"
+			}
+			err := nlController.loadDomCapabilities()
+			Expect(err).ToNot(HaveOccurred())
+
+			if isSupported {
+				Expect(nlController.SecureExecution.Supported).To(Equal("yes"))
+			} else {
+				Expect(nlController.SecureExecution.Supported).To(Equal("no"))
+			}
+		},
+		Entry("when Secure Execution is supported", true),
+		Entry("when Secure Execution is not supported", false),
+	)
+
 	It("Make sure proper labels are removed on removeLabellerLabels()", func() {
 		node := &k8sv1.Node{
 			ObjectMeta: metav1.ObjectMeta{

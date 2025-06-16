@@ -12,17 +12,18 @@ import (
 )
 
 type NodeSelectorRenderer struct {
-	cpuFeatureLabels []string
-	cpuModelLabel    string
-	machineTypeLabel string
-	hasDedicatedCPU  bool
-	hyperv           bool
-	podNodeSelectors map[string]string
-	tscFrequency     *int64
-	vmiFeatures      *v1.Features
-	realtimeEnabled  bool
-	sevEnabled       bool
-	sevESEnabled     bool
+	cpuFeatureLabels       []string
+	cpuModelLabel          string
+	machineTypeLabel       string
+	hasDedicatedCPU        bool
+	hyperv                 bool
+	podNodeSelectors       map[string]string
+	tscFrequency           *int64
+	vmiFeatures            *v1.Features
+	realtimeEnabled        bool
+	sevEnabled             bool
+	sevESEnabled           bool
+	SecureExecutionEnabled bool
 }
 
 type NodeSelectorRendererOption func(renderer *NodeSelectorRenderer)
@@ -79,6 +80,9 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 	if nsr.sevESEnabled {
 		nsr.enableSelectorLabel(v1.SEVESLabel)
 	}
+	if nsr.SecureExecutionEnabled {
+		nsr.enableSelectorLabel(v1.SecureExecutionLabel)
+	}
 
 	return nsr.podNodeSelectors
 }
@@ -104,6 +108,12 @@ func WithSEVSelector() NodeSelectorRendererOption {
 func WithSEVESSelector() NodeSelectorRendererOption {
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.sevESEnabled = true
+	}
+}
+
+func WithSecureExecutionSelector() NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.SecureExecutionEnabled = true
 	}
 }
 
