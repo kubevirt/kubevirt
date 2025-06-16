@@ -57,4 +57,60 @@ var vmRecordingRules = []operatorrules.RecordingRule{
 		MetricType: operatormetrics.CounterType,
 		Expr:       intstr.FromString("sum by (namespace) (kubevirt_vm_created_by_pod_total)"),
 	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_allocated_cpu_cores",
+			Help: "The number of CPU cores allocated to each VM.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr: intstr.FromString(`
+			kubevirt_vm_resource_requests{resource="cpu", unit="cores"}
+		`),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_allocated_cpu_sockets",
+			Help: "The number of CPU sockets allocated to each VM, with default value of 1.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr: intstr.FromString(`
+			kubevirt_vm_resource_requests{resource="cpu", unit="sockets"}
+			or
+			(kubevirt_vm_allocated_cpu_cores * 0 + 1)
+		`),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_allocated_cpu_threads",
+			Help: "The number of CPU threads per core allocated to each VM, with default value of 1.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr: intstr.FromString(`
+			kubevirt_vm_resource_requests{resource="cpu", unit="threads"}
+			or
+			(kubevirt_vm_allocated_cpu_cores * 0 + 1)
+		`),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_vcpu_count",
+			Help: "The total number of vCPUs (virtual CPUs) for each VM, calculated as cores × sockets × threads.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr: intstr.FromString(`
+			kubevirt_vm_allocated_cpu_cores * on(cluster, namespace, name) kubevirt_vm_allocated_cpu_sockets * on(cluster, namespace, name) kubevirt_vm_allocated_cpu_threads
+		`),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_requested_memory_bytes",
+			Help: "The requested memory in bytes for each VM, grouped by name and namespace.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr: intstr.FromString(`
+			max by (name, namespace) (
+				kubevirt_vm_resource_requests{resource="memory"}
+			)
+		`),
+	},
 }

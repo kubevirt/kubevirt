@@ -75,6 +75,15 @@ Indication for a virt-operator that is ready to take the lead. Type: Gauge.
 ### kubevirt_virt_operator_up
 The number of virt-operator pods that are up. Type: Gauge.
 
+### kubevirt_vm_allocated_cpu_cores
+The number of CPU cores allocated to each VM. Type: Gauge.
+
+### kubevirt_vm_allocated_cpu_sockets
+The number of CPU sockets allocated to each VM, with default value of 1. Type: Gauge.
+
+### kubevirt_vm_allocated_cpu_threads
+The number of CPU threads per core allocated to each VM, with default value of 1. Type: Gauge.
+
 ### kubevirt_vm_container_free_memory_bytes_based_on_rss
 The current available memory of the VM containers based on the rss. Type: Gauge.
 
@@ -105,6 +114,9 @@ Virtual Machine last transition timestamp to migrating status. Type: Counter.
 ### kubevirt_vm_non_running_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to paused/stopped status. Type: Counter.
 
+### kubevirt_vm_requested_memory_bytes
+The requested memory in bytes for each VM, grouped by name and namespace. Type: Gauge.
+
 ### kubevirt_vm_resource_limits
 Resources limits by Virtual Machine. Reports memory and CPU limits. Type: Gauge.
 
@@ -116,6 +128,9 @@ Virtual Machine last transition timestamp to running status. Type: Counter.
 
 ### kubevirt_vm_starting_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to starting status. Type: Counter.
+
+### kubevirt_vm_vcpu_count
+The total number of vCPUs (virtual CPUs) for each VM, calculated as cores × sockets × threads. Type: Gauge.
 
 ### kubevirt_vm_vnic_info
 Details of Virtual Machine (VM) vNIC interfaces, such as vNIC name, binding type, network name, and binding name for each vNIC defined in the VM's configuration. Type: Gauge.
