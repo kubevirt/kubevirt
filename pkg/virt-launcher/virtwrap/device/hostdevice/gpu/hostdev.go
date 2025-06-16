@@ -62,7 +62,7 @@ func CreateHostDevicesFromPools(vmiGPUs []v1.GPU, pciAddressPool, mdevAddressPoo
 	pciPool := hostdevice.NewBestEffortAddressPool(pciAddressPool)
 	mdevPool := hostdevice.NewBestEffortAddressPool(mdevAddressPool)
 
-	hostDevicesMetaData := createHostDevicesMetadata(vmiGPUs)
+	hostDevicesMetaData := createDevicePluginsHostDevicesMetadata(vmiGPUs)
 	pciHostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pciPool)
 	if err != nil {
 		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
@@ -202,7 +202,7 @@ func getGPUSpecFromName(vmi *v1.VirtualMachineInstance, gpu string) *v1.GPU {
 	return nil
 }
 
-func createHostDevicesMetadata(vmiGPUs []v1.GPU) []hostdevice.HostDeviceMetaData {
+func createDevicePluginsHostDevicesMetadata(vmiGPUs []v1.GPU) []hostdevice.HostDeviceMetaData {
 	var hostDevicesMetaData []hostdevice.HostDeviceMetaData
 	for _, dev := range vmiGPUs {
 		if dev.ClaimRequest == nil {
@@ -236,9 +236,14 @@ func validateCreationOfAllDevices(gpus []v1.GPU, hostDevices []api.HostDevice) e
 		return fmt.Errorf("invalid VMI spec, both DRA and device plugin GPUs are not supported at the same time")
 	}
 
-	if len(gpusWithDP) != len(hostDevices) {
+	if len(gpusWithDP) > 0 && len(gpusWithDP) != len(hostDevices) {
 		return fmt.Errorf(
 			"the number of device plugin GPU/s do not match the number of devices:\nGPU: %v\nDevice: %v", gpusWithDP, hostDevices,
+		)
+	}
+	if len(gpusWithDRA) > 0 && len(gpusWithDRA) != len(hostDevices) {
+		return fmt.Errorf(
+			"the number of DRA GPU/s do not match the number of devices:\nGPU: %v\nDevice: %v", gpusWithDRA, hostDevices,
 		)
 	}
 	return nil
