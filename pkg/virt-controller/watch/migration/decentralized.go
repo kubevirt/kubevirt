@@ -21,6 +21,7 @@ package migration
 
 import (
 	"context"
+	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,29 +64,27 @@ func (c *Controller) initializeMigrateTargetState(migration *virtv1.VirtualMachi
 func (c *Controller) appendMigratedVolume(vmi *virtv1.VirtualMachineInstance, claimName string, volume virtv1.Volume) error {
 	key := controller.NamespacedKey(vmi.Namespace, claimName)
 	obj, exists, err := c.pvcStore.GetByKey(key)
-	if err != nil {
+	if err != nil || !exists {
 		return err
 	}
-	if exists {
-		pvc := obj.(*k8sv1.PersistentVolumeClaim)
-		vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, virtv1.StorageMigratedVolumeInfo{
-			VolumeName: volume.Name,
-			SourcePVCInfo: &virtv1.PersistentVolumeClaimInfo{
-				ClaimName:   claimName,
-				AccessModes: pvc.Spec.AccessModes,
-				VolumeMode:  pvc.Spec.VolumeMode,
-				Requests:    pvc.Spec.Resources.Requests,
-				Capacity:    pvc.Status.Capacity,
-			},
-			DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{
-				ClaimName:   claimName,
-				AccessModes: pvc.Spec.AccessModes,
-				VolumeMode:  pvc.Spec.VolumeMode,
-				Requests:    pvc.Spec.Resources.Requests,
-				Capacity:    pvc.Status.Capacity,
-			},
-		})
-	}
+	pvc := obj.(*k8sv1.PersistentVolumeClaim)
+	vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, virtv1.StorageMigratedVolumeInfo{
+		VolumeName: volume.Name,
+		SourcePVCInfo: &virtv1.PersistentVolumeClaimInfo{
+			ClaimName:   claimName,
+			AccessModes: pvc.Spec.AccessModes,
+			VolumeMode:  pvc.Spec.VolumeMode,
+			Requests:    pvc.Spec.Resources.Requests,
+			Capacity:    pvc.Status.Capacity,
+		},
+		DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{
+			ClaimName:   claimName,
+			AccessModes: pvc.Spec.AccessModes,
+			VolumeMode:  pvc.Spec.VolumeMode,
+			Requests:    pvc.Spec.Resources.Requests,
+			Capacity:    pvc.Status.Capacity,
+		},
+	})
 	return nil
 }
 
@@ -113,6 +112,33 @@ func (c *Controller) patchMigratedVolumesForDecentralizedMigration(vmi *virtv1.V
 	}
 	vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Controller) updateVMIMigrationSourceWithPodInfo(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+	vmiCopy := vmi.DeepCopy()
+
+	if !migration.IsDecentralized() {
+		return nil
+	}
+
+	vmiCopy.Status.MigrationState.SourceNode = vmi.Status.NodeName
+	vmiCopy.Status.MigrationState.SourcePod = migration.Status.MigrationState.SourcePod
+	vmiCopy.Status.MigrationState.MigrationUID = vmiCopy.Status.MigrationState.SourceState.MigrationUID
+	vmiCopy.Status.MigrationState.SourceState.Node = vmi.Status.NodeName
+	vmiCopy.Status.MigrationState.SourceState.Pod = migration.Status.MigrationState.SourcePod
+	vmiCopy.Status.MigrationState.SourceState.PersistentStatePVCName = &migration.Status.MigrationState.SourcePersistentStatePVCName
+	vmiCopy.Status.MigrationState.SourceState.SelinuxContext = vmi.Status.SelinuxContext
+	nodeSelectors, err := c.getNodeSelectorsFromNodeName(vmi.Status.NodeName)
+	if err != nil {
+		return err
+	}
+	vmiCopy.Status.MigrationState.SourceState.NodeSelectors = nodeSelectors
+
+	if err := c.patchVMI(vmi, vmiCopy); err != nil {
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("failed to set migration SourceState in VMI status. :%v", err))
 		return err
 	}
 	return nil
