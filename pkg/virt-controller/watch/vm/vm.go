@@ -2688,11 +2688,7 @@ func (c *Controller) isVirtualMachineWaitingReceiver(vm *virtv1.VirtualMachine, 
 		log.Log.Object(vm).Errorf(fetchingRunStrategyErrFmt, err)
 		return false
 	}
-	vmiWaitingSync := true
-	if vmi != nil {
-		vmiWaitingSync = vmi.IsWaitingForSync()
-	}
-	return vmiWaitingSync && runStrategy == virtv1.RunStrategyWaitAsReceiver
+	return (vmi == nil || vmi.IsWaitingForSync()) && runStrategy == virtv1.RunStrategyWaitAsReceiver
 }
 
 func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {

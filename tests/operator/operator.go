@@ -863,11 +863,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					patch.WithReplace("/spec/imageRegistry", curRegistry),
 				)
 
-				// Re-enable the decentralized live migration feature gate
-				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, featuregate.DecentralizedLiveMigration)
-				patches.AddOption(
-					patch.WithReplace("/spec/configuration/developerConfiguration/featureGates", kv.Spec.Configuration.DeveloperConfiguration.FeatureGates),
-				)
 				patchKV(kv.Name, patches)
 			}
 
