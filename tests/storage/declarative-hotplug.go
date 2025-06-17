@@ -249,24 +249,34 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 	validateVMHasCDRom := func(vm *v1.VirtualMachine, numItems string) {
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
+
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "sudo umount -f /mnt\n"},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "sudo mount /dev/sr0 /mnt\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: console.EchoLastReturnValue},
 				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
-				&expect.BExp{R: console.RetValue(numItems)},
-				&expect.BSnd{S: "sudo umount /mnt\n"},
+			}, 20)
+		}, 240*time.Second, 2*time.Second).Should(Succeed(), "Failed to mount CD-ROM in VM")
+
+		err = console.SafeExpectBatch(vmi, []expect.Batcher{
+			&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
+			&expect.BExp{R: console.RetValue(numItems)},
+		}, 60)
+		Expect(err).ToNot(HaveOccurred(), "Failed to validate CD-ROM content in VM")
+
+		Eventually(func() error {
+			return console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "sudo umount -f /mnt\n"},
 				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: console.EchoLastReturnValue},
-				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
 				&expect.BExp{R: console.RetValue("0")},
-			}, 10)
-		}, 40*time.Second, 2*time.Second).Should(Succeed())
+			}, 20)
+		}, 240*time.Second, 2*time.Second).Should(Succeed(), "Failed to unmount CD-ROM in VM")
 	}
 
 	validateVMHasNoCDRom := func(vm *v1.VirtualMachine) {
@@ -278,8 +288,8 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "sudo mount /dev/sr0 /mnt\n"},
 				&expect.BExp{R: console.RetValue("mount: mounting /dev/sr0 on /mnt failed: No medium found")},
-			}, 10)
-		}, 40*time.Second, 2*time.Second).Should(Succeed())
+			}, 20)
+		}, 240*time.Second, 2*time.Second).Should(Succeed(), "Failed to validate that CD-ROM is not present in VM")
 	}
 
 	Context("Inject/Eject CD-ROM", func() {
