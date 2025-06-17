@@ -24544,7 +24544,8 @@ var CRDsValidation map[string]string = map[string]string{
     metadata:
       type: object
     spec:
-      description: VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource
+      description: VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore
+        resource
       properties:
         patches:
           description: |-
@@ -24583,12 +24584,40 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         virtualMachineSnapshotName:
           type: string
+        volumeRestoreOverrides:
+          description: |-
+            VolumeRestoreOverrides gives the option to change properties of each restored volume
+            For example, specifying the name of the restored volume, or adding labels/annotations to it
+          items:
+            description: VolumeRestoreOverride specifies how a volume should be restored
+              from a VirtualMachineSnapshot
+            properties:
+              annotations:
+                additionalProperties:
+                  type: string
+                type: object
+              labels:
+                additionalProperties:
+                  type: string
+                type: object
+              restoreName:
+                type: string
+              volumeName:
+                type: string
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
+        volumeRestorePolicy:
+          description: VolumeRestorePolicy defines how to handle the restore of snapshotted
+            volumes
+          type: string
       required:
       - target
       - virtualMachineSnapshotName
       type: object
     status:
-      description: VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource
+      description: VirtualMachineRestoreStatus is the status for a VirtualMachineRestore
+        resource
       properties:
         complete:
           type: boolean
@@ -24629,7 +24658,7 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         restores:
           items:
-            description: VolumeRestore contains the data neeed to restore a PVC
+            description: VolumeRestore contains the data needed to restore a PVC
             properties:
               dataVolumeName:
                 type: string

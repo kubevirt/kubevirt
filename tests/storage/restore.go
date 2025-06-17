@@ -1753,6 +1753,288 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Entry("to the same VM with ephemeral", Serial, false, false),
 			)
 
+			It("should override VM during restore", func() {
+				// Create a VM and snapshot it
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+
+				const newDiskName = "new-disk"
+
+				// Create the restore definition of the VM, change the name of the restored volume
+				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
+				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+				restoreDef.Spec.VolumeRestoreOverrides = []snapshotv1.VolumeRestoreOverride{
+					{
+						VolumeName:  "disk0",
+						RestoreName: newDiskName,
+						Labels:      map[string]string{"new-label": "value"},
+						Annotations: map[string]string{"new-annotation": "value"},
+					},
+				}
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restoreDef, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+
+				// Check the VM post-restore has info we want
+				restoreVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(restoreVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+				Expect(restoreVM.Spec.Template.Spec.Volumes[0].Name).To(Equal("disk0"))
+				Expect(restoreVM.Spec.Template.Spec.Volumes[0].DataVolume.Name).To(Equal(newDiskName))
+
+				// Check the restored PVC has the info we want
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), newDiskName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvc.Labels["new-label"]).To(Equal("value"))
+				Expect(pvc.Annotations["new-annotation"]).To(Equal("value"))
+
+				deleteRestore(restore)
+				restore = nil
+			})
+
+			It("should restore with volume restore policy InPlace and DV template as disk", func() {
+				// Create a VM and snapshot it
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+
+				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
+				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+
+				// We want to overwrite existing volumes during the restore, that means deleting the existing PVCs
+				restoreDef.Spec.VolumeRestorePolicy = virtpointer.P(snapshotv1.VolumeRestorePolicyInPlace)
+
+				// We're about to restore a VM in such a way that the restored volumes are identical to the source volumes.
+				// We need to make sure they're indeed new, and not that nothing happened during the test. We add
+				// a special annotation to the restored volume to ensure it has been restored from a VolumeSnapshot.
+				restoreDef.Spec.VolumeRestoreOverrides = []snapshotv1.VolumeRestoreOverride{
+					{
+						VolumeName: "disk0",
+						Annotations: map[string]string{
+							"test": "value",
+						},
+					},
+				}
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restoreDef, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+
+				// Check the VM post-restore has info we want
+				restoreVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(restoreVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+				Expect(restoreVM.Spec.Template.Spec.Volumes[0].Name).
+					To(Equal(vm.Spec.Template.Spec.Volumes[0].Name)) // Volume name didn't change
+				Expect(restoreVM.Spec.Template.Spec.Volumes[0].DataVolume.Name).
+					To(Equal(vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)) // Related DV didn't change
+
+				originalPvcName := vm.Spec.Template.Spec.Volumes[0].DataVolume.Name // PVC has same name as original DV
+
+				// The original VM should have information on the name of the PVC linked to the DV, check it's accurate
+				Expect(vmi.Status.VolumeStatus[0].Name).To(Equal("disk0"))
+				Expect(vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo.ClaimName).
+					To(Equal(originalPvcName))
+
+				// Check the restored PVC exists
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPvcName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvc.Annotations["test"]).To(Equal("value")) // Ensure new annotation is present
+
+				// PVC should have owner reference back to the DV (which has same name as itself)
+				Expect(pvc.OwnerReferences).ToNot(BeNil())
+				Expect(pvc.OwnerReferences[0].Name).To(Equal(originalPvcName))
+
+				// Check the source DV for that PVC
+				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalPvcName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(dv.Annotations["restore.kubevirt.io/name"]).To(Equal(restore.Name))
+
+				// CDI will eventually update the prePopulated annotation with the name of the PVC
+				Eventually(func() string {
+					restoredDV, _ := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalPvcName, metav1.GetOptions{})
+					return restoredDV.Annotations[cdiv1.AnnPrePopulated]
+				}, 60*time.Second, 1*time.Second).Should(Equal(originalPvcName))
+
+				// Start VM
+				targetVM := libvmops.StartVirtualMachine(restoreVM)
+				restoreVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				// Check the restored VM is exactly the same, the PVC is the same
+				Expect(restoreVMI.Status.VolumeStatus[0].Name).To(Equal("disk0"))
+				Expect(restoreVMI.Status.VolumeStatus[0].
+					PersistentVolumeClaimInfo.ClaimName).To(Equal(originalPvcName))
+
+				deleteRestore(restore)
+				restore = nil
+			})
+
+			It("should restore with volume restore policy InPlace and DV (not template) as disk", func() {
+				// VM with normal DV mounted to it
+				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
+
+				// Create standalone DV, not linked to a VM's template
+				dv := orphanDataVolumeTemplate(vm, 0)
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				originalPVCName := dv.Name
+
+				// Create and start the VM, wait for the DV to bind
+				vm, _ = createAndStartVM(vm)
+				dv = waitDVReady(dv)
+
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+
+				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
+				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+
+				// We want to overwrite existing volumes during the restore, that means deleting the existing PVCs
+				restoreDef.Spec.VolumeRestorePolicy = virtpointer.P(snapshotv1.VolumeRestorePolicyInPlace)
+
+				// We're about to restore a VM in such a way that the restored volumes are identical to the source volumes.
+				// We need to make sure they're indeed new, and not that nothing happened during the test. We add
+				// a special annotation to the restored volume to ensure it has been restored from a VolumeSnapshot.
+				restoreDef.Spec.VolumeRestoreOverrides = []snapshotv1.VolumeRestoreOverride{
+					{
+						VolumeName: "disk0",
+						Annotations: map[string]string{
+							"test": "value",
+						},
+					},
+				}
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restoreDef, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty()) // This is handled only for DV templates, so we expect nothing
+
+				// Check the VM post-restore has info we want
+				restoreVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(restoreVM.Spec.Template.Spec.Volumes).To(HaveLen(2))
+				Expect(restoreVM.Spec.Template.Spec.Volumes[0].Name).
+					To(Equal(vm.Spec.Template.Spec.Volumes[0].Name)) // Volume name didn't change
+				Expect(restoreVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).
+					To(Equal(vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)) // DV got converted to a PVC with the same name
+
+				// Check the restored PVC exists
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvc.Annotations["test"]).To(Equal("value")) // Ensure new annotation is present
+
+				// PVC should have owner reference back to the DV (which has same name as itself)
+				Expect(pvc.OwnerReferences).ToNot(BeNil())
+				Expect(pvc.OwnerReferences[0].Name).To(Equal(originalPVCName))
+
+				// Check the source DV for that PVC
+				restoredDV, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(restoredDV.Annotations["restore.kubevirt.io/name"]).To(Equal(restore.Name))
+
+				// CDI will eventually update the prePopulated annotation with the name of the PVC
+				Eventually(func() string {
+					restoredDV, _ := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+					return restoredDV.Annotations[cdiv1.AnnPrePopulated]
+				}, 60*time.Second, 1*time.Second).Should(Equal(originalPVCName))
+			})
+
+			It("should restore with volume restore policy InPlace and PVC as disk", func() {
+				// VM with normal DV mounted to it
+				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
+				vm.Spec.DataVolumeTemplates = nil // Remove traces of DV, we want a raw PVC
+				vm.Spec.Template.Spec.Volumes = vm.Spec.Template.Spec.Volumes[1:]
+
+				// Create and mount PVC to VM
+				pvcName := "standalone-pvc"
+				pvc := &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      pvcName,
+						Namespace: vm.Namespace,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						Resources: corev1.VolumeResourceRequirements{
+							Requests: corev1.ResourceList{
+								"storage": resource.MustParse("2Gi"),
+							},
+						},
+					},
+				}
+
+				vm.Spec.Template.Spec.Volumes = append([]v1.Volume{{
+					Name: "disk0",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: pvcName,
+							},
+						},
+					},
+				}}, vm.Spec.Template.Spec.Volumes...)
+
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm, _ = createAndStartVM(vm)
+
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+
+				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
+				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+
+				// We want to overwrite existing volumes during the restore, that means deleting the existing PVCs
+				restoreDef.Spec.VolumeRestorePolicy = virtpointer.P(snapshotv1.VolumeRestorePolicyInPlace)
+
+				// We're about to restore a VM in such a way that the restored volumes are identical to the source volumes.
+				// We need to make sure they're indeed new, and not that nothing happened during the test. We add
+				// a special annotation to the restored volume to ensure it has been restored from a VolumeSnapshot.
+				restoreDef.Spec.VolumeRestoreOverrides = []snapshotv1.VolumeRestoreOverride{
+					{
+						VolumeName: "disk0",
+						Annotations: map[string]string{
+							"test": "value",
+						},
+					},
+				}
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restoreDef, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty()) // This is handled only for DV templates, so we expect nothing
+
+				// Check the VM post-restore has info we want
+				restoreVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(restoreVM.Spec.Template.Spec.Volumes).To(HaveLen(2))
+				Expect(restoreVM.Spec.Template.Spec.Volumes[0].Name).
+					To(Equal(vm.Spec.Template.Spec.Volumes[0].Name)) // Volume name didn't change
+				Expect(restoreVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).
+					To(Equal(pvcName)) // PVC name didn't change
+
+				// Check the restored PVC exists
+				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvc.Annotations["test"]).To(Equal("value")) // Ensure new annotation is present
+
+				// PVC should have owner reference back to the VM
+				Expect(pvc.OwnerReferences).To(HaveLen(1))
+				Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
+				Expect(pvc.OwnerReferences[0].Name).To(Equal(restoreVM.Name))
+			})
+
 			It("with run strategy and snapshot should successfully restore", func() {
 				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 				libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure)(vm)
