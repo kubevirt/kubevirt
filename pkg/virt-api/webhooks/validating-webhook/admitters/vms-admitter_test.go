@@ -1536,7 +1536,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				},
 			}
 			enableFeatureGate(featureGate)
-			vmsAdmitter.ClusterConfig = config
 			resp := admitVm(vmsAdmitter, vm)
 			Expect(resp.Allowed).To(Equal(accepted))
 		},
