@@ -166,6 +166,8 @@ func ValidateVirtualMachineInstancePerArch(field *k8sfield.Path, spec *v1.Virtua
 		causes = append(causes, webhooks.ValidateVirtualMachineInstanceS390XSetting(field, spec)...)
 	case "arm64":
 		causes = append(causes, webhooks.ValidateVirtualMachineInstanceArm64Setting(field, spec)...)
+	case "ppc64le":
+		causes = append(causes, webhooks.ValidateVirtualMachineInstancePPC64LESetting(field, spec)...)
 	default:
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -237,6 +239,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validatePersistentReservation(field, spec, config)...)
 	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
+	causes = append(causes, validateVideoConfig(field, spec, config)...)
 
 	return causes
 }
@@ -2403,5 +2406,32 @@ func validateCPUHotplug(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 			})
 		}
 	}
+	return causes
+}
+
+func validateVideoConfig(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.Domain.Devices.Video == nil {
+		return causes
+	}
+
+	if !config.VideoConfigEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Video configuration is specified but the %s feature gate is not enabled", featuregate.VideoConfig),
+			Field:   field.Child("video").String(),
+		})
+		return causes
+	}
+
+	if spec.Domain.Devices.AutoattachGraphicsDevice != nil && !*spec.Domain.Devices.AutoattachGraphicsDevice {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Video configuration is not allowed when autoattachGraphicsDevice is set to false",
+			Field:   field.Child("video").String(),
+		})
+	}
+
 	return causes
 }

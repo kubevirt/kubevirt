@@ -414,6 +414,9 @@
             "tpm": {
               "enabled": true,
               "persistent": true
+            },
+            "video": {
+              "type": "typeValue"
             }
           },
           "ioThreadsPolicy": "ioThreadsPolicyValue",

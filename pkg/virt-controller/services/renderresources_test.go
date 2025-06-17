@@ -478,7 +478,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		// MemoryReq / 512bit
 		baseOverhead = pointer.P(resource.MustParse("7Mi"))
 		coresOverhead = pointer.P(resource.MustParse("8Mi"))
-		videoRAMOverhead = pointer.P(resource.MustParse("16Mi"))
+		videoRAMOverhead = pointer.P(resource.MustParse("32Mi"))
 		cpuArchOverhead = pointer.P(resource.MustParse("128Mi"))
 		vfioOverhead = pointer.P(resource.MustParse("1Gi"))
 		downwardmetricsOverhead = pointer.P(resource.MustParse("1Mi"))

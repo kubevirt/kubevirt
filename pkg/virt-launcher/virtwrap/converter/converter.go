@@ -1877,6 +1877,16 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
 		c.Architecture.AddGraphicsDevice(vmi, domain, c.BochsForEFIGuests && vmi.IsBootloaderEFI())
+		if vmi.Spec.Domain.Devices.Video != nil {
+			video := api.Video{
+				Model: api.VideoModel{
+					Type:  vmi.Spec.Domain.Devices.Video.Type,
+					VRam:  pointer.P(uint(16384)),
+					Heads: pointer.P(uint(1)),
+				},
+			}
+			domain.Spec.Devices.Video = []api.Video{video}
+		}
 		domain.Spec.Devices.Graphics = []api.Graphics{
 			{
 				Listen: &api.GraphicsListen{

@@ -173,6 +173,10 @@ func (config *ClusterConfig) ImageVolumeEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.ImageVolume)
 }
 
+func (config *ClusterConfig) VideoConfigEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.VideoConfig)
+}
+
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
 }
