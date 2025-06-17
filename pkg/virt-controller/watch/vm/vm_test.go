@@ -45,8 +45,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/backup"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -100,6 +102,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+			kvInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
@@ -139,7 +142,8 @@ var _ = Describe("VirtualMachine", func() {
 				vmInformer,
 				dataVolumeInformer,
 				dataSourceInformer,
-				namespaceInformer.GetStore(),
+				kvInformer,
+				namespaceInformer,
 				pvcInformer,
 				crInformer,
 				recorder,
@@ -1933,6 +1937,75 @@ var _ = Describe("VirtualMachine", func() {
 			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
+		})
+
+		It("should set ChangedBlockTrackingFGDisabled if vm matches ChangedBlockTrackingLabelSelectors but IncrementalBackup FG is disabled", func() {
+			labelSelector := &metav1.LabelSelector{
+				MatchLabels: backup.CBTLabel,
+			}
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
+							VirtualMachineLabelSelector: labelSelector,
+						},
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
+			libvmi.WithLabels(backup.CBTLabel)(vm)
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+			addVirtualMachine(vm)
+
+			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Status.ChangedBlockTracking).To(Equal(v1.ChangedBlockTrackingFGDisabled))
+
+			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vmi.Status.ChangedBlockTracking).To(Equal(v1.ChangedBlockTrackingUndefined))
+		})
+
+		It("should create VMI with ChangedBlockTrackingState when VM matches cbt selector", func() {
+			labelSelector := &metav1.LabelSelector{
+				MatchLabels: backup.CBTLabel,
+			}
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
+							VirtualMachineLabelSelector: labelSelector,
+						},
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{featuregate.IncrementalBackupGate},
+						},
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
+			libvmi.WithLabels(backup.CBTLabel)(vm)
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+			addVirtualMachine(vm)
+
+			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Status.ChangedBlockTracking).To(Equal(v1.ChangedBlockTrackingInitializing))
+
+			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vmi.Status.ChangedBlockTracking).To(Equal(v1.ChangedBlockTrackingInitializing))
 		})
 
 		Context("VM generation tests", func() {

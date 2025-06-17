@@ -188,3 +188,7 @@ func (config *ClusterConfig) DeclarativeHotplugVolumesEnabled() bool {
 func (config *ClusterConfig) SecureExecutionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.SecureExecution)
 }
+
+func (config *ClusterConfig) IncrementalBackupEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
+}

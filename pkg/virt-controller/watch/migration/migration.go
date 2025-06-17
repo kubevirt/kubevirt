@@ -429,7 +429,7 @@ func (c *Controller) failMigration(migration *virtv1.VirtualMachineInstanceMigra
 }
 
 func (c *Controller) interruptMigration(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
-	if vmi == nil || !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+	if vmi == nil || !backendstorage.IsBackendStorageNeeded(vmi) {
 		return c.failMigration(migration)
 	}
 
@@ -660,7 +660,7 @@ func (c *Controller) processMigrationPhase(
 	case virtv1.MigrationRunning:
 		_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
 		if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
-			if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+			if backendstorage.IsBackendStorageNeeded(vmi) {
 				err := backendstorage.MigrationHandoff(c.clientset, c.pvcStore, migration)
 				if err != nil {
 					return err
@@ -1163,7 +1163,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 }
 
 func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
-	if !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+	if !backendstorage.IsBackendStorageNeeded(vmi) {
 		return nil
 	}
 	if migration.Status.MigrationState == nil {
