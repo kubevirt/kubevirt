@@ -21,8 +21,8 @@ package gpu
 
 import (
 	"fmt"
+	"kubevirt.io/kubevirt/pkg/util"
 
-	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -86,8 +86,8 @@ func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 	if !hasGPUsWithDRA(vmi) {
 		return hostDevices, nil
 	}
-	if !isDRADeviceAttributesAvailable(vmi) {
-		return hostDevices, fmt.Errorf("DRA status reconciliation not complete, waiting for %s condition", v1.VirtualMachineInstanceDRAStatusAttributesAvailable)
+	if !util.IsAllDRAGPUsReconciled(vmi, vmi.Status.DeviceStatus) {
+		return hostDevices, fmt.Errorf("DRA status reconciliation not complete, waiting all GPUs to have attributes")
 	}
 
 	if vmi.Status.DeviceStatus != nil {
@@ -111,22 +111,13 @@ func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 	return hostDevices, nil
 }
 
-func isDRADeviceAttributesAvailable(vmi *v1.VirtualMachineInstance) bool {
-	for _, condition := range vmi.Status.Conditions {
-		if condition.Type == v1.VirtualMachineInstanceDRAStatusAttributesAvailable && condition.Status == k8sv1.ConditionTrue {
-			return true
-		}
-	}
-	return false
-}
-
 func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance, defaultDisplayOn bool) ([]api.HostDevice, error) {
 	hostDevices := []api.HostDevice{}
 	if !hasGPUsWithDRA(vmi) {
 		return hostDevices, nil
 	}
-	if !isDRADeviceAttributesAvailable(vmi) {
-		return hostDevices, fmt.Errorf("DRA status reconciliation not complete, waiting for %s condition", v1.VirtualMachineInstanceDRAStatusAttributesAvailable)
+	if !util.IsAllDRAGPUsReconciled(vmi, vmi.Status.DeviceStatus) {
+		return hostDevices, fmt.Errorf("DRA status reconciliation not complete, waiting all GPUs to have attributes")
 	}
 
 	if vmi.Status.DeviceStatus != nil {

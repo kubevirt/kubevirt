@@ -35,11 +35,15 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/trace"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util"
+	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -57,6 +61,8 @@ type DeviceInfo struct {
 }
 
 type DRAStatusController struct {
+	clusterConfig *virtconfig.ClusterConfig
+
 	vmiInformer cache.SharedIndexInformer
 	podInformer cache.SharedIndexInformer
 	recorder    record.EventRecorder
@@ -73,6 +79,7 @@ type DRAStatusController struct {
 }
 
 func NewDRAStatusController(
+	clusterConfig *virtconfig.ClusterConfig,
 	vmiInformer,
 	podInformer,
 	resourceClaimInformer,
@@ -80,10 +87,11 @@ func NewDRAStatusController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient) (*DRAStatusController, error) {
 	c := &DRAStatusController{
-		vmiInformer: vmiInformer,
-		podInformer: podInformer,
-		recorder:    recorder,
-		clientset:   clientset,
+		clusterConfig: clusterConfig,
+		vmiInformer:   vmiInformer,
+		podInformer:   podInformer,
+		recorder:      recorder,
+		clientset:     clientset,
 
 		podIndexer:           podInformer.GetIndexer(),
 		vmiIndexer:           vmiInformer.GetStore(),
@@ -132,9 +140,7 @@ func NewDRAStatusController(
 func (c *DRAStatusController) enqueueVirtualMachine(obj interface{}) {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 	logger := log.Log.Object(vmi)
-	if controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
-		virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable,
-		k8sv1.ConditionTrue) {
+	if vmi.Status.Phase == virtv1.Running {
 		logger.V(6).Infof("skipping enqueing vmi to dra status controller queue")
 		return
 	}
@@ -186,7 +192,8 @@ func (c *DRAStatusController) addPod(obj interface{}) {
 		return
 	}
 
-	if pod.Status.Phase == k8sv1.PodPending {
+	if pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodFailed ||
+		pod.Status.Phase == k8sv1.PodSucceeded {
 		return
 	}
 
@@ -321,14 +328,20 @@ func (c *DRAStatusController) runWorker() {
 	for c.Execute() {
 	}
 }
+
+var draStatusControllerWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
+
 func (c *DRAStatusController) Execute() bool {
+	if !c.clusterConfig.GPUsWithDRAGateEnabled() {
+		return false
+	}
 	key, quit := c.Queue.Get()
 	if quit {
 		return false
 	}
 
-	//virtControllerVMIWorkQueueTracer.StartTrace(key.(string), "virt-controller VMI workqueue", trace.Field{Key: "Workqueue Key", Value: key})
-	//defer virtControllerVMIWorkQueueTracer.StopTrace(key.(string))
+	draStatusControllerWorkQueueTracer.StartTrace(key, "dra-status-controller VMI workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer draStatusControllerWorkQueueTracer.StopTrace(key)
 
 	defer c.Queue.Done(key)
 	err := c.execute(key)
@@ -394,7 +407,7 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *virt
 		return err
 	}
 
-	gpuStatuses, err := c.getGPUStatusUpdate(gpuDeviceInfo, pod)
+	gpuStatuses, err := c.getGPUStatuses(gpuDeviceInfo, pod)
 	if err != nil {
 		return err
 	}
@@ -402,34 +415,8 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *virt
 	newGPUStatus := &virtv1.DeviceStatus{GPUStatuses: gpuStatuses}
 	if reflect.DeepEqual(vmi.Status.DeviceStatus, newGPUStatus) {
 		// Only set the condition if all GPUs with DRA have corresponding status entries
-		if isAllDRAGPUsReconciled(vmi, newGPUStatus) {
-			condition := virtv1.VirtualMachineInstanceCondition{
-				Type:               virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable,
-				Status:             k8sv1.ConditionTrue,
-				LastTransitionTime: metav1.Now(),
-				Reason:             virtv1.VirtualMachineInstanceReasonDRADevicesAllocated,
-				Message:            draAttributesAvailableMessage,
-			}
-			condMan := controller.NewVirtualMachineInstanceConditionManager()
-			if !condMan.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable, k8sv1.ConditionTrue) {
-				vmiCopy := vmi.DeepCopy()
-				vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
-
-				ps := patch.New(
-					patch.WithTest("/status/conditions", vmi.Status.Conditions),
-					patch.WithReplace("/status/conditions", vmiCopy.Status.Conditions),
-				)
-				patchBytes, err := ps.GeneratePayload()
-				if err != nil {
-					return err
-				}
-				logger.V(4).Infof("patching vmi to add %s condition", virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable)
-				_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.TODO(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-				if err != nil {
-					logger.Errorf("error patching VMI with condition: %#v, %#v", errors.ReasonForError(err), err)
-					return err
-				}
-			}
+		if util.IsAllDRAGPUsReconciled(vmi, newGPUStatus) {
+			logger.V(4).Infof("All DRA GPUs are reconciled nothing more to do")
 			return nil
 		}
 		logger.V(4).Infof("Not all DRA GPUs are reconciled yet, waiting for complete status")
@@ -452,38 +439,6 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *virt
 	}
 	logger.V(6).Infof("patching vmi status successful")
 	return nil
-}
-
-// isAllDRAGPUsReconciled checks if all GPUs with DRA in the spec have corresponding status entries with attributes
-func isAllDRAGPUsReconciled(vmi *virtv1.VirtualMachineInstance, status *virtv1.DeviceStatus) bool {
-	draGPUNames := make(map[string]struct{})
-	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
-		if gpu.ClaimRequest != nil {
-			draGPUNames[gpu.Name] = struct{}{}
-		}
-	}
-	if len(draGPUNames) == 0 {
-		return true
-	}
-
-	reconciledCount := 0
-	if status != nil {
-		for _, gpuStatus := range status.GPUStatuses {
-			if _, isDRAGPU := draGPUNames[gpuStatus.Name]; !isDRAGPU {
-				continue
-			}
-
-			if gpuStatus.DeviceResourceClaimStatus != nil &&
-				gpuStatus.DeviceResourceClaimStatus.ResourceClaimName != nil &&
-				gpuStatus.DeviceResourceClaimStatus.Name != nil &&
-				gpuStatus.DeviceResourceClaimStatus.Attributes != nil &&
-				(gpuStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil ||
-					gpuStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil) {
-				reconciledCount++
-			}
-		}
-	}
-	return reconciledCount == len(draGPUNames)
 }
 
 func (c *DRAStatusController) isPodResourceClaimStatusFilled(logger *log.FilteredLogger, pod *k8sv1.Pod) bool {
@@ -526,39 +481,54 @@ func (c *DRAStatusController) getGPUDevicesFromVMISpec(vmi *virtv1.VirtualMachin
 	return gpuDevices, nil
 }
 
-func (c *DRAStatusController) getGPUStatusUpdate(gpuInfos []DeviceInfo, pod *k8sv1.Pod) ([]virtv1.DeviceStatusInfo, error) {
-	var gpuStatuses []virtv1.DeviceStatusInfo
-	for _, gpuInfo := range gpuInfos {
-		gpuStatus := virtv1.DeviceStatusInfo{
-			Name: gpuInfo.Name,
-			DeviceResourceClaimStatus: &virtv1.DeviceResourceClaimStatus{
-				ResourceClaimName: c.getResourceClaimNameForDevice(gpuInfo.VMISpecClaimName, pod),
-			},
+func (c *DRAStatusController) getGPUStatuses(gpuInfos []DeviceInfo, pod *k8sv1.Pod) ([]virtv1.DeviceStatusInfo, error) {
+	statuses := make([]virtv1.DeviceStatusInfo, 0, len(gpuInfos))
+	for _, info := range gpuInfos {
+		st, err := c.getGPUStatus(info, pod)
+		if err != nil {
+			return nil, err
 		}
-		if gpuStatus.DeviceResourceClaimStatus.ResourceClaimName != nil {
-			device, err := c.getAllocatedDevice(pod.Namespace, *gpuStatus.DeviceResourceClaimStatus.ResourceClaimName, gpuInfo.VMISpecRequestName)
-			if err != nil {
-				return nil, err
-			}
-			if device != nil {
-				gpuStatus.DeviceResourceClaimStatus.Name = &device.Device
-				pciAddress, mdevUUID, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
-				if err != nil {
-					return nil, err
-				}
-				attrs := virtv1.DeviceAttribute{}
-				if pciAddress != "" {
-					attrs.PCIAddress = &pciAddress
-				}
-				if mdevUUID != "" {
-					attrs.MDevUUID = &mdevUUID
-				}
-				gpuStatus.DeviceResourceClaimStatus.Attributes = &attrs
-			}
-		}
-		gpuStatuses = append(gpuStatuses, gpuStatus)
+		statuses = append(statuses, st)
 	}
-	return gpuStatuses, nil
+	return statuses, nil
+}
+
+func (c *DRAStatusController) getGPUStatus(gpuInfo DeviceInfo, pod *k8sv1.Pod) (virtv1.DeviceStatusInfo, error) {
+	gpuStatus := virtv1.DeviceStatusInfo{
+		Name: gpuInfo.Name,
+		DeviceResourceClaimStatus: &virtv1.DeviceResourceClaimStatus{
+			ResourceClaimName: c.getResourceClaimNameForDevice(gpuInfo.VMISpecClaimName, pod),
+		},
+	}
+
+	if gpuStatus.DeviceResourceClaimStatus.ResourceClaimName == nil {
+		return gpuStatus, nil
+	}
+
+	device, err := c.getAllocatedDevice(pod.Namespace, *gpuStatus.DeviceResourceClaimStatus.ResourceClaimName, gpuInfo.VMISpecRequestName)
+	if err != nil {
+		return gpuStatus, err
+	}
+	if device == nil {
+		return gpuStatus, nil
+	}
+
+	gpuStatus.DeviceResourceClaimStatus.Name = &device.Device
+
+	pciAddress, mdevUUID, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
+	if err != nil {
+		return gpuStatus, err
+	}
+	attrs := virtv1.DeviceAttribute{}
+	if pciAddress != "" {
+		attrs.PCIAddress = &pciAddress
+	}
+	if mdevUUID != "" {
+		attrs.MDevUUID = &mdevUUID
+	}
+	gpuStatus.DeviceResourceClaimStatus.Attributes = &attrs
+
+	return gpuStatus, nil
 }
 
 func (c *DRAStatusController) getResourceClaimNameForDevice(claimName string, pod *k8sv1.Pod) *string {
@@ -590,7 +560,7 @@ func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourc
 
 	for _, status := range resourceClaim.Status.Allocation.Devices.Results {
 		if status.Request == requestName {
-			return &status, nil
+			return status.DeepCopy(), nil
 		}
 	}
 

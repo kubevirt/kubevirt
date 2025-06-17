@@ -692,15 +692,18 @@ func (vca *VirtControllerApp) initCommon() {
 		panic(err)
 	}
 
-	draStatusRecorder := vca.newRecorder(k8sv1.NamespaceAll, "dra-status-controller")
-	vca.draStatusController, err = dra.NewDRAStatusController(
-		vca.vmiInformer,
-		vca.kvPodInformer,
-		vca.resourceClaimInformer,
-		vca.resourceSliceInformer,
-		draStatusRecorder,
-		vca.clientSet,
-	)
+	if vca.clusterConfig.GPUsWithDRAGateEnabled() {
+		draStatusRecorder := vca.newRecorder(k8sv1.NamespaceAll, "dra-status-controller")
+		vca.draStatusController, err = dra.NewDRAStatusController(
+			vca.clusterConfig,
+			vca.vmiInformer,
+			vca.kvPodInformer,
+			vca.resourceClaimInformer,
+			vca.resourceSliceInformer,
+			draStatusRecorder,
+			vca.clientSet,
+		)
+	}
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController, err = node.NewController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)

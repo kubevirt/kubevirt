@@ -7,8 +7,9 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/api/resource/v1alpha3"
+	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8scache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -16,6 +17,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 var _ = Describe("DRA Status Controller", func() {
@@ -175,174 +177,6 @@ var _ = Describe("DRA Status Controller", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(Equal(expectedErr))
 		})
-
-		It("should set DRAStatusAttributesAvailable condition when all GPU DRA devices are reconciled", func() {
-			vmi.Spec.Domain.Devices.GPUs = []virtv1.GPU{
-				{
-					Name: "gpu1",
-					ClaimRequest: &virtv1.ClaimRequest{
-						ClaimName:   ptr.To("claim1"),
-						RequestName: ptr.To("request1"),
-					},
-				},
-			}
-			vmi.Status.DeviceStatus = nil
-
-			pod.Spec.NodeName = "testnode"
-			pod.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
-				{
-					Name:              "claim1",
-					ResourceClaimName: ptr.To("claim1"),
-				},
-			}
-			pod.Status.ResourceClaimStatuses = []k8sv1.PodResourceClaimStatus{
-				{
-					Name:              "claim1",
-					ResourceClaimName: ptr.To("claim1"),
-				},
-			}
-
-			vmiClient.EXPECT().
-				Patch(gomock.Any(), "testvmi", gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(vmi, nil)
-
-			kubeClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiClient).MaxTimes(1)
-
-			draController := testDRAStatusController(kubeClient, vmi, pod,
-				getTestResourceClaim("claim1", "default", "request1", "device1", "driver1"),
-				getTestResourceSlice("resourceslice1", "testnode", "device1", "driver1"))
-			err := draController.updateStatus(logger, vmi, pod)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Simulate that the first patch has been applied and now status has been updated
-			vmi.Status.DeviceStatus = &virtv1.DeviceStatus{
-				GPUStatuses: []virtv1.DeviceStatusInfo{
-					{
-						Name: "gpu1",
-						DeviceResourceClaimStatus: &virtv1.DeviceResourceClaimStatus{
-							ResourceClaimName: ptr.To("claim1"),
-							Name:              ptr.To("device1"),
-							Attributes: &virtv1.DeviceAttribute{
-								PCIAddress: ptr.To("0000:00:01.0"),
-							},
-						},
-					},
-				},
-			}
-
-			// The second patch should add the virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable condition
-			patchedVmi := vmi.DeepCopy()
-			condition := virtv1.VirtualMachineInstanceCondition{
-				Type:               virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable,
-				Status:             k8sv1.ConditionTrue,
-				LastTransitionTime: metav1.Now(),
-				Reason:             virtv1.VirtualMachineInstanceReasonDRADevicesAllocated,
-				Message:            draAttributesAvailableMessage,
-			}
-			patchedVmi.Status.Conditions = append(patchedVmi.Status.Conditions, condition)
-
-			vmiClient.EXPECT().
-				Patch(gomock.Any(), "testvmi", gomock.Any(), gomock.Any(), gomock.Any()).
-				Do(func(ctx interface{}, name string, pt interface{}, data interface{}, opts interface{}) {
-					Expect(data).To(ContainSubstring(string(virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable)))
-				}).
-				Return(patchedVmi, nil)
-
-			kubeClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiClient).MaxTimes(1)
-
-			// Call updateStatus again, now it should add the condition
-			err = draController.updateStatus(logger, vmi, pod)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should not set virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable condition when only some GPU DRA devices are reconciled", func() {
-			vmi.Spec.Domain.Devices.GPUs = []virtv1.GPU{
-				{
-					Name: "gpu1",
-					ClaimRequest: &virtv1.ClaimRequest{
-						ClaimName:   ptr.To("claim1"),
-						RequestName: ptr.To("request1"),
-					},
-				},
-				{
-					Name: "gpu2",
-					ClaimRequest: &virtv1.ClaimRequest{
-						ClaimName:   ptr.To("claim2"),
-						RequestName: ptr.To("request2"),
-					},
-				},
-			}
-			vmi.Status.DeviceStatus = nil
-
-			pod.Spec.NodeName = "testnode"
-			pod.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
-				{
-					Name:              "claim1",
-					ResourceClaimName: ptr.To("claim1"),
-				},
-				{
-					Name:              "claim2",
-					ResourceClaimName: ptr.To("claim2"),
-				},
-			}
-			pod.Status.ResourceClaimStatuses = []k8sv1.PodResourceClaimStatus{
-				{
-					Name:              "claim1",
-					ResourceClaimName: ptr.To("claim1"),
-				},
-				{
-					Name:              "claim2",
-					ResourceClaimName: ptr.To("claim2"),
-				},
-			}
-
-			vmiClient.EXPECT().
-				Patch(gomock.Any(), "testvmi", gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(vmi, nil)
-
-			kubeClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiClient).MaxTimes(1)
-
-			draController := testDRAStatusController(kubeClient, vmi, pod,
-				getTestResourceClaim("claim1", "default", "request1", "device1", "driver1"),
-				getTestResourceSlice("resourceslice1", "testnode", "device1", "driver1"))
-
-			// ResourceClaim for the second GPU is missing, so not all GPUs can be reconciled
-			err := draController.updateStatus(logger, vmi, pod)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Simulate that the first patch has been applied, but only one GPU has status
-			vmi.Status.DeviceStatus = &virtv1.DeviceStatus{
-				GPUStatuses: []virtv1.DeviceStatusInfo{
-					{
-						Name: "gpu1",
-						DeviceResourceClaimStatus: &virtv1.DeviceResourceClaimStatus{
-							ResourceClaimName: ptr.To("claim1"),
-							Name:              ptr.To("device1"),
-							Attributes: &virtv1.DeviceAttribute{
-								PCIAddress: ptr.To("0000:00:01.0"),
-							},
-						},
-					},
-					// Missing status for gpu2
-				},
-			}
-
-			// No second patch should happen since not all GPUs are reconciled
-			// The existing device status shouldn't be modified since it contains partial information
-			err = draController.updateStatus(logger, vmi, pod)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Verify that condition wasn't set
-			found := false
-			for _, condition := range vmi.Status.Conditions {
-				if condition.Type == virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable {
-					found = true
-					break
-				}
-			}
-			Expect(found).To(BeFalse(), virtv1.VirtualMachineInstanceDRAStatusAttributesAvailable+" condition should "+
-				"not be set when not all GPUs are reconciled")
-		})
 	})
 
 	Context("isAllDRAGPUsReconciled", func() {
@@ -363,7 +197,7 @@ var _ = Describe("DRA Status Controller", func() {
 
 		It("should return true if there are no GPUs with DRA", func() {
 			status := &virtv1.DeviceStatus{}
-			Expect(isAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
+			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
 		})
 
 		It("should return true if all GPUs with DRA are reconciled with PCI addresses", func() {
@@ -392,7 +226,7 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(isAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
+			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
 		})
 
 		It("should return true if all GPUs with DRA are reconciled with mdev UUIDs", func() {
@@ -421,7 +255,7 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(isAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
+			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
 		})
 
 		It("should return false if any GPU with DRA is missing status", func() {
@@ -458,7 +292,7 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(isAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
+			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
 		})
 
 		It("should return false if any GPU with DRA is missing attributes", func() {
@@ -485,7 +319,7 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(isAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
+			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
 		})
 
 		It("should return false if any GPU with DRA has attributes but no PCI address or mdev UUID", func() {
@@ -512,7 +346,7 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(isAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
+			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
 		})
 
 		It("should handle nil status gracefully", func() {
@@ -526,16 +360,16 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(isAllDRAGPUsReconciled(vmi, nil)).To(BeFalse())
+			Expect(util.IsAllDRAGPUsReconciled(vmi, nil)).To(BeFalse())
 		})
 	})
 })
 
-func testDRAStatusController(kubeClient kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, resourceClaim *v1alpha3.ResourceClaim, resourceSlice *v1alpha3.ResourceSlice) *DRAStatusController {
+func testDRAStatusController(kubeClient kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, resourceClaim *resourcev1beta1.ResourceClaim, resourceSlice *resourcev1beta1.ResourceSlice) *DRAStatusController {
 	vmiInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
 	podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
-	resourceClaimInformer, _ := testutils.NewFakeInformerFor(&v1alpha3.ResourceClaim{})
-	resourceSliceInformer, _ := testutils.NewFakeInformerFor(&v1alpha3.ResourceSlice{})
+	resourceClaimInformer, _ := testutils.NewFakeInformerFor(&resourcev1beta1.ResourceClaim{})
+	resourceSliceInformer, _ := testutils.NewFakeInformerFor(&resourcev1beta1.ResourceSlice{})
 	recorder := record.NewFakeRecorder(100)
 
 	if vmi != nil {
@@ -549,6 +383,9 @@ func testDRAStatusController(kubeClient kubecli.KubevirtClient, vmi *virtv1.Virt
 	}
 	if resourceSlice != nil {
 		resourceSliceInformer.GetIndexer().Add(resourceSlice)
+		_ = resourceSliceInformer.GetIndexer().AddIndexers(map[string]k8scache.IndexFunc{
+			indexByNodeName: indexResourceSliceByNodeName,
+		})
 	}
 
 	return &DRAStatusController{
@@ -563,52 +400,52 @@ func testDRAStatusController(kubeClient kubecli.KubevirtClient, vmi *virtv1.Virt
 	}
 }
 
-func getTestResourceClaim(name, namespace, requestName, deviceName, driverName string) *v1alpha3.ResourceClaim {
-	resourceClaim := &v1alpha3.ResourceClaim{
+func getTestResourceClaim(name, namespace, requestName, deviceName, driverName string) *resourcev1beta1.ResourceClaim {
+	resourceClaim := &resourcev1beta1.ResourceClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Status: v1alpha3.ResourceClaimStatus{
-			Allocation: &v1alpha3.AllocationResult{},
+		Status: resourcev1beta1.ResourceClaimStatus{
+			Allocation: &resourcev1beta1.AllocationResult{},
 		},
 	}
 
-	expectedDeviceResult := v1alpha3.DeviceRequestAllocationResult{
+	expectedDeviceResult := resourcev1beta1.DeviceRequestAllocationResult{
 		Request: requestName,
 		Device:  deviceName,
 		Driver:  driverName,
 		Pool:    "default",
 	}
 
-	resourceClaim.Status.Allocation.Devices = v1alpha3.DeviceAllocationResult{
-		Results: []v1alpha3.DeviceRequestAllocationResult{expectedDeviceResult},
+	resourceClaim.Status.Allocation.Devices = resourcev1beta1.DeviceAllocationResult{
+		Results: []resourcev1beta1.DeviceRequestAllocationResult{expectedDeviceResult},
 	}
 
 	return resourceClaim
 }
 
-func getTestResourceSlice(name, nodeName, deviceName, driverName string) *v1alpha3.ResourceSlice {
+func getTestResourceSlice(name, nodeName, deviceName, driverName string) *resourcev1beta1.ResourceSlice {
 	pciAddress := "0000:00:01.0"
 	mdevUUID := "mdev-uuid-123"
 
-	return &v1alpha3.ResourceSlice{
+	return &resourcev1beta1.ResourceSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: v1alpha3.ResourceSliceSpec{
+		Spec: resourcev1beta1.ResourceSliceSpec{
 			NodeName: nodeName,
 			Driver:   driverName,
-			Pool: v1alpha3.ResourcePool{
+			Pool: resourcev1beta1.ResourcePool{
 				Name:               "default",
 				Generation:         1,
 				ResourceSliceCount: 1,
 			},
-			Devices: []v1alpha3.Device{
+			Devices: []resourcev1beta1.Device{
 				{
 					Name: deviceName,
-					Basic: &v1alpha3.BasicDevice{
-						Attributes: map[v1alpha3.QualifiedName]v1alpha3.DeviceAttribute{
+					Basic: &resourcev1beta1.BasicDevice{
+						Attributes: map[resourcev1beta1.QualifiedName]resourcev1beta1.DeviceAttribute{
 							"pciAddress": {
 								StringValue: ptr.To(pciAddress),
 							},
