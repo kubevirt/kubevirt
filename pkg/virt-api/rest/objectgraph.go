@@ -22,7 +22,6 @@ package rest
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/emicklei/go-restful/v3"
 	"github.com/pkg/errors"
@@ -76,19 +75,15 @@ func NewObjectGraph(client kubecli.KubevirtClient, opts *v1.ObjectGraphOptions) 
 // objectGraphMap represents the graph of objects that can be potentially related to a KubeVirt resource
 // This is not strictly needed, but helps to keep the list of objects that we are appending to the graph.
 var objectGraphMap = map[string]schema.GroupKind{
-	"virtualmachines":                    {Group: "kubevirt.io", Kind: "VirtualMachine"},
-	"virtualmachineinstances":            {Group: "kubevirt.io", Kind: "VirtualMachineInstance"},
-	"virtualmachineinstancetypes":        {Group: "instancetype.kubevirt.io", Kind: "VirtualMachineInstancetype"},
-	"virtualmachineclusterinstancetypes": {Group: "instancetype.kubevirt.io", Kind: "VirtualMachineClusterInstancetype"},
-	"virtualmachinepreferences":          {Group: "instancetype.kubevirt.io", Kind: "VirtualMachinePreference"},
-	"virtualmachineclusterpreferences":   {Group: "instancetype.kubevirt.io", Kind: "VirtualMachineClusterPreference"},
-	"datavolumes":                        {Group: "cdi.kubevirt.io", Kind: "DataVolume"},
-	"controllerrevisions":                {Group: "apps", Kind: "ControllerRevision"},
-	"configmaps":                         {Group: "", Kind: "ConfigMap"},
-	"persistentvolumeclaims":             {Group: "", Kind: "PersistentVolumeClaim"},
-	"serviceaccounts":                    {Group: "", Kind: "ServiceAccount"},
-	"secrets":                            {Group: "", Kind: "Secret"},
-	"pods":                               {Group: "", Kind: "Pod"},
+	"virtualmachines":         {Group: "kubevirt.io", Kind: "VirtualMachine"},
+	"virtualmachineinstances": {Group: "kubevirt.io", Kind: "VirtualMachineInstance"},
+	"datavolumes":             {Group: "cdi.kubevirt.io", Kind: "DataVolume"},
+	"controllerrevisions":     {Group: "apps", Kind: "ControllerRevision"},
+	"configmaps":              {Group: "", Kind: "ConfigMap"},
+	"persistentvolumeclaims":  {Group: "", Kind: "PersistentVolumeClaim"},
+	"serviceaccounts":         {Group: "", Kind: "ServiceAccount"},
+	"secrets":                 {Group: "", Kind: "Secret"},
+	"pods":                    {Group: "", Kind: "Pod"},
 }
 
 // getResourceDependencyType returns the dependency type for a given resource
@@ -98,8 +93,7 @@ func getResourceDependencyType(resource string) DependencyType {
 		return DependencyTypeStorage
 	case "pods", "virtualmachines", "virtualmachineinstances":
 		return DependencyTypeCompute
-	case "configmaps", "secrets", "virtualmachineinstancetypes", "virtualmachineclusterinstancetypes",
-		"virtualmachinepreferences", "virtualmachineclusterpreferences", "controllerrevisions":
+	case "configmaps", "secrets", "controllerrevisions":
 		return DependencyTypeConfig
 	case "serviceaccounts":
 		return DependencyTypeNetwork
@@ -418,12 +412,6 @@ func (og *ObjectGraph) getPreferenceNode(vm *v1.VirtualMachine) []v1.ObjectGraph
 
 func (og *ObjectGraph) getInstanceTypeMatcherResource(matcher v1.Matcher, statusRef *v1.InstancetypeStatusRef, namespace string) []v1.ObjectGraphNode {
 	var nodes []v1.ObjectGraphNode
-	switch resource := strings.ToLower(matcher.GetKind()) + "s"; resource {
-	case "virtualmachineclusterinstancetypes", "virtualmachineclusterpreferences":
-		nodes = append(nodes, *og.newGraphNode(matcher.GetName(), "", resource, nil, true))
-	case "virtualmachineinstancetypes", "virtualmachinepreferences":
-		nodes = append(nodes, *og.newGraphNode(matcher.GetName(), namespace, resource, nil, true))
-	}
 	if statusRef != nil && statusRef.ControllerRevisionRef != nil {
 		nodes = append(nodes, *og.newGraphNode(statusRef.ControllerRevisionRef.Name, namespace, "controllerrevisions", nil, false))
 	}

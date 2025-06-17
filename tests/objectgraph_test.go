@@ -178,49 +178,4 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 			Expect(objectGraph.Children[0].ObjectReference.Kind).To(Equal("Pod"))
 		})
 	})
-
-	Context("with optional resources", func() {
-		var vm *v1.VirtualMachine
-
-		BeforeEach(func() {
-			By("Creating a VM with instance type")
-			vm = libvmi.NewVirtualMachine(
-				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				),
-			)
-
-			// this would be optional
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: "test-instancetype",
-				Kind: "VirtualMachineInstancetype",
-			}
-
-			var err error
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should exclude optional resources when IncludeOptionalNodes is false", func() {
-			By("Getting object graph with optional nodes excluded")
-			includeOptional := false
-			objectGraph, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).ObjectGraph(context.Background(), vm.Name, &v1.ObjectGraphOptions{
-				IncludeOptionalNodes: &includeOptional,
-			})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Verifying optional resources are excluded")
-			for _, child := range objectGraph.Children {
-				Expect(child.ObjectReference.Name).ToNot(Equal("test-instancetype"))
-			}
-
-			By("Getting object graph with optional nodes included")
-			objectGraphWithOptional, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).ObjectGraph(context.Background(), vm.Name, &v1.ObjectGraphOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Verifying the graph with optional nodes has more dependencies")
-			Expect(len(objectGraphWithOptional.Children)).To(BeNumerically(">", len(objectGraph.Children)))
-		})
-	})
 })
