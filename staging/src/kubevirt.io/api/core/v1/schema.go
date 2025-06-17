@@ -440,6 +440,9 @@ type ACPI struct {
 	// be a binary blob that follows the ACPI SLIC standard, see:
 	// https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)
 	SlicNameRef string `json:"slicNameRef,omitempty"`
+	// Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+	// The above points to the spec of MSDM too.
+	MsdmNameRef string `json:"msdmNameRef,omitempty"`
 }
 
 type Devices struct {
