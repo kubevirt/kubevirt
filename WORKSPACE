@@ -171,7 +171,7 @@ load("@bazeldnf//:deps.bzl", "bazeldnf_dependencies", "rpm")
 go_rules_dependencies()
 
 go_register_toolchains(
-    go_version = "1.23.4",
+    go_version = "1.23.9",
     nogo = "@//:nogo_vet",
 )
 
