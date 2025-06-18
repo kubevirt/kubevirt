@@ -1061,12 +1061,17 @@ func (c *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.Virt
 			Message:            message,
 		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, newCondition)
+
 		if status == k8sv1.ConditionTrue {
 			eventMessage := "Access credentials sync successful."
 			if message != "" {
 				eventMessage = fmt.Sprintf("Access credentials sync successful: %s", message)
 			}
-			c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.AccessCredentialsSyncSuccess.String(), eventMessage)
+			eventType := k8sv1.EventTypeNormal
+			if domain.Spec.Metadata.KubeVirt.AccessCredential.DeprecatedMethod {
+				eventType = k8sv1.EventTypeWarning
+			}
+			c.recorder.Event(vmi, eventType, v1.AccessCredentialsSyncSuccess.String(), eventMessage)
 		} else {
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncFailed.String(),
 				fmt.Sprintf("Access credentials sync failed: %s", message),

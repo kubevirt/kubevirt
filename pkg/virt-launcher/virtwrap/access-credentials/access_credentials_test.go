@@ -120,7 +120,9 @@ var _ = Describe("AccessCredentials", func() {
 		mockLibvirt.DomainEXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(nil).Times(1)
 		mockLibvirt.DomainEXPECT().Free().Times(1)
 
-		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
+		deprecated, err := manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)
+		Expect(deprecated).To(BeFalse())
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should dynamically update ssh key with old qemu agent", func() {
@@ -201,7 +203,9 @@ var _ = Describe("AccessCredentials", func() {
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedFileChmodCmd, domName).Return(expectedExecReturn, nil).Times(1)
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChmodRes, nil).Times(1)
 
-		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
+		deprecated, err := manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)
+		Expect(deprecated).To(BeTrue())
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should fail to update ssh key if both methods return error", func() {
@@ -218,8 +222,9 @@ var _ = Describe("AccessCredentials", func() {
 		// Detect user home dir
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return("", libvirt.ERR_INTERNAL_ERROR).AnyTimes()
 
-		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).
-			To(MatchError(ContainSubstring("failed to set SSH keys")))
+		deprecated, err := manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)
+		Expect(deprecated).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("failed to set SSH keys")))
 	})
 
 	It("should support multiple ssh keys in one secret value", func() {
