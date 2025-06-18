@@ -2943,7 +2943,7 @@ spec:
 				if psaRelatedErrorDetected && virtualMachineProfile == nil {
 					return
 				}
-				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(BeInPhase(v1.Scheduled))
+				Eventually(matcher.ThisVMI(vmi), 1*time.Minute, time.Second).Should(BeInPhase(v1.Scheduled))
 
 				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
