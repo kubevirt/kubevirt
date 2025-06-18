@@ -49,7 +49,7 @@ func Has2MiHugepages(node *k8sv1.Node) bool {
 	return exists
 }
 
-func HasFeature(feature string) bool {
+func IsFeatureEnabled(feature string) bool {
 	virtClient := kubevirt.Client()
 	kv := libkubevirt.GetCurrentKv(virtClient)
 

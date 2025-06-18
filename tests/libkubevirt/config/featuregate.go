@@ -39,7 +39,7 @@ func EnableFeatureGate(feature string) {
 }
 
 func setFeatureGateState(feature string, toEnable bool) {
-	if toEnable == checks.HasFeature(feature) {
+	if toEnable == checks.IsFeatureEnabled(feature) {
 		return
 	}
 

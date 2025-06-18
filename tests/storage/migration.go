@@ -912,7 +912,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 		enableLegacyHotplug := func() {
 			// even if DeclarativeHotplugVolumesGate is enabled this takes precedence
-			if !checks.HasFeature(featuregate.HotplugVolumesGate) {
+			if !checks.IsFeatureEnabled(featuregate.HotplugVolumesGate) {
 				config.EnableFeatureGate(featuregate.HotplugVolumesGate)
 			}
 		}
