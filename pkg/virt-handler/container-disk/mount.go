@@ -3,8 +3,6 @@ package container_disk
 import (
 	"errors"
 	"fmt"
-	"hash/crc32"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,11 +56,6 @@ type Mounter interface {
 	ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error)
 	MountAndVerify(vmi *v1.VirtualMachineInstance) error
 	Unmount(vmi *v1.VirtualMachineInstance) error
-	// ComputeChecksums method, along with the code added in this commit, can be removed after the 1.7 release.
-	// By then, we can be sure that during upgrades older versions of virt-handler no longer expect the checksum
-	// in the VMI status.
-	// Therefore, it will no longer be necessary to include this information in the VMI status.
-	ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error)
 }
 
 type vmiMountTargetEntry struct {
@@ -78,16 +71,6 @@ type vmiMountTargetRecord struct {
 type kernelArtifacts struct {
 	kernel *safepath.Path
 	initrd *safepath.Path
-}
-
-type DiskChecksums struct {
-	KernelBootChecksum     KernelBootChecksum
-	ContainerDiskChecksums map[string]uint32
-}
-
-type KernelBootChecksum struct {
-	Initrd *uint32
-	Kernel *uint32
 }
 
 func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string, clusterConfig *virtconfig.ClusterConfig) Mounter {
@@ -661,80 +644,6 @@ func (m *mounter) getKernelArtifactPaths(vmi *v1.VirtualMachineInstance) (*kerne
 	}
 
 	return kernelArtifacts, nil
-}
-
-func getDigest(imageFile *safepath.Path) (uint32, error) {
-	digest := crc32.NewIEEE()
-
-	err := imageFile.ExecuteNoFollow(func(path string) (err error) {
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		// 32 MiB chunks
-		chunk := make([]byte, 1024*1024*32)
-
-		_, err = io.CopyBuffer(digest, f, chunk)
-		return err
-	})
-
-	return digest.Sum32(), err
-}
-
-func (m *mounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error) {
-
-	diskChecksums := &DiskChecksums{
-		ContainerDiskChecksums: map[string]uint32{},
-	}
-
-	// compute for containerdisks
-	for i, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.ContainerDisk == nil {
-			continue
-		}
-
-		path, err := m.getContainerDiskPath(vmi, &volume, i)
-		if err != nil {
-			return nil, err
-		}
-
-		checksum, err := getDigest(path)
-		if err != nil {
-			return nil, err
-		}
-
-		diskChecksums.ContainerDiskChecksums[volume.Name] = checksum
-	}
-
-	// kernel and initrd
-	if util.HasKernelBootContainerImage(vmi) {
-		kernelArtifacts, err := m.getKernelArtifactPaths(vmi)
-		if err != nil {
-			return nil, err
-		}
-
-		if kernelArtifacts.kernel != nil {
-			checksum, err := getDigest(kernelArtifacts.kernel)
-			if err != nil {
-				return nil, err
-			}
-
-			diskChecksums.KernelBootChecksum.Kernel = &checksum
-		}
-
-		if kernelArtifacts.initrd != nil {
-			checksum, err := getDigest(kernelArtifacts.initrd)
-			if err != nil {
-				return nil, err
-			}
-
-			diskChecksums.KernelBootChecksum.Initrd = &checksum
-		}
-	}
-
-	return diskChecksums, nil
 }
 
 type needsBindMountFunc func(vmi *v1.VirtualMachineInstance) (bool, error)

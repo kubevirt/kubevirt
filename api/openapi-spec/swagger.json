@@ -13171,7 +13171,7 @@
     "type": "object",
     "properties": {
      "checksum": {
-      "description": "Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk",
+      "description": "Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk. Not reported anymore",
       "type": "integer",
       "format": "int64"
      }
@@ -14311,7 +14311,7 @@
     "type": "object",
     "properties": {
      "checksum": {
-      "description": "Checksum is the checksum of the initrd file",
+      "description": "Checksum is the checksum of the initrd file. Not reported anymore",
       "type": "integer",
       "format": "int64"
      }
@@ -14617,7 +14617,7 @@
     "type": "object",
     "properties": {
      "checksum": {
-      "description": "Checksum is the checksum of the kernel image",
+      "description": "Checksum is the checksum of the kernel image. Not reported anymore",
       "type": "integer",
       "format": "int64"
      }

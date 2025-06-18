@@ -375,13 +375,15 @@ type VolumeStatus struct {
 
 // KernelInfo show info about the kernel image
 type KernelInfo struct {
-	// Checksum is the checksum of the kernel image
+	// Checksum is the checksum of the kernel image.
+	// Not reported anymore
 	Checksum uint32 `json:"checksum,omitempty"`
 }
 
 // InitrdInfo show info about the initrd file
 type InitrdInfo struct {
-	// Checksum is the checksum of the initrd file
+	// Checksum is the checksum of the initrd file.
+	// Not reported anymore
 	Checksum uint32 `json:"checksum,omitempty"`
 }
 
@@ -415,7 +417,8 @@ type HotplugVolumeStatus struct {
 
 // ContainerDiskInfo shows info about the containerdisk
 type ContainerDiskInfo struct {
-	// Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk
+	// Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk.
+	// Not reported anymore
 	Checksum uint32 `json:"checksum,omitempty"`
 }
 
