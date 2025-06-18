@@ -64,7 +64,12 @@ var _ = Describe(SIG("bridge nic-hotplug", func() {
 	)
 
 	Context("a running VM", func() {
-		const guestSecondaryIfaceName = "eth1"
+		const (
+			guestSecondaryIfaceName = "eth1"
+
+			secondHotpluggedIfaceName = "iface2"
+			thirdHotpluggedIfaceName  = "iface3"
+		)
 
 		var hotPluggedVM *v1.VirtualMachine
 		var hotPluggedVMI *v1.VirtualMachineInstance
@@ -197,8 +202,17 @@ var _ = Describe(SIG("bridge nic-hotplug", func() {
 			var err error
 			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			const secondHotpluggedIfaceName = "iface2"
-			Expect(addBridgeInterface(hotPluggedVM, secondHotpluggedIfaceName, nadName)).To(Succeed())
+
+			Expect(libnet.PatchVMWithNewInterfaces(hotPluggedVM,
+				[]v1.Network{
+					*libvmi.MultusNetwork(secondHotpluggedIfaceName, nadName),
+					*libvmi.MultusNetwork(thirdHotpluggedIfaceName, nadName),
+				},
+				[]v1.Interface{
+					libvmi.InterfaceDeviceWithBridgeBinding(secondHotpluggedIfaceName),
+					interfaceInDownState(thirdHotpluggedIfaceName),
+				},
+			)).To(Succeed())
 
 			By("wait for the second network to appear in the VMI spec")
 			EventuallyWithOffset(1, func() []v1.Network {
@@ -211,6 +225,12 @@ var _ = Describe(SIG("bridge nic-hotplug", func() {
 					*v1.DefaultPodNetwork(),
 					v1.Network{
 						Name: secondHotpluggedIfaceName,
+						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+							NetworkName: nadName,
+						}},
+					},
+					v1.Network{
+						Name: thirdHotpluggedIfaceName,
 						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
 							NetworkName: nadName,
 						}},
@@ -235,8 +255,8 @@ var _ = Describe(SIG("bridge nic-hotunplug", func() {
 	const (
 		linuxBridgeNetworkName1 = "red"
 		linuxBridgeNetworkName2 = "blue"
-
-		nadName = "skynet"
+		linuxBridgeNetworkName3 = "green"
+		nadName                 = "skynet"
 	)
 
 	Context("a running VM", func() {
@@ -253,8 +273,11 @@ var _ = Describe(SIG("bridge nic-hotunplug", func() {
 			vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName1, nadName)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, nadName)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName3, nadName)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)))
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)),
+				libvmi.WithInterface(interfaceInDownState(linuxBridgeNetworkName3)))
+
 			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -264,8 +287,9 @@ var _ = Describe(SIG("bridge nic-hotunplug", func() {
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 		})
 
-		DescribeTable("hot-unplug network interface succeed", func(plugMethod hotplugMethod) {
-			Expect(removeInterface(vm, linuxBridgeNetworkName2)).To(Succeed())
+		DescribeTable("hot-unplug network interfaces succeed", func(plugMethod hotplugMethod) {
+
+			Expect(removeInterfaces(vm, []string{linuxBridgeNetworkName2, linuxBridgeNetworkName3})).To(Succeed())
 
 			By("wait for requested interface VMI spec to have 'absent' state or to be removed")
 			Eventually(func() bool {
@@ -276,13 +300,14 @@ var _ = Describe(SIG("bridge nic-hotunplug", func() {
 				return iface == nil || iface.State == v1.InterfaceStateAbsent
 			}, 30*time.Second).Should(BeTrue())
 
-			By("verify unplugged interface is not reported in the VMI status")
+			By("verify unplugged interfaces are not reported in the VMI status")
 			vmi = verifyBridgeDynamicInterfaceChange(vmi, plugMethod)
 
 			vm, vmi = verifyUnpluggedIfaceClearedFromVMandVMI(vm.Namespace, vm.Name, linuxBridgeNetworkName2)
+			vm, vmi = verifyUnpluggedIfaceClearedFromVMandVMI(vm.Namespace, vm.Name, linuxBridgeNetworkName3)
 
 			By("Unplug the last secondary interface")
-			Expect(removeInterface(vm, linuxBridgeNetworkName1)).To(Succeed())
+			Expect(removeInterfaces(vm, []string{linuxBridgeNetworkName1})).To(Succeed())
 
 			if plugMethod == migrationBased {
 				By("migrating the VMI")
@@ -318,13 +343,16 @@ func newBridgeNetworkInterface(name, netAttachDefName string) (v1.Network, v1.In
 
 func addBridgeInterface(vm *v1.VirtualMachine, name, netAttachDefName string) error {
 	newNetwork, newIface := newBridgeNetworkInterface(name, netAttachDefName)
-	return libnet.PatchVMWithNewInterface(vm, newNetwork, newIface)
+	return libnet.PatchVMWithNewInterfaces(vm, []v1.Network{newNetwork}, []v1.Interface{newIface})
 }
 
-func removeInterface(vm *v1.VirtualMachine, name string) error {
+func removeInterfaces(vm *v1.VirtualMachine, names []string) error {
 	specCopy := vm.Spec.Template.Spec.DeepCopy()
-	ifaceToRemove := vmispec.LookupInterfaceByName(specCopy.Domain.Devices.Interfaces, name)
-	ifaceToRemove.State = v1.InterfaceStateAbsent
+	for _, name := range names {
+		ifaceToRemove := vmispec.LookupInterfaceByName(specCopy.Domain.Devices.Interfaces, name)
+		ifaceToRemove.State = v1.InterfaceStateAbsent
+	}
+
 	const interfacesPath = "/spec/template/spec/domain/devices/interfaces"
 	patchSet := patch.New(
 		patch.WithTest(interfacesPath, vm.Spec.Template.Spec.Domain.Devices.Interfaces),
@@ -382,4 +410,12 @@ func assertInterfaceUnplugedFromVM(g Gomega, vm *v1.VirtualMachine, name string)
 		"unplugged iface should be cleared from VM spec")
 	g.Expect(libnet.LookupNetworkByName(vm.Spec.Template.Spec.Networks, name)).To(BeNil(),
 		"unplugged iface corresponding network should be cleared from VM spec")
+}
+
+func interfaceInDownState(name string) v1.Interface {
+	return v1.Interface{
+		Name:                   name,
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+		State:                  v1.InterfaceStateLinkDown,
+	}
 }
