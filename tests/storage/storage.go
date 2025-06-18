@@ -530,7 +530,7 @@ var _ = Describe(SIG("Storage", func() {
 		Context("[rfe_id:2298][crit:medium][vendor:cnv-qe@redhat.com][level:component] With HostDisk and PVC initialization", func() {
 
 			BeforeEach(func() {
-				if !checks.HasFeature(featuregate.HostDiskGate) {
+				if !checks.IsFeatureEnabled(featuregate.HostDiskGate) {
 					Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 				}
 			})

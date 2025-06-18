@@ -56,7 +56,7 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		if !checks.HasFeature(featuregate.VMExportGate) {
+		if !checks.IsFeatureEnabled(featuregate.VMExportGate) {
 			Fail(fmt.Sprintf(`Cluster has the %q featuregate disabled, skipping  the tests`, featuregate.VMExportGate))
 		}
 

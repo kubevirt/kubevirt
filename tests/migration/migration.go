@@ -1116,7 +1116,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			var clusterIsRoot bool
 
 			BeforeEach(func() {
-				clusterIsRoot = checks.HasFeature(featuregate.Root)
+				clusterIsRoot = checks.IsFeatureEnabled(featuregate.Root)
 				if !clusterIsRoot {
 					kvconfig.EnableFeatureGate(featuregate.Root)
 				}
@@ -1200,7 +1200,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			size := "256Mi"
 
 			BeforeEach(func() {
-				clusterIsRoot = checks.HasFeature(featuregate.Root)
+				clusterIsRoot = checks.IsFeatureEnabled(featuregate.Root)
 				if clusterIsRoot {
 					kvconfig.DisableFeatureGate(featuregate.Root)
 				}

@@ -386,7 +386,7 @@ func GetTestNamespace(object metav1.Object) string {
 		return object.GetNamespace()
 	}
 
-	if checks.HasFeature(featuregate.Root) {
+	if checks.IsFeatureEnabled(featuregate.Root) {
 		return NamespacePrivileged
 	}
 

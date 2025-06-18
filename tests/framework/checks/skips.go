@@ -17,7 +17,7 @@ import (
 
 // Deprecated: SkipTestIfNoFeatureGate should be converted to check & fail
 func SkipTestIfNoFeatureGate(featureGate string) {
-	if !HasFeature(featureGate) {
+	if !IsFeatureEnabled(featureGate) {
 		ginkgo.Skip(fmt.Sprintf("the %v feature gate is not enabled.", featureGate))
 	}
 }
