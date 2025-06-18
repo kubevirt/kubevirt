@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8scache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -19,6 +20,8 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("DRA Status Controller", func() {
@@ -373,6 +376,9 @@ func testDRAStatusController(kubeClient kubecli.KubevirtClient, vmi *virtv1.Virt
 	resourceSliceInformer, _ := testutils.NewFakeInformerFor(&resourcev1beta1.ResourceSlice{})
 	recorder := record.NewFakeRecorder(100)
 
+	// Inject a ClusterConfig stub that declares the GPUsWithDRA feature-gate as enabled.
+	clusterConfig := newTestClusterConfigWithGPUDRA()
+
 	if vmi != nil {
 		vmiInformer.GetIndexer().Add(vmi)
 	}
@@ -398,7 +404,24 @@ func testDRAStatusController(kubeClient kubecli.KubevirtClient, vmi *virtv1.Virt
 		vmiIndexer:           vmiInformer.GetIndexer(),
 		resourceClaimIndexer: resourceClaimInformer.GetIndexer(),
 		resourceSliceIndexer: resourceSliceInformer.GetIndexer(),
+		clusterConfig:        clusterConfig,
 	}
+}
+
+// newTestClusterConfigWithGPUDRA returns a minimal ClusterConfig suitable for unit testing.
+// It reports the GPUsWithDRA feature-gate as enabled while every other feature-gate remains disabled.
+func newTestClusterConfigWithGPUDRA() *virtconfig.ClusterConfig {
+	// Create empty (fake) informers because the real ClusterConfig constructor requires them.
+	crdInformer, _ := testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
+	kvInformer, _ := testutils.NewFakeInformerFor(&virtv1.KubeVirt{})
+
+	cc, _ := virtconfig.NewClusterConfig(crdInformer, kvInformer, "default")
+
+	// Enable the GPUsWithDRA feature-gate on the underlying configuration returned by GetConfig().
+	cfg := cc.GetConfig()
+	cfg.DeveloperConfiguration.FeatureGates = append(cfg.DeveloperConfiguration.FeatureGates, featuregate.GPUsWithDRAGate)
+
+	return cc
 }
 
 func getTestResourceClaim(name, namespace, requestName, deviceName, driverName string) *resourcev1beta1.ResourceClaim {
