@@ -46,42 +46,6 @@ func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-// Check if a VMI spec requests GPU
-func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.GPUs != nil && len(vmi.Spec.Domain.Devices.GPUs) != 0 {
-		return true
-	}
-	return false
-}
-
-// IsGPUVMIDevicePlugins checks if a VMI has any GPUs configured for device plugins
-func IsGPUVMIDevicePlugins(vmi *v1.VirtualMachineInstance) bool {
-	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
-		if IsGPUDevicePlugin(gpu) {
-			return true
-		}
-	}
-	return false
-}
-
-func IsGPUDevicePlugin(gpu v1.GPU) bool {
-	return gpu.DeviceName != "" && gpu.ClaimRequest == nil
-}
-
-// IsGPUVMIDRA checks if a VMI has any GPUs configured for Dynamic Resource Allocation
-func IsGPUVMIDRA(vmi *v1.VirtualMachineInstance) bool {
-	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
-		if IsGPUDRA(gpu) {
-			return true
-		}
-	}
-	return false
-}
-
-func IsGPUDRA(gpu v1.GPU) bool {
-	return gpu.DeviceName == "" && gpu.ClaimRequest != nil
-}
-
 // Check if a VMI spec requests VirtIO-FS
 func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.Devices.Filesystems != nil {
@@ -102,33 +66,11 @@ func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-// IsHostDevVMIDevicePlugins checks if a VMI has any HostDevices configured for device plugins
-func IsHostDevVMIDevicePlugins(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.HostDevices == nil {
-		return false
+// Check if a VMI spec requests GPU
+func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.GPUs != nil && len(vmi.Spec.Domain.Devices.GPUs) != 0 {
+		return true
 	}
-
-	for _, hostDev := range vmi.Spec.Domain.Devices.HostDevices {
-		if hostDev.DeviceName != "" && hostDev.ClaimRequest == nil {
-			return true
-		}
-	}
-
-	return false
-}
-
-// IsHostDevVMIDRA checks if a VMI has any HostDevices configured for Dynamic Resource Allocation
-func IsHostDevVMIDRA(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.HostDevices == nil {
-		return false
-	}
-
-	for _, hostDev := range vmi.Spec.Domain.Devices.HostDevices {
-		if hostDev.DeviceName == "" && hostDev.ClaimRequest != nil {
-			return true
-		}
-	}
-
 	return false
 }
 

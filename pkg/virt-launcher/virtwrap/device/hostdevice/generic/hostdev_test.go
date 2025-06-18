@@ -39,12 +39,12 @@ var _ = Describe("Generic HostDevice", func() {
 	})
 
 	It("creates no device given no generic host-devices/s", func() {
-		Expect(generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices)).To(BeEmpty())
+		Expect(generic.CreateHostDevices(vmi)).To(BeEmpty())
 	})
 
 	It("fails to create devices given no resource", func() {
 		vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{{DeviceName: hostdevResource0, Name: hostdevName0}}
-		_, err := generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices)
+		_, err := generic.CreateHostDevices(vmi)
 		Expect(err).To(HaveOccurred())
 	})
 
