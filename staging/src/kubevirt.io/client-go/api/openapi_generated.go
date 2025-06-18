@@ -27446,7 +27446,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "ResourceClaims defines which ResourceClaims must be allocated and reserved before the VMI and hence virt-launcher pod is allowed to start. The resources will be made available to the domain which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\n\nThis field is immutable.",
+							Description: "ResourceClaims define which ResourceClaims must be allocated and reserved before the VMI, hence virt-launcher pod. is allowed to start. The resources will be made available to the domain which consumes them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nand DRADevices feature gate in KubeVirt",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

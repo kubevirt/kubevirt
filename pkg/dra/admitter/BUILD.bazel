@@ -2,7 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["dra_admitterr.go"],
+    srcs = ["dra_admitter.go"],
     importpath = "kubevirt.io/kubevirt/pkg/dra/admitter",
     visibility = ["//visibility:public"],
     deps = [

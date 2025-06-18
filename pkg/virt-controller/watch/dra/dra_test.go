@@ -2,6 +2,7 @@ package dra
 
 import (
 	"errors"
+
 	"kubevirt.io/kubevirt/pkg/dra"
 
 	. "github.com/onsi/ginkgo/v2"

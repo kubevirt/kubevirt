@@ -7358,16 +7358,15 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 resourceClaims:
                   description: |-
-                    ResourceClaims defines which ResourceClaims must be allocated
-                    and reserved before the VMI and hence virt-launcher pod is allowed to start. The resources
-                    will be made available to the domain which consume them
+                    ResourceClaims define which ResourceClaims must be allocated
+                    and reserved before the VMI, hence virt-launcher pod. is allowed to start. The resources
+                    will be made available to the domain which consumes them
                     by name.
 
                     This is an alpha field and requires enabling the
                     DynamicResourceAllocation feature gate in kubernetes
                      https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-
-                    This field is immutable.
+                    and DRADevices feature gate in KubeVirt
                   items:
                     description: |-
                       PodResourceClaim references exactly one ResourceClaim, either directly
@@ -12780,16 +12779,15 @@ var CRDsValidation map[string]string = map[string]string{
           type: object
         resourceClaims:
           description: |-
-            ResourceClaims defines which ResourceClaims must be allocated
-            and reserved before the VMI and hence virt-launcher pod is allowed to start. The resources
-            will be made available to the domain which consume them
+            ResourceClaims define which ResourceClaims must be allocated
+            and reserved before the VMI, hence virt-launcher pod. is allowed to start. The resources
+            will be made available to the domain which consumes them
             by name.
 
             This is an alpha field and requires enabling the
             DynamicResourceAllocation feature gate in kubernetes
              https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-
-            This field is immutable.
+            and DRADevices feature gate in KubeVirt
           items:
             description: |-
               PodResourceClaim references exactly one ResourceClaim, either directly
@@ -18909,16 +18907,15 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 resourceClaims:
                   description: |-
-                    ResourceClaims defines which ResourceClaims must be allocated
-                    and reserved before the VMI and hence virt-launcher pod is allowed to start. The resources
-                    will be made available to the domain which consume them
+                    ResourceClaims define which ResourceClaims must be allocated
+                    and reserved before the VMI, hence virt-launcher pod. is allowed to start. The resources
+                    will be made available to the domain which consumes them
                     by name.
 
                     This is an alpha field and requires enabling the
                     DynamicResourceAllocation feature gate in kubernetes
                      https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-
-                    This field is immutable.
+                    and DRADevices feature gate in KubeVirt
                   items:
                     description: |-
                       PodResourceClaim references exactly one ResourceClaim, either directly
@@ -23583,16 +23580,15 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         resourceClaims:
                           description: |-
-                            ResourceClaims defines which ResourceClaims must be allocated
-                            and reserved before the VMI and hence virt-launcher pod is allowed to start. The resources
-                            will be made available to the domain which consume them
+                            ResourceClaims define which ResourceClaims must be allocated
+                            and reserved before the VMI, hence virt-launcher pod. is allowed to start. The resources
+                            will be made available to the domain which consumes them
                             by name.
 
                             This is an alpha field and requires enabling the
                             DynamicResourceAllocation feature gate in kubernetes
                              https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-
-                            This field is immutable.
+                            and DRADevices feature gate in KubeVirt
                           items:
                             description: |-
                               PodResourceClaim references exactly one ResourceClaim, either directly
@@ -28928,16 +28924,15 @@ var CRDsValidation map[string]string = map[string]string{
                               type: object
                             resourceClaims:
                               description: |-
-                                ResourceClaims defines which ResourceClaims must be allocated
-                                and reserved before the VMI and hence virt-launcher pod is allowed to start. The resources
-                                will be made available to the domain which consume them
+                                ResourceClaims define which ResourceClaims must be allocated
+                                and reserved before the VMI, hence virt-launcher pod. is allowed to start. The resources
+                                will be made available to the domain which consumes them
                                 by name.
 
                                 This is an alpha field and requires enabling the
                                 DynamicResourceAllocation feature gate in kubernetes
                                  https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-
-                                This field is immutable.
+                                and DRADevices feature gate in KubeVirt
                               items:
                                 description: |-
                                   PodResourceClaim references exactly one ResourceClaim, either directly
