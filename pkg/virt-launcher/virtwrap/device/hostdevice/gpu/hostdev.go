@@ -21,10 +21,8 @@ package gpu
 
 import (
 	"fmt"
-	"kubevirt.io/kubevirt/pkg/util"
 
 	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
@@ -86,9 +84,6 @@ func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 	if !hasGPUsWithDRA(vmi) {
 		return hostDevices, nil
 	}
-	if !util.IsAllDRAGPUsReconciled(vmi, vmi.Status.DeviceStatus) {
-		return hostDevices, fmt.Errorf("DRA status reconciliation not complete, waiting all GPUs to have attributes")
-	}
 
 	if vmi.Status.DeviceStatus != nil {
 		for _, gpu := range vmi.Status.DeviceStatus.GPUStatuses {
@@ -115,9 +110,6 @@ func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance, defaultDisplayOn bool
 	hostDevices := []api.HostDevice{}
 	if !hasGPUsWithDRA(vmi) {
 		return hostDevices, nil
-	}
-	if !util.IsAllDRAGPUsReconciled(vmi, vmi.Status.DeviceStatus) {
-		return hostDevices, fmt.Errorf("DRA status reconciliation not complete, waiting all GPUs to have attributes")
 	}
 
 	if vmi.Status.DeviceStatus != nil {
@@ -221,10 +213,6 @@ func validateCreationOfAllDevices(gpus []v1.GPU, hostDevices []api.HostDevice) e
 		} else {
 			gpusWithDP = append(gpusWithDP, gpu)
 		}
-	}
-
-	if len(gpusWithDRA) > 0 && len(gpusWithDP) > 0 {
-		return fmt.Errorf("invalid VMI spec, both DRA and device plugin GPUs are not supported at the same time")
 	}
 
 	if len(gpusWithDP) > 0 && len(gpusWithDP) != len(hostDevices) {

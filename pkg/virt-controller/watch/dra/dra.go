@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/util"
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -413,15 +413,12 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *virt
 	}
 
 	newGPUStatus := &virtv1.DeviceStatus{GPUStatuses: gpuStatuses}
-	if reflect.DeepEqual(vmi.Status.DeviceStatus, newGPUStatus) {
-		// Only set the condition if all GPUs with DRA have corresponding status entries
-		if util.IsAllDRAGPUsReconciled(vmi, newGPUStatus) {
-			logger.V(4).Infof("All DRA GPUs are reconciled nothing more to do")
-			return nil
-		}
-		logger.V(4).Infof("Not all DRA GPUs are reconciled yet, waiting for complete status")
+	if reflect.DeepEqual(vmi.Status.DeviceStatus, newGPUStatus) && drautil.IsAllDRAGPUsReconciled(vmi, newGPUStatus) {
+		logger.V(4).Infof("All DRA GPUs are reconciled nothing more to do")
+		return nil
 	}
 
+	logger.V(4).Infof("updating VMI device status with DRA deviceattributes")
 	ps := patch.New(
 		patch.WithTest("/status/deviceStatus", vmi.Status.DeviceStatus),
 		patch.WithReplace("/status/deviceStatus", newGPUStatus),
@@ -514,7 +511,6 @@ func (c *DRAStatusController) getGPUStatus(gpuInfo DeviceInfo, pod *k8sv1.Pod) (
 	}
 
 	gpuStatus.DeviceResourceClaimStatus.Name = &device.Device
-
 	pciAddress, mdevUUID, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
 	if err != nil {
 		return gpuStatus, err

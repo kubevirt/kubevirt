@@ -559,12 +559,14 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *v
 		for _, dev := range hostDevs.USB {
 			supportedHostDevicesMap[dev.ResourceName] = true
 		}
-		//TODO @alayp: add proper validation after POC
-		//for _, hostDev := range spec.Domain.Devices.GPUs {
-		//	if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
-		//		errors = append(errors, fmt.Sprintf("GPU %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
-		//	}
-		//}
+		//TODO @alayp: add proper validation for DRA GPUs in beta
+		if !config.GPUsWithDRAGateEnabled() {
+			for _, hostDev := range spec.Domain.Devices.GPUs {
+				if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+					errors = append(errors, fmt.Sprintf("GPU %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
+				}
+			}
+		}
 		for _, hostDev := range spec.Domain.Devices.HostDevices {
 			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
 				errors = append(errors, fmt.Sprintf("HostDevice %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
