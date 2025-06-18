@@ -240,6 +240,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			stubNetworkAnnotationsGenerator{},
 			stubNetStatusUpdate,
 			validateNetVMISpecStub(),
+			stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -3705,6 +3706,108 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 	})
 
+	Context("Automatic Migration Requirement", func() {
+		noConditionMatcher := Not(ContainElement(MatchFields(IgnoreExtras,
+			Fields{
+				"Type": Equal(virtv1.VirtualMachineInstanceMigrationRequired),
+			})))
+
+		falseConditionMatcher := ContainElement(MatchFields(IgnoreExtras,
+			Fields{
+				"Type":   Equal(virtv1.VirtualMachineInstanceMigrationRequired),
+				"Status": Equal(k8sv1.ConditionFalse),
+				"Reason": Equal(virtv1.VirtualMachineInstanceReasonAutoMigrationPending),
+			}))
+
+		trueConditionMatcher := ContainElement(MatchFields(IgnoreExtras,
+			Fields{
+				"Type":   Equal(virtv1.VirtualMachineInstanceMigrationRequired),
+				"Status": Equal(k8sv1.ConditionTrue),
+				"Reason": Equal(virtv1.VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate),
+			}))
+
+		DescribeTable("Auto migration logic",
+			func(existingCondition *virtv1.VirtualMachineInstanceCondition, evaluator migrationEvaluator, matcher gomegaTypes.GomegaMatcher) {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+
+				if existingCondition != nil {
+					vmi.Status.Conditions = append(vmi.Status.Conditions, *existingCondition)
+				}
+
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+				addActivePods(vmi, pod.UID, "")
+
+				controller.netMigrationEvaluator = evaluator
+				sanityExecute()
+
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, matcher)
+			},
+			Entry("should not set the condition when there is no condition and evaluator returns Unknown",
+				nil,
+				stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+				noConditionMatcher,
+			),
+			Entry("should set the condition to false when there is no condition and evaluator returns False",
+				nil,
+				stubMigrationEvaluator{result: k8sv1.ConditionFalse},
+				falseConditionMatcher,
+			),
+			Entry("should set the condition to false when there is no condition and evaluator returns True",
+				nil,
+				stubMigrationEvaluator{result: k8sv1.ConditionTrue},
+				trueConditionMatcher,
+			),
+			Entry("should keep the False condition when there is a False condition and evaluator returns False",
+				&virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceMigrationRequired,
+					Status: k8sv1.ConditionFalse,
+					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationPending,
+				},
+				stubMigrationEvaluator{result: k8sv1.ConditionFalse},
+				falseConditionMatcher,
+			),
+			Entry("should keep the True condition when there is a True condition and evaluator returns False",
+				&virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceMigrationRequired,
+					Status: k8sv1.ConditionTrue,
+					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate,
+				},
+				stubMigrationEvaluator{result: k8sv1.ConditionFalse},
+				trueConditionMatcher,
+			),
+			Entry("should set the condition to True when there is a False condition and evaluator returns True",
+				&virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceMigrationRequired,
+					Status: k8sv1.ConditionFalse,
+					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationPending,
+				},
+				stubMigrationEvaluator{result: k8sv1.ConditionTrue},
+				trueConditionMatcher,
+			),
+			Entry("should remove the condition when there is a False condition and evaluator returns Unknown",
+				&virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceMigrationRequired,
+					Status: k8sv1.ConditionFalse,
+					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationPending,
+				},
+				stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+				noConditionMatcher,
+			),
+			Entry("should remove the condition when there is a True condition and evaluator returns Unknown",
+				&virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceMigrationRequired,
+					Status: k8sv1.ConditionTrue,
+					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate,
+				},
+				stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+				noConditionMatcher,
+			),
+		)
+	})
 })
 
 func newDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {
@@ -4032,4 +4135,12 @@ func validateNetVMISpecStub(causes ...metav1.StatusCause) func(*k8sfield.Path, *
 	return func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []metav1.StatusCause {
 		return causes
 	}
+}
+
+type stubMigrationEvaluator struct {
+	result k8sv1.ConditionStatus
+}
+
+func (e stubMigrationEvaluator) Evaluate(_ *virtv1.VirtualMachineInstance) k8sv1.ConditionStatus {
+	return e.result
 }

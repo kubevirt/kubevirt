@@ -26,6 +26,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -427,6 +428,8 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		if c.requireVolumesUpdate(vmiCopy) {
 			c.syncVolumesUpdate(vmiCopy)
 		}
+
+		c.syncMigrationRequiredCondition(vmiCopy)
 
 	case vmi.IsScheduled():
 		if !vmiPodExists {
@@ -963,6 +966,59 @@ func (c *Controller) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
 			vmi.Labels = map[string]string{}
 		}
 		vmi.Labels[virtv1.MemoryHotplugOverheadRatioLabel] = *overheadRatio
+	}
+}
+
+func (c *Controller) syncMigrationRequiredCondition(vmi *virtv1.VirtualMachineInstance) {
+	const pendingMigrationReEvalPeriod = 10 * time.Second
+
+	if migrations.IsMigrating(vmi) {
+		return
+	}
+
+	result := c.netMigrationEvaluator.Evaluate(vmi)
+
+	cm := controller.NewVirtualMachineInstanceConditionManager()
+	existingCondition := cm.GetCondition(vmi, virtv1.VirtualMachineInstanceMigrationRequired)
+
+	switch {
+	case result == k8sv1.ConditionUnknown && existingCondition == nil:
+		return
+	case result == k8sv1.ConditionUnknown && existingCondition != nil:
+		cm.RemoveCondition(vmi, virtv1.VirtualMachineInstanceMigrationRequired)
+		return
+	}
+
+	if existingCondition != nil && existingCondition.Status == k8sv1.ConditionTrue {
+		return
+	}
+
+	cm.UpdateCondition(vmi, newMigrationRequiredCondition(result))
+
+	if result == k8sv1.ConditionTrue {
+		return
+	}
+
+	// Re-enqueue the VMI object in order to make sure the VMI will be handled again after at most pendingMigrationReEvalPeriod.
+	// This is done in order to handle a scenario where the status was set to `False`, and none of the objects
+	// the VMI controller watches had changed.
+	key, _ := controller.KeyFunc(vmi)
+	c.Queue.AddAfter(key, pendingMigrationReEvalPeriod)
+}
+
+func newMigrationRequiredCondition(status k8sv1.ConditionStatus) *virtv1.VirtualMachineInstanceCondition {
+	reason := virtv1.VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate
+	if status == k8sv1.ConditionFalse {
+		reason = virtv1.VirtualMachineInstanceReasonAutoMigrationPending
+	}
+
+	return &virtv1.VirtualMachineInstanceCondition{
+		Type:               virtv1.VirtualMachineInstanceMigrationRequired,
+		Status:             status,
+		LastProbeTime:      v1.Time{},
+		LastTransitionTime: v1.Now(),
+		Reason:             reason,
+		Message:            "",
 	}
 }
 

@@ -607,6 +607,9 @@ const (
 
 	// Indicates whether the VMI is live migratable
 	VirtualMachineInstanceIsStorageLiveMigratable VirtualMachineInstanceConditionType = "StorageLiveMigratable"
+
+	// VirtualMachineInstanceMigrationRequired Indicates that an automatic migration is required
+	VirtualMachineInstanceMigrationRequired VirtualMachineInstanceConditionType = "MigrationRequired"
 )
 
 // These are valid reasons for VMI conditions.
@@ -641,6 +644,12 @@ const (
 	VirtualMachineInstanceReasonNotMigratable = "NotMigratable"
 	// Reason means that the volume update change was cancelled
 	VirtualMachineInstanceReasonVolumesChangeCancellation = "VolumesChangeCancellation"
+
+	// Indicates that automatic migration is required due to a change made to a running VM
+	VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate = "AutoMigrationDueToLiveUpdate"
+
+	// Indicates that automatic migration is pending
+	VirtualMachineInstanceReasonAutoMigrationPending = "AutoMigrationPending"
 )
 
 const (

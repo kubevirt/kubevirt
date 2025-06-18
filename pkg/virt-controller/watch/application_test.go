@@ -155,6 +155,7 @@ var _ = Describe("Application", func() {
 			func(_ *k8sfield.Path, _ *v1.VirtualMachineInstanceSpec, _ *virtconfig.ClusterConfig) []metav1.StatusCause {
 				return nil
 			},
+			stubMigrationEvaluator{},
 		)
 		app.rsController, _ = replicaset.NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController, _ = vm.NewController(vmiInformer,
@@ -359,3 +360,9 @@ var _ = Describe("Application", func() {
 		})
 	})
 })
+
+type stubMigrationEvaluator struct{}
+
+func (e stubMigrationEvaluator) Evaluate(_ *v1.VirtualMachineInstance) k8sv1.ConditionStatus {
+	return k8sv1.ConditionUnknown
+}
