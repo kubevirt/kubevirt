@@ -57,6 +57,7 @@ func isMigratable(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineIn
 		if c.Type == v1.VirtualMachineInstanceIsMigratable &&
 			c.Status == k8sv1.ConditionFalse {
 			// Allow cross namespace/cluster migrations with non migratable disks.
+			// TODO: this is fragile since there could be other reasons for the VMI to be non migratable.
 			if c.Reason == v1.VirtualMachineInstanceReasonDisksNotMigratable && migration.IsDecentralized() {
 				continue
 			}
