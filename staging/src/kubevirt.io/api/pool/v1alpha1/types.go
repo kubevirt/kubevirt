@@ -22,13 +22,19 @@ package v1alpha1
 import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
+
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
 const (
 	VirtualMachinePoolKind = "VirtualMachinePool"
+)
+
+const (
+	// Base selection policies
+	VirtualMachinePoolBasePolicyRandom          VirtualMachinePoolBasePolicy = "Random"
+	VirtualMachinePoolBasePolicyDescendingOrder VirtualMachinePoolBasePolicy = "DescendingOrder"
 )
 
 // VirtualMachinePool resource contains a VirtualMachine configuration
@@ -117,6 +123,10 @@ type VirtualMachinePoolSpec struct {
 	// (Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.
 	// +optional
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty" protobuf:"bytes,3,opt,name=maxUnavailable"`
+
+	// ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool
+	// +optional
+	ScaleInStrategy *VirtualMachinePoolScaleInStrategy `json:"scaleInStrategy,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -134,3 +144,32 @@ type VirtualMachinePoolList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualMachinePool `json:"items"`
 }
+
+// VirtualMachinePoolScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool
+// +k8s:openapi-gen=true
+type VirtualMachinePoolScaleInStrategy struct {
+	// Proactive scale-in by forcing VMs to shutdown during scale-in (Default)
+	// +optional
+	Proactive *VirtualMachinePoolProactiveScaleInStrategy `json:"proactive,omitempty"`
+}
+
+// VirtualMachinePoolProactiveScaleInStrategy represents proactive scale-in strategy
+// +k8s:openapi-gen=true
+type VirtualMachinePoolProactiveScaleInStrategy struct {
+	// SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in
+	// Defaults to "Random" base policy when no SelectionPolicy is configured
+	// +optional
+	SelectionPolicy *VirtualMachinePoolSelectionPolicy `json:"selectionPolicy,omitempty"`
+}
+
+// VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for scale-in
+// +k8s:openapi-gen=true
+type VirtualMachinePoolSelectionPolicy struct {
+	// BasePolicy is a catch-all policy [Random|DescendingOrder]
+	// +optional
+	// +kubebuilder:validation:Enum=Random;DescendingOrder
+	BasePolicy *VirtualMachinePoolBasePolicy `json:"basePolicy,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type VirtualMachinePoolBasePolicy string

@@ -22,6 +22,9 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -572,6 +575,89 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 10*time.Second, 1*time.Second).Should(Equal(int32(1)))
 	})
 
+	It("should use DescendingOrder scale-in strategy when specified", func() {
+		By("Create a new VirtualMachinePool with DescendingOrder scale-in policy")
+		pool := newPoolFromVMI(libvmifact.NewCirros())
+
+		// Set up DescendingOrder scale-in strategy
+		basePolicy := poolv1.VirtualMachinePoolBasePolicyDescendingOrder
+		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+			Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+					BasePolicy: &basePolicy,
+				},
+			},
+		}
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		pool = createVirtualMachinePool(pool)
+
+		By("Scaling pool to 5 replicas")
+		doScale(pool.ObjectMeta.Name, 5)
+
+		By("Waiting until all VMs are created and running")
+		waitForVMIs(pool.Namespace, pool.Spec.Selector, 5)
+
+		By("Getting all VMs to verify their names/ordinals")
+		vms, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(filterNotDeletedVMsOwnedByPool(pool.Name, vms)).To(HaveLen(5))
+
+		// Store original VM names sorted by ordinal for comparison
+		var vmNames []string
+		for _, vm := range vms.Items {
+			if vm.DeletionTimestamp == nil {
+				for _, ref := range vm.OwnerReferences {
+					if ref.Name == pool.Name {
+						vmNames = append(vmNames, vm.Name)
+						break
+					}
+				}
+			}
+		}
+
+		// Sort by ordinal to know which VMs should be deleted first (highest ordinals)
+		sort.Slice(vmNames, func(i, j int) bool {
+			// Extract ordinal from VM name (assuming format like "poolXXXXX-0", "poolXXXXX-1", etc.)
+			// This assumes indexFromName function extracts the ordinal correctly
+			ordinalI := extractOrdinalFromName(vmNames[i])
+			ordinalJ := extractOrdinalFromName(vmNames[j])
+			return ordinalI > ordinalJ // Sort descending (highest first)
+		})
+
+		By("Scaling down to 2 replicas (should remove 3 VMs with highest ordinals)")
+		doScale(pool.ObjectMeta.Name, 2)
+
+		By("Waiting for scale down to complete")
+		Eventually(func() int {
+			vms, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return len(filterNotDeletedVMsOwnedByPool(pool.Name, vms))
+		}, 120*time.Second, 1*time.Second).Should(Equal(2))
+
+		By("Verifying that VMs with highest ordinals were deleted")
+		vms, err = virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		remainingVMs := filterNotDeletedVMsOwnedByPool(pool.Name, vms)
+		Expect(remainingVMs).To(HaveLen(2))
+
+		// The remaining VMs should be the ones with the lowest ordinals
+		expectedRemainingVMs := vmNames[3:] // Last 2 VMs (lowest ordinals)
+		var actualRemainingVMNames []string
+		for _, vm := range remainingVMs {
+			actualRemainingVMNames = append(actualRemainingVMNames, vm.Name)
+		}
+
+		// Sort both slices for comparison
+		sort.Strings(expectedRemainingVMs)
+		sort.Strings(actualRemainingVMNames)
+
+		Expect(actualRemainingVMNames).To(Equal(expectedRemainingVMs))
+
+		By("Verifying VMIs are still running for remaining VMs")
+		waitForVMIs(pool.Namespace, pool.Spec.Selector, 2)
+	})
+
 	DescribeTable("should respect name generation settings", func(appendIndex *bool) {
 		const (
 			cmName     = "configmap"
@@ -739,4 +825,20 @@ func labelSelectorFromVMs(vms *v1.VirtualMachineList) *metav1.LabelSelector {
 			},
 		},
 	}
+}
+
+// Helper function to extract ordinal from VM name
+// This assumes VM names follow a pattern where the ordinal is at the end
+func extractOrdinalFromName(name string) int {
+	parts := strings.Split(name, "-")
+	if len(parts) == 0 {
+		return 0
+	}
+
+	ordinalStr := parts[len(parts)-1]
+	ordinal, err := strconv.Atoi(ordinalStr)
+	if err != nil {
+		return 0
+	}
+	return ordinal
 }
