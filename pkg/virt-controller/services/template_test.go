@@ -1285,6 +1285,33 @@ var _ = Describe("Template", func() {
 				)
 			})
 
+			Context("When scheduling Secure Execution workloads", func() {
+				var vmi *v1.VirtualMachineInstance
+
+				BeforeEach(func() {
+					config, kvStore, svc = configFactory(defaultArch)
+					vmi = api.NewMinimalVMI("testvmi")
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+				})
+
+				It("should add Secure Execution node label selector with Secure Execution workload", func() {
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+					vmi.Spec.Architecture = "s390x"
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.SecureExecutionLabel, "true"))
+				})
+
+				It("should not add Secure Execution node label selector when no Secure Execution workload", func() {
+					vmi.Spec.Architecture = ""
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.SecureExecutionLabel))))
+				})
+			})
+
 			It("should not add node selector for hyperv nodes if VMI does not request hyperv features", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				enableFeatureGate(featuregate.HypervStrictCheckGate)
@@ -1947,8 +1974,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal(requestMemory))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "1266194277", "2266194277"),
-				Entry("on arm64", "arm64", "1400412005", "2400412005"),
+				Entry("on amd64", "amd64", "1282971493", "2282971493"),
+				Entry("on arm64", "arm64", "1417189221", "2417189221"),
 			)
 			DescribeTable("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func(arch string, limitMemory string) {
 				config, kvStore, svc = configFactory(arch)
@@ -1984,8 +2011,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "2266194277"),
-				Entry("on arm64", "arm64", "2400412005"),
+				Entry("on amd64", "amd64", "2282971493"),
+				Entry("on arm64", "arm64", "2417189221"),
 			)
 			DescribeTable("should not add unset resources", func(arch string, requestMemory int) {
 				config, kvStore, svc = configFactory(arch)
@@ -2023,8 +2050,8 @@ var _ = Describe("Template", func() {
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			},
-				Entry("on amd64", "amd64", 346),
-				Entry("on arm64", "arm64", 480),
+				Entry("on amd64", "amd64", 362),
+				Entry("on arm64", "arm64", 497),
 			)
 
 			DescribeTable("should check autoattachGraphicsDevicse", func(arch string, autoAttach *bool, memory int) {
@@ -2060,11 +2087,11 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
-				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 346),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 346),
+				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 362),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 362),
 				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 329),
-				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 480),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 480),
+				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 497),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 497),
 				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.P(false), 463),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
@@ -2274,10 +2301,10 @@ var _ = Describe("Template", func() {
 						},
 					))
 			},
-				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 265),
-				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 265),
-				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 399),
-				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 399),
+				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 282),
+				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 282),
+				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 416),
+				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 416),
 			)
 			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvStore, svc = configFactory(arch)
@@ -2353,8 +2380,8 @@ var _ = Describe("Template", func() {
 						},
 					))
 			},
-				Entry("on amd64", "amd64", 265),
-				Entry("on arm64", "arm64", 399),
+				Entry("on amd64", "amd64", 282),
+				Entry("on arm64", "arm64", 416),
 			)
 		})
 
@@ -4822,6 +4849,29 @@ var _ = Describe("Template", func() {
 			sev, ok := pod.Spec.Containers[0].Resources.Limits[SevDevice]
 			Expect(ok).To(BeTrue())
 			Expect(int(sev.Value())).To(Equal(1))
+		})
+	})
+
+	Context("Secure Execution LaunchSecurity", func() {
+		It("should not run privileged with Secure Execution", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "namespace",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Architecture: "s390x",
+					Domain: v1.DomainSpec{
+						LaunchSecurity: &v1.LaunchSecurity{},
+					},
+				},
+			}
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.Containers).To(HaveLen(1))
+			Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
 		})
 	})
 

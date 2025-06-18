@@ -370,7 +370,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 
 	// Add video RAM overhead
 	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
-		overhead.Add(resource.MustParse("16Mi"))
+		overhead.Add(resource.MustParse("32Mi"))
 	}
 
 	// When use uefi boot on aarch64 with edk2 package, qemu will create 2 pflash(64Mi each, 128Mi in total)
@@ -407,6 +407,10 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 		overhead.Add(resource.MustParse("53Mi"))
 	}
 
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		overhead.Add(resource.MustParse("100Mi"))
+	}
+
 	// Multiplying the ratio is expected to be the last calculation before returning overhead
 	if additionalOverheadRatio != nil && *additionalOverheadRatio != "" {
 		ratio, err := strconv.ParseFloat(*additionalOverheadRatio, 64)
@@ -417,10 +421,6 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 		}
 
 		overhead = multiplyMemory(overhead, ratio)
-	}
-
-	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-		overhead.Add(resource.MustParse("100Mi"))
 	}
 
 	return overhead

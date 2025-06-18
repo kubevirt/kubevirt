@@ -6485,6 +6485,16 @@ var CRDsValidation map[string]string = map[string]string{
                             This is helpful for old machines like CentOS6 or RHEL6 which
                             do not understand virtio_non_transitional (virtio 1.0).
                           type: boolean
+                        video:
+                          description: Video describes the video device configuration
+                            for the vmi.
+                          properties:
+                            type:
+                              description: |-
+                                Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                                If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                              type: string
+                          type: object
                         watchdog:
                           description: Watchdog describes a watchdog device which
                             can be added to the vmi.
@@ -6768,6 +6778,11 @@ var CRDsValidation map[string]string = map[string]string{
                         acpi:
                           description: Information that can be set in the ACPI table
                           properties:
+                            msdmNameRef:
+                              description: |-
+                                Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                                The above points to the spec of MSDM too.
+                              type: string
                             slicNameRef:
                               description: |-
                                 SlicNameRef should match the volume name of a secret object. The data in the secret should
@@ -11804,6 +11819,16 @@ var CRDsValidation map[string]string = map[string]string{
                     This is helpful for old machines like CentOS6 or RHEL6 which
                     do not understand virtio_non_transitional (virtio 1.0).
                   type: boolean
+                video:
+                  description: Video describes the video device configuration for
+                    the vmi.
+                  properties:
+                    type:
+                      description: |-
+                        Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                        If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                      type: string
+                  type: object
                 watchdog:
                   description: Watchdog describes a watchdog device which can be added
                     to the vmi.
@@ -12084,6 +12109,11 @@ var CRDsValidation map[string]string = map[string]string{
                 acpi:
                   description: Information that can be set in the ACPI table
                   properties:
+                    msdmNameRef:
+                      description: |-
+                        Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                        The above points to the spec of MSDM too.
+                      type: string
                     slicNameRef:
                       description: |-
                         SlicNameRef should match the volume name of a secret object. The data in the secret should
@@ -15266,6 +15296,16 @@ var CRDsValidation map[string]string = map[string]string{
                     This is helpful for old machines like CentOS6 or RHEL6 which
                     do not understand virtio_non_transitional (virtio 1.0).
                   type: boolean
+                video:
+                  description: Video describes the video device configuration for
+                    the vmi.
+                  properties:
+                    type:
+                      description: |-
+                        Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                        If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                      type: string
+                  type: object
                 watchdog:
                   description: Watchdog describes a watchdog device which can be added
                     to the vmi.
@@ -15546,6 +15586,11 @@ var CRDsValidation map[string]string = map[string]string{
                 acpi:
                   description: Information that can be set in the ACPI table
                   properties:
+                    msdmNameRef:
+                      description: |-
+                        Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                        The above points to the spec of MSDM too.
+                      type: string
                     slicNameRef:
                       description: |-
                         SlicNameRef should match the volume name of a secret object. The data in the secret should
@@ -17707,6 +17752,16 @@ var CRDsValidation map[string]string = map[string]string{
                             This is helpful for old machines like CentOS6 or RHEL6 which
                             do not understand virtio_non_transitional (virtio 1.0).
                           type: boolean
+                        video:
+                          description: Video describes the video device configuration
+                            for the vmi.
+                          properties:
+                            type:
+                              description: |-
+                                Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                                If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                              type: string
+                          type: object
                         watchdog:
                           description: Watchdog describes a watchdog device which
                             can be added to the vmi.
@@ -17990,6 +18045,11 @@ var CRDsValidation map[string]string = map[string]string{
                         acpi:
                           description: Information that can be set in the ACPI table
                           properties:
+                            msdmNameRef:
+                              description: |-
+                                Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                                The above points to the spec of MSDM too.
+                              type: string
                             slicNameRef:
                               description: |-
                                 SlicNameRef should match the volume name of a secret object. The data in the secret should
@@ -22238,6 +22298,16 @@ var CRDsValidation map[string]string = map[string]string{
                                     This is helpful for old machines like CentOS6 or RHEL6 which
                                     do not understand virtio_non_transitional (virtio 1.0).
                                   type: boolean
+                                video:
+                                  description: Video describes the video device configuration
+                                    for the vmi.
+                                  properties:
+                                    type:
+                                      description: |-
+                                        Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                                        If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                                      type: string
+                                  type: object
                                 watchdog:
                                   description: Watchdog describes a watchdog device
                                     which can be added to the vmi.
@@ -22522,6 +22592,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: Information that can be set in the
                                     ACPI table
                                   properties:
+                                    msdmNameRef:
+                                      description: |-
+                                        Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                                        The above points to the spec of MSDM too.
+                                      type: string
                                     slicNameRef:
                                       description: |-
                                         SlicNameRef should match the volume name of a secret object. The data in the secret should
@@ -24544,7 +24619,8 @@ var CRDsValidation map[string]string = map[string]string{
     metadata:
       type: object
     spec:
-      description: VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource
+      description: VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore
+        resource
       properties:
         patches:
           description: |-
@@ -24583,12 +24659,40 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         virtualMachineSnapshotName:
           type: string
+        volumeRestoreOverrides:
+          description: |-
+            VolumeRestoreOverrides gives the option to change properties of each restored volume
+            For example, specifying the name of the restored volume, or adding labels/annotations to it
+          items:
+            description: VolumeRestoreOverride specifies how a volume should be restored
+              from a VirtualMachineSnapshot
+            properties:
+              annotations:
+                additionalProperties:
+                  type: string
+                type: object
+              labels:
+                additionalProperties:
+                  type: string
+                type: object
+              restoreName:
+                type: string
+              volumeName:
+                type: string
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
+        volumeRestorePolicy:
+          description: VolumeRestorePolicy defines how to handle the restore of snapshotted
+            volumes
+          type: string
       required:
       - target
       - virtualMachineSnapshotName
       type: object
     status:
-      description: VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource
+      description: VirtualMachineRestoreStatus is the status for a VirtualMachineRestore
+        resource
       properties:
         complete:
           type: boolean
@@ -24629,7 +24733,7 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         restores:
           items:
-            description: VolumeRestore contains the data neeed to restore a PVC
+            description: VolumeRestore contains the data needed to restore a PVC
             properties:
               dataVolumeName:
                 type: string
@@ -27457,6 +27561,16 @@ var CRDsValidation map[string]string = map[string]string{
                                         This is helpful for old machines like CentOS6 or RHEL6 which
                                         do not understand virtio_non_transitional (virtio 1.0).
                                       type: boolean
+                                    video:
+                                      description: Video describes the video device
+                                        configuration for the vmi.
+                                      properties:
+                                        type:
+                                          description: |-
+                                            Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                                            If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                                          type: string
+                                      type: object
                                     watchdog:
                                       description: Watchdog describes a watchdog device
                                         which can be added to the vmi.
@@ -27741,6 +27855,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Information that can be set in
                                         the ACPI table
                                       properties:
+                                        msdmNameRef:
+                                          description: |-
+                                            Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+                                            The above points to the spec of MSDM too.
+                                          type: string
                                         slicNameRef:
                                           description: |-
                                             SlicNameRef should match the volume name of a secret object. The data in the secret should

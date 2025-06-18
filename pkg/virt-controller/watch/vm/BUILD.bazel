@@ -16,6 +16,7 @@ go_library(
         "//pkg/network/admitter:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/network/vmliveupdate:go_default_library",
+        "//pkg/storage/hotplug:go_default_library",
         "//pkg/storage/memorydump:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",

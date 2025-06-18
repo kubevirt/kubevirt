@@ -110,12 +110,13 @@ func AdjustKubeVirtResource() {
 		featuregate.HostDiskGate,
 		featuregate.VirtIOFSConfigVolumesGate,
 		featuregate.VirtIOFSStorageVolumeGate,
-		featuregate.HotplugVolumesGate,
 		featuregate.DownwardMetricsFeatureGate,
 		featuregate.ExpandDisksGate,
 		featuregate.WorkloadEncryptionSEV,
 		featuregate.VMExportGate,
 		featuregate.KubevirtSeccompProfile,
+		featuregate.ObjectGraph,
+		featuregate.DeclarativeHotplugVolumesGate,
 	)
 
 	storageClass, exists := libstorage.GetVMStateStorageClass()

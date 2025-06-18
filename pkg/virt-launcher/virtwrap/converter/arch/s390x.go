@@ -80,6 +80,7 @@ func (converterS390X) TransitionalModelType(_ bool) string {
 }
 
 func (converterS390X) IsROMTuningSupported() bool {
+	// s390x does not support setting ROM tuning, as it is for PCI Devices only
 	return false
 }
 
@@ -108,4 +109,10 @@ func (converterS390X) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdo
 
 func (converterS390X) SupportPCIHole64Disabling() bool {
 	return false
+}
+
+func (converterS390X) LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
+	// We would want to set launchsecurity with type "s390-pv" here, but this does not work in privileged pod.
+	// Instead virt-launcher will set iommu=on for all devices manually, which is the same action as what libvirt would do when the launchsecurity type is set.
+	return nil
 }

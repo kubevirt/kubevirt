@@ -1143,3 +1143,19 @@ func (SEVSecretOptions) SwaggerDoc() map[string]string {
 		"secret": "Base64 encoded encrypted launch secret.",
 	}
 }
+
+func (ObjectGraphNode) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "ObjectGraphNode represents an individual node in the graph.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"optional": "+optional",
+		"children": "+listType=atomic",
+	}
+}
+
+func (ObjectGraphOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                     "ObjectGraphOptions holds options for the object graph.",
+		"includeOptionalNodes": "IncludeOptionalNodes indicates whether to include optional nodes in the graph.\nTrue by default.",
+		"labelSelector":        "LabelSelector is used to filter nodes in the graph based on their labels.",
+	}
+}

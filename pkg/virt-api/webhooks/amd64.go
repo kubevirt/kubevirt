@@ -17,6 +17,9 @@
 package webhooks
 
 import (
+	"fmt"
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -27,7 +30,25 @@ import (
 func ValidateVirtualMachineInstanceAmd64Setting(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var statusCauses []metav1.StatusCause
 	validateWatchdogAmd64(field, spec, &statusCauses)
+	validateVideoTypeAmd64(field, spec, &statusCauses)
 	return statusCauses
+}
+
+func validateVideoTypeAmd64(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, statusCauses *[]metav1.StatusCause) {
+	if spec.Domain.Devices.Video == nil {
+		return
+	}
+
+	videoType := spec.Domain.Devices.Video.Type
+
+	validTypes := []string{"vga", "cirrus", "virtio", "ramfb", "bochs"}
+	if !slices.Contains(validTypes, videoType) {
+		*statusCauses = append(*statusCauses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("video model '%s' is not supported on amd64 architecture", videoType),
+			Field:   field.Child("domain", "devices", "video").Child("type").String(),
+		})
+	}
 }
 
 func validateWatchdogAmd64(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, statusCauses *[]metav1.StatusCause) {

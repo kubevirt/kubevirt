@@ -173,6 +173,22 @@ func (config *ClusterConfig) ImageVolumeEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.ImageVolume)
 }
 
+func (config *ClusterConfig) VideoConfigEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.VideoConfig)
+}
+
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
+}
+
+func (config *ClusterConfig) ObjectGraphEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.ObjectGraph)
+}
+
+func (config *ClusterConfig) DeclarativeHotplugVolumesEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.DeclarativeHotplugVolumesGate)
+}
+
+func (config *ClusterConfig) SecureExecutionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.SecureExecution)
 }

@@ -77,9 +77,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config, KubeVirtServiceAccounts: kubeVirtServiceAccounts}
 
 	dnsConfigTestOption := "test"
-	enableFeatureGate := func(featureGate string) {
+	enableFeatureGates := func(featureGates ...string) {
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = featureGates
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 	disableFeatureGates := func() {
@@ -459,7 +459,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 
 		DescribeTable("should accept annotations which require feature gate enabled", func(annotations map[string]string, featureGate string) {
-			enableFeatureGate(featureGate)
+			enableFeatureGates(featureGate)
 			vmi := newBaseVmi()
 			vmi.Annotations = annotations
 
@@ -489,7 +489,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi = api.NewMinimalVMI("testvmi")
 		})
 		DescribeTable("should accept valid machine type", func(arch string, machineType string) {
-			enableFeatureGate(featuregate.MultiArchitecture)
+			enableFeatureGates(featuregate.MultiArchitecture)
 
 			vmi.Spec.Architecture = arch
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
@@ -504,7 +504,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 
 		DescribeTable("should reject invalid machine type", func(arch string, machineType string) {
-			enableFeatureGate(featuregate.MultiArchitecture)
+			enableFeatureGates(featuregate.MultiArchitecture)
 
 			vmi.Spec.Architecture = arch
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
@@ -565,6 +565,40 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
 		})
 
+		It("should allow cd-rom disk with missing volume and featuregate", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{
+						Bus: v1.DiskBusSATA,
+					},
+				},
+				Name: "testdisk",
+			})
+
+			enableFeatureGates(featuregate.DeclarativeHotplugVolumesGate)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject cd-rom disk with missing volume and featuregate", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{
+						Bus: v1.DiskBusSATA,
+					},
+				},
+				Name: "testdisk",
+			})
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("%s feature gate not enabled, cannot define an empty CD-ROM disk", featuregate.DeclarativeHotplugVolumesGate)))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
+		})
 		It("should allow supported audio devices", func() {
 			supportedDevices := [...]string{"", "ich9", "ac97"}
 
@@ -638,8 +672,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{},
-					CDRom: &v1.CDRomTarget{
-						Bus: v1.DiskBusSATA,
+					LUN: &v1.LunTarget{
+						Bus: v1.DiskBusSCSI,
 					},
 				},
 			})
@@ -1048,7 +1082,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
 			})
 			DeferCleanup(featuregate.UnregisterFeatureGate, testsFGName)
-			enableFeatureGate(testsFGName)
+			enableFeatureGates(testsFGName)
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).NotTo(HaveOccurred())
@@ -1187,7 +1221,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		DescribeTable("virtiofs filesystems using", func(featureGate string, shouldAllow bool, vmiOption libvmi.Option) {
 			if featureGate != "" {
-				enableFeatureGate(featureGate)
+				enableFeatureGates(featureGate)
 			}
 
 			vmi := libvmi.New(vmiOption)
@@ -1516,7 +1550,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject vmi with threads > 1 for arm64 arch", func() {
-			enableFeatureGate(featuregate.MultiArchitecture)
+			enableFeatureGates(featuregate.MultiArchitecture)
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "arm64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -1526,7 +1560,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept vmi with threads == 1 for arm64 arch", func() {
-			enableFeatureGate(featuregate.MultiArchitecture)
+			enableFeatureGates(featuregate.MultiArchitecture)
 			vmi.Spec.Domain.CPU.Threads = 1
 			vmi.Spec.Architecture = "arm64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -1534,7 +1568,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept vmi with threads > 1 for amd64 arch", func() {
-			enableFeatureGate(featuregate.MultiArchitecture)
+			enableFeatureGates(featuregate.MultiArchitecture)
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "amd64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -2484,7 +2518,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept a single virtio serial", func() {
-			enableFeatureGate(featuregate.DownwardMetricsFeatureGate)
+			enableFeatureGates(featuregate.DownwardMetricsFeatureGate)
 			causes := validate()
 			Expect(causes).To(BeEmpty())
 		})
@@ -2506,7 +2540,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept a single downwardmetrics volume", func() {
-			enableFeatureGate(featuregate.DownwardMetricsFeatureGate)
+			enableFeatureGates(featuregate.DownwardMetricsFeatureGate)
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testDownwardMetrics",
@@ -2533,7 +2567,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject downwardMetrics volumes if more than one exist", func() {
-			enableFeatureGate(featuregate.DownwardMetricsFeatureGate)
+			enableFeatureGates(featuregate.DownwardMetricsFeatureGate)
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes,
 				v1.Volume{
@@ -2570,7 +2604,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept hostDisk volumes if the feature gate is enabled", func() {
-			enableFeatureGate(featuregate.HostDiskGate)
+			enableFeatureGates(featuregate.HostDiskGate)
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testHostDisk",
@@ -2865,7 +2899,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 		},
 			Entry("Not set is ok", nil, []v1.Volume{}, 0, ""),
-			Entry("ACPI with Volume match is ok",
+			Entry("ACPI SLIC with Volume match is ok",
 				&v1.ACPI{SlicNameRef: "slic"},
 				[]v1.Volume{
 					{
@@ -2875,10 +2909,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						},
 					},
 				}, 0, ""),
-			Entry("ACPI without Volume match should fail",
+			Entry("ACPI MSDM with Volume match is ok",
+				&v1.ACPI{SlicNameRef: "msdm"},
+				[]v1.Volume{
+					{
+						Name: "msdm",
+						VolumeSource: v1.VolumeSource{
+							Secret: &v1.SecretVolumeSource{SecretName: "secret-msdm"},
+						},
+					},
+				}, 0, ""),
+			Entry("ACPI SLIC without Volume match should fail",
 				&v1.ACPI{SlicNameRef: "slic"},
 				[]v1.Volume{}, 1, "does not have a matching Volume"),
-			Entry("ACPI with wrong Volume type should fail",
+			Entry("ACPI MSDM without Volume match should fail",
+				&v1.ACPI{MsdmNameRef: "msdm"},
+				[]v1.Volume{}, 1, "does not have a matching Volume"),
+			Entry("ACPI SLIC with wrong Volume type should fail",
 				&v1.ACPI{SlicNameRef: "slic"},
 				[]v1.Volume{
 					{
@@ -2886,6 +2933,18 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						VolumeSource: v1.VolumeSource{
 							ConfigMap: &v1.ConfigMapVolumeSource{
 								LocalObjectReference: k8sv1.LocalObjectReference{Name: "configmap-slic"},
+							},
+						},
+					},
+				}, 1, "Volume of unsupported type"),
+			Entry("ACPI MSDM with wrong Volume type should fail",
+				&v1.ACPI{MsdmNameRef: "msdm"},
+				[]v1.Volume{
+					{
+						Name: "msdm",
+						VolumeSource: v1.VolumeSource{
+							ConfigMap: &v1.ConfigMapVolumeSource{
+								LocalObjectReference: k8sv1.LocalObjectReference{Name: "configmap-msdm"},
 							},
 						},
 					},
@@ -2965,7 +3024,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			enableFeatureGate(featuregate.WorkloadEncryptionSEV)
+			enableFeatureGates(featuregate.WorkloadEncryptionSEV)
 		})
 
 		It("should accept when the feature gate is enabled and OVMF is configured", func() {
@@ -3037,12 +3096,36 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 	})
 
+	Context("with Secure Execution LaunchSecurity", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+			vmi.Spec.Architecture = "s390x"
+		})
+
+		It("should accept when the feature gate is enabled", func() {
+			enableFeatureGates(featuregate.MultiArchitecture, featuregate.SecureExecution)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject when the feature gate is disabled", func() {
+			enableFeatureGates(featuregate.MultiArchitecture)
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.SecureExecution)))
+		})
+	})
+
 	Context("with vsocks defined", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			vmi = api.NewMinimalVMI("testvmi")
-			enableFeatureGate(featuregate.VSOCKGate)
+			enableFeatureGates(featuregate.VSOCKGate)
 		})
 
 		Context("feature gate enabled", func() {
@@ -3712,7 +3795,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		BeforeEach(func() {
 			vmi = api.NewMinimalVMI("testvmi")
-			enableFeatureGate(featuregate.PersistentReservation)
+			enableFeatureGates(featuregate.PersistentReservation)
 		})
 
 		Context("feature gate enabled", func() {
@@ -3902,6 +3985,106 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}, "Arm64 not support Watchdog device", true),
 
 			Entry("no watchdog configured", nil, "", false),
+		)
+	})
+
+	Context("with VideoConfig", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			enableFeatureGates(featuregate.VideoConfig)
+			vmi = libvmi.New(libvmi.WithArchitecture(runtime.GOARCH), libvmi.WithVideo(v1.VirtIO))
+		})
+
+		It("should accept video configuration with feature gate enabled", func() {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), "should accept video configuration with valid setup")
+		})
+
+		It("should reject when the feature gate is disabled", func() {
+			disableFeatureGates()
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("Video configuration is specified but the %s feature gate is not enabled", featuregate.VideoConfig)))
+			Expect(causes[0].Field).To(Equal("fake.video"))
+		})
+
+		It("should reject when autoattachGraphicsDevice is set to false", func() {
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(Equal("Video configuration is not allowed when autoattachGraphicsDevice is set to false"))
+			Expect(causes[0].Field).To(Equal("fake.video"))
+		})
+
+		It("should accept when autoattachGraphicsDevice is unset", func() {
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = nil
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), "should accept video configuration when autoattachGraphicsDevice is unset")
+		})
+
+		DescribeTable("should accept supported video models per architecture", func(arch, videoType string) {
+			vmi.Spec.Domain.Devices.Video.Type = videoType
+			vmi.Spec.Architecture = arch
+			causes := ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).To(BeEmpty(), fmt.Sprintf("expected video type %s to be valid on arch %s", videoType, arch))
+		},
+			Entry("amd64 allows vga", "amd64", "vga"),
+			Entry("amd64 allows cirrus", "amd64", "cirrus"),
+			Entry("amd64 allows virtio", "amd64", "virtio"),
+			Entry("amd64 allows ramfb", "amd64", "ramfb"),
+			Entry("amd64 allows bochs", "amd64", "bochs"),
+
+			Entry("arm64 allows virtio", "arm64", "virtio"),
+			Entry("arm64 allows bochs", "arm64", "ramfb"),
+
+			Entry("s390x allows virtio", "s390x", "virtio"),
+
+			Entry("ppc64le allows virtio", "ppc64le", "virtio"),
+			Entry("ppc64le allows bochs", "ppc64le", "bochs"),
+			Entry("ppc64le allows vga", "ppc64le", "vga"),
+			Entry("ppc64le allows cirrus", "ppc64le", "cirrus"),
+		)
+
+		DescribeTable("should reject unsupported video models per architecture", func(arch, videoType string) {
+			vmi.Spec.Domain.Devices.Video.Type = videoType
+			vmi.Spec.Architecture = arch
+			causes := ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).ToNot(BeEmpty(), fmt.Sprintf("expected video type %s to be invalid on arch %s", videoType, arch))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.video.type"))
+		},
+			Entry("amd64 rejects qxl", "amd64", "qxl"),
+			Entry("amd64 rejects vmvga", "amd64", "vmvga"),
+			Entry("amd64 rejects xenfb", "amd64", "xenfb"),
+			Entry("amd64 rejects none", "amd64", "none"),
+			Entry("amd64 rejects invalid model", "amd64", "invalidmodel"),
+
+			Entry("arm64 rejects vga", "arm64", "vga"),
+			Entry("arm64 rejects cirrus", "arm64", "cirrus"),
+			Entry("arm64 rejects bochs", "arm64", "bochs"),
+			Entry("arm64 rejects qxl", "arm64", "qxl"),
+			Entry("arm64 rejects vmvga", "arm64", "vmvga"),
+			Entry("arm64 rejects xenfb", "arm64", "xenfb"),
+			Entry("arm64 rejects none", "arm64", "none"),
+			Entry("arm64 rejects invalid model", "arm64", "invalidmodel"),
+
+			Entry("s390x rejects vga", "s390x", "vga"),
+			Entry("s390x rejects cirrus", "s390x", "cirrus"),
+			Entry("s390x rejects bochs", "s390x", "bochs"),
+			Entry("s390x rejects ramfb", "s390x", "ramfb"),
+			Entry("s390x rejects qxl", "s390x", "qxl"),
+			Entry("s390x rejects vmvga", "s390x", "vmvga"),
+			Entry("s390x rejects xenfb", "s390x", "xenfb"),
+			Entry("s390x rejects none", "s390x", "none"),
+			Entry("s390x rejects invalid model", "s390x", "invalidmodel"),
+
+			Entry("ppc64le rejects ramfb", "ppc64le", "ramfb"),
+			Entry("ppc64le rejects qxl", "ppc64le", "qxl"),
+			Entry("ppc64le rejects vmvga", "ppc64le", "vmvga"),
+			Entry("ppc64le rejects xenfb", "ppc64le", "xenfb"),
+			Entry("ppc64le rejects none", "ppc64le", "none"),
+			Entry("ppc64le rejects invalid model", "ppc64le", "invalidmodel"),
 		)
 	})
 })

@@ -521,6 +521,8 @@ spec:
             enabled: true
             persistent: true
           useVirtioTransitional: true
+          video:
+            type: typeValue
           watchdog:
             diag288:
               action: actionValue
@@ -576,6 +578,7 @@ spec:
             enabled: true
         firmware:
           acpi:
+            msdmNameRef: msdmNameRefValue
             slicNameRef: slicNameRefValue
           bootloader:
             bios:

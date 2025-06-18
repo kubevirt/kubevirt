@@ -747,6 +747,9 @@ func (c *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		now := metav1.Now()
 		vmiCopy.Status.MigrationState.TargetNodeDomainReadyTimestamp = &now
 
+		cm := controller.NewVirtualMachineInstanceConditionManager()
+		cm.RemoveCondition(vmiCopy, v1.VirtualMachineInstanceMigrationRequired)
+
 		err := c.finalizeMigration(vmiCopy)
 		if err != nil {
 			return err
@@ -1549,6 +1552,10 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 
 	if util.IsSEVVMI(vmi) {
 		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
+	}
+
+	if util.IsSecureExecutionVMI(vmi) {
+		return newNonMigratableCondition("VMI uses Secure Execution", v1.VirtualMachineInstanceReasonSecureExecutionNotMigratable), isBlockMigration
 	}
 
 	if reservation.HasVMIPersistentReservation(vmi) {

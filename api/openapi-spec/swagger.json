@@ -8376,6 +8376,52 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine Instance",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1vmi-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/pause": {
     "put": {
      "description": "Pause a VirtualMachineInstance object.",
@@ -9209,6 +9255,52 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1vm-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/portforward/{port}": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the running VMI for the specified VirtualMachine and port.",
@@ -9859,6 +9951,52 @@
        "description": "OK",
        "schema": {
         "$ref": "#/definitions/v1.VirtualMachineInstanceGuestAgentInfo"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine Instance",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1alpha3vmi-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
        }
       },
       "401": {
@@ -10696,6 +10834,52 @@
        "schema": {
         "type": "string"
        }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1alpha3vm-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
       }
      }
     },
@@ -12543,6 +12727,10 @@
    "v1.ACPI": {
     "type": "object",
     "properties": {
+     "msdmNameRef": {
+      "description": "Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions. The above points to the spec of MSDM too.",
+      "type": "string"
+     },
      "slicNameRef": {
       "description": "SlicNameRef should match the volume name of a secret object. The data in the secret should be a binary blob that follows the ACPI SLIC standard, see: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)",
       "type": "string"
@@ -13395,6 +13583,10 @@
      "useVirtioTransitional": {
       "description": "Fall back to legacy virtio 0.9 support if virtio bus is selected on devices. This is helpful for old machines like CentOS6 or RHEL6 which do not understand virtio_non_transitional (virtio 1.0).",
       "type": "boolean"
+     },
+     "video": {
+      "description": "Video describes the video device configuration for the vmi.",
+      "$ref": "#/definitions/v1.VideoDevice"
      },
      "watchdog": {
       "description": "Watchdog describes a watchdog device which can be added to the vmi.",
@@ -15324,6 +15516,59 @@
      }
     }
    },
+   "v1.ObjectGraphNode": {
+    "description": "ObjectGraphNode represents an individual node in the graph.",
+    "type": "object",
+    "required": [
+     "objectReference"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "children": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.ObjectGraphNode"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "labels": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "objectReference": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.api.core.v1.TypedObjectReference"
+     },
+     "optional": {
+      "type": "boolean"
+     }
+    }
+   },
+   "v1.ObjectGraphOptions": {
+    "description": "ObjectGraphOptions holds options for the object graph.",
+    "type": "object",
+    "properties": {
+     "includeOptionalNodes": {
+      "description": "IncludeOptionalNodes indicates whether to include optional nodes in the graph. True by default.",
+      "type": "boolean"
+     },
+     "labelSelector": {
+      "description": "LabelSelector is used to filter nodes in the graph based on their labels.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     }
+    }
+   },
    "v1.PITTimer": {
     "type": "object",
     "properties": {
@@ -16368,6 +16613,15 @@
     "properties": {
      "display": {
       "$ref": "#/definitions/v1.VGPUDisplayOptions"
+     }
+    }
+   },
+   "v1.VideoDevice": {
+    "type": "object",
+    "properties": {
+     "type": {
+      "description": "Type specifies the video device type (e.g., virtio, vga, bochs, ramfb). If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).",
+      "type": "string"
      }
     }
    },
@@ -20155,7 +20409,7 @@
     }
    },
    "v1beta1.VirtualMachineRestoreSpec": {
-    "description": "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource",
+    "description": "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore resource",
     "type": "object",
     "required": [
      "target",
@@ -20182,11 +20436,23 @@
      "virtualMachineSnapshotName": {
       "type": "string",
       "default": ""
+     },
+     "volumeRestoreOverrides": {
+      "description": "VolumeRestoreOverrides gives the option to change properties of each restored volume For example, specifying the name of the restored volume, or adding labels/annotations to it",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VolumeRestoreOverride"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "volumeRestorePolicy": {
+      "type": "string"
      }
     }
    },
    "v1beta1.VirtualMachineRestoreStatus": {
-    "description": "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
+    "description": "VirtualMachineRestoreStatus is the status for a VirtualMachineRestore resource",
     "type": "object",
     "nullable": true,
     "properties": {
@@ -20479,7 +20745,7 @@
     }
    },
    "v1beta1.VolumeRestore": {
-    "description": "VolumeRestore contains the data neeed to restore a PVC",
+    "description": "VolumeRestore contains the data needed to restore a PVC",
     "type": "object",
     "required": [
      "volumeName",
@@ -20501,6 +20767,32 @@
      "volumeSnapshotName": {
       "type": "string",
       "default": ""
+     }
+    }
+   },
+   "v1beta1.VolumeRestoreOverride": {
+    "description": "VolumeRestoreOverride specifies how a volume should be restored from a VirtualMachineSnapshot",
+    "type": "object",
+    "properties": {
+     "annotations": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "labels": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "restoreName": {
+      "type": "string"
+     },
+     "volumeName": {
+      "type": "string"
      }
     }
    },

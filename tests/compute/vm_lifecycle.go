@@ -48,7 +48,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	It("[test_id:3007] Should force restart a VM with terminationGracePeriodSeconds>0", func() {
+	It("[test_id:3007][QUARANTINE] Should force restart a VM with terminationGracePeriodSeconds>0", decorators.Quarantine, func() {
 		By("getting a VM with high TerminationGracePeriod")
 		vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})

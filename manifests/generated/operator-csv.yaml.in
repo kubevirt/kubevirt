@@ -358,6 +358,7 @@ spec:
           - persistentvolumeclaims
           verbs:
           - get
+          - list
         - apiGroups:
           - kubevirt.io
           resources:
@@ -894,6 +895,8 @@ spec:
           - virtualmachineinstances/sev/fetchcertchain
           - virtualmachineinstances/sev/querylaunchmeasurement
           - virtualmachineinstances/usbredir
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
           verbs:
           - get
         - apiGroups:
@@ -1050,6 +1053,8 @@ spec:
           - virtualmachineinstances/sev/fetchcertchain
           - virtualmachineinstances/sev/querylaunchmeasurement
           - virtualmachineinstances/usbredir
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
           verbs:
           - get
         - apiGroups:
@@ -1210,6 +1215,8 @@ spec:
           - virtualmachineinstances/userlist
           - virtualmachineinstances/sev/fetchcertchain
           - virtualmachineinstances/sev/querylaunchmeasurement
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
           verbs:
           - get
         - apiGroups:
@@ -1394,6 +1401,13 @@ spec:
                   value: {{.DockerTag}}
                 image: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}
                 imagePullPolicy: {{.ImagePullPolicy}}
+                livenessProbe:
+                  httpGet:
+                    path: /metrics
+                    port: 8443
+                    scheme: HTTPS
+                  initialDelaySeconds: 5
+                  timeoutSeconds: 10
                 name: virt-operator
                 ports:
                 - containerPort: 8443

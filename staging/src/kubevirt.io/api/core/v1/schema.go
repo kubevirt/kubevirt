@@ -440,6 +440,9 @@ type ACPI struct {
 	// be a binary blob that follows the ACPI SLIC standard, see:
 	// https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)
 	SlicNameRef string `json:"slicNameRef,omitempty"`
+	// Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+	// The above points to the spec of MSDM too.
+	MsdmNameRef string `json:"msdmNameRef,omitempty"`
 }
 
 type Devices struct {
@@ -518,6 +521,9 @@ type Devices struct {
 	// Whether to emulate a TPM device.
 	// +optional
 	TPM *TPMDevice `json:"tpm,omitempty"`
+	// Video describes the video device configuration for the vmi.
+	// +optional
+	Video *VideoDevice `json:"video,omitempty"`
 }
 
 // Represent a subset of client devices that can be accessed by VMI. At the
@@ -553,6 +559,13 @@ type TPMDevice struct {
 	// Persistent indicates the state of the TPM device should be kept accross reboots
 	// Defaults to false
 	Persistent *bool `json:"persistent,omitempty"`
+}
+
+type VideoDevice struct {
+	// Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+	// If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+	// +optional
+	Type string `json:"type,omitempty"`
 }
 
 type InputBus string

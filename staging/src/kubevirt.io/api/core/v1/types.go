@@ -607,6 +607,9 @@ const (
 
 	// Indicates whether the VMI is live migratable
 	VirtualMachineInstanceIsStorageLiveMigratable VirtualMachineInstanceConditionType = "StorageLiveMigratable"
+
+	// VirtualMachineInstanceMigrationRequired Indicates that an automatic migration is required
+	VirtualMachineInstanceMigrationRequired VirtualMachineInstanceConditionType = "MigrationRequired"
 )
 
 // These are valid reasons for VMI conditions.
@@ -625,6 +628,8 @@ const (
 	VirtualMachineInstanceReasonHostDeviceNotMigratable = "HostDeviceNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses Secure Encrypted Virtualization (SEV)
 	VirtualMachineInstanceReasonSEVNotMigratable = "SEVNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses IBM Secure Execution
+	VirtualMachineInstanceReasonSecureExecutionNotMigratable = "SecureExecutionNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
 	VirtualMachineInstanceReasonNoTSCFrequencyMigratable = "NoTSCFrequencyNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
@@ -639,6 +644,12 @@ const (
 	VirtualMachineInstanceReasonNotMigratable = "NotMigratable"
 	// Reason means that the volume update change was cancelled
 	VirtualMachineInstanceReasonVolumesChangeCancellation = "VolumesChangeCancellation"
+
+	// Indicates that automatic migration is required due to a change made to a running VM
+	VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate = "AutoMigrationDueToLiveUpdate"
+
+	// Indicates that automatic migration is pending
+	VirtualMachineInstanceReasonAutoMigrationPending = "AutoMigrationPending"
 )
 
 const (
@@ -1135,6 +1146,9 @@ const (
 
 	// SEVESLabel marks the node as capable of running workloads with SEV-ES
 	SEVESLabel string = "kubevirt.io/sev-es"
+
+	// SecureExecutionLabel marks the node as capable of running workloads with IBM Secure Execution
+	SecureExecutionLabel string = "kubevirt.io/s390-pv"
 
 	// KSMEnabledLabel marks the node as KSM-handling enabled
 	KSMEnabledLabel string = "kubevirt.io/ksm-enabled"
@@ -3386,4 +3400,26 @@ type SEVSecretOptions struct {
 	Header string `json:"header,omitempty"`
 	// Base64 encoded encrypted launch secret.
 	Secret string `json:"secret,omitempty"`
+}
+
+// ObjectGraphNode represents an individual node in the graph.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ObjectGraphNode struct {
+	metav1.TypeMeta `json:",inline"`
+	ObjectReference k8sv1.TypedObjectReference `json:"objectReference"`
+	Labels          map[string]string          `json:"labels,omitempty"`
+	// +optional
+	Optional *bool `json:"optional,omitempty"`
+	// +listType=atomic
+	Children []ObjectGraphNode `json:"children,omitempty"`
+}
+
+// ObjectGraphOptions holds options for the object graph.
+type ObjectGraphOptions struct {
+	// IncludeOptionalNodes indicates whether to include optional nodes in the graph.
+	// True by default.
+	IncludeOptionalNodes *bool `json:"includeOptionalNodes,omitempty"`
+	// LabelSelector is used to filter nodes in the graph based on their labels.
+	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
 }

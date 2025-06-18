@@ -169,7 +169,8 @@
               }
             },
             "acpi": {
-              "slicNameRef": "slicNameRefValue"
+              "slicNameRef": "slicNameRefValue",
+              "msdmNameRef": "msdmNameRefValue"
             }
           },
           "clock": {
@@ -413,6 +414,9 @@
             "tpm": {
               "enabled": true,
               "persistent": true
+            },
+            "video": {
+              "type": "typeValue"
             }
           },
           "ioThreadsPolicy": "ioThreadsPolicyValue",
