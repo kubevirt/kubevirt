@@ -3436,6 +3436,43 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 	})
 
+	Context("on post-copy migration failure", func() {
+		It("should fail the VMI", func() {
+			By("Creating a migrating VMI with a domain in failed post-copy migration state")
+			vmi := libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("testvmi"))
+			vmi.UID = vmiTestUUID
+			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:                     "abc",
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     host,
+				MigrationUID:                   "123",
+				TargetNodeDomainDetected:       true,
+				TargetNodeDomainReadyTimestamp: &now,
+			}
+			vmi.Spec.Hostname = host
+			vmi.Status.Phase = v1.Running
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Paused
+			domain.Status.Reason = api.ReasonPausedPostcopyFailed
+			domainFeeder.Add(domain)
+			vmiFeeder.Add(vmi)
+			createVMI(vmi)
+
+			By("Executing the controller")
+			client.EXPECT().Ping()
+			client.EXPECT().KillVirtualMachine(gomock.Any())
+			sanityExecute()
+			expectEvent("VirtualMachineInstance stopping", true)
+			expectEvent("VMI is irrecoverable due to failed post-copy migration", true)
+			expectEvent("The VirtualMachineInstance crashed", true)
+
+			By("Ensuring the VMI is now failed")
+			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVMI.Status.Phase).To(Equal(v1.Failed))
+		})
+	})
 })
 
 var _ = Describe("DomainNotifyServerRestarts", func() {
