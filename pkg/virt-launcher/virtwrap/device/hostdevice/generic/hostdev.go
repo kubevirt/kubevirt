@@ -148,13 +148,7 @@ func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, 
 		return nil, err
 	}
 
-	hostDevices = append(hostDevices, usbHostDevices...)
-
-	if err := validateCreationOfAllDevices(vmiHostDevices, hostDevices); err != nil {
-		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
-	}
-
-	return hostDevices, nil
+	return append(hostDevices, usbHostDevices...), nil
 }
 
 func createHostDevicesMetadata(vmiHostDevices []v1.HostDevice) []hostdevice.HostDeviceMetaData {

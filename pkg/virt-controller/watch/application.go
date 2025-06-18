@@ -692,7 +692,7 @@ func (vca *VirtControllerApp) initCommon() {
 		panic(err)
 	}
 
-	if vca.clusterConfig.GPUsWithDRAGateEnabled() {
+	if vca.clusterConfig.GPUsWithDRAGateEnabled() || vca.clusterConfig.HostDevicesWithDRAEnabled() {
 		draStatusRecorder := vca.newRecorder(k8sv1.NamespaceAll, "dra-status-controller")
 		vca.draStatusController, err = dra.NewDRAStatusController(
 			vca.clusterConfig,

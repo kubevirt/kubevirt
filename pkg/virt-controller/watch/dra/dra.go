@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2024 Red Hat, Inc.
+ * Copyright 2025 Red Hat, Inc.
  *
  */
 
@@ -48,9 +48,8 @@ import (
 )
 
 const (
-	deleteNotifFailed             = "Failed to process delete notification"
-	tombstoneGetObjectErrFmt      = "couldn't get object from tombstone %+v"
-	draAttributesAvailableMessage = "All DRA device have been allocated and attributes have been reconciled"
+	deleteNotifFailed        = "Failed to process delete notification"
+	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 
 	indexByNodeName = "byNodeName"
 )
@@ -193,11 +192,6 @@ func (c *DRAStatusController) addPod(obj interface{}) {
 		return
 	}
 
-	if pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodFailed ||
-		pod.Status.Phase == k8sv1.PodSucceeded {
-		return
-	}
-
 	controllerRef := controller.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
@@ -251,6 +245,10 @@ func (c *DRAStatusController) updatePod(old interface{}, cur interface{}) {
 			// we don't need to check the oldPod.DeletionTimestamp because DeletionTimestamp cannot be unset.
 			c.deletePod(oldPod)
 		}
+		return
+	}
+	if curPod.Status.Phase == k8sv1.PodRunning || curPod.Status.Phase == k8sv1.PodFailed ||
+		curPod.Status.Phase == k8sv1.PodSucceeded {
 		return
 	}
 

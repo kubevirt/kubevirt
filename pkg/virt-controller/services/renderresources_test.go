@@ -333,11 +333,9 @@ var _ = Describe("Resource pod spec renderer", func() {
 
 			rr = NewResourceRenderer(nil, nil, WithHostDevices(hostDevices))
 
-			// Should add the device plugin resource
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("pci-device"), *resource.NewQuantity(1, resource.DecimalSI)))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("pci-device"), *resource.NewQuantity(1, resource.DecimalSI)))
 
-			// Should also add the resource claim
 			claims := rr.Claims()
 			Expect(claims).To(HaveLen(1))
 			Expect(claims[0].Name).To(Equal("dra-claim"))
@@ -360,11 +358,9 @@ var _ = Describe("Resource pod spec renderer", func() {
 
 			rr = NewResourceRenderer(nil, nil, WithGPUs(gpus))
 
-			// Should add the device plugin resource
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("nvidia-gpu"), *resource.NewQuantity(1, resource.DecimalSI)))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("nvidia-gpu"), *resource.NewQuantity(1, resource.DecimalSI)))
 
-			// Should also add the resource claim
 			claims := rr.Claims()
 			Expect(claims).To(HaveLen(1))
 			Expect(claims[0].Name).To(Equal("gpu-claim"))
@@ -372,7 +368,6 @@ var _ = Describe("Resource pod spec renderer", func() {
 		})
 
 		It("Unified functions should not interfere with other renderer options", func() {
-			// Create a renderer with some existing CPU and memory requests/limits
 			cpuRequest := resource.MustParse("100m")
 			memoryRequest := resource.MustParse("128Mi")
 			cpuLimit := resource.MustParse("200m")
@@ -387,7 +382,6 @@ var _ = Describe("Resource pod spec renderer", func() {
 				kubev1.ResourceMemory: memoryLimit,
 			}
 
-			// GPU with DRA
 			gpus := []v1.GPU{
 				{
 					Name: "dra-gpu",
@@ -398,22 +392,18 @@ var _ = Describe("Resource pod spec renderer", func() {
 				},
 			}
 
-			// Create a renderer with both existing requests/limits and WithGPUs
 			rr = NewResourceRenderer(limits, requests, WithGPUs(gpus))
 
-			// Should preserve existing resource requests and limits
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuLimit))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryLimit))
 
-			// Should still add the resource claim
 			claims := rr.Claims()
 			Expect(claims).To(HaveLen(1))
 			Expect(claims[0].Name).To(Equal("gpu-claim"))
 			Expect(claims[0].Request).To(Equal("gpu-request"))
 
-			// Test with multiple renderer options
 			hostDevices := []v1.HostDevice{
 				{
 					Name: "host-dev",
@@ -424,23 +414,19 @@ var _ = Describe("Resource pod spec renderer", func() {
 				},
 			}
 
-			// Create a renderer with both GPU and host device unified options
 			rr = NewResourceRenderer(limits, requests,
 				WithGPUs(gpus),
 				WithHostDevices(hostDevices),
 			)
 
-			// Should preserve existing resource requests and limits
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuLimit))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryLimit))
 
-			// Should add both resource resourceClaims
 			claims = rr.Claims()
 			Expect(claims).To(HaveLen(2))
 
-			// Verify both resourceClaims are present
 			claimNames := make(map[string]string)
 			for _, claim := range claims {
 				claimNames[claim.Name] = claim.Request

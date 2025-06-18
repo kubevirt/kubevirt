@@ -297,11 +297,9 @@ func WithHostDevices(hostDevices []v1.HostDevice) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		resources := renderer.ResourceRequirements()
 		for _, hostDev := range hostDevices {
-			// Handle device plugin host devices
 			if hostDev.DeviceName != "" {
 				requestResource(&resources, hostDev.DeviceName)
 			}
-			// Handle DRA host devices
 			if hostDev.ClaimRequest != nil && hostDev.ClaimRequest.ClaimName != nil && hostDev.ClaimRequest.RequestName != nil {
 				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
 					Name:    *hostDev.ClaimRequest.ClaimName,

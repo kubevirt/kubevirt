@@ -46,6 +46,14 @@ func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+// Check if a VMI spec requests GPU
+func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.GPUs != nil && len(vmi.Spec.Domain.Devices.GPUs) != 0 {
+		return true
+	}
+	return false
+}
+
 // Check if a VMI spec requests VirtIO-FS
 func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.Devices.Filesystems != nil {
@@ -61,14 +69,6 @@ func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
 // Check if a VMI spec requests a HostDevice
 func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.Devices.HostDevices != nil && len(vmi.Spec.Domain.Devices.HostDevices) != 0 {
-		return true
-	}
-	return false
-}
-
-// Check if a VMI spec requests GPU
-func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.GPUs != nil && len(vmi.Spec.Domain.Devices.GPUs) != 0 {
 		return true
 	}
 	return false

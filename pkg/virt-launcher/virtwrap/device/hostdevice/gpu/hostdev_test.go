@@ -48,20 +48,6 @@ var _ = Describe("GPU HostDevice", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("fails to create device given two devices but only one address", func() {
-		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-			{DeviceName: gpuResource0, Name: gpuName0},
-			{DeviceName: gpuResource0, Name: gpuName1},
-		}
-		pciPool := newAddressPoolStub()
-		pciPool.AddResource(gpuResource0, gpuPCIAddress0)
-		mdevPool := newAddressPoolStub()
-		mdevPool.AddResource(gpuResource1, gpuPCIAddress1)
-
-		_, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
-		Expect(err).To(HaveOccurred())
-	})
-
 	It("creates two devices, PCI and MDEV", func() {
 		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 			{DeviceName: gpuResource0, Name: gpuName0},

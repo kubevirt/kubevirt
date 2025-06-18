@@ -21,6 +21,7 @@ package gpu
 
 import (
 	"fmt"
+	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -54,6 +55,10 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 	hostDevices = append(hostDevices, draPCIHostDevices...)
 	hostDevices = append(hostDevices, draMDEVHostDevices...)
 
+	if err := validateCreationOfAllDevices(vmiGPUs, hostDevices); err != nil {
+		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
+	}
+
 	return hostDevices, nil
 }
 
@@ -71,13 +76,7 @@ func CreateHostDevicesFromPools(vmiGPUs []v1.GPU, pciAddressPool, mdevAddressPoo
 		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
 	}
 
-	hostDevices := append(pciHostDevices, mdevHostDevices...)
-
-	if err := validateCreationOfAllDevices(vmiGPUs, hostDevices); err != nil {
-		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
-	}
-
-	return hostDevices, nil
+	return append(pciHostDevices, mdevHostDevices...), nil
 }
 
 func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
@@ -90,6 +89,7 @@ func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 		for _, gpu := range vmi.Status.DeviceStatus.GPUStatuses {
 			if gpu.DeviceResourceClaimStatus != nil && gpu.DeviceResourceClaimStatus.Attributes != nil {
 				if gpu.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
+					log.Log.V(2).Infof("Adding DRA PCI GPUdevice for %s", gpu.Name)
 					hostAddr, err := device.NewPciAddressField(*gpu.DeviceResourceClaimStatus.Attributes.PCIAddress)
 					if err != nil {
 						return nil, fmt.Errorf("failed to create PCI device for %s: %v", gpu.Name, err)
@@ -116,12 +116,12 @@ func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance, defaultDisplayOn bool
 	if vmi.Status.DeviceStatus != nil {
 		for _, gpu := range vmi.Status.DeviceStatus.GPUStatuses {
 			if gpu.DeviceResourceClaimStatus != nil && gpu.DeviceResourceClaimStatus.Attributes != nil {
-				// if pciAddress is set, this is a pGPU
 				if gpu.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
+					log.Log.V(2).Infof("Skipping DRA PCI GPU %s when processing for MDEV device", gpu.Name)
 					continue
 				}
-				// if mdevUUID is set, this is a vGPU
 				if gpu.DeviceResourceClaimStatus.Attributes.MDevUUID != nil {
+					log.Log.V(2).Infof("Adding DRA MDEV GPU device for %s", gpu.Name)
 					hostDevice := api.HostDevice{
 						Alias: api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
 						Source: api.HostDeviceSource{
