@@ -2,6 +2,7 @@ package dra
 
 import (
 	"errors"
+	"kubevirt.io/kubevirt/pkg/dra"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +18,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
 var _ = Describe("DRA Status Controller", func() {
@@ -197,7 +197,7 @@ var _ = Describe("DRA Status Controller", func() {
 
 		It("should return true if there are no GPUs with DRA", func() {
 			status := &virtv1.DeviceStatus{}
-			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
+			Expect(dra.IsAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
 		})
 
 		It("should return true if all GPUs with DRA are reconciled with PCI addresses", func() {
@@ -226,7 +226,7 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
+			Expect(dra.IsAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
 		})
 
 		It("should return true if all GPUs with DRA are reconciled with mdev UUIDs", func() {
@@ -255,7 +255,7 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
+			Expect(dra.IsAllDRAGPUsReconciled(vmi, status)).To(BeTrue())
 		})
 
 		It("should return false if any GPU with DRA is missing status", func() {
@@ -292,7 +292,7 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
+			Expect(dra.IsAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
 		})
 
 		It("should return false if any GPU with DRA is missing attributes", func() {
@@ -319,7 +319,7 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
+			Expect(dra.IsAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
 		})
 
 		It("should return false if any GPU with DRA has attributes but no PCI address or mdev UUID", func() {
@@ -346,7 +346,7 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(util.IsAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
+			Expect(dra.IsAllDRAGPUsReconciled(vmi, status)).To(BeFalse())
 		})
 
 		It("should handle nil status gracefully", func() {
@@ -360,7 +360,7 @@ var _ = Describe("DRA Status Controller", func() {
 				},
 			}
 
-			Expect(util.IsAllDRAGPUsReconciled(vmi, nil)).To(BeFalse())
+			Expect(dra.IsAllDRAGPUsReconciled(vmi, nil)).To(BeFalse())
 		})
 	})
 })

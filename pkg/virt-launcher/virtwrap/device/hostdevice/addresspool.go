@@ -26,8 +26,6 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	virtv1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -43,19 +41,6 @@ func NewAddressPool(resourcePrefix string, resources []string) *AddressPool {
 	}
 	pool.load(resourcePrefix, resources)
 	return pool
-}
-
-func NewAddressPoolFromDeviceStatus(vmiDeviceStatus *virtv1.DeviceStatus) *AddressPool {
-	addressMap := map[string][]string{}
-	for _, gpuStatus := range vmiDeviceStatus.GPUStatuses {
-		if gpuStatus.DeviceResourceClaimStatus != nil && gpuStatus.DeviceResourceClaimStatus.Attributes != nil &&
-			gpuStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
-			addressMap[gpuStatus.Name] = []string{*gpuStatus.DeviceResourceClaimStatus.Attributes.PCIAddress}
-		}
-	}
-	return &AddressPool{
-		addressesByResource: addressMap,
-	}
 }
 
 func (p *AddressPool) load(resourcePrefix string, resources []string) {

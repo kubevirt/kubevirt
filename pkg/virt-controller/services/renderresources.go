@@ -348,8 +348,17 @@ func requestResourceClaims(resources *k8sv1.ResourceRequirements, claim *k8sv1.R
 }
 
 func copyResourceClaims(resources *k8sv1.ResourceRequirements, claims *[]k8sv1.ResourceClaim) {
+	existing := make(map[string]struct{})
+	for _, c := range *claims {
+		existing[c.Name] = struct{}{}
+	}
+
 	for _, value := range resources.Claims {
+		if _, found := existing[value.Name]; found {
+			continue // skip duplicates by Name
+		}
 		*claims = append(*claims, value)
+		existing[value.Name] = struct{}{}
 	}
 }
 
