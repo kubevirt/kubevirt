@@ -60,6 +60,8 @@ const (
 	unableToLocateVMIMigrationIDErrorMsg = "unable to locate VMI for migrationID %s"
 
 	successMessage = "success"
+
+	maxCloseRetries = 10
 )
 
 type SynchronizationController struct {
@@ -81,6 +83,7 @@ type SynchronizationController struct {
 
 	syncOutboundConnectionMap  *sync.Map
 	syncReceivingConnectionMap *sync.Map
+	failedCloseConnections     *sync.Map
 	grpcServer                 *grpc.Server
 }
 
@@ -116,6 +119,7 @@ func NewSynchronizationController(
 
 	syncController.syncOutboundConnectionMap = &sync.Map{}
 	syncController.syncReceivingConnectionMap = &sync.Map{}
+	syncController.failedCloseConnections = &sync.Map{}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    syncController.addVmiFunc,
@@ -206,6 +210,7 @@ func (s *SynchronizationController) closeConnectionForMigrationID(syncMap *sync.
 		if ok {
 			if err := outboundConnection.Close(); err != nil {
 				log.Log.Warningf("unable to close connection for migrationID %s, %v", migrationID, err)
+				s.failedCloseConnections.Store(outboundConnection, 0)
 				return err
 			}
 		} else {
@@ -242,6 +247,7 @@ func (s *SynchronizationController) Run(threadiness int, stopCh <-chan struct{})
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(s.runWorker, time.Second, stopCh)
 	}
+	go wait.Until(s.runConnectionCleanup, 5*time.Second, stopCh)
 
 	conn, err := s.createTcpListener()
 	if err != nil {
@@ -622,7 +628,7 @@ func (s *SynchronizationController) rebuildTargetConnection(migration *virtv1.Vi
 		origVMI := vmi.DeepCopy()
 		vmi.Status.MigrationState.TargetState.SyncAddress = &url
 		// patching will cause reconcile loop to connect to remote to update
-		if err := s.patchVMI(origVMI, vmi); err != nil {
+		if err := s.patchVMI(context.Background(), origVMI, vmi); err != nil {
 			return err
 		}
 	}
@@ -646,7 +652,7 @@ func (s *SynchronizationController) rebuildSourceConnection(migration *virtv1.Vi
 		origVMI := vmi.DeepCopy()
 		vmi.Status.MigrationState.SourceState.SyncAddress = &url
 		// patching will cause reconcile loop to connect to remote to update
-		if err := s.patchVMI(origVMI, vmi); err != nil {
+		if err := s.patchVMI(context.Background(), origVMI, vmi); err != nil {
 			return err
 		}
 	}
@@ -780,7 +786,7 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 	newVMI.Status.MigratedVolumes = remoteStatus.MigratedVolumes
 	newVMI.Status.MigrationMethod = remoteStatus.MigrationMethod
 	if !apiequality.Semantic.DeepEqual(vmi.Status, newVMI.Status) {
-		if err := s.patchVMI(vmi, newVMI); err != nil {
+		if err := s.patchVMI(ctx, vmi, newVMI); err != nil {
 			return &syncv1.VMIStatusResponse{
 				Message: fmt.Sprintf("unable to synchronize VMI for migrationID %s", request.MigrationID),
 			}, err
@@ -840,7 +846,7 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	copyTargetNameNodeLabel(newVMI, remoteStatus.MigrationState)
 	copyLegacyTargetFields(newVMI, remoteStatus.MigrationState)
 	if !apiequality.Semantic.DeepEqual(vmi.Status.MigrationState, newVMI.Status.MigrationState) {
-		if err := s.patchVMI(vmi, newVMI); err != nil {
+		if err := s.patchVMI(ctx, vmi, newVMI); err != nil {
 			return &syncv1.VMIStatusResponse{
 				Message: fmt.Sprintf("unable to synchronize VMI for migrationID %s", request.MigrationID),
 			}, err
@@ -853,7 +859,7 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	}, nil
 }
 
-func (s *SynchronizationController) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) error {
+func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVMI *virtv1.VirtualMachineInstance) error {
 	patchSet := patch.New()
 
 	if !apiequality.Semantic.DeepEqual(origVMI.Labels, newVMI.Labels) {
@@ -909,7 +915,7 @@ func (s *SynchronizationController) patchVMI(origVMI, newVMI *virtv1.VirtualMach
 			return err
 		}
 		log.Log.Object(origVMI).V(3).Infof("patch VMI with %s", string(patchBytes))
-		if _, err := s.client.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+		if _, err := s.client.VirtualMachineInstance(origVMI.Namespace).Patch(ctx, origVMI.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
 		}
 	}
@@ -1012,4 +1018,32 @@ func copyTargetNameNodeLabel(vmi *virtv1.VirtualMachineInstance, migrationState 
 		}
 		vmi.Labels[virtv1.MigrationTargetNodeNameLabel] = migrationState.TargetState.Node
 	}
+}
+
+func (s *SynchronizationController) runConnectionCleanup() {
+	s.failedCloseConnections.Range(func(k, v interface{}) bool {
+		retryCount, ok := v.(int)
+		if !ok {
+			log.Log.Warningf("invalid retry count type during connection cleanup: %v", v)
+			s.failedCloseConnections.Delete(k)
+			return true
+		}
+		if retryCount >= maxCloseRetries {
+			log.Log.Warningf("connection for migrationID %s failed to close after %d retries, not attempting to close again", k, retryCount)
+			s.failedCloseConnections.Delete(k)
+		}
+		outboundConnection, ok := k.(*SynchronizationConnection)
+		if !ok {
+			log.Log.Warningf("invalid outbound connection type during connection cleanup: %v", k)
+			s.failedCloseConnections.Delete(k)
+			return true
+		}
+		if err := outboundConnection.Close(); err != nil {
+			log.Log.Warningf("unable to close connection for migrationID, trying again: %s, %v", outboundConnection.migrationID, err)
+			s.failedCloseConnections.Store(outboundConnection, retryCount+1)
+		} else {
+			s.failedCloseConnections.Delete(k)
+		}
+		return true
+	})
 }
