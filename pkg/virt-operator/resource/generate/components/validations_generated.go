@@ -3849,6 +3849,8 @@ var CRDsValidation map[string]string = map[string]string{
           description: KubeVirtPhase is a label for the phase of a KubeVirt deployment
             at the current time.
           type: string
+        synchronizationAddress:
+          type: string
         targetDeploymentConfig:
           type: string
         targetDeploymentID:
@@ -13845,9 +13847,17 @@ var CRDsValidation map[string]string = map[string]string{
                 pod:
                   description: The source pod that the VMI is originated on
                   type: string
+                selinuxContext:
+                  description: SELinuxContext is the actual SELinux context of the
+                    pod
+                  type: string
                 syncAddress:
                   description: The ip address/fqdn:port combination to use to synchronize
                     the VMI with the target.
+                  type: string
+                virtualMachineInstanceUID:
+                  description: VirtualMachineInstanceUID is the UID of the target
+                    virtual machine instance
                   type: string
               type: object
             startTimestamp:
@@ -13956,9 +13966,17 @@ var CRDsValidation map[string]string = map[string]string{
                 pod:
                   description: The source pod that the VMI is originated on
                   type: string
+                selinuxContext:
+                  description: SELinuxContext is the actual SELinux context of the
+                    pod
+                  type: string
                 syncAddress:
                   description: The ip address/fqdn:port combination to use to synchronize
                     the VMI with the target.
+                  type: string
+                virtualMachineInstanceUID:
+                  description: VirtualMachineInstanceUID is the UID of the target
+                    virtual machine instance
                   type: string
               type: object
           type: object
@@ -14411,9 +14429,17 @@ var CRDsValidation map[string]string = map[string]string{
                 pod:
                   description: The source pod that the VMI is originated on
                   type: string
+                selinuxContext:
+                  description: SELinuxContext is the actual SELinux context of the
+                    pod
+                  type: string
                 syncAddress:
                   description: The ip address/fqdn:port combination to use to synchronize
                     the VMI with the target.
+                  type: string
+                virtualMachineInstanceUID:
+                  description: VirtualMachineInstanceUID is the UID of the target
+                    virtual machine instance
                   type: string
               type: object
             startTimestamp:
@@ -14522,9 +14548,17 @@ var CRDsValidation map[string]string = map[string]string{
                 pod:
                   description: The source pod that the VMI is originated on
                   type: string
+                selinuxContext:
+                  description: SELinuxContext is the actual SELinux context of the
+                    pod
+                  type: string
                 syncAddress:
                   description: The ip address/fqdn:port combination to use to synchronize
                     the VMI with the target.
+                  type: string
+                virtualMachineInstanceUID:
+                  description: VirtualMachineInstanceUID is the UID of the target
+                    virtual machine instance
                   type: string
               type: object
           type: object

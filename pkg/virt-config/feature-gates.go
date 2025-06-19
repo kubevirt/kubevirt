@@ -192,3 +192,7 @@ func (config *ClusterConfig) DeclarativeHotplugVolumesEnabled() bool {
 func (config *ClusterConfig) SecureExecutionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.SecureExecution)
 }
+
+func (config *ClusterConfig) DecentralizedLiveMigrationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
+}
