@@ -9,10 +9,11 @@
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  * See the License for the specific language governing permissions and
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2025 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -403,8 +404,7 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *virt
 	defer draStatusControllerWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VMI Name", Value: vmi.Name})
 
 	if !c.isPodResourceClaimStatusFilled(logger, pod) {
-		logger.V(4).Infof("Waiting for pod %s/%s resource claim status to be filled", pod.Namespace, pod.Name)
-		return nil
+		return fmt.Errorf("waiting for pod %s/%s resource claim status to be filled", pod.Namespace, pod.Name)
 	}
 
 	var (

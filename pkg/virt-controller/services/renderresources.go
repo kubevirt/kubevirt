@@ -147,6 +147,68 @@ func WithoutDedicatedCPU(vmi *v1.VirtualMachineInstance, cpuAllocationRatio int,
 	}
 }
 
+func WithGPUsDevicePlugins(gpus []v1.GPU) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		res := r.ResourceRequirements()
+		for _, g := range gpus {
+			if g.DeviceName != "" && g.ClaimRequest == nil {
+				requestResource(&res, g.DeviceName)
+			}
+		}
+		copyResources(res.Limits, r.calculatedLimits)
+		copyResources(res.Requests, r.calculatedRequests)
+	}
+}
+
+func WithGPUsDRA(gpus []v1.GPU) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		res := r.ResourceRequirements()
+		for _, g := range gpus {
+			if g.DeviceName == "" && g.ClaimRequest != nil {
+				requestResourceClaims(&res, &k8sv1.ResourceClaim{
+					Name:    *g.ClaimRequest.ClaimName,
+					Request: *g.ClaimRequest.RequestName,
+				})
+			}
+		}
+		copyResources(res.Limits, r.calculatedLimits)
+		copyResources(res.Requests, r.calculatedRequests)
+		copyResourceClaims(&res, &r.resourceClaims)
+	}
+}
+
+// WithHostDevicesDevicePlugins adds resource requests/limits only for HostDevices managed by device plugins.
+func WithHostDevicesDevicePlugins(hostDevices []v1.HostDevice) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		resources := r.ResourceRequirements()
+		for _, hd := range hostDevices {
+			if hd.DeviceName != "" && hd.ClaimRequest == nil {
+				requestResource(&resources, hd.DeviceName)
+			}
+		}
+		copyResources(resources.Limits, r.calculatedLimits)
+		copyResources(resources.Requests, r.calculatedRequests)
+	}
+}
+
+// WithHostDevicesDRA adds ResourceClaims for HostDevices provisioned via DRA.
+func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		resources := r.ResourceRequirements()
+		for _, hd := range hostDevices {
+			if hd.DeviceName == "" && hd.ClaimRequest != nil && hd.ClaimRequest.ClaimName != nil && hd.ClaimRequest.RequestName != nil {
+				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
+					Name:    *hd.ClaimRequest.ClaimName,
+					Request: *hd.ClaimRequest.RequestName,
+				})
+			}
+		}
+		copyResources(resources.Limits, r.calculatedLimits)
+		copyResources(resources.Requests, r.calculatedRequests)
+		copyResourceClaims(&resources, &r.resourceClaims)
+	}
+}
+
 func WithHugePages(vmMemory *v1.Memory, memoryOverhead resource.Quantity) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmMemory.Hugepages.PageSize)
@@ -268,48 +330,6 @@ func WithNetworkResources(networkToResourceMap map[string]string) ResourceRender
 		}
 		copyResources(resources.Limits, renderer.calculatedLimits)
 		copyResources(resources.Requests, renderer.calculatedRequests)
-	}
-}
-
-func WithGPUs(gpus []v1.GPU) ResourceRendererOption {
-	return func(renderer *ResourceRenderer) {
-		resources := renderer.ResourceRequirements()
-		for _, gpu := range gpus {
-			// Handle device plugin GPUs
-			if gpu.DeviceName != "" {
-				requestResource(&resources, gpu.DeviceName)
-			}
-			// Handle DRA GPUs
-			if gpu.ClaimRequest != nil && gpu.ClaimRequest.ClaimName != nil && gpu.ClaimRequest.RequestName != nil {
-				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
-					Name:    *gpu.ClaimRequest.ClaimName,
-					Request: *gpu.ClaimRequest.RequestName,
-				})
-			}
-		}
-		copyResources(resources.Limits, renderer.calculatedLimits)
-		copyResources(resources.Requests, renderer.calculatedRequests)
-		copyResourceClaims(&resources, &renderer.resourceClaims)
-	}
-}
-
-func WithHostDevices(hostDevices []v1.HostDevice) ResourceRendererOption {
-	return func(renderer *ResourceRenderer) {
-		resources := renderer.ResourceRequirements()
-		for _, hostDev := range hostDevices {
-			if hostDev.DeviceName != "" {
-				requestResource(&resources, hostDev.DeviceName)
-			}
-			if hostDev.ClaimRequest != nil && hostDev.ClaimRequest.ClaimName != nil && hostDev.ClaimRequest.RequestName != nil {
-				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
-					Name:    *hostDev.ClaimRequest.ClaimName,
-					Request: *hostDev.ClaimRequest.RequestName,
-				})
-			}
-		}
-		copyResources(resources.Limits, renderer.calculatedLimits)
-		copyResources(resources.Requests, renderer.calculatedRequests)
-		copyResourceClaims(&resources, &renderer.resourceClaims)
 	}
 }
 

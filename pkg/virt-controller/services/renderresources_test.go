@@ -270,7 +270,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithHostDevices([]v1.HostDevice{}),
+				WithHostDevicesDevicePlugins([]v1.HostDevice{}),
 			)
 			Expect(rr.Limits()).To(BeEmpty())
 			Expect(rr.Requests()).To(BeEmpty())
@@ -286,7 +286,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithHostDevices(hostDevices),
+				WithHostDevicesDevicePlugins(hostDevices),
 			)
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
@@ -296,7 +296,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithGPUs([]v1.GPU{}),
+				WithGPUsDevicePlugins([]v1.GPU{}),
 			)
 			Expect(rr.Limits()).To(BeEmpty())
 			Expect(rr.Requests()).To(BeEmpty())
@@ -312,12 +312,12 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithGPUs(requestedGPUs))
+				WithGPUsDevicePlugins(requestedGPUs))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
 		})
 
-		It("WithHostDevices should handle both device plugin and DRA resources", func() {
+		It("should handle HostDevices with both device plugin and DRA resources in API", func() {
 			devicePluginHostDev := v1.HostDevice{
 				Name:       "device-plugin-host",
 				DeviceName: "pci-device",
@@ -331,7 +331,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			}
 			hostDevices := []v1.HostDevice{devicePluginHostDev, draHostDev}
 
-			rr = NewResourceRenderer(nil, nil, WithHostDevices(hostDevices))
+			rr = NewResourceRenderer(nil, nil, WithHostDevicesDevicePlugins(hostDevices), WithHostDevicesDRA(hostDevices))
 
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("pci-device"), *resource.NewQuantity(1, resource.DecimalSI)))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("pci-device"), *resource.NewQuantity(1, resource.DecimalSI)))
@@ -342,7 +342,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(claims[0].Request).To(Equal("dra-request"))
 		})
 
-		It("WithGPUs should handle both device plugin and DRA resources", func() {
+		It("should handle GPUs with both device plugin and DRA resources in API", func() {
 			devicePluginGPU := v1.GPU{
 				Name:       "device-plugin-gpu",
 				DeviceName: "nvidia-gpu",
@@ -356,7 +356,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			}
 			gpus := []v1.GPU{devicePluginGPU, draGPU}
 
-			rr = NewResourceRenderer(nil, nil, WithGPUs(gpus))
+			rr = NewResourceRenderer(nil, nil, WithGPUsDevicePlugins(gpus), WithGPUsDRA(gpus))
 
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("nvidia-gpu"), *resource.NewQuantity(1, resource.DecimalSI)))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("nvidia-gpu"), *resource.NewQuantity(1, resource.DecimalSI)))
@@ -392,7 +392,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 				},
 			}
 
-			rr = NewResourceRenderer(limits, requests, WithGPUs(gpus))
+			rr = NewResourceRenderer(limits, requests, WithGPUsDRA(gpus))
 
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
@@ -415,8 +415,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 			}
 
 			rr = NewResourceRenderer(limits, requests,
-				WithGPUs(gpus),
-				WithHostDevices(hostDevices),
+				WithGPUsDRA(gpus),
+				WithHostDevicesDRA(hostDevices),
 			)
 
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest))

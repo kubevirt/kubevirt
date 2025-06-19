@@ -194,9 +194,9 @@ func (config *ClusterConfig) SecureExecutionEnabled() bool {
 }
 
 func (config *ClusterConfig) GPUsWithDRAGateEnabled() bool {
-	return config.isFeatureGateDefined(featuregate.GPUsWithDRAGate)
+	return config.isFeatureGateEnabled(featuregate.GPUsWithDRAGate)
 }
 
 func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
-	return config.isFeatureGateDefined(featuregate.HostDevicesWithDRAGate)
+	return config.isFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
 }
