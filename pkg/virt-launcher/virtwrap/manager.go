@@ -1370,11 +1370,17 @@ func (l *LibvirtDomainManager) syncDisks(
 	}
 	// Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
-		allowAttach, err := checkIfDiskReadyToUse(getSourceFile(attachDisk))
+		sourceFile := getSourceFile(attachDisk)
+		allowAttach, err := checkIfDiskReadyToUse(sourceFile)
 		if err != nil {
 			return err
 		}
 		if !allowAttach {
+			diskName := ""
+			if attachDisk.Alias != nil {
+				diskName = attachDisk.Alias.GetName()
+			}
+			logger.Reason(fmt.Errorf("disk %s is not ready to use", diskName)).Errorf("Skipping disk %s. SourceFile: %q", diskName, sourceFile)
 			continue
 		}
 		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
@@ -1595,6 +1601,7 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 	// Before attempting to attach, ensure we can open the file
 	file, err := os.OpenFile(filename, os.O_RDWR, 0600)
 	if err != nil {
+		log.DefaultLogger().V(1).Infof("Unable to open file: %v", err)
 		return false, nil
 	}
 	if err := file.Close(); err != nil {

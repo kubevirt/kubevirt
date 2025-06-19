@@ -187,7 +187,6 @@ func NewVirtualMachineController(
 		clientset:                clientset,
 		containerDiskMounter:     container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
 		downwardMetricsManager:   downwardMetricsManager,
-		hotplugVolumeMounter:     hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
 		hostCpuModel:             hostCpuModel,
 		ioErrorRetryManager:      NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
 		queue:                    queue,
@@ -211,6 +210,11 @@ func NewVirtualMachineController(
 		),
 		nam: migrations.NewNetworkAccessibilityManager(clientset),
 	}
+
+	c.hotplugVolumeMounter = hotplug_volume.NewVolumeMounterWithCreator(filepath.Join(virtPrivateDir, "hotplug-volume-mount-state"), kubeletPodsDir, "master",
+		func() hostdisk.PVCDiskImgCreator {
+			return hostdisk.NewPVCDiskImgCreator(recorder, c.clusterConfig.GetLessPVCSpaceToleration(), c.clusterConfig.GetMinimumReservePVCBytes())
+		})
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addDeleteFunc,

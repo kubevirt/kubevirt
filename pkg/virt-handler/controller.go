@@ -183,7 +183,7 @@ func (c *BaseController) configureHostDisks(
 	lessPVCSpaceToleration := c.clusterConfig.GetLessPVCSpaceToleration()
 	minimumPVCReserveBytes := c.clusterConfig.GetMinimumReservePVCBytes()
 
-	hostDiskCreator := hostdisk.NewHostDiskCreator(recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
+	hostDiskCreator := hostdisk.NewHostDiskImgCreator(recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
 	if err := hostDiskCreator.Create(vmi); err != nil {
 		return fmt.Errorf("preparing host-disks failed: %v", err)
 	}

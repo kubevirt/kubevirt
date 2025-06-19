@@ -48,8 +48,8 @@ var _ = Describe("HostDisk", func() {
 	var (
 		tempDir                    string
 		recorder                   *record.FakeRecorder
-		hostDiskCreator            DiskImgCreator
-		hostDiskCreatorWithReserve DiskImgCreator
+		hostDiskCreator            HostDiskImgCreator
+		hostDiskCreatorWithReserve HostDiskImgCreator
 	)
 
 	createTempDiskImg := func(volumeName string) os.FileInfo {
@@ -87,8 +87,8 @@ var _ = Describe("HostDisk", func() {
 		root, err := safepath.JoinAndResolveWithRelativeRoot("/")
 		Expect(err).NotTo(HaveOccurred())
 
-		hostDiskCreator = NewHostDiskCreator(recorder, 0, 0, root)
-		hostDiskCreatorWithReserve = NewHostDiskCreator(recorder, 10, 1048576, root)
+		hostDiskCreator = NewHostDiskImgCreator(recorder, 0, 0, root)
+		hostDiskCreatorWithReserve = NewHostDiskImgCreator(recorder, 10, 1048576, root)
 
 	})
 	createHostDisk := func(volumeName string) string {
@@ -208,7 +208,7 @@ var _ = Describe("HostDisk", func() {
 
 					dirAvailable := uint64(64 << 20)
 
-					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(path string, reserve uint64) (uint64, error) {
+					hostDiskCreatorWithReserve.diskImgCreator.dirBytesAvailableFunc = func(path string, reserve uint64) (uint64, error) {
 						return dirAvailable - reserve, nil
 					}
 
@@ -218,7 +218,7 @@ var _ = Describe("HostDisk", func() {
 
 					img1, err := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(img1.Size()).To(BeNumerically("==", dirAvailable-hostDiskCreatorWithReserve.minimumPVCReserveBytes)) // 64Mi minus reserve
+					Expect(img1.Size()).To(BeNumerically("==", dirAvailable-hostDiskCreatorWithReserve.diskImgCreator.minimumPVCReserveBytes)) // 64Mi minus reserve
 				})
 				It("Should refuse to create disk image if reserve causes image to exceed lessPVCSpaceToleration", func() {
 					By("Creating a new VMI with a HostDisk volume")
@@ -228,7 +228,7 @@ var _ = Describe("HostDisk", func() {
 
 					dirAvailable := uint64(64 << 20)
 
-					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(path string, reserve uint64) (uint64, error) {
+					hostDiskCreatorWithReserve.diskImgCreator.dirBytesAvailableFunc = func(path string, reserve uint64) (uint64, error) {
 						return dirAvailable - reserve, nil
 					}
 					hostDiskCreatorWithReserve.setlessPVCSpaceToleration(1) // 1% of 64Mi, tolerate up to 671088 bytes lost
@@ -275,7 +275,7 @@ var _ = Describe("HostDisk", func() {
 					By("Setting the capacity for each HostDisk volume")
 
 					By("Executing CreateHostDisks func which should not create a disk.img")
-					hostDiskCreator.dirBytesAvailableFunc = fakeDirBytesAvailable
+					hostDiskCreator.diskImgCreator.dirBytesAvailableFunc = fakeDirBytesAvailable
 					err := hostDiskCreator.Create(vmi)
 					Expect(err).To(HaveOccurred())
 
