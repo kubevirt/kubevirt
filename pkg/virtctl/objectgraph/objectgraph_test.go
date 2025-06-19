@@ -104,6 +104,35 @@ var _ = Describe("Object graph command", func() {
 			)
 			Expect(cmd()).To(Succeed())
 		})
+
+		It("should return object graph in YAML format", func() {
+			objectGraph := v1.ObjectGraphNode{}
+			opts := &v1.ObjectGraphOptions{
+				IncludeOptionalNodes: pointer.P(true),
+			}
+
+			vmInterface.EXPECT().
+				ObjectGraph(gomock.Any(), vmName, opts).
+				Return(objectGraph, nil).
+				Times(1)
+
+			cmd := testing.NewRepeatableVirtctlCommand(objectGraphCommand, vmName, "--output", "yaml")
+			Expect(cmd()).To(Succeed())
+		})
+
+		It("should fail with unsupported output format", func() {
+			objectGraph := v1.ObjectGraphNode{}
+			opts := &v1.ObjectGraphOptions{
+				IncludeOptionalNodes: pointer.P(true),
+			}
+			vmInterface.EXPECT().
+				ObjectGraph(gomock.Any(), vmName, opts).
+				Return(objectGraph, nil).
+				Times(1)
+
+			cmd := testing.NewRepeatableVirtctlCommand(objectGraphCommand, vmName, "--output", "unsupported")
+			Expect(cmd()).To(MatchError("unsupported output format: unsupported (must be 'json' or 'yaml')"))
+		})
 	})
 
 	Context("For VMI", func() {

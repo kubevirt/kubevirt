@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -35,6 +36,7 @@ type command struct {
 	vmi            bool
 	shouldExclude  bool
 	labelSelectors map[string]string
+	outputFormat   string
 }
 
 func NewCommand() *cobra.Command {
@@ -50,6 +52,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&c.vmi, "vmi", false, "Returns the object graph from the VMI instead of the VM.")
 	cmd.Flags().BoolVar(&c.shouldExclude, "exclude-optional", false, "Exclude optional nodes from the object graph.")
 	cmd.Flags().StringToStringVar(&c.labelSelectors, "selector", map[string]string{}, "Label selectors to filter the object graph (multiple labels can be specified).")
+	cmd.Flags().StringVarP(&c.outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -69,6 +72,9 @@ func usageObjectGraph() string {
 
   # Filter the object graph by label selector
   {{ProgramName}} objectgraph my-vm --selector="kubevirt.io/dependency-type=storage,kubevirt.io/dependency-type=compute"
+
+  # Get the object graph in YAML format
+  {{ProgramName}} objectgraph my-vm --output yaml
 `
 }
 
@@ -104,11 +110,22 @@ func (c *command) objectGraphRun(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	data, err := json.MarshalIndent(objectGraph, "", "  ")
-	if err != nil {
-		return fmt.Errorf("cannot marshal object graph: %v", err)
+	var output []byte
+	switch c.outputFormat {
+	case "json":
+		output, err = json.MarshalIndent(objectGraph, "", "  ")
+		if err != nil {
+			return fmt.Errorf("cannot marshal object graph to JSON: %v", err)
+		}
+	case "yaml":
+		output, err = yaml.Marshal(objectGraph)
+		if err != nil {
+			return fmt.Errorf("cannot marshal object graph to YAML: %v", err)
+		}
+	default:
+		return fmt.Errorf("unsupported output format: %s (must be 'json' or 'yaml')", c.outputFormat)
 	}
 
-	cmd.Println(string(data))
+	cmd.Println(string(output))
 	return nil
 }
