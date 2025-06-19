@@ -627,7 +627,7 @@ func initContainerMinimalRequests(containerType v1.SupportContainerType, config 
 	return res
 }
 
-func hotplugContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+func hotplugContainerResourceRequirementsForVMI(config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
 	return k8sv1.ResourceRequirements{
 		Limits:   hotplugContainerLimits(config),
 		Requests: hotplugContainerRequests(config),
