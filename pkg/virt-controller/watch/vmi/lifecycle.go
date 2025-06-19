@@ -470,7 +470,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		reason = syncErr.Reason()
 	}
 	conditionManager.CheckFailure(vmiCopy, syncErr, reason)
-	controller.SetVMIPhaseTransitionTimestamp(vmi, vmiCopy)
+	controller.SetVMIPhaseTransitionTimestamp(&vmi.Status, &vmiCopy.Status)
 
 	// If we detect a change on the vmi we update the vmi
 	vmiChanged := !equality.Semantic.DeepEqual(vmi.Status, vmiCopy.Status) || !equality.Semantic.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !equality.Semantic.DeepEqual(vmi.Annotations, vmiCopy.Annotations) || !equality.Semantic.DeepEqual(vmi.Labels, vmiCopy.Labels)
@@ -864,6 +864,9 @@ func (c *Controller) deletePod(vmiKey string, pod *k8sv1.Pod, options v1.DeleteO
 	err := c.clientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, options)
 	if err != nil {
 		c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
 	}
 	return err
 }

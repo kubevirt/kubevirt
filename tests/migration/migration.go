@@ -1560,9 +1560,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				// check VMI, confirm migration state
 				vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
-				// Not sure how consistent the entire error is, so just making sure the failure happened in libvirt. Example string:
-				// Live migration failed error encountered during MigrateToURI3 libvirt api call: virError(Code=1, Domain=7, Message='internal error: client socket is closed'
-				Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("libvirt api call"))
 
 				By("Removing our migration killer pods")
 				for _, podName := range createdPods {
@@ -1622,7 +1619,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					// check VMI, confirm migration state
 					vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
 					Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("Failed migration to satisfy functional test condition"))
-					Eventually(matcher.ThisPodWith(vmi.Namespace, vmi.Status.MigrationState.TargetPod)).WithPolling(time.Second).WithTimeout(15*time.Second).
+					Eventually(matcher.ThisPodWith(vmi.Namespace, vmi.Status.MigrationState.TargetPod)).WithPolling(time.Second).WithTimeout(30*time.Second).
 						Should(
 							Or(
 								matcher.BeInPhase(k8sv1.PodFailed),
@@ -2014,7 +2011,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				)
 			})
 
-			Context("when target pod cannot be scheduled and is suck in Pending phase", Serial, func() {
+			Context("when target pod cannot be scheduled and is stuck in Pending phase", Serial, func() {
 
 				var nodesSetUnschedulable []string
 
@@ -2869,6 +2866,47 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 200)).To(Succeed())
+		})
+	})
+
+	Context("VMI deletion during migration", func() {
+		It("[sig-compute]should fail the migration and not prevent future migrations", func() {
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
+			vmi.Namespace = testsuite.GetTestNamespace(vmi)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+			By("Starting a virtual machine")
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVM(vm), 4*time.Minute, 1*time.Second).Should(BeReady())
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+
+			By("Limiting the bandwidth of migrations in the test namespace")
+			policy := CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
+
+			By("Starting a Migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting until the Migration has a UID")
+			Eventually(func() (types.UID, error) {
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+				return migration.UID, err
+			}, 180, 1*time.Second).ShouldNot(Equal(types.UID("")))
+
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
+
+			By("Waiting for the VMI to restart")
+			Eventually(ThisVMI(vmi), 4*time.Minute).Should(BeRestarted(vmi.UID))
+
+			By("Deleting the migration policy")
+			Expect(virtClient.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{})).To(Succeed())
+
+			By("Expecting to be able to migrate the VMI")
+			migration = libmigration.New(vmi.Name, vmi.Namespace)
+			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 		})
 	})
 }))

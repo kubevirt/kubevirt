@@ -410,7 +410,6 @@ type MigrationMetadata struct {
 	UID            types.UID        `xml:"uid,omitempty"`
 	StartTimestamp *metav1.Time     `xml:"startTimestamp,omitempty"`
 	EndTimestamp   *metav1.Time     `xml:"endTimestamp,omitempty"`
-	Completed      bool             `xml:"completed,omitempty"`
 	Failed         bool             `xml:"failed,omitempty"`
 	FailureReason  string           `xml:"failureReason,omitempty"`
 	AbortStatus    string           `xml:"abortStatus,omitempty"`
