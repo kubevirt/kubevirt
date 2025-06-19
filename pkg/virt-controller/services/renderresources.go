@@ -389,6 +389,10 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 		overhead.Add(resource.MustParse("53Mi"))
 	}
 
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		overhead.Add(resource.MustParse("100Mi"))
+	}
+
 	// Multiplying the ratio is expected to be the last calculation before returning overhead
 	if additionalOverheadRatio != nil && *additionalOverheadRatio != "" {
 		ratio, err := strconv.ParseFloat(*additionalOverheadRatio, 64)
@@ -399,10 +403,6 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 		}
 
 		overhead = multiplyMemory(overhead, ratio)
-	}
-
-	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-		overhead.Add(resource.MustParse("100Mi"))
 	}
 
 	return overhead
