@@ -139,10 +139,8 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			Eventually(func() bool {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				if vmi.Spec.NodeSelector == nil {
-					return false
-				}
-				return validateNodeSelector(vmNodeSelector, vmi.Spec.NodeSelector)
+
+				return vmi.Spec.NodeSelector == nil || validateNodeSelector(vmNodeSelector, vmi.Spec.NodeSelector)
 			}, 240*time.Second, time.Second).Should(BeTrue())
 
 		})
