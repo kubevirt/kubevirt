@@ -14,6 +14,7 @@ pkg/network/namescheme
 pkg/network/netbinding
 pkg/network/netmachinery
 pkg/network/netns
+pkg/network/passt
 pkg/network/pod/annotations
 pkg/network/vmispec
 pkg/network/vmliveupdate
