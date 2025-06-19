@@ -71,6 +71,7 @@ import (
 	metricshandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/handler"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
+	"kubevirt.io/kubevirt/pkg/network/passt"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -338,7 +339,7 @@ func (app *virtHandlerApp) Run() {
 	launcherClientsManager := launcher_clients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
-	passtRepairHandler := &stubPasstRepairHandler{}
+	passtRepairHandler := passt.NewRepairManager(app.clusterConfig)
 
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
@@ -693,13 +694,4 @@ func main() {
 	service.Setup(app)
 	log.InitializeLogging("virt-handler")
 	app.Run()
-}
-
-type stubPasstRepairHandler struct{}
-
-func (s *stubPasstRepairHandler) HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
-	return nil
-}
-func (s *stubPasstRepairHandler) HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
-	return nil
 }
