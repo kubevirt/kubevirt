@@ -484,8 +484,11 @@ func (m *hotplugMounter) Umount(vmi *v1.VirtualMachineInstance) error {
 		}
 		newEntries = append(newEntries, entry)
 	}
-	record.MountTargetEntries = newEntries
-	return m.setMountTargetRecord(vmi, record)
+	if record != nil {
+		record.MountTargetEntries = newEntries
+		return m.setMountTargetRecord(vmi, record)
+	}
+	return nil
 }
 
 func extractNameFromSocket(socketFile string) (string, error) {

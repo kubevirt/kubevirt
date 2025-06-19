@@ -9,6 +9,7 @@ import (
 	"sync"
 	"syscall"
 
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	"golang.org/x/sys/unix"
@@ -134,6 +135,8 @@ type volumeMounter struct {
 	hotplugDiskManager hotplugdisk.HotplugDiskManagerInterface
 	ownershipManager   diskutils.OwnershipManagerInterface
 	kubeletPodsDir     string
+
+	newPVCDiskCreator func() hostdisk.PVCDiskImgCreator
 }
 
 // VolumeMounter is the interface used to mount and unmount volumes to/from a running virtlauncher pod.
@@ -160,6 +163,14 @@ type vmiMountTargetRecord struct {
 
 // NewVolumeMounter creates a new VolumeMounter
 func NewVolumeMounter(mountStateDir string, kubeletPodsDir string) VolumeMounter {
+	return newVolumeMounter(mountStateDir, kubeletPodsDir)
+}
+
+func NewVolumeMounterWithCreator(mountStateDir string, kubeletPodsDir string, newPVCDiskCreator func() hostdisk.PVCDiskImgCreator) VolumeMounter {
+	return newVolumeMounter(mountStateDir, kubeletPodsDir).withCreator(newPVCDiskCreator)
+}
+
+func newVolumeMounter(mountStateDir string, kubeletPodsDir string) *volumeMounter {
 	return &volumeMounter{
 		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
 		mountStateDir:      mountStateDir,
@@ -167,6 +178,11 @@ func NewVolumeMounter(mountStateDir string, kubeletPodsDir string) VolumeMounter
 		ownershipManager:   diskutils.DefaultOwnershipManager,
 		kubeletPodsDir:     kubeletPodsDir,
 	}
+}
+
+func (m *volumeMounter) withCreator(newPVCDiskCreator func() hostdisk.PVCDiskImgCreator) *volumeMounter {
+	m.newPVCDiskCreator = newPVCDiskCreator
+	return m
 }
 
 func (m *volumeMounter) deleteMountTargetRecord(vmi *v1.VirtualMachineInstance) error {
@@ -535,13 +551,22 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 			return err
 		}
 		if !mountDirectory {
+			if m.newPVCDiskCreator != nil {
+				dir := unsafepath.UnsafeAbsolute(sourcePath.Raw())
+				diskPath := filepath.Join(dir, "disk.img")
+				err = m.newPVCDiskCreator().Create(vmi, volume, diskPath)
+				if err != nil {
+					return err
+				}
+			}
+
 			sourcePath, err = sourcePath.AppendAndResolveWithRelativeRoot("disk.img")
 			if err != nil {
 				return err
 			}
 		}
 		if out, err := mountCommand(sourcePath, target); err != nil {
-			return fmt.Errorf("failed to bindmount hotplug volume source from %v to %v: %v : %v", sourcePath, target, string(out), err)
+			return fmt.Errorf("failed to bindmount hotplug volume source from %v to %v: %v : %v", sourcePath, target, err, string(out))
 		}
 		log.DefaultLogger().V(1).Infof("successfully mounted %v", volume)
 	}

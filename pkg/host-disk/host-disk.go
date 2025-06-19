@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
@@ -214,32 +213,31 @@ func GetMountedHostDiskDir(volumeName string) string {
 	return getPVCDiskImgPath(volumeName, "")
 }
 
-type DiskImgCreator struct {
-	dirBytesAvailableFunc  func(path string, reserve uint64) (uint64, error)
-	recorder               record.EventRecorder
-	lessPVCSpaceToleration int
-	minimumPVCReserveBytes uint64
-	mountRoot              *safepath.Path
+type HostDiskImgCreator struct {
+	mountRoot *safepath.Path
+
+	diskImgCreator diskImgCreator
 }
 
-func NewHostDiskCreator(recorder record.EventRecorder, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64, mountRoot *safepath.Path) DiskImgCreator {
-	return DiskImgCreator{
-		dirBytesAvailableFunc:  dirBytesAvailable,
-		recorder:               recorder,
-		lessPVCSpaceToleration: lessPVCSpaceToleration,
-		minimumPVCReserveBytes: minimumPVCReserveBytes,
-		mountRoot:              mountRoot,
+func NewHostDiskImgCreator(recorder record.EventRecorder, lessPVCSpaceToleration int, minimumPVCReserveBytes uint64, mountRoot *safepath.Path) HostDiskImgCreator {
+	return HostDiskImgCreator{
+		mountRoot:      mountRoot,
+		diskImgCreator: newDiskImgCreator(recorder, lessPVCSpaceToleration, minimumPVCReserveBytes),
 	}
 }
 
-func (hdc *DiskImgCreator) setlessPVCSpaceToleration(toleration int) {
-	hdc.lessPVCSpaceToleration = toleration
+func (c *HostDiskImgCreator) setlessPVCSpaceToleration(toleration int) {
+	c.diskImgCreator.lessPVCSpaceToleration = toleration
 }
 
-func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
+func (c HostDiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if hostDisk := volume.VolumeSource.HostDisk; shouldMountHostDisk(hostDisk) {
-			if err := hdc.mountHostDiskAndSetOwnership(vmi, volume.Name, hostDisk); err != nil {
+			diskPath := GetMountedHostDiskPathFromHandler(unsafepath.UnsafeAbsolute(c.mountRoot.Raw()), volume.Name, hostDisk.Path)
+			diskDir := GetMountedHostDiskDirFromHandler(unsafepath.UnsafeAbsolute(c.mountRoot.Raw()), volume.Name)
+
+			requestedSize, _ := hostDisk.Capacity.AsInt64()
+			if err := c.diskImgCreator.CreateDiskAndSetOwnership(vmi, diskDir, diskPath, volume.Name, requestedSize); err != nil {
 				return err
 			}
 		}
@@ -249,62 +247,4 @@ func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 
 func shouldMountHostDisk(hostDisk *v1.HostDisk) bool {
 	return hostDisk != nil && hostDisk.Type == v1.HostDiskExistsOrCreate && hostDisk.Path != ""
-}
-
-func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineInstance, volumeName string, hostDisk *v1.HostDisk) error {
-	diskPath := GetMountedHostDiskPathFromHandler(unsafepath.UnsafeAbsolute(hdc.mountRoot.Raw()), volumeName, hostDisk.Path)
-	diskDir := GetMountedHostDiskDirFromHandler(unsafepath.UnsafeAbsolute(hdc.mountRoot.Raw()), volumeName)
-	fileExists, err := ephemeraldiskutils.FileExists(diskPath)
-	if err != nil {
-		return err
-	}
-	if !fileExists {
-		if err := hdc.handleRequestedSizeAndCreateQcow2(vmi, diskDir, diskPath, hostDisk); err != nil {
-			return err
-		}
-	}
-	// Change file ownership to the qemu user.
-	if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(diskPath); err != nil {
-		log.Log.Reason(err).Errorf("Couldn't set Ownership on %s: %v", diskPath, err)
-		return err
-	}
-	return nil
-}
-
-func (hdc *DiskImgCreator) handleRequestedSizeAndCreateQcow2(vmi *v1.VirtualMachineInstance, diskDir string, diskPath string, hostDisk *v1.HostDisk) error {
-	size, err := hdc.dirBytesAvailableFunc(diskDir, hdc.minimumPVCReserveBytes)
-	availableSize := int64(size)
-	if err != nil {
-		return err
-	}
-	requestedSize, _ := hostDisk.Capacity.AsInt64()
-	if requestedSize > availableSize {
-		requestedSize, err = hdc.shrinkRequestedSize(vmi, requestedSize, availableSize, hostDisk)
-		if err != nil {
-			return err
-		}
-	}
-	err = createQcow2(diskPath, requestedSize)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Couldn't create a qcow2 file for disk path: %s, error: %v", diskPath, err)
-		return err
-	}
-	return nil
-}
-
-func (hdc *DiskImgCreator) shrinkRequestedSize(vmi *v1.VirtualMachineInstance, requestedSize int64, availableSize int64, hostDisk *v1.HostDisk) (int64, error) {
-	// Some storage provisioners provide less space than requested, due to filesystem overhead etc.
-	// We tolerate some difference in requested and available capacity up to some degree.
-	// This can be configured with the "pvc-tolerate-less-space-up-to-percent" parameter in the kubevirt-config ConfigMap.
-	// It is provided as argument to virt-launcher.
-	toleratedSize := requestedSize * (100 - int64(hdc.lessPVCSpaceToleration)) / 100
-	if toleratedSize > availableSize {
-		return 0, fmt.Errorf("unable to create %s, not enough space, demanded size %d B is bigger than available space %d B, also after taking %v %% toleration into account",
-			hostDisk.Path, uint64(requestedSize), availableSize, hdc.lessPVCSpaceToleration)
-	}
-
-	msg := fmt.Sprintf("PV size too small: expected %v B, found %v B. Using it anyway, it is within %v %% toleration", requestedSize, availableSize, hdc.lessPVCSpaceToleration)
-	log.Log.Info(msg)
-	hdc.recorder.Event(vmi, EventTypeToleratedSmallPV, EventReasonToleratedSmallPV, msg)
-	return availableSize, nil
 }
