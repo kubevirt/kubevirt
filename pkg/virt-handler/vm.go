@@ -1130,18 +1130,18 @@ func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi)
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
-		// Set VMI Migration Method
-		if isBlockMigration {
-			vmi.Status.MigrationMethod = v1.BlockMigration
-		} else {
-			vmi.Status.MigrationMethod = v1.LiveMigration
-		}
 	} else {
 		cond := condManager.GetCondition(vmi, v1.VirtualMachineInstanceIsMigratable)
 		if !equality.Semantic.DeepEqual(cond, liveMigrationCondition) {
 			condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceIsMigratable)
 			vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 		}
+	}
+	// Set VMI Migration Method
+	if isBlockMigration {
+		vmi.Status.MigrationMethod = v1.BlockMigration
+	} else {
+		vmi.Status.MigrationMethod = v1.LiveMigration
 	}
 	storageLiveMigCond := d.calculateLiveStorageMigrationCondition(vmi)
 	condManager.UpdateCondition(vmi, storageLiveMigCond)
