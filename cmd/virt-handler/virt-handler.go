@@ -350,6 +350,7 @@ func (app *virtHandlerApp) Run() {
 		podIsolationDetector,
 		migrationProxy,
 		"/proc/%d/root/var/run",
+		&netSocketHandlerStub{},
 	)
 	if err != nil {
 		panic(err)
@@ -372,6 +373,7 @@ func (app *virtHandlerApp) Run() {
 		netConf,
 		netsetup.NewNetStat(),
 		netbinding.MemoryCalculator{},
+		&netSocketHandlerStub{},
 	)
 	if err != nil {
 		panic(err)
@@ -689,4 +691,13 @@ func main() {
 	service.Setup(app)
 	log.InitializeLogging("virt-handler")
 	app.Run()
+}
+
+type netSocketHandlerStub struct{}
+
+func (n *netSocketHandlerStub) HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	return nil
+}
+func (n *netSocketHandlerStub) HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	return nil
 }

@@ -56,6 +56,10 @@ import (
 
 var errWaitingForTargetPorts = errors.New("waiting for target to publish migration ports")
 
+type netSocketSourceHandler interface {
+	HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
+}
+
 type MigrationSourceController struct {
 	*BaseController
 	capabilities                *libvirtxml.Caps
@@ -67,6 +71,7 @@ type MigrationSourceController struct {
 	recorder                    record.EventRecorder
 	virtLauncherFSRunDirPattern string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
+	netSocketHandler            netSocketSourceHandler
 }
 
 func NewMigrationSourceController(
@@ -80,6 +85,7 @@ func NewMigrationSourceController(
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
 	virtLauncherFSRunDirPattern string,
+	netSocketHandler netSocketSourceHandler,
 ) (*MigrationSourceController, error) {
 
 	baseCtrl, err := NewBaseController(
@@ -108,6 +114,7 @@ func NewMigrationSourceController(
 		recorder:                    recorder,
 		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		netSocketHandler:            netSocketHandler,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -505,6 +512,12 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	err = hostdisk.ReplacePVCByHostDisk(vmiCopy)
 	if err != nil {
 		return err
+	}
+
+	if c.clusterConfig.PasstIPStackMigrationEnabled() {
+		if err := c.netSocketHandler.HandleMigrationSource(vmi, cmdclient.PasstSocketDirOnHost); err != nil {
+			log.Log.Object(vmi).Warningf("failed to call passt-repair for migration source, %v", err)
+		}
 	}
 
 	err = client.MigrateVirtualMachine(vmiCopy, options)
