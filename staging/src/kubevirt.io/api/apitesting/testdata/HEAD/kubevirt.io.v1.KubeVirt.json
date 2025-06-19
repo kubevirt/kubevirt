@@ -365,7 +365,10 @@
         "maxCpuSockets": 4294967283,
         "maxGuest": "0"
       },
-      "vmRolloutStrategy": "vmRolloutStrategyValue"
+      "vmRolloutStrategy": "vmRolloutStrategyValue",
+      "commonInstancetypesDeployment": {
+        "enabled": true
+      }
     },
     "infra": {
       "nodePlacement": {
