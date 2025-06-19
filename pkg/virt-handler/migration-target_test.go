@@ -213,6 +213,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			&netConfStub{},
 			&netStatStub{},
 			networkBindingPluginMemoryCalculator,
+			&stubTargetPasstRepairHandler{},
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
@@ -679,3 +680,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		sanityExecute()
 	})
 })
+
+type stubTargetPasstRepairHandler struct{}
+
+func (s *stubTargetPasstRepairHandler) HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	return nil
+}

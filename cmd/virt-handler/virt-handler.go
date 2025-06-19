@@ -340,6 +340,7 @@ func (app *virtHandlerApp) Run() {
 	launcherClientsManager := launcher_clients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
+	passtRepairHandler := &stubPasstRepairHandler{}
 
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
@@ -352,6 +353,7 @@ func (app *virtHandlerApp) Run() {
 		podIsolationDetector,
 		migrationProxy,
 		"/proc/%d/root/var/run",
+		passtRepairHandler,
 	)
 	if err != nil {
 		panic(err)
@@ -375,6 +377,7 @@ func (app *virtHandlerApp) Run() {
 		netConf,
 		netStat,
 		netbinding.MemoryCalculator{},
+		passtRepairHandler,
 	)
 	if err != nil {
 		panic(err)
@@ -700,4 +703,13 @@ func main() {
 	service.Setup(app)
 	log.InitializeLogging("virt-handler")
 	app.Run()
+}
+
+type stubPasstRepairHandler struct{}
+
+func (s *stubPasstRepairHandler) HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	return nil
+}
+func (s *stubPasstRepairHandler) HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	return nil
 }
