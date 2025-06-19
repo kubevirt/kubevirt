@@ -21,6 +21,7 @@ package gpu
 
 import (
 	"fmt"
+
 	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/api/core/v1"
