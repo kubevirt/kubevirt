@@ -2,6 +2,7 @@ package operatormetrics
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -41,12 +42,12 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 	for _, cr := range collectedMetrics {
 		metric, ok := operatorRegistry.registeredCollectorMetrics[cr.Metric.GetOpts().Name]
 		if !ok {
-			fmt.Printf("metric %s not found in registry", cr.Metric.GetOpts().Name)
+			log.Printf("metric %s not found in registry", cr.Metric.GetOpts().Name)
 			continue
 		}
 
 		if err := collectValue(ch, metric, cr); err != nil {
-			fmt.Printf("error collecting metric %s: %v", cr.Metric.GetOpts().Name, err)
+			log.Printf("error collecting metric %s: %v", cr.Metric.GetOpts().Name, err)
 		}
 	}
 }
@@ -68,11 +69,17 @@ func collectValue(ch chan<- prometheus.Metric, metric Metric, cr CollectorResult
 	}
 
 	labels := map[string]string{}
+
 	for k, v := range cr.ConstLabels {
-		labels[k] = v
+		if v != "" {
+			labels[k] = v
+		}
 	}
+
 	for k, v := range metric.GetOpts().ConstLabels {
-		labels[k] = v
+		if v != "" {
+			labels[k] = v
+		}
 	}
 
 	desc := prometheus.NewDesc(

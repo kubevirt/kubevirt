@@ -35,7 +35,8 @@ func (r *Registry) RegisterRecordingRules(recordingRules ...[]RecordingRule) err
 func (r *Registry) RegisterAlerts(alerts ...[]promv1.Rule) error {
 	for _, alertList := range alerts {
 		for _, alert := range alertList {
-			r.registeredAlerts[alert.Alert] = alert
+			key := alert.Alert + ":" + alert.Expr.String()
+			r.registeredAlerts[key] = alert
 		}
 	}
 
@@ -67,7 +68,10 @@ func (r *Registry) ListAlerts() []promv1.Rule {
 	}
 
 	slices.SortFunc(alerts, func(a, b promv1.Rule) int {
-		return cmp.Compare(a.Alert, b.Alert)
+		aKey := a.Alert + ":" + a.Expr.String()
+		bKey := b.Alert + ":" + b.Expr.String()
+
+		return cmp.Compare(aKey, bKey)
 	})
 
 	return alerts
