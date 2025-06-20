@@ -59,10 +59,11 @@ const (
 
 	// Owner: @xpivarc
 	// Alpha: v1.3.0
+	// Beta: v1.6.0
 	//
 	// NodeRestriction enables Kubelet's like NodeRestriction but for Kubevirt's virt-handler.
 	// This feature requires following Kubernetes feature gate "ServiceAccountTokenPodNodeInfo". The feature gate is available
-	// in Kubernetes 1.30 as Beta.
+	// in Kubernetes 1.30 as Beta and was graduated in 1.32.
 	NodeRestrictionGate = "NodeRestriction"
 
 	// Owner: @Barakmor1
