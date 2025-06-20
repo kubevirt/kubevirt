@@ -418,9 +418,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			Context("for Machine Type", func() {
 
-				const unsupportedMachineType = "pc-q35-test1.2.3"
-
-				It("should prevent scheduling of a pod for a VMI with an unsupported machine type", func() {
+				DescribeTable("should prevent scheduling of a pod for a VMI with an unsupported machine type", func(unsupportedMachineType string) {
 					virtClient := kubevirt.Client()
 					vmi := libvmifact.NewGuestless()
 					vmi.Namespace = testsuite.GetTestNamespace(vmi)
@@ -447,7 +445,11 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Expect(scheduledCond.Status).To(BeEquivalentTo(k8sv1.ConditionFalse))
 					Expect(scheduledCond.Reason).To(BeEquivalentTo(k8sv1.PodReasonUnschedulable))
 					Expect(scheduledCond.Message).To(ContainSubstring("node(s) didn't match Pod's node affinity/selector"))
-				})
+				},
+					Entry("amd64", "pc-q35-test-1.2.3", decorators.RequiresAMD64),
+					Entry("arm64", "virt-test-1.2.3", decorators.RequiresARM64),
+					Entry("s390x", "s390-ccw-virtio-test-1.2.3", decorators.RequiresS390X),
+				)
 			})
 		})
 
