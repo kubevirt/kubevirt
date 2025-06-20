@@ -418,9 +418,17 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			Context("for Machine Type", func() {
 
-				const unsupportedMachineType = "pc-q35-test1.2.3"
-
 				It("should prevent scheduling of a pod for a VMI with an unsupported machine type", func() {
+					var unsupportedMachineType string
+					switch testsuite.Arch {
+					case "arm64":
+						unsupportedMachineType = "virt-test-1.2.3"
+					case "s390x":
+						unsupportedMachineType = "s390-ccw-virtio-test-1.2.3"
+					default:
+						unsupportedMachineType = "pc-q35-test-1.2.3"
+					}
+
 					virtClient := kubevirt.Client()
 					vmi := libvmifact.NewGuestless()
 					vmi.Namespace = testsuite.GetTestNamespace(vmi)
