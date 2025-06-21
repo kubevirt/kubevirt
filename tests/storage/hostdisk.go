@@ -40,7 +40,7 @@ func CreateHostDisk(diskPath string) *k8sv1.Pod {
 	dir := filepath.Dir(diskPath)
 
 	command := fmt.Sprintf(`dd if=/dev/zero of=%s bs=1 count=0 seek=1G && ls -l %s`, diskPath, dir)
-	if !checks.HasFeature(featuregate.Root) {
+	if !checks.IsFeatureEnabled(featuregate.Root) {
 		command = command + fmt.Sprintf(" && chown 107:107 %s", diskPath)
 	}
 

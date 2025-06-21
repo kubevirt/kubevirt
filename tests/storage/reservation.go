@@ -187,7 +187,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
-		fgDisabled = !checks.HasFeature(featuregate.PersistentReservation)
+		fgDisabled = !checks.IsFeatureEnabled(featuregate.PersistentReservation)
 		if fgDisabled {
 			config.EnableFeatureGate(featuregate.PersistentReservation)
 		}

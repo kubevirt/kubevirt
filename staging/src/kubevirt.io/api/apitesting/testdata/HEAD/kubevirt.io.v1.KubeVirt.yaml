@@ -114,6 +114,9 @@ spec:
     emulatedMachines:
     - emulatedMachinesValue
     evictionStrategy: evictionStrategyValue
+    featureGates:
+    - enabled: true
+      name: nameValue
     handlerConfiguration:
       restClient:
         rateLimiter:

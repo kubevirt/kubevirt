@@ -20,14 +20,18 @@
 package featuregate
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"slices"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func ValidateFeatureGates(featureGates []string, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func ValidateFeatureGates(featureGatesConfigs []v1.FeatureGateConfiguration, legacyFeatureGates []string, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	enabledFeatureGates := GetEnabledFeatureGates(featureGatesConfigs, legacyFeatureGates)
+
 	var causes []metav1.StatusCause
-	for _, fgName := range featureGates {
+	for _, fgName := range enabledFeatureGates {
 		fg := FeatureGateInfo(fgName)
 		if fg != nil && fg.State == Discontinued && fg.VmiSpecUsed != nil {
 			if used := fg.VmiSpecUsed(vmiSpec); used {
@@ -39,4 +43,25 @@ func ValidateFeatureGates(featureGates []string, vmiSpec *v1.VirtualMachineInsta
 		}
 	}
 	return causes
+}
+
+func GetEnabledFeatureGates(featureGates []v1.FeatureGateConfiguration, legacyFeatureGates []string) []string {
+	enabledFeatureGates := sets.New[string](legacyFeatureGates...)
+
+	for _, fgConfig := range featureGates {
+		if fgConfig.IsEnabled() {
+			enabledFeatureGates.Insert(fgConfig.Name)
+		} else {
+			enabledFeatureGates.Delete(fgConfig.Name)
+		}
+	}
+
+	if len(enabledFeatureGates) == 0 {
+		return nil
+	}
+
+	enabledFeatureGatesSlice := enabledFeatureGates.UnsortedList()
+	slices.Sort(enabledFeatureGatesSlice)
+
+	return enabledFeatureGatesSlice
 }

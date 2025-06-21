@@ -1,6 +1,9 @@
 package apply
 
-import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+import (
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
 
 func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) (bool, error) {
 	// UPDATE PATH IS
@@ -54,7 +57,7 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 
 	// create/update Synchronization controller Deployments
 	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
-		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+		if virtconfig.IsFeatureGateEnabled(featuregate.DecentralizedLiveMigration, r.kv.Spec.Configuration) {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
 				return false, err
