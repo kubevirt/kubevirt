@@ -71,6 +71,10 @@ type netBindingPluginMemoryCalculator interface {
 	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
 }
 
+type netSocketTargetHandler interface {
+	HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
+}
+
 type MigrationTargetController struct {
 	*BaseController
 	capabilities                     *libvirtxml.Caps
@@ -84,6 +88,7 @@ type MigrationTargetController struct {
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 	netConf                          netconf
 	netStat                          netstat
+	netSocketHandler                 netSocketTargetHandler
 	podIsolationDetector             isolation.PodIsolationDetector
 	recorder                         record.EventRecorder
 	virtLauncherFSRunDirPattern      string
@@ -107,6 +112,7 @@ func NewMigrationTargetController(
 	netConf netconf,
 	netStat netstat,
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
+	netSocketHandler netSocketTargetHandler,
 ) (*MigrationTargetController, error) {
 
 	baseCtrl, err := NewBaseController(
@@ -148,6 +154,7 @@ func NewMigrationTargetController(
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 		netConf:                          netConf,
 		netStat:                          netStat,
+		netSocketHandler:                 netSocketHandler,
 		podIsolationDetector:             podIsolationDetector,
 		recorder:                         recorder,
 		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
@@ -718,6 +725,13 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 
 	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
+
+	if c.clusterConfig.PasstIPStackMigrationEnabled() {
+		if err := c.netSocketHandler.HandleMigrationTarget(vmi, cmdclient.PasstSocketDirOnHost); err != nil {
+			log.Log.Object(vmi).Warningf("failed to call passt-repair for migration target, %v", err)
+		}
+	}
+
 	if err := client.SyncMigrationTarget(vmi, options); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err), false
 	}

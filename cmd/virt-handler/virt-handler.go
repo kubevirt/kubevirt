@@ -71,6 +71,7 @@ import (
 	metricshandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/handler"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
+	"kubevirt.io/kubevirt/pkg/network/passt"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -350,6 +351,7 @@ func (app *virtHandlerApp) Run() {
 		podIsolationDetector,
 		migrationProxy,
 		"/proc/%d/root/var/run",
+		passt.NewRepairManager(app.clusterConfig),
 	)
 	if err != nil {
 		panic(err)
@@ -372,6 +374,7 @@ func (app *virtHandlerApp) Run() {
 		netConf,
 		netsetup.NewNetStat(),
 		netbinding.MemoryCalculator{},
+		passt.NewRepairManager(app.clusterConfig),
 	)
 	if err != nil {
 		panic(err)
@@ -689,4 +692,13 @@ func main() {
 	service.Setup(app)
 	log.InitializeLogging("virt-handler")
 	app.Run()
+}
+
+type netSocketHandlerStub struct{}
+
+func (n *netSocketHandlerStub) HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	return nil
+}
+func (n *netSocketHandlerStub) HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	return nil
 }
