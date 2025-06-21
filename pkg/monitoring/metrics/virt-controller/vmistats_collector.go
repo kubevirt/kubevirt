@@ -446,11 +446,11 @@ func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.Co
 
 	for _, iface := range interfaces {
 		model := "<none>"
-		if iface.Model != "" {
+		if iface.Model != "nil" {
 			model = iface.Model
 		}
 		bindingType, bindingName := getBinding(iface)
-		networkName, matchFound := getNetworkName(iface.Name, networks)
+		networkName, matchFound := getNetworkName(iface.Name, vmi.Namespace, networks)
 
 		if !matchFound {
 			continue
