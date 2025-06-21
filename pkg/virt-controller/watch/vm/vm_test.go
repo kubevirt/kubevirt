@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -148,6 +149,8 @@ var _ = Describe("VirtualMachine", func() {
 				nil,
 				nil,
 				instancetypecontroller.NewMockController(),
+				[]string{},
+				[]string{},
 			)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -3201,6 +3204,166 @@ var _ = Describe("VirtualMachine", func() {
 			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Annotations).To(Equal(annotations))
+		})
+
+		Context("dynamic annotations and labels", func() {
+			const selectedAnnotationKey = descheduler.EvictPodAnnotationKeyBeta
+			const customSyncAnnotation = "custom/annotation"
+			const customSyncLabel = "custom/label"
+			const ignoredKey = "anotherKey"
+			const intitialValue = "initialValue"
+			const updatedValue = "updatedValue"
+			const anotherValue = "anotherValue"
+
+			var (
+				initialAdditionalLauncherAnnotationsSync []string
+				initialAdditionalLauncherLabelsSync      []string
+			)
+
+			BeforeEach(func() {
+				initialAdditionalLauncherAnnotationsSync = controller.additionalLauncherAnnotationsSync
+				initialAdditionalLauncherLabelsSync = controller.additionalLauncherLabelsSync
+			})
+
+			AfterEach(func() {
+				controller.additionalLauncherAnnotationsSync = initialAdditionalLauncherAnnotationsSync
+				controller.additionalLauncherLabelsSync = initialAdditionalLauncherLabelsSync
+			})
+
+			DescribeTable("should sync selected dynamic annotations from spec.template to vmi", func(additionalLauncherAnnotationsSync []string, existingAnnotations, updatedVMAnnotations, expectedVMIAnnotations map[string]string, numExpectedPatches int) {
+				controller.additionalLauncherAnnotationsSync = additionalLauncherAnnotationsSync
+
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.Template.ObjectMeta.Annotations = existingAnnotations
+				vmi.ObjectMeta.Annotations = existingAnnotations
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+
+				vm.Spec.Template.ObjectMeta.Annotations = updatedVMAnnotations
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+				sanityExecute(vm)
+
+				By("Expecting to see the updated VMI with the updated annotations")
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.ObjectMeta.Annotations).To(Equal(expectedVMIAnnotations))
+
+				Expect(kvtesting.FilterActions(&virtFakeClient.Fake, "patch", "virtualmachineinstances")).To(HaveLen(numExpectedPatches))
+
+			},
+				Entry("should copy selected annotations from VM.spec.template.metadata.annotations to VMI",
+					[]string{},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					map[string]string{selectedAnnotationKey: updatedValue},
+					map[string]string{selectedAnnotationKey: updatedValue},
+					1,
+				),
+				Entry("should remove selected annotations from VMI if missing in VM.spec.template.metadata.annotations",
+					[]string{},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: anotherValue},
+					map[string]string{ignoredKey: anotherValue},
+					map[string]string{ignoredKey: anotherValue},
+					1,
+				),
+				Entry("should do nothing if selected annotations are already equal",
+					[]string{},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: anotherValue},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: anotherValue},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: anotherValue},
+					0,
+				),
+				Entry("should update only selected annotations",
+					[]string{},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: anotherValue},
+					map[string]string{selectedAnnotationKey: updatedValue, ignoredKey: updatedValue},
+					map[string]string{selectedAnnotationKey: updatedValue, ignoredKey: anotherValue},
+					1,
+				),
+				Entry("should ignore other annotations on VM.spec.template.metadata.annotations",
+					[]string{},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: updatedValue},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					0,
+				),
+				Entry("should copy selected custom additional annotations from VM.spec.template.metadata.annotations to VMI",
+					[]string{customSyncAnnotation},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					map[string]string{selectedAnnotationKey: intitialValue, customSyncAnnotation: customSyncAnnotation},
+					map[string]string{selectedAnnotationKey: intitialValue, customSyncAnnotation: customSyncAnnotation},
+					1,
+				),
+			)
+
+			DescribeTable("should sync selected dynamic labels from spec.template to vmi", func(existingLabels, updatedVMLabels, expectedVMILabels map[string]string, numExpectedPatches int) {
+				controller.additionalLauncherLabelsSync = []string{customSyncLabel}
+
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.Template.ObjectMeta.Labels = existingLabels
+				vmi.ObjectMeta.Labels = existingLabels
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+
+				vm.Spec.Template.ObjectMeta.Labels = updatedVMLabels
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+				sanityExecute(vm)
+
+				By("Expecting to see the updated VMI with the updated labels")
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.ObjectMeta.Labels).To(Equal(expectedVMILabels))
+
+				Expect(kvtesting.FilterActions(&virtFakeClient.Fake, "patch", "virtualmachineinstances")).To(HaveLen(numExpectedPatches))
+
+			},
+				Entry("should copy selected custom labels from VM.spec.template.metadata.labels to VMI",
+					map[string]string{customSyncLabel: intitialValue},
+					map[string]string{customSyncLabel: updatedValue},
+					map[string]string{customSyncLabel: updatedValue},
+					1,
+				),
+				Entry("should remove selected custom labels from VMI if missing in VM.spec.template.metadata.labels",
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
+					map[string]string{ignoredKey: anotherValue},
+					map[string]string{ignoredKey: anotherValue},
+					1,
+				),
+				Entry("should do nothing if selected custom labels are already equal",
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
+					0,
+				),
+				Entry("should update only custom selected labels",
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
+					map[string]string{customSyncLabel: updatedValue, ignoredKey: updatedValue},
+					map[string]string{customSyncLabel: updatedValue, ignoredKey: anotherValue},
+					1,
+				),
+				Entry("should ignore other labels on VM.spec.template.metadata.labels",
+					map[string]string{customSyncLabel: intitialValue},
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: updatedValue},
+					map[string]string{customSyncLabel: intitialValue},
+					0,
+				),
+			)
+
 		})
 
 		Context("VM memory dump", func() {

@@ -72,6 +72,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
 )
 
@@ -109,15 +110,16 @@ const (
 )
 
 const (
-	hotplugVolumeErrorReason     = "HotPlugVolumeError"
-	hotplugCPUErrorReason        = "HotPlugCPUError"
-	failedUpdateErrorReason      = "FailedUpdateError"
-	failedCreateReason           = "FailedCreate"
-	vmiFailedDeleteReason        = "FailedDelete"
-	affinityChangeErrorReason    = "AffinityChangeError"
-	hotplugMemoryErrorReason     = "HotPlugMemoryError"
-	volumesUpdateErrorReason     = "VolumesUpdateError"
-	tolerationsChangeErrorReason = "TolerationsChangeError"
+	hotplugVolumeErrorReason           = "HotPlugVolumeError"
+	hotplugCPUErrorReason              = "HotPlugCPUError"
+	failedUpdateErrorReason            = "FailedUpdateError"
+	failedCreateReason                 = "FailedCreate"
+	vmiFailedDeleteReason              = "FailedDelete"
+	affinityChangeErrorReason          = "AffinityChangeError"
+	hotplugMemoryErrorReason           = "HotPlugMemoryError"
+	volumesUpdateErrorReason           = "VolumesUpdateError"
+	tolerationsChangeErrorReason       = "TolerationsChangeError"
+	annotationsLabelsChangeErrorReason = "AnnotationsLabelsChangeError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -135,6 +137,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	netSynchronizer synchronizer,
 	firmwareSynchronizer synchronizer,
 	instancetypeController instancetypeHandler,
+	additionalLauncherAnnotationsSync []string,
+	additionalLauncherLabelsSync []string,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -158,9 +162,11 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 			response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
 			return response.Allowed, response.Reason, err
 		},
-		clusterConfig:        clusterConfig,
-		netSynchronizer:      netSynchronizer,
-		firmwareSynchronizer: firmwareSynchronizer,
+		clusterConfig:                     clusterConfig,
+		netSynchronizer:                   netSynchronizer,
+		firmwareSynchronizer:              firmwareSynchronizer,
+		additionalLauncherAnnotationsSync: additionalLauncherAnnotationsSync,
+		additionalLauncherLabelsSync:      additionalLauncherLabelsSync,
 	}
 
 	c.hasSynced = func() bool {
@@ -272,6 +278,9 @@ type Controller struct {
 
 	netSynchronizer      synchronizer
 	firmwareSynchronizer synchronizer
+
+	additionalLauncherAnnotationsSync []string
+	additionalLauncherLabelsSync      []string
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
@@ -3001,6 +3010,80 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 	return false
 }
 
+// These "dynamic" annotations/labels are VMI annotations/labels which may diverge from the VM over time that we want to keep in sync.
+func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
+	if vm == nil || vm.Spec.Template == nil || vmi == nil || vmi.DeletionTimestamp != nil {
+		return vmi, nil
+	}
+
+	patchSet := patch.New()
+	vmiMeta := vmi.ObjectMeta.DeepCopy()
+
+	syncMap := func(keys []string, vmMap, vmiMap, vmiOrigMap map[string]string, subPath string) {
+		if vmiMap == nil {
+			vmiMap = map[string]string{}
+		}
+
+		changed := false
+		for _, key := range keys {
+			vmVal, vmExists := vmMap[key]
+			podVal, podExists := vmiMap[key]
+			if vmExists == podExists && vmVal == podVal {
+				continue
+			}
+			changed = true
+			if !vmExists {
+				delete(vmiMap, key)
+			} else {
+				vmiMap[key] = vmVal
+			}
+		}
+
+		if !changed {
+			return
+		}
+
+		if vmiOrigMap == nil {
+			patchSet.AddOption(patch.WithAdd("/metadata/"+subPath, vmiMap))
+		} else {
+			patchSet.AddOption(
+				patch.WithTest("/metadata/"+subPath, vmiOrigMap),
+				patch.WithReplace("/metadata/"+subPath, vmiMap),
+			)
+		}
+	}
+
+	dynamicLabels := []string{}
+	dynamicLabels = append(dynamicLabels, c.additionalLauncherLabelsSync...)
+	dynamicAnnotations := []string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyBeta}
+	dynamicAnnotations = append(dynamicAnnotations, c.additionalLauncherAnnotationsSync...)
+
+	syncMap(
+		dynamicLabels,
+		vm.Spec.Template.ObjectMeta.Labels, vmiMeta.Labels, vmi.ObjectMeta.Labels, "labels",
+	)
+
+	syncMap(
+		dynamicAnnotations,
+		vm.Spec.Template.ObjectMeta.Annotations, vmiMeta.Annotations, vmi.ObjectMeta.Annotations, "annotations",
+	)
+
+	if patchSet.IsEmpty() {
+		return vmi, nil
+	}
+	generatedPatch, err := patchSet.GeneratePayload()
+	if err != nil {
+		return vmi, err
+	}
+
+	if vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{}); err != nil {
+		log.Log.Object(vm).Errorf("failed to sync dynamic annotations to VMI: %v", err)
+		return vmi, err
+	}
+
+	return vmi, nil
+}
+
 func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string) (*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, common.SyncError, error) {
 
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
@@ -3124,6 +3207,10 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	if err := memorydump.HandleRequest(c.clientset, vmCopy, vmi, c.pvcStore); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), memorydump.ErrorReason), nil
+	}
+
+	if vmi, err = c.syncDynamicAnnotationsAndLabelsToVMI(vmCopy, vmi); err != nil {
+		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling annotation and labels sync request: %v", err), annotationsLabelsChangeErrorReason), nil
 	}
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
