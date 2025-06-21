@@ -693,7 +693,7 @@ func newVirtualMachineInstance(name string, isMigratable bool, image string) *v1
 	}
 
 	vmi := libvmi.New(
-		libvmi.WithResourceMemory("8192Ki"),
+		libvmi.WithMemoryRequest("8192Ki"),
 		libvmi.WithNamespace(k8sv1.NamespaceDefault),
 		libvmi.WithName(name),
 		libvmistatus.WithStatus(libvmistatus.New(statusOpts...)),

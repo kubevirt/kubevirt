@@ -92,8 +92,20 @@ func WithArchitecture(arch string) Option {
 	}
 }
 
+// Deprecated: Use WithCPURequest instead
 // WithResourceCPU specifies the vmi CPU resource.
 func WithResourceCPU(value string) Option {
+	return WithCPURequest(value)
+}
+
+// Deprecated: Use WithCPULimit instead
+// WithLimitCPU specifies the VMI CPU limit.
+func WithLimitCPU(value string) Option {
+	return WithCPULimit(value)
+}
+
+// WithCPURequest specifies the vmi CPU resource.
+func WithCPURequest(value string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.Resources.Requests == nil {
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
@@ -102,8 +114,8 @@ func WithResourceCPU(value string) Option {
 	}
 }
 
-// WithLimitCPU specifies the VMI CPU limit.
-func WithLimitCPU(value string) Option {
+// WithCPULimit specifies the VMI CPU limit.
+func WithCPULimit(value string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.Resources.Limits == nil {
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}

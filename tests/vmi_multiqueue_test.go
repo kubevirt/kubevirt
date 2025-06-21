@@ -98,7 +98,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			)
 
 			cpuResources := strconv.Itoa(int(numCpus))
-			vmi := libvmifact.NewAlpine(libvmi.WithResourceCPU(cpuResources), libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+			vmi := libvmifact.NewAlpine(libvmi.WithCPURequest(cpuResources), libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
 			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
 
 			By("Creating VMI with 2 disks, 3 CPUs and multi-queue enabled")

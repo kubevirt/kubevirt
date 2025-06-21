@@ -73,7 +73,7 @@ var _ = Describe(SIG("[crit:medium][vendor:cnv-qe@redhat.com][level:component][s
 
 	BeforeEach(func() {
 		// A VMI for each test to have fresh stack on server side
-		vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation), withClientPassthrough())
+		vmi = libvmi.New(libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation), withClientPassthrough())
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiRunTimeout)
 	})
 
