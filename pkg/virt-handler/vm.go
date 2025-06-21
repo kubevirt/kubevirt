@@ -400,6 +400,11 @@ func (c *VirtualMachineController) execute(key string) error {
 		return nil
 	}
 
+	if vmiExists && vmi.IsMigrationSource() {
+		log.Log.Object(vmi).V(4).Info("ignoring vmi as it is a migration source")
+		return nil
+	}
+
 	return c.sync(key,
 		vmi.DeepCopy(),
 		vmiExists,
@@ -1695,19 +1700,6 @@ func (c *VirtualMachineController) isVMIOwnedByNode(vmi *v1.VirtualMachineInstan
 	}
 
 	return vmi.Status.NodeName != "" && vmi.Status.NodeName == c.host
-}
-
-func (c *VirtualMachineController) isMigrationTarget(vmi *v1.VirtualMachineInstance) bool {
-	migrationTargetNodeName, ok := vmi.Labels[v1.MigrationTargetNodeNameLabel]
-	log.Log.Object(vmi).V(5).Infof("targetNodeName: %s, is not status nodeName %t, is host %t, target %t, synchronized %t, is not complete %t", migrationTargetNodeName, migrationTargetNodeName != vmi.Status.NodeName, migrationTargetNodeName == c.host, vmi.IsMigrationTarget(), vmi.IsMigrationSourceSynchronized(), !vmi.IsMigrationCompleted())
-	if ok &&
-		migrationTargetNodeName != "" &&
-		(migrationTargetNodeName != vmi.Status.NodeName || (vmi.IsMigrationTarget() && vmi.IsMigrationSourceSynchronized() && !vmi.IsMigrationCompleted())) &&
-		migrationTargetNodeName == c.host {
-		return true
-	}
-
-	return false
 }
 
 func (c *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {

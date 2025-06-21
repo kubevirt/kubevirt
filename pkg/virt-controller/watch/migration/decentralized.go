@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -103,15 +104,25 @@ func (c *Controller) patchMigratedVolumesForDecentralizedMigration(vmi *v1.Virtu
 			}
 		}
 	}
-	patch, err := patch.New(
-		patch.WithTest("/status/migratedVolumes", vmi.Status.MigratedVolumes),
-		patch.WithReplace("/status/migratedVolumes", vmiCopy.Status.MigratedVolumes),
-	).GeneratePayload()
-	if err != nil {
-		return err
+	patchSet := patch.New()
+	if !equality.Semantic.DeepEqual(vmiCopy.Status.MigratedVolumes, vmi.Status.MigratedVolumes) {
+		patchSet.AddOption(
+			patch.WithTest("/status/migratedVolumes", vmi.Status.MigratedVolumes),
+			patch.WithReplace("/status/migratedVolumes", vmiCopy.Status.MigratedVolumes),
+		)
 	}
-	vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
-	return err
+
+	if !patchSet.IsEmpty() {
+		patchBytes, err := patchSet.GeneratePayload()
+		if err != nil {
+			return err
+		}
+		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Controller) updateVMIMigrationSourceWithPodInfo(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance) error {

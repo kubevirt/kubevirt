@@ -149,10 +149,10 @@ func (c *MigrationSourceController) hasTargetDetectedReadyDomain(vmi *v1.Virtual
 		vmi.Status.MigrationState.EndTimestamp == nil {
 		return false, int64(migrationTargetDelayTimeout)
 	}
-
 	if vmi.Status.MigrationState != nil &&
-		vmi.Status.MigrationState.TargetNodeDomainDetected &&
-		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
+		vmi.Status.MigrationState.TargetState != nil &&
+		vmi.Status.MigrationState.TargetState.DomainDetected &&
+		vmi.Status.MigrationState.TargetState.DomainReadyTimestamp != nil {
 
 		return true, 0
 	}
@@ -195,7 +195,6 @@ func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMa
 	if migrationMetadata.UID != vmi.Status.MigrationState.MigrationUID {
 		return
 	}
-
 	vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
 
 	vmi.Status.MigrationState.Failed = migrationMetadata.Failed
@@ -258,6 +257,12 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 			log.Log.Object(vmi).Warning("the domain was never observed on the taget after the migration completed within the timeout period")
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance's domain was never observed on the target after the migration completed within the timeout period."))
 		}
+	}
+
+	if targetNodeDetectedDomain && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+		log.Log.Object(vmi).V(2).Infof("decentralized migration completed successfully, marking VMI as succeeded")
+		// this is a decentralized migration, and the migration completed successfully, we need to mark the VMI as succeeded
+		vmi.Status.Phase = v1.Succeeded
 	}
 
 	return nil
@@ -410,15 +415,11 @@ func (c *MigrationSourceController) execute(key string) error {
 }
 
 func (c *MigrationSourceController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
-
-	if vmi.Status.MigrationState != nil &&
-		vmi.Status.NodeName == c.host &&
-		vmi.Status.MigrationState.SourceNode == c.host {
-
-		return true
-	}
-	return false
-
+	return vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.SourceNode == c.host &&
+		(!vmi.IsDecentralizedMigration() || vmi.IsMigrationSource()) &&
+		vmi.Status.MigrationState.TargetNodeAddress != "" &&
+		!vmi.Status.MigrationState.Completed
 }
 
 func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMachineInstance) error {
