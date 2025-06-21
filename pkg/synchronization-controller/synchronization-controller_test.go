@@ -475,7 +475,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Create(context.TODO(), sourceVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			remoteURL, err := controller.getMyURL()
+			remoteURL, err := controller.getLocalSynchronizationAddress()
 			sourceMigration = createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
 			err = migrationInformer.GetStore().Add(sourceMigration)
 			Expect(err).ToNot(HaveOccurred())
@@ -690,11 +690,11 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			sourceVMI, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Create(context.TODO(), sourceVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			remoteURL, err = remoteController.getMyURL()
+			remoteURL, err = remoteController.getLocalSynchronizationAddress()
 			sourceMigration := createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
 			err = migrationInformer.GetStore().Add(sourceMigration)
 			Expect(err).ToNot(HaveOccurred())
-			localURL, err = controller.getMyURL()
+			localURL, err = controller.getLocalSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -867,7 +867,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 		})
 
 		It("should properly rebuild target", func() {
-			remoteURL, err := remoteController.getMyURL()
+			remoteURL, err := remoteController.getLocalSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
 			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
@@ -899,7 +899,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 		})
 
 		It("should properly rebuild source", func() {
-			remoteURL, err := controller.getMyURL()
+			remoteURL, err := controller.getLocalSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
 			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{

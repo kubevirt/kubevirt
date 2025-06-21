@@ -466,7 +466,7 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		}
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because vmi does not exist.")
 		log.Log.Object(migration).Error("vmi does not exist")
-	} else if vmi.IsFinal() {
+	} else if vmi.IsFinal() && !vmi.IsMigrationSource() {
 		err := c.interruptMigration(migrationCopy, vmi)
 		if err != nil {
 			return err
@@ -571,7 +571,6 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -672,7 +671,6 @@ func (c *Controller) processMigrationPhase(
 			migrationCopy.Status.Phase = virtv1.MigrationTargetReady
 		}
 	case virtv1.MigrationTargetReady:
-		log.Log.Object(migration).V(4).Info("migration target ready")
 		if vmi.Status.MigrationState.StartTimestamp != nil {
 			migrationCopy.Status.Phase = virtv1.MigrationRunning
 		}
@@ -699,6 +697,7 @@ func (c *Controller) processMigrationPhase(
 				}
 			}
 		}
+		log.Log.Object(vmi).V(4).Infof("is migration completed: %t, uid %s", vmi.IsMigrationCompleted(), vmi.UID)
 		if vmi.Status.MigrationState.Completed &&
 			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) &&
 			!vmiConditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8sv1.ConditionTrue) &&
@@ -1421,21 +1420,14 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 
 	if migrationFinalizedOnVMI := vmi.IsMigrationSynchronized(migration) && vmi.Status.MigrationState.MigrationUID == migration.UID &&
 		vmi.Status.MigrationState.EndTimestamp != nil; migrationFinalizedOnVMI {
-		if migration.IsDecentralizedSource() {
-			log.Log.Object(migration).Object(vmi).V(2).Infof("successfuly migrated, cleaning up source virtual machine instance")
+		if vmi.IsDecentralizedMigration() {
 			// Delete the source VMI since we have migration to another cluster/namespace
 			if err := c.clientset.VirtualMachine(vmi.Namespace).Stop(context.Background(), vmi.Name, &virtv1.StopOptions{}); err != nil {
 				if !k8serrors.IsNotFound(err) {
 					return err
 				}
 			}
-			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{}); err != nil {
-				if !k8serrors.IsNotFound(err) {
-					return err
-				}
-			}
 		}
-
 		return nil
 	}
 
@@ -1574,20 +1566,11 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 		// Waiting for sync, setup vmi migration target status
 		origVMI := vmi.DeepCopy()
 		c.initializeMigrateTargetState(migration, vmi)
-		if !equality.Semantic.DeepEqual(origVMI.Status, vmi.Status) {
-			return c.patchVMI(origVMI, vmi)
-		} else {
-			log.Log.Object(vmi).V(5).Info("migrationWaitingForSync not changed, not patching")
-		}
-		return nil
+		return c.patchVMI(origVMI, vmi)
 	case virtv1.MigrationSynchronizing:
 		origVMI := vmi.DeepCopy()
 		c.initializeMigrateSourceState(migration, vmi)
-		if !equality.Semantic.DeepEqual(origVMI.Status, vmi.Status) {
-			return c.patchVMI(origVMI, vmi)
-		} else {
-			log.Log.Object(vmi).V(5).Info("migrationSynchronizing not changed, not patching")
-		}
+		return c.patchVMI(origVMI, vmi)
 	}
 	return nil
 }
@@ -1729,7 +1712,7 @@ func (c *Controller) addPod(obj interface{}) {
 	if err != nil {
 		return
 	}
-	log.Log.V(4).Object(pod).Infof("Pod created")
+	log.Log.V(4).Object(pod).Infof("Pod created for key %s", migrationKey)
 	c.podExpectations.CreationObserved(migrationKey)
 	c.enqueueMigration(migration)
 }

@@ -2458,7 +2458,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			// However, we need to be sig-something or we'll fail the check, even if we don't run on any sig- lane.
 			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
 			nodes = libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient)
-
+			Expect(len(nodes)).To(BeNumerically(">=", 2), "Need at least 2 nodes with CPU manager enabled")
 			By("creating a template for a pause pod with 1 dedicated CPU core")
 			pausePod = libpod.RenderPod("pause-", nil, nil)
 			pausePod.Spec.Containers[0].Name = "compute"
@@ -2509,6 +2509,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libvmi.WithResourceMemory("512Mi"),
 				libvmi.WithNodeAffinityForLabel(testLabel1, "true"),
 			)
+
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 

@@ -274,7 +274,6 @@ func (c *BaseController) setupNetwork(vmi *v1.VirtualMachineInstance, networks [
 
 func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	var domainMigrationMetadata *api.MigrationMetadata
-
 	if vmi != nil &&
 		vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.StartTimestamp != nil &&
@@ -299,5 +298,8 @@ func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) b
 		}
 	}
 
+	if vmi != nil && vmi.IsMigrationTarget() {
+		return vmi.IsMigrationTarget() && !vmi.IsMigrationCompleted()
+	}
 	return false
 }

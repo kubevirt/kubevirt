@@ -443,6 +443,7 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 
 	// Effectively removes the VMI from our VMI informer
 	delete(vmi.Labels, v1.MigrationTargetNodeNameLabel)
+	delete(vmi.Annotations, v1.CreateMigrationTarget)
 	return c.updateVMI(vmi, oldStatus, oldLabels, false)
 }
 
@@ -981,6 +982,5 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 	}
 
 	vmi.Status.MigrationState.Completed = true
-
 	return nil
 }
