@@ -313,6 +313,7 @@ type Features struct {
 	PVSpinlock *FeaturePVSpinlock `xml:"pvspinlock,omitempty"`
 	PMU        *FeatureState      `xml:"pmu,omitempty"`
 	VMPort     *FeatureState      `xml:"vmport,omitempty"`
+	IOAPIC     *FeatureIOAPIC     `xml:"ioapic,omitempty"`
 }
 
 const HypervModePassthrough = "passthrough"
@@ -352,6 +353,10 @@ type FeaturePVSpinlock struct {
 type FeatureVendorID struct {
 	State string `xml:"state,attr,omitempty"`
 	Value string `xml:"value,attr,omitempty"`
+}
+
+type FeatureIOAPIC struct {
+	Driver string `xml:"driver,attr,omitempty"`
 }
 
 type FeatureEnabled struct {
@@ -1048,16 +1053,20 @@ type Entry struct {
 	Value string `xml:",chardata"`
 }
 
-//END OS --------------------
-//BEGIN LaunchSecurity --------------------
-
+// END OS --------------------
+// BEGIN LaunchSecurity --------------------
 type LaunchSecurity struct {
 	Type            string `xml:"type,attr"`
+	Policy          string `xml:"policy,omitempty"`
 	Cbitpos         string `xml:"cbitpos,omitempty"`
 	ReducedPhysBits string `xml:"reducedPhysBits,omitempty"`
-	Policy          string `xml:"policy,omitempty"`
 	DHCert          string `xml:"dhCert,omitempty"`
 	Session         string `xml:"session,omitempty"`
+
+	// TDX specific options
+	MrConfigId    string `xml:"mrConfigId,omitempty"`
+	MrOwner       string `xml:"mrOwner,omitempty"`
+	MrOwnerConfig string `xml:"mrOwnerConfig,omitempty"`
 }
 
 //END LaunchSecurity --------------------

@@ -630,6 +630,8 @@ const (
 	VirtualMachineInstanceReasonSEVNotMigratable = "SEVNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses IBM Secure Execution
 	VirtualMachineInstanceReasonSecureExecutionNotMigratable = "SecureExecutionNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses Intel Trust Domain Extensions (TDX)
+	VirtualMachineInstanceReasonTDXNotMigratable = "TDXNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
 	VirtualMachineInstanceReasonNoTSCFrequencyMigratable = "NoTSCFrequencyNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
@@ -1149,6 +1151,9 @@ const (
 
 	// SecureExecutionLabel marks the node as capable of running workloads with IBM Secure Execution
 	SecureExecutionLabel string = "kubevirt.io/s390-pv"
+
+	// TDXLabel marks the node as capable of running workloads with Intel TDX
+	TDXLabel string = "kubevirt.io/tdx"
 
 	// KSMEnabledLabel marks the node as KSM-handling enabled
 	KSMEnabledLabel string = "kubevirt.io/ksm-enabled"
