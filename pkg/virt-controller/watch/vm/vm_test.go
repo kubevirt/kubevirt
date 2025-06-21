@@ -6000,6 +6000,13 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		})
 
+		clearExpectations := func(vm *v1.VirtualMachine) {
+			//Clear all expectations
+			key, err := virtcontroller.KeyFunc(vm)
+			Expect(err).To(Not(HaveOccurred()))
+			controller.expectations.SetExpectations(key, 0, 0)
+		}
+
 		Context("RunStrategy", func() {
 
 			It("when starting a VM with RerunOnFailure the VM should get started", func() {
@@ -6156,13 +6163,6 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmi).ToNot(BeNil())
 			})
 
-			clearExpectations := func(vm *v1.VirtualMachine) {
-				//Clear all expectations
-				key, err := virtcontroller.KeyFunc(vm)
-				Expect(err).To(Not(HaveOccurred()))
-				controller.expectations.SetExpectations(key, 0, 0)
-			}
-
 			It("when issuing a restart a VM with Always should get restarted", func() {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
@@ -6258,6 +6258,48 @@ var _ = Describe("VirtualMachine", func() {
 				vmiList, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmiList.Items).To(BeEmpty())
+			})
+		})
+
+		Context("decentralized migration", func() {
+			It("should stop the VM if the VMI is reporting that the migration is succeeded and the migration reports it is succeeded", func() {
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				key, err := virtcontroller.KeyFunc(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				addVirtualMachine(vm)
+				sanityExecute(vm)
+				clearExpectations(vm)
+
+				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				By("marking the VMI as migration completed and decentralized")
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					MigrationUID: "123",
+					Completed:    true,
+					TargetState:  &v1.VirtualMachineInstanceMigrationTargetState{},
+					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+							MigrationUID: "123",
+							SyncAddress:  pointer.P("127.0.0.1:5900"),
+						},
+					},
+				}
+				vmi.Status.Phase = v1.Succeeded
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Update(context.TODO(), vmi, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				// let the controller pick up the creation
+				controller.vmiIndexer.Add(vmi)
+
+				controller.Queue.Add(key)
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vm.Spec.RunStrategy).To(Equal(pointer.P(v1.RunStrategyHalted)))
 			})
 		})
 	})

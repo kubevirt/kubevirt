@@ -808,7 +808,7 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 		if err != nil {
 			return err
 		}
-		port = p
+		port = int32(p)
 	}
 	r.kv.Status.SynchronizationAddress = pointer.P(fmt.Sprintf("%s:%d", ip, port))
 	return nil

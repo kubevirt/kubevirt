@@ -966,8 +966,24 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 			if forceRestart = hasStopRequestForVMI(vm, vmi); forceRestart {
 				log.Log.Object(vm).Infof("processing forced restart request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
 			}
-
 			if forceRestart || vmi.IsFinal() {
+				if vmi.IsDecentralizedMigration() {
+					if vmi.IsMigrationCompleted() {
+						log.Log.Object(vm).Infof("decentralized migration completed, setting runStrategy to halted")
+						// decentralized migration completed, mark the VM as halted. In this case the VM is now in a different
+						// namespace/cluster and we need to stop the VM.
+						vm.Spec.RunStrategy = pointer.P(virtv1.RunStrategyHalted)
+						// return here and let the halted runstrategy stop the VMI.
+						return vm, nil
+					}
+					// It is possible that the VMI has not synchronized yet with the completed migration status, but the VMI is
+					// marked as succeeded. This will normally trigger a restart due to the runStrategy. But we want to wait for
+					// the migration to complete and then mark the run strategy as halted.
+					log.Log.Object(vm).V(4).Infof("decentralized migration not completed, adding to queue, waiting 2 seconds")
+					c.Queue.AddAfter(vmKey, 2*time.Second)
+					return vm, nil
+				}
+
 				log.Log.Object(vm).Infof("%s with VMI in phase %s and VM runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
 
 				// The VirtualMachineInstance can fail or be finished. The job of this controller
@@ -981,8 +997,11 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 				}
 				// return to let the controller pick up the expected deletion
 			}
+			log.Log.Object(vm).V(4).Infof("VMI is not final, uid %s, phase %s", vmi.UID, vmi.Status.Phase)
 			// VirtualMachineInstance is OK no need to do anything
 			return vm, nil
+		} else {
+			log.Log.Object(vm).V(4).Info("VMI is nil, checking if we need to start it")
 		}
 
 		timeLeft := startFailureBackoffTimeLeft(vm)
@@ -1114,11 +1133,11 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 		// Create a VMI in receiver mode, this prevents someone from accidentally starting the VM.
 		if vmi != nil {
 			// Check if this is a receiver VMI
-			if vmi.Annotations == nil {
-				// found VMI without receiver annotations
-				return vm, common.NewSyncError(fmt.Errorf(nonReceiverVMI), failedCreateReason)
-			}
 			if val, ok := vmi.Annotations[virtv1.CreateMigrationTarget]; !ok || val != "true" {
+				if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+					log.Log.Object(vm).V(4).Infof("VMI %s/%s is a receiver VMI and has completed migration", vmi.Namespace, vmi.Name)
+					return vm, nil
+				}
 				return vm, common.NewSyncError(fmt.Errorf(nonReceiverVMI), failedCreateReason)
 			}
 		} else {
@@ -3184,6 +3203,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		}
 	}
 
+	origRunStrategy := vm.Spec.RunStrategy
 	vm, syncErr = c.syncRunStrategy(vm, vmi, runStrategy)
 	if syncErr != nil {
 		return vm, vmi, syncErr, nil
@@ -3192,6 +3212,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		// Restore the original run strategy
 		if val, ok := vm.Annotations[virtv1.RestoreRunStrategy]; ok {
 			vm.Spec.RunStrategy = pointer.P(virtv1.VirtualMachineRunStrategy(val))
+			origRunStrategy = vm.Spec.RunStrategy
 		}
 	}
 
@@ -3205,6 +3226,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	}
 
 	vmCopy := vm.DeepCopy()
+	vm.Spec.RunStrategy = origRunStrategy
 
 	if c.netSynchronizer != nil {
 		syncedVM, err := c.netSynchronizer.Sync(vmCopy, vmi)
