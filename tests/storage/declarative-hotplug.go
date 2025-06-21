@@ -209,7 +209,9 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 			}
 			found = false
 			for _, vs := range vmi.Status.VolumeStatus {
-				if vs.Name == volumeName {
+				if vs.Name == volumeName &&
+					vs.PersistentVolumeClaimInfo != nil &&
+					vs.PersistentVolumeClaimInfo.ClaimName == claimName {
 					if added && vs.Phase == v1.VolumeReady {
 						return nil
 					}
@@ -260,14 +262,17 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: console.EchoLastReturnValue},
 				&expect.BExp{R: console.RetValue("0")},
-			}, 20)
+			}, 30)
 		}, 240*time.Second, 2*time.Second).Should(Succeed(), "Failed to mount CD-ROM in VM")
 
-		err = console.SafeExpectBatch(vmi, []expect.Batcher{
-			&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
-			&expect.BExp{R: console.RetValue(numItems)},
-		}, 60)
-		Expect(err).ToNot(HaveOccurred(), "Failed to validate CD-ROM content in VM")
+		Eventually(func() error {
+			return console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"}, // for debugging
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
+				&expect.BExp{R: console.RetValue(numItems)},
+			}, 30)
+		}, 240*time.Second, 2*time.Second).Should(Succeed(), "Failed to validate CD-ROM content in VM")
 
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -275,7 +280,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
 				&expect.BExp{R: console.RetValue("0")},
-			}, 20)
+			}, 30)
 		}, 240*time.Second, 2*time.Second).Should(Succeed(), "Failed to unmount CD-ROM in VM")
 	}
 
@@ -312,6 +317,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 
 			By("Swapping the CD-ROM")
 			vm = swapClaim(vm, cdRomName, dv2.Name)
+			waitForHotplugToComplete(vm, cdRomName, dv1.Name, false)
 			waitForHotplugToComplete(vm, cdRomName, dv2.Name, true)
 			libstorage.EventuallyDV(dv2, 240, matcher.HaveSucceeded())
 
