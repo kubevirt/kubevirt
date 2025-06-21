@@ -64,6 +64,7 @@ var _ = Describe("Heartbeat", func() {
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, schedulable))
+		Expect(node.Labels).To(HaveKeyWithValue(virtv1.DeprecatedCPUManager, cpumanager))
 		Expect(node.Labels).To(HaveKeyWithValue(virtv1.CPUManager, cpumanager))
 	},
 		Entry("not schedulable and no cpu manager with no cpu manager file and device plugins are not initialized",
@@ -98,6 +99,7 @@ var _ = Describe("Heartbeat", func() {
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, schedulable))
+		Expect(node.Labels).ToNot(HaveKeyWithValue(virtv1.DeprecatedCPUManager, false))
 		Expect(node.Labels).ToNot(HaveKeyWithValue(virtv1.CPUManager, false))
 	},
 		Entry("not schedulable with no cpumanager label present",
