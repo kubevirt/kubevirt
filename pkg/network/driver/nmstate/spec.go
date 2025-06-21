@@ -47,6 +47,11 @@ func (n NMState) Apply(spec *Spec) error {
 				}
 			}
 		} else {
+			if !linkExists {
+				if link, err = n.createInterface(iface); err != nil {
+					return err
+				}
+			}
 			if iface.CopyMacFrom != "" {
 				if iface.MacAddress != "" {
 					return fmt.Errorf("specifying both MAC address and copy-mac-from fields is not supported [%s]", iface.Name)
@@ -56,11 +61,6 @@ func (n NMState) Apply(spec *Spec) error {
 					return fmt.Errorf("unable to find mac source link [%s]: %v", iface.Name, err)
 				}
 				iface.MacAddress = macSourceLink.Attrs().HardwareAddr.String()
-			}
-			if !linkExists {
-				if link, err = n.createInterface(iface); err != nil {
-					return err
-				}
 			}
 
 			if linkType := normalizeLinkTypeName(link); iface.TypeName != "" && linkType != iface.TypeName {
@@ -138,7 +138,6 @@ func (n NMState) createInterface(iface Interface) (vishnetlink.Link, error) {
 	if iface.TypeName == TypeTap {
 		return n.createTap(iface, link)
 	}
-
 	if err := n.adapter.LinkAdd(link); err != nil {
 		return nil, err
 	}
