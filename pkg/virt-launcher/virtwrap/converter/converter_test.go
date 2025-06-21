@@ -809,6 +809,12 @@ var _ = Describe("Converter", func() {
 			Expect(strings.Contains(xml, `<memory unit="b">2222222</memory>`)).To(BeTrue(), xml)
 		})
 
+		It("should use panic devices if requested", func() {
+			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Hyperv)}}
+			xml := vmiToDomainXML(vmi, c)
+			Expect(xml).To(ContainSubstring(`<panic model="hyperv"></panic>`))
+		})
+
 		DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}

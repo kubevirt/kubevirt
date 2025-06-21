@@ -519,6 +519,11 @@ type DevicePreferences struct {
 	//
 	// +optional
 	PreferredInterfaceMasquerade *v1.InterfaceMasquerade `json:"preferredInterfaceMasquerade,omitempty"`
+
+	// PreferredPanicDeviceModel optionally defines the preferred panic device model to use with panic devices.
+	//
+	// +optional
+	PreferredPanicDeviceModel *v1.PanicDeviceModel `json:"preferredPanicDeviceModel,omitempty"`
 }
 
 // FeaturePreferences contains various optional defaults for Features.

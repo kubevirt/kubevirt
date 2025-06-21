@@ -320,6 +320,8 @@ spec:
         tag: tagValue
       logSerialConsole: true
       networkInterfaceMultiqueue: true
+      panicDevices:
+      - model: modelValue
       rng: {}
       sound:
         model: modelValue
