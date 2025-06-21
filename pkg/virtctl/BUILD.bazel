@@ -17,6 +17,7 @@ go_library(
         "//pkg/virtctl/guestfs:go_default_library",
         "//pkg/virtctl/imageupload:go_default_library",
         "//pkg/virtctl/memorydump:go_default_library",
+        "//pkg/virtctl/objectgraph:go_default_library",
         "//pkg/virtctl/pause:go_default_library",
         "//pkg/virtctl/portforward:go_default_library",
         "//pkg/virtctl/reset:go_default_library",
