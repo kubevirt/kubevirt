@@ -399,6 +399,14 @@ container_pull(
     repository = "kubevirt/fedora-realtime-container-disk",
 )
 
+container_pull(
+    name = "busybox",
+    digest = "sha256:545e6a6310a27636260920bc07b994a299b6708a1b26910cfefd335fdfb60d2b",
+    registry = "registry.k8s.io",
+    repository = "busybox",
+    tag = "1.27",
+)
+
 load(
     "@io_bazel_rules_docker//go:image.bzl",
     _go_image_repos = "repositories",

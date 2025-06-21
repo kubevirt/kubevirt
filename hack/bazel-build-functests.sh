@@ -35,7 +35,6 @@ mkdir -p "${TESTS_OUT_DIR}/tools"
 mkdir -p "${CMD_OUT_DIR}/dump"
 mkdir -p "${CMD_OUT_DIR}/virtctl"
 mkdir -p "${CMD_OUT_DIR}/example-guest-agent"
-mkdir -p "${CMD_OUT_DIR}/cniplugins"
 
 # The --remote_download_toplevel command does not work with run targets out of
 # the box. In order to make run targets work with reduced artifact downloads,
@@ -49,8 +48,7 @@ bazel build \
     //vendor/github.com/onsi/ginkgo/v2/ginkgo:ginkgo \
     //tests:go_default_test \
     //tools/junit-merger:junit-merger \
-    //cmd/example-guest-agent:example-guest-agent \
-    //cmd/cniplugins/passt-binding/cmd:kubevirt-passt-binding
+    //cmd/example-guest-agent:example-guest-agent
 
 bazel run \
     --config=${HOST_ARCHITECTURE} \
@@ -70,6 +68,3 @@ bazel run \
 bazel run \
     --config=${HOST_ARCHITECTURE} \
     :build-example-guest-agent -- ${CMD_OUT_DIR}/example-guest-agent/example-guest-agent
-bazel run \
-    --config=${HOST_ARCHITECTURE} \
-    :build-cni-passt-binding -- ${CMD_OUT_DIR}/cniplugins/kubevirt-passt-binding

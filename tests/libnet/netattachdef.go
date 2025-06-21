@@ -63,7 +63,7 @@ func NewSriovNetAttachDef(name string, vlanID int, opts ...pluginConfOption) *na
 }
 
 func NewPasstNetAttachDef(name string) *nadv1.NetworkAttachmentDefinition {
-	const pluginType = "kubevirt-passt-binding"
+	const pluginType = "network-passt-binding"
 	return NewNetAttachDef(name, NewNetConfig(name, NewNetPluginConfig(pluginType, nil)))
 }
 
