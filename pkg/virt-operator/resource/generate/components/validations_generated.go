@@ -2690,6 +2690,21 @@ var CRDsValidation map[string]string = map[string]string{
                 WARNING: this is an advanced feature that prevents auto-scaling for core kubevirt components. Please use with caution!
               type: integer
           type: object
+        kubeletDevicePluginsHostPath:
+          description: |-
+            The host path of virt-handler's kubelet-device-plugins volume to use.
+            Defaults to kubeletRootHostPath + "/device-plugins"
+          type: string
+        kubeletPodsHostPath:
+          description: |-
+            The host path of virt-handler's kubelet-pods volume to use.
+            Defaults to kubeletRootHostPath + "/pods"
+          type: string
+        kubeletRootHostPath:
+          description: |-
+            The host path for kubelet root dir.
+            Defaults to "/var/lib/kubelet"
+          type: string
         monitorAccount:
           description: |-
             The name of the Prometheus service account that needs read-access to KubeVirt endpoints

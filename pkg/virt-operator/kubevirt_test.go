@@ -2241,6 +2241,58 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
+		It("should create a handler daemonset with specific kubelet host path, if provided in config", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			config := kvTestData.getConfig("registry", "v1.1.1")
+			config.AdditionalProperties["KubeletRootHostPath"] = "/my/path/kubelet"
+
+			handlerDaemonset := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Args).Should(ContainElements("--kubelet-pods-dir", "/my/path/kubelet/pods"))
+			bidi := k8sv1.MountPropagationBidirectional
+			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
+				Name:             "kubelet-pods",
+				MountPath:        "/my/path/kubelet/pods",
+				MountPropagation: &bidi,
+			}))
+			Expect(handlerDaemonset.Spec.Template.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+				Name: "kubelet-pods",
+				VolumeSource: k8sv1.VolumeSource{
+					HostPath: &k8sv1.HostPathVolumeSource{
+						Path: "/my/path/kubelet/pods",
+					},
+				},
+			}))
+
+			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
+				Name:      "kubelet-pods-shortened",
+				MountPath: "/pods",
+			}))
+			Expect(handlerDaemonset.Spec.Template.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+				Name: "kubelet-pods-shortened",
+				VolumeSource: k8sv1.VolumeSource{
+					HostPath: &k8sv1.HostPathVolumeSource{
+						Path: "/my/path/kubelet/pods",
+					},
+				},
+			}))
+
+			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
+				Name:      "kubelet-device-plugins",
+				MountPath: "/var/lib/kubelet/device-plugins",
+			}))
+			Expect(handlerDaemonset.Spec.Template.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+				Name: "kubelet-device-plugins",
+				VolumeSource: k8sv1.VolumeSource{
+					HostPath: &k8sv1.HostPathVolumeSource{
+						Path: "/my/path/kubelet/device-plugins",
+					},
+				},
+			}))
+		})
+
 		It("should generate install strategy creation job if no install strategy exists", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
@@ -3493,6 +3545,7 @@ func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeplo
 		nil,
 		config.GetVerbosity(),
 		config.GetExtraEnv(),
+		config.GetSpecificHostPath(),
 		false)
 }
 
