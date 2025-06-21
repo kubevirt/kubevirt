@@ -25,6 +25,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
 
@@ -34,9 +35,95 @@ const (
 	DefaultDisplayOff                 = false
 )
 
-func CreateHostDevices(vmiHostDevices []v1.HostDevice) ([]api.HostDevice, error) {
-	return CreateHostDevicesFromPools(vmiHostDevices,
+func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+	vmiHostDevices := vmi.Spec.Domain.Devices.HostDevices
+
+	hostDevices, err := CreateHostDevicesFromPools(vmiHostDevices,
 		NewPCIAddressPool(vmiHostDevices), NewMDEVAddressPool(vmiHostDevices), NewUSBAddressPool(vmiHostDevices))
+	if err != nil {
+		return nil, err
+	}
+
+	draPCIHostDevices, err := getDRAPCIHostDevices(vmi)
+	if err != nil {
+		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
+	}
+	draMDEVHostDevices, err := getDRAMDEVHostDevices(vmi)
+	if err != nil {
+		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
+	}
+
+	hostDevices = append(hostDevices, draPCIHostDevices...)
+	hostDevices = append(hostDevices, draMDEVHostDevices...)
+
+	if err := validateCreationOfAllDevices(vmiHostDevices, hostDevices); err != nil {
+		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
+	}
+
+	return hostDevices, nil
+}
+
+func hasHostDevicesWithDRA(vmi *v1.VirtualMachineInstance) bool {
+	for _, hd := range vmi.Spec.Domain.Devices.HostDevices {
+		if hd.ClaimRequest != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+	hostDevices := []api.HostDevice{}
+	if !hasHostDevicesWithDRA(vmi) {
+		return hostDevices, nil
+	}
+
+	if vmi.Status.DeviceStatus != nil {
+		for _, hdStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+			if hdStatus.DeviceResourceClaimStatus != nil && hdStatus.DeviceResourceClaimStatus.Attributes != nil {
+				if hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
+					hostAddr, err := device.NewPciAddressField(*hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress)
+					if err != nil {
+						return nil, fmt.Errorf("failed to create PCI device for %s: %v", hdStatus.Name, err)
+					}
+					hostDevices = append(hostDevices, api.HostDevice{
+						Alias:   api.NewUserDefinedAlias(AliasPrefix + hdStatus.Name),
+						Source:  api.HostDeviceSource{Address: hostAddr},
+						Type:    api.HostDevicePCI,
+						Managed: "no",
+					})
+				}
+			}
+		}
+	}
+	return hostDevices, nil
+}
+
+func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+	hostDevices := []api.HostDevice{}
+	if !hasHostDevicesWithDRA(vmi) {
+		return hostDevices, nil
+	}
+
+	if vmi.Status.DeviceStatus != nil {
+		for _, hdStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+			if hdStatus.DeviceResourceClaimStatus != nil && hdStatus.DeviceResourceClaimStatus.Attributes != nil {
+				if hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
+					continue
+				}
+				if hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil {
+					hostDevices = append(hostDevices, api.HostDevice{
+						Alias:  api.NewUserDefinedAlias(AliasPrefix + hdStatus.Name),
+						Source: api.HostDeviceSource{Address: &api.Address{UUID: *hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID}},
+						Type:   api.HostDeviceMDev,
+						Mode:   "subsystem",
+						Model:  "vfio-pci",
+					})
+				}
+			}
+		}
+	}
+	return hostDevices, nil
 }
 
 func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, mdevAddressPool, usbAddressPool hostdevice.AddressPooler) ([]api.HostDevice, error) {
@@ -61,13 +148,7 @@ func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, 
 		return nil, err
 	}
 
-	hostDevices = append(hostDevices, usbHostDevices...)
-
-	if err := validateCreationOfAllDevices(vmiHostDevices, hostDevices); err != nil {
-		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
-	}
-
-	return hostDevices, nil
+	return append(hostDevices, usbHostDevices...), nil
 }
 
 func createHostDevicesMetadata(vmiHostDevices []v1.HostDevice) []hostdevice.HostDeviceMetaData {
@@ -82,16 +163,23 @@ func createHostDevicesMetadata(vmiHostDevices []v1.HostDevice) []hostdevice.Host
 	return hostDevicesMetaData
 }
 
-// validateCreationOfAllDevices validates that all specified generic host-devices have a matching host-device.
-// On validation failure, an error is returned.
-// The validation assumes that the assignment of a device to a specified generic host-device is correct,
-// therefore a simple quantity check is sufficient.
 func validateCreationOfAllDevices(genericHostDevices []v1.HostDevice, hostDevices []api.HostDevice) error {
-	if len(genericHostDevices) != len(hostDevices) {
-		return fmt.Errorf(
-			"the number of generic host-devices do not match the number of devices:\nGeneric: %v\nDevice: %v",
-			genericHostDevices, hostDevices,
-		)
+	hostDevsWithDP := []v1.HostDevice{}
+	hostDevsWithDRA := []v1.HostDevice{}
+
+	for _, hd := range genericHostDevices {
+		if hd.ClaimRequest != nil {
+			hostDevsWithDRA = append(hostDevsWithDRA, hd)
+		} else {
+			hostDevsWithDP = append(hostDevsWithDP, hd)
+		}
+	}
+
+	if len(hostDevsWithDP) > 0 && len(hostDevsWithDP) != len(hostDevices) {
+		return fmt.Errorf("the number of device plugin HostDevice/s do not match the number of devices:\nHostDevice: %v\nDevice: %v", hostDevsWithDP, hostDevices)
+	}
+	if len(hostDevsWithDRA) > 0 && len(hostDevsWithDRA) != len(hostDevices) {
+		return fmt.Errorf("the number of DRA HostDevice/s do not match the number of devices:\nHostDevice: %v\nDevice: %v", hostDevsWithDRA, hostDevices)
 	}
 	return nil
 }

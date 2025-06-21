@@ -192,3 +192,11 @@ func (config *ClusterConfig) DeclarativeHotplugVolumesEnabled() bool {
 func (config *ClusterConfig) SecureExecutionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.SecureExecution)
 }
+
+func (config *ClusterConfig) GPUsWithDRAGateEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.GPUsWithDRAGate)
+}
+
+func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
+}

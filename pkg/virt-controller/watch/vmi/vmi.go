@@ -69,7 +69,7 @@ func NewController(templateService services.TemplateService,
 	topologyHinter topology.Hinter,
 	netAnnotationsGenerator annotationsGenerator,
 	netStatusUpdater statusUpdater,
-	netSpecValidator specValidator,
+	vmiSpecValidator specValidator,
 	netMigrationEvaluator migrationEvaluator,
 ) (*Controller, error) {
 
@@ -98,7 +98,7 @@ func NewController(templateService services.TemplateService,
 		backendStorage:          backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 		netAnnotationsGenerator: netAnnotationsGenerator,
 		updateNetworkStatus:     netStatusUpdater,
-		validateNetworkSpec:     netSpecValidator,
+		validateVMISpec:         vmiSpecValidator,
 		netMigrationEvaluator:   netMigrationEvaluator,
 	}
 
@@ -204,7 +204,7 @@ type Controller struct {
 	hasSynced               func() bool
 	netAnnotationsGenerator annotationsGenerator
 	updateNetworkStatus     statusUpdater
-	validateNetworkSpec     specValidator
+	validateVMISpec         specValidator
 	netMigrationEvaluator   migrationEvaluator
 }
 
