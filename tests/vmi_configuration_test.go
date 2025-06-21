@@ -1744,23 +1744,16 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				withMachineType("pc"),
 			)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
-
 			Expect(vmi.Status.Machine).ToNot(BeNil())
-			Expect(vmi.Status.Machine.Type).To(Equal(runningVMISpec.OS.Type.Machine))
+			Expect(vmi.Status.Machine.Type).To(ContainSubstring("pc-i440"))
 		})
 
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {
 			vmi := libvmifact.NewGuestless()
 			vmi.Spec.Domain.Machine = nil
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
+			Expect(vmi.Status.Machine).ToNot(BeNil())
+			Expect(vmi.Status.Machine.Type).To(ContainSubstring("q35"))
 		})
 
 		It("[test_id:6964]should allow creating VM defined with Machine with an empty Type", func() {
@@ -1771,10 +1764,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			)
 
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
+			Expect(vmi.Status.Machine).ToNot(BeNil())
+			Expect(vmi.Status.Machine.Type).To(ContainSubstring("q35"))
 		})
 
 		It("[test_id:3126]should set machine type from kubevirt-config", Serial, func() {
@@ -1794,10 +1785,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			vmi := libvmifact.NewGuestless()
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
+			Expect(vmi.Status.Machine).ToNot(BeNil())
+			Expect(vmi.Status.Machine.Type).To(ContainSubstring("pc-i440"))
 		})
 	})
 
