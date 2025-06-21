@@ -68,6 +68,17 @@ if [ $# -eq 0 ]; then
             # Skip fuzz tests, as they are not part of regular unit testing
             go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" -race -skip FuzzAdmitter -timeout 15m ./pkg/...
         )
+    elif [ "${target}" = "clean" ]; then
+        unset GOFLAGS
+        go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./pkg/... ./tests/...
+        (
+            cd ./staging/src/kubevirt.io/client-go/
+            go $target ./...
+        )
+        (
+            cd ./staging/src/kubevirt.io/api/
+            go $target ./...
+        )
     # go generate and others
     else
         go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./pkg/... ./staging/src/kubevirt.io/client-go/... ./staging/src/kubevirt.io/api/... ./tests/...
