@@ -1,0 +1,3 @@
+go test fuzz v1
+[]byte("\xebA#w\xbc*\xee?\x1d")
+byte('S')
