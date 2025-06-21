@@ -191,6 +191,7 @@ type DomainCapsFeatureSEV struct {
 	ReducedPhysBits uint   `xml:"reducedPhysBits,omitempty"`
 	MaxGuests       uint   `xml:"maxGuests,omitempty"`
 	MaxESGuests     uint   `xml:"maxESGuests,omitempty"`
+	Cpu0ID          string `xml:"cpu0Id,omitempty"`
 }
 
 type DomainCapsFeatureSGX struct {

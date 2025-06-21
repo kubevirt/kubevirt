@@ -26,7 +26,7 @@ KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL:-false}
 HOST_ARCHITECTURE="$(uname -m)"
 
 sandbox_root=${SANDBOX_DIR}/default/root
-sandbox_hash="9f2de7be3bf145b6de8e09c1923b6a73a19c0029"
+sandbox_hash="9afaa95e306eb95b1b35bea22fcab129e66c917c"
 
 function kubevirt::bootstrap::regenerate() {
     (

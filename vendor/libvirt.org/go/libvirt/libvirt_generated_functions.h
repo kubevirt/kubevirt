@@ -712,6 +712,12 @@ virDomainDelIOThreadWrapper(virDomainPtr domain,
                             virErrorPtr err);
 
 int
+virDomainDelThrottleGroupWrapper(virDomainPtr dom,
+                                 const char * group,
+                                 unsigned int flags,
+                                 virErrorPtr err);
+
+int
 virDomainDestroyWrapper(virDomainPtr domain,
                         virErrorPtr err);
 
@@ -777,6 +783,11 @@ int
 virDomainGetAutostartWrapper(virDomainPtr domain,
                              int * autostart,
                              virErrorPtr err);
+
+int
+virDomainGetAutostartOnceWrapper(virDomainPtr domain,
+                                 int * autostart,
+                                 virErrorPtr err);
 
 int
 virDomainGetBlkioParametersWrapper(virDomainPtr domain,
@@ -1437,6 +1448,11 @@ virDomainSetAutostartWrapper(virDomainPtr domain,
                              virErrorPtr err);
 
 int
+virDomainSetAutostartOnceWrapper(virDomainPtr domain,
+                                 int autostart,
+                                 virErrorPtr err);
+
+int
 virDomainSetBlkioParametersWrapper(virDomainPtr domain,
                                    virTypedParameterPtr params,
                                    int nparams,
@@ -1559,6 +1575,14 @@ virDomainSetSchedulerParametersFlagsWrapper(virDomainPtr domain,
                                             int nparams,
                                             unsigned int flags,
                                             virErrorPtr err);
+
+int
+virDomainSetThrottleGroupWrapper(virDomainPtr dom,
+                                 const char * group,
+                                 virTypedParameterPtr params,
+                                 int nparams,
+                                 unsigned int flags,
+                                 virErrorPtr err);
 
 int
 virDomainSetTimeWrapper(virDomainPtr dom,
