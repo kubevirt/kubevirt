@@ -1,0 +1,98 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: passt-binding-cni
+  namespace: {{ .Namespace }}
+  labels:
+    tier: node
+    app: passt-binding-cni
+spec:
+  selector:
+    matchLabels:
+      name: passt-binding-cni
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 10%
+  template:
+    metadata:
+      labels:
+        name: passt-binding-cni
+        tier: node
+        app: passt-binding-cni
+      annotations:
+        description: passt-binding-cni installs passt binding CNI on cluster nodes
+    spec:
+      priorityClassName: system-cluster-critical
+{{- if .EnableSCC }}
+      serviceAccountName: passt-binding-cni
+{{- end }}
+      containers:
+        - name: installer
+          image: {{ .PasstBindingCNIImage }}
+          command: ["/bin/sh", "-ce"]
+          args:
+            - |
+              ls -la "/cni/network-passt-binding"
+              cp -f "/cni/network-passt-binding" "/opt/cni/bin"
+              echo "passt binding CNI plugin installation complete..sleep inf"
+              sleep infinity
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "15Mi"
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: cnibin
+              mountPath: /opt/cni/bin
+          imagePullPolicy: {{ .ImagePullPolicy }}
+      volumes:
+        - name: cnibin
+          hostPath:
+            path: {{ .CNIBinDir }}
+---
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: primary-udn-kubevirt-binding
+  namespace: default
+spec:
+  config: '{
+  "cniVersion": "1.0.0",
+  "name": "primary-udn-kubevirt-binding",
+  "plugins": [
+    {
+      "type": "network-passt-binding"
+    }
+  ]
+}'
+{{- if .EnableSCC }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: passt-binding-cni
+  namespace: {{ .Namespace }}
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: passt-binding-cni
+allowPrivilegedContainer: true
+allowHostDirVolumePlugin: true
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+readOnlyRootFilesystem: false
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+users:
+- system:serviceaccount:{{ .Namespace }}:passt-binding-cni
+volumes:
+- "*"
+{{- end }}

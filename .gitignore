@@ -45,3 +45,4 @@ hack/builder/manifests/
 .bazeldnf/
 user.bazelrc
 .vscode/
+hco/csv_gen
