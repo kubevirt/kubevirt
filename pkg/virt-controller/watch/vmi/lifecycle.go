@@ -799,13 +799,24 @@ func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) e
 		if pod.DeletionTimestamp != nil && !isPodFinal(pod) || !controller.IsControlledBy(pod, vmi) {
 			continue
 		}
-		if err = c.deletePod(vmiKey, pod, v1.DeleteOptions{}); err != nil {
+
+		deleteOpts := v1.DeleteOptions{}
+
+		if isLauncherPod(pod) && vmi.Spec.TerminationGracePeriodSeconds != nil {
+			deleteOpts.GracePeriodSeconds = vmi.Spec.TerminationGracePeriodSeconds
+		}
+
+		if err = c.deletePod(vmiKey, pod, deleteOpts); err != nil {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Failed to delete virtual machine pod %s", pod.Name)
 			return err
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, "Deleted virtual machine pod %s", pod.Name)
 	}
 	return nil
+}
+
+func isLauncherPod(pod *k8sv1.Pod) bool {
+	return pod.Labels[virtv1.AppLabel] == "virt-launcher"
 }
 
 func isPodFinal(pod *k8sv1.Pod) bool {
