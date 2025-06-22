@@ -85,11 +85,19 @@ func (c *Controller) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8s
 		if err := c.deleteAttachmentPod(vmi, attachmentPod); err != nil {
 			return common.NewSyncError(fmt.Errorf("Error deleting attachment pod %v", err), controller.FailedDeletePodReason)
 		}
+
+		log.Log.Object(vmi).V(1).Infof("XXX Deleted attachment pod %s", attachmentPod.Name)
 	}
 	return nil
 }
 
-func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) common.SyncError {
+func (c *Controller) handleHotplugVolumes(
+	hotplugVolumes []*v1.Volume,
+	hotplugAttachmentPods []*k8sv1.Pod,
+	vmi *v1.VirtualMachineInstance,
+	virtLauncherPod *k8sv1.Pod,
+	dataVolumes []*cdiv1.DataVolume,
+) common.SyncError {
 	logger := log.Log.Object(vmi)
 
 	readyHotplugVolumes := make([]*v1.Volume, 0)
@@ -315,6 +323,7 @@ func (c *Controller) deleteAttachmentPod(vmi *v1.VirtualMachineInstance, attachm
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Failed to delete attachment pod %s", attachmentPod.Name)
 		return err
 	}
+
 	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, "Deleted attachment pod %s", attachmentPod.Name)
 	return nil
 }

@@ -244,6 +244,8 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 			}
 			// If the pod exists, we keep the status.
 			newStatus = append(newStatus, status)
+		} else {
+			log.Log.Object(vmi).V(1).Infof("XXX Deleted status for volume %s", volumeName)
 		}
 	}
 

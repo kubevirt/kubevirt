@@ -399,9 +399,11 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 		if err := m.createBlockDeviceFile(targetPath, volume, dev, permissions); err != nil && !os.IsExist(err) {
 			return err
 		}
-		log.DefaultLogger().V(1).Infof("successfully created block device %v", volume)
+		log.DefaultLogger().V(1).Infof("XXX successfully created block device %s for volume %s", targetPath, volume)
 	} else if err != nil {
 		return err
+	} else {
+		log.DefaultLogger().V(1).Infof("XXX targetPath %s exists for volume %s", targetPath, volume)
 	}
 
 	devicePath, err := safepath.JoinNoFollow(targetPath, volume)
@@ -686,6 +688,9 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 				} else if err := m.unmountFileSystemHotplugVolumes(diskPath); err != nil {
 					return err
 				}
+
+				log.Log.Object(vmi).V(1).Infof("XXX Unmounted hotplug volume %s", diskPath)
+
 			} else {
 				newRecord.MountTargetEntries = append(newRecord.MountTargetEntries, vmiMountTargetEntry{
 					TargetFile: unsafepath.UnsafeAbsolute(diskPath.Raw()),

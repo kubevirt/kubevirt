@@ -1257,6 +1257,7 @@ func (l *LibvirtDomainManager) syncDisks(
 				return err
 			}
 			if !allowUpdate {
+				logger.V(1).Infof("XXX Not updating disk %s, target %s", updateDisk.Alias.GetName(), updateDisk.Target.Device)
 				continue
 			}
 		}
@@ -1274,6 +1275,8 @@ func (l *LibvirtDomainManager) syncDisks(
 			logger.Reason(err).Error("updating device")
 			return err
 		}
+
+		logger.V(1).Infof("XXX Updating disk %s, target %s", updateDisk.Alias.GetName(), updateDisk.Target.Device)
 	}
 
 	// Resize and notify the VM about changed disks
