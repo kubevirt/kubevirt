@@ -21,6 +21,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
@@ -28,6 +29,9 @@ type VolumeRendererOption func(renderer *VolumeRenderer) error
 
 type VolumeRenderer struct {
 	useImageVolumes       bool
+	launcherImage         string
+	imageIDs              map[string]string
+	clusterConfig         *virtconfig.ClusterConfig
 	containerDiskDir      string
 	ephemeralDiskDir      string
 	virtShareDir          string
@@ -39,9 +43,12 @@ type VolumeRenderer struct {
 	volumeDevices         []k8sv1.VolumeDevice
 }
 
-func NewVolumeRenderer(imageVolumeFeatureGateEnabled bool, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
+func NewVolumeRenderer(clusterConfig *virtconfig.ClusterConfig, imageVolumeFeatureGateEnabled bool, launcherImage string, imageIDs map[string]string, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
 	volumeRenderer := &VolumeRenderer{
 		useImageVolumes:  imageVolumeFeatureGateEnabled,
+		launcherImage:    launcherImage,
+		imageIDs:         imageIDs,
+		clusterConfig:    clusterConfig,
 		containerDiskDir: containerDiskDir,
 		ephemeralDiskDir: ephemeralDisk,
 		namespace:        namespace,
@@ -228,10 +235,12 @@ func withVMIConfigVolumes(vmiDisks []v1.Disk, vmiVolumes []v1.Volume) VolumeRend
 
 func withImageVolumes(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
+		atLeastOneVolume := false
 		for i, volume := range vmi.Spec.Volumes {
 			if volume.ContainerDisk != nil {
 				renderer.addContainerDiskVolume(volume)
 				renderer.addContainerDiskVolumeMount(volume, i)
+				atLeastOneVolume = true
 			}
 		}
 
@@ -239,7 +248,13 @@ func withImageVolumes(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 			kbc := vmi.Spec.Domain.Firmware.KernelBoot.Container
 			renderer.addKernelBootVolume(kbc)
 			renderer.addKernelBootVolumeMount()
+			atLeastOneVolume = true
 		}
+
+		if atLeastOneVolume {
+			renderer.addLauncherBinaryVolume()
+		}
+
 		return nil
 	}
 }
@@ -723,11 +738,15 @@ func (vr *VolumeRenderer) addDownwardAPIVolumeMount(volume v1.Volume) {
 }
 
 func (vr *VolumeRenderer) addContainerDiskVolume(volume v1.Volume) {
+	diskContainerImage := volume.ContainerDisk.Image
+	if img, exists := vr.imageIDs[volume.Name]; exists {
+		diskContainerImage = img
+	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
 		VolumeSource: k8sv1.VolumeSource{
 			Image: &k8sv1.ImageVolumeSource{
-				Reference:  volume.ContainerDisk.Image,
+				Reference:  diskContainerImage,
 				PullPolicy: volume.ContainerDisk.ImagePullPolicy,
 			},
 		},
@@ -743,11 +762,15 @@ func (vr *VolumeRenderer) addContainerDiskVolumeMount(volume v1.Volume, volumeIn
 }
 
 func (vr *VolumeRenderer) addKernelBootVolume(kbc *v1.KernelBootContainer) {
+	kernelBootContainerImage := kbc.Image
+	if img, exists := vr.imageIDs[containerdisk.KernelBootVolumeName]; exists {
+		kernelBootContainerImage = img
+	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: containerdisk.KernelBootName,
 		VolumeSource: k8sv1.VolumeSource{
 			Image: &k8sv1.ImageVolumeSource{
-				Reference:  kbc.Image,
+				Reference:  kernelBootContainerImage,
 				PullPolicy: kbc.ImagePullPolicy,
 			},
 		},
@@ -759,6 +782,18 @@ func (vr *VolumeRenderer) addKernelBootVolumeMount() {
 		Name:      containerdisk.KernelBootName,
 		MountPath: util.VirtKernelBootVolumeDir,
 		ReadOnly:  true,
+	})
+}
+
+func (vr *VolumeRenderer) addLauncherBinaryVolume() {
+	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+		Name: containerdisk.LauncherVolume,
+		VolumeSource: k8sv1.VolumeSource{
+			Image: &k8sv1.ImageVolumeSource{
+				Reference:  vr.launcherImage,
+				PullPolicy: vr.clusterConfig.GetImagePullPolicy(),
+			},
+		},
 	})
 }
 

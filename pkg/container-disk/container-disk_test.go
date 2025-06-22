@@ -351,7 +351,7 @@ var _ = Describe("ContainerDisk", func() {
 
 				pod := createMigrationSourcePod(vmi)
 
-				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
+				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0"))
 				Expect(imageIDs).To(HaveKeyWithValue("disk2", "someimage@sha256:1"))
@@ -376,7 +376,7 @@ var _ = Describe("ContainerDisk", func() {
 				pod := createMigrationSourcePod(vmi)
 
 				By("Extracting image IDs from the source pod")
-				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
+				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0"))
 				Expect(imageIDs).To(HaveKeyWithValue("kernel-boot-volume", "someimage@sha256:bootcontainer"))
@@ -399,7 +399,7 @@ var _ = Describe("ContainerDisk", func() {
 				pod := createMigrationSourcePod(vmi)
 				pod.Status.ContainerStatuses[0].ImageID = "rubbish"
 
-				_, err := ExtractImageIDsFromSourcePod(vmi, pod)
+				_, err := ExtractImageIDsFromSourcePod(vmi, pod, false)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal(`failed to identify image digest for container "someimage:v1.2.3.4" with id "rubbish"`))
 			})
@@ -447,7 +447,7 @@ var _ = Describe("ContainerDisk", func() {
 				)
 
 				pod := createMigrationSourcePod(vmi)
-				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
+				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod, false)
 				Expect(err).ToNot(HaveOccurred())
 
 				newContainers := GenerateContainers(vmi, clusterConfig, imageIDs, "a-name", "something")
