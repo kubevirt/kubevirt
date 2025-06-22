@@ -263,7 +263,7 @@ func (t *TemplateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
-	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod)
+	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod, t.clusterConfig.ImageVolumeEnabled())
 	if err != nil {
 		return nil, fmt.Errorf("can not proceed with the migration when no reproducible image digest can be detected: %v", err)
 	}
@@ -430,7 +430,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		command = append(command, "--simulate-crash")
 	}
 
-	volumeRenderer, err := t.newVolumeRenderer(vmi, namespace, requestedHookSidecarList, backendStoragePVCName)
+	volumeRenderer, err := t.newVolumeRenderer(vmi, imageIDs, namespace, requestedHookSidecarList, backendStoragePVCName)
 	if err != nil {
 		return nil, err
 	}
@@ -569,6 +569,39 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		kernelBootInitContainer := containerdisk.GenerateKernelBootInitContainer(vmi, t.clusterConfig, imageIDs, containerDisks, virtBinDir)
 		if kernelBootInitContainer != nil {
 			initContainers = append(initContainers, *kernelBootInitContainer)
+		}
+	} else if t.clusterConfig.ImageVolumeEnabled() {
+		// TODO: Once the KEP https://github.com/kubernetes/enhancements/pull/5375 is fully implemented and stable
+		// in all Kubernetes versions supported by KubeVirt, this entire init containers logic should be removed,
+		// and the digest can be fetched directly from the Pod volume status.
+		// Generate init containers for regular volumes
+		for _, volume := range vmi.Spec.Volumes {
+			containerDiskImageIDAlreadyExists := strings.Contains(imageIDs[volume.Name], "@sha256:")
+			if volume.ContainerDisk == nil || containerDiskImageIDAlreadyExists {
+				continue
+			}
+			initContainer := containerdisk.CreateImageVolumeInitContainer(
+				vmi,
+				t.clusterConfig,
+				volume.Name,
+				volume.ContainerDisk.Image,
+				volume.ContainerDisk.ImagePullPolicy,
+			)
+			initContainers = append(initContainers, initContainer)
+		}
+
+		// Generate init container for kernel boot if needed
+		kernelBootImageIDAlreadyExists := strings.Contains(imageIDs[containerdisk.KernelBootVolumeName], "@sha256:")
+		if util.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists {
+			kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
+			initContainer := containerdisk.CreateImageVolumeInitContainer(
+				vmi,
+				t.clusterConfig,
+				containerdisk.KernelBootVolumeName,
+				kernelBootContainer.Image,
+				kernelBootContainer.ImagePullPolicy,
+			)
+			initContainers = append(initContainers, initContainer)
 		}
 	}
 
@@ -809,7 +842,7 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	return containerRenderer
 }
 
-func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
+func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
 	imageVolumeFeatureGateEnabled := t.clusterConfig.ImageVolumeEnabled()
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
@@ -846,7 +879,10 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 	}
 
 	volumeRenderer, err := NewVolumeRenderer(
+		t.clusterConfig,
 		imageVolumeFeatureGateEnabled,
+		t.launcherImage,
+		imageIDs,
 		namespace,
 		t.ephemeralDiskDir,
 		t.containerDiskDir,

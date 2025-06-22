@@ -24,6 +24,7 @@ const (
 	KubeletRoot                               = "/var/lib/kubelet"
 	KubeletPodsDir                            = KubeletRoot + "/pods"
 	HostRootMount                             = "/proc/1/root/"
+	ContainerBinary                           = "/container-disk-binary"
 
 	NonRootUID        = 107
 	NonRootUserString = "qemu"
