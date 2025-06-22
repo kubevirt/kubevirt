@@ -2,7 +2,7 @@
 
 set -e
 
-DEFAULT_CLUSTER_NAME="kind-1.28"
+DEFAULT_CLUSTER_NAME="vgpu"
 DEFAULT_HOST_PORT=5000
 ALTERNATE_HOST_PORT=5001
 export CLUSTER_NAME=${CLUSTER_NAME:-$DEFAULT_CLUSTER_NAME}
@@ -34,17 +34,21 @@ function configure_registry_proxy() {
 }
 
 function up() {
+    # print hardware info for easier debugging based on logs
+    echo 'Available cards'
+    ${CRI_BIN} run --rm --cap-add=SYS_RAWIO quay.io/phoracek/lspci@sha256:0f3cacf7098202ef284308c64e3fc0ba441871a846022bb87d65ff130c79adb1 sh -c "lspci -k | grep -EA2 'VGA|3D'"
+    echo ""
+
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
-    _add_kubeadm_cpu_manager_config_patch
     _add_extra_mounts
-    _add_extra_portmapping
-    export CONFIG_WORKER_CPU_MANAGER=true
     kind_up
 
     configure_registry_proxy
 
     # remove the rancher.io kind default storageClass
     _kubectl delete sc standard
+
+    ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/config_vgpu_cluster.sh
 
     echo "$KUBEVIRT_PROVIDER cluster '$CLUSTER_NAME' is ready"
 }
