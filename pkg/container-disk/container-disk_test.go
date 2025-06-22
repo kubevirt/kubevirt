@@ -26,6 +26,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/util"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
@@ -351,7 +353,7 @@ var _ = Describe("ContainerDisk", func() {
 
 				pod := createMigrationSourcePod(vmi)
 
-				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
+				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0"))
 				Expect(imageIDs).To(HaveKeyWithValue("disk2", "someimage@sha256:1"))
@@ -376,7 +378,7 @@ var _ = Describe("ContainerDisk", func() {
 				pod := createMigrationSourcePod(vmi)
 
 				By("Extracting image IDs from the source pod")
-				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
+				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0"))
 				Expect(imageIDs).To(HaveKeyWithValue("kernel-boot-volume", "someimage@sha256:bootcontainer"))
@@ -399,9 +401,86 @@ var _ = Describe("ContainerDisk", func() {
 				pod := createMigrationSourcePod(vmi)
 				pod.Status.ContainerStatuses[0].ImageID = "rubbish"
 
-				_, err := ExtractImageIDsFromSourcePod(vmi, pod)
+				_, err := ExtractImageIDsFromSourcePod(vmi, pod, false)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal(`failed to identify image digest for container "someimage:v1.2.3.4" with id "rubbish"`))
+			})
+
+			Context("with imageVolumeEnabled", func() {
+				var expectedDigests map[string]string
+
+				BeforeEach(func() {
+					expectedDigests = map[string]string{
+						"disk1": "testdigest1",
+						"disk2": "testdigest2",
+					}
+				})
+
+				DescribeTable("should extract image IDs",
+					func(vmi *v1.VirtualMachineInstance, podBuilder func(*v1.VirtualMachineInstance) *k8sv1.Pod, expectedImageIDs map[string]string) {
+						pod := podBuilder(vmi)
+						imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod, true)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(imageIDs).To(Equal(expectedImageIDs))
+					},
+					Entry("from pod volumes with digest",
+						libvmi.New(
+							libvmi.WithContainerDisk("disk1", someImage),
+							libvmi.WithContainerDisk("disk2", "anotherimage:v2.0.0"),
+						),
+						func(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+							return createImageVolumesSourcePod(vmi, expectedDigests)
+						},
+						map[string]string{
+							"disk1": "someimage@sha256:testdigest1",
+							"disk2": "anotherimage@sha256:testdigest2",
+						},
+					),
+
+					Entry("from init containers when volumes don't have digests",
+						libvmi.New(
+							libvmi.WithContainerDisk("disk1", someImage),
+							libvmi.WithContainerDisk("disk2", "anotherimage:v2.0.0"),
+						),
+						func(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+							return createImageVolumeSourcePodWithInitContainers(vmi, expectedDigests)
+						},
+						map[string]string{
+							"disk1": "someimage@sha256:testdigest1",
+							"disk2": "anotherimage@sha256:testdigest2",
+						},
+					),
+					Entry("using digests when both volume and init digests are present",
+						libvmi.New(
+							libvmi.WithContainerDisk("disk1", someImage),
+							libvmi.WithContainerDisk("disk2", "anotherimage:v2.0.0"),
+						),
+						func(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+							return createImageVolumeSourcePodWithBoth(vmi, expectedDigests)
+						},
+						map[string]string{
+							"disk1": "someimage@sha256:testdigest1",
+							"disk2": "anotherimage@sha256:testdigest2",
+						},
+					),
+					Entry("with kernel boot containers",
+						libvmi.New(
+							libvmi.WithKernelBootContainer(someImage),
+							libvmi.WithContainerDisk("disk1", "anotherimage:v2.0.0"),
+						),
+						func(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+							kernelDigests := map[string]string{
+								"disk1":              "testdigest1",
+								"kernel-boot-volume": "kerneldigest",
+							}
+							return createImageVolumeSourcePodWithKernelBoot(vmi, kernelDigests)
+						},
+						map[string]string{
+							"disk1":              "anotherimage@sha256:testdigest1",
+							"kernel-boot-volume": "someimage@sha256:kerneldigest",
+						},
+					),
+				)
 			})
 
 			DescribeTable("It should detect the image ID from", func(imageID string) {
@@ -447,7 +526,7 @@ var _ = Describe("ContainerDisk", func() {
 				)
 
 				pod := createMigrationSourcePod(vmi)
-				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
+				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod, false)
 				Expect(err).ToNot(HaveOccurred())
 
 				newContainers := GenerateContainers(vmi, clusterConfig, imageIDs, "a-name", "something")
@@ -488,6 +567,154 @@ func createMigrationSourcePod(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 			ImageID: fmt.Sprintf("finalimg@sha256:%v", "bootcontainer"),
 		}
 		pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, status)
+	}
+
+	return pod
+}
+
+func createImageVolumesSourcePod(vmi *v1.VirtualMachineInstance, expectedDigests map[string]string) *k8sv1.Pod {
+	pod := &k8sv1.Pod{
+		Spec:   k8sv1.PodSpec{},
+		Status: k8sv1.PodStatus{},
+	}
+
+	// Add image volumes with digests for container disks
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk == nil {
+			continue
+		}
+		digest, exists := expectedDigests[volume.Name]
+		if !exists {
+			continue
+		}
+		baseImage := strings.Split(volume.ContainerDisk.Image, ":")[0]
+		imageVolume := k8sv1.Volume{
+			Name: volume.Name,
+			VolumeSource: k8sv1.VolumeSource{
+				Image: &k8sv1.ImageVolumeSource{
+					Reference: fmt.Sprintf("%s@sha256:%s", baseImage, digest),
+				},
+			},
+		}
+		pod.Spec.Volumes = append(pod.Spec.Volumes, imageVolume)
+	}
+
+	return pod
+}
+
+// createImageVolumeSourcePodWithInitContainers creates a pod with init containers but no volume digests
+func createImageVolumeSourcePodWithInitContainers(vmi *v1.VirtualMachineInstance, expectedDigests map[string]string) *k8sv1.Pod {
+	pod := &k8sv1.Pod{
+		Spec:   k8sv1.PodSpec{},
+		Status: k8sv1.PodStatus{},
+	}
+
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk == nil {
+			continue
+		}
+		imageVolume := k8sv1.Volume{
+			Name: volume.Name,
+			VolumeSource: k8sv1.VolumeSource{
+				Image: &k8sv1.ImageVolumeSource{
+					// No digest, just the original image reference
+					Reference: volume.ContainerDisk.Image,
+				},
+			},
+		}
+		pod.Spec.Volumes = append(pod.Spec.Volumes, imageVolume)
+		digest, exists := expectedDigests[volume.Name]
+		if exists {
+			baseImage := strings.Split(volume.ContainerDisk.Image, ":")[0]
+			initStatus := k8sv1.ContainerStatus{
+				Name:    fmt.Sprintf("volume%s", volume.Name),
+				Image:   volume.ContainerDisk.Image,
+				ImageID: fmt.Sprintf("%s@sha256:%s", baseImage, digest),
+			}
+			pod.Status.InitContainerStatuses = append(pod.Status.InitContainerStatuses, initStatus)
+		}
+	}
+
+	return pod
+}
+
+// createImageVolumeSourcePodWithBoth creates a pod with both volume digests and init containers using the same digests
+func createImageVolumeSourcePodWithBoth(vmi *v1.VirtualMachineInstance, digests map[string]string) *k8sv1.Pod {
+	pod := &k8sv1.Pod{
+		Spec:   k8sv1.PodSpec{},
+		Status: k8sv1.PodStatus{},
+	}
+
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk == nil {
+			continue
+		}
+		digest, exists := digests[volume.Name]
+		if !exists {
+			continue
+		}
+		baseImage := strings.Split(volume.ContainerDisk.Image, ":")[0]
+		imageVolume := k8sv1.Volume{
+			Name: volume.Name,
+			VolumeSource: k8sv1.VolumeSource{
+				Image: &k8sv1.ImageVolumeSource{
+					Reference: fmt.Sprintf("%s@sha256:%s", baseImage, digest),
+				},
+			},
+		}
+		initStatus := k8sv1.ContainerStatus{
+			Name:    fmt.Sprintf("volume%s", volume.Name),
+			Image:   volume.ContainerDisk.Image,
+			ImageID: fmt.Sprintf("%s@sha256:%s", baseImage, digest),
+		}
+		pod.Spec.Volumes = append(pod.Spec.Volumes, imageVolume)
+		pod.Status.InitContainerStatuses = append(pod.Status.InitContainerStatuses, initStatus)
+	}
+
+	return pod
+}
+
+// createImageVolumeSourcePodWithKernelBoot creates a pod with image volumes and kernel boot
+func createImageVolumeSourcePodWithKernelBoot(vmi *v1.VirtualMachineInstance, expectedDigests map[string]string) *k8sv1.Pod {
+	pod := &k8sv1.Pod{
+		Spec:   k8sv1.PodSpec{},
+		Status: k8sv1.PodStatus{},
+	}
+
+	// Add image volumes with digests for container disks
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk == nil {
+			continue
+		}
+		digest, exists := expectedDigests[volume.Name]
+		if !exists {
+			continue
+		}
+		baseImage := strings.Split(volume.ContainerDisk.Image, ":")[0]
+		imageVolume := k8sv1.Volume{
+			Name: volume.Name,
+			VolumeSource: k8sv1.VolumeSource{
+				Image: &k8sv1.ImageVolumeSource{
+					Reference: fmt.Sprintf("%s@sha256:%s", baseImage, digest),
+				},
+			},
+		}
+		pod.Spec.Volumes = append(pod.Spec.Volumes, imageVolume)
+	}
+
+	// Add init container for kernel boot
+	if util.HasKernelBootContainerImage(vmi) {
+		digest, exists := expectedDigests["kernel-boot-volume"]
+		if exists {
+			// Create imageID that corresponds to the actual kernel boot image
+			baseImage := strings.Split(vmi.Spec.Domain.Firmware.KernelBoot.Container.Image, ":")[0]
+			kernelInitStatus := k8sv1.ContainerStatus{
+				Name:    "volumekernel-boot-volume", // No separator - matches toContainerName pattern
+				Image:   vmi.Spec.Domain.Firmware.KernelBoot.Container.Image,
+				ImageID: fmt.Sprintf("%s@sha256:%s", baseImage, digest),
+			}
+			pod.Status.InitContainerStatuses = append(pod.Status.InitContainerStatuses, kernelInitStatus)
+		}
 	}
 
 	return pod
