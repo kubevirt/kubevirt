@@ -15,8 +15,7 @@ type Metric interface {
 	GetOpts() MetricOpts
 	GetType() MetricType
 	GetBaseType() MetricType
-
-	getCollector() prometheus.Collector
+	GetCollector() prometheus.Collector
 }
 
 type MetricType string

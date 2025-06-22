@@ -46,6 +46,6 @@ func (c *Summary) GetBaseType() MetricType {
 	return SummaryType
 }
 
-func (c *Summary) getCollector() prometheus.Collector {
+func (c *Summary) GetCollector() prometheus.Collector {
 	return c.Summary
 }
