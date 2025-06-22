@@ -295,6 +295,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	vmiPathCreate := VMICreateValidatePath
 	vmiPathUpdate := VMIUpdateValidatePath
 	vmPath := VMValidatePath
+	vmDeletePath := VMDeleteValidatePath
 	vmirsPath := VMIRSValidatePath
 	vmpoolPath := VMPoolValidatePath
 	vmipresetPath := VMIPresetValidatePath
@@ -431,6 +432,30 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmPath,
+					},
+				},
+			},
+			{
+				Name:                    "virtualmachine-delete-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Delete,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{core.GroupName},
+						APIVersions: virtv1.ApiSupportedWebhookVersions,
+						Resources:   []string{"virtualmachines"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmDeletePath,
 					},
 				},
 			},
@@ -840,6 +865,8 @@ const VMICreateValidatePath = "/virtualmachineinstances-validate-create"
 const VMIUpdateValidatePath = "/virtualmachineinstances-validate-update"
 
 const VMValidatePath = "/virtualmachines-validate"
+
+const VMDeleteValidatePath = "/virtualmachines-validate-delete"
 
 const VMIRSValidatePath = "/virtualmachinereplicaset-validate"
 
