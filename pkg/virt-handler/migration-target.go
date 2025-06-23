@@ -406,6 +406,16 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 			return err
 		}
 		log.Log.Object(vmi).Infof("Signaled target pod for failed migration to clean up")
+
+		// tear down network cache
+		if err = c.netConf.Teardown(vmi); err != nil {
+			return fmt.Errorf("failed to delete VMI Network cache files: %s", err.Error())
+		}
+		c.netStat.Teardown(vmi)
+		// The migration failed. As the target virt-handler, the domain doesn't belong to our store anymore
+		if err = c.domainStore.Delete(vmi); err != nil {
+			return err
+		}
 	} else {
 		options := &cmdv1.VirtualMachineOptions{}
 		options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
@@ -413,18 +423,6 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 			return err
 		}
 		if err = c.netStat.UpdateStatus(vmi, domain); err != nil {
-			return err
-		}
-	}
-
-	if err = c.netConf.Teardown(vmi); err != nil {
-		return fmt.Errorf("failed to delete VMI Network cache files: %s", err.Error())
-	}
-	c.netStat.Teardown(vmi)
-
-	if vmi.Status.MigrationState.Failed {
-		// The migration failed. As the target virt-handler, the domain doesn't belong to our store anymore
-		if err = c.domainStore.Delete(vmi); err != nil {
 			return err
 		}
 	}
