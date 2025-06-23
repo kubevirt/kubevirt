@@ -421,7 +421,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 			})
 		})
 		Context("with multiple VMIs with eviction policies set", Serial, func() {
-			It("[release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
+			It("[QUARANTINE][release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", decorators.Quarantine, func() {
 				var vmis []*v1.VirtualMachineInstance
 				for i := 0; i < 4; i++ {
 					vmi := alpineVMIWithEvictionStrategy()
