@@ -7,6 +7,7 @@ API rule violation: list_type_missing,kubevirt.io/api/core/v1,DeveloperConfigura
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,Devices,Disks
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,Devices,Inputs
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,Devices,Interfaces
+API rule violation: list_type_missing,kubevirt.io/api/core/v1,Devices,PanicDevices
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,DownwardAPIVolumeSource,Fields
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,Interface,Ports
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtConfiguration,EmulatedMachines
