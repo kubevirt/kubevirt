@@ -461,6 +461,8 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 	createdPVC := false
 	deletedPVC := false
 	waitingPVC := false
+	waitingDVNameUpdate := false
+
 	for i, restore := range restores {
 		pvc, err := ctrl.getPVC(vmRestore.Namespace, restore.PersistentVolumeClaimName)
 		if err != nil {
@@ -477,6 +479,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			if restore.DataVolumeName != nil {
 				dvOwner = *restore.DataVolumeName
 			}
+
 			if err = ctrl.createRestorePVC(vmRestore, target, backup, &restore, content.Spec.Source.VirtualMachine.Name, content.Spec.Source.VirtualMachine.Namespace, dvOwner); err != nil {
 				return false, err
 			}
@@ -495,7 +498,15 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			if ownerDV != "" {
 				log.Log.Object(vmRestore).Infof("marking datavolume %s/%s as prepopulated before deleting its PVC", vmRestore.Namespace, ownerDV)
 
-				vmRestore.Status.Restores[i].DataVolumeName = &ownerDV
+				// We update the status of the volume to note that it belongs to a DataVolume.
+				// We'll need this information later to restore the PVC with annotations to rebind it
+				// to the DV.
+				if vmRestore.Status.Restores[i].DataVolumeName == nil {
+					vmRestore.Status.Restores[i].DataVolumeName = &ownerDV
+					waitingDVNameUpdate = true
+					continue
+				}
+
 				if err := ctrl.prepopulateDataVolume(vmRestore.Namespace, ownerDV, vmRestore.Name); err != nil {
 					return false, err
 				}
@@ -522,7 +533,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			return false, fmt.Errorf("PVC %s/%s in status %q", pvc.Namespace, pvc.Name, pvc.Status.Phase)
 		}
 	}
-	return createdPVC || deletedPVC || waitingPVC, nil
+	return createdPVC || deletedPVC || waitingPVC || waitingDVNameUpdate, nil
 }
 
 func (ctrl *VMRestoreController) getBindingMode(pvc *corev1.PersistentVolumeClaim) (*storagev1.VolumeBindingMode, error) {
@@ -1418,7 +1429,7 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	target restoreTarget,
 	volumeBackup *snapshotv1.VolumeBackup,
 	volumeRestore *snapshotv1.VolumeRestore,
-	sourceVmName, sourceVmNamespace, ownerOrphanDV string,
+	sourceVmName, sourceVmNamespace, dvOwner string,
 ) error {
 	if volumeBackup == nil || volumeBackup.VolumeSnapshotName == nil {
 		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
@@ -1444,13 +1455,13 @@ func (ctrl *VMRestoreController) createRestorePVC(
 		return err
 	}
 
-	if ownerOrphanDV != "" { // PVC is owned by a non-templated DV
+	if dvOwner != "" { // PVC is owned by a DV
 		if pvc.Annotations == nil {
 			pvc.Annotations = make(map[string]string)
 		}
 
 		// By setting this annotation, the CDI will set ownership of the PVC to the DV
-		pvc.Annotations[populatedForPVCAnnotation] = ownerOrphanDV
+		pvc.Annotations[populatedForPVCAnnotation] = dvOwner
 	} else { // PVC is owned by the VM
 		target.Own(pvc)
 	}
@@ -1660,11 +1671,9 @@ func (ctrl *VMRestoreController) prepopulateDataVolume(namespace, dataVolume, re
 	restoreNamePatch := patch.WithAdd(restoreNameAnnotation, restoreName)
 
 	// Set the DV as prepopulated so that it doesn't reconcile itself
-	// This value is arbitrarily set to "true", it will be replaced with the name of the PVC
-	// backing this DataVolume by the CDI once it finds the associated PVC
 	// As long as the annotation is present (no matter the value), the population process is blocked
 	prePopulatedAnnotation := fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(cdiv1.AnnPrePopulated))
-	prePopulatedPatch := patch.WithAdd(prePopulatedAnnotation, "true")
+	prePopulatedPatch := patch.WithAdd(prePopulatedAnnotation, dataVolume)
 
 	// Craft the patch payload
 	dvPatch := patch.New(restoreNamePatch, prePopulatedPatch)

@@ -1848,19 +1848,18 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(pvc.Annotations["test"]).To(Equal("value")) // Ensure new annotation is present
 
 				// PVC should have owner reference back to the DV (which has same name as itself)
-				Expect(pvc.OwnerReferences).ToNot(BeNil())
-				Expect(pvc.OwnerReferences[0].Name).To(Equal(originalPvcName))
+				Eventually(func() string {
+					pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPvcName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return pvc.OwnerReferences[0].Name
+				}, 60*time.Second, 1*time.Second).Should(Equal(originalPvcName))
 
 				// Check the source DV for that PVC
 				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalPvcName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(dv.Annotations["restore.kubevirt.io/name"]).To(Equal(restore.Name))
-
-				// CDI will eventually update the prePopulated annotation with the name of the PVC
-				Eventually(func() string {
-					restoredDV, _ := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalPvcName, metav1.GetOptions{})
-					return restoredDV.Annotations[cdiv1.AnnPrePopulated]
-				}, 60*time.Second, 1*time.Second).Should(Equal(originalPvcName))
+				// DV has the prePopulated annotation with the name of the PVC
+				Expect(dv.Annotations[cdiv1.AnnPrePopulated]).To(Equal(originalPvcName))
 
 				// Start VM
 				targetVM := libvmops.StartVirtualMachine(restoreVM)
@@ -1933,19 +1932,17 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(pvc.Annotations["test"]).To(Equal("value")) // Ensure new annotation is present
 
 				// PVC should have owner reference back to the DV (which has same name as itself)
-				Expect(pvc.OwnerReferences).ToNot(BeNil())
-				Expect(pvc.OwnerReferences[0].Name).To(Equal(originalPVCName))
+				Eventually(func() string {
+					pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return pvc.OwnerReferences[0].Name
+				}, 60*time.Second, 1*time.Second).Should(Equal(originalPVCName))
 
 				// Check the source DV for that PVC
 				restoredDV, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(restoredDV.Annotations["restore.kubevirt.io/name"]).To(Equal(restore.Name))
-
-				// CDI will eventually update the prePopulated annotation with the name of the PVC
-				Eventually(func() string {
-					restoredDV, _ := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
-					return restoredDV.Annotations[cdiv1.AnnPrePopulated]
-				}, 60*time.Second, 1*time.Second).Should(Equal(originalPVCName))
+				Expect(restoredDV.Annotations[cdiv1.AnnPrePopulated]).To(Equal(originalPVCName))
 			})
 
 			It("should restore with volume restore policy InPlace and PVC as disk", func() {
