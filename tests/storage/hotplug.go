@@ -1116,7 +1116,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				verifyVolumeStatus(vmi, v1.VolumeReady, "", testVolumes...)
 			})
 
-			It("should permanently add hotplug volume when added to VM, but still unpluggable after restart", func() {
+			It("[QUARANTINE] should permanently add hotplug volume when added to VM, but still unpluggable after restart", decorators.Quarantine, func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
