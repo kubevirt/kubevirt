@@ -497,7 +497,9 @@ func (in *VirtualMachineInstancetypeSpec) DeepCopyInto(out *VirtualMachineInstan
 	if in.HostDevices != nil {
 		in, out := &in.HostDevices, &out.HostDevices
 		*out = make([]v1.HostDevice, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.IOThreadsPolicy != nil {
 		in, out := &in.IOThreadsPolicy, &out.IOThreadsPolicy
