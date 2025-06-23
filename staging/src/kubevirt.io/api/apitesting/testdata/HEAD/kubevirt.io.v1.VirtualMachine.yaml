@@ -466,8 +466,10 @@ spec:
           - name: nameValue
             virtiofs: {}
           gpus:
-          - deviceName: deviceNameValue
+          - claimName: claimNameValue
+            deviceName: deviceNameValue
             name: nameValue
+            requestName: requestNameValue
             tag: tagValue
             virtualGPUOptions:
               display:
@@ -475,8 +477,10 @@ spec:
                 ramFB:
                   enabled: true
           hostDevices:
-          - deviceName: deviceNameValue
+          - claimName: claimNameValue
+            deviceName: deviceNameValue
             name: nameValue
+            requestName: requestNameValue
             tag: tagValue
           inputs:
           - bus: busValue
@@ -676,6 +680,10 @@ spec:
           host: hostValue
           port: portValue
         timeoutSeconds: -14
+      resourceClaims:
+      - name: nameValue
+        resourceClaimName: resourceClaimNameValue
+        resourceClaimTemplateName: resourceClaimTemplateNameValue
       schedulerName: schedulerNameValue
       startStrategy: startStrategyValue
       subdomain: subdomainValue
