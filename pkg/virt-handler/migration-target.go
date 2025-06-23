@@ -287,9 +287,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		}
 	}
 
-	err := c.netStat.UpdateStatus(vmi, domain)
-
-	return err, false
+	return nil, false
 }
 
 func (c *MigrationTargetController) Run(threadiness int, stopCh chan struct{}) {
@@ -410,9 +408,6 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 		options := &cmdv1.VirtualMachineOptions{}
 		options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 		if err = client.FinalizeVirtualMachineMigration(vmi, options); err != nil {
-			return err
-		}
-		if err = c.netStat.UpdateStatus(vmi, domain); err != nil {
 			return err
 		}
 	}
