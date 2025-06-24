@@ -26,45 +26,34 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	corev1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Object Graph", func() {
 	var (
 		virtClient *kubecli.MockKubevirtClient
-		ctrl       *gomock.Controller
 		kubeClient *fake.Clientset
-		vmClient   *kubecli.MockVirtualMachineInterface
-		vmiClient  *kubecli.MockVirtualMachineInstanceInterface
-		graph      *ObjectGraph
 		vm         *v1.VirtualMachine
 	)
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
+		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		kubeClient = fake.NewSimpleClientset()
-		vmClient = kubecli.NewMockVirtualMachineInterface(ctrl)
-		vmiClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		graph = nil
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		virtClient.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachine("").Return(vmClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance("").Return(vmiClient).AnyTimes()
 
 		vm = &v1.VirtualMachine{
-			ObjectMeta: k8smetav1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-vm",
 				Namespace: "test-namespace",
 			},
@@ -79,7 +68,7 @@ var _ = Describe("Object Graph", func() {
 	Context("with empty options", func() {
 		It("should generate the correct object graph for VirtualMachine", func() {
 			vm = &v1.VirtualMachine{
-				ObjectMeta: k8smetav1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
 					Namespace: "test-namespace",
 				},
@@ -93,8 +82,8 @@ var _ = Describe("Object Graph", func() {
 									Threads: 1,
 								},
 								Resources: v1.ResourceRequirements{
-									Requests: corev1.ResourceList{
-										corev1.ResourceMemory: resource.MustParse("4Gi"),
+									Requests: k8sv1.ResourceList{
+										k8sv1.ResourceMemory: resource.MustParse("4Gi"),
 									},
 								},
 								Devices: v1.Devices{
@@ -142,7 +131,7 @@ var _ = Describe("Object Graph", func() {
 									Name: "rootdisk",
 									VolumeSource: v1.VolumeSource{
 										PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-											PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+											PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 												ClaimName: "test-root-disk-pvc",
 											},
 										},
@@ -182,9 +171,9 @@ var _ = Describe("Object Graph", func() {
 			}
 
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, &corev1.PodList{Items: []corev1.Pod{
+				return true, &k8sv1.PodList{Items: []k8sv1.Pod{
 					{
-						ObjectMeta: k8smetav1.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Name:      "virt-launcher-test-vmi",
 							Namespace: "test-namespace",
 							Labels: map[string]string{
@@ -197,7 +186,7 @@ var _ = Describe("Object Graph", func() {
 				}, nil
 			})
 
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(graphNodes.Children).To(HaveLen(4))
@@ -219,7 +208,7 @@ var _ = Describe("Object Graph", func() {
 
 		It("should generate object graph for VirtualMachineInstance", func() {
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: k8smetav1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vmi",
 					Namespace: "test-namespace",
 				},
@@ -240,7 +229,7 @@ var _ = Describe("Object Graph", func() {
 							Name: "root-disk",
 							VolumeSource: v1.VolumeSource{
 								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-									PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 										ClaimName: "vmi-root-pvc",
 									},
 								},
@@ -251,15 +240,15 @@ var _ = Describe("Object Graph", func() {
 			}
 
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, &corev1.PodList{Items: []corev1.Pod{
+				return true, &k8sv1.PodList{Items: []k8sv1.Pod{
 					{
-						ObjectMeta: k8smetav1.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Name:      "virt-launcher-test-vmi-pod",
 							Namespace: "test-namespace",
 							Labels: map[string]string{
 								"kubevirt.io": "virt-launcher",
 							},
-							OwnerReferences: []k8smetav1.OwnerReference{
+							OwnerReferences: []metav1.OwnerReference{
 								{
 									Kind: "VirtualMachineInstance",
 									Name: "test-vmi",
@@ -269,7 +258,7 @@ var _ = Describe("Object Graph", func() {
 				}, nil
 			})
 
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vmi)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(graphNodes.ObjectReference.Name).To(Equal("test-vmi"))
@@ -293,7 +282,7 @@ var _ = Describe("Object Graph", func() {
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, fmt.Errorf("error listing pods")
 			})
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).To(HaveOccurred())
 			Expect(graphNodes.Children).To(HaveLen(1))
@@ -303,27 +292,27 @@ var _ = Describe("Object Graph", func() {
 			vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 				Persistent: pointer.P(true),
 			}
-			pvc := &corev1.PersistentVolumeClaim{
-				ObjectMeta: k8smetav1.ObjectMeta{
+			pvc := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "backend-storage-pvc",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
 						"persistent-state-for": vm.Name,
 					},
 				},
-				Spec: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{
-						corev1.ReadWriteOnce,
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{
+						k8sv1.ReadWriteOnce,
 					},
-					Resources: corev1.VolumeResourceRequirements{},
+					Resources: k8sv1.VolumeResourceRequirements{},
 				},
 			}
 
 			kubeClient.Fake.PrependReactor("list", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, &corev1.PersistentVolumeClaimList{Items: []corev1.PersistentVolumeClaim{*pvc}}, nil
+				return true, &k8sv1.PersistentVolumeClaimList{Items: []k8sv1.PersistentVolumeClaim{*pvc}}, nil
 			})
 
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(graphNodes.Children).To(HaveLen(1))
@@ -331,14 +320,14 @@ var _ = Describe("Object Graph", func() {
 		})
 
 		It("should return empty graph for unrelated objects", func() {
-			pod := &corev1.Pod{
-				ObjectMeta: k8smetav1.ObjectMeta{
+			pod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-pod",
 					Namespace: "test-namespace",
 				},
 			}
 
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(pod)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(graphNodes.Children).To(BeEmpty())
@@ -364,7 +353,7 @@ var _ = Describe("Object Graph", func() {
 				},
 			}
 
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(graphNodes.Children).To(HaveLen(4))
@@ -400,7 +389,7 @@ var _ = Describe("Object Graph", func() {
 				Kind: "VirtualMachineClusterPreference",
 			}
 
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -442,7 +431,7 @@ var _ = Describe("Object Graph", func() {
 				},
 			}
 
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -460,7 +449,7 @@ var _ = Describe("Object Graph", func() {
 		It("should handle VM without status.created", func() {
 			vm.Status.Created = false
 
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(graphNodes.ObjectReference.Name).To(Equal("test-vm"))
@@ -478,15 +467,15 @@ var _ = Describe("Object Graph", func() {
 			vm.Status.Created = true
 
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, &corev1.PodList{Items: []corev1.Pod{
+				return true, &k8sv1.PodList{Items: []k8sv1.Pod{
 					{
-						ObjectMeta: k8smetav1.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Name:      "virt-launcher-pod-ownerref",
 							Namespace: "test-namespace",
 							Labels: map[string]string{
 								"kubevirt.io": "virt-launcher",
 							},
-							OwnerReferences: []k8smetav1.OwnerReference{
+							OwnerReferences: []metav1.OwnerReference{
 								{
 									Kind: "VirtualMachineInstance",
 									Name: vm.Name,
@@ -496,7 +485,7 @@ var _ = Describe("Object Graph", func() {
 				}, nil
 			})
 
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -509,10 +498,10 @@ var _ = Describe("Object Graph", func() {
 			vm.Status.Created = true
 
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, &corev1.PodList{Items: []corev1.Pod{}}, nil
+				return true, &k8sv1.PodList{Items: []k8sv1.Pod{}}, nil
 			})
 
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -521,7 +510,7 @@ var _ = Describe("Object Graph", func() {
 		})
 
 		It("should handle newGraphNode with invalid resource", func() {
-			graph = NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
 			node := graph.newGraphNode("test", "default", "invalid-resource", nil, false)
 			Expect(node).To(BeNil())
 		})
@@ -554,7 +543,7 @@ var _ = Describe("Object Graph", func() {
 			options := &v1.ObjectGraphOptions{
 				IncludeOptionalNodes: pointer.P(false),
 			}
-			graph = NewObjectGraph(virtClient, options)
+			graph := NewObjectGraph(virtClient, options)
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -570,13 +559,13 @@ var _ = Describe("Object Graph", func() {
 
 		It("should filter by label selector for config dependencies", func() {
 			options := &v1.ObjectGraphOptions{
-				LabelSelector: &k8smetav1.LabelSelector{
+				LabelSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						ObjectGraphDependencyLabel: "config",
 					},
 				},
 			}
-			graph = NewObjectGraph(virtClient, options)
+			graph := NewObjectGraph(virtClient, options)
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -592,7 +581,7 @@ var _ = Describe("Object Graph", func() {
 					Name: "test-volume",
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "test-pvc",
 							},
 						},
@@ -601,13 +590,13 @@ var _ = Describe("Object Graph", func() {
 			}
 
 			options := &v1.ObjectGraphOptions{
-				LabelSelector: &k8smetav1.LabelSelector{
+				LabelSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						ObjectGraphDependencyLabel: "storage",
 					},
 				},
 			}
-			graph = NewObjectGraph(virtClient, options)
+			graph := NewObjectGraph(virtClient, options)
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
