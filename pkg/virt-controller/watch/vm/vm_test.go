@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -3201,6 +3202,73 @@ var _ = Describe("VirtualMachine", func() {
 			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Annotations).To(Equal(annotations))
+		})
+
+		Context("dynamic annotations", func() {
+			const selectedKey = descheduler.EvictPodAnnotationKeyBeta
+			const ignoredKey = "anotherAnnotation"
+			const intitialValue = "initialValue"
+			const updatedValue = "updatedValue"
+			const anotherValue = "anotherValue"
+
+			DescribeTable("should sync selected dynamic annotations from spec.template to vmi", func(existingAnnotations, updatedVMAnnotations, expectedVMIAnnotations map[string]string, numExpectedPatches int) {
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.Template.ObjectMeta.Annotations = existingAnnotations
+				vmi.ObjectMeta.Annotations = existingAnnotations
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+
+				vm.Spec.Template.ObjectMeta.Annotations = updatedVMAnnotations
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+				sanityExecute(vm)
+
+				By("Expecting to see the updated VMI with the updated annotations")
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.ObjectMeta.Annotations).To(Equal(expectedVMIAnnotations))
+
+				Expect(kvtesting.FilterActions(&virtFakeClient.Fake, "patch", "virtualmachineinstances")).To(HaveLen(numExpectedPatches))
+
+			},
+				Entry("should copy selected annotations from VM.spec.template.metadata.annotations to VMI",
+					map[string]string{selectedKey: intitialValue},
+					map[string]string{selectedKey: updatedValue},
+					map[string]string{selectedKey: updatedValue},
+					1,
+				),
+				Entry("should remove selected annotations from VMI if missing in VM.spec.template.metadata.annotations",
+					map[string]string{selectedKey: intitialValue, ignoredKey: anotherValue},
+					map[string]string{ignoredKey: anotherValue},
+					map[string]string{ignoredKey: anotherValue},
+					1,
+				),
+				Entry("should do nothing if selected annotations are already equal",
+					map[string]string{selectedKey: intitialValue, ignoredKey: anotherValue},
+					map[string]string{selectedKey: intitialValue, ignoredKey: anotherValue},
+					map[string]string{selectedKey: intitialValue, ignoredKey: anotherValue},
+					0,
+				),
+				Entry("should update only selected annotations",
+					map[string]string{selectedKey: intitialValue, ignoredKey: anotherValue},
+					map[string]string{selectedKey: updatedValue, ignoredKey: updatedValue},
+					map[string]string{selectedKey: updatedValue, ignoredKey: anotherValue},
+					1,
+				),
+				Entry("should ignore other annotations on VM.spec.template.metadata.annotations",
+					map[string]string{selectedKey: intitialValue},
+					map[string]string{selectedKey: intitialValue, ignoredKey: updatedValue},
+					map[string]string{selectedKey: intitialValue},
+					0,
+				),
+			)
 		})
 
 		Context("VM memory dump", func() {
