@@ -212,16 +212,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preference := builder.NewPreference()
-
-			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
-				Create(context.Background(), preference, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
 			// Remove any requested resources from the VMI before generating the VM
 			vm := libvmi.NewVirtualMachine(vmi,
 				libvmi.WithInstancetype(instancetype.Name),
-				libvmi.WithPreference(preference.Name),
 				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
