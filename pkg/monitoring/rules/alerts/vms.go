@@ -78,5 +78,55 @@ var (
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
+		{
+			Alert: "GuestPeakVCPUQueueHighWarning",
+			Expr:  intstr.FromString("max_over_time(kubevirt_vmi_guest_vcpu_queue[30s]) > 10"),
+			Annotations: map[string]string{
+				"description": "VirtualMachineInstance {{ $labels.name }} hit a peak where CPU queue length > 10",
+				"summary":     "Guest Peak vCPU Queue within collection cycle > 10",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "GuestPeakVCPUQueueHighCritical",
+			Expr:  intstr.FromString("max_over_time(kubevirt_vmi_guest_vcpu_queue[30s]) > 20"),
+			Annotations: map[string]string{
+				"description": "VirtualMachineInstance {{ $labels.name }} hit a peak where CPU queue length > 20",
+				"summary":     "Guest Peak vCPU Queue within collection cycle > 20",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "KubeVirtVMHighCPUUsageWarning",
+			Expr:  intstr.FromString("(100 * kubevirt_vmi_cpu_usage_hertz / kubevirt_vmi_cpu_budget_hertz) > 80"),
+			For:   ptr.To(promv1.Duration("2m")),
+			Annotations: map[string]string{
+				"description": "VM {{ $labels.name }} in namespace {{ $labels.namespace }} is using {{ $value }} % of its CPU budget.",
+				"summary":     "CPU usage ≥ 80 % of vCPU budget",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "KubeVirtVMHighCPUUsageCritical",
+			Expr:  intstr.FromString("(100 * kubevirt_vmi_cpu_usage_hertz / kubevirt_vmi_cpu_budget_hertz) > 90"),
+			For:   ptr.To(promv1.Duration("2m")),
+			Annotations: map[string]string{
+				"description": "VM {{ $labels.name }} in namespace {{ $labels.namespace }} reached {{ $value }} % of its CPU budget.",
+				"summary":     "CPU usage ≥ 90 % of vCPU budget",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
 	}
 )
