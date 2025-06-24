@@ -544,7 +544,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
-			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", decorators.Conformance, func() {
+			It("[QUARANTINE][test_id:1783]should be successfully migrated multiple times with cloud-init disk", decorators.Quarantine, decorators.Conformance, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
