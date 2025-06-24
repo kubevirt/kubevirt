@@ -37,6 +37,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -75,6 +77,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
+
+		config.EnableFeatureGate(featuregate.PasstIPStackMigration)
 	})
 
 	BeforeEach(OncePerOrdered, func() {
