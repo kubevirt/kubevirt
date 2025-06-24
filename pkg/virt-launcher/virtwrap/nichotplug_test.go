@@ -26,7 +26,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
-
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -274,33 +273,12 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 
 var _ = Describe("domain network interfaces resources", func() {
 
-	DescribeTable("are ignored when",
-		func(vmiSpecIfaces []v1.Interface) {
-			vmi := &v1.VirtualMachineInstance{}
-			vmi.Spec.Domain.Devices.Interfaces = vmiSpecIfaces
-			domainSpec := &api.DomainSpec{}
-			countCalls := 0
-			_, _ = withNetworkIfacesResources(vmi, domainSpec, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
-				countCalls++
-				return nil, nil
-			})
-			// The counter tracks the tested function behavior.
-			// It is expected that the callback function is called only once when there is no need
-			// to add placeholders interfaces.
-			Expect(countCalls).To(Equal(1))
-		},
-		Entry("no defined interfaces exist", nil),
-		Entry("the reserved interfaces count is less than defined interfaces", []v1.Interface{{}, {}, {}, {}, {}}),
-		Entry("the interface resource-request is equal to the defined interfaces", []v1.Interface{{}, {}, {}, {}}),
-	)
-
-	It("are ignored when placePCIDevicesOnRootComplex annotation is used on the VMI", func() {
+	It("are ignored when 0 count is specified", func() {
 		vmi := &v1.VirtualMachineInstance{}
-		vmi.Annotations = map[string]string{v1.PlacePCIDevicesOnRootComplex: "true"}
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{}}
 		domainSpec := &api.DomainSpec{}
 		countCalls := 0
-		_, _ = withNetworkIfacesResources(vmi, domainSpec, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+		_, _ = withNetworkIfacesResources(vmi, domainSpec, 0, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
 			countCalls++
 			return nil, nil
 		})
@@ -310,7 +288,7 @@ var _ = Describe("domain network interfaces resources", func() {
 		Expect(countCalls).To(Equal(1))
 	})
 
-	It("are reserved when the default reserved interfaces count is larger than the defined interfaces", func() {
+	It("are reserved when the default reserved interfaces count is 3", func() {
 		vmi := &v1.VirtualMachineInstance{}
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{}}
 		domainSpec := &api.DomainSpec{}
@@ -327,14 +305,14 @@ var _ = Describe("domain network interfaces resources", func() {
 
 		originalDomainSpec := domainSpec.DeepCopy()
 		countCalls := 0
-		_, err = withNetworkIfacesResources(vmi, domainSpec, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+		_, err = withNetworkIfacesResources(vmi, domainSpec, 3, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
 			// Tracking the behavior of the tested function.
 			// It is expected that the callback function is called twice when placeholders are needed.
 			// The first time it is called with the placeholders in place.
 			// The second time it is called without the placeholders.
 			countCalls++
 			if countCalls == 1 {
-				Expect(s.Devices.Interfaces).To(HaveLen(ReservedInterfaces))
+				Expect(s.Devices.Interfaces).To(HaveLen(4))
 			} else {
 				Expect(s.Devices.Interfaces).To(Equal(originalDomainSpec.Devices.Interfaces))
 			}
