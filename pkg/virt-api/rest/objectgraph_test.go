@@ -20,10 +20,17 @@
 package rest
 
 import (
+	"crypto/tls"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"strings"
 
+	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -32,30 +39,36 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
+
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Object Graph", func() {
 	var (
-		virtClient *kubecli.MockKubevirtClient
+		kvClient   *kubecli.MockKubevirtClient
 		kubeClient *fake.Clientset
 		vm         *v1.VirtualMachine
 	)
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		kubeClient = fake.NewSimpleClientset()
+		kvClient = kubecli.NewMockKubevirtClient(ctrl)
 
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		kubeClient = fake.NewSimpleClientset()
+		kvClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		vm = &v1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-vm",
-				Namespace: "test-namespace",
+				Name:      testVMName,
+				Namespace: metav1.NamespaceDefault,
 			},
 			Spec: v1.VirtualMachineSpec{
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -63,6 +76,95 @@ var _ = Describe("Object Graph", func() {
 				},
 			},
 		}
+	})
+
+	Context("endpoint handler", func() {
+		var (
+			request    *restful.Request
+			response   *restful.Response
+			recorder   *httptest.ResponseRecorder
+			virtClient *kubevirtfake.Clientset
+			kv         *v1.KubeVirt
+			kvStore    cache.Store
+			app        *SubresourceAPIApp
+		)
+
+		BeforeEach(func() {
+			request = restful.NewRequest(&http.Request{})
+			request.PathParameters()["name"] = testVMName
+			request.PathParameters()["namespace"] = metav1.NamespaceDefault
+			recorder = httptest.NewRecorder()
+			response = restful.NewResponse(recorder)
+			backend := ghttp.NewTLSServer()
+			backendAddr := strings.Split(backend.Addr(), ":")
+			backendPort, err := strconv.Atoi(backendAddr[1])
+			Expect(err).ToNot(HaveOccurred())
+
+			virtClient = kubevirtfake.NewSimpleClientset()
+			kvClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+			kvClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+
+			kv = &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubevirt",
+					Namespace: "kubevirt",
+				},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{featuregate.ObjectGraph},
+						},
+					},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+				},
+			}
+			var config *virtconfig.ClusterConfig
+			config, _, kvStore = testutils.NewFakeClusterConfigUsingKV(kv)
+			app = NewSubresourceAPIApp(kvClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		})
+
+		disableFeatureGates := func() {
+			newKV := kv.DeepCopy()
+			newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, newKV)
+		}
+
+		AfterEach(func() {
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+		})
+
+		When("VMIObjectGraph API request arrives", func() {
+			It("should return an error if the FG is not enabled", func() {
+				disableFeatureGates()
+				app.VMIObjectGraph(request, response)
+				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+				ExpectMessage(recorder, Equal("ObjectGraph feature gate not enabled: Unable to return object graph."))
+			})
+
+			It("should return an error if the VMI is not found", func() {
+				app.VMIObjectGraph(request, response)
+				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
+				ExpectMessage(recorder, Equal("virtualmachineinstance.kubevirt.io \"testvm\" not found"))
+			})
+		})
+
+		When("VMObjectGraph API request arrives", func() {
+			It("should return an error if the FG is not enabled", func() {
+				disableFeatureGates()
+				app.VMObjectGraph(request, response)
+				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+				ExpectMessage(recorder, Equal("ObjectGraph feature gate not enabled: Unable to return object graph."))
+			})
+
+			It("should return an error if the VM is not found", func() {
+				app.VMObjectGraph(request, response)
+				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
+				ExpectMessage(recorder, Equal("virtualmachine.kubevirt.io \"testvm\" not found"))
+			})
+		})
+
 	})
 
 	Context("with empty options", func() {
@@ -186,7 +288,7 @@ var _ = Describe("Object Graph", func() {
 				}, nil
 			})
 
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(graphNodes.Children).To(HaveLen(4))
@@ -258,7 +360,7 @@ var _ = Describe("Object Graph", func() {
 				}, nil
 			})
 
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vmi)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(graphNodes.ObjectReference.Name).To(Equal("test-vmi"))
@@ -282,7 +384,7 @@ var _ = Describe("Object Graph", func() {
 			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, fmt.Errorf("error listing pods")
 			})
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).To(HaveOccurred())
 			Expect(graphNodes.Children).To(HaveLen(1))
@@ -312,7 +414,7 @@ var _ = Describe("Object Graph", func() {
 				return true, &k8sv1.PersistentVolumeClaimList{Items: []k8sv1.PersistentVolumeClaim{*pvc}}, nil
 			})
 
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(graphNodes.Children).To(HaveLen(1))
@@ -327,7 +429,7 @@ var _ = Describe("Object Graph", func() {
 				},
 			}
 
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(pod)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(graphNodes.Children).To(BeEmpty())
@@ -353,7 +455,7 @@ var _ = Describe("Object Graph", func() {
 				},
 			}
 
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(graphNodes.Children).To(HaveLen(4))
@@ -389,7 +491,7 @@ var _ = Describe("Object Graph", func() {
 				Kind: "VirtualMachineClusterPreference",
 			}
 
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -431,7 +533,7 @@ var _ = Describe("Object Graph", func() {
 				},
 			}
 
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -449,10 +551,10 @@ var _ = Describe("Object Graph", func() {
 		It("should handle VM without status.created", func() {
 			vm.Status.Created = false
 
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(graphNodes.ObjectReference.Name).To(Equal("test-vm"))
+			Expect(graphNodes.ObjectReference.Name).To(Equal(testVMName))
 
 			vmiFound := false
 			for _, child := range graphNodes.Children {
@@ -485,7 +587,7 @@ var _ = Describe("Object Graph", func() {
 				}, nil
 			})
 
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -501,7 +603,7 @@ var _ = Describe("Object Graph", func() {
 				return true, &k8sv1.PodList{Items: []k8sv1.Pod{}}, nil
 			})
 
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -510,7 +612,7 @@ var _ = Describe("Object Graph", func() {
 		})
 
 		It("should handle newGraphNode with invalid resource", func() {
-			graph := NewObjectGraph(virtClient, &v1.ObjectGraphOptions{})
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			node := graph.newGraphNode("test", "default", "invalid-resource", nil, false)
 			Expect(node).To(BeNil())
 		})
@@ -543,7 +645,7 @@ var _ = Describe("Object Graph", func() {
 			options := &v1.ObjectGraphOptions{
 				IncludeOptionalNodes: pointer.P(false),
 			}
-			graph := NewObjectGraph(virtClient, options)
+			graph := NewObjectGraph(kvClient, options)
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -565,7 +667,7 @@ var _ = Describe("Object Graph", func() {
 					},
 				},
 			}
-			graph := NewObjectGraph(virtClient, options)
+			graph := NewObjectGraph(kvClient, options)
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -596,7 +698,7 @@ var _ = Describe("Object Graph", func() {
 					},
 				},
 			}
-			graph := NewObjectGraph(virtClient, options)
+			graph := NewObjectGraph(kvClient, options)
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
 
