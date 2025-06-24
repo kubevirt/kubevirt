@@ -106,7 +106,7 @@ func (c *Controller) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8s
 		}
 
 		if volumesNotReadyForDelete > 0 {
-			log.Log.Object(vmi).V(3).Infof("Not deleting attachment pod %s, because there are still volumes to be unmounted", attachmentPod.Name)
+			log.Log.Object(vmi).V(3).Infof("Not deleting attachment pod %s, because there are still %d volumes to be unmounted", attachmentPod.Name, volumesNotReadyForDelete)
 			continue
 		}
 

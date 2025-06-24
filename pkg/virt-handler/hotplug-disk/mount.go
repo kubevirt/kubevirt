@@ -286,12 +286,12 @@ func (m *volumeMounter) mountHotplugVolume(
 	logger.V(4).Infof("Hotplug check volume name: %s", volumeName)
 	if sourceUID != "" {
 		if m.isBlockVolume(&vmi.Status, volumeName) {
-			logger.V(4).Infof("Mounting block volume: %s", volumeName)
+			logger.V(3).Infof("Mounting block volume: %s", volumeName)
 			if err := m.mountBlockHotplugVolume(vmi, volumeName, sourceUID, record, cgroupManager); err != nil {
 				return fmt.Errorf("failed to mount block hotplug volume %s: %w", volumeName, err)
 			}
 		} else {
-			logger.V(4).Infof("Mounting file system volume: %s", volumeName)
+			logger.V(3).Infof("Mounting file system volume: %s", volumeName)
 			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, record, mountDirectory); err != nil {
 				return fmt.Errorf("failed to mount filesystem hotplug volume %s: %w", volumeName, err)
 			}
@@ -635,26 +635,31 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 			}
 			return err
 		}
-		for _, volumeStatus := range vmi.Status.VolumeStatus {
-			if volumeStatus.HotplugVolume == nil {
+		// Ideally we would be looking at the actual disks in the domain but:
+		// 1. The domain is built from the VMI spec
+		// 2. The domain syncs before unmount is called
+		// 3. Unmount will not get called if VMI sync fails
+		// we should be good
+		for _, volume := range vmi.Spec.Volumes {
+			if !storagetypes.IsHotplugVolume(&volume) {
 				continue
 			}
 			var path *safepath.Path
 			var err error
-			if m.isBlockVolume(&vmi.Status, volumeStatus.Name) {
-				path, err = safepath.JoinNoFollow(basePath, volumeStatus.Name)
+			if m.isBlockVolume(&vmi.Status, volume.Name) {
+				path, err = safepath.JoinNoFollow(basePath, volume.Name)
 				if errors.Is(err, os.ErrNotExist) {
 					// already unmounted or never mounted
 					continue
 				}
-			} else if m.isDirectoryMounted(&vmi.Status, volumeStatus.Name) {
-				path, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
+			} else if m.isDirectoryMounted(&vmi.Status, volume.Name) {
+				path, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volume.Name, false)
 				if errors.Is(err, os.ErrNotExist) {
 					// already unmounted or never mounted
 					continue
 				}
 			} else {
-				path, err = m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
+				path, err = m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume.Name, false)
 				if errors.Is(err, os.ErrNotExist) {
 					// already unmounted or never mounted
 					continue
@@ -686,6 +691,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 				} else if err := m.unmountFileSystemHotplugVolumes(diskPath); err != nil {
 					return err
 				}
+				log.Log.Object(vmi).V(3).Infof("Unmounted hotplug volume path %s", diskPath)
 			} else {
 				newRecord.MountTargetEntries = append(newRecord.MountTargetEntries, vmiMountTargetEntry{
 					TargetFile: unsafepath.UnsafeAbsolute(diskPath.Raw()),
