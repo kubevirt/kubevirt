@@ -355,6 +355,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	netStat := netsetup.NewNetStat()
 	migrationTargetController, err := virthandler.NewMigrationTargetController(
 		recorder,
 		app.virtCli,
@@ -370,7 +371,7 @@ func (app *virtHandlerApp) Run() {
 		migrationProxy,
 		&capabilities,
 		netConf,
-		netsetup.NewNetStat(),
+		netStat,
 		netbinding.MemoryCalculator{},
 	)
 	if err != nil {
@@ -395,7 +396,7 @@ func (app *virtHandlerApp) Run() {
 		&capabilities,
 		hostCpuModel,
 		netConf,
-		netsetup.NewNetStat(),
+		netStat,
 	)
 	if err != nil {
 		panic(err)
