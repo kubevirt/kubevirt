@@ -446,12 +446,16 @@ var _ = Describe("VMI status synchronization controller", func() {
 			err                  error
 			targetVMI, sourceVMI *virtv1.VirtualMachineInstance
 			localTCPConn         net.Listener
+			done                 chan struct{}
 		)
 
 		BeforeEach(func() {
 			localTCPConn, err = controller.createTcpListener()
 			Expect(err).ToNot(HaveOccurred())
+			done = make(chan struct{})
+
 			go func() {
+				defer close(done)
 				controller.grpcServer.Serve(localTCPConn)
 			}()
 
@@ -478,6 +482,9 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 		AfterEach(func() {
 			controller.closeConnections()
+			if done != nil {
+				<-done
+			}
 		})
 
 		Context("handleSourceState", func() {
