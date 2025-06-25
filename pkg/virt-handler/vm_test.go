@@ -321,6 +321,66 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}
 	}
 
+	Context("During upgrades, virt-handler", func() {
+		It("should be able to read migrationConfiguration from older controller and start the migration", func() {
+			// NOTE! When a new field in the migration configuration is added,
+			// it is great to run this test without any change in the MigrationConfiguration below,
+			// but adjusting the expected cmdclient.MigrationOptions.
+			// This ensures that during upgrades, the migrationConfigurations that
+			// are set by the older migration controller can be read by the updated virt-handler, without
+			// panic.
+			var migrationConfiguration = &v1.MigrationConfiguration{
+				BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
+				ProgressTimeout:         pointer.P(int64(150)),
+				AllowAutoConverge:       pointer.P(false),
+				CompletionTimeoutPerGiB: pointer.P(int64(50)),
+				UnsafeMigrationOverride: pointer.P(false),
+				AllowPostCopy:           pointer.P(true),
+			}
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Labels = make(map[string]string)
+			vmi.Status.NodeName = host
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
+			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:                     "othernode",
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     host,
+				MigrationUID:                   "123",
+				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+				MigrationConfiguration:         migrationConfiguration,
+			}
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domainFeeder.Add(domain)
+			vmiFeeder.Add(vmi)
+			expectedOptions := &cmdclient.MigrationOptions{
+				Bandwidth:                resource.MustParse("0Mi"),
+				ProgressTimeout:          150,
+				CompletionTimeoutPerGiB:  50,
+				UnsafeMigration:          false,
+				AllowPostCopy:            true,
+				AllowWorkloadDisruption:  true,
+				AllowAutoConverge:        false,
+				ParallelMigrationThreads: pointer.P(uint(8)),
+			}
+			client.EXPECT().MigrateVirtualMachine(vmi, expectedOptions)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, VMIMigrating)
+		})
+	})
+
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
 		BeforeEach(func() {
 			diskutils.MockDefaultOwnershipManager()
