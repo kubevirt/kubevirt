@@ -159,6 +159,10 @@ func Execute() {
 	}
 
 	if *dumpInstallStrategy {
+		err = install.DeleteOldInstallStrategyConfigMaps(app.clientSet)
+		if err != nil {
+			log.Log.Infof("failed to delete old install strategy configmaps: %v", err)
+		}
 		err = install.DumpInstallStrategyToConfigMap(app.clientSet, app.operatorNamespace)
 		if err != nil {
 			golog.Fatal(err)
