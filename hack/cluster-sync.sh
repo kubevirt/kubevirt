@@ -40,8 +40,8 @@ function main() {
         exit 1
     fi
 
-    ./hack/deploy-to-nodes.sh
     ./hack/cluster-deploy.sh
+    ./hack/deploy-to-nodes.sh
 }
 
 main "$@"

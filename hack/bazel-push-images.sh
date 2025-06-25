@@ -58,6 +58,7 @@ case ${ARCHITECTURE} in
         winrmcli
         network-slirp-binding
         network-passt-binding
+        network-passt-binding-cni
     "
     ;;
 esac

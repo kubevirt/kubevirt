@@ -29,7 +29,6 @@ mkdir -p ${CMD_OUT_DIR}/dump
 mkdir -p ${CMD_OUT_DIR}/perfscale-audit
 mkdir -p ${CMD_OUT_DIR}/perfscale-load-generator
 mkdir -p ${CMD_OUT_DIR}/cluster-profiler
-mkdir -p ${CMD_OUT_DIR}/cniplugins
 
 # Build all binaries for amd64
 bazel build \
@@ -65,11 +64,6 @@ bazel run \
 bazel run \
     --config="$(uname -m)" \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl
-
-# Copy kubevirt-passt-binding binary to a reachable place outside of the build container
-bazel run \
-    --config=${ARCHITECTURE} \
-    :build-cni-passt-binding -- ${CMD_OUT_DIR}/cniplugins/kubevirt-passt-binding
 
 # compile virtctl for amd64 and arm64
 
