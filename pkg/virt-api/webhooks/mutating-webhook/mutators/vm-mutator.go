@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -42,7 +41,6 @@ import (
 
 type instancetypeVMsMutator interface {
 	Mutate(vm, oldVM *v1.VirtualMachine, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
-	FindPreference(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 }
 
 type VMsMutator struct {
@@ -93,8 +91,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	// Set VM defaults
 	log.Log.Object(vm).V(4).Info("Apply defaults")
 
-	preferenceSpec, _ := mutator.instancetypeMutator.FindPreference(vm)
-	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig, preferenceSpec)
+	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig)
 
 	patchBytes, err := patch.New(
 		patch.WithReplace("/spec", vm.Spec),
