@@ -508,9 +508,19 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		return fmt.Errorf("failed to handle migration proxy: %v", err)
 	}
 
-	migrationConfiguration := vmi.Status.MigrationState.MigrationConfiguration
-	if migrationConfiguration == nil {
+	var migrationConfiguration *v1.MigrationConfiguration
+	if vmi.Status.MigrationState.MigrationConfiguration == nil {
 		migrationConfiguration = c.clusterConfig.GetMigrationConfiguration()
+	} else {
+		migrationConfiguration = vmi.Status.MigrationState.MigrationConfiguration.DeepCopy()
+	}
+
+	// This check is only for backward compatibility.
+	// During upgrade, AllowWorkloadDisruption could be nil since the migration controller is
+	// updated later the virt-handler.
+	// This check can be removed in future
+	if migrationConfiguration.AllowWorkloadDisruption == nil {
+		migrationConfiguration.AllowWorkloadDisruption = pointer.P(*migrationConfiguration.AllowPostCopy)
 	}
 
 	options := &cmdclient.MigrationOptions{
