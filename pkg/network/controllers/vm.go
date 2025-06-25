@@ -72,42 +72,58 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 		return vm, nil
 	}
 
-	var indexedStatusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface
+	var (
+		vmiIfacesByName        map[string]v1.Interface
+		vmiIfaceStatusesByName map[string]v1.VirtualMachineInstanceNetworkInterface
+	)
+
 	if vmi != nil {
-		indexedStatusIfaces = vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
+		vmiIfaceStatusesByName = vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
 			func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
 		)
+
+		updatedVMI, err := v.syncVMIInterfaces(vm, vmi, vmiIfaceStatusesByName)
+		if err != nil {
+			return vm, err
+		}
+
+		vmiIfacesByName = vmispec.IndexInterfaceSpecByName(updatedVMI.Spec.Domain.Devices.Interfaces)
 	}
 
 	vmCopy := vm.DeepCopy()
-	ifaces, networks := clearDetachedInterfaces(
+	ifaces, networks := clearDetachedIfacesFromVM(
 		vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces,
-		vmCopy.Spec.Template.Spec.Networks, indexedStatusIfaces,
+		vmCopy.Spec.Template.Spec.Networks,
+		vmiIfacesByName,
+		vmiIfaceStatusesByName,
 	)
 	vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
 	vmCopy.Spec.Template.Spec.Networks = networks
 
-	if vmi == nil {
-		return vmCopy, nil
-	}
+	return vmCopy, nil
+}
 
+func (v *VMController) syncVMIInterfaces(
+	vm *v1.VirtualMachine,
+	vmi *v1.VirtualMachineInstance,
+	indexedStatusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface,
+) (*v1.VirtualMachineInstance, error) {
 	vmiCopy := vmi.DeepCopy()
-	ifaces, networks = clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
+	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
+	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmiCopy, hasOrdinalIfaces)
+	vmiCopy.Spec = *updatedVmiSpec
+
+	ifaces, networks := clearDetachedIfacesFromVMI(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
 	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 	vmiCopy.Spec.Networks = networks
 
-	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
-	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
-	vmiCopy.Spec = *updatedVmiSpec
-
 	if err := v.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
-		return vm, &syncError{
+		return nil, &syncError{
 			fmt.Errorf("error encountered when trying to patch vmi: %v", err),
 			hotPlugNetworkInterfaceErrorReason,
 		}
 	}
-
-	return vmCopy, nil
+	return vmiCopy, nil
 }
 
 func (v *VMController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceSpec, vmi *v1.VirtualMachineInstance) error {
@@ -164,7 +180,7 @@ func applyDynamicIfaceRequestOnVMI(
 	return vmiSpecCopy
 }
 
-func clearDetachedInterfaces(
+func clearDetachedIfacesFromVMI(
 	specIfaces []v1.Interface,
 	specNets []v1.Network,
 	ifaceStatusesByName map[string]v1.VirtualMachineInstanceNetworkInterface,
@@ -173,6 +189,26 @@ func clearDetachedInterfaces(
 
 	for _, iface := range specIfaces {
 		if _, existsInStatus := ifaceStatusesByName[iface.Name]; iface.State != v1.InterfaceStateAbsent || existsInStatus {
+			retainedIfaces = append(retainedIfaces, iface)
+		}
+	}
+
+	return retainedIfaces, vmispec.FilterNetworksByInterfaces(specNets, retainedIfaces)
+}
+
+func clearDetachedIfacesFromVM(
+	specIfaces []v1.Interface,
+	specNets []v1.Network,
+	vmiIfacesByName map[string]v1.Interface,
+	vmiIfaceStatusesByName map[string]v1.VirtualMachineInstanceNetworkInterface,
+) ([]v1.Interface, []v1.Network) {
+	var retainedIfaces []v1.Interface
+
+	for _, iface := range specIfaces {
+		_, existsInVMISpec := vmiIfacesByName[iface.Name]
+		_, existsInVMIStatus := vmiIfaceStatusesByName[iface.Name]
+
+		if iface.State != v1.InterfaceStateAbsent || existsInVMISpec || existsInVMIStatus {
 			retainedIfaces = append(retainedIfaces, iface)
 		}
 	}
