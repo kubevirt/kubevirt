@@ -44,12 +44,27 @@ func MockDefaultOwnershipManager() {
 type nonOpManager struct {
 }
 
-func (no *nonOpManager) UnsafeSetFileOwnership(file string) error {
+func (no *nonOpManager) UnsafeSetFileOwnership(_ string) error {
 	return nil
 }
 
-func (no *nonOpManager) SetFileOwnership(file *safepath.Path) error {
+func (no *nonOpManager) SetFileOwnership(_ *safepath.Path) error {
 	return nil
+}
+
+func MockDefaultOwnershipManagerWithFailure() {
+	DefaultOwnershipManager = &failureManager{}
+}
+
+type failureManager struct {
+}
+
+func (no *failureManager) UnsafeSetFileOwnership(_ string) error {
+	panic("unexpected call to UnsafeSetFileOwnership")
+}
+
+func (no *failureManager) SetFileOwnership(_ *safepath.Path) error {
+	panic("unexpected call to SetFileOwnership")
 }
 
 type OwnershipManager struct {
