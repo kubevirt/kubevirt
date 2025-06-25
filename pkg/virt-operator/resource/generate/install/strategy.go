@@ -41,7 +41,9 @@ import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -353,12 +355,34 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorut
 }
 
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
+	// Clean up existing install strategy ConfigMaps
+	labelSelector := labels.NewSelector()
+	requirement, err := labels.NewRequirement(v1.InstallStrategyLabel, selection.Exists, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create label selector requirement: %v", err)
+	}
+	labelSelector = labelSelector.Add(*requirement)
 
 	config, err := operatorutil.GetConfigFromEnv()
 	if err != nil {
 		return err
 	}
 
+	existing, err := clientset.CoreV1().ConfigMaps(config.GetNamespace()).List(context.Background(), metav1.ListOptions{
+		LabelSelector: labelSelector.String(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list old install strategy configmaps: %v", err)
+	}
+
+	for _, cm := range existing.Items {
+		err := clientset.CoreV1().ConfigMaps(config.GetNamespace()).Delete(context.Background(), cm.Name, metav1.DeleteOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to delete old install strategy configmap %s: %v", cm.Name, err)
+		}
+	}
+
+	// Create the new one
 	monitorNamespace, err := getMonitorNamespace(clientset.CoreV1(), config)
 	if err != nil {
 		return err
@@ -371,15 +395,7 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNa
 
 	_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Create(context.Background(), configMap, metav1.CreateOptions{})
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			// force update if already exists
-			_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Update(context.Background(), configMap, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
+		return fmt.Errorf("failed to create new install strategy configmap: %v", err)
 	}
 
 	return nil

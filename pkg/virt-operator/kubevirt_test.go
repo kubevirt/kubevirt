@@ -3358,10 +3358,60 @@ var _ = Describe("KubeVirt Operator", func() {
 
 				return true, create.GetObject(), nil
 			})
+			kvTestData.kubeClient.Fake.PrependReactor("list", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, nil
+			})
 
 			// This generates and posts the install strategy config map
-			install.DumpInstallStrategyToConfigMap(kvTestData.virtClient, NAMESPACE)
+			err = install.DumpInstallStrategyToConfigMap(kvTestData.virtClient, NAMESPACE)
+			Expect(err).ToNot(HaveOccurred())
 		})
+
+		It("should delete old install strategy on upgrade", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			config, err := util.GetConfigFromEnv()
+			Expect(err).ToNot(HaveOccurred())
+
+			kvTestData.kubeClient.Fake.PrependReactor("create", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				return true, create.GetObject(), nil
+			})
+
+			kvTestData.kubeClient.Fake.PrependReactor("list", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, runtime.Object(
+					&k8sv1.ConfigMapList{
+						Items: []k8sv1.ConfigMap{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      "kubevirt-install-strategy-fake",
+									Namespace: config.Namespace,
+								},
+							},
+						},
+					}), nil
+			})
+
+			kvTestData.kubeClient.Fake.PrependReactor("delete", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				del, ok := action.(testing.DeleteAction)
+				Expect(ok).To(BeTrue())
+
+				configMapName := del.GetName()
+				Expect(configMapName).To(Equal("kubevirt-install-strategy-fake"))
+
+				configMapNamespace := del.GetNamespace()
+				Expect(configMapNamespace).To(Equal(config.Namespace))
+
+				return true, nil, nil
+			})
+
+			err = install.DumpInstallStrategyToConfigMap(kvTestData.virtClient, NAMESPACE)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 	})
 })
 
