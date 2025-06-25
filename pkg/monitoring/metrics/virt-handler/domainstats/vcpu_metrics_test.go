@@ -61,7 +61,7 @@ var _ = Describe("vcpu metrics", func() {
 			crs := vcpuMetrics{}.Collect(vmiReport)
 			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(metric, expectedValue)))
 		},
-			Entry("kubevirt_vmi_vcpu_seconds_total", vcpuSeconds, microsecondsToSeconds(1)),
+			Entry("kubevirt_vmi_vcpu_seconds_total", vcpuSeconds, nanosecondsToSeconds(1)),
 			Entry("kubevirt_vmi_vcpu_wait_seconds_total", vcpuWaitSeconds, nanosecondsToSeconds(2)),
 			Entry("kubevirt_vmi_vcpu_delay_seconds_total", vcpuDelaySeconds, nanosecondsToSeconds(3)),
 		)
