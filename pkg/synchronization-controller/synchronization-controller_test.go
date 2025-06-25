@@ -446,12 +446,16 @@ var _ = Describe("VMI status synchronization controller", func() {
 			err                  error
 			targetVMI, sourceVMI *virtv1.VirtualMachineInstance
 			localTCPConn         net.Listener
+			done                 chan struct{}
 		)
 
 		BeforeEach(func() {
 			localTCPConn, err = controller.createTcpListener()
 			Expect(err).ToNot(HaveOccurred())
+			done = make(chan struct{})
+
 			go func() {
+				defer close(done)
 				controller.grpcServer.Serve(localTCPConn)
 			}()
 
@@ -478,6 +482,9 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 		AfterEach(func() {
 			controller.closeConnections()
+			if done != nil {
+				<-done
+			}
 		})
 
 		Context("handleSourceState", func() {
@@ -632,24 +639,31 @@ var _ = Describe("VMI status synchronization controller", func() {
 	Context("target controller different than source", func() {
 		// Migrating from one cluster to another
 		var (
-			err                  error
-			remoteController     *SynchronizationController
-			targetVMI, sourceVMI *virtv1.VirtualMachineInstance
-			remoteURL, localURL  string
+			err                                  error
+			remoteController                     *SynchronizationController
+			targetVMI, sourceVMI                 *virtv1.VirtualMachineInstance
+			remoteURL, localURL                  string
+			controllerDone, remoteControllerDone chan struct{}
 		)
 
 		BeforeEach(func() {
 			remoteMigrationInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
 			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9186)
 			Expect(err).ToNot(HaveOccurred())
+
 			remoteTCPConn, err := remoteController.createTcpListener()
 			Expect(err).ToNot(HaveOccurred())
+			remoteControllerDone = make(chan struct{})
 			go func() {
+				defer close(remoteControllerDone)
 				remoteController.grpcServer.Serve(remoteTCPConn)
 			}()
+
 			localTCPConn, err := controller.createTcpListener()
 			Expect(err).ToNot(HaveOccurred())
+			controllerDone = make(chan struct{})
 			go func() {
+				defer close(controllerDone)
 				controller.grpcServer.Serve(localTCPConn)
 			}()
 
@@ -680,6 +694,12 @@ var _ = Describe("VMI status synchronization controller", func() {
 		AfterEach(func() {
 			remoteController.closeConnections()
 			controller.closeConnections()
+			if remoteControllerDone != nil {
+				<-remoteControllerDone
+			}
+			if controllerDone != nil {
+				<-controllerDone
+			}
 		})
 
 		It("should properly update both source and target if both handlers are called", func() {
