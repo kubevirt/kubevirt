@@ -18,6 +18,9 @@ Version information. Type: Gauge.
 ### kubevirt_memory_delta_from_requested_bytes
 The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api and virt-operator. Type: Gauge.
 
+### kubevirt_network_attachment_definition_info
+Details about additional network interfaces attached to Virtual Machines Type: Gauge.
+
 ### kubevirt_nodes_with_kvm
 The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available. Type: Gauge.
 
