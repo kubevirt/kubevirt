@@ -163,7 +163,7 @@ func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) 
 			return nil, err
 		}
 		return h.storeControllerRevision(vm, instancetype)
-	case api.ClusterSingularResourceName, api.ClusterPluralResourceName:
+	case api.ClusterSingularResourceName, api.ClusterPluralResourceName, "":
 		clusterInstancetype, err := find.NewClusterInstancetypeFinder(h.clusterInstancetypeStore, h.virtClient).Find(vm)
 		if err != nil {
 			return nil, err
@@ -229,7 +229,7 @@ func (h *revisionHandler) createPreferenceRevision(vm *virtv1.VirtualMachine) (*
 			return nil, err
 		}
 		return h.storeControllerRevision(vm, preference)
-	case api.ClusterSingularPreferenceResourceName, api.ClusterPluralPreferenceResourceName:
+	case api.ClusterSingularPreferenceResourceName, api.ClusterPluralPreferenceResourceName, "":
 		clusterPreference, err := preferenceFind.NewClusterPreferenceFinder(h.clusterPreferenceStore, h.virtClient).FindPreference(vm)
 		if err != nil {
 			return nil, err
