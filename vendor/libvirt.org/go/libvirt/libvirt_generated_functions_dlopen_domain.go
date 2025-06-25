@@ -1511,6 +1511,38 @@ virDomainDelIOThreadWrapper(virDomainPtr domain,
 }
 
 typedef int
+(*virDomainDelThrottleGroupFuncType)(virDomainPtr dom,
+                                     const char * group,
+                                     unsigned int flags);
+
+int
+virDomainDelThrottleGroupWrapper(virDomainPtr dom,
+                                 const char * group,
+                                 unsigned int flags,
+                                 virErrorPtr err)
+{
+    int ret = -1;
+    static virDomainDelThrottleGroupFuncType virDomainDelThrottleGroupSymbol;
+    static bool once;
+    static bool success;
+
+    if (!libvirtSymbol("virDomainDelThrottleGroup",
+                       (void**)&virDomainDelThrottleGroupSymbol,
+                       &once,
+                       &success,
+                       err)) {
+        return ret;
+    }
+    ret = virDomainDelThrottleGroupSymbol(dom,
+                                          group,
+                                          flags);
+    if (ret < 0) {
+        virCopyLastErrorWrapper(err);
+    }
+    return ret;
+}
+
+typedef int
 (*virDomainDestroyFuncType)(virDomainPtr domain);
 
 int
@@ -1871,6 +1903,35 @@ virDomainGetAutostartWrapper(virDomainPtr domain,
     }
     ret = virDomainGetAutostartSymbol(domain,
                                       autostart);
+    if (ret < 0) {
+        virCopyLastErrorWrapper(err);
+    }
+    return ret;
+}
+
+typedef int
+(*virDomainGetAutostartOnceFuncType)(virDomainPtr domain,
+                                     int * autostart);
+
+int
+virDomainGetAutostartOnceWrapper(virDomainPtr domain,
+                                 int * autostart,
+                                 virErrorPtr err)
+{
+    int ret = -1;
+    static virDomainGetAutostartOnceFuncType virDomainGetAutostartOnceSymbol;
+    static bool once;
+    static bool success;
+
+    if (!libvirtSymbol("virDomainGetAutostartOnce",
+                       (void**)&virDomainGetAutostartOnceSymbol,
+                       &once,
+                       &success,
+                       err)) {
+        return ret;
+    }
+    ret = virDomainGetAutostartOnceSymbol(domain,
+                                          autostart);
     if (ret < 0) {
         virCopyLastErrorWrapper(err);
     }
@@ -5224,6 +5285,35 @@ virDomainSetAutostartWrapper(virDomainPtr domain,
 }
 
 typedef int
+(*virDomainSetAutostartOnceFuncType)(virDomainPtr domain,
+                                     int autostart);
+
+int
+virDomainSetAutostartOnceWrapper(virDomainPtr domain,
+                                 int autostart,
+                                 virErrorPtr err)
+{
+    int ret = -1;
+    static virDomainSetAutostartOnceFuncType virDomainSetAutostartOnceSymbol;
+    static bool once;
+    static bool success;
+
+    if (!libvirtSymbol("virDomainSetAutostartOnce",
+                       (void**)&virDomainSetAutostartOnceSymbol,
+                       &once,
+                       &success,
+                       err)) {
+        return ret;
+    }
+    ret = virDomainSetAutostartOnceSymbol(domain,
+                                          autostart);
+    if (ret < 0) {
+        virCopyLastErrorWrapper(err);
+    }
+    return ret;
+}
+
+typedef int
 (*virDomainSetBlkioParametersFuncType)(virDomainPtr domain,
                                        virTypedParameterPtr params,
                                        int nparams,
@@ -5841,6 +5931,44 @@ virDomainSetSchedulerParametersFlagsWrapper(virDomainPtr domain,
                                                      params,
                                                      nparams,
                                                      flags);
+    if (ret < 0) {
+        virCopyLastErrorWrapper(err);
+    }
+    return ret;
+}
+
+typedef int
+(*virDomainSetThrottleGroupFuncType)(virDomainPtr dom,
+                                     const char * group,
+                                     virTypedParameterPtr params,
+                                     int nparams,
+                                     unsigned int flags);
+
+int
+virDomainSetThrottleGroupWrapper(virDomainPtr dom,
+                                 const char * group,
+                                 virTypedParameterPtr params,
+                                 int nparams,
+                                 unsigned int flags,
+                                 virErrorPtr err)
+{
+    int ret = -1;
+    static virDomainSetThrottleGroupFuncType virDomainSetThrottleGroupSymbol;
+    static bool once;
+    static bool success;
+
+    if (!libvirtSymbol("virDomainSetThrottleGroup",
+                       (void**)&virDomainSetThrottleGroupSymbol,
+                       &once,
+                       &success,
+                       err)) {
+        return ret;
+    }
+    ret = virDomainSetThrottleGroupSymbol(dom,
+                                          group,
+                                          params,
+                                          nparams,
+                                          flags);
     if (ret < 0) {
         virCopyLastErrorWrapper(err);
     }

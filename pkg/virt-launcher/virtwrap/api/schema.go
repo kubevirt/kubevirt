@@ -123,6 +123,7 @@ type DomainSysInfo struct {
 	Hostname string
 	OSInfo   GuestOSInfo
 	Timezone Timezone
+	Load     Load
 }
 
 type GuestOSInfo struct {
@@ -175,6 +176,12 @@ type User struct {
 	Name      string
 	Domain    string
 	LoginTime float64
+}
+
+type Load struct {
+	Load1m  float64
+	Load5m  float64
+	Load15m float64
 }
 
 // DomainGuestInfo represent guest agent info for specific domain

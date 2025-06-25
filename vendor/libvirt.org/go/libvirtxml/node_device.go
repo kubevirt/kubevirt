@@ -69,6 +69,7 @@ type NodeDeviceCapability struct {
 	APQueue    *NodeDeviceAPQueueCapability
 	APCard     *NodeDeviceAPCardCapability
 	APMatrix   *NodeDeviceAPMatrixCapability
+	CCWGroup   *NodeDeviceCCWGroupCapability
 }
 
 type NodeDeviceIDName struct {
@@ -308,10 +309,19 @@ type NodeDeviceDRMCapability struct {
 	Type string `xml:"type"`
 }
 
+type NodeDeviceCCWSubCapability struct {
+	GroupMember *NodeDeviceCCWGroupMemberCapability
+}
+
+type NodeDeviceCCWGroupMemberCapability struct {
+	GroupDevice string `xml:"group_device"`
+}
+
 type NodeDeviceCCWCapability struct {
-	CSSID *uint `xml:"cssid"`
-	SSID  *uint `xml:"ssid"`
-	DevNo *uint `xml:"devno"`
+	CSSID        *uint                        `xml:"cssid"`
+	SSID         *uint                        `xml:"ssid"`
+	DevNo        *uint                        `xml:"devno"`
+	Capabilities []NodeDeviceCCWSubCapability `xml:"capability"`
 }
 
 type NodeDeviceMDevCapability struct {
@@ -372,6 +382,33 @@ type NodeDeviceAPMatrixSubCapability struct {
 
 type NodeDeviceAPMatrixMDevTypesCapability struct {
 	Types []NodeDeviceMDevType `xml:"type"`
+}
+
+type NodeDeviceCCWGroupCapability struct {
+	State        string                            `xml:"state",omitempty`
+	CSSID        *uint                             `xml:"cssid"`
+	SSID         *uint                             `xml:"ssid"`
+	DevNo        *uint                             `xml:"devno"`
+	Members      *NodeDeviceCCWGroupMembers        `xml:"members"`
+	Capabilities []NodeDeviceCCWGroupSubCapability `xml:"capability"`
+}
+
+type NodeDeviceCCWGroupMembers struct {
+	CCWDevice []NodeDeviceCCWGroupMembersDevice `xml:"ccw_device"`
+}
+
+type NodeDeviceCCWGroupMembersDevice struct {
+	Ref  string `xml:"ref,attr,omitempty"`
+	Name string `xml:",chardata"`
+}
+
+type NodeDeviceCCWGroupSubCapability struct {
+	QEthGeneric *NodeDeviceCCWGroupSubCapabilityQEthGeneric `xml:"-"`
+}
+
+type NodeDeviceCCWGroupSubCapabilityQEthGeneric struct {
+	CardType string `xml:"card_type"`
+	ChpID    string `xml:"chpid"`
 }
 
 func (a *NodeDevicePCIAddress) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
@@ -462,6 +499,14 @@ func (c *NodeDeviceCCWCapability) MarshalXML(e *xml.Encoder, start xml.StartElem
 		e.EncodeToken(xml.CharData(fmt.Sprintf("0x%04x", *c.DevNo)))
 		e.EncodeToken(devno.End())
 	}
+	if c.Capabilities != nil {
+		for _, subcap := range c.Capabilities {
+			start := xml.StartElement{
+				Name: xml.Name{Local: "capability"},
+			}
+			e.EncodeElement(&subcap, start)
+		}
+	}
 	e.EncodeToken(start.End())
 	return nil
 }
@@ -483,30 +528,38 @@ func (c *NodeDeviceCCWCapability) UnmarshalXML(d *xml.Decoder, start xml.StartEl
 				return err
 			}
 
-			if tok.Name.Local != "cssid" &&
-				tok.Name.Local != "ssid" &&
-				tok.Name.Local != "devno" {
+			if tok.Name.Local == "cssid" ||
+				tok.Name.Local == "ssid" ||
+				tok.Name.Local == "devno" {
+				chardata, ok := cdata.(xml.CharData)
+				if !ok {
+					return fmt.Errorf("Expected text for CCW '%s'", tok.Name.Local)
+				}
+
+				valstr := strings.TrimPrefix(string(chardata), "0x")
+				val, err := strconv.ParseUint(valstr, 16, 64)
+				if err != nil {
+					return err
+				}
+
+				vali := uint(val)
+				if tok.Name.Local == "cssid" {
+					c.CSSID = &vali
+				} else if tok.Name.Local == "ssid" {
+					c.SSID = &vali
+				} else if tok.Name.Local == "devno" {
+					c.DevNo = &vali
+				}
+			} else if tok.Name.Local == "capability" {
+				subcap := &NodeDeviceCCWSubCapability{}
+				err := d.DecodeElement(subcap, &tok)
+				if err != nil {
+					return err
+				}
+				c.Capabilities = append(c.Capabilities, *subcap)
 				continue
-			}
-
-			chardata, ok := cdata.(xml.CharData)
-			if !ok {
-				return fmt.Errorf("Expected text for CCW '%s'", tok.Name.Local)
-			}
-
-			valstr := strings.TrimPrefix(string(chardata), "0x")
-			val, err := strconv.ParseUint(valstr, 16, 64)
-			if err != nil {
-				return err
-			}
-
-			vali := uint(val)
-			if tok.Name.Local == "cssid" {
-				c.CSSID = &vali
-			} else if tok.Name.Local == "ssid" {
-				c.SSID = &vali
-			} else if tok.Name.Local == "devno" {
-				c.DevNo = &vali
+			} else {
+				continue
 			}
 		}
 	}
@@ -856,6 +909,34 @@ func (c *NodeDeviceStorageSubCapability) UnmarshalXML(d *xml.Decoder, start xml.
 	return nil
 }
 
+func (c *NodeDeviceCCWSubCapability) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if c.GroupMember != nil {
+		start.Attr = append(start.Attr, xml.Attr{
+			xml.Name{Local: "type"}, "ccwgroup_member",
+		})
+		return e.EncodeElement(c.GroupMember, start)
+	}
+	return nil
+}
+
+func (c *NodeDeviceCCWSubCapability) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	typ, ok := getAttr(start.Attr, "type")
+	if !ok {
+		return fmt.Errorf("Missing node device capability type")
+	}
+
+	switch typ {
+	case "ccwgroup_member":
+		var groupMemberCaps NodeDeviceCCWGroupMemberCapability
+		if err := d.DecodeElement(&groupMemberCaps, &start); err != nil {
+			return err
+		}
+		c.GroupMember = &groupMemberCaps
+	}
+	d.Skip()
+	return nil
+}
+
 func (c *NodeDeviceStorageSubCapability) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	if c.Removable != nil {
 		start.Attr = append(start.Attr, xml.Attr{
@@ -1015,6 +1096,154 @@ func (c *nodeDevicePCIVPDFields) MarshalXML(e *xml.Encoder, start xml.StartEleme
 	return nil
 }
 
+func (c *NodeDeviceCCWGroupCapability) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	e.EncodeToken(start)
+	if c.State != "" {
+		state := xml.StartElement{
+			Name: xml.Name{Local: "state"},
+		}
+		e.EncodeToken(state)
+		e.EncodeToken(xml.CharData(c.State))
+		e.EncodeToken(state.End())
+	}
+	if c.CSSID != nil {
+		cssid := xml.StartElement{
+			Name: xml.Name{Local: "cssid"},
+		}
+		e.EncodeToken(cssid)
+		e.EncodeToken(xml.CharData(fmt.Sprintf("0x%x", *c.CSSID)))
+		e.EncodeToken(cssid.End())
+	}
+	if c.SSID != nil {
+		ssid := xml.StartElement{
+			Name: xml.Name{Local: "ssid"},
+		}
+		e.EncodeToken(ssid)
+		e.EncodeToken(xml.CharData(fmt.Sprintf("0x%x", *c.SSID)))
+		e.EncodeToken(ssid.End())
+	}
+	if c.DevNo != nil {
+		devno := xml.StartElement{
+			Name: xml.Name{Local: "devno"},
+		}
+		e.EncodeToken(devno)
+		e.EncodeToken(xml.CharData(fmt.Sprintf("0x%04x", *c.DevNo)))
+		e.EncodeToken(devno.End())
+	}
+	if c.Members != nil {
+		start := xml.StartElement{
+			Name: xml.Name{Local: "members"},
+		}
+		e.EncodeElement(&c.Members, start)
+	}
+	if c.Capabilities != nil {
+		for _, subcap := range c.Capabilities {
+			start := xml.StartElement{
+				Name: xml.Name{Local: "capability"},
+			}
+			e.EncodeElement(&subcap, start)
+		}
+	}
+	e.EncodeToken(start.End())
+	return nil
+}
+
+func (c *NodeDeviceCCWGroupCapability) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	for {
+		tok, err := d.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		switch tok := tok.(type) {
+		case xml.StartElement:
+			cdata, err := d.Token()
+			if err != nil {
+				return err
+			}
+
+			if tok.Name.Local == "cssid" ||
+				tok.Name.Local == "ssid" ||
+				tok.Name.Local == "devno" {
+				chardata, ok := cdata.(xml.CharData)
+				if !ok {
+					return fmt.Errorf("Expected text for CCW '%s'", tok.Name.Local)
+				}
+
+				valstr := strings.TrimPrefix(string(chardata), "0x")
+				val, err := strconv.ParseUint(valstr, 16, 64)
+				if err != nil {
+					return err
+				}
+
+				vali := uint(val)
+				if tok.Name.Local == "cssid" {
+					c.CSSID = &vali
+				} else if tok.Name.Local == "ssid" {
+					c.SSID = &vali
+				} else if tok.Name.Local == "devno" {
+					c.DevNo = &vali
+				}
+			} else if tok.Name.Local == "state" {
+				chardata, ok := cdata.(xml.CharData)
+				if !ok {
+					return fmt.Errorf("Expected text for CCW '%s'", tok.Name.Local)
+				}
+
+				c.State = string(chardata)
+			} else if tok.Name.Local == "members" {
+				members := &NodeDeviceCCWGroupMembers{}
+				err := d.DecodeElement(members, &tok)
+				if err != nil {
+					return err
+				}
+				c.Members = members
+			} else if tok.Name.Local == "capability" {
+				subcap := &NodeDeviceCCWGroupSubCapability{}
+				err := d.DecodeElement(subcap, &tok)
+				if err != nil {
+					return err
+				}
+				c.Capabilities = append(c.Capabilities, *subcap)
+			} else {
+				continue
+			}
+		}
+	}
+	return nil
+}
+
+func (c *NodeDeviceCCWGroupSubCapability) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if c.QEthGeneric != nil {
+		start.Attr = append(start.Attr, xml.Attr{
+			xml.Name{Local: "type"}, "qeth_generic",
+		})
+		return e.EncodeElement(c.QEthGeneric, start)
+	}
+	return nil
+}
+
+func (c *NodeDeviceCCWGroupSubCapability) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	typ, ok := getAttr(start.Attr, "type")
+	if !ok {
+		return fmt.Errorf("Missing node device capability type")
+	}
+
+	switch typ {
+	case "qeth_generic":
+		var qethCaps NodeDeviceCCWGroupSubCapabilityQEthGeneric
+		if err := d.DecodeElement(&qethCaps, &start); err != nil {
+			return err
+		}
+		c.QEthGeneric = &qethCaps
+	}
+	d.Skip()
+	return nil
+}
+
 func (c *NodeDeviceCapability) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	typ, ok := getAttr(start.Attr, "type")
 	if !ok {
@@ -1118,6 +1347,12 @@ func (c *NodeDeviceCapability) UnmarshalXML(d *xml.Decoder, start xml.StartEleme
 			return err
 		}
 		c.APCard = &apCaps
+	case "ccwgroup":
+		var ccwGroupCaps NodeDeviceCCWGroupCapability
+		if err := d.DecodeElement(&ccwGroupCaps, &start); err != nil {
+			return err
+		}
+		c.CCWGroup = &ccwGroupCaps
 	}
 	d.Skip()
 	return nil
@@ -1204,6 +1439,11 @@ func (c *NodeDeviceCapability) MarshalXML(e *xml.Encoder, start xml.StartElement
 			xml.Name{Local: "type"}, "ap_matrix",
 		})
 		return e.EncodeElement(c.APMatrix, start)
+	} else if c.CCWGroup != nil {
+		start.Attr = append(start.Attr, xml.Attr{
+			xml.Name{Local: "type"}, "ccwgroup",
+		})
+		return e.EncodeElement(c.CCWGroup, start)
 	}
 	return nil
 }
