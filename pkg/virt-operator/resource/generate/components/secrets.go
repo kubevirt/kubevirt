@@ -24,6 +24,7 @@ import (
 // #nosec 101, false positives were caused by variables not holding any secret value.
 const (
 	KubeVirtCASecretName                              = "kubevirt-ca"
+	ExternalKubeVirtCAConfigMapName                   = "kubevirt-external-ca"
 	KubeVirtExportCASecretName                        = "kubevirt-export-ca"
 	VirtHandlerCertSecretName                         = "kubevirt-virt-handler-certs"
 	VirtHandlerServerCertSecretName                   = "kubevirt-virt-handler-server-certs"
@@ -257,6 +258,19 @@ func NewCAConfigMaps(operatorNamespace string) []*k8sv1.ConfigMap {
 				},
 			},
 		},
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      ExternalKubeVirtCAConfigMapName,
+				Namespace: operatorNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+		},
 	}
 }
 
@@ -458,8 +472,9 @@ func MergeCABundle(currentCert *tls.Certificate, currentBundle []byte, overlapDu
 	}
 
 	// ensure that no one does something nasty and adds thousands of certs
-	if len(certs) > 10 {
-		certs = certs[:10]
+	if len(certs) > 50 {
+		log.Log.Warningf("more than 50 CA certificates found in the CA bundle, truncating to 50")
+		certs = certs[:50]
 	}
 
 	now := time.Now()
