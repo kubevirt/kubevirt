@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"github.com/coreos/go-semver/semver"
 	secv1 "github.com/openshift/api/security/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -557,7 +559,7 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 
 	exportProxyEnabled := r.exportProxyEnabled()
 	exportProxyDeploymentsRolledOver := !exportProxyEnabled || haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
-	synchronizationControllerEnabled := r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
+	synchronizationControllerEnabled := virtconfig.IsFeatureGateEnabled(featuregate.DecentralizedLiveMigration, r.kv.Spec.Configuration)
 	synchronizationControllerDeploymentRolledOver := !synchronizationControllerEnabled || haveSynchronizationControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	daemonSetsRolledOver := haveDaemonSetsRolledOver(r.targetStrategy, r.kv, r.stores)
@@ -770,7 +772,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Synchronization controller Deployments
 	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
-		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+		if virtconfig.IsFeatureGateEnabled(featuregate.DecentralizedLiveMigration, r.kv.Spec.Configuration) {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
 				return false, err
@@ -1374,22 +1376,8 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	return nil
 }
 
-func (r *Reconciler) isFeatureGateEnabled(featureGate string) bool {
-	if r.kv.Spec.Configuration.DeveloperConfiguration == nil {
-		return false
-	}
-
-	for _, fg := range r.kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-		if fg == featureGate {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (r *Reconciler) exportProxyEnabled() bool {
-	return r.isFeatureGateEnabled(featuregate.VMExportGate)
+	return virtconfig.IsFeatureGateEnabled(featuregate.VMExportGate, r.kv.Spec.Configuration)
 }
 
 func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {

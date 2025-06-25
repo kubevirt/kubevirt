@@ -63,9 +63,12 @@ func (admitter *VMIRSAdmitter) Admit(_ context.Context, ar *admissionv1.Admissio
 
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
+		featureGatesConfigs := clusterCfg.FeatureGates
+		var legacyFeatureGates []string
 		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-			causes = append(causes, featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vmirs.Spec.Template.Spec)...)
+			legacyFeatureGates = devCfg.FeatureGates
 		}
+		causes = append(causes, featuregate.ValidateFeatureGates(featureGatesConfigs, legacyFeatureGates, &vmirs.Spec.Template.Spec)...)
 	}
 
 	if len(causes) > 0 {

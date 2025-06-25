@@ -827,9 +827,16 @@ func (ReloadableComponentConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (FeatureGateConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"enabled": "Enabled indicates whether the feature gate is enabled or not. Defaults to true.\n+optional",
+	}
+}
+
 func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                   "KubeVirtConfiguration holds all kubevirt configurations",
+		"featureGates":                       "FeatureGates is the list of experimental features to enable. Defaults to none.\n+listType=atomic\n+optional",
 		"emulatedMachines":                   "Deprecated. Use architectureConfiguration instead.",
 		"machineType":                        "Deprecated. Use architectureConfiguration instead.",
 		"ovmfPath":                           "Deprecated. Use architectureConfiguration instead.",
@@ -948,7 +955,7 @@ func (DiskVerification) SwaggerDoc() map[string]string {
 func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                "DeveloperConfiguration holds developer options",
-		"featureGates":                    "FeatureGates is the list of experimental features to enable. Defaults to none",
+		"featureGates":                    "FeatureGates is the list of experimental features to enable. Defaults to none.\nDeprecated: use KubeVirtConfiguration.FeatureGates instead.",
 		"pvcTolerateLessSpaceUpToPercent": "LessPVCSpaceToleration determines how much smaller, in percentage, disk PVCs are\nallowed to be compared to the requested size (to account for various overheads).\nDefaults to 10",
 		"minimumReservePVCBytes":          "MinimumReservePVCBytes is the amount of space, in bytes, to leave unused on disks.\nDefaults to 131072 (128KiB)",
 		"memoryOvercommit":                "MemoryOvercommit is the percentage of memory we want to give VMIs compared to the amount\ngiven to its parent pod (virt-launcher). For example, a value of 102 means the VMI will\n\"see\" 2% more memory than its parent pod. Values under 100 are effectively \"undercommits\".\nOvercommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.\nDefaults to 100",

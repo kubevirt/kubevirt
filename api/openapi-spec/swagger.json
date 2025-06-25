@@ -13422,7 +13422,7 @@
       "$ref": "#/definitions/v1.DiskVerification"
      },
      "featureGates": {
-      "description": "FeatureGates is the list of experimental features to enable. Defaults to none",
+      "description": "FeatureGates is the list of experimental features to enable. Defaults to none. Deprecated: use KubeVirtConfiguration.FeatureGates instead.",
       "type": "array",
       "items": {
        "type": "string",
@@ -13870,6 +13870,22 @@
      "endOfInterrupt": {
       "description": "EndOfInterrupt enables the end of interrupt notification in the guest. Defaults to false.",
       "type": "boolean"
+     }
+    }
+   },
+   "v1.FeatureGateConfiguration": {
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "enabled": {
+      "description": "Enabled indicates whether the feature gate is enabled or not. Defaults to true.",
+      "type": "boolean"
+     },
+     "name": {
+      "type": "string",
+      "default": ""
      }
     }
    },
@@ -14752,6 +14768,15 @@
      "evictionStrategy": {
       "description": "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific field is set it overrides the cluster level one.",
       "type": "string"
+     },
+     "featureGates": {
+      "description": "FeatureGates is the list of experimental features to enable. Defaults to none.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.FeatureGateConfiguration"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "handlerConfiguration": {
       "$ref": "#/definitions/v1.ReloadableComponentConfiguration"

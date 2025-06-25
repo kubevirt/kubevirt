@@ -392,6 +392,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.EmptyDiskSource":                                                    schema_kubevirtio_api_core_v1_EmptyDiskSource(ref),
 		"kubevirt.io/api/core/v1.EphemeralVolumeSource":                                              schema_kubevirtio_api_core_v1_EphemeralVolumeSource(ref),
 		"kubevirt.io/api/core/v1.FeatureAPIC":                                                        schema_kubevirtio_api_core_v1_FeatureAPIC(ref),
+		"kubevirt.io/api/core/v1.FeatureGateConfiguration":                                           schema_kubevirtio_api_core_v1_FeatureGateConfiguration(ref),
 		"kubevirt.io/api/core/v1.FeatureHyperv":                                                      schema_kubevirtio_api_core_v1_FeatureHyperv(ref),
 		"kubevirt.io/api/core/v1.FeatureKVM":                                                         schema_kubevirtio_api_core_v1_FeatureKVM(ref),
 		"kubevirt.io/api/core/v1.FeatureSpinlocks":                                                   schema_kubevirtio_api_core_v1_FeatureSpinlocks(ref),
@@ -18916,7 +18917,7 @@ func schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref common.ReferenceCa
 				Properties: map[string]spec.Schema{
 					"featureGates": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FeatureGates is the list of experimental features to enable. Defaults to none",
+							Description: "FeatureGates is the list of experimental features to enable. Defaults to none. Deprecated: use KubeVirtConfiguration.FeatureGates instead.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -19785,6 +19786,33 @@ func schema_kubevirtio_api_core_v1_FeatureAPIC(ref common.ReferenceCallback) com
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_FeatureGateConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled indicates whether the feature gate is enabled or not. Defaults to true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
 			},
 		},
 	}
@@ -21365,6 +21393,25 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 				Description: "KubeVirtConfiguration holds all kubevirt configurations",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"featureGates": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "FeatureGates is the list of experimental features to enable. Defaults to none.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.FeatureGateConfiguration"),
+									},
+								},
+							},
+						},
+					},
 					"cpuModel": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -21627,7 +21674,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.FeatureGateConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
 	}
 }
 

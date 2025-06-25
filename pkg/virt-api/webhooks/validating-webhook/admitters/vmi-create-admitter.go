@@ -119,9 +119,12 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 
 	var causes []metav1.StatusCause
 	clusterCfg := admitter.ClusterConfig.GetConfig()
+	featureGatesConfigs := clusterCfg.FeatureGates
+	var legacyFeatureGates []string
 	if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-		causes = append(causes, featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vmi.Spec)...)
+		legacyFeatureGates = devCfg.FeatureGates
 	}
+	causes = append(causes, featuregate.ValidateFeatureGates(featureGatesConfigs, legacyFeatureGates, &vmi.Spec)...)
 
 	for _, validateSpec := range admitter.SpecValidators {
 		causes = append(causes, validateSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
@@ -148,7 +151,8 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 
 func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []string {
 	var warnings []string
-	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
+	enabledFeatureGates := featuregate.GetEnabledFeatureGates(config.GetConfig().FeatureGates, config.GetConfig().DeveloperConfiguration.FeatureGates)
+	for _, fg := range enabledFeatureGates {
 		deprecatedFeature := featuregate.FeatureGateInfo(fg)
 		if deprecatedFeature != nil && deprecatedFeature.State == featuregate.Deprecated && deprecatedFeature.VmiSpecUsed != nil {
 			if used := deprecatedFeature.VmiSpecUsed(spec); used {
