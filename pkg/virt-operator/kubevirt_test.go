@@ -47,6 +47,7 @@ import (
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -3358,9 +3359,39 @@ var _ = Describe("KubeVirt Operator", func() {
 
 				return true, create.GetObject(), nil
 			})
+			kvTestData.kubeClient.Fake.PrependReactor("delete-collection", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, nil
+			})
 
 			// This generates and posts the install strategy config map
-			install.DumpInstallStrategyToConfigMap(kvTestData.virtClient, NAMESPACE)
+			err = install.DumpInstallStrategyToConfigMap(kvTestData.virtClient, NAMESPACE)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should delete old install strategy on upgrade", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			config, err := util.GetConfigFromEnv()
+			Expect(err).ToNot(HaveOccurred())
+
+			kvTestData.kubeClient.Fake.PrependReactor("delete-collection", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				deleteCollectionAction, ok := action.(testing.DeleteCollectionAction)
+				Expect(ok).To(BeTrue())
+
+				listRestrictions := deleteCollectionAction.GetListRestrictions()
+				Expect(listRestrictions.Fields).To(BeEmpty())
+				Expect(listRestrictions.Labels.Matches(labels.Set(map[string]string{v1.InstallStrategyLabel: ""}))).To(BeTrue())
+
+				configMapNamespace := deleteCollectionAction.GetNamespace()
+				Expect(configMapNamespace).To(Equal(config.Namespace))
+
+				return true, nil, nil
+			})
+
+			err = install.DeleteOldInstallStrategyConfigMaps(kvTestData.virtClient)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })
