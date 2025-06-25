@@ -127,6 +127,7 @@ launcherbase_extra="
 
 handlerbase_main="
   qemu-img-${QEMU_VERSION}
+  passt-${PASST_VERSION}
 "
 handlerbase_extra="
   findutils

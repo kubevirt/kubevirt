@@ -195,6 +195,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			mockIsolationDetector,
 			migrationProxy,
 			"/tmp/%d",
+			&stubSourcePasstRepairHandler{},
 		)
 
 		vmiTestUUID = uuid.NewUUID()
@@ -519,3 +520,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		testutils.ExpectEvent(recorder, VMIMigrating)
 	})
 })
+
+type stubSourcePasstRepairHandler struct{}
+
+func (s *stubSourcePasstRepairHandler) HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	return nil
+}
