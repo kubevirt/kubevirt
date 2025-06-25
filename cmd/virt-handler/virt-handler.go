@@ -311,13 +311,15 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	machines := getMachines(capabilities)
+
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
 	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
 		app.virtCli.CoreV1().Nodes(),
 		app.HostOverride,
 		nodeLabellerrecorder,
 		capabilities.Host.CPU.Counter,
-		capabilities.Guests,
+		machines,
 	)
 	if err != nil {
 		panic(err)
@@ -450,7 +452,7 @@ func (app *virtHandlerApp) Run() {
 		factory.KubeVirt().HasSynced,
 	)
 
-	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer); err != nil {
+	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
 		panic(err)
 	}
 
@@ -683,6 +685,14 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 	app.clientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
 
 	return nil
+}
+
+func getMachines(capabilities libvirtxml.Caps) []libvirtxml.CapsGuestMachine {
+	var machines []libvirtxml.CapsGuestMachine
+	for _, guest := range capabilities.Guests {
+		machines = append(machines, guest.Arch.Machines...)
+	}
+	return machines
 }
 
 func main() {

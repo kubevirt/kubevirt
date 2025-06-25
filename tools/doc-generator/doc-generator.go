@@ -61,7 +61,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := virthandler.SetupMetrics("", "", 0, nil); err != nil {
+	if err := virthandler.SetupMetrics("", "", 0, nil, nil); err != nil {
 		panic(err)
 	}
 
