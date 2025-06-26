@@ -56,7 +56,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
-	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -88,8 +87,6 @@ import (
 type netstat interface {
 	UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 	Teardown(vmi *v1.VirtualMachineInstance)
-	PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool
-	CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodIfaceCacheData)
 }
 
 type downwardMetricsManager interface {
@@ -399,6 +396,11 @@ func (c *VirtualMachineController) execute(key string) error {
 
 	if vmiExists && !c.isVMIOwnedByNode(vmi) {
 		log.Log.Object(vmi).V(4).Info("ignoring vmi as it is not owned by this node")
+		return nil
+	}
+
+	if vmiExists && vmi.IsMigrationSource() {
+		log.Log.Object(vmi).V(4).Info("ignoring vmi as it is a migration source")
 		return nil
 	}
 
@@ -718,18 +720,18 @@ func (c *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 	liveMigrationCondition, isBlockMigration := c.calculateLiveMigrationCondition(vmi)
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
-		// Set VMI Migration Method
-		if isBlockMigration {
-			vmi.Status.MigrationMethod = v1.BlockMigration
-		} else {
-			vmi.Status.MigrationMethod = v1.LiveMigration
-		}
 	} else {
 		cond := condManager.GetCondition(vmi, v1.VirtualMachineInstanceIsMigratable)
 		if !equality.Semantic.DeepEqual(cond, liveMigrationCondition) {
 			condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceIsMigratable)
 			vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 		}
+	}
+	// Set VMI Migration Method
+	if isBlockMigration {
+		vmi.Status.MigrationMethod = v1.BlockMigration
+	} else {
+		vmi.Status.MigrationMethod = v1.LiveMigration
 	}
 	storageLiveMigCond := c.calculateLiveStorageMigrationCondition(vmi)
 	condManager.UpdateCondition(vmi, storageLiveMigCond)
@@ -1178,12 +1180,9 @@ func newNonMigratableCondition(msg string, reason string) *v1.VirtualMachineInst
 }
 
 func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanceCondition, bool) {
-	isBlockMigration, err := c.checkVolumesForMigration(vmi)
-	if err != nil {
-		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonDisksNotMigratable), isBlockMigration
-	}
+	isBlockMigration, blockErr := c.checkVolumesForMigration(vmi)
 
-	err = c.checkNetworkInterfacesForMigration(vmi)
+	err := c.checkNetworkInterfacesForMigration(vmi)
 	if err != nil {
 		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonInterfaceNotMigratable), isBlockMigration
 	}
@@ -1214,6 +1213,10 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 
 	if vmiFeatures := vmi.Spec.Domain.Features; vmiFeatures != nil && vmiFeatures.HypervPassthrough != nil && *vmiFeatures.HypervPassthrough.Enabled {
 		return newNonMigratableCondition("VMI uses hyperv passthrough", v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable), isBlockMigration
+	}
+
+	if blockErr != nil {
+		return newNonMigratableCondition(blockErr.Error(), v1.VirtualMachineInstanceReasonDisksNotMigratable), isBlockMigration
 	}
 
 	return &v1.VirtualMachineInstanceCondition{
@@ -1696,18 +1699,6 @@ func (c *VirtualMachineController) isVMIOwnedByNode(vmi *v1.VirtualMachineInstan
 	}
 
 	return vmi.Status.NodeName != "" && vmi.Status.NodeName == c.host
-}
-
-func (c *VirtualMachineController) isMigrationTarget(vmi *v1.VirtualMachineInstance) bool {
-	migrationTargetNodeName, ok := vmi.Labels[v1.MigrationTargetNodeNameLabel]
-
-	if ok &&
-		migrationTargetNodeName != "" &&
-		migrationTargetNodeName == c.host {
-		return true
-	}
-
-	return false
 }
 
 func (c *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {

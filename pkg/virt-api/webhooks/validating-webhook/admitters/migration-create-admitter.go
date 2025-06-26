@@ -52,10 +52,15 @@ func NewMigrationCreateAdmitter(virtClient kubevirt.Interface, clusterConfig *vi
 	}
 }
 
-func isMigratable(vmi *v1.VirtualMachineInstance) error {
+func isMigratable(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) error {
 	for _, c := range vmi.Status.Conditions {
 		if c.Type == v1.VirtualMachineInstanceIsMigratable &&
 			c.Status == k8sv1.ConditionFalse {
+			// Allow cross namespace/cluster migrations with non migratable disks.
+			// TODO: this is fragile since there could be other reasons for the VMI to be non migratable.
+			if c.Reason == v1.VirtualMachineInstanceReasonDisksNotMigratable && migration.IsDecentralized() {
+				continue
+			}
 			return fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s", c.Reason, c.Message)
 		}
 	}
@@ -114,7 +119,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 	}
 
 	// Reject migration jobs for non-migratable VMIs
-	err = isMigratable(vmi)
+	err = isMigratable(vmi, migration)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -127,16 +132,9 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 	}
 
 	if migration.Spec.SendTo != nil || migration.Spec.Receive != nil {
-		clusterCfg := admitter.clusterConfig.GetConfig()
+		config := admitter.clusterConfig
 		// Ensure the feature gate is enabled before allowing.
-		found := false
-		for _, fgName := range clusterCfg.DeveloperConfiguration.FeatureGates {
-			fg := featuregate.FeatureGateInfo(fgName)
-			if fg.Name == featuregate.DecentralizedLiveMigration {
-				found = true
-			}
-		}
-		if !found {
+		if !config.DecentralizedLiveMigrationEnabled() {
 			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt resource", featuregate.DecentralizedLiveMigration),

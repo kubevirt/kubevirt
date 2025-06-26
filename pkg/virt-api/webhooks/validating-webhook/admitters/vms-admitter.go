@@ -221,13 +221,13 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
 	causes = append(causes, storageAdmitters.ValidateDataVolumeTemplate(field, spec)...)
-	causes = append(causes, validateRunStrategy(field, spec)...)
+	causes = append(causes, validateRunStrategy(field, spec, config)...)
 	causes = append(causes, validateLiveUpdateFeatures(field, spec, config)...)
 
 	return causes
 }
 
-func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (causes []metav1.StatusCause) {
+func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if spec.Running != nil && spec.RunStrategy != nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -245,19 +245,31 @@ func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (cau
 	}
 
 	if spec.RunStrategy != nil {
-		validRunStrategy := false
-		for _, strategy := range validRunStrategies {
-			if *spec.RunStrategy == strategy {
-				validRunStrategy = true
-				break
+		if *spec.RunStrategy == v1.RunStrategyWaitAsReceiver {
+			if config.DecentralizedLiveMigrationEnabled() {
+				// Only allow wait as receiver if feature gate is set.
+				return
 			}
-		}
-		if !validRunStrategy {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Invalid RunStrategy (%s)", *spec.RunStrategy),
+				Message: fmt.Sprintf("Invalid RunStrategy (%s), %s feature gate is not enabled in kubevirt resource", *spec.RunStrategy, featuregate.DecentralizedLiveMigration),
 				Field:   field.Child("runStrategy").String(),
 			})
+		} else {
+			validRunStrategy := false
+			for _, strategy := range validRunStrategies {
+				if *spec.RunStrategy == strategy {
+					validRunStrategy = true
+					break
+				}
+			}
+			if !validRunStrategy {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("Invalid RunStrategy (%s)", *spec.RunStrategy),
+					Field:   field.Child("runStrategy").String(),
+				})
+			}
 		}
 	}
 	return causes
@@ -357,7 +369,11 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 			}
 
 			// Validate the disk is configured properly
-			invalidDiskStatusCause := validateDiskConfiguration(volumeRequest.AddVolumeOptions.Disk, name)
+			invalidDiskStatusCause := validateHotplugDiskConfiguration(
+				volumeRequest.AddVolumeOptions.Disk, name,
+				"AddVolume request",
+				k8sfield.NewPath("Status", "volumeRequests").String(),
+			)
 			if invalidDiskStatusCause != nil {
 				return invalidDiskStatusCause, nil
 			}
@@ -443,40 +459,47 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 
 }
 
-func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause {
-	var bus v1.DiskBus
+func validateHotplugDiskConfiguration(disk *v1.Disk, name, messagePrefix, field string) []metav1.StatusCause {
 	// Validate the disk is configured properly
 	if disk == nil {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("AddVolume request for [%s] requires the disk field to be set.", name),
-			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
+			Message: fmt.Sprintf("%s for [%s] requires the disk field to be set.", messagePrefix, name),
+			Field:   field,
 		}}
 	}
-	if disk.DiskDevice.Disk == nil && disk.DiskDevice.LUN == nil {
+
+	bus := getDiskBus(*disk)
+	switch {
+	case disk.DiskDevice.Disk != nil:
+		if bus != v1.DiskBusSCSI && bus != v1.DiskBusVirtio {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s for disk [%s] requires bus to be 'scsi' or 'virtio'. [%s] is not permitted.", messagePrefix, name, bus),
+				Field:   field,
+			}}
+		}
+	case disk.DiskDevice.LUN != nil:
+		if bus != v1.DiskBusSCSI {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s for LUN [%s] requires bus to be 'scsi'. [%s] is not permitted.", messagePrefix, name, bus),
+				Field:   field,
+			}}
+		}
+	default:
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("AddVolume request for [%s] requires diskDevice of type 'disk' or 'lun' to be used.", name),
-			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
+			Message: fmt.Sprintf("%s for [%s] requires diskDevice of type 'disk' or 'lun' to be used.", messagePrefix, name),
+			Field:   field,
 		}}
 	}
-	if disk.DiskDevice.Disk != nil {
-		bus = disk.DiskDevice.Disk.Bus
-	} else {
-		bus = disk.DiskDevice.LUN.Bus
-	}
-	if bus != "scsi" {
+
+	if disk.DedicatedIOThread != nil && *disk.DedicatedIOThread && bus != v1.DiskBusVirtio {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("AddVolume request for [%s] requires disk bus to be 'scsi'. [%s] is not permitted", name, bus),
-			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
-		}}
-	}
-	if disk.DedicatedIOThread != nil && *disk.DedicatedIOThread {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "IOThreads are not supported by scsi bus.",
-			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
+			Message: fmt.Sprintf("%s for [%s] requires virtio bus for IOThreads.", messagePrefix, name),
+			Field:   field,
 		}}
 	}
 

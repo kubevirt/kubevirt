@@ -3861,6 +3861,8 @@ var CRDsValidation map[string]string = map[string]string{
           description: KubeVirtPhase is a label for the phase of a KubeVirt deployment
             at the current time.
           type: string
+        synchronizationAddress:
+          type: string
         targetDeploymentConfig:
           type: string
         targetDeploymentID:
@@ -6458,6 +6460,19 @@ var CRDsValidation map[string]string = map[string]string{
                             depends on additional factors of the VirtualMachineInstance,
                             like the number of guest CPUs.
                           type: boolean
+                        panicDevices:
+                          description: PanicDevices provides additional crash information
+                            when a guest crashes.
+                          items:
+                            properties:
+                              model:
+                                description: |-
+                                  Model specifies what type of panic device is provided.
+                                  The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                                  One of: isa, hyperv, pvpanic.
+                                type: string
+                            type: object
+                          type: array
                         rng:
                           description: Whether to have random number generator from
                             host
@@ -9362,6 +9377,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredNetworkInterfaceMultiQueue optionally enables
                 the vhost multiqueue feature for virtio interfaces.
               type: boolean
+            preferredPanicDeviceModel:
+              description: PreferredPanicDeviceModel optionally defines the preferred
+                panic device model to use with panic devices.
+              type: string
             preferredRng:
               description: PreferredRng optionally defines the preferred rng device
                 to be used.
@@ -11793,6 +11812,19 @@ var CRDsValidation map[string]string = map[string]string{
                     factors of the VirtualMachineInstance, like the number of guest
                     CPUs.
                   type: boolean
+                panicDevices:
+                  description: PanicDevices provides additional crash information
+                    when a guest crashes.
+                  items:
+                    properties:
+                      model:
+                        description: |-
+                          Model specifies what type of panic device is provided.
+                          The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                          One of: isa, hyperv, pvpanic.
+                        type: string
+                    type: object
+                  type: array
                 rng:
                   description: Whether to have random number generator from host
                   type: object
@@ -13857,9 +13889,17 @@ var CRDsValidation map[string]string = map[string]string{
                 pod:
                   description: The source pod that the VMI is originated on
                   type: string
+                selinuxContext:
+                  description: SELinuxContext is the actual SELinux context of the
+                    pod
+                  type: string
                 syncAddress:
                   description: The ip address/fqdn:port combination to use to synchronize
                     the VMI with the target.
+                  type: string
+                virtualMachineInstanceUID:
+                  description: VirtualMachineInstanceUID is the UID of the target
+                    virtual machine instance
                   type: string
               type: object
             startTimestamp:
@@ -13968,9 +14008,17 @@ var CRDsValidation map[string]string = map[string]string{
                 pod:
                   description: The source pod that the VMI is originated on
                   type: string
+                selinuxContext:
+                  description: SELinuxContext is the actual SELinux context of the
+                    pod
+                  type: string
                 syncAddress:
                   description: The ip address/fqdn:port combination to use to synchronize
                     the VMI with the target.
+                  type: string
+                virtualMachineInstanceUID:
+                  description: VirtualMachineInstanceUID is the UID of the target
+                    virtual machine instance
                   type: string
               type: object
           type: object
@@ -14423,9 +14471,17 @@ var CRDsValidation map[string]string = map[string]string{
                 pod:
                   description: The source pod that the VMI is originated on
                   type: string
+                selinuxContext:
+                  description: SELinuxContext is the actual SELinux context of the
+                    pod
+                  type: string
                 syncAddress:
                   description: The ip address/fqdn:port combination to use to synchronize
                     the VMI with the target.
+                  type: string
+                virtualMachineInstanceUID:
+                  description: VirtualMachineInstanceUID is the UID of the target
+                    virtual machine instance
                   type: string
               type: object
             startTimestamp:
@@ -14534,9 +14590,17 @@ var CRDsValidation map[string]string = map[string]string{
                 pod:
                   description: The source pod that the VMI is originated on
                   type: string
+                selinuxContext:
+                  description: SELinuxContext is the actual SELinux context of the
+                    pod
+                  type: string
                 syncAddress:
                   description: The ip address/fqdn:port combination to use to synchronize
                     the VMI with the target.
+                  type: string
+                virtualMachineInstanceUID:
+                  description: VirtualMachineInstanceUID is the UID of the target
+                    virtual machine instance
                   type: string
               type: object
           type: object
@@ -15270,6 +15334,19 @@ var CRDsValidation map[string]string = map[string]string{
                     factors of the VirtualMachineInstance, like the number of guest
                     CPUs.
                   type: boolean
+                panicDevices:
+                  description: PanicDevices provides additional crash information
+                    when a guest crashes.
+                  items:
+                    properties:
+                      model:
+                        description: |-
+                          Model specifies what type of panic device is provided.
+                          The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                          One of: isa, hyperv, pvpanic.
+                        type: string
+                    type: object
+                  type: array
                 rng:
                   description: Whether to have random number generator from host
                   type: object
@@ -17725,6 +17802,19 @@ var CRDsValidation map[string]string = map[string]string{
                             depends on additional factors of the VirtualMachineInstance,
                             like the number of guest CPUs.
                           type: boolean
+                        panicDevices:
+                          description: PanicDevices provides additional crash information
+                            when a guest crashes.
+                          items:
+                            properties:
+                              model:
+                                description: |-
+                                  Model specifies what type of panic device is provided.
+                                  The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                                  One of: isa, hyperv, pvpanic.
+                                type: string
+                            type: object
+                          type: array
                         rng:
                           description: Whether to have random number generator from
                             host
@@ -22292,6 +22382,19 @@ var CRDsValidation map[string]string = map[string]string{
                                     factors of the VirtualMachineInstance, like the
                                     number of guest CPUs.
                                   type: boolean
+                                panicDevices:
+                                  description: PanicDevices provides additional crash
+                                    information when a guest crashes.
+                                  items:
+                                    properties:
+                                      model:
+                                        description: |-
+                                          Model specifies what type of panic device is provided.
+                                          The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                                          One of: isa, hyperv, pvpanic.
+                                        type: string
+                                    type: object
+                                  type: array
                                 rng:
                                   description: Whether to have random number generator
                                     from host
@@ -24241,6 +24344,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredNetworkInterfaceMultiQueue optionally enables
                 the vhost multiqueue feature for virtio interfaces.
               type: boolean
+            preferredPanicDeviceModel:
+              description: PreferredPanicDeviceModel optionally defines the preferred
+                panic device model to use with panic devices.
+              type: string
             preferredRng:
               description: PreferredRng optionally defines the preferred rng device
                 to be used.
@@ -27555,6 +27662,19 @@ var CRDsValidation map[string]string = map[string]string{
                                         factors of the VirtualMachineInstance, like
                                         the number of guest CPUs.
                                       type: boolean
+                                    panicDevices:
+                                      description: PanicDevices provides additional
+                                        crash information when a guest crashes.
+                                      items:
+                                        properties:
+                                          model:
+                                            description: |-
+                                              Model specifies what type of panic device is provided.
+                                              The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                                              One of: isa, hyperv, pvpanic.
+                                            type: string
+                                        type: object
+                                      type: array
                                     rng:
                                       description: Whether to have random number generator
                                         from host

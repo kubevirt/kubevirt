@@ -1,0 +1,34 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "activevmprovider.go",
+        "repair.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/network/passt",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/network/vmispec:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "passt_suite_test.go",
+        "repair_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//pkg/libvmi:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+    ],
+)

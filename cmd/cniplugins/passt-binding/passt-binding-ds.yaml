@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: passt-binding-cni
+  namespace: kubevirt
+  labels:
+    tier: node
+    app: passt-binding-cni
+spec:
+  selector:
+    matchLabels:
+      name: passt-binding-cni
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 10%
+  template:
+    metadata:
+      labels:
+        name: passt-binding-cni
+        tier: node
+        app: passt-binding-cni
+      annotations:
+        description: passt-binding-cni installs 'passt binding' CNI on cluster nodes
+    spec:
+      priorityClassName: system-cluster-critical
+      containers:
+      - name: installer
+        image: registry:5000/kubevirt/network-passt-binding-cni:devel
+        command: [ "/bin/sh", "-ce" ]
+        args:
+        - |
+          ls -la "/cni/kubevirt-passt-binding"
+          cp -f "/cni/kubevirt-passt-binding" "/opt/cni/bin"
+          echo "passt binding CNI plugin installation complete..sleep infinity"
+          sleep 2147483647
+        resources:
+          requests:
+            cpu: "10m"
+            memory: "15Mi"
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: cnibin
+          mountPath: /opt/cni/bin
+      volumes:
+      - name: cnibin
+        hostPath:
+          path: /opt/cni/bin

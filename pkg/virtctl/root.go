@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/pkg/virtctl/memorydump"
+	"kubevirt.io/kubevirt/pkg/virtctl/objectgraph"
 	"kubevirt.io/kubevirt/pkg/virtctl/pause"
 	"kubevirt.io/kubevirt/pkg/virtctl/portforward"
 	"kubevirt.io/kubevirt/pkg/virtctl/reset"
@@ -132,6 +133,7 @@ func NewVirtctlCommandFn() *cobra.Command {
 		create.NewCommand(),
 		credentials.NewCommand(),
 		adm.NewCommand(),
+		objectgraph.NewCommand(),
 		optionsCmd,
 	)
 

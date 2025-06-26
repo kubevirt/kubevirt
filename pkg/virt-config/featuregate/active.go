@@ -59,10 +59,11 @@ const (
 
 	// Owner: @xpivarc
 	// Alpha: v1.3.0
+	// Beta: v1.6.0
 	//
 	// NodeRestriction enables Kubelet's like NodeRestriction but for Kubevirt's virt-handler.
 	// This feature requires following Kubernetes feature gate "ServiceAccountTokenPodNodeInfo". The feature gate is available
-	// in Kubernetes 1.30 as Beta.
+	// in Kubernetes 1.30 as Beta and was graduated in 1.32.
 	NodeRestrictionGate = "NodeRestriction"
 
 	// Owner: @Barakmor1
@@ -101,6 +102,16 @@ const (
 	// Owner: @dasionov
 	// Alpha: v1.6.0
 	VideoConfig = "VideoConfig"
+
+	// Owner: @varunrsekar
+	// Alpha: v1.6.0
+	// PanicDevices allows defining panic devices for signaling crashes in the guest for a VirtualMachineInstance.
+	PanicDevicesGate = "PanicDevices"
+
+	// Alpha: v1.6.0
+	//
+	// PasstIPStackMigration enables seamless migration with passt network binding.
+	PasstIPStackMigration = "PasstIPStackMigration"
 )
 
 func init() {
@@ -124,10 +135,12 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 }

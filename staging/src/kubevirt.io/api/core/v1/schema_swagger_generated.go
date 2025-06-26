@@ -265,6 +265,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.\n+optional",
 		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional\n+listType=atomic",
 		"downwardMetrics":            "DownwardMetrics creates a virtio serials for exposing the downward metrics to the vmi.\n+optional",
+		"panicDevices":               "PanicDevices provides additional crash information when a guest crashes.\n+optional\n+listtype=atomic",
 		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional\n+listType=atomic",
 		"hostDevices":                "Whether to attach a host device to the vmi.\n+optional\n+listType=atomic",
 		"clientPassthrough":          "To configure and access client devices such as redirecting USB\n+optional",
@@ -339,6 +340,12 @@ func (VGPUDisplayOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"enabled": "Enabled determines if a display addapter backed by a vGPU should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
 		"ramFB":   "Enables a boot framebuffer, until the guest OS loads a real GPU driver\nDefaults to true.\n+optional",
+	}
+}
+
+func (PanicDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"model": "Model specifies what type of panic device is provided.\nThe panic model used when this attribute is missing depends on the hypervisor and guest arch.\nOne of: isa, hyperv, pvpanic.\n+optional",
 	}
 }
 

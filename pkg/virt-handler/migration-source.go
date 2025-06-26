@@ -56,6 +56,10 @@ import (
 
 var errWaitingForTargetPorts = errors.New("waiting for target to publish migration ports")
 
+type passtRepairSourceHandler interface {
+	HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
+}
+
 type MigrationSourceController struct {
 	*BaseController
 	capabilities                *libvirtxml.Caps
@@ -67,6 +71,7 @@ type MigrationSourceController struct {
 	recorder                    record.EventRecorder
 	virtLauncherFSRunDirPattern string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
+	passtRepairHandler          passtRepairSourceHandler
 }
 
 func NewMigrationSourceController(
@@ -80,6 +85,7 @@ func NewMigrationSourceController(
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
 	virtLauncherFSRunDirPattern string,
+	passtRepairHandler passtRepairSourceHandler,
 ) (*MigrationSourceController, error) {
 
 	baseCtrl, err := NewBaseController(
@@ -108,6 +114,7 @@ func NewMigrationSourceController(
 		recorder:                    recorder,
 		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		passtRepairHandler:          passtRepairHandler,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -142,10 +149,10 @@ func (c *MigrationSourceController) hasTargetDetectedReadyDomain(vmi *v1.Virtual
 		vmi.Status.MigrationState.EndTimestamp == nil {
 		return false, int64(migrationTargetDelayTimeout)
 	}
-
 	if vmi.Status.MigrationState != nil &&
-		vmi.Status.MigrationState.TargetNodeDomainDetected &&
-		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
+		vmi.Status.MigrationState.TargetState != nil &&
+		vmi.Status.MigrationState.TargetState.DomainDetected &&
+		vmi.Status.MigrationState.TargetState.DomainReadyTimestamp != nil {
 
 		return true, 0
 	}
@@ -179,7 +186,8 @@ func domainMigrated(domain *api.Domain) bool {
 func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
-		vmi.Status.MigrationState == nil {
+		vmi.Status.MigrationState == nil ||
+		!c.isMigrationSource(vmi) {
 		return
 	}
 
@@ -187,7 +195,6 @@ func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMa
 	if migrationMetadata.UID != vmi.Status.MigrationState.MigrationUID {
 		return
 	}
-
 	vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
 
 	vmi.Status.MigrationState.Failed = migrationMetadata.Failed
@@ -250,6 +257,12 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 			log.Log.Object(vmi).Warning("the domain was never observed on the taget after the migration completed within the timeout period")
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance's domain was never observed on the target after the migration completed within the timeout period."))
 		}
+	}
+
+	if targetNodeDetectedDomain && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+		log.Log.Object(vmi).V(2).Infof("decentralized migration completed successfully, marking VMI as succeeded")
+		// this is a decentralized migration, and the migration completed successfully, we need to mark the VMI as succeeded
+		vmi.Status.Phase = v1.Succeeded
 	}
 
 	return nil
@@ -402,15 +415,11 @@ func (c *MigrationSourceController) execute(key string) error {
 }
 
 func (c *MigrationSourceController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
-
-	if vmi.Status.MigrationState != nil &&
-		vmi.Status.NodeName == c.host &&
-		vmi.Status.MigrationState.SourceNode == c.host {
-
-		return true
-	}
-	return false
-
+	return vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.SourceNode == c.host &&
+		(!vmi.IsDecentralizedMigration() || vmi.IsMigrationSource()) &&
+		vmi.Status.MigrationState.TargetNodeAddress != "" &&
+		!vmi.Status.MigrationState.Completed
 }
 
 func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMachineInstance) error {
@@ -507,12 +516,26 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		return err
 	}
 
+	if c.clusterConfig.PasstIPStackMigrationEnabled() {
+		if err := c.passtRepairHandler.HandleMigrationSource(vmi, c.passtSocketDirOnHostMigrationSource); err != nil {
+			log.Log.Object(vmi).Warningf("failed to call passt-repair for migration source, %v", err)
+		}
+	}
+
 	err = client.MigrateVirtualMachine(vmiCopy, options)
 	if err != nil {
 		return err
 	}
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), VMIMigrating)
 	return nil
+}
+
+func (c *MigrationSourceController) passtSocketDirOnHostMigrationSource(vmi *v1.VirtualMachineInstance) (string, error) {
+	path, err := c.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return "", err
+	}
+	return passtSocketDirOnHost(path)
 }
 
 func isMigrationDone(state *v1.VirtualMachineInstanceMigrationState) bool {

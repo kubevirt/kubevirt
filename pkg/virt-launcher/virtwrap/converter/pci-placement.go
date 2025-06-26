@@ -8,10 +8,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-func PlacePCIDevicesOnRootComplex(spec *api.DomainSpec) (err error) {
-	assigner := newRootSlotAssigner()
+// iteratePCIAddresses invokes the callback function for each PCI device specified in the domain
+func iteratePCIAddresses(spec *api.DomainSpec, callback func(address *api.Address) (*api.Address, error)) (err error) {
+	fn := func(address *api.Address) (*api.Address, error) {
+		if address == nil || address.Type == "" || address.Type == api.AddressPCI {
+			return callback(address)
+		}
+		return address, nil
+	}
 	for i, iface := range spec.Devices.Interfaces {
-		spec.Devices.Interfaces[i].Address, err = assigner.PlacePCIDeviceAtNextSlot(iface.Address)
+		spec.Devices.Interfaces[i].Address, err = fn(iface.Address)
 		if err != nil {
 			return err
 		}
@@ -20,7 +26,7 @@ func PlacePCIDevicesOnRootComplex(spec *api.DomainSpec) (err error) {
 		if hostDev.Type != api.HostDevicePCI {
 			continue
 		}
-		spec.Devices.HostDevices[i].Address, err = assigner.PlacePCIDeviceAtNextSlot(hostDev.Address)
+		spec.Devices.HostDevices[i].Address, err = fn(hostDev.Address)
 		if err != nil {
 			return err
 		}
@@ -30,7 +36,7 @@ func PlacePCIDevicesOnRootComplex(spec *api.DomainSpec) (err error) {
 		if controller.Model == "pci-root" || controller.Model == "pcie-root" {
 			continue
 		}
-		spec.Devices.Controllers[i].Address, err = assigner.PlacePCIDeviceAtNextSlot(controller.Address)
+		spec.Devices.Controllers[i].Address, err = fn(controller.Address)
 		if err != nil {
 			return err
 		}
@@ -39,7 +45,7 @@ func PlacePCIDevicesOnRootComplex(spec *api.DomainSpec) (err error) {
 		if disk.Target.Bus != v1.DiskBusVirtio {
 			continue
 		}
-		spec.Devices.Disks[i].Address, err = assigner.PlacePCIDeviceAtNextSlot(disk.Address)
+		spec.Devices.Disks[i].Address, err = fn(disk.Address)
 		if err != nil {
 			return err
 		}
@@ -48,30 +54,43 @@ func PlacePCIDevicesOnRootComplex(spec *api.DomainSpec) (err error) {
 		if input.Bus != v1.VirtIO {
 			continue
 		}
-		spec.Devices.Inputs[i].Address, err = assigner.PlacePCIDeviceAtNextSlot(input.Address)
+		spec.Devices.Inputs[i].Address, err = fn(input.Address)
 		if err != nil {
 			return err
 		}
 	}
 	for i, watchdog := range spec.Devices.Watchdogs {
-		spec.Devices.Watchdogs[i].Address, err = assigner.PlacePCIDeviceAtNextSlot(watchdog.Address)
+		spec.Devices.Watchdogs[i].Address, err = fn(watchdog.Address)
 		if err != nil {
 			return err
 		}
 	}
 	if spec.Devices.Rng != nil {
-		spec.Devices.Rng.Address, err = assigner.PlacePCIDeviceAtNextSlot(spec.Devices.Rng.Address)
+		spec.Devices.Rng.Address, err = fn(spec.Devices.Rng.Address)
 		if err != nil {
 			return err
 		}
 	}
 	if spec.Devices.Ballooning != nil {
-		spec.Devices.Ballooning.Address, err = assigner.PlacePCIDeviceAtNextSlot(spec.Devices.Ballooning.Address)
+		spec.Devices.Ballooning.Address, err = fn(spec.Devices.Ballooning.Address)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func CountPCIDevices(spec *api.DomainSpec) (count int, err error) {
+	err = iteratePCIAddresses(spec, func(address *api.Address) (*api.Address, error) {
+		count++
+		return address, nil
+	})
+	return count, err
+}
+
+func PlacePCIDevicesOnRootComplex(spec *api.DomainSpec) (err error) {
+	assigner := newRootSlotAssigner()
+	return iteratePCIAddresses(spec, assigner.PlacePCIDeviceAtNextSlot)
 }
 
 func (p *pciRootSlotAssigner) nextSlot() (int, error) {
@@ -106,9 +125,6 @@ type pciRootSlotAssigner struct {
 func (p *pciRootSlotAssigner) PlacePCIDeviceAtNextSlot(address *api.Address) (*api.Address, error) {
 	if address == nil {
 		address = &api.Address{}
-	}
-	if address.Type != api.AddressPCI && address.Type != "" {
-		return address, nil
 	}
 
 	// keep explicit requests for pci addresses

@@ -225,6 +225,11 @@ func (in *DevicePreferences) DeepCopyInto(out *DevicePreferences) {
 		*out = new(v1.InterfaceMasquerade)
 		**out = **in
 	}
+	if in.PreferredPanicDeviceModel != nil {
+		in, out := &in.PreferredPanicDeviceModel, &out.PreferredPanicDeviceModel
+		*out = new(v1.PanicDeviceModel)
+		**out = **in
+	}
 	return
 }
 

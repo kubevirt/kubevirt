@@ -21,6 +21,7 @@ package virt_handler
 import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	"k8s.io/client-go/tools/cache"
+	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
@@ -28,7 +29,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/migrationdomainstats"
 )
 
-func SetupMetrics(virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInformer cache.SharedIndexInformer) error {
+func SetupMetrics(virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInformer cache.SharedIndexInformer, machines []libvirtxml.CapsGuestMachine) error {
 	if err := workqueue.SetupMetrics(); err != nil {
 		return err
 	}
@@ -37,10 +38,11 @@ func SetupMetrics(virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInf
 		return err
 	}
 
-	if err := operatormetrics.RegisterMetrics(versionMetrics); err != nil {
+	if err := operatormetrics.RegisterMetrics(versionMetrics, machineTypeMetrics); err != nil {
 		return err
 	}
 	SetVersionInfo()
+	ReportDeprecatedMachineTypes(machines, nodeName)
 
 	domainstats.SetupDomainStatsCollector(virtShareDir, nodeName, MaxRequestsInFlight, vmiInformer)
 

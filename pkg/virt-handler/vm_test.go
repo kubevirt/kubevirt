@@ -55,7 +55,6 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
-	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -1086,6 +1085,44 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecute()
 
 			testutils.ExpectEvent(recorder, VMIDefined)
+			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationMethod).To(Equal(v1.LiveMigration))
+			Expect(updatedVMI.Status.Conditions).To(ContainElement(
+				MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
+					"Status": Equal(k8sv1.ConditionTrue)},
+				),
+			))
+		})
+
+		It("should adjust an existing migration method if live migration condition previously existed", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Status.MigrationMethod = v1.BlockMigration
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionFalse,
+				},
+			}
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			addVMI(vmi, domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
+				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			})
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+			sanityExecute()
+
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updatedVMI.Status.MigrationMethod).To(Equal(v1.LiveMigration))
@@ -2919,11 +2956,6 @@ func (ns *netStatStub) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.
 }
 
 func (ns *netStatStub) Teardown(vmi *v1.VirtualMachineInstance) {}
-func (ns *netStatStub) PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool {
-	return false
-}
-func (ns *netStatStub) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodIfaceCacheData) {
-}
 
 func newFakeManager() *fakeManager {
 	return &fakeManager{}

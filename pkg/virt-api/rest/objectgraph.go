@@ -312,7 +312,7 @@ func (og *ObjectGraph) addVolumeGraph(obj any, namespace string) ([]v1.ObjectGra
 		if !storageutils.IsErrNoBackendPVC(err) {
 			return nil, err
 		}
-		log.Log.Reason(err).Error("Failed to get backend volume, VM might still be provisioning. Proceeding with the remaining volumes.")
+		err = fmt.Errorf("failed to get backend volume (%w), VM might still be provisioning. Proceeding with the remaining volumes", err)
 	}
 
 	for _, volume := range volumes {

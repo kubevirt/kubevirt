@@ -107,6 +107,13 @@ const (
 	affectDeviceLiveAndConfigLibvirtFlags     = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
 	affectDomainLiveAndConfigLibvirtFlags     = libvirt.DOMAIN_AFFECT_LIVE | libvirt.DOMAIN_AFFECT_CONFIG
 	affectDomainVCPULiveAndConfigLibvirtFlags = libvirt.DOMAIN_VCPU_LIVE | libvirt.DOMAIN_VCPU_CONFIG
+
+	// parameters for hotplug port count calculation
+	hotplugLargeMemoryThreshold            = 2 * 1024 * 1024 * 1024 // 2GB
+	hotplugLargeMemoryDefaultTotalPorts    = 16
+	hotplugLargeMemoryMinRequiredFreePorts = 6
+	hotplugDefaultTotalPorts               = 8
+	hotplugMinRequiredFreePorts            = 3
 )
 
 const maxConcurrentHotplugHostDevices = 1
@@ -1370,11 +1377,8 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 		return nil, err
 	}
 
-	setDomainFn := func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
-		return l.setDomainSpecWithHooks(v, s)
-	}
-
-	if dom, err = withNetworkIfacesResources(vmi, &domain.Spec, setDomainFn); err != nil {
+	if dom, err = l.allocateHotplugPorts(vmi, &domain.Spec); err != nil {
+		logger.Reason(err).Error("failed to allocate hotplug ports")
 		return nil, err
 	}
 
@@ -1384,6 +1388,34 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 	)
 	logger.Info("Domain defined.")
 	return dom, err
+}
+
+func (l *LibvirtDomainManager) allocateHotplugPorts(
+	vmi *v1.VirtualMachineInstance,
+	domainSpec *api.DomainSpec,
+) (cli.VirDomain, error) {
+	logger := log.Log.Object(vmi)
+
+	count, err := calculateHotplugPortCount(vmi, domainSpec)
+	if err != nil {
+		logger.Reason(err).Error("Failed to calculate hotplug port count")
+		return nil, err
+	}
+
+	logger.V(1).Infof("Allocating %d hotplug ports", count)
+
+	setDomainFn := func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+		return l.setDomainSpecWithHooks(v, s)
+	}
+
+	// leverage existing hotplug nic code to allocate ports
+	// should work for disks and any other devices as well
+	dom, err := withNetworkIfacesResources(vmi, domainSpec, count, setDomainFn)
+	if err != nil {
+		return nil, err
+	}
+
+	return dom, nil
 }
 
 func getSourceFile(disk api.Disk) string {
@@ -2607,4 +2639,26 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 		flags |= libvirt.DOMAIN_START_PAUSED
 	}
 	return flags
+}
+
+func calculateHotplugPortCount(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) (int, error) {
+	if vmi.Annotations[v1.PlacePCIDevicesOnRootComplex] == "true" {
+		// If the annotation is set, no additional root-ports should be created
+		return 0, nil
+	}
+
+	defaultTotalPorts := hotplugDefaultTotalPorts
+	minFreePorts := hotplugMinRequiredFreePorts
+
+	if domainSpec.Memory.Value > hotplugLargeMemoryThreshold {
+		defaultTotalPorts = hotplugLargeMemoryDefaultTotalPorts
+		minFreePorts = hotplugLargeMemoryMinRequiredFreePorts
+	}
+
+	portsInUse, err := converter.CountPCIDevices(domainSpec)
+	if err != nil {
+		return 0, err
+	}
+
+	return max(defaultTotalPorts-portsInUse, minFreePorts), nil
 }

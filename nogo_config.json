@@ -132,6 +132,7 @@
     },
     "exclude_files": {
       "pkg/.*_test\\.go": "unit tests are allowed to use banned imports",
+      "pkg/virt-handler/unsafepath.go": "unsafepath is allowed to use banned imports",
       "vendor/": "vendor doesn't pass bannedAPI",
       "external/": "external doesn't pass bannedAPI"
     }

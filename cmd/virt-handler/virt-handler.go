@@ -71,6 +71,7 @@ import (
 	metricshandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/handler"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
+	"kubevirt.io/kubevirt/pkg/network/passt"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -311,13 +312,15 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	machines := getMachines(capabilities)
+
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
 	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
 		app.virtCli.CoreV1().Nodes(),
 		app.HostOverride,
 		nodeLabellerrecorder,
 		capabilities.Host.CPU.Counter,
-		capabilities.Guests,
+		machines,
 	)
 	if err != nil {
 		panic(err)
@@ -338,6 +341,7 @@ func (app *virtHandlerApp) Run() {
 	launcherClientsManager := launcher_clients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
+	passtRepairHandler := passt.NewRepairManager(app.clusterConfig)
 
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
@@ -350,11 +354,13 @@ func (app *virtHandlerApp) Run() {
 		podIsolationDetector,
 		migrationProxy,
 		"/proc/%d/root/var/run",
+		passtRepairHandler,
 	)
 	if err != nil {
 		panic(err)
 	}
 
+	netStat := netsetup.NewNetStat()
 	migrationTargetController, err := virthandler.NewMigrationTargetController(
 		recorder,
 		app.virtCli,
@@ -370,8 +376,9 @@ func (app *virtHandlerApp) Run() {
 		migrationProxy,
 		&capabilities,
 		netConf,
-		netsetup.NewNetStat(),
+		netStat,
 		netbinding.MemoryCalculator{},
+		passtRepairHandler,
 	)
 	if err != nil {
 		panic(err)
@@ -395,7 +402,7 @@ func (app *virtHandlerApp) Run() {
 		&capabilities,
 		hostCpuModel,
 		netConf,
-		netsetup.NewNetStat(),
+		netStat,
 	)
 	if err != nil {
 		panic(err)
@@ -449,7 +456,7 @@ func (app *virtHandlerApp) Run() {
 		factory.KubeVirt().HasSynced,
 	)
 
-	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer); err != nil {
+	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
 		panic(err)
 	}
 
@@ -682,6 +689,14 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 	app.clientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
 
 	return nil
+}
+
+func getMachines(capabilities libvirtxml.Caps) []libvirtxml.CapsGuestMachine {
+	var machines []libvirtxml.CapsGuestMachine
+	for _, guest := range capabilities.Guests {
+		machines = append(machines, guest.Arch.Machines...)
+	}
+	return machines
 }
 
 func main() {
