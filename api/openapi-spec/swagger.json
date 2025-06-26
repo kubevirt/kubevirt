@@ -12833,6 +12833,9 @@
      },
      "ppc64le": {
       "$ref": "#/definitions/v1.ArchSpecificConfiguration"
+     },
+     "s390x": {
+      "$ref": "#/definitions/v1.ArchSpecificConfiguration"
      }
     }
    },
