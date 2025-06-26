@@ -39,6 +39,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -162,6 +163,9 @@ type KubeInformerFactory interface {
 
 	// Watches for the kubevirt export CA config map
 	KubeVirtExportCAConfigMap() cache.SharedIndexInformer
+
+	// Watches for changes in kubevirt leases
+	Leases() cache.SharedIndexInformer
 
 	// Watches for the export route config map
 	ExportRouteConfigMap() cache.SharedIndexInformer
@@ -916,6 +920,22 @@ func (f *kubeInformerFactory) CDIConfig() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) DummyCDIConfig() cache.SharedIndexInformer {
 	return f.getInformer("fakeCdiConfigInformer", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) Leases() cache.SharedIndexInformer {
+	return f.getInformer("leasesInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.CoordinationV1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "leases", f.kubevirtNamespace, fields.Everything())
+
+		return cache.NewSharedIndexInformer(lw, &coordinationv1.Lease{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) DummyLeases() cache.SharedIndexInformer {
+	return f.getInformer("fakeLeasesInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&coordinationv1.Lease{})
 		return informer
 	})
 }
