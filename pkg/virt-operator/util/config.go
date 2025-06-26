@@ -106,8 +106,8 @@ const (
 	AdditionalPropertiesPersistentReservationEnabled = "PersistentReservationEnabled"
 
 	// lookup key in AdditionalProperties
-	AdditionalPropertiesSynchronizationPort = "SynchronizationPort"
-	defaultSynchronizationPort              = 9185
+	AdditionalPropertiesSynchronizationPort       = "SynchronizationPort"
+	DefaultSynchronizationPort              int32 = 9185
 
 	// account to use if one is not explicitly named
 	DefaultMonitorAccount = "prometheus-k8s"
@@ -668,7 +668,7 @@ func (c *KubeVirtDeploymentConfig) GetSynchronizationPort() int32 {
 		}
 
 	}
-	return int32(defaultSynchronizationPort)
+	return DefaultSynchronizationPort
 }
 
 /*

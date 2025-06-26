@@ -200,3 +200,7 @@ func (config *ClusterConfig) PanicDevicesEnabled() bool {
 func (config *ClusterConfig) PasstIPStackMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PasstIPStackMigration)
 }
+
+func (config *ClusterConfig) DecentralizedLiveMigrationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
+}

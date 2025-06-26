@@ -158,6 +158,7 @@ func (c *BaseController) getDomainFromCache(key string) (domain *api.Domain, exi
 func (c *BaseController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.SourceNode == c.host &&
+		(!vmi.IsDecentralizedMigration() || vmi.IsMigrationSource()) &&
 		vmi.Status.MigrationState.TargetNodeAddress != "" &&
 		!vmi.Status.MigrationState.Completed
 }
@@ -273,7 +274,6 @@ func (c *BaseController) setupNetwork(vmi *v1.VirtualMachineInstance, networks [
 
 func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	var domainMigrationMetadata *api.MigrationMetadata
-
 	if vmi != nil &&
 		vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.StartTimestamp != nil &&
@@ -298,5 +298,8 @@ func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) b
 		}
 	}
 
+	if vmi != nil && vmi.IsMigrationTarget() {
+		return vmi.IsMigrationTarget() && !vmi.IsMigrationCompleted()
+	}
 	return false
 }

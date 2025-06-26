@@ -769,7 +769,17 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				kv.Spec.ImageTag = previousImageTag
 				kv.Spec.ImageRegistry = previousImageRegistry
 			}
-
+			// For now disable upgrading the synchronization controller since no previous released versions
+			// exist.
+			updatedFeatureGates := make([]string, 0)
+			featureGates := kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
+			for _, fg := range featureGates {
+				if fg != featuregate.DecentralizedLiveMigration {
+					updatedFeatureGates = append(updatedFeatureGates, fg)
+				}
+			}
+			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = updatedFeatureGates
+			// Now create the kubevirt CR
 			createKv(kv)
 
 			// Wait for previous release to come online
