@@ -1024,7 +1024,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				if !stopVMBeforeRestore {
-					events.ExpectEvent(restore, corev1.EventTypeNormal, "RestoreTargetNotReady")
+					events.ExpectEvent(restore, corev1.EventTypeWarning, "RestoreTargetNotReady")
 					By(stoppingVM)
 					vm = libvmops.StopVirtualMachine(vm)
 				}
@@ -1173,7 +1173,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				events.ExpectEvent(restore, corev1.EventTypeNormal, "RestoreTargetNotReady")
+				events.ExpectEvent(restore, corev1.EventTypeWarning, "RestoreTargetNotReady")
 				By(stoppingVM)
 				vm = libvmops.StopVirtualMachine(vm)
 
@@ -1199,6 +1199,49 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 				By("Making sure restored VM is runnable")
 				libvmops.StartVirtualMachine(vm)
+			})
+
+			It("restore should fail immediately with targetReadinessPolicy FailImmediate and status should not change after stopping VM", func() {
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+				restore = createRestoreDefWithMacAddressPatch(vm, vm.Name, snapshot.Name)
+				restore.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreFailImmediate)
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying restore fails immediately")
+				events.ExpectEvent(restore, corev1.EventTypeWarning, "Operation failed")
+				Eventually(func() *snapshotv1.VirtualMachineRestoreStatus {
+					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return restore.Status
+				}, 30*time.Second, time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Complete": gstruct.PointTo(BeFalse()),
+				})))
+
+				By("Verifying restore has failed condition")
+				Expect(restore).To(matcher.HaveConditionTrue(snapshotv1.ConditionFailure))
+				Expect(restore).To(matcher.HaveConditionFalse(snapshotv1.ConditionProgressing))
+				Expect(restore).To(matcher.HaveConditionFalse(snapshotv1.ConditionReady))
+
+				By(stoppingVM)
+				vm = libvmops.StopVirtualMachine(vm)
+
+				By("Verifying restore status doesn't change after stopping VM")
+				Consistently(func() *snapshotv1.VirtualMachineRestoreStatus {
+					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return restore.Status
+				}, 30*time.Second, 5*time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Complete": gstruct.PointTo(BeFalse()),
+				})))
+
+				By("Verifying the restore still has failed condition")
+				Expect(restore).To(matcher.HaveConditionTrue(snapshotv1.ConditionFailure))
+				Expect(restore).To(matcher.HaveConditionFalse(snapshotv1.ConditionProgressing))
+				Expect(restore).To(matcher.HaveConditionFalse(snapshotv1.ConditionReady))
 			})
 
 			// This test is relevant to provisioner which round up the received size of
