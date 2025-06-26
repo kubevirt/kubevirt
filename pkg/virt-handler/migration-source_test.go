@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -77,11 +78,12 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		vmiTestUUID types.UID
 		podTestUUID types.UID
 
-		sockFile  string
-		stop      chan struct{}
-		wg        *sync.WaitGroup
-		eventChan chan watch.Event
-		recorder  *record.FakeRecorder
+		sockFile                          string
+		stop                              chan struct{}
+		wg                                *sync.WaitGroup
+		eventChan                         chan watch.Event
+		recorder                          *record.FakeRecorder
+		migrationSourcePasstRepairHandler *stubSourcePasstRepairHandler
 	)
 
 	const (
@@ -154,10 +156,14 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		virtfakeClient = kubevirtfake.NewSimpleClientset()
 		ctrl := gomock.NewController(GinkgoT())
-		kv := &v1.KubeVirtConfiguration{}
-		kv.NetworkConfiguration = &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{
-			migratableNetworkBindingPlugin: {Migration: &v1.InterfaceBindingMigration{}},
-		}}
+		kv := &v1.KubeVirtConfiguration{
+			NetworkConfiguration: &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{
+				migratableNetworkBindingPlugin: {Migration: &v1.InterfaceBindingMigration{}},
+			}},
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.PasstIPStackMigration},
+			},
+		}
 		k8sfakeClient := fake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
@@ -183,6 +189,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		launcherClientManager := &launcher_clients.MockLauncherClientManager{
 			Initialized: true,
 		}
+		migrationSourcePasstRepairHandler = &stubSourcePasstRepairHandler{isHandleMigrationSourceCalled: false}
 
 		controller, _ = NewMigrationSourceController(
 			recorder,
@@ -195,7 +202,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			mockIsolationDetector,
 			migrationProxy,
 			"/tmp/%d",
-			&stubSourcePasstRepairHandler{},
+			migrationSourcePasstRepairHandler,
 		)
 
 		vmiTestUUID = uuid.NewUUID()
@@ -518,11 +525,15 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		client.EXPECT().MigrateVirtualMachine(vmi, options)
 		sanityExecute()
 		testutils.ExpectEvent(recorder, VMIMigrating)
+		Expect(migrationSourcePasstRepairHandler.isHandleMigrationSourceCalled).Should(BeTrue())
 	})
 })
 
-type stubSourcePasstRepairHandler struct{}
+type stubSourcePasstRepairHandler struct {
+	isHandleMigrationSourceCalled bool
+}
 
 func (s *stubSourcePasstRepairHandler) HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	s.isHandleMigrationSourceCalled = true
 	return nil
 }
