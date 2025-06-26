@@ -444,7 +444,7 @@ func Execute() {
 			InstancetypeStore:        app.instancetypeInformer.GetStore(),
 			ClusterInstancetypeStore: app.clusterInstancetypeInformer.GetStore(),
 			PreferenceStore:          app.preferenceInformer.GetStore(),
-			ClusterPreferenceStore:   app.clusterInstancetypeInformer.GetStore(),
+			ClusterPreferenceStore:   app.clusterPreferenceInformer.GetStore(),
 			ControllerRevisionStore:  app.controllerRevisionInformer.GetStore(),
 			Clientset:                app.clientSet,
 		},
