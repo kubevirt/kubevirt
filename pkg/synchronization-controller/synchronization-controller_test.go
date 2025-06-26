@@ -606,6 +606,12 @@ var _ = Describe("VMI status synchronization controller", func() {
 					MigrationUID: targetTestMigrationUID,
 				},
 			}
+			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(localTCPConn.Addr().String()),
+				},
+			}
+
 			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
 					MigrationUID: sourceTestMigrationUID,
@@ -709,6 +715,11 @@ var _ = Describe("VMI status synchronization controller", func() {
 					MigrationUID: targetTestMigrationUID,
 				},
 			}
+			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(localURL),
+				},
+			}
 			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
 					MigrationUID: sourceTestMigrationUID,
@@ -719,6 +730,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 					SyncAddress: pointer.P(remoteURL),
 				},
 			}
+			By("setting up the clients and informers")
 			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
@@ -728,29 +740,47 @@ var _ = Describe("VMI status synchronization controller", func() {
 			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
+			By("calling execute on the source")
 			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
 			err = controller.execute(sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 
+			By("calling execute on the target")
 			targetKey, err := kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
 			err = remoteController.execute(targetKey)
 			Expect(err).ToNot(HaveOccurred())
 
+			By("verifying the result")
 			verifySource(controller, sourceVMI, remoteURL)
 			verifyTarget(remoteController, targetVMI, localURL)
-			//Update the source state.
+
+			By("updating the source state with a new sourcePodName")
+			sourceVMI, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			sourceVMI.Status.MigrationState.SourceState.Pod = sourcePodName
 			err = controller.vmiInformer.GetStore().Update(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(sourceKey)
-			Expect(err).ToNot(HaveOccurred())
-			verifyTarget(controller, targetVMI, localURL)
+
+			By("updating the remote informer with the remote client, we can properly patch")
 			updatedTargetVMI, err := remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Get(context.Background(), targetVMI.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			remoteController.vmiInformer.GetStore().Update(updatedTargetVMI)
+
+			By("calling execute on the source")
+			err = controller.execute(sourceKey)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("verifying the result")
+			verifyTarget(controller, targetVMI, localURL)
+			updatedTargetVMI, err = remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Get(context.Background(), targetVMI.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			remoteController.vmiInformer.GetStore().Update(updatedTargetVMI)
+			Expect(err).ToNot(HaveOccurred())
+
 			Expect(updatedTargetVMI).ToNot(BeNil())
 			Expect(updatedTargetVMI.Status.MigrationState).ToNot(BeNil())
 			Expect(updatedTargetVMI.Status.MigrationState.SourceState).ToNot(BeNil())
@@ -758,11 +788,13 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(updatedTargetVMI.Status.MigrationState.SourceState.SyncAddress).ToNot(BeNil())
 			Expect(*updatedTargetVMI.Status.MigrationState.SourceState.SyncAddress).To(Equal(localURL))
 			Expect(updatedTargetVMI.Status.MigrationState.SourceState.Pod).To(Equal(sourcePodName))
-			//Update the target state.
+
+			By("updating the target state")
 			targetVMI.Status.MigrationState.TargetState.Pod = targetPodName
 			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
 
+			By("calling execute on the target")
 			err = remoteController.execute(targetKey)
 			Expect(err).ToNot(HaveOccurred())
 			updatedSourceVMI, err := controller.client.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
