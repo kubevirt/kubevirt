@@ -146,7 +146,7 @@ var _ = Describe("test configuration", func() {
 		Entry("when amd64 set, GetMachineType should return the value", "amd64", "pc-q35-3.0", "", "", "", "pc-q35-3.0"),
 		Entry("when arm64 set, GetMachineType should return the value", "arm64", "", "virt", "", "", "virt"),
 		Entry("when ppc64le set, GetMachineType should return the value", "ppc64le", "", "", "pseries", "", "pseries"),
-		Entry("when s390x set, GetMachineType should return the value", "s390x", "", "", "", "s390-ccw-test-type", "s390-ccw-test-type"),
+		Entry("when s390x set, GetMachineType should return the value", "s390x", "", "", "", "s390-ccw-virtio-rhel8.6.0", "s390-ccw-virtio-rhel8.6.0"),
 		Entry("when amd64 unset, GetMachineType should return the default with amd64", "amd64", "", "", "", "", virtconfig.DefaultAMD64MachineType),
 		Entry("when arm64 unset, GetMachineType should return the default with arm64", "arm64", "", "", "", "", virtconfig.DefaultAARCH64MachineType),
 		Entry("when ppc64le unset, GetMachineType should return the default with ppc64le", "ppc64le", "", "", "", "", virtconfig.DefaultPPC64LEMachineType),
@@ -517,11 +517,11 @@ var _ = Describe("test configuration", func() {
 		Entry("when amd64 set, GetOVMFPath should return the value", "amd64", "/usr/share/ovmf/x64", "", "", "", "/usr/share/ovmf/x64"),
 		Entry("when arm64 set, GetOVMFPath should return the value", "arm64", "", "/usr/share/AAVMF", "", "", "/usr/share/AAVMF"),
 		Entry("when ppc64le set, GetOVMFPath should return the value", "ppc64le", "", "", "/usr/share/ovmf/x64", "", "/usr/share/ovmf/x64"),
-		Entry("when s390x set, GetOVMFPath should return the value", "s390x", "", "", "", "/usr/share/ovmf/s390x_x64", "/usr/share/ovmf/s390x_x64"),
+		Entry("when s390x set, GetOVMFPath should return the value", "s390x", "", "", "", "/usr/share/ovmf/s390x", "/usr/share/ovmf/s390x"),
 		Entry("when unset, GetOVMFPath should return the default with amd64", "amd64", "", "", "", "", virtconfig.DefaultARCHOVMFPath),
 		Entry("when unset, GetOVMFPath should return the default with arm64", "arm64", "", "", "", "", virtconfig.DefaultAARCH64OVMFPath),
 		Entry("when unset, GetOVMFPath should return the default with ppc64le", "ppc64le", "", "", "", "", virtconfig.DefaultARCHOVMFPath),
-		Entry("when unset, GetOVMFPath should return an empty string with s390x", "s390x", "", "", "", "", virtconfig.DefaultS390xOVMFPath),
+		Entry("when unset, GetOVMFPath should return the default with with s390x", "s390x", "", "", "", "", virtconfig.DefaultS390xOVMFPath),
 	)
 
 	It("verifies that SetConfigModifiedCallback works as expected ", func() {
