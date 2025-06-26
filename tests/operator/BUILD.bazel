@@ -8,6 +8,8 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/apimachinery/wait:go_default_library",
+        "//pkg/certificates/triple:go_default_library",
+        "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
