@@ -131,16 +131,9 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 	}
 
 	if migration.Spec.SendTo != nil || migration.Spec.Receive != nil {
-		clusterCfg := admitter.clusterConfig.GetConfig()
+		config := admitter.clusterConfig
 		// Ensure the feature gate is enabled before allowing.
-		found := false
-		for _, fgName := range clusterCfg.DeveloperConfiguration.FeatureGates {
-			fg := featuregate.FeatureGateInfo(fgName)
-			if fg != nil && fg.Name == featuregate.DecentralizedLiveMigration {
-				found = true
-			}
-		}
-		if !found {
+		if !config.DecentralizedLiveMigrationEnabled() {
 			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt resource", featuregate.DecentralizedLiveMigration),

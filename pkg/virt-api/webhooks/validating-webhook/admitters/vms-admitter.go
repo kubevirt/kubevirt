@@ -245,15 +245,8 @@ func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec, conf
 	}
 
 	if spec.RunStrategy != nil {
-		foundDecentralizedFg := false
-		for _, fgName := range config.GetConfig().DeveloperConfiguration.FeatureGates {
-			fg := featuregate.FeatureGateInfo(fgName)
-			if fg != nil && fg.Name == featuregate.DecentralizedLiveMigration {
-				foundDecentralizedFg = true
-			}
-		}
 		if *spec.RunStrategy == v1.RunStrategyWaitAsReceiver {
-			if foundDecentralizedFg {
+			if config.DecentralizedLiveMigrationEnabled() {
 				// Only allow wait as receiver if feature gate is set.
 				return
 			}

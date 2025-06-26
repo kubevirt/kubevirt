@@ -68,7 +68,6 @@ type SynchronizationController struct {
 
 	vmiInformer       cache.SharedIndexInformer
 	migrationInformer cache.SharedIndexInformer
-	kubevirtStore     cache.Store
 
 	listener        net.Listener
 	bindAddress     string
@@ -506,6 +505,7 @@ func (s *SynchronizationController) handleTargetState(vmi *virtv1.VirtualMachine
 		log.Log.Object(vmi).V(4).Info("no synchronization connection found for target, doing nothing")
 		return nil
 	}
+
 	vmiStatusJson, err := json.Marshal(vmi.Status)
 	if err != nil {
 		return err
@@ -757,6 +757,7 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 		}, err
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
+	newVMI := vmi.DeepCopy()
 
 	remoteStatus := &virtv1.VirtualMachineInstanceStatus{}
 	if err := json.Unmarshal(request.VmiStatus.VmiStatusJson, remoteStatus); err != nil {
@@ -769,34 +770,24 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 			Message: noSourceStatusErrorMsg,
 		}, fmt.Errorf(noSourceStatusErrorMsg)
 	}
-	origVMI := vmi.DeepCopy()
-	if vmi.Status.MigrationState == nil {
-		vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+	if newVMI.Status.MigrationState == nil {
+		newVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
-	log.Log.Object(vmi).V(5).Infof("vmi migration source state: %#v", vmi.Status.MigrationState.SourceState)
-	log.Log.Object(vmi).V(5).Infof("remote migration source state: %#v", remoteStatus.MigrationState.SourceState)
-	vmi.Status.MigrationState.SourceState = remoteStatus.MigrationState.SourceState.DeepCopy()
-	copyLegacySourceFields(vmi, remoteStatus.MigrationState)
-	vmi.Status.MigratedVolumes = remoteStatus.MigratedVolumes
-	vmi.Status.MigrationMethod = remoteStatus.MigrationMethod
-	if !apiequality.Semantic.DeepEqual(origVMI.Status, vmi.Status) {
-		if err := s.patchVMI(origVMI, vmi); err != nil {
-			// Patching failed, but it updated the informer, but not etcd. Grab the data from etc and fix the informer
-			if refreshedVMI, err := s.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{}); err != nil {
-				log.Log.Object(vmi).Errorf("Unable to refresh VMI %v", err)
-			} else {
-				log.Log.Object(refreshedVMI).Infof("Source migration state %#v", refreshedVMI.Status.MigrationState.TargetState)
-				if err := s.vmiInformer.GetStore().Update(refreshedVMI); err != nil {
-					log.Log.Object(vmi).Errorf("Unable to update VMI in informer %v", err)
-				}
-			}
+	log.Log.Object(newVMI).V(5).Infof("vmi migration source state: %#v", newVMI.Status.MigrationState.SourceState)
+	log.Log.Object(newVMI).V(5).Infof("remote migration source state: %#v", remoteStatus.MigrationState.SourceState)
+	newVMI.Status.MigrationState.SourceState = remoteStatus.MigrationState.SourceState.DeepCopy()
+	copyLegacySourceFields(newVMI, remoteStatus.MigrationState)
+	newVMI.Status.MigratedVolumes = remoteStatus.MigratedVolumes
+	newVMI.Status.MigrationMethod = remoteStatus.MigrationMethod
+	if !apiequality.Semantic.DeepEqual(vmi.Status, newVMI.Status) {
+		if err := s.patchVMI(vmi, newVMI); err != nil {
 			return &syncv1.VMIStatusResponse{
 				Message: fmt.Sprintf("unable to synchronize VMI for migrationID %s", request.MigrationID),
 			}, err
 		}
-		log.Log.Object(vmi).With("MigrationID", request.MigrationID).V(5).Info("successfully patched VMI with source state")
+		log.Log.Object(newVMI).With("MigrationID", request.MigrationID).V(5).Info("successfully patched VMI with source state")
 	}
-	log.Log.Object(vmi).V(5).Info("returning success to grpc caller, source")
+	log.Log.Object(newVMI).V(5).Info("returning success to grpc caller, source")
 	return &syncv1.VMIStatusResponse{
 		Message: successMessage,
 	}, nil
@@ -827,6 +818,7 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 		}, err
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
+	newVMI := vmi.DeepCopy()
 	remoteStatus := &virtv1.VirtualMachineInstanceStatus{}
 	if err := json.Unmarshal(request.VmiStatus.VmiStatusJson, remoteStatus); err != nil {
 		return &syncv1.VMIStatusResponse{
@@ -838,34 +830,24 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 			Message: noTargetStatusErrorMsg,
 		}, fmt.Errorf(noTargetStatusErrorMsg)
 	}
-	origVMI := vmi.DeepCopy()
-	if vmi.Status.MigrationState == nil {
-		vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+	if newVMI.Status.MigrationState == nil {
+		newVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
 
-	log.Log.Object(vmi).V(5).Infof("vmi migration target state: %#v", vmi.Status.MigrationState.TargetState)
-	log.Log.Object(vmi).V(5).Infof("remote migration target state: %#v", remoteStatus.MigrationState.TargetState)
-	vmi.Status.MigrationState.TargetState = remoteStatus.MigrationState.TargetState.DeepCopy()
-	copyTargetNameNodeLabel(vmi, remoteStatus.MigrationState)
-	copyLegacyTargetFields(vmi, remoteStatus.MigrationState)
-	if !apiequality.Semantic.DeepEqual(origVMI.Status.MigrationState, vmi.Status.MigrationState) {
-		if err := s.patchVMI(origVMI, vmi); err != nil {
-			// Patching failed, but it updated the informer, but not etcd. Grab the data from etc and fix the informer
-			if refreshedVMI, err := s.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{}); err != nil {
-				log.Log.Object(vmi).Errorf("Unable to refresh VMI %v", err)
-			} else {
-				log.Log.Object(refreshedVMI).Infof("Target migration state %#v", refreshedVMI.Status.MigrationState.TargetState)
-				if err := s.vmiInformer.GetStore().Update(refreshedVMI); err != nil {
-					log.Log.Object(vmi).Errorf("Unable to update VMI in informer %v", err)
-				}
-			}
+	log.Log.Object(newVMI).V(5).Infof("vmi migration target state: %#v", newVMI.Status.MigrationState.TargetState)
+	log.Log.Object(newVMI).V(5).Infof("remote migration target state: %#v", remoteStatus.MigrationState.TargetState)
+	newVMI.Status.MigrationState.TargetState = remoteStatus.MigrationState.TargetState.DeepCopy()
+	copyTargetNameNodeLabel(newVMI, remoteStatus.MigrationState)
+	copyLegacyTargetFields(newVMI, remoteStatus.MigrationState)
+	if !apiequality.Semantic.DeepEqual(vmi.Status.MigrationState, newVMI.Status.MigrationState) {
+		if err := s.patchVMI(vmi, newVMI); err != nil {
 			return &syncv1.VMIStatusResponse{
 				Message: fmt.Sprintf("unable to synchronize VMI for migrationID %s", request.MigrationID),
 			}, err
 		}
-		log.Log.Object(vmi).With("MigrationID", request.MigrationID).V(5).Info("successfully patched VMI with target state")
+		log.Log.Object(newVMI).With("MigrationID", request.MigrationID).V(5).Info("successfully patched VMI with target state")
 	}
-	log.Log.Object(vmi).V(5).Info("returning success to grpc caller, target")
+	log.Log.Object(newVMI).V(5).Info("returning success to grpc caller, target")
 	return &syncv1.VMIStatusResponse{
 		Message: successMessage,
 	}, nil

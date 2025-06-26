@@ -34,7 +34,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1575,7 +1574,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 		// Waiting for sync, setup vmi migration target status
 		origVMI := vmi.DeepCopy()
 		c.initializeMigrateTargetState(migration, vmi)
-		if !apiequality.Semantic.DeepEqual(origVMI.Status, vmi.Status) {
+		if !equality.Semantic.DeepEqual(origVMI.Status, vmi.Status) {
 			return c.patchVMI(origVMI, vmi)
 		} else {
 			log.Log.Object(vmi).V(5).Info("migrationWaitingForSync not changed, not patching")
@@ -1584,7 +1583,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 	case virtv1.MigrationSynchronizing:
 		origVMI := vmi.DeepCopy()
 		c.initializeMigrateSourceState(migration, vmi)
-		if !apiequality.Semantic.DeepEqual(origVMI.Status, vmi.Status) {
+		if !equality.Semantic.DeepEqual(origVMI.Status, vmi.Status) {
 			return c.patchVMI(origVMI, vmi)
 		} else {
 			log.Log.Object(vmi).V(5).Info("migrationSynchronizing not changed, not patching")
