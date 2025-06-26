@@ -56,6 +56,10 @@ import (
 
 var errWaitingForTargetPorts = errors.New("waiting for target to publish migration ports")
 
+type passtRepairSourceHandler interface {
+	HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
+}
+
 type MigrationSourceController struct {
 	*BaseController
 	capabilities                *libvirtxml.Caps
@@ -67,6 +71,7 @@ type MigrationSourceController struct {
 	recorder                    record.EventRecorder
 	virtLauncherFSRunDirPattern string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
+	passtRepairHandler          passtRepairSourceHandler
 }
 
 func NewMigrationSourceController(
@@ -80,6 +85,7 @@ func NewMigrationSourceController(
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
 	virtLauncherFSRunDirPattern string,
+	passtRepairHandler passtRepairSourceHandler,
 ) (*MigrationSourceController, error) {
 
 	baseCtrl, err := NewBaseController(
@@ -108,6 +114,7 @@ func NewMigrationSourceController(
 		recorder:                    recorder,
 		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		passtRepairHandler:          passtRepairHandler,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -507,12 +514,26 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		return err
 	}
 
+	if c.clusterConfig.PasstIPStackMigrationEnabled() {
+		if err := c.passtRepairHandler.HandleMigrationSource(vmi, c.passtSocketDirOnHostMigrationSource); err != nil {
+			log.Log.Object(vmi).Warningf("failed to call passt-repair for migration source, %v", err)
+		}
+	}
+
 	err = client.MigrateVirtualMachine(vmiCopy, options)
 	if err != nil {
 		return err
 	}
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), VMIMigrating)
 	return nil
+}
+
+func (c *MigrationSourceController) passtSocketDirOnHostMigrationSource(vmi *v1.VirtualMachineInstance) (string, error) {
+	path, err := c.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return "", err
+	}
+	return passtSocketDirOnHost(path)
 }
 
 func isMigrationDone(state *v1.VirtualMachineInstanceMigrationState) bool {

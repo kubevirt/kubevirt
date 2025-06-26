@@ -25,6 +25,7 @@ go_library(
         "//pkg/monitoring/metrics/virt-handler/handler:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
         "//pkg/network/netbinding:go_default_library",
+        "//pkg/network/passt:go_default_library",
         "//pkg/network/setup:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/service:go_default_library",
