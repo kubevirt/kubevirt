@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -88,6 +89,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		mockHotplugVolumeMounter *hotplugvolume.MockVolumeMounter
 
 		networkBindingPluginMemoryCalculator *stubNetBindingPluginMemoryCalculator
+		migrationTargetPasstRepairHandler    *stubTargetPasstRepairHandler
 	)
 
 	const (
@@ -168,10 +170,15 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
-		kv := &v1.KubeVirtConfiguration{}
-		kv.NetworkConfiguration = &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{
-			migratableNetworkBindingPlugin: {Migration: &v1.InterfaceBindingMigration{}},
-		}}
+		kv := &v1.KubeVirtConfiguration{
+			NetworkConfiguration: &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{
+				migratableNetworkBindingPlugin: {Migration: &v1.InterfaceBindingMigration{}},
+			}},
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.PasstIPStackMigration},
+			},
+		}
+
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
 
 		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "dev"), 0755)).To(Succeed())
@@ -195,6 +202,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		launcherClientManager := &launcher_clients.MockLauncherClientManager{
 			Initialized: true,
 		}
+		migrationTargetPasstRepairHandler = &stubTargetPasstRepairHandler{isHandleMigrationTargetCalled: false}
 
 		controller, _ = NewMigrationTargetController(
 			recorder,
@@ -213,7 +221,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			&netConfStub{},
 			&netStatStub{},
 			networkBindingPluginMemoryCalculator,
-			&stubTargetPasstRepairHandler{},
+			migrationTargetPasstRepairHandler,
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
@@ -291,6 +299,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		sanityExecute()
 		testutils.ExpectEvent(recorder, VMIMigrationTargetPrepared)
 		testutils.ExpectEvent(recorder, "Migration Target is listening")
+		Expect(migrationTargetPasstRepairHandler.isHandleMigrationTargetCalled).Should(BeTrue())
 	})
 
 	It("should abort target prep if VMI is deleted", func() {
@@ -681,8 +690,11 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 	})
 })
 
-type stubTargetPasstRepairHandler struct{}
+type stubTargetPasstRepairHandler struct {
+	isHandleMigrationTargetCalled bool
+}
 
 func (s *stubTargetPasstRepairHandler) HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	s.isHandleMigrationTargetCalled = true
 	return nil
 }
