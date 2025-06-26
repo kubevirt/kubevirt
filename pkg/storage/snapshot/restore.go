@@ -75,13 +75,20 @@ const (
 	restoreVMNotReadyEvent = "RestoreTargetNotReady"
 
 	restoreDataVolumeCreateErrorEvent = "RestoreDataVolumeCreateError"
+
+	waitEventuallyMessage = "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore"
+	stopTargetMessage     = "Automatically stopping restore target for restore operation"
+
+	vmiExistsEventMessage        = "Restore target VMI still exists, please stop the restore target to proceed with restore"
+	targetNotReadyFailureMessage = "Restore target VMI must be powered off before restore operation"
+
+	restoreFailedEvent           = "Operation failed"
+	errorRestoreToExistingTarget = "restore source and restore target are different but restore target already exists"
 )
 
 var (
-	restoreGracePeriodExceededError = fmt.Sprintf("Restore target failed to be ready within %s", snapshotv1.DefaultGracePeriod)
-	restoreTargetNotReady           = "Restore target not ready"
-	restoredFailed                  = "Operation failed"
-	errorRestoreToExistingTarget    = "restore source and restore target are different but restore target already exists"
+	restoreGracePeriodExceededError = fmt.Sprintf("Restore target failed to be ready within %s. Please power off the target VM before attempting restore", snapshotv1.DefaultGracePeriod)
+	waitGracePeriodMessage          = fmt.Sprintf("Waiting for target VM to be powered off. Please stop the restore target to proceed with restore, or the operation will fail after %s", snapshotv1.DefaultGracePeriod)
 )
 
 type restoreTarget interface {
@@ -263,23 +270,35 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 }
 
 func (ctrl *VMRestoreController) doUpdateError(restore *snapshotv1.VirtualMachineRestore, err error) error {
-	ctrl.Recorder.Eventf(
-		restore,
-		corev1.EventTypeWarning,
-		restoreErrorEvent,
-		"VirtualMachineRestore encountered error %s",
-		err.Error(),
-	)
-
-	updated := restore.DeepCopy()
-
-	updateRestoreCondition(updated, newProgressingCondition(corev1.ConditionFalse, err.Error()))
-	updateRestoreCondition(updated, newReadyCondition(corev1.ConditionFalse, err.Error()))
-	if err2 := ctrl.doUpdateStatus(restore, updated); err2 != nil {
-		return err2
+	if updateErr := ctrl.doUpdateErrorWithFailure(restore, err.Error(), false); updateErr != nil {
+		return updateErr
 	}
 
 	return err
+}
+
+func (ctrl *VMRestoreController) doUpdateErrorWithFailure(restore *snapshotv1.VirtualMachineRestore, errMsg string, fail bool) error {
+	updated := restore.DeepCopy()
+
+	eventReason := restoreErrorEvent
+	eventMsg := fmt.Sprintf("VirtualMachineRestore encountered error %s", errMsg)
+
+	updateRestoreCondition(updated, newProgressingCondition(corev1.ConditionFalse, errMsg))
+	updateRestoreCondition(updated, newReadyCondition(corev1.ConditionFalse, errMsg))
+	if fail {
+		eventReason = restoreFailedEvent
+		eventMsg = fmt.Sprintf("VirtualMachineRestore failed %s", errMsg)
+		updateRestoreCondition(updated, newFailureCondition(corev1.ConditionTrue, errMsg))
+	}
+
+	ctrl.Recorder.Eventf(
+		restore,
+		corev1.EventTypeWarning,
+		eventReason,
+		eventMsg,
+	)
+
+	return ctrl.doUpdateStatus(restore, updated)
 }
 
 func (ctrl *VMRestoreController) doUpdateStatus(original, updated *snapshotv1.VirtualMachineRestore) error {
@@ -334,29 +353,44 @@ func (ctrl *VMRestoreController) handleVMRestoreTargetNotReady(vmRestore *snapsh
 		policy = *vmRestore.Spec.TargetReadinessPolicy
 	}
 
-	eventMsg := "Restore target VMI still exists"
-	ctrl.Recorder.Event(vmRestoreCpy, corev1.EventTypeNormal, restoreVMNotReadyEvent, eventMsg)
-	reason := "Waiting for target to be ready"
-	updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, reason))
-	updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, reason))
+	var reason, eventMsg string
 
 	switch policy {
 	case snapshotv1.VirtualMachineRestoreWaitEventually:
+		reason = waitEventuallyMessage
+		eventMsg = vmiExistsEventMessage
 	case snapshotv1.VirtualMachineRestoreStopTarget:
-		err := target.Stop()
-		if err != nil {
-			return ctrl.doUpdateError(vmRestore, err)
-		}
+		return ctrl.stopTarget(vmRestore, target)
 	case snapshotv1.VirtualMachineRestoreWaitGracePeriodAndFail:
 		if vmRestoreTargetReadyGracePeriodExceeded(vmRestore) {
-			updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, restoredFailed))
-			updateRestoreCondition(vmRestoreCpy, newFailureCondition(corev1.ConditionTrue, restoreGracePeriodExceededError))
-			updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, restoredFailed))
+			return ctrl.doUpdateErrorWithFailure(vmRestore, restoreGracePeriodExceededError, true)
 		}
+
+		reason = waitGracePeriodMessage
+		eventMsg = vmiExistsEventMessage
 	case snapshotv1.VirtualMachineRestoreFailImmediate:
-		updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, restoredFailed))
-		updateRestoreCondition(vmRestoreCpy, newFailureCondition(corev1.ConditionTrue, restoreTargetNotReady))
-		updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, restoredFailed))
+		return ctrl.doUpdateErrorWithFailure(vmRestore, targetNotReadyFailureMessage, true)
+	default:
+		return fmt.Errorf("unknown targetReadinessPolicy: %v", policy)
+	}
+
+	ctrl.Recorder.Event(vmRestoreCpy, corev1.EventTypeWarning, restoreVMNotReadyEvent, eventMsg)
+	updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, reason))
+	updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, reason))
+
+	return ctrl.doUpdateStatus(vmRestore, vmRestoreCpy)
+}
+
+func (ctrl *VMRestoreController) stopTarget(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
+	vmRestoreCpy := vmRestore.DeepCopy()
+	ctrl.Recorder.Event(vmRestoreCpy, corev1.EventTypeWarning, restoreVMNotReadyEvent, stopTargetMessage)
+	updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, stopTargetMessage))
+	updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, stopTargetMessage))
+
+	// Stop the restore target
+	err := target.Stop()
+	if err != nil {
+		return ctrl.doUpdateError(vmRestoreCpy, err)
 	}
 	return ctrl.doUpdateStatus(vmRestore, vmRestoreCpy)
 }
