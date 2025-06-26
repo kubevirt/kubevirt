@@ -1586,6 +1586,36 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal(fgMessage))
 	})
+
+	Context("run strategy", func() {
+		AfterEach(func() {
+			disableFeatureGates()
+		})
+
+		DescribeTable("validate should", func(runStrategy v1.VirtualMachineRunStrategy, featureGate string, accepted bool) {
+			vmi := api.NewMinimalVMI("testvmi")
+			vm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: &runStrategy,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: vmi.Spec,
+					},
+				},
+			}
+			enableFeatureGate(featureGate)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(Equal(accepted))
+		},
+			Entry("allow runstrategy halted", v1.RunStrategyHalted, "", true),
+			Entry("allow runstrategy manual", v1.RunStrategyManual, "", true),
+			Entry("allow runstrategy always", v1.RunStrategyAlways, "", true),
+			Entry("allow runstrategy rerun on failure", v1.RunStrategyRerunOnFailure, "", true),
+			Entry("allow runstrategy once", v1.RunStrategyOnce, "", true),
+			Entry("allow runstrategy wait as receiver", v1.RunStrategyWaitAsReceiver, featuregate.DecentralizedLiveMigration, true),
+			Entry("reject runstrategy wait as receiver, if feature gate not enabled", v1.RunStrategyWaitAsReceiver, "", false),
+			Entry("reject invalid runstrategy", v1.VirtualMachineRunStrategy("invalid"), "", false),
+		)
+	})
 })
 
 func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
