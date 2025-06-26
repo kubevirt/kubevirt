@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
@@ -466,17 +467,29 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				Entry("with a zero CPU quantity", pointer.P(resource.MustParse("0"))),
 			)
 
-			It("should not configure multiple threads if CPU is limited", func() {
-				vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("4")
+			DescribeTable("should not configure multiple threads", func(allowPostcopy bool, vmiLimits k8sv1.ResourceList) {
+				var migrationConfiguration = &v1.MigrationConfiguration{
+					BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
+					ProgressTimeout:         pointer.P(int64(150)),
+					AllowAutoConverge:       pointer.P(false),
+					CompletionTimeoutPerGiB: pointer.P(int64(50)),
+					UnsafeMigrationOverride: pointer.P(false),
+					AllowPostCopy:           pointer.P(allowPostcopy),
+					AllowWorkloadDisruption: pointer.P(true),
+				}
+				vmi.Status.MigrationState.MigrationConfiguration = migrationConfiguration
+				vmi.Spec.Domain.Resources.Limits = vmiLimits
 
 				client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
-					Expect(options).ToNot(BeNil())
 					Expect(options.ParallelMigrationThreads).To(BeNil())
 				}).Times(1).Return(nil)
 
 				controller.Execute()
 				testutils.ExpectEvent(recorder, VMIMigrating)
-			})
+			},
+				Entry("if CPU is limited", false, k8sv1.ResourceList{k8sv1.ResourceCPU: resource.MustParse("4")}),
+				Entry("if post-copy is enabled", true, k8sv1.ResourceList{}),
+			)
 		})
 	})
 
