@@ -137,6 +137,11 @@ func (in *ArchConfiguration) DeepCopyInto(out *ArchConfiguration) {
 		*out = new(ArchSpecificConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.S390x != nil {
+		in, out := &in.S390x, &out.S390x
+		*out = new(ArchSpecificConfiguration)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

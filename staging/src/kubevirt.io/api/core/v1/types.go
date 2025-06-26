@@ -2812,7 +2812,6 @@ type ArchSpecificConfiguration struct {
 	MachineType      string   `json:"machineType,omitempty"`
 }
 
-
 type SMBiosConfiguration struct {
 	Manufacturer string `json:"manufacturer,omitempty"`
 	Product      string `json:"product,omitempty"`
