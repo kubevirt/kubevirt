@@ -24,9 +24,12 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -799,7 +802,13 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 		}
 		return err
 	}
-	ip := pod.Status.PodIP
+
+	// Check for the migration network address in the pod annotations.
+	ip := r.getIpFromAnnotations(pod)
+	if ip == "" {
+		// Did not find annotations, use the pod ip address instead
+		ip = pod.Status.PodIP
+	}
 	if ip == "" {
 		return nil
 	}
@@ -813,4 +822,19 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 	}
 	r.kv.Status.SynchronizationAddress = pointer.P(fmt.Sprintf("%s:%d", ip, port))
 	return nil
+}
+
+func (r *Reconciler) getIpFromAnnotations(pod *corev1.Pod) string {
+	networkStatuses := multus.NetworkStatusesFromPod(pod)
+	for _, networkStatus := range networkStatuses {
+		if networkStatus.Interface == v1.MigrationInterfaceName {
+			if len(networkStatus.IPs) != 1 {
+				continue
+			}
+			log.Log.Object(pod).V(4).Infof("found migration network ip address %s", networkStatus.IPs[0])
+			return networkStatus.IPs[0]
+		}
+	}
+	log.Log.Object(pod).V(4).Infof("didn't find migration network ip in annotations %v", pod.Annotations)
+	return ""
 }
