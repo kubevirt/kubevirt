@@ -196,3 +196,7 @@ func (config *ClusterConfig) SecureExecutionEnabled() bool {
 func (config *ClusterConfig) PanicDevicesEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PanicDevicesGate)
 }
+
+func (config *ClusterConfig) DecentralizedLiveMigrationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
+}
