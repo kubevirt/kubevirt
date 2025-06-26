@@ -241,6 +241,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						S390x:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 					},
 				},
 			},
@@ -252,6 +253,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(*vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(cpuReq))
 	},
 		Entry("on amd64", "amd64", cpuModelFromConfig),
+		Entry("on s390x", "s390x", cpuModelFromConfig),
 		// Currently only Host-Passthrough is supported on Arm64, so you can only
 		// modify the CPU Model in a VMI yaml file, rather than in cluster config
 		Entry("on arm64", "arm64", v1.CPUModeHostPassthrough),
