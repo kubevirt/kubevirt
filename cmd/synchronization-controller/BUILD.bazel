@@ -20,6 +20,7 @@ go_library(
         "//pkg/util/tls:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/leaderelectionconfig:go_default_library",
+        "//pkg/virt-handler:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/scheme:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
