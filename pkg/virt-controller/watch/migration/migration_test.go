@@ -350,7 +350,7 @@ var _ = Describe("Migration watcher", func() {
 		controllertesting.SanityExecute(controller, []cache.Store{
 			controller.vmiStore, controller.podIndexer, controller.migrationIndexer, controller.nodeStore,
 			controller.pvcStore, controller.migrationPolicyStore, controller.resourceQuotaIndexer,
-			controller.storageClassStore, controller.storageProfileStore,
+			controller.storageClassStore, controller.storageProfileStore, controller.kubevirtStore,
 		}, Default)
 	}
 

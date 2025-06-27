@@ -774,6 +774,7 @@ func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.TypedRate
 
 func (r *Reconciler) updateSynchronizationAddress() (err error) {
 	if !r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+		r.kv.Status.SynchronizationAddress = nil
 		return nil
 	}
 	// Find the lease associated with the virt-synchronization controller
