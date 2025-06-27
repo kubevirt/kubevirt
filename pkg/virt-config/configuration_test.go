@@ -144,9 +144,9 @@ var _ = Describe("test configuration", func() {
 		Expect(clusterConfig.GetMachineType(cpuArch)).To(Equal(result))
 	},
 		Entry("when amd64 set, GetMachineType should return the value", "amd64", "pc-q35-3.0", "", "", "", "pc-q35-3.0"),
-		Entry("when arm64 set, GetMachineType should return the value", "arm64", "", "virt", "", "", "virt"),
-		Entry("when ppc64le set, GetMachineType should return the value", "ppc64le", "", "", "pseries", "", "pseries"),
-		Entry("when s390x set, GetMachineType should return the value", "s390x", "", "", "", "s390-ccw-virtio-rhel8.6.0", "s390-ccw-virtio-rhel8.6.0"),
+		Entry("when arm64 set, GetMachineType should return the value", "arm64", "", "virt-rhel9.0", "", "", "virt-rhel9.0"),
+		Entry("when ppc64le set, GetMachineType should return the value", "ppc64le", "", "", "pseries-rhel9.0", "", "pseries-rhel9.0"),
+		Entry("when s390x set, GetMachineType should return the value", "s390x", "", "", "", "s390-ccw-virtio-rhel9.0", "s390-ccw-virtio-rhel9.0"),
 		Entry("when amd64 unset, GetMachineType should return the default with amd64", "amd64", "", "", "", "", virtconfig.DefaultAMD64MachineType),
 		Entry("when arm64 unset, GetMachineType should return the default with arm64", "arm64", "", "", "", "", virtconfig.DefaultAARCH64MachineType),
 		Entry("when ppc64le unset, GetMachineType should return the default with ppc64le", "ppc64le", "", "", "", "", virtconfig.DefaultPPC64LEMachineType),
@@ -256,8 +256,8 @@ var _ = Describe("test configuration", func() {
 		Expect(emulatedMachines).To(ConsistOf(result))
 	},
 		Entry("when amd64 set, GetEmulatedMachines should return the value", "amd64", []string{"q35", "i440*"}, nil, nil, nil, []string{"q35", "i440*"}),
-		Entry("when arm64 set, GetEmulatedMachines should return the value", "arm64", nil, []string{"virt*"}, nil, nil, []string{"virt*"}),
-		Entry("when ppc64le set, GetEmulatedMachines should return the value", "ppc64le", nil, nil, []string{"pseries*"}, nil, []string{"pseries*"}),
+		Entry("when arm64 set, GetEmulatedMachines should return the value", "arm64", nil, []string{"virt-test*"}, nil, nil, []string{"virt-test*"}),
+		Entry("when ppc64le set, GetEmulatedMachines should return the value", "ppc64le", nil, nil, []string{"pseries-test*"}, nil, []string{"pseries-test*"}),
 		Entry("when s390x set, GetEmulatedMachines should return the value", "s390x", nil, nil, nil, []string{"s390-ccw-virtio-test*"}, []string{"s390-ccw-virtio-test*"}),
 		Entry("when unset, GetEmulatedMachines should return the defaults with amd64", "amd64", nil, nil, nil, nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
 		Entry("when empty, GetEmulatedMachines should return the defaults with amd64", "amd64", []string{}, []string{}, []string{}, nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
@@ -521,7 +521,7 @@ var _ = Describe("test configuration", func() {
 		Entry("when unset, GetOVMFPath should return the default with amd64", "amd64", "", "", "", "", virtconfig.DefaultARCHOVMFPath),
 		Entry("when unset, GetOVMFPath should return the default with arm64", "arm64", "", "", "", "", virtconfig.DefaultAARCH64OVMFPath),
 		Entry("when unset, GetOVMFPath should return the default with ppc64le", "ppc64le", "", "", "", "", virtconfig.DefaultARCHOVMFPath),
-		Entry("when unset, GetOVMFPath should return the default with with s390x", "s390x", "", "", "", "", virtconfig.DefaultS390xOVMFPath),
+		Entry("when unset, GetOVMFPath should return the default with s390x", "s390x", "", "", "", "", virtconfig.DefaultS390xOVMFPath),
 	)
 
 	It("verifies that SetConfigModifiedCallback works as expected ", func() {
