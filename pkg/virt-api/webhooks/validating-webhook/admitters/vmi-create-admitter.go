@@ -170,8 +170,6 @@ func ValidateVirtualMachineInstancePerArch(field *k8sfield.Path, spec *v1.Virtua
 		causes = append(causes, webhooks.ValidateVirtualMachineInstanceS390XSetting(field, spec)...)
 	case "arm64":
 		causes = append(causes, webhooks.ValidateVirtualMachineInstanceArm64Setting(field, spec)...)
-	case "ppc64le":
-		causes = append(causes, webhooks.ValidateVirtualMachineInstancePPC64LESetting(field, spec)...)
 	default:
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
