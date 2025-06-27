@@ -59,10 +59,10 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
-	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
+	containerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
+	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -78,8 +78,8 @@ type passtRepairTargetHandler interface {
 type MigrationTargetController struct {
 	*BaseController
 	capabilities                     *libvirtxml.Caps
-	containerDiskMounter             container_disk.Mounter
-	hotplugVolumeMounter             hotplug_volume.VolumeMounter
+	containerDiskMounter             containerdisk.Mounter
+	hotplugVolumeMounter             hotplugvolume.VolumeMounter
 	migrationIpAddress               string
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 	netConf                          netconf
@@ -93,7 +93,7 @@ func NewMigrationTargetController(
 	virtPrivateDir string,
 	kubeletPodsDir string,
 	migrationIpAddress string,
-	launcherClients launcher_clients.LauncherClientsManager,
+	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -143,8 +143,8 @@ func NewMigrationTargetController(
 	c := &MigrationTargetController{
 		BaseController:                   baseCtrl,
 		capabilities:                     capabilities,
-		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
-		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
+		containerDiskMounter:             containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
+		hotplugVolumeMounter:             hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
 		migrationIpAddress:               migrationIpAddress,
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 		netConf:                          netConf,
@@ -613,7 +613,7 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 			return err
 		}
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-		return container_disk.ErrWaitingForDisks
+		return containerdisk.ErrWaitingForDisks
 	}
 
 	// Mount container disks
@@ -693,7 +693,7 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 	vmi = vmi.DeepCopy()
 
 	err = c.syncVolumes(vmi)
-	if goerror.Is(err, container_disk.ErrWaitingForDisks) {
+	if goerror.Is(err, containerdisk.ErrWaitingForDisks) {
 		log.Log.Object(vmi).V(4).Info("waiting for container disks to become ready")
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return nil

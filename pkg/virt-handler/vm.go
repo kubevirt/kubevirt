@@ -73,14 +73,14 @@ import (
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
-	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
+	containerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+	deviceManager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
-	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
+	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
+	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
-	multipath_monitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
+	multipathmonitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -100,19 +100,19 @@ type VirtualMachineController struct {
 	*BaseController
 	capabilities             *libvirtxml.Caps
 	clientset                kubecli.KubevirtClient
-	containerDiskMounter     container_disk.Mounter
+	containerDiskMounter     containerdisk.Mounter
 	downwardMetricsManager   downwardMetricsManager
-	hotplugVolumeMounter     hotplug_volume.VolumeMounter
+	hotplugVolumeMounter     hotplugvolume.VolumeMounter
 	hostCpuModel             string
 	ioErrorRetryManager      *FailRetryManager
-	deviceManagerController  *device_manager.DeviceController
+	deviceManagerController  *deviceManager.DeviceController
 	heartBeat                *heartbeat.HeartBeat
 	heartBeatInterval        time.Duration
 	netConf                  netconf
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	vmiExpectations          *controller.UIDTrackingControllerExpectations
 	vmiGlobalStore           cache.Store
-	multipathSocketMonitor   *multipath_monitor.MultipathSocketMonitor
+	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
@@ -125,7 +125,7 @@ func NewVirtualMachineController(
 	host string,
 	virtPrivateDir string,
 	kubeletPodsDir string,
-	launcherClients launcher_clients.LauncherClientsManager,
+	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
 	vmiGlobalStore cache.Store,
 	domainInformer cache.SharedInformer,
@@ -177,9 +177,9 @@ func NewVirtualMachineController(
 		BaseController:           baseCtrl,
 		capabilities:             capabilities,
 		clientset:                clientset,
-		containerDiskMounter:     container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
+		containerDiskMounter:     containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
 		downwardMetricsManager:   downwardMetricsManager,
-		hotplugVolumeMounter:     hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
+		hotplugVolumeMounter:     hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
 		hostCpuModel:             hostCpuModel,
 		ioErrorRetryManager:      NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
 		heartBeatInterval:        1 * time.Minute,
@@ -187,7 +187,7 @@ func NewVirtualMachineController(
 		sriovHotplugExecutorPool: executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
 		vmiExpectations:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiGlobalStore:           vmiGlobalStore,
-		multipathSocketMonitor:   multipath_monitor.NewMultipathSocketMonitor(),
+		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -220,11 +220,11 @@ func NewVirtualMachineController(
 		permissions = "rwm"
 	}
 
-	c.deviceManagerController = device_manager.NewDeviceController(
+	c.deviceManagerController = deviceManager.NewDeviceController(
 		c.host,
 		maxDevices,
 		permissions,
-		device_manager.PermanentHostDevicePlugins(maxDevices, permissions),
+		deviceManager.PermanentHostDevicePlugins(maxDevices, permissions),
 		clusterConfig,
 		clientset.CoreV1())
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
@@ -561,7 +561,7 @@ func (c *VirtualMachineController) updateChecksumInfo(vmi *v1.VirtualMachineInst
 	}
 
 	diskChecksums, err := c.containerDiskMounter.ComputeChecksums(vmi)
-	if goerror.Is(err, container_disk.ErrDiskContainerGone) {
+	if goerror.Is(err, containerdisk.ErrDiskContainerGone) {
 		log.Log.Errorf("cannot compute checksums as containerdisk/kernelboot containers seem to have been terminated")
 		return nil
 	}

@@ -67,7 +67,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
+	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -171,7 +171,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
 		fakeDownwardMetricsManager := newFakeManager()
 
-		launcherClientManager := &launcher_clients.MockLauncherClientManager{
+		launcherClientManager := &launcherclients.MockLauncherClientManager{
 			Initialized: true,
 		}
 		controller, _ = NewVirtualMachineController(
@@ -397,7 +397,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			createVMI(vmi)
 
 			//Did not initialize yet
-			controller.launcherClients = &launcher_clients.MockLauncherClientManager{
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{
 				Initialized: false,
 			}
 			sanityExecute()
@@ -419,7 +419,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			createVMI(vmi)
 
 			//Did not initialize yet
-			controller.launcherClients = &launcher_clients.MockLauncherClientManager{
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{
 				Initialized:  true,
 				UnResponsive: true,
 			}
@@ -1009,7 +1009,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Phase = v1.Scheduled
 
 			createVMI(vmi)
-			controller.launcherClients = &launcher_clients.MockLauncherClientManager{
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{
 				Initialized:  true,
 				UnResponsive: true,
 			}
