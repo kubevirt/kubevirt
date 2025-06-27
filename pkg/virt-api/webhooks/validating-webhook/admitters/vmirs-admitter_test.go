@@ -29,13 +29,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
+
+func withTestDisk() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "testdisk",
+		})
+	}
+}
+
+func buildVMITemplate(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceTemplateSpec {
+	return &v1.VirtualMachineInstanceTemplateSpec{
+		ObjectMeta: vmi.ObjectMeta,
+		Spec:       vmi.Spec,
+	}
+}
 
 var _ = Describe("Validating VMIRS Admitter", func() {
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
@@ -88,9 +102,11 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"match": "this"},
 				},
-				Template: newVirtualMachineBuilder().WithDisk(v1.Disk{
-					Name: "testdisk",
-				}).BuildTemplate(),
+				Template: buildVMITemplate(
+					libvmi.New(
+						withTestDisk(),
+					),
+				),
 			},
 		}, []string{
 			"spec.template.spec.domain.devices.disks[0].name",
@@ -101,7 +117,11 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"match": "not"},
 				},
-				Template: newVirtualMachineBuilder().WithLabel("match", "this").BuildTemplate(),
+				Template: buildVMITemplate(
+					libvmi.New(
+						libvmi.WithLabel("match", "this"),
+					),
+				),
 			},
 		}, []string{
 			"spec.selector",
@@ -113,18 +133,12 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"match": "me"},
 				},
-				Template: newVirtualMachineBuilder().
-					WithDisk(v1.Disk{
-						Name: "testdisk",
-					}).
-					WithVolume(v1.Volume{
-						Name: "testdisk",
-						VolumeSource: v1.VolumeSource{
-							ContainerDisk: testutils.NewFakeContainerDiskSource(),
-						},
-					}).
-					WithLabel("match", "me").
-					BuildTemplate(),
+				Template: buildVMITemplate(
+					libvmi.New(
+						libvmi.WithContainerDisk("testdisk", testutils.NewFakeContainerDiskSource().Image),
+						libvmi.WithLabel("match", "me"),
+					),
+				),
 			},
 		}
 		vmirsBytes, _ := json.Marshal(&vmirs)
@@ -142,50 +156,3 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 })
-
-type virtualMachineBuilder struct {
-	disks   []v1.Disk
-	volumes []v1.Volume
-	labels  map[string]string
-}
-
-func (b *virtualMachineBuilder) WithDisk(disk v1.Disk) *virtualMachineBuilder {
-	b.disks = append(b.disks, disk)
-	return b
-}
-
-func (b *virtualMachineBuilder) WithLabel(key string, value string) *virtualMachineBuilder {
-	b.labels[key] = value
-	return b
-}
-
-func (b *virtualMachineBuilder) WithVolume(volume v1.Volume) *virtualMachineBuilder {
-	b.volumes = append(b.volumes, volume)
-	return b
-}
-
-func (b *virtualMachineBuilder) Build() *v1.VirtualMachineInstance {
-
-	vmi := api.NewMinimalVMI("testvmi")
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, b.disks...)
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, b.volumes...)
-	vmi.Labels = b.labels
-
-	return vmi
-}
-
-func (b *virtualMachineBuilder) BuildTemplate() *v1.VirtualMachineInstanceTemplateSpec {
-	vmi := b.Build()
-
-	return &v1.VirtualMachineInstanceTemplateSpec{
-		ObjectMeta: vmi.ObjectMeta,
-		Spec:       vmi.Spec,
-	}
-
-}
-
-func newVirtualMachineBuilder() *virtualMachineBuilder {
-	return &virtualMachineBuilder{
-		labels: map[string]string{},
-	}
-}
