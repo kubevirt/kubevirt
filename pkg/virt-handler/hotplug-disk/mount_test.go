@@ -759,6 +759,46 @@ var _ = Describe("HotplugVolume", func() {
 			findMntByVolume = orgFindMntByVolume
 		})
 
+		verifyMountRecords := func(isMount bool, expectedPaths ...string) {
+			capturedPaths := []string{}
+
+			if isMount {
+				ownershipManager.EXPECT().SetFileOwnership(gomock.Any()).Times(len(expectedPaths)).DoAndReturn(func(path *safepath.Path) error {
+					capturedPaths = append(capturedPaths, unsafepath.UnsafeAbsolute(path.Raw()))
+					return nil
+				})
+
+				err = m.Mount(vmi, cgroupManagerMock)
+			} else {
+				err = m.Unmount(vmi, cgroupManagerMock)
+			}
+			Expect(err).ToNot(HaveOccurred())
+
+			By(fmt.Sprintf("Verifying there are %d records in tempDir/1234", len(expectedPaths)))
+			record := &vmiMountTargetRecord{
+				UsesSafePaths: true,
+			}
+
+			for _, path := range expectedPaths {
+				record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
+					TargetFile: path,
+				})
+			}
+
+			expectedBytes, err := json.Marshal(record)
+			Expect(err).ToNot(HaveOccurred())
+			bytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bytes).To(Equal(expectedBytes))
+			for _, path := range expectedPaths {
+				_, err = os.Stat(path)
+				Expect(err).ToNot(HaveOccurred())
+			}
+			if isMount {
+				Expect(capturedPaths).To(ContainElements(expectedPaths))
+			}
+		}
+
 		It("mount and umount should work for filesystem volumes", func() {
 			setExpectedCgroupRuns(2)
 
@@ -826,44 +866,28 @@ var _ = Describe("HotplugVolume", func() {
 				return []byte("Success"), nil
 			}
 
-			expectedPaths := []string{targetFilePath, blockVolume}
-			capturedPaths := []string{}
+			verifyMountRecords(true, targetFilePath, blockVolume)
 
-			ownershipManager.EXPECT().SetFileOwnership(gomock.Any()).Times(2).DoAndReturn(func(path *safepath.Path) error {
-				capturedPaths = append(capturedPaths, unsafepath.UnsafeAbsolute(path.Raw()))
-				return nil
-			})
-
-			err = m.Mount(vmi, cgroupManagerMock)
-			Expect(err).ToNot(HaveOccurred())
-			By("Verifying there are 2 records in tempDir/1234")
-			record := &vmiMountTargetRecord{
-				MountTargetEntries: []vmiMountTargetEntry{
-					{
-						TargetFile: targetFilePath,
-					},
-					{
-						TargetFile: blockVolume,
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "permanent",
+				},
+				{
+					Name: "filesystemvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "filesystemvolume",
+							},
+							Hotpluggable: true,
+						},
 					},
 				},
-				UsesSafePaths: true,
 			}
-			expectedBytes, err := json.Marshal(record)
-			Expect(err).ToNot(HaveOccurred())
-			bytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(bytes).To(Equal(expectedBytes))
-			_, err = os.Stat(targetFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(blockVolume)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(capturedPaths).To(ContainElements(expectedPaths))
 
-			volumeStatuses = make([]v1.VolumeStatus, 0)
-			volumeStatuses = append(volumeStatuses, v1.VolumeStatus{
-				Name: "permanent",
-			})
-			vmi.Status.VolumeStatus = volumeStatuses
+			verifyMountRecords(false, targetFilePath)
+
+			vmi.Spec.Volumes = vmi.Spec.Volumes[0:1]
 			err = m.Unmount(vmi, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))

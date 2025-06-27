@@ -1352,6 +1352,15 @@ var _ = Describe("VirtualMachineInstance", func() {
 				})
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
+				domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, api.Disk{
+					Alias: api.NewUserDefinedAlias("test"),
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						File: "test",
+					},
+				})
 				addVMI(vmi, domain)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				testutils.ExpectEvent(recorder, VolumeReadyReason)
@@ -1377,10 +1386,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				})
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
-				domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, api.Disk{
-					Alias:  api.NewUserDefinedAlias("test"),
-					Target: api.DiskTarget{},
-				})
 				addVMI(vmi, domain)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
@@ -1412,10 +1417,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				})
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
-				domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, api.Disk{
-					Alias:  api.NewUserDefinedAlias("test"),
-					Target: api.DiskTarget{},
-				})
 				addVMI(vmi, domain)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
@@ -1429,6 +1430,51 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Entry("When current phase is bound", v1.VolumeReady),
 				Entry("When current phase is pending", v1.HotplugVolumeMounted),
 				Entry("When current phase is bound for hotplug volume", v1.HotplugVolumeAttachedToNode),
+			)
+
+			DescribeTable("should generate an unmount event for cdrom when appropriate", func(source string) {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+					Name:    "test",
+					Phase:   v1.VolumeReady,
+					Reason:  "reason",
+					Message: "message",
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod",
+						AttachPodUID:  "1234",
+					},
+				})
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, api.Disk{
+					Alias: api.NewUserDefinedAlias("test"),
+					Source: api.DiskSource{
+						File: source,
+					},
+					Target: api.DiskTarget{
+						Device: "sr0",
+					},
+				})
+				addVMI(vmi, domain)
+				expectedPhase := v1.VolumeReady
+				if source == "" {
+					mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
+					expectedPhase = v1.HotplugVolumeUnMounted
+				}
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				Expect(hasHotplug).To(BeTrue())
+				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(expectedPhase))
+				if source == "" {
+					testutils.ExpectEvent(recorder, "Volume test has been unmounted from virt-launcher pod")
+					By("Calling it again with updated status, no new events are generated")
+					mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
+					controller.updateVolumeStatusesFromDomain(vmi, domain)
+				}
+			},
+				Entry("When target is set", "test"),
+				Entry("When target is unset", ""),
 			)
 
 			It("Should generate a ready event when target is assigned", func() {
@@ -1452,6 +1498,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domain.Status.Status = api.Running
 				domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, api.Disk{
 					Alias: api.NewUserDefinedAlias("test"),
+					Source: api.DiskSource{
+						File: "test",
+					},
 					Target: api.DiskTarget{
 						Device: "vdbbb",
 					},
