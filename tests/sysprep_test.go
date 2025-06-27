@@ -273,7 +273,7 @@ var _ = Describe("[Sysprep][sig-compute]Syspreped VirtualMachineInstance", Seria
 					},
 				},
 			}),
-			libvmi.WithResourceMemory("2048Mi"),
+			libvmi.WithMemoryRequest("2048Mi"),
 			withFeatures(v1.Features{
 				ACPI: v1.FeatureState{},
 				APIC: &v1.FeatureAPIC{},

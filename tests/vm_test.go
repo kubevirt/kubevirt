@@ -100,7 +100,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("256Mi"),
+				libvmi.WithMemoryRequest("256Mi"),
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				libvmi.WithTerminationGracePeriod(30),
@@ -491,14 +491,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Entry("[test_id:6867] when VM scheduling error occurs with unsatisfiable resource requirements",
 				libvmi.New(
 					// This may stop working sometime around 2040
-					libvmi.WithResourceMemory("1Ei"),
-					libvmi.WithResourceCPU("1M"),
+					libvmi.WithMemoryRequest("1Ei"),
+					libvmi.WithCPURequest("1M"),
 				),
 				v1.VirtualMachineStatusUnschedulable,
 			),
 			Entry("[test_id:6868] when VM scheduling error occurs with unsatisfiable scheduling constraints",
 				libvmi.New(
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithNodeSelectorFor("that-doesnt-exist"),
 				),
 				v1.VirtualMachineStatusUnschedulable,
@@ -507,7 +507,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				"[test_id:7596] when a VM with a missing PVC is started",
 				libvmi.New(
 					libvmi.WithPersistentVolumeClaim("disk0", "missing-pvc"),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 				),
 				v1.VirtualMachineStatusPvcNotFound,
 			),
@@ -515,7 +515,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				"[test_id:7597] when a VM with a missing DV is started",
 				libvmi.New(
 					libvmi.WithDataVolume("disk0", "missing-datavolume"),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 				),
 				v1.VirtualMachineStatusPvcNotFound,
 			),
@@ -524,7 +524,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		It("[test_id:6869][QUARANTINE]should report an error status when image pull error occurs", decorators.Conformance, decorators.Quarantine, func() {
 			vmi := libvmi.New(
 				libvmi.WithContainerDisk("disk0", "no-such-image"),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 			)
 
 			vm := createRunningVM(virtClient, vmi)

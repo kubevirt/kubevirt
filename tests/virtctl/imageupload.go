@@ -117,7 +117,7 @@ var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, Serial, 
 
 			By("Start VMI")
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory("256Mi"),
+				libvmi.WithMemoryRequest("256Mi"),
 				diskFn("disk0", targetName),
 			)
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -198,7 +198,7 @@ var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, Serial, 
 
 			By("Start VMI")
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory("256Mi"),
+				libvmi.WithMemoryRequest("256Mi"),
 				libvmi.WithDataVolume("disk0", targetName),
 			)
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})

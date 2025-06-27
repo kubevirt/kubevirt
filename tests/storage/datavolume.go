@@ -408,7 +408,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 				By("requiring a VM with 2 DataVolumes")
 				vmi := libvmi.New(
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume(dataVolume1.Name, dataVolume1.Name),
@@ -1053,7 +1053,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil),
 				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
-				libvmi.WithResourceMemory("512Mi"),
+				libvmi.WithMemoryRequest("512Mi"),
 			)
 			vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = "scsi"
 
