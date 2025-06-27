@@ -26447,6 +26447,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationStatus(ref com
 							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState"),
 						},
 					},
+					"synchronizationAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The synchronization address one can use to connect to the synchronization controller, includes the port",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

@@ -99,10 +99,27 @@ func RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient k
 	return RunDecentralizedMigrationAndExpectToComplete(virtClient, sourceMigration, targetMigration, MigrationWaitTime*2)
 }
 
+func CheckSynchronizationAddressPopulated(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) {
+	kv := libkubevirt.GetCurrentKv(virtClient)
+	synchronizationAddress := kv.Status.SynchronizationAddress
+	Expect(synchronizationAddress).ToNot(BeNil())
+
+	Eventually(func() string {
+		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		if migration.Status.SynchronizationAddress == nil {
+			return ""
+		}
+		return *migration.Status.SynchronizationAddress
+	}).WithTimeout(time.Second * 20).WithPolling(500 * time.Millisecond).Should(Equal(*synchronizationAddress))
+}
+
 func RunDecentralizedMigrationAndExpectToComplete(virtClient kubecli.KubevirtClient, sourceMigration, targetMigration *v1.VirtualMachineInstanceMigration, timeout int) (*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigration) {
 	sourceMigration = RunMigration(virtClient, sourceMigration)
-	targetMigration = RunMigration(virtClient, targetMigration)
+	CheckSynchronizationAddressPopulated(virtClient, sourceMigration)
 
+	targetMigration = RunMigration(virtClient, targetMigration)
+	CheckSynchronizationAddressPopulated(virtClient, targetMigration)
 	sourceMigration = ExpectMigrationToSucceed(virtClient, sourceMigration, timeout)
 	targetMigration = ExpectMigrationToSucceed(virtClient, targetMigration, timeout)
 	return sourceMigration, targetMigration
