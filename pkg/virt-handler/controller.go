@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"time"
 
-	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
+	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -102,7 +102,7 @@ type BaseController struct {
 	domainStore                 cache.Store
 	clusterConfig               *virtconfig.ClusterConfig
 	podIsolationDetector        isolation.PodIsolationDetector
-	launcherClients             launcher_clients.LauncherClientsManager
+	launcherClients             launcherclients.LauncherClientsManager
 	migrationProxy              migrationproxy.ProxyManager
 	virtLauncherFSRunDirPattern string
 	recorder                    record.EventRecorder
@@ -118,7 +118,7 @@ func NewBaseController(
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
-	launcherClients launcher_clients.LauncherClientsManager,
+	launcherClients launcherclients.LauncherClientsManager,
 	migrationProxy migrationproxy.ProxyManager,
 	virtLauncherFSRunDirPattern string,
 ) (*BaseController, error) {
