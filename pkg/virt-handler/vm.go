@@ -98,7 +98,6 @@ type downwardMetricsManager interface {
 
 type VirtualMachineController struct {
 	*BaseController
-	launcherClients          launcher_clients.LauncherClientsManager
 	capabilities             *libvirtxml.Caps
 	clientset                kubecli.KubevirtClient
 	containerDiskMounter     container_disk.Mounter
@@ -106,15 +105,10 @@ type VirtualMachineController struct {
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	hostCpuModel             string
 	ioErrorRetryManager      *FailRetryManager
-	queue                    workqueue.TypedRateLimitingInterface[string]
 	deviceManagerController  *device_manager.DeviceController
 	heartBeat                *heartbeat.HeartBeat
 	heartBeatInterval        time.Duration
-	migrationProxy           migrationproxy.ProxyManager
 	netConf                  netconf
-	netStat                  netstat
-	podIsolationDetector     isolation.PodIsolationDetector
-	recorder                 record.EventRecorder
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	vmiExpectations          *controller.UIDTrackingControllerExpectations
 	vmiGlobalStore           cache.Store
@@ -146,21 +140,28 @@ func NewVirtualMachineController(
 	netStat netstat,
 ) (*VirtualMachineController, error) {
 
-	baseCtrl, err := NewBaseController(
-		host,
-		vmiInformer,
-		domainInformer,
-		clusterConfig,
-		podIsolationDetector,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vm"},
 	)
+
+	baseCtrl, err := NewBaseController(
+		host,
+		recorder,
+		clientset,
+		queue,
+		vmiInformer,
+		domainInformer,
+		clusterConfig,
+		podIsolationDetector,
+		launcherClients,
+		migrationProxy,
+		"/proc/%d/root/var/run",
+		netStat,
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	containerDiskState := filepath.Join(virtPrivateDir, "container-disk-mount-state")
 	if err := os.MkdirAll(containerDiskState, 0700); err != nil {
@@ -181,14 +182,8 @@ func NewVirtualMachineController(
 		hotplugVolumeMounter:     hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
 		hostCpuModel:             hostCpuModel,
 		ioErrorRetryManager:      NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
-		queue:                    queue,
-		launcherClients:          launcherClients,
 		heartBeatInterval:        1 * time.Minute,
-		migrationProxy:           migrationProxy,
 		netConf:                  netConf,
-		netStat:                  netStat,
-		podIsolationDetector:     podIsolationDetector,
-		recorder:                 recorder,
 		sriovHotplugExecutorPool: executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
 		vmiExpectations:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiGlobalStore:           vmiGlobalStore,

@@ -375,6 +375,7 @@ func (app *virtHandlerApp) Run() {
 		app.clusterConfig,
 		podIsolationDetector,
 		migrationProxy,
+		"/proc/%d/root/var/run",
 		&capabilities,
 		netConf,
 		netStat,

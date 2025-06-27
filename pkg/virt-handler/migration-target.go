@@ -31,6 +31,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/util/workqueue"
+
 	"libvirt.org/go/libvirtxml"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -42,8 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -78,20 +78,12 @@ type passtRepairTargetHandler interface {
 type MigrationTargetController struct {
 	*BaseController
 	capabilities                     *libvirtxml.Caps
-	clientset                        kubecli.KubevirtClient
 	containerDiskMounter             container_disk.Mounter
 	hotplugVolumeMounter             hotplug_volume.VolumeMounter
-	queue                            workqueue.TypedRateLimitingInterface[string]
-	launcherClients                  launcher_clients.LauncherClientsManager
 	migrationIpAddress               string
-	migrationProxy                   migrationproxy.ProxyManager
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 	netConf                          netconf
-	netStat                          netstat
 	passtRepairHandler               passtRepairTargetHandler
-	podIsolationDetector             isolation.PodIsolationDetector
-	recorder                         record.EventRecorder
-	virtLauncherFSRunDirPattern      string
 }
 
 func NewMigrationTargetController(
@@ -107,6 +99,7 @@ func NewMigrationTargetController(
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
+	virtLauncherFSRunDirPattern string,
 	capabilities *libvirtxml.Caps,
 	netConf netconf,
 	netStat netstat,
@@ -114,21 +107,28 @@ func NewMigrationTargetController(
 	passtRepairHandler passtRepairTargetHandler,
 ) (*MigrationTargetController, error) {
 
-	baseCtrl, err := NewBaseController(
-		host,
-		vmiInformer,
-		domainInformer,
-		clusterConfig,
-		podIsolationDetector,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-target"},
 	)
+
+	baseCtrl, err := NewBaseController(
+		host,
+		recorder,
+		clientset,
+		queue,
+		vmiInformer,
+		domainInformer,
+		clusterConfig,
+		podIsolationDetector,
+		launcherClients,
+		migrationProxy,
+		virtLauncherFSRunDirPattern,
+		netStat,
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	containerDiskState := filepath.Join(virtPrivateDir, "container-disk-mount-state")
 	if err := os.MkdirAll(containerDiskState, 0700); err != nil {
@@ -143,20 +143,12 @@ func NewMigrationTargetController(
 	c := &MigrationTargetController{
 		BaseController:                   baseCtrl,
 		capabilities:                     capabilities,
-		clientset:                        clientset,
 		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
 		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
-		queue:                            queue,
-		launcherClients:                  launcherClients,
 		migrationIpAddress:               migrationIpAddress,
-		migrationProxy:                   migrationProxy,
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 		netConf:                          netConf,
-		netStat:                          netStat,
 		passtRepairHandler:               passtRepairHandler,
-		podIsolationDetector:             podIsolationDetector,
-		recorder:                         recorder,
-		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{

@@ -27,7 +27,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"libvirt.org/go/libvirtxml"
+	"k8s.io/client-go/util/workqueue"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -35,8 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -62,17 +60,8 @@ type passtRepairSourceHandler interface {
 
 type MigrationSourceController struct {
 	*BaseController
-	capabilities                *libvirtxml.Caps
-	clientset                   kubecli.KubevirtClient
-	queue                       workqueue.TypedRateLimitingInterface[string]
-	launcherClients             launcher_clients.LauncherClientsManager
-	migrationProxy              migrationproxy.ProxyManager
-	podIsolationDetector        isolation.PodIsolationDetector
-	recorder                    record.EventRecorder
-	virtLauncherFSRunDirPattern string
-	vmiExpectations             *controller.UIDTrackingControllerExpectations
-	netStat                     netstat
-	passtRepairHandler          passtRepairSourceHandler
+	vmiExpectations    *controller.UIDTrackingControllerExpectations
+	passtRepairHandler passtRepairSourceHandler
 }
 
 func NewMigrationSourceController(
@@ -90,34 +79,33 @@ func NewMigrationSourceController(
 	passtRepairHandler passtRepairSourceHandler,
 ) (*MigrationSourceController, error) {
 
-	baseCtrl, err := NewBaseController(
-		host,
-		vmiInformer,
-		domainInformer,
-		clusterConfig,
-		podIsolationDetector,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-source"},
 	)
 
+	baseCtrl, err := NewBaseController(
+		host,
+		recorder,
+		clientset,
+		queue,
+		vmiInformer,
+		domainInformer,
+		clusterConfig,
+		podIsolationDetector,
+		launcherClients,
+		migrationProxy,
+		virtLauncherFSRunDirPattern,
+		netStat,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &MigrationSourceController{
-		BaseController:              baseCtrl,
-		clientset:                   clientset,
-		queue:                       queue,
-		launcherClients:             launcherClients,
-		migrationProxy:              migrationProxy,
-		podIsolationDetector:        podIsolationDetector,
-		recorder:                    recorder,
-		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
-		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		netStat:                     netStat,
-		passtRepairHandler:          passtRepairHandler,
+		BaseController:     baseCtrl,
+		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		passtRepairHandler: passtRepairHandler,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{

@@ -23,6 +23,12 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"k8s.io/client-go/util/workqueue"
+	"kubevirt.io/client-go/kubecli"
+
+	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
+	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -87,29 +93,50 @@ type netconf interface {
 }
 
 type BaseController struct {
-	host                 string
-	vmiStore             cache.Store
-	domainStore          cache.Store
-	clusterConfig        *virtconfig.ClusterConfig
-	podIsolationDetector isolation.PodIsolationDetector
-	hasSynced            func() bool
+	host                        string
+	clientset                   kubecli.KubevirtClient
+	queue                       workqueue.TypedRateLimitingInterface[string]
+	vmiStore                    cache.Store
+	domainStore                 cache.Store
+	clusterConfig               *virtconfig.ClusterConfig
+	podIsolationDetector        isolation.PodIsolationDetector
+	launcherClients             launcher_clients.LauncherClientsManager
+	migrationProxy              migrationproxy.ProxyManager
+	virtLauncherFSRunDirPattern string
+	netStat                     netstat
+	recorder                    record.EventRecorder
+	hasSynced                   func() bool
 }
 
 func NewBaseController(
 	host string,
+	recorder record.EventRecorder,
+	clientset kubecli.KubevirtClient,
+	queue workqueue.TypedRateLimitingInterface[string],
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
+	launcherClients launcher_clients.LauncherClientsManager,
+	migrationProxy migrationproxy.ProxyManager,
+	virtLauncherFSRunDirPattern string,
+	netStat netstat,
 ) (*BaseController, error) {
 
 	c := &BaseController{
-		host:                 host,
-		vmiStore:             vmiInformer.GetStore(),
-		domainStore:          domainInformer.GetStore(),
-		clusterConfig:        clusterConfig,
-		podIsolationDetector: podIsolationDetector,
-		hasSynced:            func() bool { return domainInformer.HasSynced() && vmiInformer.HasSynced() },
+		host:                        host,
+		recorder:                    recorder,
+		clientset:                   clientset,
+		queue:                       queue,
+		vmiStore:                    vmiInformer.GetStore(),
+		domainStore:                 domainInformer.GetStore(),
+		clusterConfig:               clusterConfig,
+		podIsolationDetector:        podIsolationDetector,
+		launcherClients:             launcherClients,
+		migrationProxy:              migrationProxy,
+		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
+		netStat:                     netStat,
+		hasSynced:                   func() bool { return domainInformer.HasSynced() && vmiInformer.HasSynced() },
 	}
 
 	return c, nil
