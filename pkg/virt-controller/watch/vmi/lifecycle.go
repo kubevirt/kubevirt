@@ -416,6 +416,11 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			break
 		}
 
+		if pod.Status.Phase == k8sv1.PodSucceeded && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+			vmiCopy.Status.Phase = virtv1.Succeeded
+			break
+		}
+
 		// Storage
 		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
 			return err
