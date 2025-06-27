@@ -776,6 +776,18 @@ var CRDsValidation map[string]string = map[string]string{
                     ovmfPath:
                       type: string
                   type: object
+                s390x:
+                  properties:
+                    emulatedMachines:
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    machineType:
+                      type: string
+                    ovmfPath:
+                      type: string
+                  type: object
               type: object
             autoCPULimitNamespaceLabelSelector:
               description: |-
