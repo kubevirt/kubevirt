@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "defaults.go",
+        "devices.go",
         "infosource.go",
         "interface.go",
         "network.go",

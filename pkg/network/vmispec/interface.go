@@ -61,7 +61,7 @@ func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[stri
 	}
 
 	_, allowPodBridgeNetworkLiveMigration := vmi.Annotations[v1.AllowPodBridgeNetworkLiveMigrationAnnotation]
-	if allowPodBridgeNetworkLiveMigration && IsPodNetworkWithBridgeBindingInterface(vmi.Spec.Networks, ifaces) {
+	if allowPodBridgeNetworkLiveMigration && isPodNetworkWithBridgeBindingInterface(vmi.Spec.Networks, ifaces) {
 		return nil
 	}
 	if IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) ||
@@ -100,7 +100,7 @@ func IsPodNetworkWithMasqueradeBindingInterface(networks []v1.Network, ifaces []
 	return true
 }
 
-func IsPodNetworkWithBridgeBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
+func isPodNetworkWithBridgeBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
 	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
 		if podInterface := LookupInterfaceByName(ifaces, podNetwork.Name); podInterface != nil {
 			return podInterface.Bridge != nil
@@ -187,6 +187,17 @@ func HasBindingPluginDeviceInfo(iface v1.Interface, bindingPlugins map[string]v1
 	if iface.Binding != nil {
 		binding, exist := bindingPlugins[iface.Binding.Name]
 		return exist && binding.DownwardAPI == v1.DeviceInfo
+	}
+	return false
+}
+
+// hasVirtioIface checks whether a VMI references at least one "virtio" network interface.
+// Note that the reference can be explicit or implicit (unspecified nic models defaults to "virtio").
+func hasVirtioIface(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Model == "" || iface.Model == v1.VirtIO {
+			return true
+		}
 	}
 	return false
 }
