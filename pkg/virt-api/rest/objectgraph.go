@@ -29,6 +29,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -89,6 +90,8 @@ var objectGraphMap = map[string]schema.GroupKind{
 	"serviceaccounts":                    {Group: "", Kind: "ServiceAccount"},
 	"secrets":                            {Group: "", Kind: "Secret"},
 	"pods":                               {Group: "", Kind: "Pod"},
+	"networkattachmentdefinitions":       {Group: "k8s.cni.cncf.io", Kind: "NetworkAttachmentDefinition"},
+	"ipamclaims":                         {Group: "k8s.cni.cncf.io", Kind: "IPAMClaim"},
 }
 
 // getResourceDependencyType returns the dependency type for a given resource
@@ -101,7 +104,7 @@ func getResourceDependencyType(resource string) DependencyType {
 	case "configmaps", "secrets", "virtualmachineinstancetypes", "virtualmachineclusterinstancetypes",
 		"virtualmachinepreferences", "virtualmachineclusterpreferences", "controllerrevisions":
 		return DependencyTypeConfig
-	case "serviceaccounts":
+	case "serviceaccounts", "networkattachmentdefinitions", "ipamclaims":
 		return DependencyTypeNetwork
 	default:
 		return DependencyTypeCompute
@@ -280,8 +283,13 @@ func (og *ObjectGraph) buildChildrenFromVM(vm *v1.VirtualMachine) ([]v1.ObjectGr
 	children = append(children, og.getPreferenceNode(vm)...)
 	children = append(children, og.getAccessCredentialNodes(vm.Spec.Template.Spec.AccessCredentials, vm.GetNamespace())...)
 
+	// Main storage nodes
 	volumeNodes, err := og.addVolumeGraph(vm, vm.GetNamespace())
 	children = append(children, volumeNodes...)
+	errs = append(errs, err)
+	// Main network nodes
+	networkNodes, err := og.handleNetworkNodes(vm.Spec.Template.Spec, vm.GetName(), vm.GetNamespace())
+	children = append(children, networkNodes...)
 	errs = append(errs, err)
 
 	return children, errs
@@ -298,8 +306,13 @@ func (og *ObjectGraph) buildChildrenFromVMI(vmi *v1.VirtualMachineInstance) ([]v
 	}
 
 	children = append(children, og.getAccessCredentialNodes(vmi.Spec.AccessCredentials, vmi.GetNamespace())...)
+	// Main storage nodes
 	volumeNodes, err := og.addVolumeGraph(vmi, vmi.GetNamespace())
 	children = append(children, volumeNodes...)
+	errs = append(errs, err)
+	// Main network nodes
+	networkNodes, err := og.handleNetworkNodes(vmi.Spec, vmi.GetName(), vmi.GetNamespace())
+	children = append(children, networkNodes...)
 	errs = append(errs, err)
 
 	return children, errs
@@ -434,5 +447,76 @@ func (og *ObjectGraph) getInstanceTypeMatcherResource(matcher v1.Matcher, status
 	return nodes
 }
 
+func (og *ObjectGraph) handleNetworkNodes(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string) ([]v1.ObjectGraphNode, error) {
+	var nodes []v1.ObjectGraphNode
+
+	for _, net := range vmiSpec.Networks {
+		if net.Multus != nil && net.Multus.NetworkName != "" {
+			parts := strings.Split(net.Multus.NetworkName, "/")
+			name := net.Multus.NetworkName
+			nadNamespace := namespace
+
+			if len(parts) == 2 {
+				nadNamespace = parts[0]
+				name = parts[1]
+			}
+
+			node := og.newGraphNode(name, nadNamespace, "networkattachmentdefinitions", nil, true)
+			if node != nil {
+				nodes = append(nodes, *node)
+			}
+		} else if net.Pod != nil {
+			// TODO: Consider handling this case
+			continue
+		}
+	}
+
+	// IPAM Claims are important for cross cluster live migration because the fixed IP needs to be created in the target cluster.
+	// Marking them as optional since these are madantory only for cross cluster live migration.
+	if len(vmiSpec.Networks) > 0 {
+		available, err := IsIPAMClaimAvailable(og.client)
+		if err != nil || !available {
+			log.Log.V(3).Info("IPAMClaims are not enabled in this cluster, skipping IPAMClaims nodes in the object graph")
+			return nodes, err
+		}
+		ipamClaims, err := og.client.DynamicClient().Resource(schema.GroupVersionResource{
+			Group:    "k8s.cni.cncf.io",
+			Version:  "v1alpha1",
+			Resource: "ipamclaims",
+		}).Namespace(namespace).List(context.TODO(), metav1.ListOptions{
+			// Following the label convention used in https://github.com/kubevirt/ipam-extensions.
+			// This repo creates (and manage the lifecycle of) IPAMClaims on behalf of KubeVirt virtual machines.
+			LabelSelector: fmt.Sprintf("%s=%s", v1.VirtualMachineLabel, vmName),
+		})
+		if meta.IsNoMatchError(err) {
+			return nodes, nil
+		}
+		if err != nil {
+			log.Log.Reason(err).Error("Failed to list IPAM claims")
+			return nodes, err
+		}
+		for _, claim := range ipamClaims.Items {
+			node := og.newGraphNode(claim.GetName(), namespace, "ipamclaims", nil, true)
+			if node != nil {
+				nodes = append(nodes, *node)
+			}
+		}
+	}
+
+	return nodes, nil
+}
+
+func IsIPAMClaimAvailable(client kubecli.KubevirtClient) (bool, error) {
+	// Check if the IPAMClaims resource is available in the cluster
+	_, err := client.Discovery().ServerResourcesForGroupVersion("k8s.cni.cncf.io/v1alpha1")
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "failed to check IPAMClaims API availability")
+	}
+	return true, nil
+}
+
 // TODO: Add more as needed.
-// For example network attachments, vmexports, vmsnapshots, vmimigrations, etc.
+// For example vmexports, vmsnapshots, vmimigrations, etc.
