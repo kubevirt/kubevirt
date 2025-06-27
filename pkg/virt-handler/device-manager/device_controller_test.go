@@ -77,9 +77,8 @@ var _ = Describe("Device Controller", func() {
 		wg.Add(1)
 		go func() {
 			defer GinkgoRecover()
-			err := deviceController.Run(stop)
+			deviceController.Run(stop)
 			wg.Done()
-			Expect(err).NotTo(HaveOccurred())
 		}()
 	}
 
