@@ -607,7 +607,7 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 	hasHotplug := false
 
 	if len(vmi.Status.VolumeStatus) == 0 {
-		return hasHotplug
+		return false
 	}
 
 	diskDeviceMap := make(map[string]string)
