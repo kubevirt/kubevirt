@@ -1197,6 +1197,8 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 
 	if util.IsSEVVMI(vmi) {
 		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
+	} else if util.IsTDXVMI(vmi) {
+		return newNonMigratableCondition("VMI uses TDX", v1.VirtualMachineInstanceReasonTDXNotMigratable), isBlockMigration
 	}
 
 	if util.IsSecureExecutionVMI(vmi) {
@@ -1288,6 +1290,8 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 
 	if util.IsSEVVMI(vmi) {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonSEVNotMigratable, "VMI uses SEV")
+	} else if util.IsTDXVMI(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonTDXNotMigratable, "VMI uses TDX")
 	}
 
 	if reservation.HasVMIPersistentReservation(vmi) {
