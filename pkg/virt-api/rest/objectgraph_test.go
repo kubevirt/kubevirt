@@ -61,8 +61,8 @@ var _ = Describe("Object Graph", func() {
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kvClient = kubecli.NewMockKubevirtClient(ctrl)
+		kubeClient = fake.NewClientset()
 
-		kubeClient = fake.NewSimpleClientset()
 		kvClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		vm = &v1.VirtualMachine{
@@ -705,6 +705,70 @@ var _ = Describe("Object Graph", func() {
 			// Should only return storage-related nodes
 			for _, child := range graphNodes.Children {
 				Expect(child.Labels[ObjectGraphDependencyLabel]).To(Equal("storage"))
+			}
+		})
+	})
+
+	Context("Network handling", func() {
+		It("should handle VM with Multus network attachment definitions", func() {
+			vm.Spec.Template.Spec.Networks = []v1.Network{
+				{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+				{
+					Name: "multus-net",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{
+							NetworkName: "test-nad",
+						},
+					},
+				},
+			}
+
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Check for NetworkAttachmentDefinition in children
+			childMap := make(map[string]string)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child.ObjectReference.Kind
+			}
+
+			Expect(childMap).To(HaveKey("test-nad"))
+			Expect(childMap["test-nad"]).To(Equal("NetworkAttachmentDefinition"))
+		})
+
+		It("should filter network dependencies by label selector", func() {
+			vm.Spec.Template.Spec.Networks = []v1.Network{
+				{
+					Name: "multus-net",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{
+							NetworkName: "test-nad",
+						},
+					},
+				},
+			}
+
+			options := &v1.ObjectGraphOptions{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						ObjectGraphDependencyLabel: "network",
+					},
+				},
+			}
+
+			graph := NewObjectGraph(kvClient, options)
+			graphNodes, err := graph.GetObjectGraph(vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Should only return network-related nodes
+			for _, child := range graphNodes.Children {
+				Expect(child.Labels[ObjectGraphDependencyLabel]).To(Equal("network"))
 			}
 		})
 	})

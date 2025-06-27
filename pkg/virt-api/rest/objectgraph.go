@@ -89,6 +89,7 @@ var objectGraphMap = map[string]schema.GroupKind{
 	"serviceaccounts":                    {Group: "", Kind: "ServiceAccount"},
 	"secrets":                            {Group: "", Kind: "Secret"},
 	"pods":                               {Group: "", Kind: "Pod"},
+	"networkattachmentdefinitions":       {Group: "k8s.cni.cncf.io", Kind: "NetworkAttachmentDefinition"},
 }
 
 // getResourceDependencyType returns the dependency type for a given resource
@@ -101,7 +102,7 @@ func getResourceDependencyType(resource string) DependencyType {
 	case "configmaps", "secrets", "virtualmachineinstancetypes", "virtualmachineclusterinstancetypes",
 		"virtualmachinepreferences", "virtualmachineclusterpreferences", "controllerrevisions":
 		return DependencyTypeConfig
-	case "serviceaccounts":
+	case "serviceaccounts", "networkattachmentdefinitions":
 		return DependencyTypeNetwork
 	default:
 		return DependencyTypeCompute
@@ -280,9 +281,13 @@ func (og *ObjectGraph) buildChildrenFromVM(vm *v1.VirtualMachine) ([]v1.ObjectGr
 	children = append(children, og.getPreferenceNode(vm)...)
 	children = append(children, og.getAccessCredentialNodes(vm.Spec.Template.Spec.AccessCredentials, vm.GetNamespace())...)
 
+	// Main storage nodes
 	volumeNodes, err := og.addVolumeGraph(vm, vm.GetNamespace())
 	children = append(children, volumeNodes...)
 	errs = append(errs, err)
+	// Main network nodes
+	networkNodes := og.handleNetworkNodes(vm.Spec.Template.Spec, vm.GetName(), vm.GetNamespace())
+	children = append(children, networkNodes...)
 
 	return children, errs
 }
@@ -298,9 +303,13 @@ func (og *ObjectGraph) buildChildrenFromVMI(vmi *v1.VirtualMachineInstance) ([]v
 	}
 
 	children = append(children, og.getAccessCredentialNodes(vmi.Spec.AccessCredentials, vmi.GetNamespace())...)
+	// Main storage nodes
 	volumeNodes, err := og.addVolumeGraph(vmi, vmi.GetNamespace())
 	children = append(children, volumeNodes...)
 	errs = append(errs, err)
+	// Main network nodes
+	networkNodes := og.handleNetworkNodes(vmi.Spec, vmi.GetName(), vmi.GetNamespace())
+	children = append(children, networkNodes...)
 
 	return children, errs
 }
@@ -434,5 +443,29 @@ func (og *ObjectGraph) getInstanceTypeMatcherResource(matcher v1.Matcher, status
 	return nodes
 }
 
+func (og *ObjectGraph) handleNetworkNodes(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string) []v1.ObjectGraphNode {
+	var nodes []v1.ObjectGraphNode
+
+	for _, net := range vmiSpec.Networks {
+		if net.Multus != nil && net.Multus.NetworkName != "" {
+			parts := strings.Split(net.Multus.NetworkName, "/")
+			name := net.Multus.NetworkName
+			nadNamespace := namespace
+
+			if len(parts) == 2 {
+				nadNamespace = parts[0]
+				name = parts[1]
+			}
+
+			node := og.newGraphNode(name, nadNamespace, "networkattachmentdefinitions", nil, true)
+			if node != nil {
+				nodes = append(nodes, *node)
+			}
+		}
+	}
+
+	return nodes
+}
+
 // TODO: Add more as needed.
-// For example network attachments, vmexports, vmsnapshots, vmimigrations, etc.
+// For example vmexports, vmsnapshots, vmimigrations, etc.
