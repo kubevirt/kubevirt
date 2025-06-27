@@ -44,12 +44,14 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+
 	"kubevirt.io/api/migrations/v1alpha1"
+
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
@@ -554,7 +556,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				num := 4
-
 				for i := 0; i < num; i++ {
 					// execute a migration, wait for finalized state
 					By(fmt.Sprintf("Starting the Migration for iteration %d", i))
