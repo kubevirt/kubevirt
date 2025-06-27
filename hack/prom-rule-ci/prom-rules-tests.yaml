@@ -814,3 +814,115 @@ tests:
       - eval_time: 13m
         alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts: []
+
+
+  # VMI CPU Queue higher than 20
+  - interval: 1m
+    input_series:
+      # time:   0   1   2   3
+      - series: 'kubevirt_vmi_guest_load_1m{namespace="testns",name="vm1"}'
+        values: '0  12  25  5'
+      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",id="0"}'
+        values: '0  0   0   0'
+      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",id="1"}'
+        values: '0  0   0   0'   # values irrelevant. only series presence counts
+
+    alert_rule_test:
+      # at 1m: queue = 12 – 2 = 10  -> below 20
+      - eval_time: 1m
+        alertname: GuestPeakVCPUQueueHighCritical
+        exp_alerts: []
+
+      # at 2m: queue = 25 – 2 = 23  -> alert fires
+      - eval_time: 2m
+        alertname: GuestPeakVCPUQueueHighCritical
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachineInstance vm1 hit a peak where CPU queue length > 20"
+              summary: "Guest Peak vCPU Queue within collection cycle > 20"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/GuestPeakVCPUQueueHighCritical"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "testns"
+              name: "vm1"
+
+
+      # at3m: queue = 5 – 2 = 3 -> alert clears
+      - eval_time: 3m
+        alertname: GuestPeakVCPUQueueHighCritical
+        exp_alerts: []
+
+
+  # CPU uses over 80% of its budget
+  - interval: 1m
+    input_series:
+        # time:  0 1 2 3 4 5
+      # 2 vCPUs (id 0,1) -> kubevirt_vmi_vcpu_count = 2
+      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",id="0"}'
+        values: '0 0 0 0 0 0'
+      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",id="1"}'
+        values: '0 0 0 0 0 0'
+
+      # Node clock
+      - series: 'node_cpu_frequency_hertz{node="worker-1"}'
+        # time:  0   1   2   3   4   5
+        values: '2e9 2e9 2e9 2e9 2e9 2e9'
+
+      # CPU-usage counter:
+      #   0-1 m =  60  ->  60/60 = 1.00 cores  (50 %)
+      #   1-2 m = 100  -> 100/60 = 1.67 cores  (83 %)  <- threshold crossed
+      #   2-3 m = 120  -> 120/60 = 2.00 cores  (100 %)
+      #   3-4 m = 120  -> 120/60 = 2.00 cores  (100 %)
+      #   4-5 m = 120  -> 120/60 = 2.00 cores  (100 %)
+      - series: 'kubevirt_vmi_cpu_usage_seconds_total{namespace="testns",name="vm1"}'
+        # time:  0 1  2   3   4   5
+        values: '0 60 160 280 400 520'
+
+    alert_rule_test:
+      # at 1m: usage 50 % -> below threshold
+      - eval_time: 1m
+        alertname: KubeVirtVMHighCPUUsageWarning
+        exp_alerts: []
+
+      # at 2m: usage 83 % -> threshold met but `for: 2m` not yet satisfied
+      - eval_time: 2m
+        alertname: KubeVirtVMHighCPUUsageWarning
+        exp_alerts: []
+
+      # at 3m: still > 80 %, only 1 minute elapsed -> still no alert
+      - eval_time: 3m
+        alertname: KubeVirtVMHighCPUUsageWarning
+        exp_alerts: []
+
+      # at 4m: > 80 % for full 2 minutes -> alert fires
+      - eval_time: 4m
+        alertname: KubeVirtVMHighCPUUsageWarning
+        exp_alerts:
+          - exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "testns"
+              name: "vm1"
+            exp_annotations:
+              summary: "CPU usage ≥ 80 % of vCPU budget"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMHighCPUUsageWarning"
+
+      # at 5m: condition still true -> alert persists
+      - eval_time: 5m
+        alertname: KubeVirtVMHighCPUUsageWarning
+        exp_alerts:
+          - exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "testns"
+              name: "vm1"
+            exp_annotations:
+              summary: "CPU usage ≥ 80 % of vCPU budget"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMHighCPUUsageWarning"
