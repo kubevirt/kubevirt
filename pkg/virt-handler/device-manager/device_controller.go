@@ -308,16 +308,15 @@ func (c *DeviceController) refreshMediatedDeviceTypes() bool {
 		return false
 	}
 
-	requiresDevicePluginsUpdate := false
 	node, err := c.clientset.Nodes().Get(context.Background(), c.host, metav1.GetOptions{})
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
-		return requiresDevicePluginsUpdate
+		return false
 	}
 	externallyProvidedMdevMap := c.getExternallyProvidedMdevs()
 
 	nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(node)
-	requiresDevicePluginsUpdate, err = c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList, externallyProvidedMdevMap)
+	requiresDevicePluginsUpdate, err := c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList, externallyProvidedMdevMap)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure the desired mdev types: %s", strings.Join(nodeDesiredMdevTypesList, ", "))
 	}
@@ -375,7 +374,7 @@ func (c *DeviceController) stopDevice(resourceName string) {
 	}
 }
 
-func (c *DeviceController) Run(stop chan struct{}) error {
+func (c *DeviceController) Run(stop chan struct{}) {
 	logger := log.DefaultLogger()
 
 	// start the permanent DevicePlugins
@@ -406,7 +405,6 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 		}
 	}()
 	logger.Info("Shutting down device plugin controller")
-	return nil
 }
 
 func (c *DeviceController) Initialized() bool {

@@ -603,11 +603,11 @@ func (c *VirtualMachineController) updateChecksumInfo(vmi *v1.VirtualMachineInst
 }
 
 func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
-	// used by unit test
+	// The return value is only used by unit tests
 	hasHotplug := false
 
 	if len(vmi.Status.VolumeStatus) == 0 {
-		return hasHotplug
+		return false
 	}
 
 	diskDeviceMap := make(map[string]string)
