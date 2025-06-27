@@ -57,4 +57,40 @@ var vmRecordingRules = []operatorrules.RecordingRule{
 		MetricType: operatormetrics.CounterType,
 		Expr:       intstr.FromString("sum by (namespace) (kubevirt_vm_created_by_pod_total)"),
 	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_requested_cpu_cores",
+			Help: "The total number of VM CPU cores calculated from sockets, cores, and threads with fallback logic.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr: intstr.FromString(`
+			sum by (cluster, namespace, name) (
+				(kubevirt_vm_resource_requests{resource="cpu", unit="cores"})
+				* ignoring(unit)
+				(kubevirt_vm_resource_requests{resource="cpu", unit="sockets"})
+				* ignoring(unit)
+				(kubevirt_vm_resource_requests{resource="cpu", unit="threads"})
+			)
+			or sum by (cluster, namespace, name) (
+				(kubevirt_vm_resource_requests{resource="cpu", unit="cores"})
+				* ignoring(unit)
+				(kubevirt_vm_resource_requests{resource="cpu", unit="sockets"})
+			)
+			or sum by (cluster, namespace, name) (
+				kubevirt_vm_resource_requests{resource="cpu", unit="cores"}
+			)
+		`),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_requested_memory_bytes",
+			Help: "The requested memory in bytes for each VM, grouped by name and namespace.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr: intstr.FromString(`
+			max by (name, namespace) (
+				kubevirt_vm_resource_requests{resource="memory"}
+			)
+		`),
+	},
 }

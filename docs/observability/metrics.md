@@ -105,6 +105,12 @@ Virtual Machine last transition timestamp to migrating status. Type: Counter.
 ### kubevirt_vm_non_running_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to paused/stopped status. Type: Counter.
 
+### kubevirt_vm_requested_cpu_cores
+The total number of VM CPU cores calculated from sockets, cores, and threads with fallback logic. Type: Gauge.
+
+### kubevirt_vm_requested_memory_bytes
+The requested memory in bytes for each VM, grouped by name and namespace. Type: Gauge.
+
 ### kubevirt_vm_resource_limits
 Resources limits by Virtual Machine. Reports memory and CPU limits. Type: Gauge.
 
