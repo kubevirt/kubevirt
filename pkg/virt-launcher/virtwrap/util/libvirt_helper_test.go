@@ -17,11 +17,11 @@ import (
 	"go.uber.org/mock/gomock"
 
 	v1 "kubevirt.io/api/core/v1"
-	api2 "kubevirt.io/client-go/api"
 	kubevirtlog "kubevirt.io/client-go/log"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -215,7 +215,10 @@ var _ = Describe("LibvirtHelper", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		mockLibvirt := testing.NewLibvirt(ctrl)
 
-		vmi := api2.NewMinimalVMIWithNS(vmiNamespace, vmiName)
+		vmi := libvmi.New(
+			libvmi.WithNamespace(vmiNamespace),
+			libvmi.WithName(vmiName),
+		)
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		domain := &api.Domain{}
 		c := &converter.ConverterContext{
