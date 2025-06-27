@@ -24,6 +24,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/imdario/mergo v0.3.16
 	github.com/insomniacslk/dhcp v0.0.0-20230908212754-65c27093e38a
+	github.com/k8snetworkplumbingwg/ipamclaims v0.5.0-alpha
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0
 	github.com/kisielk/errcheck v1.6.2
 	github.com/klauspost/pgzip v1.2.6

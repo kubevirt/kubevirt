@@ -386,6 +386,12 @@ rules:
   - get
   - list
 - apiGroups:
+  - k8s.cni.cncf.io
+  resources:
+  - ipamclaims
+  verbs:
+  - list
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachines/status

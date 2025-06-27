@@ -1863,6 +1863,8 @@ github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7V
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
 github.com/jung-kurt/gofpdf v1.0.0/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
 github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
+github.com/k8snetworkplumbingwg/ipamclaims v0.5.0-alpha h1:b3iHeks/KTzhG2dNanaUZcFEJwJbYBZY16jxCaVv9i8=
+github.com/k8snetworkplumbingwg/ipamclaims v0.5.0-alpha/go.mod h1:MGaMX1tJ7MlHDee4/xmqp3guQh+eDiuCLAauqD9K11Q=
 github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0 h1:MjRRgZyTGo90G+UrwlDQjU+uG4Z7By65qvQxGoILT/8=
 github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0/go.mod h1:nqCI7aelBJU61wiBeeZWJ6oi4bJy5nrjkM6lWIMA4j0=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51/go.mod h1:CzGEWj7cYgsdH8dAjBGEr58BoE7ScuLd+fwFZ44+/x8=
