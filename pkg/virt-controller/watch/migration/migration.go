@@ -172,7 +172,16 @@ func NewController(templateService services.TemplateService,
 	}
 
 	c.hasSynced = func() bool {
-		return vmiInformer.HasSynced() && podInformer.HasSynced() && migrationInformer.HasSynced() && resourceQuotaInformer.HasSynced()
+		return vmiInformer.HasSynced() &&
+			podInformer.HasSynced() &&
+			migrationInformer.HasSynced() &&
+			resourceQuotaInformer.HasSynced() &&
+			kubevirtInformer.HasSynced() &&
+			storageClassInformer.HasSynced() &&
+			storageProfileInformer.HasSynced() &&
+			migrationPolicyInformer.HasSynced() &&
+			pvcInformer.HasSynced() &&
+			nodeInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -595,7 +604,11 @@ func (c *Controller) setSynchronizationAddressStatus(migration *virtv1.VirtualMa
 	}
 
 	if len(kvs) == 1 {
-		kv := kvs[0].(*virtv1.KubeVirt)
+		kv, ok := kvs[0].(*virtv1.KubeVirt)
+		if !ok {
+			log.Log.Errorf("found unknown object in kubevirt store %v", kvs[0])
+			return fmt.Errorf("found unknown object in kubevirt store %v", kvs[0])
+		}
 		migration.Status.SynchronizationAddress = kv.Status.SynchronizationAddress
 	}
 	return nil
@@ -1836,7 +1849,7 @@ func (c *Controller) updateKubeVirt(org, cur interface{}) {
 		for _, obj := range c.migrationIndexer.List() {
 			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
 			if !ok {
-				log.Log.Errorf("found unknown object in kubevirt store %v", obj)
+				log.Log.Errorf("found unknown object in migration store %v", obj)
 				continue
 			}
 			if !migration.IsFinal() {
