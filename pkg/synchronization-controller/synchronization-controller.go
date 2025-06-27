@@ -74,6 +74,7 @@ type SynchronizationController struct {
 	listener        net.Listener
 	bindAddress     string
 	bindPort        int
+	ip              string
 	clientTLSConfig *tls.Config
 	serverTLSConfig *tls.Config
 	timeout         int
@@ -95,6 +96,7 @@ func NewSynchronizationController(
 	serverTLSConfig *tls.Config,
 	bindAddress string,
 	bindPort int,
+	ip string,
 ) (*SynchronizationController, error) {
 	syncController := &SynchronizationController{
 		vmiInformer:       vmiInformer,
@@ -105,6 +107,7 @@ func NewSynchronizationController(
 		bindAddress:       bindAddress,
 		bindPort:          bindPort,
 		client:            client,
+		ip:                ip,
 	}
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -672,7 +675,7 @@ func (s *SynchronizationController) getVMIFromMigration(migration *virtv1.Virtua
 
 func (s *SynchronizationController) getLocalSynchronizationAddress() (string, error) {
 	myIp := os.Getenv(MyPodIP)
-	if myIp != "" {
+	if s.ip != "" && s.ip == myIp {
 		names, err := net.LookupAddr(myIp)
 		if err != nil {
 			log.Log.Errorf("Error from lookupAddr %v", err)
@@ -684,8 +687,8 @@ func (s *SynchronizationController) getLocalSynchronizationAddress() (string, er
 		log.Log.Info("No names from DNS, returning my ip address")
 		return fmt.Sprintf("%s:%d", myIp, s.bindPort), nil
 	}
-	if s.listener == nil {
-		return fmt.Sprintf("%s:%d", s.bindAddress, s.bindPort), nil
+	if s.ip != "" {
+		return fmt.Sprintf("%s:%d", s.ip, s.bindPort), nil
 	}
 	// TODO figure out how to get my URL with or without submariner (url changes based on export)
 	return s.listener.Addr().String(), nil

@@ -170,6 +170,7 @@ type Informers struct {
 	ValidatingAdmissionPolicy        cache.SharedIndexInformer
 	ClusterInstancetype              cache.SharedIndexInformer
 	ClusterPreference                cache.SharedIndexInformer
+	Leases                           cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {

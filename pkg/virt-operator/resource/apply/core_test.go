@@ -20,6 +20,7 @@
 package apply
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"time"
@@ -37,17 +38,48 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 
 	v1 "kubevirt.io/api/core/v1"
+)
+
+const (
+	kubevirtNamespace                = "kubevirt"
+	synchronizationControllerPodName = "synchronization-controller"
+	networkAnnotationValue           = "lm-network@migration0"
+	networkStatusAnnotationValue     = `
+      [{
+          "name": "ovn-kubernetes",
+          "interface": "eth0",
+          "ips": [
+              "3.3.3.3",
+              "fd02:0:0:3::1844"
+          ],
+          "mac": "0a:58:0a:82:00:78",
+          "default": true,
+          "dns": {}
+      },{
+          "name": "kubevirt/lm-network",
+          "interface": "migration0",
+          "ips": [
+              "2.2.2.2"
+          ],
+          "mac": "a2:d1:5f:3a:d9:ea",
+          "dns": {}
+      }]
+	`
 )
 
 var _ = Describe("Apply", func() {
@@ -825,6 +857,158 @@ var _ = Describe("Apply", func() {
 						Type:      corev1.ServiceTypeClusterIP,
 					},
 				}),
+		)
+	})
+
+	Context("update synchronization address when lease changes", func() {
+		var (
+			kubevirtClient *kubecli.MockKubevirtClient
+			reconciler     *Reconciler
+			kv             *v1.KubeVirt
+			stores         util.Stores
+			clientset      *fake.Clientset
+		)
+
+		BeforeEach(func() {
+			ctrl := gomock.NewController(GinkgoT())
+			clientset = fake.NewSimpleClientset()
+
+			stores = util.Stores{}
+			stores.ConfigMapCache = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+			stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
+
+			expectations := &util.Expectations{}
+			kv = &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubevirt",
+					Namespace: "kubevirt",
+				},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{
+								featuregate.DecentralizedLiveMigration,
+							},
+						},
+					},
+				},
+				Status: v1.KubeVirtStatus{},
+			}
+			kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
+
+			kubevirtClient = kubecli.NewMockKubevirtClient(ctrl)
+			kubevirtClient.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
+			kubevirtClient.EXPECT().CoreV1().Return(clientset.CoreV1()).AnyTimes()
+			kubevirtClient.EXPECT().CoordinationV1().Return(clientset.CoordinationV1()).AnyTimes()
+
+			reconciler = &Reconciler{
+				kv:           kv,
+				stores:       stores,
+				clientset:    kubevirtClient,
+				expectations: expectations,
+			}
+		})
+		createLease := func(holder string) *coordinationv1.Lease {
+			return &coordinationv1.Lease{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      components.VirtSynchronizationControllerName,
+					Namespace: kubevirtNamespace,
+				},
+				Spec: coordinationv1.LeaseSpec{
+					HolderIdentity: pointer.P(holder),
+				},
+			}
+		}
+
+		It("should not populate synchronization address, if feature gate disabled", func() {
+			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{}
+			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+			err := reconciler.updateSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+		})
+
+		It("should not populate synchronization address, if no lease found", func() {
+			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+			err := reconciler.updateSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+		})
+
+		It("should not populate synchronization address, if lease has no holder", func() {
+			lease := createLease("")
+			lease.Spec.HolderIdentity = nil
+			lease, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+			err = reconciler.updateSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+		})
+
+		DescribeTable("update kubevirt synchronization address", func(synchronizationPod *corev1.Pod, port, expectedAddress string) {
+			lease := createLease(synchronizationControllerPodName)
+			lease, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if port != "" {
+				kv.Spec.SynchronizationPort = port
+			}
+			if synchronizationPod != nil {
+				synchronizationPod, err = clientset.CoreV1().Pods(kubevirtNamespace).Create(context.Background(), synchronizationPod, metav1.CreateOptions{})
+				Expect(kv.Status.SynchronizationAddress).To(BeNil())
+			}
+			err = reconciler.updateSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			if expectedAddress != "" {
+				Expect(kv.Status.SynchronizationAddress).ToNot(BeNil())
+				Expect(*kv.Status.SynchronizationAddress).To(Equal(expectedAddress))
+			} else {
+				Expect(kv.Status.SynchronizationAddress).To(BeNil())
+			}
+		},
+			Entry("should not populate synchronization address, if no pod found", nil, "", ""),
+			Entry("if pod found without migration network, without ip address", &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      synchronizationControllerPodName,
+					Namespace: kubevirtNamespace,
+				},
+				Status: corev1.PodStatus{},
+			}, "", ""),
+			Entry("if pod found without migration network, but with ip address", &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      synchronizationControllerPodName,
+					Namespace: kubevirtNamespace,
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+				},
+			}, "", "1.1.1.1:9185"),
+			Entry("if pod found with migration network, use the migration ip address", &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      synchronizationControllerPodName,
+					Namespace: kubevirtNamespace,
+					Annotations: map[string]string{
+						networkv1.NetworkAttachmentAnnot: networkAnnotationValue,
+						networkv1.NetworkStatusAnnot:     networkStatusAnnotationValue,
+					},
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+				},
+			}, "", "2.2.2.2:9185"),
+			Entry("if pod found with migration network, use the migration ip address, and defined port", &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      synchronizationControllerPodName,
+					Namespace: kubevirtNamespace,
+					Annotations: map[string]string{
+						networkv1.NetworkAttachmentAnnot: networkAnnotationValue,
+						networkv1.NetworkStatusAnnot:     networkStatusAnnotationValue,
+					},
+				},
+				Status: corev1.PodStatus{
+					PodIP: "1.1.1.1",
+				},
+			}, "1234", "2.2.2.2:1234"),
 		)
 	})
 })
