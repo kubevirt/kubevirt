@@ -16,6 +16,7 @@ import (
 
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -136,10 +137,16 @@ func RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient kubecli.Kubevi
 }
 
 func RunMigration(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstanceMigration {
+	var migrationCreated *v1.VirtualMachineInstanceMigration
+	var err error
 	By("Starting a Migration")
-
-	migrationCreated, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() error {
+		migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+		if k8serrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return err
+	}).WithTimeout(time.Second*20).WithPolling(500*time.Millisecond).ShouldNot(HaveOccurred(), "unable to start migration in time")
 
 	return migrationCreated
 }

@@ -349,7 +349,7 @@ func (s *SynchronizationController) execute(key string) error {
 		return nil
 	} else {
 		// No migration found don't do anything
-		log.Log.Object(vmi).V(4).Info("no decentralized migration found for VMI")
+		log.Log.Object(vmi).V(4).Info("no active decentralized migration found for VMI")
 		return nil
 	}
 }
@@ -431,10 +431,6 @@ func (s *SynchronizationController) handleSourceState(vmi *virtv1.VirtualMachine
 	}
 	if vmi.Status.MigrationState.SourceState == nil || vmi.Status.MigrationState.TargetState == nil {
 		// No migration state, don't do anything
-		return nil
-	}
-	if migration.IsFinal() {
-		// Migration completed already, no need to synchronize anymore.
 		return nil
 	}
 
@@ -783,6 +779,9 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 	log.Log.Object(newVMI).V(5).Infof("vmi migration source state: %#v", newVMI.Status.MigrationState.SourceState)
 	log.Log.Object(newVMI).V(5).Infof("remote migration source state: %#v", remoteStatus.MigrationState.SourceState)
 	newVMI.Status.MigrationState.SourceState = remoteStatus.MigrationState.SourceState.DeepCopy()
+	if newVMI.Status.MigrationState.SourceState != nil {
+		newVMI.Status.MigrationState.SourceState.Completed = remoteStatus.MigrationState.Completed
+	}
 	copyLegacySourceFields(newVMI, remoteStatus.MigrationState)
 	newVMI.Status.MigratedVolumes = remoteStatus.MigratedVolumes
 	newVMI.Status.MigrationMethod = remoteStatus.MigrationMethod
@@ -844,6 +843,9 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	log.Log.Object(newVMI).V(5).Infof("vmi migration target state: %#v", newVMI.Status.MigrationState.TargetState)
 	log.Log.Object(newVMI).V(5).Infof("remote migration target state: %#v", remoteStatus.MigrationState.TargetState)
 	newVMI.Status.MigrationState.TargetState = remoteStatus.MigrationState.TargetState.DeepCopy()
+	if newVMI.Status.MigrationState.SourceState != nil {
+		newVMI.Status.MigrationState.SourceState.Completed = remoteStatus.MigrationState.Completed
+	}
 	copyLegacyTargetFields(newVMI, remoteStatus.MigrationState)
 	if !apiequality.Semantic.DeepEqual(vmi.Status.MigrationState, newVMI.Status.MigrationState) {
 		if err := s.patchVMI(ctx, vmi, newVMI); err != nil {
@@ -860,11 +862,15 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 }
 
 func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVMI *virtv1.VirtualMachineInstance) error {
-	if origVMI.Status.MigrationState != nil && origVMI.Status.MigrationState.Completed {
+	if origVMI.Status.MigrationState != nil &&
+		origVMI.Status.MigrationState.Completed &&
+		origVMI.Status.MigrationState.SourceState != nil &&
+		origVMI.Status.MigrationState.SourceState.Completed &&
+		origVMI.Status.MigrationState.TargetState != nil &&
+		origVMI.Status.MigrationState.TargetState.Completed {
 		log.Log.Object(origVMI).V(3).Infof("VMI is completed, skipping patch")
 		return nil
 	}
-
 	patchSet := patch.New()
 
 	if !apiequality.Semantic.DeepEqual(origVMI.Labels, newVMI.Labels) {
@@ -914,12 +920,13 @@ func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVM
 			)
 		}
 	}
+
 	if !patchSet.IsEmpty() {
 		patchBytes, err := patchSet.GeneratePayload()
 		if err != nil {
 			return err
 		}
-		log.Log.Object(origVMI).V(3).Infof("patch VMI with %s", string(patchBytes))
+		log.Log.Object(origVMI).V(5).Infof("patch VMI with %s", string(patchBytes))
 		if _, err := s.client.VirtualMachineInstance(origVMI.Namespace).Patch(ctx, origVMI.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
 		}
@@ -943,7 +950,7 @@ func indexByVmiName(obj interface{}) ([]string, error) {
 	if migration.DeletionTimestamp != nil {
 		return nil, nil
 	}
-	if migration.IsFinal() {
+	if migration.Status.Phase == virtv1.MigrationFailed || migration.IsDecentralizedSucceeded() {
 		return nil, nil
 	}
 	return []string{migration.Spec.VMIName}, nil

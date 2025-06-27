@@ -993,6 +993,7 @@
         "persistentStatePVCName": "persistentStatePVCNameValue",
         "selinuxContext": "selinuxContextValue",
         "virtualMachineInstanceUID": "virtualMachineInstanceUIDValue",
+        "completed": true,
         "nodeSelectors": {
           "nodeSelectorsKey": "nodeSelectorsValue"
         }
@@ -1007,6 +1008,7 @@
         "persistentStatePVCName": "persistentStatePVCNameValue",
         "selinuxContext": "selinuxContextValue",
         "virtualMachineInstanceUID": "virtualMachineInstanceUIDValue",
+        "completed": true,
         "domainReadyTimestamp": "1980-01-01T01:01:01Z",
         "domainDetected": true,
         "nodeAddress": "nodeAddressValue",
