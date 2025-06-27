@@ -2355,7 +2355,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			nodeLabels := nodeObject.GetLabels()
 
 			for label, val := range nodeLabels {
-				if label == v1.CPUManager && val == "true" {
+				if label == v1.DeprecatedCPUManager && val == "true" {
 					nodeHaveCpuManagerLabel = true
 					break
 				}
@@ -2376,21 +2376,21 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
 				By("adding a cpumanger=true label to a node")
-				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
+				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.DeprecatedCPUManager + "=" + "false"})
 				Expect(err).ToNot(HaveOccurred())
 				if len(nodes.Items) == 0 {
 					Fail(`CPU manager test on clusters where CPU manager is running on all worker/compute nodes. you can filter by "requires-two-worker-nodes-with-cpu-manager"`)
 				}
 
 				node := &nodes.Items[0]
-				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, v1.CPUManager)), metav1.PatchOptions{})
+				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, v1.DeprecatedCPUManager)), metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("setting the cpumanager label back to false")
 				Eventually(func() string {
 					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return n.Labels[v1.CPUManager]
+					return n.Labels[v1.DeprecatedCPUManager]
 				}, 3*time.Minute, 2*time.Second).Should(Equal("false"))
 			})
 			It("[test_id:1685]non master node should have a cpumanager label", func() {
@@ -2715,7 +2715,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				cpuVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
 				Vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("1")
-				Vmi.Spec.NodeSelector = map[string]string{v1.CPUManager: "true"}
+				Vmi.Spec.NodeSelector = map[string]string{v1.DeprecatedCPUManager: "true"}
 
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
