@@ -722,7 +722,7 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 
 	if c.clusterConfig.PasstIPStackMigrationEnabled() {
-		if err := c.passtRepairHandler.HandleMigrationTarget(vmi, c.passtSocketDirOnHostMigrationTarget); err != nil {
+		if err := c.passtRepairHandler.HandleMigrationTarget(vmi, c.passtSocketDirOnHostForVMI); err != nil {
 			log.Log.Object(vmi).Warningf("failed to call passt-repair for migration target, %v", err)
 		}
 	}
@@ -739,14 +739,6 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), VMIMigrationTargetPrepared)
 
 	return nil
-}
-
-func (c *MigrationTargetController) passtSocketDirOnHostMigrationTarget(vmi *v1.VirtualMachineInstance) (string, error) {
-	path, err := c.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return "", err
-	}
-	return passtSocketDirOnHost(path)
 }
 
 func (c *MigrationTargetController) addFunc(obj interface{}) {

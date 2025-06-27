@@ -521,7 +521,7 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	}
 
 	if c.clusterConfig.PasstIPStackMigrationEnabled() {
-		if err := c.passtRepairHandler.HandleMigrationSource(vmi, c.passtSocketDirOnHostMigrationSource); err != nil {
+		if err := c.passtRepairHandler.HandleMigrationSource(vmi, c.passtSocketDirOnHostForVMI); err != nil {
 			log.Log.Object(vmi).Warningf("failed to call passt-repair for migration source, %v", err)
 		}
 	}
@@ -532,14 +532,6 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	}
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), VMIMigrating)
 	return nil
-}
-
-func (c *MigrationSourceController) passtSocketDirOnHostMigrationSource(vmi *v1.VirtualMachineInstance) (string, error) {
-	path, err := c.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return "", err
-	}
-	return passtSocketDirOnHost(path)
 }
 
 func isMigrationDone(state *v1.VirtualMachineInstanceMigrationState) bool {

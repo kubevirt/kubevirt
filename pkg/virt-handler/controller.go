@@ -331,3 +331,11 @@ func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) b
 	}
 	return false
 }
+
+func (c *BaseController) passtSocketDirOnHostForVMI(vmi *v1.VirtualMachineInstance) (string, error) {
+	path, err := c.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return "", err
+	}
+	return passtSocketDirOnHost(path)
+}
