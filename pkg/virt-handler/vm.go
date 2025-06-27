@@ -1203,7 +1203,7 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 	}
 
 	if reservation.HasVMIPersistentReservation(vmi) {
-		return newNonMigratableCondition("VMI uses SCSI persitent reservation", v1.VirtualMachineInstanceReasonPRNotMigratable), isBlockMigration
+		return newNonMigratableCondition("VMI uses SCSI persistent reservation", v1.VirtualMachineInstanceReasonPRNotMigratable), isBlockMigration
 	}
 
 	if tscRequirement := topology.GetTscFrequencyRequirement(vmi); !topology.AreTSCFrequencyTopologyHintsDefined(vmi) && tscRequirement.Type == topology.RequiredForMigration {
@@ -1290,7 +1290,7 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 	}
 
 	if reservation.HasVMIPersistentReservation(vmi) {
-		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonPRNotMigratable, "VMI uses SCSI persitent reservation")
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonPRNotMigratable, "VMI uses SCSI persistent reservation")
 	}
 
 	if tscRequirement := topology.GetTscFrequencyRequirement(vmi); !topology.AreTSCFrequencyTopologyHintsDefined(vmi) && tscRequirement.Type == topology.RequiredForMigration {
@@ -1580,7 +1580,7 @@ func (c *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 		return
 	}
 
-	timeLeft = int64(gracePeriod - diff)
+	timeLeft = gracePeriod - diff
 	if timeLeft < 1 {
 		timeLeft = 1
 	}
@@ -2209,7 +2209,7 @@ func (c *VirtualMachineController) getMemoryDump(vmi *v1.VirtualMachineInstance)
 	return nil
 }
 
-func (d *VirtualMachineController) hotplugVolumesReady(vmi *v1.VirtualMachineInstance) bool {
+func (c *VirtualMachineController) hotplugVolumesReady(vmi *v1.VirtualMachineInstance) bool {
 	hasHotplugVolume := false
 	for _, v := range vmi.Spec.Volumes {
 		if storagetypes.IsHotplugVolume(&v) {

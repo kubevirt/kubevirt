@@ -31,8 +31,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/client-go/util/workqueue"
-
 	"libvirt.org/go/libvirtxml"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -40,10 +38,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -197,8 +196,8 @@ func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachin
 	vmi.Status.NodeName = c.host
 	// clean the evacuation node name since have already migrated to a new node
 	vmi.Status.EvacuationNodeName = ""
-	// update the vmi migrationTransport to indicate that next migration should use unix URI
-	// new workloads will set the migrationTransport on their creation, however, legacy workloads
+	// update the vmi migrationTransport to indicate that the next migration should use unix URI
+	// new workloads will set the migrationTransport on creation, however legacy workloads
 	// can make the switch only after the first migration
 	vmi.Status.MigrationTransport = v1.MigrationTransportUnix
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", c.host))
@@ -223,7 +222,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		}
 
 		// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
-		// perform hotplug host-devices on post migration.
+		// perform host-devices hotplug post migration.
 		if err := isolation.AdjustQemuProcessMemoryLimits(c.podIsolationDetector, vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "Failed to update target node qemu memory limits during live migration")
 		}
@@ -549,7 +548,7 @@ func migrationNeedsFinalization(migrationState *v1.VirtualMachineInstanceMigrati
 
 func (c *MigrationTargetController) handleTargetMigrationProxy(vmi *v1.VirtualMachineInstance) error {
 	// handle starting/stopping target migration proxy
-	migrationTargetSockets := []string{}
+	var migrationTargetSockets []string
 	res, err := c.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return err
@@ -623,7 +622,7 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 	}
 
 	// Mount hotplug disks
-	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != types.UID("") {
+	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
 		cgroupManager, err := getCgroupManager(vmi, c.host)
 		if err != nil {
 			return err
@@ -638,7 +637,7 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 
 func (c *MigrationTargetController) unmountVolumes(vmi *v1.VirtualMachineInstance) error {
 	// The VolumeStatus is used to retrieve additional information for the volume handling.
-	// For example, for filesystem PVC, the information are used to create a right size image.
+	// For example, for filesystem PVC, the information is used to create a right size image.
 	// In the case of migrated volumes, we need to replace the original volume information with the
 	// destination volume properties.
 	replaceMigratedVolumesStatus(vmi)
@@ -652,7 +651,7 @@ func (c *MigrationTargetController) unmountVolumes(vmi *v1.VirtualMachineInstanc
 	}
 
 	// Mount hotplug disks
-	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != types.UID("") {
+	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
 		cgroupManager, err := getCgroupManager(vmi, c.host)
 		if err != nil {
 			return err

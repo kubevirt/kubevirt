@@ -95,6 +95,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	const migratableNetworkBindingPlugin = "mig_plug"
 	const host = "master"
+	const interfaceName = "interface_name"
 
 	getCgroupManager = func(_ *v1.VirtualMachineInstance, _ string) (cgroup.Manager, error) {
 		return mockCgroupManager, nil
@@ -118,7 +119,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir))
 
-		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)
+		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)).To(Succeed())
 
 		cmdclient.SetPodsBaseDir(podsDir)
 
@@ -152,7 +153,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "dev"), 0755)).To(Succeed())
 		f, err := os.OpenFile(filepath.Join(vmiShareDir, "dev", "kvm"), os.O_CREATE, 0755)
 		Expect(err).ToNot(HaveOccurred())
-		f.Close()
+		Expect(f.Close()).To(Succeed())
 
 		mockIsolationResult := isolation.NewMockIsolationResult(ctrl)
 		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
@@ -203,7 +204,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
 		f, err = os.Create(sockFile)
 		Expect(err).ToNot(HaveOccurred())
-		f.Close()
+		Expect(f.Close()).To(Succeed())
 
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
@@ -211,8 +212,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 		wg.Add(1)
 
 		go func() {
-			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
+			err = notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
 			wg.Done()
+			Expect(err).ToNot(HaveOccurred())
 		}()
 		time.Sleep(1 * time.Second)
 
@@ -239,9 +241,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 	})
 
 	addDomain := func(domain *api.Domain) {
-		controller.domainStore.Add(domain)
+		Expect(controller.domainStore.Add(domain)).To(Succeed())
 		key, err := virtcontroller.KeyFunc(domain)
-		Expect(err).To(Not(HaveOccurred()))
+		Expect(err).ToNot(HaveOccurred())
 		controller.queue.Add(key)
 	}
 
@@ -264,11 +266,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Labels = make(map[string]string)
 			vmi.Labels[v1.NodeNameLabel] = host
 		}
-		controller.vmiStore.Add(vmi)
+		Expect(controller.vmiStore.Add(vmi)).To(Succeed())
 		_, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.TODO(), vmi, metav1.CreateOptions{})
-		Expect(err).To(Not(HaveOccurred()))
+		Expect(err).ToNot(HaveOccurred())
 		key, err := virtcontroller.KeyFunc(vmi)
-		Expect(err).To(Not(HaveOccurred()))
+		Expect(err).ToNot(HaveOccurred())
 		controller.queue.Add(key)
 	}
 
@@ -1002,7 +1004,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		)
 
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
-			cmdclient.MarkSocketUnresponsive(sockFile)
+			Expect(cmdclient.MarkSocketUnresponsive(sockFile)).To(Succeed())
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.UID = vmiTestUUID
@@ -1188,7 +1190,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi := NewScheduledVMIWithContainerDisk(vmiTestUUID, podTestUUID, host)
 				vmi.Status.Phase = v1.Running
 				vmi.Status.VolumeStatus = []v1.VolumeStatus{
-					v1.VolumeStatus{
+					{
 						Name: vmi.Spec.Volumes[0].Name,
 					},
 				}
@@ -1319,7 +1321,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				addVMI(vmi, domain)
 
 				mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
-				controller.processVmCleanup(vmi)
+				Expect(controller.processVmCleanup(vmi)).To(Succeed())
 			})
 		})
 
@@ -2292,17 +2294,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Context("with network configuration", func() {
 			It("should block migration for bridge binding assigned to the pod network", func() {
 				vmi := api2.NewMinimalVMI("testvmi")
-				interface_name := "interface_name"
 
 				vmi.Spec.Networks = []v1.Network{
 					{
-						Name:          interface_name,
+						Name:          interfaceName,
 						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 					},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{
-						Name: interface_name,
+						Name: interfaceName,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{
 							Bridge: &v1.InterfaceBridge{},
 						},
@@ -2315,17 +2316,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			It("should not block migration for masquerade binding assigned to the pod network", func() {
 				vmi := api2.NewMinimalVMI("testvmi")
-				interface_name := "interface_name"
 
 				vmi.Spec.Networks = []v1.Network{
 					{
-						Name:          interface_name,
+						Name:          interfaceName,
 						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 					},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{
-						Name: interface_name,
+						Name: interfaceName,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{
 							Masquerade: &v1.InterfaceMasquerade{},
 						},
@@ -2338,17 +2338,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			It("should not block migration for bridge binding assigned to a multus network", func() {
 				vmi := api2.NewMinimalVMI("testvmi")
-				interface_name := "interface_name"
+				interfaceName := "interfaceName"
 
 				vmi.Spec.Networks = []v1.Network{
 					{
-						Name:          interface_name,
+						Name:          interfaceName,
 						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
 					},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{
-						Name: interface_name,
+						Name: interfaceName,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{
 							Bridge: &v1.InterfaceBridge{},
 						},
@@ -2825,7 +2825,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(os.Mkdir(filepath.Join(path, "dev"), 0o755)).To(Succeed())
 				f, err := os.Create(filepath.Join(path, "dev", device))
 				Expect(err).ToNot(HaveOccurred())
-				f.Close()
+				Expect(f.Close()).To(Succeed())
 			})
 
 			It("should succeed", func() {
@@ -2970,14 +2970,14 @@ type netConfStub struct {
 	SetupError error
 }
 
-func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, _ []v1.Network, launcherPid int) error {
+func (nc *netConfStub) Setup(_ *v1.VirtualMachineInstance, _ []v1.Network, _ int) error {
 	if nc.SetupError != nil {
 		return nc.SetupError
 	}
 	return nil
 }
 
-func (nc *netConfStub) Teardown(vmi *v1.VirtualMachineInstance) error {
+func (nc *netConfStub) Teardown(_ *v1.VirtualMachineInstance) error {
 	nc.vmiUID = ""
 	return nil
 }
@@ -3004,7 +3004,7 @@ func (ns *netStatStub) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.
 	return nil
 }
 
-func (ns *netStatStub) Teardown(vmi *v1.VirtualMachineInstance) {}
+func (ns *netStatStub) Teardown(_ *v1.VirtualMachineInstance) {}
 
 func newFakeManager() *fakeManager {
 	return &fakeManager{}

@@ -253,7 +253,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 func removeSelectorSpaces(selectorName string) string {
 	// The name usually contain spaces which should be replaced with _
 	// Such as GRID T4-1Q
-	typeNameStr := strings.Replace(string(selectorName), " ", "_", -1)
+	typeNameStr := strings.Replace(selectorName, " ", "_", -1)
 	typeNameStr = strings.TrimSpace(typeNameStr)
 	return typeNameStr
 }
