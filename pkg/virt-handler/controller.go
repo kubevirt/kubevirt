@@ -20,11 +20,10 @@
 package virthandler
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
-
-	"k8s.io/client-go/util/workqueue"
-	"kubevirt.io/client-go/kubecli"
+	"time"
 
 	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -32,9 +31,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -338,4 +341,20 @@ func (c *BaseController) passtSocketDirOnHostForVMI(vmi *v1.VirtualMachineInstan
 		return "", err
 	}
 	return passtSocketDirOnHost(path)
+}
+
+func (c *BaseController) checkLauncherClient(vmi *v1.VirtualMachineInstance) (bool, error) {
+	isUnresponsive, isInitialized, err := c.launcherClients.IsLauncherClientUnresponsive(vmi)
+	if err != nil {
+		return true, err
+	}
+	if !isInitialized {
+		log.Log.Object(vmi).V(4).Info("launcher client is not initialized")
+		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		return true, nil
+	} else if isUnresponsive {
+		return true, errors.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
+	}
+
+	return false, nil
 }

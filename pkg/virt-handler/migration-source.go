@@ -453,16 +453,9 @@ func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMa
 }
 
 func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	isUnresponsive, isInitialized, err := c.launcherClients.IsLauncherClientUnresponsive(vmi)
-	if err != nil {
+	shouldReturn, err := c.checkLauncherClient(vmi)
+	if shouldReturn {
 		return err
-	}
-	if !isInitialized {
-		log.Log.Object(vmi).V(4).Info("launcher client is not initialized")
-		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-		return nil
-	} else if isUnresponsive {
-		return errors.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
 	}
 
 	client, err := c.launcherClients.GetLauncherClient(vmi)

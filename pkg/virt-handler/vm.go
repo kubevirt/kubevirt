@@ -2233,15 +2233,9 @@ func (d *VirtualMachineController) hotplugVolumesReady(vmi *v1.VirtualMachineIns
 }
 
 func (c *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	isUnresponsive, isInitialized, err := c.launcherClients.IsLauncherClientUnresponsive(vmi)
-	if err != nil {
+	shouldReturn, err := c.checkLauncherClient(vmi)
+	if shouldReturn {
 		return err
-	}
-	if !isInitialized {
-		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-		return nil
-	} else if isUnresponsive {
-		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
 	}
 
 	return c.vmUpdateHelperDefault(vmi, domain != nil)
