@@ -25524,6 +25524,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceCommonMigrationState(re
 							Format:      "",
 						},
 					},
+					"completed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Completed is a boolean indicating if the migration has completed",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -26328,6 +26335,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationSourceState(re
 							Format:      "",
 						},
 					},
+					"completed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Completed is a boolean indicating if the migration has completed",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"nodeSelectors": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Node selectors needed by the target to start the receiving pod.",
@@ -26783,6 +26797,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationTargetState(re
 						SchemaProps: spec.SchemaProps{
 							Description: "VirtualMachineInstanceUID is the UID of the target virtual machine instance",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"completed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Completed is a boolean indicating if the migration has completed",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},

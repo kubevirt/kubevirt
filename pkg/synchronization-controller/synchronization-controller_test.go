@@ -947,9 +947,21 @@ var _ = Describe("VMI status synchronization controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should not index migrations that are final", func() {
+	It("should not index migrations that are failed or completed", func() {
 		migration := createSourceMigration(testMigrationID, "test-vmi", "", k8sv1.NamespaceDefault)
 		migration.Status.Phase = virtv1.MigrationSucceeded
+		migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+			SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					Completed: true,
+				},
+			},
+			TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					Completed: true,
+				},
+			},
+		}
 		res, err := indexByVmiName(migration)
 		Expect(res).To(BeEmpty())
 		Expect(err).ToNot(HaveOccurred())
