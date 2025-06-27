@@ -57,7 +57,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.RequiresDecentralizedLiveMigration, func() {
+var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDecentralizedLiveMigration, func() {
 	var (
 		virtClient         kubecli.KubevirtClient
 		migrationID        string
