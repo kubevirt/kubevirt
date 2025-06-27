@@ -25,6 +25,8 @@ import (
 	"os"
 	"sync"
 
+	ipamclaims "github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned"
+
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 
 	clone "kubevirt.io/client-go/kubevirt/typed/clone/v1beta1"
@@ -210,6 +212,11 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
+	ipamClaimsClient, err := ipamclaims.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirtClient{
 		master,
 		kubeconfig,
@@ -227,6 +234,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		dynamicClient,
 		migrationsClient,
 		cloneClient,
+		ipamClaimsClient,
 		coreClient,
 	}, nil
 }
@@ -406,6 +414,11 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
+	ipamClaimsClient, err := ipamclaims.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirtClient{
 		master,
 		kubeconfig,
@@ -423,6 +436,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		dynamicClient,
 		migrationsClient,
 		cloneClient,
+		ipamClaimsClient,
 		coreClient,
 	}, nil
 }

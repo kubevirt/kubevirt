@@ -40,6 +40,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/prometheusoperator:go_default_library",
         "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//staging/src/kubevirt.io/client-go/version:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned:go_default_library",
         "//vendor/github.com/openshift/client-go/route/clientset/versioned/typed/route/v1:go_default_library",
         "//vendor/github.com/openshift/client-go/security/clientset/versioned/typed/security/v1:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",

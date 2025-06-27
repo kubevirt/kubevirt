@@ -39,6 +39,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	ipamclaims "github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned"
+
 	v1 "kubevirt.io/api/core/v1"
 	cdiclient "kubevirt.io/client-go/containerizeddataimporter"
 	k8ssnapshotclient "kubevirt.io/client-go/externalsnapshotter"
@@ -88,6 +90,7 @@ type KubevirtClient interface {
 	KubernetesSnapshotClient() k8ssnapshotclient.Interface
 	DynamicClient() dynamic.Interface
 	MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client
+	IPAMClaimsClient() ipamclaims.Interface
 	kubernetes.Interface
 	Config() *rest.Config
 	SetRestTimeout(timeout time.Duration) (KubevirtClient, error)
@@ -110,6 +113,7 @@ type kubevirtClient struct {
 	dynamicClient           dynamic.Interface
 	migrationsClient        *migrationsv1.MigrationsV1alpha1Client
 	cloneClient             *clone.CloneV1beta1Client
+	ipamClaimsClient        *ipamclaims.Clientset
 	*kubernetes.Clientset
 }
 
@@ -225,6 +229,10 @@ func (k kubevirtClient) VirtualMachineClone(namespace string) clone.VirtualMachi
 
 func (k kubevirtClient) VirtualMachineCloneClient() *clone.CloneV1beta1Client {
 	return k.cloneClient // TODO ihol3 delete function? who's using it?
+}
+
+func (k kubevirtClient) IPAMClaimsClient() ipamclaims.Interface {
+	return k.ipamClaimsClient
 }
 
 type VirtualMachineInstanceInterface interface {
