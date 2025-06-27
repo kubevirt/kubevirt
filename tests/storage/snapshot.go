@@ -565,7 +565,76 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					return updatedVMI.Status.FSFreezeStatus
 				}, 30*time.Second, 2*time.Second).Should(BeEmpty())
 			})
+			DescribeTable("should succeed snapshot when VM is paused (freeze will be skipped)",
+				func(hasGuestAgent bool) {
+					var vmi *v1.VirtualMachineInstance
+					if hasGuestAgent {
+						vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+					} else {
+						vmi = libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
+					}
+					vmi.Namespace = testsuite.GetTestNamespace(nil)
+					vm = libvmi.NewVirtualMachine(vmi)
 
+					quantity, _ := resource.ParseQuantity("1Gi")
+					dvName := "dv-" + vm.Name
+					dataVolume := libdv.NewDataVolume(
+						libdv.WithName(dvName),
+						libdv.WithBlankImageSource(),
+						libdv.WithStorage(
+							libdv.StorageWithStorageClass(snapshotStorageClass),
+							libdv.StorageWithVolumeSize(quantity.String()),
+						),
+					)
+					libstorage.AddDataVolumeTemplate(vm, dataVolume)
+
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+						Name: "blank",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: v1.DiskBusVirtio,
+							},
+						},
+					})
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "blank",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: "dv-" + vm.Name,
+							},
+						},
+					})
+
+					vm = libvmi.NewVirtualMachine(vmi)
+					vm, vmi = createAndStartVM(vm)
+					libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(300))
+					if hasGuestAgent {
+						Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).
+							Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+					}
+
+					By("Pausing the VirtualMachineInstance")
+					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})).To(Succeed())
+					Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+
+					By("Take the snapshot")
+					snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
+					_, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).
+						Create(context.Background(), snapshot, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
+
+					updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).
+						Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(updatedVMI.Status.FSFreezeStatus).To(BeEmpty())
+
+					contentName := *snapshot.Status.VirtualMachineSnapshotContentName
+					checkOnlineSnapshotExpectedContentSource(vm, contentName, hasGuestAgent)
+				},
+				Entry("[test_id:7000] with guest-agent", true),
+				Entry("[test_id:7001] no guest-agent", false),
+			)
 			DescribeTable("should succeed online snapshot with hot plug disk", func(withEphemeralHotplug bool) {
 				if withEphemeralHotplug {
 					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
