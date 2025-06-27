@@ -110,8 +110,10 @@ func NewMigrationTargetController(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-target"},
 	)
+	logger := log.Log.With("controller", "migration-target")
 
 	baseCtrl, err := NewBaseController(
+		logger,
 		host,
 		recorder,
 		clientset,
@@ -201,12 +203,12 @@ func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachin
 	// can make the switch only after the first migration
 	vmi.Status.MigrationTransport = v1.MigrationTransportUnix
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", c.host))
-	log.Log.Object(vmi).Info("The target node detected that the migration has completed")
+	c.logger.Object(vmi).Info("The target node detected that the migration has completed")
 }
 
 func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if migrations.MigrationFailed(vmi) {
-		log.Log.Object(vmi).V(4).Info("migration has failed, nothing to report on the target node")
+		c.logger.Object(vmi).V(4).Info("migration has failed, nothing to report on the target node")
 		return nil
 	}
 
@@ -215,7 +217,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 	// detect domain on target node
 	if domainExists && !vmi.Status.MigrationState.TargetNodeDomainDetected {
 		// record that we've seen the domain populated on the target's node
-		log.Log.Object(vmi).Info("The target node received the migrated domain")
+		c.logger.Object(vmi).Info("The target node received the migrated domain")
 		vmi.Status.MigrationState.TargetNodeDomainDetected = true
 		if vmi.Status.MigrationState.TargetState != nil {
 			vmi.Status.MigrationState.TargetState.DomainDetected = true
@@ -238,7 +240,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 			vmi.Status.MigrationState.TargetState.DomainReadyTimestamp = vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp
 		}
 
-		log.Log.Object(vmi).Info("The target node received the running migrated domain")
+		c.logger.Object(vmi).Info("The target node received the running migrated domain")
 
 		cm := controller.NewVirtualMachineInstanceConditionManager()
 		cm.RemoveCondition(vmi, v1.VirtualMachineInstanceMigrationRequired)
@@ -252,7 +254,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 	}
 
 	if migrations.IsMigrating(vmi) {
-		log.Log.Object(vmi).V(4).Info("migration is already in progress")
+		c.logger.Object(vmi).V(4).Info("migration is already in progress")
 		return nil
 	}
 
@@ -263,7 +265,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 	destSrcPortsMap := c.migrationProxy.GetTargetListenerPorts(vmiUID)
 	if len(destSrcPortsMap) == 0 {
 		msg := "target migration listener is not up for this vmi, giving it time"
-		log.Log.Object(vmi).Info(msg)
+		c.logger.Object(vmi).Info(msg)
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return nil
 	}
@@ -307,7 +309,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 
 func (c *MigrationTargetController) Run(threadiness int, stopCh chan struct{}) {
 	defer c.queue.ShutDown()
-	log.Log.Info("Starting virt-handler target controller.")
+	c.logger.Info("Starting virt-handler target controller.")
 
 	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
@@ -334,7 +336,7 @@ func (c *MigrationTargetController) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	<-stopCh
-	log.Log.Info("Stopping virt-handler target controller.")
+	c.logger.Info("Stopping virt-handler target controller.")
 }
 
 func (c *MigrationTargetController) runWorker() {
@@ -349,10 +351,10 @@ func (c *MigrationTargetController) Execute() bool {
 	}
 	defer c.queue.Done(key)
 	if err := c.execute(key); err != nil {
-		log.Log.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
+		c.logger.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VirtualMachineInstance %v", key)
+		c.logger.V(4).Infof("processed VirtualMachineInstance %v", key)
 		c.queue.Forget(key)
 	}
 	return true
@@ -384,13 +386,13 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 			// However, there is one specific case where we can't: on post-copy migration failure that hasn't been acted on at the VMI level yet.
 			// This is because, in that specific scenario, the source of truth is in the libvirt domain running in our pod.
 			// Once we terminate our pod, the information is gone.
-			log.Log.Object(vmi).Info("we're the target of a failed post-copy but the VMI is still running, waiting a sec")
+			c.logger.Object(vmi).Info("we're the target of a failed post-copy but the VMI is still running, waiting a sec")
 			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 			return nil
 		}
 		if vmi.Status.Phase == v1.Succeeded {
 			// Ensuring failed post-copy migrations don't lead to a successful VMI, shouldn't be needed
-			log.Log.Object(vmi).Warning("VMI status wrongly set to succeeded, this shouldn't happen, fixing VMI phase")
+			c.logger.Object(vmi).Warning("VMI status wrongly set to succeeded, this shouldn't happen, fixing VMI phase")
 			vmi.Status.Phase = v1.Failed
 		}
 	}
@@ -405,13 +407,13 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 	if vmi.Status.MigrationState.Failed {
 		err = client.SignalTargetPodCleanup(vmi)
 		if err != nil {
-			log.Log.Object(vmi).Warningf("Failed to signal target pod cleanup: %v, ignoring.", err)
+			c.logger.Object(vmi).Warningf("Failed to signal target pod cleanup: %v, ignoring.", err)
 		}
 		err = c.unmountVolumes(vmi)
 		if err != nil {
 			return err
 		}
-		log.Log.Object(vmi).Infof("Signaled target pod for failed migration to clean up")
+		c.logger.Object(vmi).Infof("Signaled target pod for failed migration to clean up")
 
 		// tear down network cache
 		if err = c.netConf.Teardown(vmi); err != nil {
@@ -448,9 +450,9 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 	}
 
 	if domain != nil {
-		log.Log.Object(vmi).Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
+		c.logger.Object(vmi).Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
 	} else {
-		log.Log.Object(vmi).Infof("VMI is in phase: %v | Domain does not exist", vmi.Status.Phase)
+		c.logger.Object(vmi).Infof("VMI is in phase: %v | Domain does not exist", vmi.Status.Phase)
 	}
 
 	syncErr := c.processVMI(vmi)
@@ -458,12 +460,12 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
 		// `syncErr` will be propagated anyway, and it will be logged in `re-enqueueing`
 		// so there is no need to log it twice in hot path without increased verbosity.
-		log.Log.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
+		c.logger.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
 	}
 
 	updateErr := c.updateStatus(vmi, domain)
 	if updateErr != nil {
-		log.Log.Object(vmi).Reason(updateErr).Error("Updating the migration status failed.")
+		c.logger.Object(vmi).Reason(updateErr).Error("Updating the migration status failed.")
 		return updateErr
 	}
 
@@ -475,7 +477,7 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 		return updateVMIErr
 	}
 
-	log.Log.Object(vmi).V(4).Info("Target synchronization loop done.")
+	c.logger.Object(vmi).V(4).Info("Target synchronization loop done.")
 	return syncErr
 }
 
@@ -491,12 +493,12 @@ func (c *MigrationTargetController) execute(key string) error {
 	}
 
 	if !vmiExists {
-		log.Log.V(4).Infof("vmi for key %v does not exists", key)
+		c.logger.V(4).Infof("vmi for key %v does not exists", key)
 		return nil
 	}
 
 	if vmi.IsFinal() || vmi.DeletionTimestamp != nil {
-		log.Log.V(4).Infof("vmi for key %v is terminating or final, doing only a best-effort cleanup", key)
+		c.logger.V(4).Infof("vmi for key %v is terminating or final, doing only a best-effort cleanup", key)
 		_ = c.netConf.Teardown(vmi)
 		c.netStat.Teardown(vmi)
 		return nil
@@ -521,17 +523,17 @@ func (c *MigrationTargetController) execute(key string) error {
 		domain.Status.Status != ""
 
 	if domainExists && !domainAlive {
-		log.Log.V(4).Object(vmi).Info("domain is not alive")
+		c.logger.V(4).Object(vmi).Info("domain is not alive")
 		return nil
 	}
 
 	if vmi.Status.MigrationState == nil {
-		log.Log.Object(vmi).V(4).Info("no migration is in progress")
+		c.logger.Object(vmi).V(4).Info("no migration is in progress")
 		return nil
 	}
 
 	if !c.isMigrationTarget(vmi) {
-		log.Log.Object(vmi).V(4).Info("not a migration target")
+		c.logger.Object(vmi).V(4).Info("not a migration target")
 		return nil
 	}
 
@@ -668,7 +670,7 @@ func (c *MigrationTargetController) unmountVolumes(vmi *v1.VirtualMachineInstanc
 // It returns an error and a boolean informing the caller if the key was re-enqueued by us.
 func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) error {
 	if migrationNeedsFinalization(vmi.Status.MigrationState) {
-		log.Log.Object(vmi).V(4).Info("finalize migration")
+		c.logger.Object(vmi).V(4).Info("finalize migration")
 		return c.finalizeMigration(vmi)
 	}
 
@@ -685,7 +687,7 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 	if migrations.IsMigrating(vmi) {
 		// If the migration has already started,
 		// then there's nothing left to prepare on the target side
-		log.Log.Object(vmi).V(4).Info("migration is already in progress")
+		c.logger.Object(vmi).V(4).Info("migration is already in progress")
 		return nil
 	}
 
@@ -693,12 +695,12 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 
 	err = c.syncVolumes(vmi)
 	if goerror.Is(err, containerdisk.ErrWaitingForDisks) {
-		log.Log.Object(vmi).V(4).Info("waiting for container disks to become ready")
+		c.logger.Object(vmi).V(4).Info("waiting for container disks to become ready")
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return nil
 	}
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to sync Volumes")
+		c.logger.Object(vmi).Reason(err).Error("Failed to sync Volumes")
 		return err
 	}
 
@@ -715,7 +717,7 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 
 	if c.clusterConfig.PasstIPStackMigrationEnabled() {
 		if err := c.passtRepairHandler.HandleMigrationTarget(vmi, c.passtSocketDirOnHostForVMI); err != nil {
-			log.Log.Object(vmi).Warningf("failed to call passt-repair for migration target, %v", err)
+			c.logger.Object(vmi).Warningf("failed to call passt-repair for migration target, %v", err)
 		}
 	}
 
@@ -765,16 +767,16 @@ func (c *MigrationTargetController) deleteDomainFunc(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			c.logger.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
 			return
 		}
 		domain, ok = tombstone.Obj.(*api.Domain)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a domain %#v", obj)).Error("Failed to process delete notification")
+			c.logger.Reason(fmt.Errorf("tombstone contained object that is not a domain %#v", obj)).Error("Failed to process delete notification")
 			return
 		}
 	}
-	log.Log.Object(domain).Info("Domain deleted")
+	c.logger.Object(domain).Info("Domain deleted")
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.queue.Add(key)
@@ -784,11 +786,11 @@ func (c *MigrationTargetController) updateDomainFunc(old, new interface{}) {
 	newDomain := new.(*api.Domain)
 	oldDomain := old.(*api.Domain)
 	if oldDomain.Status.Status != newDomain.Status.Status || oldDomain.Status.Reason != newDomain.Status.Reason {
-		log.Log.Object(newDomain).Infof("Domain is in state %s reason %s", newDomain.Status.Status, newDomain.Status.Reason)
+		c.logger.Object(newDomain).Infof("Domain is in state %s reason %s", newDomain.Status.Status, newDomain.Status.Reason)
 	}
 
 	if newDomain.ObjectMeta.DeletionTimestamp != nil {
-		log.Log.Object(newDomain).Info("Domain is marked for deletion")
+		c.logger.Object(newDomain).Info("Domain is marked for deletion")
 	}
 
 	key, err := controller.KeyFunc(new)
@@ -946,12 +948,12 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 	}
 
 	if err := c.hotplugCPU(vmi, client); err != nil {
-		log.Log.Object(vmi).Reason(err).Error(errorMessage)
+		c.logger.Object(vmi).Reason(err).Error(errorMessage)
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to change vCPUs")
 	}
 
 	if err := c.hotplugMemory(vmi, client); err != nil {
-		log.Log.Object(vmi).Reason(err).Error(errorMessage)
+		c.logger.Object(vmi).Reason(err).Error(errorMessage)
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to update guest memory")
 	}
 	removeMigratedVolumes(vmi)
@@ -959,7 +961,7 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 	options := &cmdv1.VirtualMachineOptions{}
 	options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 	if err := client.FinalizeVirtualMachineMigration(vmi, options); err != nil {
-		log.Log.Object(vmi).Reason(err).Error(errorMessage)
+		c.logger.Object(vmi).Reason(err).Error(errorMessage)
 		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
 

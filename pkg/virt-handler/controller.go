@@ -95,6 +95,7 @@ type netconf interface {
 }
 
 type BaseController struct {
+	logger                      *log.FilteredLogger
 	host                        string
 	clientset                   kubecli.KubevirtClient
 	queue                       workqueue.TypedRateLimitingInterface[string]
@@ -111,6 +112,7 @@ type BaseController struct {
 }
 
 func NewBaseController(
+	logger *log.FilteredLogger,
 	host string,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
@@ -126,6 +128,7 @@ func NewBaseController(
 ) (*BaseController, error) {
 
 	c := &BaseController{
+		logger:                      logger,
 		host:                        host,
 		recorder:                    recorder,
 		clientset:                   clientset,
@@ -348,7 +351,7 @@ func (c *BaseController) checkLauncherClient(vmi *v1.VirtualMachineInstance) (bo
 		return true, err
 	}
 	if !isInitialized {
-		log.Log.Object(vmi).V(4).Info("launcher client is not initialized")
+		c.logger.Object(vmi).V(4).Info("launcher client is not initialized")
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return true, nil
 	} else if isUnresponsive {
