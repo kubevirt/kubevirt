@@ -501,6 +501,54 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			log.Log.Object(vmi).Infof("kernel boot container generated")
 			containers = append(containers, *kernelBootContainer)
 		}
+	} else {
+		r := k8sv1.ResourceRequirements{}
+		r.Requests = make(k8sv1.ResourceList)
+		r.Limits = make(k8sv1.ResourceList)
+		r.Requests[k8sv1.ResourceCPU] = resource.MustParse("1m")
+		r.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
+		r.Limits[k8sv1.ResourceCPU] = resource.MustParse("1m")
+		r.Limits[k8sv1.ResourceMemory] = resource.MustParse("1M")
+		for _, volume := range vmi.Spec.Volumes {
+			if volume.ContainerDisk == nil {
+				continue
+			}
+			container := &k8sv1.Container{
+				Name:            fmt.Sprintf("volume%s", volume.Name),
+				Image:           volume.ContainerDisk.Image,
+				ImagePullPolicy: volume.ContainerDisk.ImagePullPolicy,
+				Command:         []string{"/bin/true"},
+				Resources:       r,
+				SecurityContext: &k8sv1.SecurityContext{
+					RunAsUser:                &userId,
+					RunAsNonRoot:             &nonRoot,
+					AllowPrivilegeEscalation: pointer.P(false),
+					Capabilities: &k8sv1.Capabilities{
+						Drop: []k8sv1.Capability{"ALL"},
+					},
+				},
+			}
+			containers = append(containers, *container)
+		}
+		if util.HasKernelBootContainerImage(vmi) {
+			kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
+			container := &k8sv1.Container{
+				Name:            fmt.Sprintf("volume%s", containerdisk.KernelBootVolumeName),
+				Image:           kernelBootContainer.Image,
+				ImagePullPolicy: kernelBootContainer.ImagePullPolicy,
+				Command:         []string{"/bin/true"},
+				Resources:       r,
+				SecurityContext: &k8sv1.SecurityContext{
+					RunAsUser:                &userId,
+					RunAsNonRoot:             &nonRoot,
+					AllowPrivilegeEscalation: pointer.P(false),
+					Capabilities: &k8sv1.Capabilities{
+						Drop: []k8sv1.Capability{"ALL"},
+					},
+				},
+			}
+			containers = append(containers, *container)
+		}
 	}
 
 	virtiofsContainers := generateVirtioFSContainers(vmi, t.launcherImage, t.clusterConfig)
