@@ -27,8 +27,9 @@ import (
 	"path"
 	"time"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
@@ -56,8 +57,8 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 		return nil, fmt.Errorf("failed to create SR-IOV hostdevices: %v", err)
 	}
 	if pciAddressPoolWithNetworkStatus.Len() == 0 {
-		log.Log.Object(vmi).Warningf("found no SR-IOV networks to PCI-Address mapping. fall back to resource address pool")
-		return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, NewPCIAddressPool(SRIOVInterfaces))
+		log.Log.Object(vmi).Warningf("found no SR-IOV networks to PCI-Address mapping.")
+		return nil, fmt.Errorf("found no SR-IOV networks to PCI-Address mapping")
 	}
 
 	return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, pciAddressPoolWithNetworkStatus)

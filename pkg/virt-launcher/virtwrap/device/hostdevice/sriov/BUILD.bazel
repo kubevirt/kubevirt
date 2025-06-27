@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "hostdev.go",
-        "pcipool.go",
         "pcipool_netstatus.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov",
@@ -27,7 +26,6 @@ go_test(
     srcs = [
         "hostdev_test.go",
         "pcipool_netstatus_test.go",
-        "pcipool_test.go",
         "sriov_suite_test.go",
     ],
     deps = [
