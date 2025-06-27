@@ -217,6 +217,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			config,
 			mockIsolationDetector,
 			migrationProxy,
+			"/tmp/%d",
 			nil, // capabilities
 			&netConfStub{},
 			&netStatStub{},
