@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/dra:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",

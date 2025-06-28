@@ -171,6 +171,21 @@ type VirtualMachineInstanceSpec struct {
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
 	// Specifies the architecture of the vm guest you are attempting to run. Defaults to the compiled architecture of the KubeVirt components
 	Architecture string `json:"architecture,omitempty"`
+	// ResourceClaims define which ResourceClaims must be allocated
+	// and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources
+	// will be made available to the domain which consumes them
+	// by name.
+	//
+	// This is an alpha field and requires enabling the
+	// DynamicResourceAllocation feature gate in kubernetes
+	//  https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
+	// This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+	// This feature is in alpha.
+	//
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	ResourceClaims []k8sv1.PodResourceClaim `json:"resourceClaims,omitempty"`
 }
 
 func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {
@@ -301,6 +316,57 @@ type VirtualMachineInstanceStatus struct {
 	// +listType=atomic
 	// +optional
 	MigratedVolumes []StorageMigratedVolumeInfo `json:"migratedVolumes,omitempty"`
+	// DeviceStatus reflects the state of devices requested in spec.domain.devices. This is an optional field available
+	// only when DRA feature gate is enabled
+	// This field will only be populated if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+	// This feature is in alpha.
+	// +optional
+	DeviceStatus *DeviceStatus `json:"deviceStatus,omitempty"`
+}
+
+// DeviceStatus has the information of all devices allocated spec.domain.devices
+// +k8s:openapi-gen=true
+type DeviceStatus struct {
+	// GPUStatuses reflects the state of GPUs requested in spec.domain.devices.gpus
+	// +listType=atomic
+	// +optional
+	GPUStatuses []DeviceStatusInfo `json:"gpuStatuses,omitempty"`
+	// HostDeviceStatuses reflects the state of GPUs requested in spec.domain.devices.hostDevices
+	// DRA
+	// +listType=atomic
+	// +optional
+	HostDeviceStatuses []DeviceStatusInfo `json:"hostDeviceStatuses,omitempty"`
+}
+
+type DeviceStatusInfo struct {
+	// Name of the device as specified in spec.domain.devices.gpus.name or spec.domain.devices.hostDevices.name
+	Name string `json:"name"`
+	// DeviceResourceClaimStatus reflects the DRA related information for the device
+	DeviceResourceClaimStatus *DeviceResourceClaimStatus `json:"deviceResourceClaimStatus,omitempty"`
+}
+
+// DeviceResourceClaimStatus has to be before SyncVMI call from virt-handler to virt-launcher
+type DeviceResourceClaimStatus struct {
+	// Name is the name of actual device on the host provisioned by the driver as reflected in resourceclaim.status
+	// +optional
+	Name *string `json:"name,omitempty"`
+	// ResourceClaimName is the name of the resource claims object used to provision this resource
+	// +optional
+	ResourceClaimName *string `json:"resourceClaimName,omitempty"`
+	// Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more
+	// about the device, like pciAddress or mdevUUID
+	// +optional
+	Attributes *DeviceAttribute `json:"attributes,omitempty"`
+}
+
+// DeviceAttribute must have exactly one field set.
+type DeviceAttribute struct {
+	// PCIAddress is the PCIe bus address of the allocated device
+	// +optional
+	PCIAddress *string `json:"pciAddress,omitempty"`
+	//MDevUUID is the mediated device uuid of the allocated device
+	// +optional
+	MDevUUID *string `json:"mDevUUID,omitempty"`
 }
 
 // StorageMigratedVolumeInfo tracks the information about the source and destination volumes during the volume migration

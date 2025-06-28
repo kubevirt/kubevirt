@@ -18,6 +18,7 @@ go_library(
         "//pkg/config:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/downwardmetrics:go_default_library",
+        "//pkg/dra:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/host-disk:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",

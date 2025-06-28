@@ -39,6 +39,7 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"dnsConfig":                     "Specifies the DNS parameters of a pod.\nParameters specified here will be merged to the generated DNS\nconfiguration based on DNSPolicy.\n+optional",
 		"accessCredentials":             "Specifies a set of public keys to inject into the vm guest\n+listType=atomic\n+optional\n+kubebuilder:validation:MaxItems:=256",
 		"architecture":                  "Specifies the architecture of the vm guest you are attempting to run. Defaults to the compiled architecture of the KubeVirt components",
+		"resourceClaims":                "ResourceClaims define which ResourceClaims must be allocated\nand reserved before the VMI, hence virt-launcher pod is allowed to start. The resources\nwill be made available to the domain which consumes them\nby name.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nThis field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.\nThis feature is in alpha.\n\n+listType=map\n+listMapKey=name\n+optional",
 	}
 }
 
@@ -83,6 +84,39 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"currentCPUTopology":            "CurrentCPUTopology specifies the current CPU topology used by the VM workload.\nCurrent topology may differ from the desired topology in the spec while CPU hotplug\ntakes place.",
 		"memory":                        "Memory shows various informations about the VirtualMachine memory.\n+optional",
 		"migratedVolumes":               "MigratedVolumes lists the source and destination volumes during the volume migration\n+listType=atomic\n+optional",
+		"deviceStatus":                  "DeviceStatus reflects the state of devices requested in spec.domain.devices. This is an optional field available\nonly when DRA feature gate is enabled\nThis field will only be populated if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.\nThis feature is in alpha.\n+optional",
+	}
+}
+
+func (DeviceStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                   "DeviceStatus has the information of all devices allocated spec.domain.devices\n+k8s:openapi-gen=true",
+		"gpuStatuses":        "GPUStatuses reflects the state of GPUs requested in spec.domain.devices.gpus\n+listType=atomic\n+optional",
+		"hostDeviceStatuses": "HostDeviceStatuses reflects the state of GPUs requested in spec.domain.devices.hostDevices\nDRA\n+listType=atomic\n+optional",
+	}
+}
+
+func (DeviceStatusInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name":                      "Name of the device as specified in spec.domain.devices.gpus.name or spec.domain.devices.hostDevices.name",
+		"deviceResourceClaimStatus": "DeviceResourceClaimStatus reflects the DRA related information for the device",
+	}
+}
+
+func (DeviceResourceClaimStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "DeviceResourceClaimStatus has to be before SyncVMI call from virt-handler to virt-launcher",
+		"name":              "Name is the name of actual device on the host provisioned by the driver as reflected in resourceclaim.status\n+optional",
+		"resourceClaimName": "ResourceClaimName is the name of the resource claims object used to provision this resource\n+optional",
+		"attributes":        "Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more\nabout the device, like pciAddress or mdevUUID\n+optional",
+	}
+}
+
+func (DeviceAttribute) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "DeviceAttribute must have exactly one field set.",
+		"pciAddress": "PCIAddress is the PCIe bus address of the allocated device\n+optional",
+		"mDevUUID":   "MDevUUID is the mediated device uuid of the allocated device\n+optional",
 	}
 }
 

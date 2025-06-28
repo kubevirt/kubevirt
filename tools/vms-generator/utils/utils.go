@@ -24,6 +24,8 @@ import (
 	"os"
 	"strings"
 
+	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+
 	"k8s.io/apimachinery/pkg/util/rand"
 	"kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -73,6 +75,7 @@ const (
 	VmiGPU                      = "vmi-gpu"
 	VmiARM                      = "vmi-arm"
 	VmiUSB                      = "vmi-usb"
+	VmiDRAGPU                   = "vmi-dra-pgpu"
 	VmTemplateFedora            = "vm-template-fedora"
 	VmTemplateRHEL7             = "vm-template-rhel7"
 	VmTemplateWindows           = "vm-template-windows2012r2"
@@ -115,6 +118,12 @@ const VmiPresetSmall = "vmi-preset-small"
 const VmiMigration = "migration-job"
 
 const MigrationPolicyName = "example-migration-policy"
+
+const ResourceClaimTemplatePGPU = "pgpu-resource-claim-tmpl"
+
+const DRARequestName = "pgpu"
+
+const DRAResourceClaimName = "pgpu-resource-claim"
 
 const (
 	imageAlpine     = "alpine-container-disk-demo"
@@ -180,6 +189,7 @@ func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceS
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	return spec
 }
+
 func initFedoraIsolated(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
 	addContainerDisk(spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), v1.DiskBusVirtio)
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
@@ -962,6 +972,62 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 		},
 	}
 	vmi.Spec.Domain.Devices.GPUs = GPUs
+	initFedora(&vmi.Spec)
+	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
+	return vmi
+}
+
+func GetResourceClaimTemplatePGPU() *resourcev1beta1.ResourceClaimTemplate {
+	return &resourcev1beta1.ResourceClaimTemplate{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: resourcev1beta1.SchemeGroupVersion.String(),
+			Kind:       "ResourceClaimTemplate",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: ResourceClaimTemplatePGPU,
+		},
+		Spec: resourcev1beta1.ResourceClaimTemplateSpec{
+			Spec: resourcev1beta1.ResourceClaimSpec{
+				Devices: resourcev1beta1.DeviceClaim{
+					Requests: []resourcev1beta1.DeviceRequest{
+						{
+							Name:            DRARequestName,
+							DeviceClassName: "gpu.example.com",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func getDRAGPUDevice(claimName string) []v1.GPU {
+	return []v1.GPU{
+		{
+			Name: "example-gpu",
+			ClaimRequest: &v1.ClaimRequest{
+				ClaimName:   &claimName,
+				RequestName: pointer.P(DRARequestName),
+			},
+		},
+	}
+}
+
+func getDRAGPUPodResourceClaims() []k8sv1.PodResourceClaim {
+	return []k8sv1.PodResourceClaim{
+		{
+			Name:                      DRAResourceClaimName,
+			ResourceClaimTemplateName: pointer.P(ResourceClaimTemplatePGPU),
+		},
+	}
+}
+
+func GetVMIDRAGPU() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiDRAGPU)
+	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.ResourceClaims = getDRAGPUPodResourceClaims()
+	vmi.Spec.Domain.Devices.GPUs = getDRAGPUDevice(DRAResourceClaimName)
+
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 	return vmi

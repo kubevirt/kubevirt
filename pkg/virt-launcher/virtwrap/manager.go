@@ -42,6 +42,8 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
+
 	"libvirt.org/go/libvirt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -1101,11 +1103,23 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 		c.GenericHostDevices = genericHostDevices
 
+		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi)
+		if err != nil {
+			return nil, err
+		}
+		c.GenericHostDevices = append(c.GenericHostDevices, genericDRAHostDevices...)
+
 		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
 		if err != nil {
 			return nil, err
 		}
 		c.GPUHostDevices = gpuHostDevices
+
+		gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi)
+		if err != nil {
+			return nil, err
+		}
+		c.GPUHostDevices = append(c.GPUHostDevices, gpuDRAHostDevices...)
 	}
 
 	return c, nil

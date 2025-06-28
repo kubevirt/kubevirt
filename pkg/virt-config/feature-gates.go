@@ -204,3 +204,11 @@ func (config *ClusterConfig) PasstIPStackMigrationEnabled() bool {
 func (config *ClusterConfig) DecentralizedLiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
 }
+
+func (config *ClusterConfig) GPUsWithDRAGateEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.GPUsWithDRAGate)
+}
+
+func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
+}

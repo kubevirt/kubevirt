@@ -56,6 +56,7 @@ go_library(
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/vcpu:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice:go_default_library",
+        "//pkg/virt-launcher/virtwrap/device/hostdevice/dra:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice/generic:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice/gpu:go_default_library",
         "//pkg/virt-launcher/virtwrap/device/hostdevice/sriov:go_default_library",

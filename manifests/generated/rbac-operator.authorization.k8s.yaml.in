@@ -781,6 +781,15 @@ rules:
   - get
   - delete
 - apiGroups:
+  - resource.k8s.io
+  resources:
+  - resourceslices
+  - resourceclaims
+  verbs:
+  - list
+  - watch
+  - get
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachineinstances

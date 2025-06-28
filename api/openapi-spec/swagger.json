@@ -11776,6 +11776,28 @@
      }
     }
    },
+   "k8s.io.api.core.v1.PodResourceClaim": {
+    "description": "PodResourceClaim references exactly one ResourceClaim, either directly or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim for the pod.\n\nIt adds a name to it that uniquely identifies the ResourceClaim inside the Pod. Containers that need access to the ResourceClaim reference it with this name.",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name uniquely identifies this resource claim inside the pod. This must be a DNS_LABEL.",
+      "type": "string",
+      "default": ""
+     },
+     "resourceClaimName": {
+      "description": "ResourceClaimName is the name of a ResourceClaim object in the same namespace as this pod.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
+      "type": "string"
+     },
+     "resourceClaimTemplateName": {
+      "description": "ResourceClaimTemplateName is the name of a ResourceClaimTemplate object in the same namespace as this pod.\n\nThe template will be used to create a new ResourceClaim, which will be bound to this pod. When this pod is deleted, the ResourceClaim will also be deleted. The pod name and resource name, along with a generated component, will be used to form a unique name for the ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.\n\nThis field is immutable and no changes will be made to the corresponding ResourceClaim by the control plane after creating the ResourceClaim.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
+      "type": "string"
+     }
+    }
+   },
    "k8s.io.api.core.v1.PreferredSchedulingTerm": {
     "description": "An empty preferred scheduling term matches all objects with implicit weight 0 (i.e. it's a no-op). A null preferred scheduling term matches no objects (i.e. is also a no-op).",
     "type": "object",
@@ -13466,6 +13488,79 @@
      }
     }
    },
+   "v1.DeviceAttribute": {
+    "description": "DeviceAttribute must have exactly one field set.",
+    "type": "object",
+    "properties": {
+     "mDevUUID": {
+      "description": "MDevUUID is the mediated device uuid of the allocated device",
+      "type": "string"
+     },
+     "pciAddress": {
+      "description": "PCIAddress is the PCIe bus address of the allocated device",
+      "type": "string"
+     }
+    }
+   },
+   "v1.DeviceResourceClaimStatus": {
+    "description": "DeviceResourceClaimStatus has to be before SyncVMI call from virt-handler to virt-launcher",
+    "type": "object",
+    "properties": {
+     "attributes": {
+      "description": "Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more about the device, like pciAddress or mdevUUID",
+      "$ref": "#/definitions/v1.DeviceAttribute"
+     },
+     "name": {
+      "description": "Name is the name of actual device on the host provisioned by the driver as reflected in resourceclaim.status",
+      "type": "string"
+     },
+     "resourceClaimName": {
+      "description": "ResourceClaimName is the name of the resource claims object used to provision this resource",
+      "type": "string"
+     }
+    }
+   },
+   "v1.DeviceStatus": {
+    "description": "DeviceStatus has the information of all devices allocated spec.domain.devices",
+    "type": "object",
+    "properties": {
+     "gpuStatuses": {
+      "description": "GPUStatuses reflects the state of GPUs requested in spec.domain.devices.gpus",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.DeviceStatusInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "hostDeviceStatuses": {
+      "description": "HostDeviceStatuses reflects the state of GPUs requested in spec.domain.devices.hostDevices DRA",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.DeviceStatusInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.DeviceStatusInfo": {
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "deviceResourceClaimStatus": {
+      "description": "DeviceResourceClaimStatus reflects the DRA related information for the device",
+      "$ref": "#/definitions/v1.DeviceResourceClaimStatus"
+     },
+     "name": {
+      "description": "Name of the device as specified in spec.domain.devices.gpus.name or spec.domain.devices.hostDevices.name",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1.Devices": {
     "type": "object",
     "properties": {
@@ -14103,18 +14198,25 @@
    "v1.GPU": {
     "type": "object",
     "required": [
-     "name",
-     "deviceName"
+     "name"
     ],
     "properties": {
+     "claimName": {
+      "description": "ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this device is allocated",
+      "type": "string"
+     },
      "deviceName": {
-      "type": "string",
-      "default": ""
+      "description": "DeviceName is the name of the device provisioned by device-plugins",
+      "type": "string"
      },
      "name": {
       "description": "Name of the GPU device as exposed by a device plugin",
       "type": "string",
       "default": ""
+     },
+     "requestName": {
+      "description": "RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this device is requested",
+      "type": "string"
      },
      "tag": {
       "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
@@ -14202,18 +14304,24 @@
    "v1.HostDevice": {
     "type": "object",
     "required": [
-     "name",
-     "deviceName"
+     "name"
     ],
     "properties": {
+     "claimName": {
+      "description": "ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this device is allocated",
+      "type": "string"
+     },
      "deviceName": {
-      "description": "DeviceName is the resource name of the host device exposed by a device plugin",
-      "type": "string",
-      "default": ""
+      "description": "DeviceName is the name of the device provisioned by device-plugins",
+      "type": "string"
      },
      "name": {
       "type": "string",
       "default": ""
+     },
+     "requestName": {
+      "description": "RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this device is requested",
+      "type": "string"
      },
      "tag": {
       "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
@@ -17857,6 +17965,18 @@
       "description": "Periodic probe of VirtualMachineInstance service readiness. VirtualmachineInstances will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
       "$ref": "#/definitions/v1.Probe"
      },
+     "resourceClaims": {
+      "description": "ResourceClaims define which ResourceClaims must be allocated and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources will be made available to the domain which consumes them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nThis field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled. This feature is in alpha.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/k8s.io.api.core.v1.PodResourceClaim"
+      },
+      "x-kubernetes-list-map-keys": [
+       "name"
+      ],
+      "x-kubernetes-list-type": "map"
+     },
      "schedulerName": {
       "description": "If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.",
       "type": "string"
@@ -17936,6 +18056,10 @@
      "currentCPUTopology": {
       "description": "CurrentCPUTopology specifies the current CPU topology used by the VM workload. Current topology may differ from the desired topology in the spec while CPU hotplug takes place.",
       "$ref": "#/definitions/v1.CPUTopology"
+     },
+     "deviceStatus": {
+      "description": "DeviceStatus reflects the state of devices requested in spec.domain.devices. This is an optional field available only when DRA feature gate is enabled This field will only be populated if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled. This feature is in alpha.",
+      "$ref": "#/definitions/v1.DeviceStatus"
      },
      "evacuationNodeName": {
       "description": "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.",

@@ -381,6 +381,8 @@
               {
                 "name": "nameValue",
                 "deviceName": "deviceNameValue",
+                "claimName": "claimNameValue",
+                "requestName": "requestNameValue",
                 "virtualGPUOptions": {
                   "display": {
                     "enabled": true,
@@ -408,6 +410,8 @@
               {
                 "name": "nameValue",
                 "deviceName": "deviceNameValue",
+                "claimName": "claimNameValue",
+                "requestName": "requestNameValue",
                 "tag": "tagValue"
               }
             ],
@@ -942,7 +946,14 @@
             }
           }
         ],
-        "architecture": "architectureValue"
+        "architecture": "architectureValue",
+        "resourceClaims": [
+          {
+            "name": "nameValue",
+            "resourceClaimName": "resourceClaimNameValue",
+            "resourceClaimTemplateName": "resourceClaimTemplateNameValue"
+          }
+        ]
       }
     },
     "dataVolumeTemplates": [

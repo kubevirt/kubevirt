@@ -53,6 +53,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/controller"
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
@@ -2028,6 +2029,14 @@ func (c *VirtualMachineController) handleStartingVMI(
 	if !c.hotplugVolumesReady(vmi) {
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return false, nil
+	}
+
+	if c.clusterConfig.GPUsWithDRAGateEnabled() {
+		if !drautil.IsAllDRAGPUsReconciled(vmi, vmi.Status.DeviceStatus) {
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "WaitingForDRAGPUAttributes",
+				"Waiting for Dynamic Resource Allocation GPU attributes to be reconciled")
+			return false, nil
+		}
 	}
 
 	if err := c.setupNetwork(vmi, netsetup.FilterNetsForVMStartup(vmi), c.netConf); err != nil {

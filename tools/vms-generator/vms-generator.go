@@ -39,6 +39,8 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 
+	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -53,7 +55,7 @@ func main() {
 
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 		DeveloperConfiguration: &v1.DeveloperConfiguration{
-			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap", "HostDevices", "Sidecar"},
+			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap", "HostDevices", "Sidecar", "GPUsWithDRA"},
 		},
 		NetworkConfiguration: &v1.NetworkConfiguration{
 			DeprecatedPermitSlirpInterface:    &permit,
@@ -126,6 +128,7 @@ func main() {
 		utils.VmiKernelBoot:               utils.GetVMIKernelBoot(),
 		utils.VmiARM:                      utils.GetVMIARM(),
 		utils.VmiUSB:                      utils.GetVMIUSB(),
+		utils.VmiDRAGPU:                   utils.GetVMIDRAGPU(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{
@@ -146,6 +149,10 @@ func main() {
 
 	var migrationPolicies = map[string]*v1alpha1.MigrationPolicy{
 		utils.MigrationPolicyName: utils.GetMigrationPolicy(),
+	}
+
+	var resourceClaimTemplates = map[string]*resourcev1beta1.ResourceClaimTemplate{
+		utils.ResourceClaimTemplatePGPU: utils.GetResourceClaimTemplatePGPU(),
 	}
 
 	handleError := func(err error) {
@@ -244,6 +251,10 @@ func main() {
 	}
 
 	for name, obj := range migrationPolicies {
+		handleError(dumpObject(name, *obj))
+	}
+
+	for name, obj := range resourceClaimTemplates {
 		handleError(dumpObject(name, *obj))
 	}
 }

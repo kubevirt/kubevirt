@@ -97,6 +97,7 @@ var _ = Describe("Application", func() {
 		recorder := record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		app.clusterConfig = config
 
 		pdbInformer, _ := testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		migrationPolicyInformer, _ := testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
