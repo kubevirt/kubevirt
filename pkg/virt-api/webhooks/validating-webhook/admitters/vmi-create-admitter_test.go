@@ -497,7 +497,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		},
 			Entry("when architecture is amd64", "amd64", "q35"),
 			Entry("when architecture is arm64", "arm64", "virt"),
-			Entry("when architecture is ppc64le", "ppc64le", "pseries"),
 			Entry("when architecture is s390x", "s390x", "s390-ccw-virtio"),
 		)
 
@@ -517,7 +516,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("Wrong prefix amd64 q35", "amd64", "test-q35"),
 			Entry("Wrong prefix amd64 pc-q35", "amd64", "test-pc-q35"),
 			Entry("Wrong prefix arm64", "arm64", "test-virt"),
-			Entry("Wrong prefix ppc64le", "ppc64le", "test-pseries"),
 			Entry("Wrong prefix s390x", "s390x", "test-s390-ccw-virtio"),
 		)
 
@@ -3524,11 +3522,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("arm64 allows bochs", "arm64", "ramfb"),
 
 			Entry("s390x allows virtio", "s390x", "virtio"),
-
-			Entry("ppc64le allows virtio", "ppc64le", "virtio"),
-			Entry("ppc64le allows bochs", "ppc64le", "bochs"),
-			Entry("ppc64le allows vga", "ppc64le", "vga"),
-			Entry("ppc64le allows cirrus", "ppc64le", "cirrus"),
 		)
 
 		DescribeTable("should reject unsupported video models per architecture", func(arch, videoType string) {
@@ -3562,13 +3555,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("s390x rejects xenfb", "s390x", "xenfb"),
 			Entry("s390x rejects none", "s390x", "none"),
 			Entry("s390x rejects invalid model", "s390x", "invalidmodel"),
-
-			Entry("ppc64le rejects ramfb", "ppc64le", "ramfb"),
-			Entry("ppc64le rejects qxl", "ppc64le", "qxl"),
-			Entry("ppc64le rejects vmvga", "ppc64le", "vmvga"),
-			Entry("ppc64le rejects xenfb", "ppc64le", "xenfb"),
-			Entry("ppc64le rejects none", "ppc64le", "none"),
-			Entry("ppc64le rejects invalid model", "ppc64le", "invalidmodel"),
 		)
 	})
 
