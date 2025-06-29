@@ -170,6 +170,8 @@ spec:
                       defaultArchitecture:
                         type: string
                       ppc64le:
+                        description: 'Deprecated: ppc64le architecture is no longer
+                          supported.'
                         properties:
                           emulatedMachines:
                             items:
@@ -3446,6 +3448,8 @@ spec:
                       defaultArchitecture:
                         type: string
                       ppc64le:
+                        description: 'Deprecated: ppc64le architecture is no longer
+                          supported.'
                         properties:
                           emulatedMachines:
                             items:
