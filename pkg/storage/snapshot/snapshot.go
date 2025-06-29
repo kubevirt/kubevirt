@@ -599,7 +599,11 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	}
 
 	var volumeBackups []snapshotv1.VolumeBackup
-	pvcs, err := source.PersistentVolumeClaims()
+	sourceSpec, err := source.Spec()
+	if err != nil {
+		return err
+	}
+	pvcs, err := storageutils.PVCsFromObj(sourceSpec.VirtualMachine, ctrl.Client)
 	if err != nil {
 		return err
 	}
@@ -625,11 +629,6 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 		}
 
 		volumeBackups = append(volumeBackups, vb)
-	}
-
-	sourceSpec, err := source.Spec()
-	if err != nil {
-		return err
 	}
 	content := &snapshotv1.VirtualMachineSnapshotContent{
 		ObjectMeta: metav1.ObjectMeta{

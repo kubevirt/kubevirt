@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 type VolumeOption int
@@ -50,8 +51,17 @@ const (
 
 var ErrNoBackendPVC = fmt.Errorf("no backend PVC when there should be one")
 
+// PVCsFromObj returns PVCs from the volumes of the passed object, empty if it's an unsupported object
+func PVCsFromObj(obj any, client kubecli.KubevirtClient) (map[string]string, error) {
+	volumes, err := GetVolumes(obj, client, WithAllVolumes)
+	if err != nil {
+		return map[string]string{}, err
+	}
+	return storagetypes.GetPVCsFromVolumes(volumes), nil
+}
+
 // GetVolumes returns all volumes of the passed object, empty if it's an unsupported object
-func GetVolumes(obj interface{}, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
+func GetVolumes(obj any, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
 	switch obj := obj.(type) {
 	case *v1.VirtualMachine:
 		return GetVirtualMachineVolumes(obj, client, opts...)
