@@ -920,6 +920,7 @@ func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVM
 		if err != nil {
 			return err
 		}
+		log.Log.Object(origVMI).V(1).Infof("patching VMI %s with %s", origVMI.UID, string(patchBytes))
 		log.Log.Object(origVMI).V(3).Infof("patch VMI with %s", string(patchBytes))
 		if _, err := s.client.VirtualMachineInstance(origVMI.Namespace).Patch(ctx, origVMI.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
