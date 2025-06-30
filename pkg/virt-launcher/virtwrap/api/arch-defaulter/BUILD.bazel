@@ -6,7 +6,6 @@ go_library(
         "amd64.go",
         "archdefaults.go",
         "arm64.go",
-        "ppc64le.go",
         "s390x.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api/arch-defaulter",
