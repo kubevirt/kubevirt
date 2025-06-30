@@ -59,7 +59,9 @@ if [[ ! $TARGET =~ .*kind.* ]]; then
   export KUBEVIRT_PSA="true"
 fi
 if [[ $TARGET =~ windows.* ]]; then
-  echo "picking the default provider for windows tests"
+  export KUBEVIRT_PROVIDER="${KUBEVIRT_PROVIDER:-k8s-1.31}"
+elif [[ $TARGET =~ -windows.* ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-windows*/}
 elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_MULTUS_V3="${KUBEVIRT_WITH_MULTUS_V3:-true}"
   export KUBEVIRT_NUM_NODES=3
