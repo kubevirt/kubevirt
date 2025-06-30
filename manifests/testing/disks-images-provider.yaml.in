@@ -41,6 +41,7 @@ spec:
             mountPropagation: Bidirectional
           securityContext:
             privileged: true
+            readOnlyRootFilesystem: false
           readinessProbe:
             exec:
               command:
