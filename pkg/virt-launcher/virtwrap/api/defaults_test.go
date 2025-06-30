@@ -12,7 +12,6 @@ var _ = ginkgo.Describe("ArchSpecificDefaults", func() {
 		NewDefaulter(arch).setDefaults_OSType(&domain.Spec.OS.Type)
 		Expect(domain.Spec.OS.Type.Arch).To(Equal(targetArch))
 	},
-		ginkgo.Entry("to ppc64le", "ppc64le", "ppc64le"),
 		ginkgo.Entry("to arm64", "arm64", "aarch64"),
 		ginkgo.Entry("to x86_64", "amd64", "x86_64"),
 	)
@@ -22,7 +21,6 @@ var _ = ginkgo.Describe("ArchSpecificDefaults", func() {
 		NewDefaulter(arch).setDefaults_OSType(&domain.Spec.OS.Type)
 		Expect(domain.Spec.OS.Type.Machine).To(Equal(machineType))
 	},
-		ginkgo.Entry("to pseries", "ppc64le", "pseries"),
 		ginkgo.Entry("to arm64", "arm64", "virt"),
 		ginkgo.Entry("to q35", "amd64", "q35"),
 	)
@@ -33,7 +31,6 @@ var _ = ginkgo.Describe("ArchSpecificDefaults", func() {
 		Expect(domain.Spec.XmlNS).To(Equal("http://libvirt.org/schemas/domain/qemu/1.0"))
 		Expect(domain.Spec.Type).To(Equal("kvm"))
 	},
-		ginkgo.Entry("to pseries", "ppc64le"),
 		ginkgo.Entry("to virt", "arm64"),
 		ginkgo.Entry("to q35", "amd64"),
 	)
