@@ -71,6 +71,10 @@ type netBindingPluginMemoryCalculator interface {
 	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
 }
 
+type passtRepairTargetHandler interface {
+	HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
+}
+
 type MigrationTargetController struct {
 	*BaseController
 	capabilities                     *libvirtxml.Caps
@@ -84,6 +88,7 @@ type MigrationTargetController struct {
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 	netConf                          netconf
 	netStat                          netstat
+	passtRepairHandler               passtRepairTargetHandler
 	podIsolationDetector             isolation.PodIsolationDetector
 	recorder                         record.EventRecorder
 	virtLauncherFSRunDirPattern      string
@@ -107,6 +112,7 @@ func NewMigrationTargetController(
 	netConf netconf,
 	netStat netstat,
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
+	passtRepairHandler passtRepairTargetHandler,
 ) (*MigrationTargetController, error) {
 
 	baseCtrl, err := NewBaseController(
@@ -148,6 +154,7 @@ func NewMigrationTargetController(
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 		netConf:                          netConf,
 		netStat:                          netStat,
+		passtRepairHandler:               passtRepairHandler,
 		podIsolationDetector:             podIsolationDetector,
 		recorder:                         recorder,
 		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
@@ -711,6 +718,13 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 
 	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
+
+	if c.clusterConfig.PasstIPStackMigrationEnabled() {
+		if err := c.passtRepairHandler.HandleMigrationTarget(vmi, c.passtSocketDirOnHostMigrationTarget); err != nil {
+			log.Log.Object(vmi).Warningf("failed to call passt-repair for migration target, %v", err)
+		}
+	}
+
 	if err := client.SyncMigrationTarget(vmi, options); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err), false
 	}
@@ -723,6 +737,14 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), VMIMigrationTargetPrepared)
 
 	return nil, false
+}
+
+func (c *MigrationTargetController) passtSocketDirOnHostMigrationTarget(vmi *v1.VirtualMachineInstance) (string, error) {
+	path, err := c.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return "", err
+	}
+	return passtSocketDirOnHost(path)
 }
 
 func (c *MigrationTargetController) addFunc(obj interface{}) {
