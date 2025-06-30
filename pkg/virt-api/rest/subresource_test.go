@@ -1319,6 +1319,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			expectVMI(running, paused)
 
+			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(newVirtualMachineWithRunning(pointer.P(Running)), nil)
+
 			bytesRepresentation, _ := json.Marshal(unpauseOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
@@ -1343,6 +1345,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 			expectVMI(Running, Paused)
+
+			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(newVirtualMachineWithRunning(pointer.P(Running)), nil)
 
 			bytesRepresentation, _ := json.Marshal(unpauseOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
