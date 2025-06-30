@@ -519,7 +519,6 @@ var _ = Describe("Template", func() {
 			},
 				Entry("on amd64", "amd64", "/usr/share/OVMF"),
 				Entry("on arm64", "arm64", "/usr/share/AAVMF"),
-				Entry("on ppc64le", "ppc64le", "/usr/share/OVMF"),
 			)
 		})
 		Context("with SELinux types", func() {
@@ -2698,10 +2697,6 @@ var _ = Describe("Template", func() {
 
 			It("should not run privileged", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.isPPC64() {
-					Skip("ppc64le is currently running is privileged mode, so skipping test")
-				}
 				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
 				Expect(err).ToNot(HaveOccurred())
 
@@ -3302,10 +3297,6 @@ var _ = Describe("Template", func() {
 		Context("with GPU device interface", func() {
 			It("should not run privileged", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.isPPC64() {
-					Skip("ppc64le is currently running is privileged mode, so skipping test")
-				}
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -3379,10 +3370,6 @@ var _ = Describe("Template", func() {
 		Context("with HostDevice device interface", func() {
 			It("should not run privileged", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.isPPC64() {
-					Skip("ppc64le is currently running is privileged mode, so skipping test")
-				}
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
