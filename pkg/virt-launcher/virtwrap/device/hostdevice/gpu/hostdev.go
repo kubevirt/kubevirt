@@ -24,6 +24,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
@@ -54,7 +55,7 @@ func CreateHostDevicesFromPools(vmiGPUs []v1.GPU, pciAddressPool, mdevAddressPoo
 
 	hostDevices := append(pciHostDevices, mdevHostDevices...)
 
-	if err := validateCreationOfAllDevices(vmiGPUs, hostDevices); err != nil {
+	if err := validateCreationOfDevicePluginsDevices(vmiGPUs, hostDevices); err != nil {
 		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
 	}
 
@@ -74,14 +75,21 @@ func createHostDevicesMetadata(vmiGPUs []v1.GPU) []hostdevice.HostDeviceMetaData
 	return hostDevicesMetaData
 }
 
-// validateCreationOfAllDevices validates that all specified GPU/s have a matching host-device.
+// validateCreationOfDevicePluginsDevices validates that all specified GPU/s have a matching host-device.
 // On validation failure, an error is returned.
 // The validation assumes that the assignment of a device to a specified GPU is correct,
 // therefore a simple quantity check is sufficient.
-func validateCreationOfAllDevices(gpus []v1.GPU, hostDevices []api.HostDevice) error {
-	if len(gpus) != len(hostDevices) {
+func validateCreationOfDevicePluginsDevices(gpus []v1.GPU, hostDevices []api.HostDevice) error {
+	var gpusWithDP []v1.GPU
+	for _, gpu := range gpus {
+		if !drautil.IsGPUDRA(gpu) {
+			gpusWithDP = append(gpusWithDP, gpu)
+		}
+	}
+
+	if len(gpusWithDP) > 0 && len(gpusWithDP) != len(hostDevices) {
 		return fmt.Errorf(
-			"the number of GPU/s do not match the number of devices:\nGPU: %v\nDevice: %v", gpus, hostDevices,
+			"the number of device plugin GPU/s do not match the number of devices:\nGPU: %v\nDevice: %v", gpusWithDP, hostDevices,
 		)
 	}
 	return nil

@@ -62,6 +62,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/flowcontrol"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/dra"
+
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -141,19 +143,22 @@ var (
 type VirtControllerApp struct {
 	service.ServiceListen
 
-	clientSet       kubecli.KubevirtClient
-	templateService services.TemplateService
-	restClient      *clientrest.RESTClient
-	informerFactory controller.KubeInformerFactory
-	kvPodInformer   cache.SharedIndexInformer
+	clientSet             kubecli.KubevirtClient
+	templateService       services.TemplateService
+	restClient            *clientrest.RESTClient
+	informerFactory       controller.KubeInformerFactory
+	kvPodInformer         cache.SharedIndexInformer
+	resourceClaimInformer cache.SharedIndexInformer
+	resourceSliceInformer cache.SharedIndexInformer
 
 	nodeInformer   cache.SharedIndexInformer
 	nodeController *node.Controller
 
-	vmiCache      cache.Store
-	vmiController *vmi.Controller
-	vmiInformer   cache.SharedIndexInformer
-	vmiRecorder   record.EventRecorder
+	vmiCache            cache.Store
+	vmiController       *vmi.Controller
+	draStatusController *dra.DRAStatusController
+	vmiInformer         cache.SharedIndexInformer
+	vmiRecorder         record.EventRecorder
 
 	namespaceInformer cache.SharedIndexInformer
 	namespaceStore    cache.Store
@@ -244,6 +249,7 @@ type VirtControllerApp struct {
 	// number of threads for each controller
 	nodeControllerThreads             int
 	vmiControllerThreads              int
+	draStatusControllerThreads        int
 	rsControllerThreads               int
 	poolControllerThreads             int
 	vmControllerThreads               int
@@ -359,6 +365,8 @@ func Execute() {
 
 	app.vmiInformer = app.informerFactory.VMI()
 	app.kvPodInformer = app.informerFactory.KubeVirtPod()
+	app.resourceClaimInformer = app.informerFactory.ResourceClaim()
+	app.resourceSliceInformer = app.informerFactory.ResourceSlice()
 	app.nodeInformer = app.informerFactory.KubeVirtNode()
 	app.namespaceStore = app.informerFactory.Namespace().GetStore()
 	app.namespaceInformer = app.informerFactory.Namespace()
@@ -575,6 +583,9 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
 		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
 		go vca.vmiController.Run(vca.vmiControllerThreads, stop)
+		if vca.clusterConfig.GPUsWithDRAGateEnabled() || vca.clusterConfig.HostDevicesWithDRAEnabled() {
+			go vca.draStatusController.Run(vca.draStatusControllerThreads, stop)
+		}
 		go vca.rsController.Run(vca.rsControllerThreads, stop)
 		go vca.poolController.Run(vca.poolControllerThreads, stop)
 		go vca.vmController.Run(vca.vmControllerThreads, stop)
@@ -676,6 +687,19 @@ func (vca *VirtControllerApp) initCommon() {
 	)
 	if err != nil {
 		panic(err)
+	}
+
+	if vca.clusterConfig.GPUsWithDRAGateEnabled() || vca.clusterConfig.HostDevicesWithDRAEnabled() {
+		draStatusRecorder := vca.newRecorder(k8sv1.NamespaceAll, "dra-status-controller")
+		vca.draStatusController, err = dra.NewDRAStatusController(
+			vca.clusterConfig,
+			vca.vmiInformer,
+			vca.kvPodInformer,
+			vca.resourceClaimInformer,
+			vca.resourceSliceInformer,
+			draStatusRecorder,
+			vca.clientSet,
+		)
 	}
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
@@ -969,6 +993,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.vmiControllerThreads, "vmi-controller-threads", defaultVMIControllerThreads,
 		"Number of goroutines to run for vmi controller")
+
+	flag.IntVar(&vca.draStatusControllerThreads, "dra-status-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for dra status controller")
 
 	flag.IntVar(&vca.rsControllerThreads, "rs-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for replicaset controller")

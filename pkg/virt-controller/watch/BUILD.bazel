@@ -32,6 +32,7 @@ go_library(
         "//pkg/virt-controller/leaderelectionconfig:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-controller/watch/clone:go_default_library",
+        "//pkg/virt-controller/watch/dra:go_default_library",
         "//pkg/virt-controller/watch/drain/disruptionbudget:go_default_library",
         "//pkg/virt-controller/watch/drain/evacuation:go_default_library",
         "//pkg/virt-controller/watch/migration:go_default_library",
