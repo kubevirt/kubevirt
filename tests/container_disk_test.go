@@ -235,7 +235,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 		})
 
-		DescribeTable("Migration from a source launcher with the bind mount workaround to a target launcher without the bind mount workaround should succeed when ", func(vmi *v1.VirtualMachineInstance) {
+		// TODO: Remove the PDescribeTable in favor of DescribeTable once ImageVolume k8s FG is enabled by default
+		PDescribeTable("Migration from a source launcher with the bind mount workaround to a target launcher without the bind mount workaround should succeed when ", func(vmi *v1.VirtualMachineInstance) {
 			config.DisableFeatureGate(featuregate.ImageVolume)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			By("Fetching virt-launcher pod without ImageVolume")
