@@ -142,7 +142,6 @@ type TemplateService interface {
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *k8sv1.Pod
 	GetLauncherImage() string
-	IsPPC64() bool
 }
 
 type templateService struct {
@@ -311,10 +310,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		backendStoragePVCName = backendStoragePVC.Name
 	}
 	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, false)
-}
-
-func (t *templateService) IsPPC64() bool {
-	return t.clusterConfig.GetClusterCPUArch() == "ppc64le"
 }
 
 func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
@@ -789,9 +784,6 @@ func (t *templateService) newInitContainerRenderer(vmiSpec *v1.VirtualMachineIns
 	if util.IsNonRootVMI(vmiSpec) {
 		cpInitContainerOpts = append(cpInitContainerOpts, WithNonRoot(userId))
 	}
-	if t.IsPPC64() {
-		cpInitContainerOpts = append(cpInitContainerOpts, WithPrivileged())
-	}
 
 	return NewContainerSpecRenderer(containerDisk, t.launcherImage, t.clusterConfig.GetImagePullPolicy(), cpInitContainerOpts...)
 }
@@ -808,9 +800,6 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	if util.IsNonRootVMI(vmi) {
 		computeContainerOpts = append(computeContainerOpts, WithNonRoot(userId))
 		computeContainerOpts = append(computeContainerOpts, WithDropALLCapabilities())
-	}
-	if t.IsPPC64() {
-		computeContainerOpts = append(computeContainerOpts, WithPrivileged())
 	}
 	if vmi.Spec.ReadinessProbe != nil {
 		computeContainerOpts = append(computeContainerOpts, WithReadinessProbe(vmi))
