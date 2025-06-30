@@ -38,7 +38,6 @@ const (
 )
 
 var _ = Describe("passt-binding-plugin", func() {
-
 	Context("Add", func() {
 		It("succeeds", func() {
 			cmd := plugin.NewCmd(stubNetNS{}, stubSysCtl{})

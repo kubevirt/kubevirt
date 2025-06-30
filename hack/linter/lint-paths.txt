@@ -1,3 +1,4 @@
+cmd/cniplugins
 cmd/virtctl
 pkg/instancetype
 pkg/libvmi
