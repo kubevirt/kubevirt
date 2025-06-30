@@ -373,7 +373,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				AllowPostCopy:            true,
 				AllowWorkloadDisruption:  true,
 				AllowAutoConverge:        false,
-				ParallelMigrationThreads: pointer.P(uint(8)),
+				ParallelMigrationThreads: nil,
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, expectedOptions)
 			sanityExecute()
@@ -3523,8 +3523,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Entry("with a zero CPU quantity", pointer.P(resource.MustParse("0"))),
 			)
 
-			It("should not configure multiple threads if CPU is limited", func() {
-				vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("4")
+			DescribeTable("should not configure multiple threads", func(allowPostcopy bool, vmiLimits k8sv1.ResourceList) {
+				var migrationConfiguration = &v1.MigrationConfiguration{
+					BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
+					ProgressTimeout:         pointer.P(int64(150)),
+					AllowAutoConverge:       pointer.P(false),
+					CompletionTimeoutPerGiB: pointer.P(int64(50)),
+					UnsafeMigrationOverride: pointer.P(false),
+					AllowPostCopy:           pointer.P(allowPostcopy),
+					AllowWorkloadDisruption: pointer.P(true),
+				}
+				vmi.Status.MigrationState.MigrationConfiguration = migrationConfiguration
+				vmi.Spec.Domain.Resources.Limits = vmiLimits
 
 				client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 					Expect(options.ParallelMigrationThreads).To(BeNil())
@@ -3532,7 +3542,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				controller.Execute()
 				testutils.ExpectEvent(recorder, VMIMigrating)
-			})
+			},
+				Entry("if CPU is limited", false, k8sv1.ResourceList{k8sv1.ResourceCPU: resource.MustParse("4")}),
+				Entry("if post-copy is enabled", true, k8sv1.ResourceList{}),
+			)
 		})
 	})
 
