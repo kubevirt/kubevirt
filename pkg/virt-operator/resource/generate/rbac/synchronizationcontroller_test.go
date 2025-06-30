@@ -45,7 +45,7 @@ var _ = Describe("Synchronization controller SA Cluster role and cluster role bi
 		},
 			Entry(fmt.Sprintf("get/list/watch %s/%s", GroupName, apiKubevirts), GroupName, apiKubevirts, "get", "list", "watch"),
 			Entry(fmt.Sprintf("get/list/watch/update/patch %s/%s", GroupName, apiVMInstances), GroupName, apiVMInstances, "get", "list", "watch", "update", "patch"),
-			Entry(fmt.Sprintf("get/list/watch %s/%s", GroupName, apiVMIMigrations), GroupName, apiVMIMigrations, "get", "list", "watch"),
+			Entry(fmt.Sprintf("get/list/watch/delete/patch %s/%s", GroupName, apiVMIMigrations), GroupName, apiVMIMigrations, "get", "list", "watch", "delete", "patch"),
 			Entry(fmt.Sprintf("get/list/watch %s/%s", "apiextensions.k8s.io", "customresourcedefinitions"), "apiextensions.k8s.io", "customresourcedefinitions", "get", "list", "watch"),
 			Entry(fmt.Sprintf("update/create/patch %s/%s", "", "events"), "", "events", "update", "create", "patch"),
 		)

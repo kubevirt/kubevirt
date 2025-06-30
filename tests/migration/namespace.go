@@ -562,23 +562,24 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			})
 		})
 
-		FIt("should be able to cancel a migration by deleting the source migration", decorators.SigStorage, func() {
+		DescribeTable("should be able to cancel a migration by deleting the migration resource", decorators.SigStorage, func(deleteSource bool) {
 			const timeout = 180
-			sourceVMI = libvmifact.NewCirros(
+			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
+			sourceVMI := libvmifact.NewCirros(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			targetVMI = sourceVMI.DeepCopy()
+			targetVMI := sourceVMI.DeepCopy()
 			targetVMI.Namespace = testsuite.NamespaceTestAlternative
 
 			By("limiting the bandwidth of migrations in the test namespace")
 			CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(sourceVMI, resource.MustParse("1Ki")))
 
 			By("starting the VirtualMachine")
-			sourceVM = createAndStartVMFromVMISpec(sourceVMI)
+			createAndStartVMFromVMISpec(sourceVMI)
 			By("creating a receiver VM")
-			targetVM = createReceiverVMFromVMISpec(targetVMI)
+			createReceiverVMFromVMISpec(targetVMI)
 			By("creating the migration")
 			sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
 			targetMigration := libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
@@ -586,6 +587,10 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			By("starting a migration")
 			sourceMigration = libmigration.RunMigration(virtClient, sourceMigration)
 			targetMigration = libmigration.RunMigration(virtClient, targetMigration)
+			migrationToDelete := sourceMigration
+			if !deleteSource {
+				migrationToDelete = targetMigration
+			}
 
 			By("waiting until the migration is Running")
 			Eventually(func() bool {
@@ -604,14 +609,21 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			}).WithTimeout(timeout * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue())
 
 			By("cancelling a migration")
-			Expect(virtClient.VirtualMachineInstanceMigration(sourceMigration.Namespace).Delete(context.Background(), sourceMigration.Name, metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstanceMigration(migrationToDelete.Namespace).Delete(context.Background(), migrationToDelete.Name, metav1.DeleteOptions{})).To(Succeed())
 
 			By("checking VMI, confirm migration state")
 			libmigration.ConfirmVMIPostMigrationAborted(sourceVMI, string(sourceMigration.UID), timeout)
 
-			By("Waiting for the migration object to disappear")
+			By("Waiting for the source migration object to disappear")
 			libwait.WaitForMigrationToDisappearWithTimeout(sourceMigration, timeout)
-		})
+			By("Waiting for the target migration object to disappear")
+			libwait.WaitForMigrationToDisappearWithTimeout(targetMigration, timeout)
+			By("Logging in and ensuring the source VM is still running")
+			Expect(console.LoginToCirros(sourceVMI)).To(Succeed())
+		},
+			Entry("delete source migration", true),
+			Entry("delete target migration", false),
+		)
 	})
 
 	Context("datavolume disk", func() {
