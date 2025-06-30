@@ -29,7 +29,6 @@ const (
 	graphicsDeviceDefaultVRAM  uint = 16384
 	amd64                           = "amd64"
 	arm64                           = "arm64"
-	ppc64le                         = "ppc64le"
 	s390x                           = "s390x"
 )
 
@@ -54,8 +53,6 @@ func NewConverter(arch string) Converter {
 	switch arch {
 	case arm64:
 		return converterARM64{}
-	case ppc64le:
-		return converterPPC64{}
 	case s390x:
 		return converterS390X{}
 	case amd64:
