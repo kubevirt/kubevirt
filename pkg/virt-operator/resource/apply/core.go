@@ -804,12 +804,12 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 	}
 
 	// Check for the migration network address in the pod annotations.
-	ip := r.getIpFromAnnotations(pod)
-	if ip == "" {
+	ips := r.getIpsFromAnnotations(pod)
+	if len(ips) == 0 && pod.Status.PodIP != "" {
 		// Did not find annotations, use the pod ip address instead
-		ip = pod.Status.PodIP
+		ips = []string{pod.Status.PodIP}
 	}
-	if ip == "" {
+	if len(ips) == 0 {
 		return nil
 	}
 	port := util.DefaultSynchronizationPort
@@ -820,21 +820,26 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 		}
 		port = int32(p)
 	}
-	r.kv.Status.SynchronizationAddress = pointer.P(fmt.Sprintf("%s:%d", ip, port))
+	addresses := make([]string, len(ips))
+	for i, ip := range ips {
+		addresses[i] = fmt.Sprintf("%s:%d", ip, port)
+	}
+	r.kv.Status.SynchronizationAddresses = addresses
+	r.kv.Status.SynchronizationAddress = pointer.P(addresses[0])
 	return nil
 }
 
-func (r *Reconciler) getIpFromAnnotations(pod *corev1.Pod) string {
+func (r *Reconciler) getIpsFromAnnotations(pod *corev1.Pod) []string {
 	networkStatuses := multus.NetworkStatusesFromPod(pod)
 	for _, networkStatus := range networkStatuses {
 		if networkStatus.Interface == v1.MigrationInterfaceName {
-			if len(networkStatus.IPs) != 1 {
+			if len(networkStatus.IPs) == 0 {
 				continue
 			}
-			log.Log.Object(pod).V(4).Infof("found migration network ip address %s", networkStatus.IPs[0])
-			return networkStatus.IPs[0]
+			log.Log.Object(pod).V(4).Infof("found migration network ip addresses %v", networkStatus.IPs)
+			return networkStatus.IPs
 		}
 	}
 	log.Log.Object(pod).V(4).Infof("didn't find migration network ip in annotations %v", pod.Annotations)
-	return ""
+	return nil
 }

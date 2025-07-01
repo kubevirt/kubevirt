@@ -422,6 +422,7 @@ func (VirtualMachineInstanceMigrationStatus) SwaggerDoc() map[string]string {
 		"phaseTransitionTimestamps": "PhaseTransitionTimestamp is the timestamp of when the last phase change occurred\n+listType=atomic\n+optional",
 		"migrationState":            "Represents the status of a live migration",
 		"synchronizationAddress":    "The synchronization address one can use to connect to the synchronization controller, includes the port",
+		"synchronizationAddresses":  "The synchronization addresses one can use to connect to the synchronization controller, includes the port, if multiple\naddresses are available, the first one is reported in the synchronizationAddress field.\n+optional\n+listType=atomic",
 	}
 }
 
@@ -679,8 +680,9 @@ func (GenerationStatus) SwaggerDoc() map[string]string {
 
 func (KubeVirtStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":            "KubeVirtStatus represents information pertaining to a KubeVirt deployment.",
-		"generations": "+listType=atomic",
+		"":                         "KubeVirtStatus represents information pertaining to a KubeVirt deployment.",
+		"generations":              "+listType=atomic",
+		"synchronizationAddresses": "+optional\n+listType=atomic",
 	}
 }
 

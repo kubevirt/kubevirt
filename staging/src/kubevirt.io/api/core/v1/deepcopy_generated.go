@@ -3054,6 +3054,11 @@ func (in *KubeVirtStatus) DeepCopyInto(out *KubeVirtStatus) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.SynchronizationAddresses != nil {
+		in, out := &in.SynchronizationAddresses, &out.SynchronizationAddresses
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
@@ -5698,6 +5703,11 @@ func (in *VirtualMachineInstanceMigrationStatus) DeepCopyInto(out *VirtualMachin
 		in, out := &in.SynchronizationAddress, &out.SynchronizationAddress
 		*out = new(string)
 		**out = **in
+	}
+	if in.SynchronizationAddresses != nil {
+		in, out := &in.SynchronizationAddresses, &out.SynchronizationAddresses
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	return
 }

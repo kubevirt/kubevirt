@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -610,6 +611,7 @@ func (c *Controller) setSynchronizationAddressStatus(migration *virtv1.VirtualMa
 			return fmt.Errorf("found unknown object in kubevirt store %v", kvs[0])
 		}
 		migration.Status.SynchronizationAddress = kv.Status.SynchronizationAddress
+		migration.Status.SynchronizationAddresses = kv.Status.SynchronizationAddresses
 	}
 	return nil
 }
@@ -1844,7 +1846,7 @@ func (c *Controller) updateKubeVirt(org, cur interface{}) {
 
 	curSyncAddress := getSynchronizationAddress(curKubevirt)
 	orgSyncAddress := getSynchronizationAddress(orgKubevirt)
-	if curSyncAddress != orgSyncAddress && curSyncAddress != "" {
+	if (curSyncAddress != orgSyncAddress && curSyncAddress != "") || !slices.Equal(curKubevirt.Status.SynchronizationAddresses, orgKubevirt.Status.SynchronizationAddresses) {
 		// sync address was updated, update all active migrations
 		for _, obj := range c.migrationIndexer.List() {
 			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
