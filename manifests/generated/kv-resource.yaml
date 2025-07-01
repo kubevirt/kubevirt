@@ -3275,6 +3275,11 @@ spec:
                 type: string
               synchronizationAddress:
                 type: string
+              synchronizationAddresses:
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: atomic
               targetDeploymentConfig:
                 type: string
               targetDeploymentID:
@@ -6551,6 +6556,11 @@ spec:
                 type: string
               synchronizationAddress:
                 type: string
+              synchronizationAddresses:
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: atomic
               targetDeploymentConfig:
                 type: string
               targetDeploymentID:

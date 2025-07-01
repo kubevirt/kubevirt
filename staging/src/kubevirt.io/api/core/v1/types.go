@@ -1666,6 +1666,11 @@ type VirtualMachineInstanceMigrationStatus struct {
 	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
 	// The synchronization address one can use to connect to the synchronization controller, includes the port
 	SynchronizationAddress *string `json:"synchronizationAddress,omitempty"`
+	// The synchronization addresses one can use to connect to the synchronization controller, includes the port, if multiple
+	// addresses are available, the first one is reported in the synchronizationAddress field.
+	// +optional
+	// +listType=atomic
+	SynchronizationAddresses []string `json:"synchronizationAddresses,omitempty" optional:"true"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.
@@ -2454,6 +2459,9 @@ type KubeVirtStatus struct {
 	// +listType=atomic
 	Generations            []GenerationStatus `json:"generations,omitempty" optional:"true"`
 	SynchronizationAddress *string            `json:"synchronizationAddress,omitempty"`
+	// +optional
+	// +listType=atomic
+	SynchronizationAddresses []string `json:"synchronizationAddresses,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.

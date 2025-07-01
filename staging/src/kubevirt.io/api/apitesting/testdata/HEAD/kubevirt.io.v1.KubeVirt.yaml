@@ -573,6 +573,8 @@ status:
   outdatedVirtualMachineInstanceWorkloads: -39
   phase: phaseValue
   synchronizationAddress: synchronizationAddressValue
+  synchronizationAddresses:
+  - synchronizationAddressesValue
   targetDeploymentConfig: targetDeploymentConfigValue
   targetDeploymentID: targetDeploymentIDValue
   targetKubeVirtRegistry: targetKubeVirtRegistryValue

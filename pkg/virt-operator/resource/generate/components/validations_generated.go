@@ -3851,6 +3851,11 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         synchronizationAddress:
           type: string
+        synchronizationAddresses:
+          items:
+            type: string
+          type: array
+          x-kubernetes-list-type: atomic
         targetDeploymentConfig:
           type: string
         targetDeploymentID:
@@ -14886,6 +14891,14 @@ var CRDsValidation map[string]string = map[string]string{
           description: The synchronization address one can use to connect to the synchronization
             controller, includes the port
           type: string
+        synchronizationAddresses:
+          description: |-
+            The synchronization addresses one can use to connect to the synchronization controller, includes the port, if multiple
+            addresses are available, the first one is reported in the synchronizationAddress field.
+          items:
+            type: string
+          type: array
+          x-kubernetes-list-type: atomic
       type: object
   required:
   - spec

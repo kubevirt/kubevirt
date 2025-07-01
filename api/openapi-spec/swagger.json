@@ -15165,6 +15165,14 @@
      "synchronizationAddress": {
       "type": "string"
      },
+     "synchronizationAddresses": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "targetDeploymentConfig": {
       "type": "string"
      },
@@ -17510,6 +17518,15 @@
      "synchronizationAddress": {
       "description": "The synchronization address one can use to connect to the synchronization controller, includes the port",
       "type": "string"
+     },
+     "synchronizationAddresses": {
+      "description": "The synchronization addresses one can use to connect to the synchronization controller, includes the port, if multiple addresses are available, the first one is reported in the synchronizationAddress field.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },
