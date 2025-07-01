@@ -1875,7 +1875,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				restore = nil
 			})
 
-			It("[QUARANTINE] should restore with volume restore policy InPlace and DV (not template) as disk", decorators.Quarantine, func() {
+			It("should restore with volume restore policy InPlace and DV (not template) as disk", func() {
 				// VM with normal DV mounted to it
 				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
 
