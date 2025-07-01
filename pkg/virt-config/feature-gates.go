@@ -200,3 +200,11 @@ func (config *ClusterConfig) PanicDevicesEnabled() bool {
 func (config *ClusterConfig) PasstIPStackMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PasstIPStackMigration)
 }
+
+func (config *ClusterConfig) GPUsWithDRAGateEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.GPUsWithDRAGate)
+}
+
+func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
+}

@@ -4128,6 +4128,126 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("ppc64le rejects invalid model", "ppc64le", "invalidmodel"),
 		)
 	})
+
+	Context("with DRA GPUs", func() {
+		It("Should require deviceName without DRA", func() {
+			vmi := libvmi.New(
+				libvmi.WithArchitecture(runtime.GOARCH),
+				libvmi.WithResourceMemory("128M"),
+			)
+			vmi.Spec.Domain.Devices.GPUs = append(vmi.Spec.Domain.Devices.GPUs,
+				v1.GPU{
+					Name: "rejected-gpu",
+				},
+			)
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("contains GPUs without deviceName"))
+		})
+
+		It("should reject a GPU that sets both deviceName and claimRequest", func() {
+			enableFeatureGates(featuregate.GPUsWithDRAGate)
+			vmi := libvmi.New(
+				libvmi.WithArchitecture(runtime.GOARCH),
+				libvmi.WithResourceMemory("128M"),
+			)
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name:       "gpu",
+					DeviceName: "nvidia-gpu",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("my-gpu-claim"),
+						RequestName: pointer.P("request-1"),
+					},
+				},
+			}
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+				{Name: "my-gpu-claim"},
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("contains GPUs with both deviceName and claimRequest"))
+		})
+
+		It("should reject a DRA-GPU when the feature-gate is NOT enabled", func() {
+			vmi := libvmi.New()
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name: "gpu",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("my-gpu-claim"),
+						RequestName: pointer.P("request-1"),
+					},
+				},
+			}
+
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{Name: "my-gpu-claim"}}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("DRA enabled GPUs but feature gate is not enabled"))
+		})
+
+		It("should reject a DRA-GPU if its claim is missing from spec.resourceClaims", func() {
+			enableFeatureGates(featuregate.GPUsWithDRAGate)
+
+			vmi := libvmi.New()
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name: "gpu",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("my-gpu-claim"),
+						RequestName: pointer.P("request-1"),
+					},
+				},
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("vmi.spec.resourceClaims must specify all claims"))
+		})
+
+		It("should accept a DRA-GPU when the gate is enabled and the claim is listed", func() {
+			enableFeatureGates(featuregate.GPUsWithDRAGate)
+
+			vmi := libvmi.New(
+				libvmi.WithArchitecture(runtime.GOARCH),
+				libvmi.WithResourceMemory("128M"),
+			)
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name: "gpu",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("my-gpu-claim"),
+						RequestName: pointer.P("request-1"),
+					},
+				},
+			}
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+				{Name: "my-gpu-claim"},
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue(), fmt.Sprint(resp.Result))
+		})
+	})
 })
 
 var _ = Describe("additional tests", func() {

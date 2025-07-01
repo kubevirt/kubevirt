@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/api/snapshot"
 
+	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	clonebase "kubevirt.io/api/clone"
 	clone "kubevirt.io/api/clone/v1beta1"
 
@@ -316,6 +317,10 @@ type KubeInformerFactory interface {
 	Pod() cache.SharedIndexInformer
 
 	ResourceQuota() cache.SharedIndexInformer
+
+	ResourceClaim() cache.SharedIndexInformer
+
+	ResourceSlice() cache.SharedIndexInformer
 
 	K8SInformerFactory() informers.SharedInformerFactory
 }
@@ -1418,6 +1423,20 @@ func (f *kubeInformerFactory) ResourceQuota() cache.SharedIndexInformer {
 	return f.getInformer("resourceQuotaInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "resourcequotas", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ResourceQuota{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) ResourceClaim() cache.SharedIndexInformer {
+	return f.getInformer("resourceClaimInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.ResourceV1beta1().RESTClient(), "resourceclaims", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &resourcev1beta1.ResourceClaim{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) ResourceSlice() cache.SharedIndexInformer {
+	return f.getInformer("resourceSliceInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.ResourceV1beta1().RESTClient(), "resourceslices", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &resourcev1beta1.ResourceSlice{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

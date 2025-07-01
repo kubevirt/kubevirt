@@ -618,12 +618,29 @@ type DownwardMetrics struct{}
 
 type GPU struct {
 	// Name of the GPU device as exposed by a device plugin
-	Name              string       `json:"name"`
-	DeviceName        string       `json:"deviceName"`
+	Name string `json:"name"`
+	// DeviceName is the name of the device provisioned by device-plugins
+	DeviceName string `json:"deviceName,omitempty"`
+	// ClaimRequest provides the ClaimName from vmi.spec.resourceClaims[].name and
+	// requestName from resourceClaim.spec.devices.requests[].name
+	// This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+	// This feature is in alpha.
+	*ClaimRequest     `json:",inline"`
 	VirtualGPUOptions *VGPUOptions `json:"virtualGPUOptions,omitempty"`
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
 	Tag string `json:"tag,omitempty"`
+}
+
+type ClaimRequest struct {
+	// ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
+	// device is allocated
+	// +optional
+	ClaimName *string `json:"claimName,omitempty"`
+	// RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
+	// device is requested
+	// +optional
+	RequestName *string `json:"requestName,omitempty"`
 }
 
 type VGPUOptions struct {
@@ -651,8 +668,14 @@ type PanicDevice struct {
 
 type HostDevice struct {
 	Name string `json:"name"`
-	// DeviceName is the resource name of the host device exposed by a device plugin
-	DeviceName string `json:"deviceName"`
+	// DeviceName is the name of the device provisioned by device-plugins
+	DeviceName string `json:"deviceName,omitempty"`
+	// ClaimRequest provides the ClaimName from vmi.spec.resourceClaims[].name and
+	// requestName from resourceClaim.spec.devices.requests[].name
+	// this fields requires DRA feature gate enabled
+	// This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+	// This feature is in alpha.
+	*ClaimRequest `json:",inline"`
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
 	Tag string `json:"tag,omitempty"`
