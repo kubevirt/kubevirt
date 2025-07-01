@@ -181,7 +181,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 				bridgeInterfaceName,
 				nic.AdvertisingIPAddr,
 				nic.Gateway,
-				nameservers,
+				nameservers.IPv4,
 				nic.Routes,
 				searchDomains,
 				nic.Mtu,
