@@ -160,7 +160,7 @@ func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (str
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
 	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
-	nameservers, searchDomains, err := dns.GetResolvConfDetailsFromPod()
+	ipv4Nameservers, _, searchDomains, err := dns.GetResolvConfDetailsFromPod()
 	if err != nil {
 		return fmt.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
 	}
@@ -181,7 +181,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 				bridgeInterfaceName,
 				nic.AdvertisingIPAddr,
 				nic.Gateway,
-				nameservers,
+				ipv4Nameservers,
 				nic.Routes,
 				searchDomains,
 				nic.Mtu,

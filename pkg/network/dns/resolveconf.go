@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"net"
 	"os"
-	"regexp"
 	"strings"
 
 	"kubevirt.io/client-go/log"
@@ -36,36 +35,43 @@ const (
 	defaultSearchDomain = "cluster.local"
 )
 
-func ParseNameservers(content string) ([][]byte, error) {
-	var nameservers [][]byte
-
-	re, err := regexp.Compile("([0-9]{1,3}.?){4}")
-	if err != nil {
-		return nameservers, err
-	}
+func ParseNameservers(content string) ([][]byte, [][]byte, error) {
+	var ipv4Nameservers [][]byte
+	var ipv6Nameservers [][]byte
 
 	scanner := bufio.NewScanner(strings.NewReader(content))
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, nameserverPrefix) {
-			nameserver := re.FindString(line)
-			if nameserver != "" {
-				nameservers = append(nameservers, net.ParseIP(nameserver).To4())
+			fields := strings.Fields(line)
+			if len(fields) != 2 {
+				log.Log.Warningf("Invalid resolv.conf format: nameserver line should have only one value per line '%s'", line)
+				continue
+			}
+
+			nameserver := fields[1]
+			parsedIP := net.ParseIP(nameserver)
+			if parsedIP != nil {
+				if ipv4 := parsedIP.To4(); ipv4 != nil {
+					ipv4Nameservers = append(ipv4Nameservers, ipv4)
+				} else {
+					ipv6Nameservers = append(ipv6Nameservers, parsedIP.To16())
+				}
 			}
 		}
 	}
 
-	if err = scanner.Err(); err != nil {
-		return nameservers, err
+	if err := scanner.Err(); err != nil {
+		return ipv4Nameservers, ipv6Nameservers, err
 	}
 
 	// apply a default DNS if none found from pod
-	if len(nameservers) == 0 {
-		nameservers = append(nameservers, net.ParseIP(defaultDNS).To4())
+	if len(ipv4Nameservers) == 0 && len(ipv6Nameservers) == 0 {
+		ipv4Nameservers = append(ipv4Nameservers, net.ParseIP(defaultDNS).To4())
 	}
 
-	return nameservers, nil
+	return ipv4Nameservers, ipv6Nameservers, nil
 }
 
 func ParseSearchDomains(content string) ([]string, error) {
@@ -146,27 +152,28 @@ func DomainNameWithSubdomain(searchDomains []string, subdomain string) string {
 }
 
 // GetResolvConfDetailsFromPod reads and parses the DNS resolver's configuration file.
-func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
-	// #nosec No risk for path injection. resolvConf is static "/etc/resolve.conf"
+func GetResolvConfDetailsFromPod() ([][]byte, [][]byte, []string, error) {
+	// #nosec No risk for path injection. resolvConf is static "/etc/resolv.conf"
 	const resolvConf = "/etc/resolv.conf"
 
 	b, err := os.ReadFile(resolvConf)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	nameservers, err := ParseNameservers(string(b))
+	ipv4Nameservers, ipv6Nameservers, err := ParseNameservers(string(b))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	searchDomains, err := ParseSearchDomains(string(b))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	log.Log.Reason(err).Infof("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
-	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
+	log.Log.Infof("Found IPv4 nameservers in %s: %s", resolvConf, bytes.Join(ipv4Nameservers, []byte{' '}))
+	log.Log.Infof("Found IPv6 nameservers in %s: %s", resolvConf, bytes.Join(ipv6Nameservers, []byte{' '}))
+	log.Log.Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
 
-	return nameservers, searchDomains, err
+	return ipv4Nameservers, ipv6Nameservers, searchDomains, nil
 }
