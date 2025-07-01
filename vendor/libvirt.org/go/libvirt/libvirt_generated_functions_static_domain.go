@@ -962,6 +962,26 @@ virDomainDelIOThreadWrapper(virDomainPtr domain,
 }
 
 int
+virDomainDelThrottleGroupWrapper(virDomainPtr dom,
+                                 const char * group,
+                                 unsigned int flags,
+                                 virErrorPtr err)
+{
+    int ret = -1;
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+    setVirError(err, "Function virDomainDelThrottleGroup not available prior to libvirt version 11.2.0");
+#else
+    ret = virDomainDelThrottleGroup(dom,
+                                    group,
+                                    flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+#endif
+    return ret;
+}
+
+int
 virDomainDestroyWrapper(virDomainPtr domain,
                         virErrorPtr err)
 {
@@ -1182,6 +1202,24 @@ virDomainGetAutostartWrapper(virDomainPtr domain,
 #else
     ret = virDomainGetAutostart(domain,
                                 autostart);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+#endif
+    return ret;
+}
+
+int
+virDomainGetAutostartOnceWrapper(virDomainPtr domain,
+                                 int * autostart,
+                                 virErrorPtr err)
+{
+    int ret = -1;
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+    setVirError(err, "Function virDomainGetAutostartOnce not available prior to libvirt version 11.2.0");
+#else
+    ret = virDomainGetAutostartOnce(domain,
+                                    autostart);
     if (ret < 0) {
         virCopyLastError(err);
     }
@@ -3282,6 +3320,24 @@ virDomainSetAutostartWrapper(virDomainPtr domain,
 }
 
 int
+virDomainSetAutostartOnceWrapper(virDomainPtr domain,
+                                 int autostart,
+                                 virErrorPtr err)
+{
+    int ret = -1;
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+    setVirError(err, "Function virDomainSetAutostartOnce not available prior to libvirt version 11.2.0");
+#else
+    ret = virDomainSetAutostartOnce(domain,
+                                    autostart);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+#endif
+    return ret;
+}
+
+int
 virDomainSetBlkioParametersWrapper(virDomainPtr domain,
                                    virTypedParameterPtr params,
                                    int nparams,
@@ -3666,6 +3722,30 @@ virDomainSetSchedulerParametersFlagsWrapper(virDomainPtr domain,
                                                params,
                                                nparams,
                                                flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+#endif
+    return ret;
+}
+
+int
+virDomainSetThrottleGroupWrapper(virDomainPtr dom,
+                                 const char * group,
+                                 virTypedParameterPtr params,
+                                 int nparams,
+                                 unsigned int flags,
+                                 virErrorPtr err)
+{
+    int ret = -1;
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+    setVirError(err, "Function virDomainSetThrottleGroup not available prior to libvirt version 11.2.0");
+#else
+    ret = virDomainSetThrottleGroup(dom,
+                                    group,
+                                    params,
+                                    nparams,
+                                    flags);
     if (ret < 0) {
         virCopyLastError(err);
     }

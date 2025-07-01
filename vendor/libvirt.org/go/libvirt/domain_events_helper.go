@@ -261,6 +261,7 @@ void domainEventMemoryFailureCallbackHelper(virConnectPtr conn,
     domainEventMemoryFailureCallback(conn, dom, recipient, action, flags, (int)(intptr_t)opaque);
 }
 
+
 extern void domainEventMemoryDeviceSizeChangeCallback(virConnectPtr, virDomainPtr, const char *, unsigned long long, int);
 void domainEventMemoryDeviceSizeChangeCallbackHelper(virConnectPtr conn,
 						virDomainPtr dom,
@@ -271,6 +272,17 @@ void domainEventMemoryDeviceSizeChangeCallbackHelper(virConnectPtr conn,
   domainEventMemoryDeviceSizeChangeCallback(conn, dom, alias, size, (int)(intptr_t)opaque);
 }
 
+
+extern void domainEventNICMACChangeCallback(virConnectPtr, virDomainPtr, const char *, const char *, const char *, int);
+void domainEventNICMACChangeCallbackHelper(virConnectPtr conn,
+                                           virDomainPtr dom,
+                                           const char *alias,
+                                           const char *oldMAC,
+                                           const char *newMAC,
+void *opaque)
+{
+	domainEventNICMACChangeCallback(conn, dom, alias, oldMAC, newMAC, (int)(intptr_t)opaque);
+}
 
 int
 virConnectDomainEventRegisterAnyHelper(virConnectPtr conn,

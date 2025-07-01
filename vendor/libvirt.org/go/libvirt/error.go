@@ -395,6 +395,12 @@ const (
 
 	// The metadata is not present
 	ERR_NO_NETWORK_METADATA = ErrorNumber(C.VIR_ERR_NO_NETWORK_METADATA)
+
+	// Guest agent didn't respond to a non-sync command within timeout
+	ERR_AGENT_COMMAND_TIMEOUT = ErrorNumber(C.VIR_ERR_AGENT_COMMAND_TIMEOUT)
+
+	// Guest agent responded with failure to a command
+	ERR_AGENT_COMMAND_FAILED = ErrorNumber(C.VIR_ERR_AGENT_COMMAND_FAILED)
 )
 
 type ErrorDomain int
