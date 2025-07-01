@@ -225,13 +225,13 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		BeforeEach(func() {
 			v, err := getKubernetesVersion()
 			Expect(err).ToNot(HaveOccurred())
-			if v < "1.33" {
+			if v < "1.35" {
 				// Skip the test if the Kubernetes version is lower than 1.33
 				// ImageVolume won't work for versions < 1.33 because of this bug:
 				// https://github.com/kubernetes/kubernetes/pull/130394
 				// Additionally there is currently no way to enable k8s ImageVolume FG
-				// through kubevirtci. It is enabled by default since 1.33.
-				Skip("this test requires Kubernetes version >= 1.33")
+				// through kubevirtci. It is enabled by default since 1.35.
+				Skip("this test requires Kubernetes version >= 1.35")
 			}
 		})
 
@@ -255,6 +255,9 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			targetPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(targetPod.Spec.InitContainers).To(BeEmpty(), "with ImageVolume should not include container-disk-binary init container")
+
+			By("Expecting to be able to login")
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 		},
 			Entry("using simple Cirros vmi",
 				libvmifact.NewCirros(
