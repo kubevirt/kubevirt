@@ -256,6 +256,15 @@ func (k *KubeVirtTestData) BeforeTest() {
 			return true, dummyValidatingAdmissionPolicy, nil
 		}
 
+		if action.GetVerb() == "create" && action.GetResource().Resource == "configmaps" {
+			dummyConfigMap := &k8sv1.ConfigMap{}
+			return true, dummyConfigMap, nil
+		}
+
+		if action.GetVerb() == "update" && action.GetResource().Resource == "configmaps" {
+			return true, nil, nil
+		}
+
 		if action.GetVerb() == "get" && action.GetResource().Resource == "serviceaccounts" {
 			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "serviceaccounts"}, "whatever")
 		}
@@ -2433,8 +2442,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
 			expectedTemporaryResources := 1
+			externalCAConfigMapCount := 1
 
-			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
+			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources + externalCAConfigMapCount))
 
 			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(11))

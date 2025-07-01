@@ -36,6 +36,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
@@ -134,13 +135,20 @@ var _ = Describe("Apply", func() {
 			stores.ConfigMapCache = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 			stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
 
-			expectations = &util.Expectations{}
+			expectations = &util.Expectations{
+				ConfigMap: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
+			}
 
 			clientset = kubecli.NewMockKubevirtClient(ctrl)
 			clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
 			clientset.EXPECT().CoreV1().Return(coreclientset.CoreV1()).AnyTimes()
 
-			kv = &v1.KubeVirt{}
+			kv = &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubevirt",
+					Namespace: operatorNamespace,
+				},
+			}
 		})
 
 		It("should not patch ConfigMap on sync", func() {
@@ -173,7 +181,7 @@ var _ = Describe("Apply", func() {
 				expectations: expectations,
 			}
 
-			_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, crt, duration, requiredCM)
+			_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, crt, nil, duration, requiredCM)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -224,7 +232,7 @@ var _ = Describe("Apply", func() {
 
 			crt := createCrt()
 
-			_, err := r.createOrUpdateKubeVirtCAConfigMap(queue, crt, duration, requiredCM)
+			_, err := r.createOrUpdateKubeVirtCAConfigMap(queue, crt, nil, duration, requiredCM)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patched).To(BeTrue())
 		})
@@ -266,7 +274,89 @@ var _ = Describe("Apply", func() {
 
 			updatedCrt := createCrt()
 
-			_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, updatedCrt, duration, requiredCM)
+			_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, updatedCrt, nil, duration, requiredCM)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patched).To(BeTrue())
+		})
+
+		It("should create ConfigMap when it doesn't exist", func() {
+			requiredCMs := components.NewCAConfigMaps(operatorNamespace)
+			var requiredCM *corev1.ConfigMap
+			for _, cm := range requiredCMs {
+				if cm.Name == components.KubeVirtCASecretName {
+					requiredCM = cm
+				}
+			}
+			r := &Reconciler{
+				kv:           kv,
+				stores:       stores,
+				clientset:    clientset,
+				expectations: expectations,
+			}
+			created := false
+			coreclientset.Fake.PrependReactor("create", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				created = true
+				return true, &corev1.ConfigMap{}, nil
+			})
+			updatedCrt := createCrt()
+			_, err := r.createOrUpdateKubeVirtCAConfigMap(queue, updatedCrt, nil, duration, requiredCM)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(created).To(BeTrue())
+		})
+
+		It("should patch ConfigMap when external CA is added", func() {
+			requiredCMs := components.NewCAConfigMaps(operatorNamespace)
+			var requiredCM *corev1.ConfigMap
+			for _, cm := range requiredCMs {
+				if cm.Name == components.KubeVirtCASecretName {
+					requiredCM = cm
+				}
+			}
+			version, imageRegistry, id := getTargetVersionRegistryID(kv)
+			injectOperatorMetadata(kv, &requiredCMs[0].ObjectMeta, version, imageRegistry, id, true)
+
+			existingCM := requiredCM.DeepCopy()
+			crt := createCrt()
+
+			bundle, _, err := components.MergeCABundle(crt, []byte(cert.EncodeCertPEM(crt.Leaf)), time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+
+			existingCM.Data = map[string]string{
+				components.CABundleKey: string(bundle),
+			}
+
+			stores.ConfigMapCache.Add(existingCM)
+
+			externalCrt := createCrt()
+			externalBundle, _, err := components.MergeCABundle(externalCrt, []byte(cert.EncodeCertPEM(externalCrt.Leaf)), time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+			externalCM := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      components.ExternalKubeVirtCAConfigMapName,
+					Namespace: kv.Namespace,
+				},
+				BinaryData: map[string][]byte{
+					components.CABundleKey: externalBundle,
+				},
+				Data: map[string]string{
+					components.CABundleKey: string(externalBundle),
+				},
+			}
+			stores.ConfigMapCache.Add(externalCM)
+
+			r := &Reconciler{
+				kv:           kv,
+				stores:       stores,
+				clientset:    clientset,
+				expectations: expectations,
+			}
+			externalCACerts := r.getRemotePublicCas()
+			patched := false
+			coreclientset.Fake.PrependReactor("patch", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				patched = true
+				return true, &corev1.ConfigMap{}, nil
+			})
+			_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, crt, externalCACerts, duration, requiredCM)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patched).To(BeTrue())
 		})
