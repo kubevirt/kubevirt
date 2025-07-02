@@ -47,12 +47,12 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
@@ -4122,10 +4122,18 @@ func newPvcWithOwner(namespace string, name string, ownerName string, isControll
 }
 
 func newPendingVirtualMachine(name string) *virtv1.VirtualMachineInstance {
-	vmi := api.NewMinimalVMI(name)
-	vmi.UID = "1234"
-	vmi.Status.Phase = virtv1.Pending
-	setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodNotExistsReason)
+	vmi := libvmi.New(
+		libvmi.WithName(name),
+		libvmi.WithUID("1234"),
+		libvmistatus.WithStatus(
+			libvmistatus.New(
+				libvmistatus.WithPhase(virtv1.Pending),
+				libvmistatus.WithCondition(
+					virtv1.VirtualMachineInstanceCondition{
+						Type:   virtv1.VirtualMachineInstanceReady,
+						Status: k8sv1.ConditionFalse,
+						Reason: virtv1.PodNotExistsReason}))))
+
 	kvcontroller.SetLatestApiVersionAnnotation(vmi)
 	return vmi
 }
