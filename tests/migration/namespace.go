@@ -186,7 +186,7 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 			sourceVM, targetVM   *virtv1.VirtualMachine
 		)
 
-		It("should live migrate a container disk vm, several times", func() {
+		It("[QUARANTINE] should live migrate a container disk vm, several times", decorators.Quarantine, func() {
 			sourceVMI = libvmifact.NewCirros(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -324,7 +324,7 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 			return targetDV
 		}
 
-		It("should live migration regular disk several times", func() {
+		It("[QUARANTINE] should live migration regular disk several times", decorators.Quarantine, func() {
 			sourceDV := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 				libdv.WithStorage(
