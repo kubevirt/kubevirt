@@ -42,6 +42,7 @@ source hack/config-default.sh
 CANNIER_IMAGE="${CANNIER_IMAGE-quay.io/kubevirtci/cannier:v20250328-a1ef64e}"
 
 export TIMESTAMP=${TIMESTAMP:-1}
+export JOB_NAME="pull-kubevirt-k8s-1.33-check-tests-for-flakes"
 
 function usage() {
     cat <<EOF
