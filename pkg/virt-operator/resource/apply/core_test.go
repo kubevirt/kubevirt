@@ -922,17 +922,17 @@ var _ = Describe("Apply", func() {
 
 		It("should not populate synchronization address, if feature gate disabled", func() {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{}
-			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+			Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 			err := reconciler.updateSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+			Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 		})
 
 		It("should not populate synchronization address, if no lease found", func() {
-			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+			Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 			err := reconciler.updateSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+			Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 		})
 
 		It("should not populate synchronization address, if lease has no holder", func() {
@@ -940,10 +940,10 @@ var _ = Describe("Apply", func() {
 			lease.Spec.HolderIdentity = nil
 			lease, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+			Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 			err = reconciler.updateSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(kv.Status.SynchronizationAddress).To(BeNil())
+			Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 		})
 
 		DescribeTable("update kubevirt synchronization address", func(synchronizationPod *corev1.Pod, port, expectedAddress string) {
@@ -955,15 +955,15 @@ var _ = Describe("Apply", func() {
 			}
 			if synchronizationPod != nil {
 				synchronizationPod, err = clientset.CoreV1().Pods(kubevirtNamespace).Create(context.Background(), synchronizationPod, metav1.CreateOptions{})
-				Expect(kv.Status.SynchronizationAddress).To(BeNil())
+				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 			}
 			err = reconciler.updateSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
 			if expectedAddress != "" {
-				Expect(kv.Status.SynchronizationAddress).ToNot(BeNil())
-				Expect(*kv.Status.SynchronizationAddress).To(Equal(expectedAddress))
+				Expect(kv.Status.SynchronizationAddresses).ToNot(BeNil())
+				Expect(kv.Status.SynchronizationAddresses[0]).To(Equal(expectedAddress))
 			} else {
-				Expect(kv.Status.SynchronizationAddress).To(BeNil())
+				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 			}
 		},
 			Entry("should not populate synchronization address, if no pod found", nil, "", ""),
@@ -980,7 +980,11 @@ var _ = Describe("Apply", func() {
 					Namespace: kubevirtNamespace,
 				},
 				Status: corev1.PodStatus{
-					PodIP: "1.1.1.1",
+					PodIPs: []corev1.PodIP{
+						{
+							IP: "1.1.1.1",
+						},
+					},
 				},
 			}, "", "1.1.1.1:9185"),
 			Entry("if pod found with migration network, use the migration ip address", &corev1.Pod{
@@ -993,7 +997,11 @@ var _ = Describe("Apply", func() {
 					},
 				},
 				Status: corev1.PodStatus{
-					PodIP: "1.1.1.1",
+					PodIPs: []corev1.PodIP{
+						{
+							IP: "1.1.1.1",
+						},
+					},
 				},
 			}, "", "2.2.2.2:9185"),
 			Entry("if pod found with migration network, use the migration ip address, and defined port", &corev1.Pod{
@@ -1006,7 +1014,11 @@ var _ = Describe("Apply", func() {
 					},
 				},
 				Status: corev1.PodStatus{
-					PodIP: "1.1.1.1",
+					PodIPs: []corev1.PodIP{
+						{
+							IP: "1.1.1.1",
+						},
+					},
 				},
 			}, "1234", "2.2.2.2:1234"),
 		)

@@ -919,7 +919,6 @@
         "hash": "hashValue"
       }
     ],
-    "synchronizationAddress": "synchronizationAddressValue",
     "synchronizationAddresses": [
       "synchronizationAddressesValue"
     ]

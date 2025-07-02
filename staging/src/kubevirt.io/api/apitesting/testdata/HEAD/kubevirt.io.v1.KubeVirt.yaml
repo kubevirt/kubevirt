@@ -572,7 +572,6 @@ status:
   operatorVersion: operatorVersionValue
   outdatedVirtualMachineInstanceWorkloads: -39
   phase: phaseValue
-  synchronizationAddress: synchronizationAddressValue
   synchronizationAddresses:
   - synchronizationAddressesValue
   targetDeploymentConfig: targetDeploymentConfigValue
