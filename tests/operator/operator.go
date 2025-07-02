@@ -70,7 +70,6 @@ import (
 	"kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
@@ -122,10 +121,6 @@ type vmYamlDefinition struct {
 	vmSnapshots []vmSnapshotDef
 }
 
-const (
-	imageDigestShaPrefix = "@sha256:"
-)
-
 var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func() {
 
 	const (
@@ -147,23 +142,14 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		Expect(err).ToNot(HaveOccurred())
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
-		// make sure virt deployments use shasums before we start
-		Expect(ensureShasums()).To(Succeed())
-
 		originalKv = libkubevirt.GetCurrentKv(virtClient)
 
 		// save the operator sha
 		_, _, _, _, version := parseOperatorImage()
 		const errFmt = "version %s is expected to end with %s suffix"
-		if !flags.SkipShasumCheck {
-			const prefix = "@"
-			Expect(strings.HasPrefix(version, "@")).To(BeTrue(), fmt.Sprintf(errFmt, version, prefix))
-			originalOperatorVersion = strings.TrimPrefix(version, prefix)
-		} else {
-			const prefix = ":"
-			Expect(strings.HasPrefix(version, ":")).To(BeTrue(), fmt.Sprintf(errFmt, version, prefix))
-			originalOperatorVersion = strings.TrimPrefix(version, prefix)
-		}
+		const prefix = ":"
+		Expect(strings.HasPrefix(version, prefix)).To(BeTrue(), fmt.Sprintf(errFmt, version, prefix))
+		originalOperatorVersion = strings.TrimPrefix(version, prefix)
 	})
 
 	BeforeEach(func() {
@@ -190,9 +176,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		By("Waiting for original KV to stabilize")
 		testsuite.EnsureKubevirtReadyWithTimeout(originalKv, 420*time.Second)
 		allKvInfraPodsAreReady(originalKv)
-
-		// make sure virt deployments use shasums again after each test
-		Expect(ensureShasums()).To(Succeed())
 
 		// ensure that the state is fully restored after destructive tests
 		verifyOperatorWebhookCertificate()
@@ -404,29 +387,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 				return service.Spec.Ports[0].Port
 			}).WithTimeout(20 * time.Second).WithPolling(5 * time.Second).Should(Equal(originalPort))
-		})
-	})
-
-	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should start a VM", func() {
-		It("[test_id:3144]using virt-launcher with a shasum", func() {
-
-			if flags.SkipShasumCheck {
-				Skip("Cannot currently test shasums, skipping")
-			}
-
-			By("starting a VM")
-			vmi := libvmifact.NewAlpine()
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("getting virt-launcher")
-			uid := vmi.GetObjectMeta().GetUID()
-			labelSelector := fmt.Sprintf("%s=%v", v1.CreatedByLabel, uid)
-			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-			Expect(err).ToNot(HaveOccurred(), "Should list pods")
-			Expect(pods.Items).To(HaveLen(1))
-			Expect(pods.Items[0].Spec.Containers[0].Image).To(ContainSubstring(imageDigestShaPrefix), "launcher pod should use shasum")
 		})
 	})
 
@@ -702,12 +662,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				migratableVMIs, err = generateMigratableVMIs(2)
 				Expect(err).NotTo(HaveOccurred())
 			}
-			if !flags.SkipShasumCheck {
-				launcherSha, err := getVirtLauncherSha(originalKv.Status.ObservedDeploymentConfig)
-				Expect(err).ToNot(HaveOccurred(), "failed to get the launcher digest from the the ObservedDeploymentConfig field")
-				Expect(launcherSha).ToNot(Equal(""))
-			}
-
 			previousImageTag := flags.PreviousReleaseTag
 			previousImageRegistry := flags.PreviousReleaseRegistry
 			if previousImageTag == "" {
@@ -2773,7 +2727,6 @@ func patchKV(name string, patches *patch.PatchSet) {
 }
 
 var (
-	imageShaRegEx = regexp.MustCompile(`^(.+)/(.+)(@sha\d+:)([\da-fA-F]+)$`)
 	imageTagRegEx = regexp.MustCompile(`^(.+)/(.+)(:.+)$`)
 )
 
@@ -2781,13 +2734,8 @@ func parseImage(image string) (registry, imageName, version string) {
 	var getVersion func(matches [][]string) string
 	var imageRegEx *regexp.Regexp
 
-	if strings.Contains(image, "@sha") {
-		imageRegEx = imageShaRegEx
-		getVersion = func(matches [][]string) string { return matches[0][3] + matches[0][4] }
-	} else {
-		imageRegEx = imageTagRegEx
-		getVersion = func(matches [][]string) string { return matches[0][3] }
-	}
+	imageRegEx = imageTagRegEx
+	getVersion = func(matches [][]string) string { return matches[0][3] }
 
 	matches := imageRegEx.FindAllStringSubmatch(image, 1)
 	Expect(matches).To(HaveLen(1))
@@ -2957,16 +2905,6 @@ func deleteVMIs(vmis []*v1.VirtualMachineInstance) {
 	}
 }
 
-func getVirtLauncherSha(deploymentConfigStr string) (string, error) {
-	config := &util.KubeVirtDeploymentConfig{}
-	err := json.Unmarshal([]byte(deploymentConfigStr), config)
-	if err != nil {
-		return "", err
-	}
-
-	return config.VirtLauncherSha, nil
-}
-
 func deleteAllKvAndWait(ignoreOriginal bool, originalKvName string) {
 	GinkgoHelper()
 
@@ -2990,36 +2928,6 @@ func deleteAllKvAndWait(ignoreOriginal bool, originalKvName string) {
 
 		g.Expect(deleteCount).To(BeZero(), "still waiting on %d kvs to delete", deleteCount)
 	}).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
-}
-
-func ensureShasums() error {
-	virtClient := kubevirt.Client()
-	if flags.SkipShasumCheck {
-		log.Log.Warning("Cannot use shasums, skipping")
-		return nil
-	}
-
-	for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
-		deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-
-		if !strings.Contains(deployment.Spec.Template.Spec.Containers[0].Image, imageDigestShaPrefix) {
-			return fmt.Errorf("%s should use sha", name)
-		}
-	}
-
-	handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	if !strings.Contains(handler.Spec.Template.Spec.Containers[0].Image, imageDigestShaPrefix) {
-		return fmt.Errorf("virt-handler should use sha")
-	}
-
-	return nil
 }
 
 func generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag string) (map[string]*vmYamlDefinition, error) {
