@@ -76,6 +76,10 @@ func IsSEVCapable(node *k8sv1.Node, sevLabel string) bool {
 	return false
 }
 
+func IsAMD64(arch string) bool {
+	return arch == "amd64"
+}
+
 func IsARM64(arch string) bool {
 	return arch == "arm64"
 }
