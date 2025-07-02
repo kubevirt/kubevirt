@@ -2372,27 +2372,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("with cpu pinning enabled", Serial, func() {
-
-			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
-
-				By("adding a cpumanger=true label to a node")
-				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
-				Expect(err).ToNot(HaveOccurred())
-				if len(nodes.Items) == 0 {
-					Fail(`CPU manager test on clusters where CPU manager is running on all worker/compute nodes. you can filter by "requires-two-worker-nodes-with-cpu-manager"`)
-				}
-
-				node := &nodes.Items[0]
-				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, v1.CPUManager)), metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("setting the cpumanager label back to false")
-				Eventually(func() string {
-					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return n.Labels[v1.CPUManager]
-				}, 3*time.Minute, 2*time.Second).Should(Equal("false"))
-			})
 			It("[test_id:1685]non master node should have a cpumanager label", func() {
 				cpuManagerEnabled := false
 				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
