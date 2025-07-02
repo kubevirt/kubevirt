@@ -399,8 +399,8 @@ func getKubevirtSynchronizationSyncAddress(virtClient kubecli.KubevirtClient) (s
 	if kv == nil {
 		return "", fmt.Errorf("unable to retrieve kubevirt CR")
 	}
-	if kv.Status.SynchronizationAddress == nil {
+	if kv.Status.SynchronizationAddresses == nil {
 		return "", fmt.Errorf("sync address not found")
 	}
-	return *kv.Status.SynchronizationAddress, nil
+	return kv.Status.SynchronizationAddresses[0], nil
 }

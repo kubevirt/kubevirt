@@ -3849,8 +3849,6 @@ var CRDsValidation map[string]string = map[string]string{
           description: KubeVirtPhase is a label for the phase of a KubeVirt deployment
             at the current time.
           type: string
-        synchronizationAddress:
-          type: string
         synchronizationAddresses:
           items:
             type: string
@@ -14887,10 +14885,6 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
-        synchronizationAddress:
-          description: The synchronization address one can use to connect to the synchronization
-            controller, includes the port
-          type: string
         synchronizationAddresses:
           description: |-
             The synchronization addresses one can use to connect to the synchronization controller, includes the port, if multiple

@@ -30,7 +30,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -777,7 +776,7 @@ func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.TypedRate
 
 func (r *Reconciler) updateSynchronizationAddress() (err error) {
 	if !r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
-		r.kv.Status.SynchronizationAddress = nil
+		r.kv.Status.SynchronizationAddresses = nil
 		return nil
 	}
 	// Find the lease associated with the virt-synchronization controller
@@ -805,9 +804,12 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 
 	// Check for the migration network address in the pod annotations.
 	ips := r.getIpsFromAnnotations(pod)
-	if len(ips) == 0 && pod.Status.PodIP != "" {
+	if len(ips) == 0 && pod.Status.PodIPs != nil {
 		// Did not find annotations, use the pod ip address instead
-		ips = []string{pod.Status.PodIP}
+		ips = make([]string, len(pod.Status.PodIPs))
+		for i, podIP := range pod.Status.PodIPs {
+			ips[i] = podIP.IP
+		}
 	}
 	if len(ips) == 0 {
 		return nil
@@ -825,7 +827,6 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 		addresses[i] = fmt.Sprintf("%s:%d", ip, port)
 	}
 	r.kv.Status.SynchronizationAddresses = addresses
-	r.kv.Status.SynchronizationAddress = pointer.P(addresses[0])
 	return nil
 }
 
@@ -834,7 +835,7 @@ func (r *Reconciler) getIpsFromAnnotations(pod *corev1.Pod) []string {
 	for _, networkStatus := range networkStatuses {
 		if networkStatus.Interface == v1.MigrationInterfaceName {
 			if len(networkStatus.IPs) == 0 {
-				continue
+				break
 			}
 			log.Log.Object(pod).V(4).Infof("found migration network ip addresses %v", networkStatus.IPs)
 			return networkStatus.IPs

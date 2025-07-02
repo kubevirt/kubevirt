@@ -22191,12 +22191,6 @@ func schema_kubevirtio_api_core_v1_KubeVirtStatus(ref common.ReferenceCallback) 
 							},
 						},
 					},
-					"synchronizationAddress": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"synchronizationAddresses": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -26666,13 +26660,6 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationStatus(ref com
 						SchemaProps: spec.SchemaProps{
 							Description: "Represents the status of a live migration",
 							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState"),
-						},
-					},
-					"synchronizationAddress": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The synchronization address one can use to connect to the synchronization controller, includes the port",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 					"synchronizationAddresses": {

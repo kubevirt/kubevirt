@@ -610,7 +610,6 @@ func (c *Controller) setSynchronizationAddressStatus(migration *virtv1.VirtualMa
 			log.Log.Errorf("found unknown object in kubevirt store %v", kvs[0])
 			return fmt.Errorf("found unknown object in kubevirt store %v", kvs[0])
 		}
-		migration.Status.SynchronizationAddress = kv.Status.SynchronizationAddress
 		migration.Status.SynchronizationAddresses = kv.Status.SynchronizationAddresses
 	}
 	return nil
@@ -1844,9 +1843,7 @@ func (c *Controller) updateKubeVirt(org, cur interface{}) {
 	curKubevirt := cur.(*virtv1.KubeVirt)
 	orgKubevirt := org.(*virtv1.KubeVirt)
 
-	curSyncAddress := getSynchronizationAddress(curKubevirt)
-	orgSyncAddress := getSynchronizationAddress(orgKubevirt)
-	if (curSyncAddress != orgSyncAddress && curSyncAddress != "") || !slices.Equal(curKubevirt.Status.SynchronizationAddresses, orgKubevirt.Status.SynchronizationAddresses) {
+	if !slices.Equal(curKubevirt.Status.SynchronizationAddresses, orgKubevirt.Status.SynchronizationAddresses) {
 		// sync address was updated, update all active migrations
 		for _, obj := range c.migrationIndexer.List() {
 			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
@@ -1860,13 +1857,6 @@ func (c *Controller) updateKubeVirt(org, cur interface{}) {
 		}
 	}
 	return
-}
-
-func getSynchronizationAddress(kv *virtv1.KubeVirt) string {
-	if kv.Status.SynchronizationAddress == nil {
-		return ""
-	}
-	return *kv.Status.SynchronizationAddress
 }
 
 // When a pod is deleted, enqueue the migration that manages the pod and update its podExpectations.
