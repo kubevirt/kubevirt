@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/synchronization-controller"
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 )
 
 const (
@@ -98,6 +99,7 @@ type synchronizationControllerApp struct {
 	serverCertFilePath string
 	serverKeyFilePath  string
 	externallyManaged  bool
+	ip                 string
 
 	serverTLSConfig       *tls.Config
 	clientTLSConfig       *tls.Config
@@ -163,6 +165,10 @@ func (app *synchronizationControllerApp) Run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	app.ctx = ctx
+
+	envIP, _ := os.LookupEnv("MY_POD_IP")
+	ip, err := virthandler.FindMigrationIP(envIP)
+	app.ip = ip
 
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
@@ -251,6 +257,7 @@ func (app *synchronizationControllerApp) Run() {
 		app.serverTLSConfig,
 		app.BindAddress,
 		app.Port,
+		app.ip,
 	)
 	if err != nil {
 		panic(err)
