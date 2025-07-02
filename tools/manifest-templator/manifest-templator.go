@@ -63,17 +63,6 @@ type templateData struct {
 	KubeVirtLogo                       string
 	PackageName                        string
 	CreatedAt                          string
-	VirtOperatorSha                    string
-	VirtApiSha                         string
-	VirtControllerSha                  string
-	VirtHandlerSha                     string
-	VirtLauncherSha                    string
-	VirtExportProxySha                 string
-	VirtExportServerSha                string
-	VirtSynchronizationControllerSha   string
-	GsSha                              string
-	PrHelperSha                        string
-	SidecarShimSha                     string
 	RunbookURLTemplate                 string
 	PriorityClassSpec                  string
 	FeatureGates                       []string
@@ -110,17 +99,6 @@ func main() {
 	kubeVirtLogoPath := flag.String("kubevirt-logo-path", "", "")
 	packageName := flag.String("package-name", "", "")
 	quayRepository := flag.String("quay-repository", "", "")
-	virtOperatorSha := flag.String("virt-operator-sha", "", shaEnvDeprecationMsg)
-	virtApiSha := flag.String("virt-api-sha", "", shaEnvDeprecationMsg)
-	virtControllerSha := flag.String("virt-controller-sha", "", shaEnvDeprecationMsg)
-	virtHandlerSha := flag.String("virt-handler-sha", "", shaEnvDeprecationMsg)
-	virtLauncherSha := flag.String("virt-launcher-sha", "", shaEnvDeprecationMsg)
-	virtExportProxySha := flag.String("virt-exportproxy-sha", "", shaEnvDeprecationMsg)
-	virtExportServerSha := flag.String("virt-exportserver-sha", "", shaEnvDeprecationMsg)
-	virtSynchronizationControllerSha := flag.String("virt-synchronization-controller-sha", "", shaEnvDeprecationMsg)
-	gsSha := flag.String("gs-sha", "", "")
-	prHelperSha := flag.String("pr-helper-sha", "", "")
-	sidecarShimSha := flag.String("sidecar-shim-sha", "", "")
 	runbookURLTemplate := flag.String("runbook-url-template", "", "")
 	featureGates := flag.String("feature-gates", "", "")
 	infraReplicas := flag.Uint("infra-replicas", 0, "")
@@ -167,17 +145,6 @@ func main() {
 		data.TestImageReplicas = fmt.Sprintf("\"%s\"", *testImageReplicas)
 		data.CsvVersion = *csvVersion
 		data.QuayRepository = *quayRepository
-		data.VirtOperatorSha = *virtOperatorSha
-		data.VirtApiSha = *virtApiSha
-		data.VirtControllerSha = *virtControllerSha
-		data.VirtHandlerSha = *virtHandlerSha
-		data.VirtLauncherSha = *virtLauncherSha
-		data.VirtExportProxySha = *virtExportProxySha
-		data.VirtExportServerSha = *virtExportServerSha
-		data.VirtSynchronizationControllerSha = *virtSynchronizationControllerSha
-		data.GsSha = *gsSha
-		data.PrHelperSha = *prHelperSha
-		data.SidecarShimSha = *sidecarShimSha
 		data.RunbookURLTemplate = *runbookURLTemplate
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
@@ -216,14 +183,6 @@ func main() {
 		data.TestImageReplicas = "{{.TestImageReplicas}}"
 		data.CsvVersion = "{{.CsvVersion}}"
 		data.QuayRepository = "{{.QuayRepository}}"
-		data.VirtOperatorSha = "{{.VirtOperatorSha}}"
-		data.VirtApiSha = "{{.VirtApiSha}}"
-		data.VirtControllerSha = "{{.VirtControllerSha}}"
-		data.VirtHandlerSha = "{{.VirtHandlerSha}}"
-		data.VirtLauncherSha = "{{.VirtLauncherSha}}"
-		data.VirtExportProxySha = "{{.VirtExportProxySha}}"
-		data.VirtExportServerSha = "{{.VirtExportServerSha}}"
-		data.VirtSynchronizationControllerSha = "{{.VirtSynchronizationControllerSha}}"
 		data.ReplacesCsvVersion = "{{.ReplacesCsvVersion}}"
 		data.OperatorDeploymentSpec = "{{.OperatorDeploymentSpec}}"
 		data.OperatorCsv = "{{.OperatorCsv}}"
@@ -292,10 +251,6 @@ func getPriorityClassSpec(indentation int) string {
 
 func getOperatorDeploymentSpec(data templateData, indentation int) string {
 	version := data.DockerTag
-	if data.VirtOperatorSha != "" {
-		version = data.VirtOperatorSha
-	}
-
 	deployment := components.NewOperatorDeployment(
 		data.Namespace,
 		data.DockerPrefix,
@@ -303,16 +258,6 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		version,
 		data.Verbosity,
 		data.DockerTag,
-		data.VirtApiSha,
-		data.VirtControllerSha,
-		data.VirtHandlerSha,
-		data.VirtLauncherSha,
-		data.VirtExportProxySha,
-		data.VirtExportServerSha,
-		data.VirtSynchronizationControllerSha,
-		data.GsSha,
-		data.PrHelperSha,
-		data.SidecarShimSha,
 		data.RunbookURLTemplate,
 		data.VirtApiImage,
 		data.VirtControllerImage,
