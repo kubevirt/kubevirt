@@ -2626,6 +2626,16 @@ type MigrateOptions struct {
 	AddedNodeSelector map[string]string `json:"addedNodeSelector,omitempty"`
 }
 
+// VirtualMachineInstanceGuestOSLoad represents the system load averages from the guest agent
+type VirtualMachineInstanceGuestOSLoad struct {
+	// Load average over 1 minute
+	Load1m float64 `json:"load1m,omitempty"`
+	// Load average over 5 minutes
+	Load5m float64 `json:"load5m,omitempty"`
+	// Load average over 15 minutes
+	Load15m float64 `json:"load15m,omitempty"`
+}
+
 // VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -2650,6 +2660,8 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	// It will be set to "frozen" if the request was made, or unset otherwise.
 	// This does not reflect the actual state of the guest filesystem.
 	FSFreezeStatus string `json:"fsFreezeStatus,omitempty"`
+	// Load contains the system load averages (1M, 5M, 15M) from the guest agent
+	Load VirtualMachineInstanceGuestOSLoad `json:"load,omitempty"`
 }
 
 // List of commands that QEMU guest agent supports
