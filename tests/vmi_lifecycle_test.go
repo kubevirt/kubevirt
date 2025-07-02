@@ -458,8 +458,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				kvconfig.EnableFeatureGate(featuregate.PanicDevicesGate)
 			})
 
-			It("should be stopped and have Failed phase when a PanicDevice is provided", func() {
-				vmi := libvmifact.NewFedora(libvmi.WithPanicDevice(v1.Isa))
+			DescribeTable("should be stopped and have Failed phase when a PanicDevice is provided", func(device v1.PanicDeviceModel) {
+				vmi := libvmifact.NewFedora(libvmi.WithPanicDevice(device))
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
@@ -481,7 +481,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")
 				Eventually(matcher.ThisVMI(vmi)).WithTimeout(10 * time.Second).WithPolling(time.Second).Should(matcher.BeInPhase(v1.Failed))
-			})
+			},
+				Entry("amd64", v1.Isa, decorators.RequiresAMD64),
+				Entry("arm64", v1.Pvpanic, decorators.RequiresARM64),
+			)
 		})
 
 		Context("when virt-launcher crashes", decorators.WgS390x, func() {
