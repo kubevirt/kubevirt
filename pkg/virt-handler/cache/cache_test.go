@@ -330,7 +330,9 @@ var _ = Describe("Domain informer", func() {
 			defer d.Stop()
 
 			timedOut := false
-			timeout := time.After(5 * time.Second)
+			// The timeout on trying to dial the socket is 5 seconds, doubling that to make sure we reach that point
+			// before our own timeout.
+			timeout := time.After(10 * time.Second)
 			select {
 			case event := <-d.eventChan:
 				Expect(event.Type).To(Equal(watch.Modified))
