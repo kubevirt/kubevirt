@@ -2096,8 +2096,13 @@ func (c *Controller) outboundMigrationsOnNode(node string, runningMigrations []*
 	sum := 0
 	for _, migration := range runningMigrations {
 		key := controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName)
-		if vmi, exists, _ := c.vmiStore.GetByKey(key); exists {
-			if vmi.(*virtv1.VirtualMachineInstance).Status.NodeName == node {
+		if obj, exists, _ := c.vmiStore.GetByKey(key); exists {
+			vmi := obj.(*virtv1.VirtualMachineInstance)
+			if vmi.Status.NodeName == node ||
+				(vmi.Status.MigrationState != nil &&
+					vmi.Status.MigrationState.SourceNode == node &&
+					!vmi.Status.MigrationState.Completed &&
+					!vmi.Status.MigrationState.Failed) {
 				sum = sum + 1
 			}
 		}
