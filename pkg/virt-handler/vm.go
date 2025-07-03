@@ -603,6 +603,10 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted || currentPhase == v1.HotplugVolumeAttachedToNode
 }
 
+func wasMigrationSuccessful(migrationState *v1.VirtualMachineInstanceMigrationState) bool {
+	return migrationState != nil && migrationState.EndTimestamp != nil && !migrationState.Failed
+}
+
 func (c *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
@@ -664,11 +668,6 @@ func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		migrationHost = vmi.Status.MigrationState.TargetNode
 	}
 
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.EndTimestamp == nil {
-		now := metav1.NewTime(time.Now())
-		vmi.Status.MigrationState.EndTimestamp = &now
-	}
-
 	targetNodeDetectedDomain, timeLeft := c.hasTargetDetectedReadyDomain(vmi)
 	// If we can't detect where the migration went to, then we have no
 	// way of transferring ownership. The only option here is to move the
@@ -691,7 +690,7 @@ func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		} else {
 			log.Log.Object(vmi).Info("Waiting on the target node to observe the migrated domain before performing the handoff")
 		}
-	} else if vmi.Status.MigrationState != nil {
+	} else if wasMigrationSuccessful(vmi.Status.MigrationState) {
 		// this is the migration ACK.
 		// At this point we know that the migration has completed and that
 		// the target node has seen the domain event.
@@ -776,7 +775,6 @@ func (c *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		log.Log.Object(vmi).Info("The target node received the running migrated domain")
 		now := metav1.Now()
 		vmiCopy.Status.MigrationState.TargetNodeDomainReadyTimestamp = &now
-		c.finalizeMigration(vmiCopy)
 	}
 
 	if !migrations.IsMigrating(vmi) {
@@ -1958,9 +1956,7 @@ func (c *VirtualMachineController) defaultExecute(key string,
 			log.Log.Object(vmi).V(3).Info("Deleting domain for VirtualMachineInstance with deletion timestamp.")
 			shouldDelete = true
 		default:
-			if vmi.IsFinal() {
-				shouldCleanUp = true
-			}
+			shouldCleanUp = true
 		}
 	}
 
@@ -1972,6 +1968,11 @@ func (c *VirtualMachineController) defaultExecute(key string,
 	} else if !domainExists && vmiExists && vmi.IsFinal() {
 		log.Log.Object(vmi).V(3).Info("Cleaning up local data for finalized vmi.")
 		shouldCleanUp = true
+	}
+
+	if !domainAlive && domainExists && !vmi.IsFinal() {
+		log.Log.Object(vmi).V(3).Info("Deleting inactive domain for vmi.")
+		shouldDelete = true
 	}
 
 	// Determine if an active (or about to be active) VirtualMachineInstance should be updated.
@@ -3114,6 +3115,9 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			}
 		}
 	} else if vmi.IsRunning() {
+		if wasMigrationSuccessful(vmi.Status.MigrationState) && !vmi.Status.MigrationState.Completed {
+			c.finalizeMigration(vmi)
+		}
 		if err := c.hotplugSriovInterfaces(vmi); err != nil {
 			log.Log.Object(vmi).Error(err.Error())
 		}
