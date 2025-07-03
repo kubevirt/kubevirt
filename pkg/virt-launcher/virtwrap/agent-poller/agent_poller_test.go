@@ -244,6 +244,111 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
 	})
+
+	Context("UpdateFromEvent", func() {
+		var agentPoller *AgentPoller
+
+		BeforeEach(func() {
+			agentPoller = &AgentPoller{
+				Connection: mockLibvirt.VirtConnection,
+				domainName: "test-domain",
+				agentStore: &agentStore,
+			}
+		})
+
+		It("should stop agent poller on domain suspend event", func() {
+			// Start the poller first so we can stop it
+			agentPoller.Start()
+			Expect(agentPoller.agentDone).ToNot(BeNil())
+
+			domainEvent := &libvirt.DomainEventLifecycle{
+				Event:  libvirt.DOMAIN_EVENT_SUSPENDED,
+				Detail: int(libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED),
+			}
+			agentPoller.UpdateFromEvent(domainEvent, nil)
+
+			Expect(agentPoller.agentDone).To(BeNil())
+		})
+
+		It("should start agent poller on domain resume event", func() {
+			// Ensure poller is stopped first
+			Expect(agentPoller.agentDone).To(BeNil())
+
+			domainEvent := &libvirt.DomainEventLifecycle{
+				Event:  libvirt.DOMAIN_EVENT_RESUMED,
+				Detail: int(libvirt.DOMAIN_EVENT_RESUMED_UNPAUSED),
+			}
+			agentPoller.UpdateFromEvent(domainEvent, nil)
+
+			Expect(agentPoller.agentDone).ToNot(BeNil())
+			// Clean up
+			agentPoller.Stop()
+		})
+
+		It("should stop agent poller on agent disconnect event", func() {
+			// Start the poller first so we can stop it
+			agentPoller.Start()
+			Expect(agentPoller.agentDone).ToNot(BeNil())
+
+			agentEvent := &libvirt.DomainEventAgentLifecycle{
+				State:  libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED,
+				Reason: libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL,
+			}
+			agentPoller.UpdateFromEvent(nil, agentEvent)
+
+			Expect(agentPoller.agentDone).To(BeNil())
+		})
+
+		It("should start agent poller on agent connect event", func() {
+			// Ensure poller is stopped first
+			Expect(agentPoller.agentDone).To(BeNil())
+
+			agentEvent := &libvirt.DomainEventAgentLifecycle{
+				State:  libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED,
+				Reason: libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL,
+			}
+			agentPoller.UpdateFromEvent(nil, agentEvent)
+
+			Expect(agentPoller.agentDone).ToNot(BeNil())
+			// Clean up
+			agentPoller.Stop()
+		})
+
+		It("should not start or stop agent poller on unrelated events", func() {
+			// Start the poller to verify it's not stopped by unrelated events
+			agentPoller.Start()
+			originalState := agentPoller.agentDone
+			Expect(originalState).ToNot(BeNil())
+
+			// Test with domain events that should not trigger agent poller changes
+			unrelatedDomainEvent := &libvirt.DomainEventLifecycle{
+				Event:  libvirt.DOMAIN_EVENT_STARTED, // Different event
+				Detail: int(libvirt.DOMAIN_EVENT_STARTED_BOOTED),
+			}
+			agentPoller.UpdateFromEvent(unrelatedDomainEvent, nil)
+
+			// Should remain in same state (started)
+			Expect(agentPoller.agentDone).To(Equal(originalState))
+
+			anotherUnrelatedEvent := &libvirt.DomainEventLifecycle{
+				Event:  libvirt.DOMAIN_EVENT_STOPPED,
+				Detail: int(libvirt.DOMAIN_EVENT_STOPPED_SHUTDOWN),
+			}
+			agentPoller.UpdateFromEvent(anotherUnrelatedEvent, nil)
+
+			// Should still remain in same state (started)
+			Expect(agentPoller.agentDone).To(Equal(originalState))
+
+			// Test with completely empty events
+			agentPoller.UpdateFromEvent(nil, nil)
+
+			// Should still remain in same state (started)
+			Expect(agentPoller.agentDone).To(Equal(originalState))
+
+			// Clean up
+			agentPoller.Stop()
+		})
+	})
 })
 
 // runPollAndCountCommandExecution runs a PollerWorker with the specified polling interval
