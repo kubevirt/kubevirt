@@ -21,6 +21,7 @@ package cache
 
 import (
 	"encoding/xml"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -50,71 +51,20 @@ func clearGhostRecordCache() {
 }
 
 var _ = Describe("Domain informer", func() {
-	var shareDir string
-	var podsDir string
 	var ghostCacheDir string
-	var informer cache.SharedInformer
-	var stopChan chan struct{}
-	var wg *sync.WaitGroup
-	var ctrl *gomock.Controller
-	var domainManager *virtwrap.MockDomainManager
-	var socketPath string
-	var resyncPeriod int
-
-	podUID := "1234"
 
 	BeforeEach(func() {
-		resyncPeriod = 5
-		stopChan = make(chan struct{})
-		wg = &sync.WaitGroup{}
-
 		var err error
-		shareDir, err = os.MkdirTemp("", "kubevirt-share")
-		Expect(err).ToNot(HaveOccurred())
-
-		podsDir, err = os.MkdirTemp("", "")
-		Expect(err).ToNot(HaveOccurred())
 
 		ghostCacheDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 
 		InitializeGhostRecordCache(ghostCacheDir)
-
-		cmdclient.SetPodsBaseDir(podsDir)
-
-		socketPath = cmdclient.SocketFilePathOnHost(podUID)
-		os.MkdirAll(filepath.Dir(socketPath), 0755)
-
-		informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
-		Expect(err).ToNot(HaveOccurred())
-
-		ctrl = gomock.NewController(GinkgoT())
-		domainManager = virtwrap.NewMockDomainManager(ctrl)
 	})
 
 	AfterEach(func() {
-		close(stopChan)
-		wg.Wait()
-		os.RemoveAll(shareDir)
-		os.RemoveAll(podsDir)
-		os.RemoveAll(ghostCacheDir)
-		DeleteGhostRecord("test", "test")
+		Expect(os.RemoveAll(ghostCacheDir)).To(Succeed())
 	})
-
-	verifyObj := func(key string, domain *api.Domain, g Gomega) {
-		obj, exists, err := informer.GetStore().GetByKey(key)
-		g.Expect(err).ToNot(HaveOccurred())
-
-		if domain != nil {
-			g.Expect(exists).To(BeTrue())
-
-			eventDomain := obj.(*api.Domain)
-			eventDomain.Spec.XMLName = xml.Name{}
-			g.Expect(equality.Semantic.DeepEqual(&domain.Spec, &eventDomain.Spec)).To(BeTrue())
-		} else {
-			g.Expect(exists).To(BeFalse())
-		}
-	}
 
 	Context("with ghost record cache", func() {
 		It("Should be able to retrieve uid", func() {
@@ -202,12 +152,74 @@ var _ = Describe("Domain informer", func() {
 		})
 	})
 
-	Context("with notification server", func() {
+	Context("with cmd server", func() {
+		const podUID = "1234"
+		const domainName = "testvmi1"
+		const domainNamespace = "default"
+		const resyncPeriod = 5
+
+		var shareDir string
+		var podsDir string
+		var informer cache.SharedInformer
+		var stopChan chan struct{}
+		var wg *sync.WaitGroup
+		var ctrl *gomock.Controller
+		var domainManager *virtwrap.MockDomainManager
+		var socketPath string
+
+		BeforeEach(func() {
+			var err error
+
+			stopChan = make(chan struct{})
+			wg = &sync.WaitGroup{}
+
+			shareDir, err = os.MkdirTemp("", "kubevirt-share")
+			Expect(err).ToNot(HaveOccurred())
+
+			podsDir, err = os.MkdirTemp("", "")
+			Expect(err).ToNot(HaveOccurred())
+
+			cmdclient.SetPodsBaseDir(podsDir)
+
+			socketPath = cmdclient.SocketFilePathOnHost(podUID)
+			Expect(os.MkdirAll(filepath.Dir(socketPath), 0755)).To(Succeed())
+			Expect(AddGhostRecord(domainNamespace, domainName, socketPath, podUID)).To(Succeed())
+
+			informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+
+			ctrl = gomock.NewController(GinkgoT())
+			domainManager = virtwrap.NewMockDomainManager(ctrl)
+		})
+
+		AfterEach(func() {
+			Expect(DeleteGhostRecord(domainNamespace, domainName)).To(Succeed())
+			close(stopChan)
+			wg.Wait()
+
+			Expect(os.RemoveAll(shareDir)).To(Succeed())
+			Expect(os.RemoveAll(podsDir)).To(Succeed())
+		})
+
+		verifyObj := func(key string, domain *api.Domain, g Gomega) {
+			obj, exists, err := informer.GetStore().GetByKey(key)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			if domain != nil {
+				g.Expect(exists).To(BeTrue())
+
+				eventDomain := obj.(*api.Domain)
+				eventDomain.Spec.XMLName = xml.Name{}
+				g.Expect(equality.Semantic.DeepEqual(&domain.Spec, &eventDomain.Spec)).To(BeTrue())
+			} else {
+				g.Expect(exists).To(BeFalse())
+			}
+		}
+
 		It("should list current domains.", func() {
 			var list []*api.Domain
 
-			list = append(list, api.NewMinimalDomain("testvmi1"))
-
+			list = append(list, api.NewMinimalDomain(domainName))
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
 			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
@@ -233,7 +245,7 @@ var _ = Describe("Domain informer", func() {
 		It("should list current domains including inactive domains with ghost record", func() {
 			var list []*api.Domain
 
-			list = append(list, api.NewMinimalDomain("testvmi1"))
+			list = append(list, api.NewMinimalDomain(domainName))
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
@@ -262,7 +274,7 @@ var _ = Describe("Domain informer", func() {
 		It("should detect active domains at startup.", func() {
 			var list []*api.Domain
 
-			domain := api.NewMinimalDomain("test")
+			domain := api.NewMinimalDomain(domainName)
 			list = append(list, domain)
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
@@ -279,12 +291,12 @@ var _ = Describe("Domain informer", func() {
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			verifyObj("default/test", domain, Default)
+			key := fmt.Sprintf("%s/%s", domainNamespace, domainName)
+			verifyObj(key, domain, Default)
 		})
 
 		It("should resync active domains after resync period.", func() {
-
-			domain := api.NewMinimalDomain("test")
+			domain := api.NewMinimalDomain(domainName)
 			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
 			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
@@ -307,11 +319,12 @@ var _ = Describe("Domain informer", func() {
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			verifyObj("default/test", domain, Default)
+			key := fmt.Sprintf("%s/%s", domainNamespace, domainName)
+			verifyObj(key, domain, Default)
 
 			time.Sleep(time.Duration(resyncPeriod+1) * time.Second)
 
-			obj, exists, err := informer.GetStore().GetByKey("default/test")
+			obj, exists, err := informer.GetStore().GetByKey(key)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 
@@ -329,7 +342,6 @@ var _ = Describe("Domain informer", func() {
 			f.Close()
 
 			AddGhostRecord("test", "test", socketPath, "1234")
-
 			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
@@ -342,17 +354,14 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer d.Stop()
 
-			timedOut := false
 			timeout := time.After(5 * time.Second)
 			select {
 			case event := <-d.eventChan:
 				Expect(event.Type).To(Equal(watch.Modified))
 				Expect(event.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
 			case <-timeout:
-				timedOut = true
+				Fail("timeout")
 			}
-
-			Expect(timedOut).To(BeFalse())
 
 		})
 
@@ -403,7 +412,7 @@ var _ = Describe("Domain informer", func() {
 		It("should not return errors when encountering disconnected clients at startup.", func() {
 			var list []*api.Domain
 
-			domain := api.NewMinimalDomain("test")
+			domain := api.NewMinimalDomain(domainName)
 			list = append(list, domain)
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
@@ -419,8 +428,10 @@ var _ = Describe("Domain informer", func() {
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			verifyObj("default/test", domain, Default)
+			key := fmt.Sprintf("%s/%s", domainNamespace, domainName)
+			verifyObj(key, domain, Default)
 		})
+
 		It("should watch for domain events.", func() {
 			domain := api.NewMinimalDomain("test")
 
