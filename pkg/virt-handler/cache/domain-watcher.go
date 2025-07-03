@@ -341,24 +341,8 @@ func (d *domainWatcher) ResultChan() <-chan watch.Event {
 func listSockets(ghostRecords []ghostRecord) ([]string, error) {
 	var sockets []string
 
-	knownSocketFiles, err := cmdclient.ListAllSockets()
-	if err != nil {
-		return sockets, err
-	}
-
-	sockets = append(sockets, knownSocketFiles...)
-
 	for _, record := range ghostRecords {
-		exists := false
-		for _, socket := range knownSocketFiles {
-			if record.SocketFile == socket {
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			sockets = append(sockets, record.SocketFile)
-		}
+		sockets = append(sockets, record.SocketFile)
 	}
 
 	return sockets, nil

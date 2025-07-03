@@ -132,32 +132,6 @@ func SetPodsBaseDir(baseDir string) {
 	podsBaseDir = baseDir
 }
 
-func ListAllSockets() ([]string, error) {
-	var socketFiles []string
-
-	dirs, err := os.ReadDir(podsBaseDir)
-	if err != nil {
-		return nil, err
-	}
-	for _, dir := range dirs {
-		if !dir.IsDir() {
-			continue
-		}
-
-		socketPath := SocketFilePathOnHost(dir.Name())
-		exists, err := diskutils.FileExists(socketPath)
-		if err != nil {
-			return socketFiles, err
-		}
-
-		if exists {
-			socketFiles = append(socketFiles, socketPath)
-		}
-	}
-
-	return socketFiles, nil
-}
-
 func SocketsDirectory() string {
 	return filepath.Join(baseDir, "sockets")
 }
