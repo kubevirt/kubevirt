@@ -451,11 +451,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	compute := t.newContainerSpecRenderer(vmi, volumeRenderer, resources, userId).Render(command)
 
-	for networkName, resourceName := range networkToResourceMap {
-		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
-		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
-	}
-
 	virtLauncherLogVerbosity := t.clusterConfig.GetVirtLauncherVerbosity()
 
 	if verbosity, isSet := vmi.Labels[logVerbosity]; isSet || virtLauncherLogVerbosity != virtconfig.DefaultVirtLauncherLogVerbosity {
