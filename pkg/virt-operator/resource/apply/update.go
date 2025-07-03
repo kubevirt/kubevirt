@@ -1,6 +1,8 @@
 package apply
 
-import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+import (
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
 
 func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) (bool, error) {
 	// UPDATE PATH IS

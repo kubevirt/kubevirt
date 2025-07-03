@@ -918,6 +918,7 @@
         "lastGeneration": -14,
         "hash": "hashValue"
       }
-    ]
+    ],
+    "synchronizationAddress": "synchronizationAddressValue"
   }
 }
