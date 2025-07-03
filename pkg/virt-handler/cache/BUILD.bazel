@@ -30,6 +30,7 @@ go_test(
     srcs = [
         "cache_suite_test.go",
         "cache_test.go",
+        "domain-watcher_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
