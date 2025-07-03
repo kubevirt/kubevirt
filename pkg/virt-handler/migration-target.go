@@ -199,10 +199,10 @@ func domainIsActiveOnTarget(domain *api.Domain) bool {
 
 func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	vmi.Status.MigrationState.EndTimestamp = domain.Spec.Metadata.KubeVirt.Migration.EndTimestamp
-	vmi.Labels[v1.NodeNameLabel] = c.host
-	delete(vmi.Labels, v1.OutdatedLauncherImageLabel)
-	vmi.Status.LauncherContainerImageVersion = ""
-	vmi.Status.NodeName = c.host
+	//vmi.Labels[v1.NodeNameLabel] = c.host
+	//delete(vmi.Labels, v1.OutdatedLauncherImageLabel)
+	//vmi.Status.LauncherContainerImageVersion = ""
+	//vmi.Status.NodeName = c.host
 	// clean the evacuation node name since have already migrated to a new node
 	vmi.Status.EvacuationNodeName = ""
 	// update the vmi migrationTransport to indicate that next migration should use unix URI
@@ -988,5 +988,9 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 	}
 
 	vmi.Status.MigrationState.Completed = true
+	vmi.Labels[v1.NodeNameLabel] = c.host
+	delete(vmi.Labels, v1.OutdatedLauncherImageLabel)
+	vmi.Status.LauncherContainerImageVersion = ""
+	vmi.Status.NodeName = c.host
 	return nil
 }
