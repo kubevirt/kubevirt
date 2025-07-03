@@ -17723,6 +17723,11 @@ func schema_kubevirtio_api_core_v1_ArchConfiguration(ref common.ReferenceCallbac
 							Ref: ref("kubevirt.io/api/core/v1.ArchSpecificConfiguration"),
 						},
 					},
+					"s390x": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.ArchSpecificConfiguration"),
+						},
+					},
 					"defaultArchitecture": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
