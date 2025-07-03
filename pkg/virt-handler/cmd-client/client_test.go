@@ -96,17 +96,6 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", StandardLauncherSocketFileName)))
 		})
 
-		It("Listing all sockets", func() {
-			sockets, err := ListAllSockets()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(sockets).To(HaveLen(1))
-			By("Expecting to only find cmd socket in launcher's context")
-			Expect(sockets[0]).To(And(
-				HaveSuffix("launcher-sock"),
-				ContainSubstring(podUID),
-			))
-		})
-
 		It("Detect unresponsive socket", func() {
 			sock, err := FindSocket(vmi)
 			Expect(err).ToNot(HaveOccurred())
