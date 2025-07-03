@@ -29,7 +29,7 @@
 #pragma once
 
 #if !LIBVIR_CHECK_VERSION(0, 0, 1)
-#  define LIBVIR_VERSION_NUMBER 10009000
+#  define LIBVIR_VERSION_NUMBER 11002000
 #endif
 
 #if !LIBVIR_CHECK_VERSION(5, 8, 0)
@@ -272,6 +272,218 @@
 #  define VIR_DOMAIN_CPU_STATS_VCPUTIME "vcpu_time"
 #endif
 
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_DISK_COUNT "disk.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_DISK_PREFIX "disk."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_DISK_SUFFIX_ALIAS ".alias"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_DISK_SUFFIX_DEPENDENCY_COUNT ".dependency.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_DISK_SUFFIX_DEPENDENCY_PREFIX ".dependency."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_DISK_SUFFIX_DEPENDENCY_SUFFIX_NAME ".name"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_DISK_SUFFIX_GUEST_ALIAS ".guest_alias"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_DISK_SUFFIX_GUEST_BUS ".guest_bus"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_DISK_SUFFIX_NAME ".name"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_DISK_SUFFIX_PARTITION ".partition"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_DISK_SUFFIX_SERIAL ".serial"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_COUNT "fs.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_PREFIX "fs."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_SUFFIX_DISK_COUNT ".disk.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_SUFFIX_DISK_PREFIX ".disk."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_SUFFIX_DISK_SUFFIX_ALIAS ".alias"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_SUFFIX_DISK_SUFFIX_DEVICE ".device"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_SUFFIX_DISK_SUFFIX_SERIAL ".serial"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_SUFFIX_FSTYPE ".fstype"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_SUFFIX_MOUNTPOINT ".mountpoint"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_SUFFIX_NAME ".name"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_SUFFIX_TOTAL_BYTES ".total-bytes"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_FS_SUFFIX_USED_BYTES ".used-bytes"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_HOSTNAME_HOSTNAME "hostname"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_IF_COUNT "if.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_IF_PREFIX "if."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_IF_SUFFIX_ADDR_COUNT ".addr.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_IF_SUFFIX_ADDR_PREFIX ".addr."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_IF_SUFFIX_ADDR_SUFFIX_ADDR ".addr"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_IF_SUFFIX_ADDR_SUFFIX_PREFIX ".prefix"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_IF_SUFFIX_ADDR_SUFFIX_TYPE ".type"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_IF_SUFFIX_HWADDR ".hwaddr"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_IF_SUFFIX_NAME ".name"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_LOAD_15M "load.15m"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_LOAD_1M "load.1m"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_LOAD_5M "load.5m"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_OS_ID "os.id"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_OS_KERNEL_RELEASE "os.kernel-release"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_OS_KERNEL_VERSION "os.kernel-version"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_OS_MACHINE "os.machine"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_OS_NAME "os.name"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_OS_PRETTY_NAME "os.pretty-name"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_OS_VARIANT "os.variant"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_OS_VARIANT_ID "os.variant-id"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_OS_VERSION "os.version"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_OS_VERSION_ID "os.version-id"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_TIMEZONE_NAME "timezone.name"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_TIMEZONE_OFFSET "timezone.offset"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_USER_COUNT "user.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_USER_PREFIX "user."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_USER_SUFFIX_DOMAIN ".domain"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_USER_SUFFIX_LOGIN_TIME ".login-time"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_GUEST_INFO_USER_SUFFIX_NAME ".name"
+#endif
+
 #if !LIBVIR_CHECK_VERSION(4, 10, 0)
 #  define VIR_DOMAIN_IOTHREAD_POLL_GROW "poll_grow"
 #endif
@@ -512,6 +724,14 @@
 #  define VIR_DOMAIN_SAVE_PARAM_FILE "file"
 #endif
 
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_SAVE_PARAM_IMAGE_FORMAT "image_format"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_SAVE_PARAM_PARALLEL_CHANNELS "parallel.channels"
+#endif
+
 #if !LIBVIR_CHECK_VERSION(0, 9, 7)
 #  define VIR_DOMAIN_SCHEDULER_CAP "cap"
 #endif
@@ -574,6 +794,458 @@
 
 #if !LIBVIR_CHECK_VERSION(0, 9, 3)
 #  define VIR_DOMAIN_SEND_KEY_MAX_KEYS 16
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_AVAILABLE "balloon.available"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_CURRENT "balloon.current"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_DISK_CACHES "balloon.disk_caches"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_HUGETLB_PGALLOC "balloon.hugetlb_pgalloc"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_HUGETLB_PGFAIL "balloon.hugetlb_pgfail"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_LAST_UPDATE "balloon.last-update"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_MAJOR_FAULT "balloon.major_fault"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_MAXIMUM "balloon.maximum"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_MINOR_FAULT "balloon.minor_fault"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_RSS "balloon.rss"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_SWAP_IN "balloon.swap_in"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_SWAP_OUT "balloon.swap_out"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_UNUSED "balloon.unused"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BALLOON_USABLE "balloon.usable"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_COUNT "block.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_PREFIX "block."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_ALLOCATION ".allocation"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_BACKINGINDEX ".backingIndex"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_CAPACITY ".capacity"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_ERRORS ".errors"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_FL_REQS ".fl.reqs"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_FL_TIMES ".fl.times"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_NAME ".name"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_PATH ".path"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_PHYSICAL ".physical"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_RD_BYTES ".rd.bytes"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_RD_REQS ".rd.reqs"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_RD_TIMES ".rd.times"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_THRESHOLD ".threshold"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_WR_BYTES ".wr.bytes"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_WR_REQS ".wr.reqs"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_BLOCK_SUFFIX_WR_TIMES ".wr.times"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_COUNT "cpu.cache.monitor.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_PREFIX "cpu.cache.monitor."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_BANK_COUNT ".bank.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_BANK_PREFIX ".bank."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_BANK_SUFFIX_BYTES ".bytes"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_BANK_SUFFIX_ID ".id"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_NAME ".name"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_CACHE_MONITOR_SUFFIX_VCPUS ".vcpus"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_HALTPOLL_FAIL_TIME "cpu.haltpoll.fail.time"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_HALTPOLL_SUCCESS_TIME "cpu.haltpoll.success.time"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_SYSTEM "cpu.system"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_TIME "cpu.time"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CPU_USER "cpu.user"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CUSTOM_SUFFIX_TYPE_CUR ".cur"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CUSTOM_SUFFIX_TYPE_MAX ".max"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_CUSTOM_SUFFIX_TYPE_SUM ".sum"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_DIRTYRATE_CALC_MODE "dirtyrate.calc_mode"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_DIRTYRATE_CALC_PERIOD "dirtyrate.calc_period"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_DIRTYRATE_CALC_START_TIME "dirtyrate.calc_start_time"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_DIRTYRATE_CALC_STATUS "dirtyrate.calc_status"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_DIRTYRATE_MEGABYTES_PER_SECOND "dirtyrate.megabytes_per_second"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_DIRTYRATE_VCPU_PREFIX "dirtyrate.vcpu."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_DIRTYRATE_VCPU_SUFFIX_MEGABYTES_PER_SECOND ".megabytes_per_second"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_IOTHREAD_COUNT "iothread.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_IOTHREAD_PREFIX "iothread."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_IOTHREAD_SUFFIX_POLL_GROW ".poll-grow"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_IOTHREAD_SUFFIX_POLL_MAX_NS ".poll-max-ns"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_IOTHREAD_SUFFIX_POLL_SHRINK ".poll-shrink"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_COUNT "memory.bandwidth.monitor.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_PREFIX "memory.bandwidth.monitor."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NAME ".name"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_COUNT ".node.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_PREFIX ".node."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_SUFFIX_BYTES_LOCAL ".bytes.local"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_SUFFIX_BYTES_TOTAL ".bytes.total"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_NODE_SUFFIX_ID ".id"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_MEMORY_BANDWIDTH_MONITOR_SUFFIX_VCPUS ".vcpus"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_NET_COUNT "net.count"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_NET_PREFIX "net."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_NET_SUFFIX_NAME ".name"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_NET_SUFFIX_RX_BYTES ".rx.bytes"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_NET_SUFFIX_RX_DROP ".rx.drop"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_NET_SUFFIX_RX_ERRS ".rx.errs"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_NET_SUFFIX_RX_PKTS ".rx.pkts"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_NET_SUFFIX_TX_BYTES ".tx.bytes"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_NET_SUFFIX_TX_DROP ".tx.drop"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_NET_SUFFIX_TX_ERRS ".tx.errs"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_NET_SUFFIX_TX_PKTS ".tx.pkts"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_ALIGNMENT_FAULTS "perf.alignment_faults"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_BRANCH_INSTRUCTIONS "perf.branch_instructions"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_BRANCH_MISSES "perf.branch_misses"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_BUS_CYCLES "perf.bus_cycles"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_CACHE_MISSES "perf.cache_misses"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_CACHE_REFERENCES "perf.cache_references"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_CMT "perf.cmt"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_CONTEXT_SWITCHES "perf.context_switches"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_CPU_CLOCK "perf.cpu_clock"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_CPU_CYCLES "perf.cpu_cycles"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_CPU_MIGRATIONS "perf.cpu_migrations"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_EMULATION_FAULTS "perf.emulation_faults"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_INSTRUCTIONS "perf.instructions"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_MBML "perf.mbml"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_MBMT "perf.mbmt"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_PAGE_FAULTS "perf.page_faults"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_PAGE_FAULTS_MAJ "perf.page_faults_maj"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_PAGE_FAULTS_MIN "perf.page_faults_min"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_REF_CPU_CYCLES "perf.ref_cpu_cycles"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_STALLED_CYCLES_BACKEND "perf.stalled_cycles_backend"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_STALLED_CYCLES_FRONTEND "perf.stalled_cycles_frontend"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_PERF_TASK_CLOCK "perf.task_clock"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_STATE_REASON "state.reason"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_STATE_STATE "state.state"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_VCPU_CURRENT "vcpu.current"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_VCPU_MAXIMUM "vcpu.maximum"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_VCPU_PREFIX "vcpu."
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_VCPU_SUFFIX_DELAY ".delay"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_VCPU_SUFFIX_HALTED ".halted"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_VCPU_SUFFIX_STATE ".state"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_VCPU_SUFFIX_TIME ".time"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_VCPU_SUFFIX_WAIT ".wait"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#  define VIR_DOMAIN_STATS_VM_PREFIX "vm."
 #endif
 
 #if !LIBVIR_CHECK_VERSION(1, 2, 9)
@@ -722,6 +1394,10 @@
 
 #if !LIBVIR_CHECK_VERSION(1, 1, 0)
 #  define VIR_MIGRATE_PARAM_BANDWIDTH "bandwidth"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(11, 1, 0)
+#  define VIR_MIGRATE_PARAM_BANDWIDTH_AVAIL_SWITCHOVER "bandwidth.avail.switchover"
 #endif
 
 #if !LIBVIR_CHECK_VERSION(5, 1, 0)

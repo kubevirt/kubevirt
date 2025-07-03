@@ -235,6 +235,14 @@ type DomainEventMemoryDeviceSizeChange struct {
 
 type DomainEventMemoryDeviceSizeChangeCallback func(c *Connect, d *Domain, event *DomainEventMemoryDeviceSizeChange)
 
+type DomainEventNICMACChange struct {
+	Alias  string
+	OldMAC string
+	NewMAC string
+}
+
+type DomainEventNICMACChangeCallback func(c *Connect, d *Domain, event *DomainEventNICMACChange)
+
 //export domainEventLifecycleCallback
 func domainEventLifecycleCallback(c C.virConnectPtr, d C.virDomainPtr,
 	event int, detail int,
@@ -1012,6 +1020,24 @@ func domainEventMemoryDeviceSizeChangeCallback(c C.virConnectPtr, d C.virDomainP
 
 }
 
+//export domainEventNICMACChangeCallback
+func domainEventNICMACChangeCallback(c C.virConnectPtr, d C.virDomainPtr, alias *C.char, oldMAC *C.char, newMAC *C.char, goCallbackId int) {
+	domain := &Domain{ptr: d}
+	connection := &Connect{ptr: c}
+
+	eventDetails := &DomainEventNICMACChange{
+		Alias:  C.GoString(alias),
+		OldMAC: C.GoString(oldMAC),
+		NewMAC: C.GoString(newMAC),
+	}
+	callbackFunc := getCallbackId(goCallbackId)
+	callback, ok := callbackFunc.(DomainEventNICMACChangeCallback)
+	if !ok {
+		panic("Inappropriate callback type called")
+	}
+	callback(connection, domain, eventDetails)
+}
+
 func (c *Connect) DomainEventLifecycleRegister(dom *Domain, callback DomainEventLifecycleCallback) (int, error) {
 	goCallBackId := registerCallbackId(callback)
 
@@ -1543,6 +1569,26 @@ func (c *Connect) DomainEventMemoryDeviceSizeChangeRegister(dom *Domain, callbac
 	var err C.virError
 	ret := C.virConnectDomainEventRegisterAnyHelper(c.ptr, cdom,
 		C.VIR_DOMAIN_EVENT_ID_MEMORY_DEVICE_SIZE_CHANGE,
+		C.virConnectDomainEventGenericCallback(callbackPtr),
+		C.long(goCallBackId), &err)
+	if ret == -1 {
+		freeCallbackId(goCallBackId)
+		return 0, makeError(&err)
+	}
+	return int(ret), nil
+}
+
+func (c *Connect) DomainEventNICMACChangeRegister(dom *Domain, callback DomainEventNICMACChangeCallback) (int, error) {
+	goCallBackId := registerCallbackId(callback)
+
+	callbackPtr := unsafe.Pointer(C.domainEventNICMACChangeCallbackHelper)
+	var cdom C.virDomainPtr
+	if dom != nil {
+		cdom = dom.ptr
+	}
+	var err C.virError
+	ret := C.virConnectDomainEventRegisterAnyHelper(c.ptr, cdom,
+		C.VIR_DOMAIN_EVENT_ID_NIC_MAC_CHANGE,
 		C.virConnectDomainEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
 	if ret == -1 {
