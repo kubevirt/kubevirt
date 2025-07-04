@@ -183,6 +183,7 @@ var _ = Describe("Application", func() {
 			storageProfileInformer,
 			migrationPolicyInformer,
 			resourceQuotaInformer,
+			kvInformer,
 			recorder,
 			virtClient,
 			config,
