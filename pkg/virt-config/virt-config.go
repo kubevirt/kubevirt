@@ -24,8 +24,6 @@ package virtconfig
 */
 
 import (
-	"strings"
-
 	"kubevirt.io/client-go/log"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -70,6 +68,7 @@ const (
 	SupportedGuestAgentVersions                     = "2.*,3.*,4.*,5.*"
 	DefaultARCHOVMFPath                             = "/usr/share/OVMF"
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
+	DefaultS390xOVMFPath                            = ""
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
 	DefaultDiskVerificationMemoryLimitBytes         = 2000 * 1024 * 1024
@@ -140,7 +139,7 @@ func (c *ClusterConfig) GetMachineType(arch string) string {
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.MachineType
 	case "s390x":
-		return DefaultS390XMachineType
+		return c.GetConfig().ArchitectureConfiguration.S390x.MachineType
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.MachineType
 	}
@@ -174,7 +173,7 @@ func (c *ClusterConfig) GetEmulatedMachines(arch string) []string {
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.EmulatedMachines
 	case "s390x":
-		return strings.Split(DefaultS390XEmulatedMachines, ",")
+		return c.GetConfig().ArchitectureConfiguration.S390x.EmulatedMachines
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.EmulatedMachines
 	}
@@ -236,7 +235,7 @@ func (c *ClusterConfig) GetOVMFPath(arch string) string {
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.OVMFPath
 	case "s390x":
-		return ""
+		return c.GetConfig().ArchitectureConfiguration.S390x.OVMFPath
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.OVMFPath
 	}
