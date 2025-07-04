@@ -23,8 +23,6 @@ import (
 	"fmt"
 	"log"
 
-	vishnetlink "github.com/vishvananda/netlink"
-
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	type100 "github.com/containernetworking/cni/pkg/types/100"
@@ -63,14 +61,9 @@ type sysctlAdapter interface {
 	IPv4SetPingGroupRange(int, int) error
 }
 
-type netlinkAdapter interface {
-	ReadLink(string) (vishnetlink.Link, error)
-}
-
 type cmd struct {
-	netns          ns.NetNS
-	sysctlAdapter  sysctlAdapter
-	netlinkAdapter netlinkAdapter
+	netns         ns.NetNS
+	sysctlAdapter sysctlAdapter
 }
 
 func NewCmd(netns ns.NetNS, sysctlAdapter sysctlAdapter) *cmd {
@@ -86,11 +79,11 @@ func (c *cmd) CmdAddResult(args *skel.CmdArgs) (types.Result, error) {
 	result := type100.Result{CNIVersion: cniVersion}
 
 	err = c.netns.Do(func(_ ns.NetNS) error {
-		if err := c.sysctlAdapter.IPv4SetUnprivilegedPortStart(0); err != nil {
-			return err
+		if sysctlErr := c.sysctlAdapter.IPv4SetUnprivilegedPortStart(0); sysctlErr != nil {
+			return sysctlErr
 		}
-		if err := c.sysctlAdapter.IPv4SetPingGroupRange(virtLauncherUserID, virtLauncherUserID); err != nil {
-			return err
+		if sysctlErr := c.sysctlAdapter.IPv4SetPingGroupRange(virtLauncherUserID, virtLauncherUserID); sysctlErr != nil {
+			return sysctlErr
 		}
 
 		netname := netConf.Args.Cni.LogicNetworkName
