@@ -313,7 +313,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 					SourceNode:        host,
 					TargetNodeAddress: "othernode",
 					Completed:         false,
-				}))))
+				}), libvmistatus.WithNodeName(host)),
+			))
 			d.Spec.Metadata.KubeVirt.Migration.FailureReason = "some failure happened"
 
 			controller.setMigrationProgressStatus(vmi, d)
