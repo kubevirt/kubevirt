@@ -262,6 +262,8 @@ type VirtControllerApp struct {
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
 	cloneControllerThreads            int
+	additionalLauncherAnnotationsSync []string
+	additionalLauncherLabelsSync      []string
 
 	caConfigMapName          string
 	promCertFilePath         string
@@ -684,6 +686,8 @@ func (vca *VirtControllerApp) initCommon() {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
 		netmigration.NewEvaluator(),
+		vca.additionalLauncherAnnotationsSync,
+		vca.additionalLauncherLabelsSync,
 	)
 	if err != nil {
 		panic(err)
@@ -788,6 +792,8 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 			vca.clusterConfig,
 			recorder,
 		),
+		vca.additionalLauncherAnnotationsSync,
+		vca.additionalLauncherLabelsSync,
 	)
 	if err != nil {
 		panic(err)
@@ -1042,6 +1048,12 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.cloneControllerThreads, "clone-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for clone controller")
+
+	flag.StringSliceVar(&vca.additionalLauncherAnnotationsSync, "additional-launcher-annotations-sync", []string{},
+		"Comma separated list of annotation keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Note, it is unidirectional from VM.spec.template.metadata -> VMI -> virt-launcher pod")
+
+	flag.StringSliceVar(&vca.additionalLauncherLabelsSync, "additional-launcher-labels-sync", []string{},
+		"Comma separated list of labels keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Note, it is unidirectional from VM.spec.template.metadata -> VMI -> virt-launcher pod")
 }
 
 func (vca *VirtControllerApp) setupLeaderElector() (err error) {
