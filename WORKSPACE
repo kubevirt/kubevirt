@@ -333,21 +333,21 @@ container_deps()
 # Pull go_image_base
 container_pull(
     name = "go_image_base",
-    digest = "sha256:0ba6aa6b538aeae3d0f716ea8837703eb147173cd673241662e89adb794da829",
+    digest = "sha256:0d0479220a36ba3e9665b5c08b635ed5421bec501ed38365e48eb716986b20eb",
     registry = "gcr.io",
     repository = "distroless/base-debian12",
 )
 
 container_pull(
     name = "go_image_base_aarch64",
-    digest = "sha256:9ee08ca352647dad1511153afb18f4a6dbb4f56bafc7d618d0082c16a14cfdf1",
+    digest = "sha256:5515eef798481300d4f7c16b0e7e72fa8b8221954cf8b6adb9d76bbfa66dec32",
     registry = "gcr.io",
     repository = "distroless/base-debian12",
 )
 
 container_pull(
     name = "go_image_base_s390x",
-    digest = "sha256:6e2e356c462d69668a0313bf45ed3de614e9d4e0b9c03fa081d3bcae143a58ba",
+    digest = "sha256:e7ea68353aa46a09eb3f5b11587f62548f175e23378e329cba3450f80ce5e34f",
     registry = "gcr.io",
     repository = "distroless/base-debian12",
 )
