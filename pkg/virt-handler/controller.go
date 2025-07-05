@@ -276,9 +276,13 @@ func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) b
 	var domainMigrationMetadata *api.MigrationMetadata
 	if vmi != nil &&
 		vmi.Status.MigrationState != nil &&
-		vmi.Status.MigrationState.StartTimestamp != nil &&
-		vmi.Status.MigrationState.EndTimestamp == nil {
-		return true
+		vmi.Status.MigrationState.StartTimestamp != nil {
+		if vmi.Status.MigrationState.EndTimestamp == nil {
+			return true
+		}
+		if !vmi.Status.MigrationState.Completed != !vmi.Status.MigrationState.Failed {
+			return true
+		}
 	}
 
 	if domain != nil {
