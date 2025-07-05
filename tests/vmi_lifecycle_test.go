@@ -57,6 +57,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -418,9 +419,17 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			Context("for Machine Type", func() {
 
-				const unsupportedMachineType = "pc-q35-test1.2.3"
-
 				It("should prevent scheduling of a pod for a VMI with an unsupported machine type", func() {
+					var unsupportedMachineType string
+					switch testsuite.Arch {
+					case "arm64":
+						unsupportedMachineType = "virt-test-1.2.3"
+					case "s390x":
+						unsupportedMachineType = "s390-ccw-virtio-test-1.2.3"
+					default:
+						unsupportedMachineType = "pc-q35-test-1.2.3"
+					}
+
 					virtClient := kubevirt.Client()
 					vmi := libvmifact.NewGuestless()
 					vmi.Namespace = testsuite.GetTestNamespace(vmi)
@@ -457,7 +466,11 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("should be stopped and have Failed phase when a PanicDevice is provided", func() {
-				vmi := libvmifact.NewFedora(libvmi.WithPanicDevice(v1.Isa))
+				device := v1.Isa
+				if checks.IsARM64(testsuite.Arch) {
+					device = v1.Pvpanic
+				}
+				vmi := libvmifact.NewFedora(libvmi.WithPanicDevice(device))
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
