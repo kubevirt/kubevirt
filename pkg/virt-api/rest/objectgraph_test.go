@@ -256,14 +256,6 @@ var _ = Describe("Object Graph", func() {
 									},
 								},
 							},
-							Networks: []v1.Network{
-								{
-									Name: "default",
-									NetworkSource: v1.NetworkSource{
-										Pod: &v1.PodNetwork{},
-									},
-								},
-							},
 						},
 					},
 				},
@@ -706,6 +698,73 @@ var _ = Describe("Object Graph", func() {
 			for _, child := range graphNodes.Children {
 				Expect(child.Labels[ObjectGraphDependencyLabel]).To(Equal("storage"))
 			}
+		})
+
+		Context("Network handling", func() {
+			It("should handle VM with Multus network attachment definitions", func() {
+				networkName := "multus-net"
+				vm.Spec.Template.Spec.Networks = []v1.Network{
+					{
+						Name: "default",
+						NetworkSource: v1.NetworkSource{
+							Pod: &v1.PodNetwork{},
+						},
+					},
+					{
+						Name: networkName,
+						NetworkSource: v1.NetworkSource{
+							Multus: &v1.MultusNetwork{
+								NetworkName: "test-nad",
+							},
+						},
+					},
+				}
+
+				graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
+				graphNodes, err := graph.GetObjectGraph(vm)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Check for NetworkAttachmentDefinition in children
+				childMap := make(map[string]string)
+				for _, child := range graphNodes.Children {
+					childMap[child.ObjectReference.Name] = child.ObjectReference.Kind
+				}
+
+				Expect(childMap).To(HaveKey("test-nad"))
+				Expect(childMap["test-nad"]).To(Equal("NetworkAttachmentDefinition"))
+				Expect(childMap).To(HaveKey(convertToCRDName(vm.Name, networkName)))
+				Expect(childMap[convertToCRDName(vm.Name, networkName)]).To(Equal("IPAMClaim"))
+			})
+
+			It("should filter network dependencies by label selector", func() {
+				vm.Spec.Template.Spec.Networks = []v1.Network{
+					{
+						Name: "multus-net",
+						NetworkSource: v1.NetworkSource{
+							Multus: &v1.MultusNetwork{
+								NetworkName: "test-nad",
+							},
+						},
+					},
+				}
+
+				options := &v1.ObjectGraphOptions{
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							ObjectGraphDependencyLabel: "network",
+						},
+					},
+				}
+
+				graph := NewObjectGraph(kvClient, options)
+				graphNodes, err := graph.GetObjectGraph(vm)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Should only return network-related nodes
+				for _, child := range graphNodes.Children {
+					Expect(child.Labels[ObjectGraphDependencyLabel]).To(Equal("network"))
+				}
+			})
 		})
 	})
 })

@@ -22,6 +22,7 @@ package rest
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
@@ -89,6 +90,8 @@ var objectGraphMap = map[string]schema.GroupKind{
 	"serviceaccounts":                    {Group: "", Kind: "ServiceAccount"},
 	"secrets":                            {Group: "", Kind: "Secret"},
 	"pods":                               {Group: "", Kind: "Pod"},
+	"networkattachmentdefinitions":       {Group: "k8s.cni.cncf.io", Kind: "NetworkAttachmentDefinition"},
+	"ipamclaims":                         {Group: "k8s.cni.cncf.io", Kind: "IPAMClaim"},
 }
 
 // getResourceDependencyType returns the dependency type for a given resource
@@ -101,7 +104,7 @@ func getResourceDependencyType(resource string) DependencyType {
 	case "configmaps", "secrets", "virtualmachineinstancetypes", "virtualmachineclusterinstancetypes",
 		"virtualmachinepreferences", "virtualmachineclusterpreferences", "controllerrevisions":
 		return DependencyTypeConfig
-	case "serviceaccounts":
+	case "serviceaccounts", "networkattachmentdefinitions", "ipamclaims":
 		return DependencyTypeNetwork
 	default:
 		return DependencyTypeCompute
@@ -280,8 +283,13 @@ func (og *ObjectGraph) buildChildrenFromVM(vm *v1.VirtualMachine) ([]v1.ObjectGr
 	children = append(children, og.getPreferenceNode(vm)...)
 	children = append(children, og.getAccessCredentialNodes(vm.Spec.Template.Spec.AccessCredentials, vm.GetNamespace())...)
 
+	// Main storage nodes
 	volumeNodes, err := og.addVolumeGraph(vm, vm.GetNamespace())
 	children = append(children, volumeNodes...)
+	errs = append(errs, err)
+	// Main network nodes
+	networkNodes, err := og.handleNetworkNodes(vm.Spec.Template.Spec, vm.GetName(), vm.GetNamespace())
+	children = append(children, networkNodes...)
 	errs = append(errs, err)
 
 	return children, errs
@@ -298,8 +306,13 @@ func (og *ObjectGraph) buildChildrenFromVMI(vmi *v1.VirtualMachineInstance) ([]v
 	}
 
 	children = append(children, og.getAccessCredentialNodes(vmi.Spec.AccessCredentials, vmi.GetNamespace())...)
+	// Main storage nodes
 	volumeNodes, err := og.addVolumeGraph(vmi, vmi.GetNamespace())
 	children = append(children, volumeNodes...)
+	errs = append(errs, err)
+	// Main network nodes
+	networkNodes, err := og.handleNetworkNodes(vmi.Spec, vmi.GetName(), vmi.GetNamespace())
+	children = append(children, networkNodes...)
 	errs = append(errs, err)
 
 	return children, errs
@@ -434,5 +447,66 @@ func (og *ObjectGraph) getInstanceTypeMatcherResource(matcher v1.Matcher, status
 	return nodes
 }
 
+func (og *ObjectGraph) handleNetworkNodes(vmiSpec v1.VirtualMachineInstanceSpec, vmName, namespace string) ([]v1.ObjectGraphNode, error) {
+	var nodes []v1.ObjectGraphNode
+
+	for _, net := range vmiSpec.Networks {
+		if net.Multus != nil && net.Multus.NetworkName != "" {
+			parts := strings.Split(net.Multus.NetworkName, "/")
+			name := net.Multus.NetworkName
+			nadNamespace := namespace
+
+			if len(parts) == 2 {
+				nadNamespace = parts[0]
+				name = parts[1]
+			}
+
+			node := og.newGraphNode(name, nadNamespace, "networkattachmentdefinitions", nil, true)
+			if node != nil {
+				nodes = append(nodes, *node)
+			}
+		} else if net.Pod != nil {
+			// TODO: Consider handling this case.
+			// Would need to list the NetworkAttachmentDefinitions in the VM namespace.
+			continue
+		}
+	}
+
+	// IPAM Claims are important for cross cluster live migration because the fixed IP needs to be created in the target cluster.
+	// Marking them as optional since these are madantory only for cross cluster live migration.
+	// TODO: We are including the IPAMClaims for all networks as the'd be created by kubevirt/ipam-extensions
+	// but we can't really ensure these exists without using a list call.
+	for _, net := range vmiSpec.Networks {
+		node := og.newGraphNode(convertToCRDName(vmName, net.Name), namespace, "ipamclaims", nil, true)
+		if node != nil {
+			nodes = append(nodes, *node)
+		}
+	}
+
+	return nodes, nil
+}
+
+// Define the regex pattern for valid RFC 1123 subdomains
+var rfc1123SubdomainsRegexp = regexp.MustCompile(`[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*`)
+
+// convertToCRDName follows the name convention from https://github.com/kubevirt/ipam-extensions.
+// This repo creates (and manage the lifecycle of) IPAMClaims on behalf of KubeVirt virtual machines.
+func convertToCRDName(vmName, networkName string) string {
+	// Convert to lowercase
+	crdName := strings.ToLower(vmName + "." + networkName)
+
+	// Find the longest valid substring that matches the pattern
+	matches := rfc1123SubdomainsRegexp.FindAllString(crdName, -1)
+
+	// Join valid substrings with a dot (if there are multiple matches)
+	crdName = strings.Join(matches, ".")
+
+	// Truncate to 253 characters if necessary
+	if len(crdName) > 253 {
+		crdName = crdName[:253]
+	}
+	return crdName
+}
+
 // TODO: Add more as needed.
-// For example network attachments, vmexports, vmsnapshots, vmimigrations, etc.
+// For example vmexports, vmsnapshots, vmimigrations, etc.
