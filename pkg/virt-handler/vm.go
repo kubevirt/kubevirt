@@ -1287,6 +1287,10 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, "VMI uses a PCI host devices")
 	}
 
+	if util.IsVMIVirtiofsEnabled(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable, "VMI uses virtiofs")
+	}
+
 	if util.IsSEVVMI(vmi) {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonSEVNotMigratable, "VMI uses SEV")
 	}
