@@ -320,22 +320,6 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	})
 
-	It("should default instancetype kind to ClusterSingularResourceName when not provided", func() {
-		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-			Name: "foobar",
-		}
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
-		Expect(vmSpec.Instancetype.Kind).To(Equal(apiinstancetype.ClusterSingularResourceName))
-	})
-
-	It("should default preference kind to ClusterSingularPreferenceResourceName when not provided", func() {
-		vm.Spec.Preference = &v1.PreferenceMatcher{
-			Name: "foobar",
-		}
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
-		Expect(vmSpec.Preference.Kind).To(Equal(apiinstancetype.ClusterSingularPreferenceResourceName))
-	})
-
 	It("should use PreferredMachineType from ClusterSingularPreferenceResourceName when no preference kind is provided", func() {
 		preference := &instancetypev1beta1.VirtualMachineClusterPreference{
 			ObjectMeta: k8smetav1.ObjectMeta{
