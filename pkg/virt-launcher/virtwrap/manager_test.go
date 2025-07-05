@@ -601,6 +601,7 @@ var _ = Describe("Manager", func() {
 
 			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil).Times(1)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockLibvirt.DomainEXPECT().Free().Times(1)
 			mockLibvirt.DomainEXPECT().FSFreeze(nil, uint32(0)).Times(1)
 
@@ -624,6 +625,7 @@ var _ = Describe("Manager", func() {
 
 			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil).Times(1)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockLibvirt.DomainEXPECT().Free().Times(1)
 			mockLibvirt.DomainEXPECT().FSThaw(nil, uint32(0)).Times(1)
 
@@ -636,6 +638,7 @@ var _ = Describe("Manager", func() {
 
 			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
 			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil).Times(2)
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil).Times(2)
 			mockLibvirt.DomainEXPECT().Free().Times(2)
 			mockLibvirt.DomainEXPECT().FSFreeze(nil, uint32(0)).Times(1)
@@ -653,6 +656,7 @@ var _ = Describe("Manager", func() {
 
 			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
 			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil).Times(2)
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil).Times(2)
 			mockLibvirt.DomainEXPECT().Free().Times(2)
 			mockLibvirt.DomainEXPECT().FSFreeze(nil, uint32(0)).Times(1)
@@ -666,6 +670,33 @@ var _ = Describe("Manager", func() {
 			Expect(manager.UnfreezeVMI(vmi)).To(Succeed())
 			// wait for the unfreeze timeout
 			time.Sleep(unfreezeTimeout + 2*time.Second)
+		})
+		It("should skip freeze a VirtualMachineInstance for a paused domain state", func() {
+			vmi := newVMI(testNamespace, testVmName)
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil).Times(1)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil).Times(1)
+			mockLibvirt.DomainEXPECT().Free().Times(1)
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Times(0)
+			mockLibvirt.DomainEXPECT().FSFreeze(nil, uint32(0)).Times(0)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			Expect(manager.FreezeVMI(vmi, 0)).To(Succeed())
+		})
+
+		It("should skip unfreeze a VirtualMachineInstance for a paused domain state", func() {
+			vmi := newVMI(testNamespace, testVmName)
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil).Times(1)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil).Times(1)
+			mockLibvirt.DomainEXPECT().Free().Times(1)
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Times(0)
+			mockLibvirt.DomainEXPECT().FSThaw(nil, uint32(0)).Times(0)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			Expect(manager.UnfreezeVMI(vmi)).To(Succeed())
 		})
 		It("should update domain with memory dump info when completed successfully", func() {
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
