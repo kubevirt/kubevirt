@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -221,6 +222,58 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 
 			By("Verifying the graph with optional nodes has more dependencies")
 			Expect(len(objectGraphWithOptional.Children)).To(BeNumerically(">", len(objectGraph.Children)))
+		})
+	})
+
+	Context("Network resources", decorators.Multus, func() {
+		const nadName = "test-network-attachment"
+
+		It("should include network resources in object graph", func() {
+			const bridgeName = "br10"
+			netAttachDef := libnet.NewBridgeNetAttachDef(nadName, bridgeName)
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+			Expect(err).ToNot(HaveOccurred())
+
+			const secondaryNetName = "secondary-net"
+			defaultModelIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)
+			defaultModelIface.PciAddress = "0000:03:00.0"
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(
+					libvmi.WithInterface(defaultModelIface),
+					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
+				))
+
+			ipamClaim, err := libnet.CreateIPAMClaimForVM(context.Background(), testsuite.GetTestNamespace(nil), vm.Name, "test-ipam-claim", "", "")
+			Expect(err).ToNot(HaveOccurred())
+
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Getting object graph")
+			objectGraph, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).ObjectGraph(context.Background(), vm.Name, &v1.ObjectGraphOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying NetworkAttachmentDefinition is included")
+			hasNetworkAttachment := false
+			for _, child := range objectGraph.Children {
+				if child.ObjectReference.Kind == "NetworkAttachmentDefinition" &&
+					child.ObjectReference.Name == netAttachDef.Name {
+					hasNetworkAttachment = true
+					break
+				}
+			}
+			Expect(hasNetworkAttachment).To(BeTrue())
+
+			By("Verifying IPAMClaim is included")
+			hasIPAMClaim := false
+			for _, child := range objectGraph.Children {
+				if child.ObjectReference.Kind == "IPAMClaim" &&
+					child.ObjectReference.Name == ipamClaim.Name {
+					hasIPAMClaim = true
+					break
+				}
+			}
+			Expect(hasIPAMClaim).To(BeTrue())
 		})
 	})
 })

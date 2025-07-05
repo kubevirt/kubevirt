@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "fake_ipamclaim.go",
+        "fake_ipamclaims_client.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned/typed/ipamclaims/v1alpha1/fake",
+    importpath = "github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned/typed/ipamclaims/v1alpha1/fake",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned/typed/ipamclaims/v1alpha1:go_default_library",
+        "//vendor/k8s.io/client-go/gentype:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/client-go/testing:go_default_library",
+    ],
+)

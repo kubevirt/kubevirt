@@ -33,10 +33,13 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
 
+	ipamclaims "github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1"
+	fakeipamclaimclient "github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned/fake"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -53,17 +56,21 @@ import (
 
 var _ = Describe("Object Graph", func() {
 	var (
-		kvClient   *kubecli.MockKubevirtClient
-		kubeClient *fake.Clientset
-		vm         *v1.VirtualMachine
+		kvClient        *kubecli.MockKubevirtClient
+		kubeClient      *fake.Clientset
+		ipamClaimClient *fakeipamclaimclient.Clientset
+		vm              *v1.VirtualMachine
 	)
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kvClient = kubecli.NewMockKubevirtClient(ctrl)
+		ipamClaimClient = fakeipamclaimclient.NewSimpleClientset()
+		kubeClient = fake.NewClientset()
 
-		kubeClient = fake.NewSimpleClientset()
 		kvClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		kvClient.EXPECT().Discovery().Return(kubeClient.Discovery()).AnyTimes()
+		kvClient.EXPECT().IPAMClaimsClient().Return(ipamClaimClient).AnyTimes()
 
 		vm = &v1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
@@ -705,6 +712,177 @@ var _ = Describe("Object Graph", func() {
 			// Should only return storage-related nodes
 			for _, child := range graphNodes.Children {
 				Expect(child.Labels[ObjectGraphDependencyLabel]).To(Equal("storage"))
+			}
+		})
+	})
+
+	Context("Network handling", func() {
+		It("should handle VM with Multus network attachment definitions", func() {
+			vm.Spec.Template.Spec.Networks = []v1.Network{
+				{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+				{
+					Name: "multus-net",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{
+							NetworkName: "test-nad",
+						},
+					},
+				},
+			}
+
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Check for NetworkAttachmentDefinition in children
+			childMap := make(map[string]string)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child.ObjectReference.Kind
+			}
+
+			Expect(childMap).To(HaveKey("test-nad"))
+			Expect(childMap["test-nad"]).To(Equal("NetworkAttachmentDefinition"))
+		})
+
+		It("should handle VM with IPAM claims", func() {
+			vm.Spec.Template.Spec.Networks = []v1.Network{
+				{
+					Name: "multus-net",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{
+							NetworkName: "test-nad",
+						},
+					},
+				},
+			}
+
+			// Create fake IPAM client and add claim to it
+			ipamClaim := &ipamclaims.IPAMClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm-ipam-claim",
+					Namespace: vm.Namespace,
+					Labels: map[string]string{
+						v1.VirtualMachineLabel: vm.Name,
+					},
+				},
+			}
+
+			fakeDiscovery, ok := kvClient.Discovery().(*fakediscovery.FakeDiscovery)
+			Expect(ok).To(BeTrue())
+			fakeDiscovery.Resources = []*metav1.APIResourceList{
+				{
+					GroupVersion: "k8s.cni.cncf.io/v1alpha1",
+					APIResources: []metav1.APIResource{
+						{
+							Name:       "network-attachment-definitions",
+							Kind:       "NetworkAttachmentDefinition",
+							Namespaced: true,
+						},
+					},
+				},
+			}
+
+			ipamClaimClient.PrependReactor("list", "ipamclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, &ipamclaims.IPAMClaimList{Items: []ipamclaims.IPAMClaim{*ipamClaim}}, nil
+			})
+
+			kvClient.Discovery().(*fakediscovery.FakeDiscovery).PrependReactor("*", "*", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				return true, nil, nil
+			})
+
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Check for IPAM claim and NetworkAttachmentDefinition in children
+			childMap := make(map[string]string)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child.ObjectReference.Kind
+			}
+
+			Expect(childMap).To(HaveKey("test-nad"))
+			Expect(childMap["test-nad"]).To(Equal("NetworkAttachmentDefinition"))
+			Expect(childMap).To(HaveKey("test-vm-ipam-claim"))
+			Expect(childMap["test-vm-ipam-claim"]).To(Equal("IPAMClaim"))
+		})
+
+		It("should handle IPAM claims list error gracefully", func() {
+			vm.Spec.Template.Spec.Networks = []v1.Network{
+				{
+					Name: "multus-net",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{
+							NetworkName: "test-nad",
+						},
+					},
+				},
+			}
+
+			fakeDiscovery, ok := kvClient.Discovery().(*fakediscovery.FakeDiscovery)
+			Expect(ok).To(BeTrue())
+			fakeDiscovery.Resources = []*metav1.APIResourceList{
+				{
+					GroupVersion: "k8s.cni.cncf.io/v1alpha1",
+					APIResources: []metav1.APIResource{
+						{
+							Name:       "network-attachment-definitions",
+							Kind:       "NetworkAttachmentDefinition",
+							Namespaced: true,
+						},
+					},
+				},
+			}
+
+			kvClient.Discovery().(*fakediscovery.FakeDiscovery).PrependReactor("*", "*", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				return true, nil, fmt.Errorf("fake discovery error")
+			})
+
+			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(vm)
+			// Expect error but still graph should contain the NAD node
+			Expect(err).To(HaveOccurred())
+
+			childMap := make(map[string]string)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child.ObjectReference.Kind
+			}
+
+			Expect(childMap).To(HaveKey("test-nad"))
+			Expect(childMap["test-nad"]).To(Equal("NetworkAttachmentDefinition"))
+		})
+
+		It("should filter network dependencies by label selector", func() {
+			vm.Spec.Template.Spec.Networks = []v1.Network{
+				{
+					Name: "multus-net",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{
+							NetworkName: "test-nad",
+						},
+					},
+				},
+			}
+
+			options := &v1.ObjectGraphOptions{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						ObjectGraphDependencyLabel: "network",
+					},
+				},
+			}
+
+			graph := NewObjectGraph(kvClient, options)
+			graphNodes, err := graph.GetObjectGraph(vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Should only return network-related nodes
+			for _, child := range graphNodes.Children {
+				Expect(child.Labels[ObjectGraphDependencyLabel]).To(Equal("network"))
 			}
 		})
 	})
