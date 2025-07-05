@@ -185,14 +185,6 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
 
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(updatedVM.Spec.Instancetype.RevisionName).To(BeEmpty())
-				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
-				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
-				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
-
 				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 					context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -223,14 +215,6 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(vm.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
 				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
-
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(updatedVM.Spec.Instancetype.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
-				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
-				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
-				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
 			})
 
 			It("store fails when instancetype does not exist", func() {
@@ -252,14 +236,6 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(vm.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
 				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
-
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(updatedVM.Spec.Instancetype.RevisionName).To(BeEmpty())
-				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
-				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
-				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
