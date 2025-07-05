@@ -618,7 +618,10 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 	diskDeviceMap := make(map[string]string)
 	if domain != nil {
 		for _, disk := range domain.Spec.Devices.Disks {
-			diskDeviceMap[disk.Alias.GetName()] = disk.Target.Device
+			// don't care about empty cdroms
+			if disk.Source.File != "" || disk.Source.Dev != "" {
+				diskDeviceMap[disk.Alias.GetName()] = disk.Target.Device
+			}
 		}
 	}
 	specVolumeMap := make(map[string]v1.Volume)
@@ -630,9 +633,9 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 	needsRefresh := false
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		tmpNeedsRefresh := false
-		if _, ok := diskDeviceMap[volumeStatus.Name]; ok {
-			volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
-		}
+		// relying on the fact that target will be "" if not in the map
+		// see updateHotplugVolumeStatus
+		volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
 		if volumeStatus.HotplugVolume != nil {
 			hasHotplug = true
 			volumeStatus, tmpNeedsRefresh = c.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)

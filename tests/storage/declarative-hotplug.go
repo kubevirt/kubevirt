@@ -39,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -294,7 +293,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 	}
 
 	Context("Inject/Eject CD-ROM", func() {
-		It("[QUARANTINE] Should inject, swap, and eject a CD-ROM", decorators.Quarantine, func() {
+		It("Should inject, swap, and eject a CD-ROM", func() {
 			By("Creating a VM with an empty CD-ROM")
 			vm := createAndStartVMWithEmptyCDRom()
 
