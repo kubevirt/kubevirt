@@ -82,8 +82,8 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 		Entry("with 80% overcommit", 80),
 	)
 
-	Context("conflict detection", func() {
-		It("should detect memory field conflict in VMI", func() {
+	It("should return a conflict if vmi.Spec.Domain.Memory.Guest is already defined",
+		func() {
 			vmiMemGuest := resource.MustParse("512M")
 			vmi.Spec.Domain.Memory = &virtv1.Memory{
 				Guest: &vmiMemGuest,
@@ -91,43 +91,96 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 
 			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
 			Expect(conflicts).To(HaveLen(1))
-			Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.memory"))
+			Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.memory.guest"))
 		})
 
-		It("should return a conflict if memory request is already defined", func() {
-			instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
-				Memory: v1beta1.MemoryInstancetype{
-					Guest: resource.MustParse("512M"),
-				},
-			}
-
-			vmi.Spec.Domain.Resources = virtv1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+	It("should return a conflict if both vmi.Spec.Domain.Memory.Hugepages and instancetypeSpec.Memory.Hugepages are defined",
+		func() {
+			vmi.Spec.Domain.Memory = &virtv1.Memory{
+				Hugepages: &virtv1.Hugepages{
+					PageSize: "1Gi",
 				},
 			}
 
 			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
 			Expect(conflicts).To(HaveLen(1))
-			Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.requests.memory"))
+			Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.memory.hugepages"))
 		})
 
-		It("should return a conflict if memory limit is already defined", func() {
-			instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
-				Memory: v1beta1.MemoryInstancetype{
-					Guest: resource.MustParse("512M"),
+	It("should not return a conflict if vmi.Spec.Domain.Memory.Hugepages is defined and instancetypeSpec.Memory.Hugepages is not defined",
+		func() {
+			instancetypeSpec.Memory.Hugepages = nil
+			vmi.Spec.Domain.Memory = &virtv1.Memory{
+				Hugepages: &virtv1.Hugepages{
+					PageSize: "1Gi",
 				},
 			}
 
-			vmi.Spec.Domain.Resources = virtv1.ResourceRequirements{
-				Limits: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
-				},
+			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+
+			Expect(vmi.Spec.Domain.Memory.Guest).To(HaveValue(Equal(instancetypeSpec.Memory.Guest)))
+			Expect(vmi.Spec.Domain.Memory.Hugepages).To(HaveValue(Equal(*vmi.Spec.Domain.Memory.Hugepages)))
+			Expect(vmi.Spec.Domain.Memory.MaxGuest.Equal(*instancetypeSpec.Memory.MaxGuest)).To(BeTrue())
+		})
+
+	It("should return a conflict if both vmi.Spec.Domain.Memory.MaxGuest and instancetypeSpec.Memory.MaxGuest are defined",
+		func() {
+			vmi.Spec.Domain.Memory = &virtv1.Memory{
+				MaxGuest: &maxGuest,
 			}
 
 			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
 			Expect(conflicts).To(HaveLen(1))
-			Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.limits.memory"))
+			Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.memory.maxGuest"))
 		})
+
+	It("should not return a conflict if vmi.Spec.Domain.Memory.MaxGuest is defined and instancetypeSpec.Memory.MaxGuest is not defined",
+		func() {
+			instancetypeSpec.Memory.MaxGuest = nil
+			vmi.Spec.Domain.Memory = &virtv1.Memory{
+				MaxGuest: &maxGuest,
+			}
+
+			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+
+			Expect(vmi.Spec.Domain.Memory.Guest).To(HaveValue(Equal(instancetypeSpec.Memory.Guest)))
+			Expect(vmi.Spec.Domain.Memory.Hugepages).To(HaveValue(Equal(*instancetypeSpec.Memory.Hugepages)))
+			Expect(vmi.Spec.Domain.Memory.MaxGuest.Equal(*vmi.Spec.Domain.Memory.MaxGuest)).To(BeTrue())
+		})
+
+	It("should return a conflict if memory request is already defined", func() {
+		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
+			Memory: v1beta1.MemoryInstancetype{
+				Guest: resource.MustParse("512M"),
+			},
+		}
+
+		vmi.Spec.Domain.Resources = virtv1.ResourceRequirements{
+			Requests: k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+		}
+
+		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+		Expect(conflicts).To(HaveLen(1))
+		Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.requests.memory"))
+	})
+
+	It("should return a conflict if memory limit is already defined", func() {
+		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
+			Memory: v1beta1.MemoryInstancetype{
+				Guest: resource.MustParse("512M"),
+			},
+		}
+
+		vmi.Spec.Domain.Resources = virtv1.ResourceRequirements{
+			Limits: k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+		}
+
+		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+		Expect(conflicts).To(HaveLen(1))
+		Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.limits.memory"))
 	})
 })
