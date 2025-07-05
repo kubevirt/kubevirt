@@ -26,7 +26,10 @@ import (
 )
 
 func ProxyInjectionEnabled(vmi *v1.VirtualMachineInstance) bool {
-	if val, ok := vmi.GetAnnotations()[InjectSidecarAnnotation]; ok {
+	if val, ok := vmi.GetLabels()[InjectSidecarLabel]; ok {
+		return strings.EqualFold(val, "true")
+	}
+	if val, ok := vmi.GetAnnotations()[InjectSidecarDeprecatedAnnotation]; ok {
 		return strings.EqualFold(val, "true")
 	}
 	return false
