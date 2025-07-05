@@ -51,6 +51,13 @@ type AgentUpdatedEvent struct {
 	DomainInfo api.DomainGuestInfo
 }
 
+// AgentPollerInterface defines the interface for agent pollers
+type AgentPollerInterface interface {
+	Start()
+	Stop()
+	UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle, agentEvent *libvirt.DomainEventAgentLifecycle)
+}
+
 // AsyncAgentStore stores the agent data converted to api domain objects
 // it offers methods to get the data and fire up an event when there
 // is a change of the data
@@ -339,6 +346,37 @@ func (p *AgentPoller) Stop() {
 	if p.agentDone != nil {
 		close(p.agentDone)
 		p.agentDone = nil
+	}
+}
+
+// UpdateFromEvent updates the agent poller state based on domain and agent lifecycle events
+func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle, agentEvent *libvirt.DomainEventAgentLifecycle) {
+	// Handle domain lifecycle events
+	if domainEvent != nil {
+		if domainEvent.Event == libvirt.DOMAIN_EVENT_SUSPENDED {
+			log.Log.Infof("Stopping agent poller for %s due to domain suspend", p.domainName)
+			p.Stop()
+			return
+		}
+		if domainEvent.Event == libvirt.DOMAIN_EVENT_RESUMED {
+			log.Log.Infof("Starting agent poller for %s due to domain resume", p.domainName)
+			p.Start()
+			return
+		}
+	}
+
+	// Handle agent lifecycle events
+	if agentEvent != nil {
+		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED {
+			log.Log.Infof("Stopping agent poller for %s due to agent disconnect", p.domainName)
+			p.Stop()
+			return
+		}
+		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
+			log.Log.Infof("Starting agent poller for %s due to agent connect", p.domainName)
+			p.Start()
+			return
+		}
 	}
 }
 
