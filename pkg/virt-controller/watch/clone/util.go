@@ -91,7 +91,7 @@ func generateSnapshot(vmClone *clone.VirtualMachineClone, sourceVM *v1.VirtualMa
 	}
 }
 
-func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName, namespace, cloneName, snapshotName string, cloneUID types.UID, patches []string) *snapshotv1.VirtualMachineRestore {
+func generateRestore(targetInfo *corev1.TypedObjectReference, sourceVMName, namespace, cloneName, snapshotName string, cloneUID types.UID, patches []string) *snapshotv1.VirtualMachineRestore {
 	targetInfo = targetInfo.DeepCopy()
 	if targetInfo.Name == "" {
 		targetInfo.Name = generateVMName(sourceVMName)
@@ -106,7 +106,11 @@ func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName,
 			},
 		},
 		Spec: snapshotv1.VirtualMachineRestoreSpec{
-			Target:                     *targetInfo,
+			Target: corev1.TypedLocalObjectReference{
+				APIGroup: targetInfo.APIGroup,
+				Name:     targetInfo.Name,
+				Kind:     targetInfo.Kind,
+			},
 			VirtualMachineSnapshotName: snapshotName,
 			Patches:                    patches,
 		},
