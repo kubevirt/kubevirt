@@ -56,7 +56,7 @@ var _ = Describe("Domain informer", func() {
 	var resyncPeriod int
 	var ghostRecordStore *GhostRecordStore
 
-	podUID := "1234"
+	const podUID = "1234"
 
 	BeforeEach(func() {
 		resyncPeriod = 5
@@ -78,7 +78,7 @@ var _ = Describe("Domain informer", func() {
 		cmdclient.SetPodsBaseDir(podsDir)
 
 		socketPath = cmdclient.SocketFilePathOnHost(podUID)
-		os.MkdirAll(filepath.Dir(socketPath), 0755)
+		Expect(os.MkdirAll(filepath.Dir(socketPath), 0755)).To(Succeed())
 
 		informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
 		Expect(err).ToNot(HaveOccurred())
@@ -90,9 +90,9 @@ var _ = Describe("Domain informer", func() {
 	AfterEach(func() {
 		close(stopChan)
 		wg.Wait()
-		os.RemoveAll(shareDir)
-		os.RemoveAll(podsDir)
-		os.RemoveAll(ghostCacheDir)
+		Expect(os.RemoveAll(shareDir)).To(Succeed())
+		Expect(os.RemoveAll(podsDir)).To(Succeed())
+		Expect(os.RemoveAll(ghostCacheDir)).To(Succeed())
 	})
 
 	verifyObj := func(key string, domain *api.Domain, g Gomega) {
@@ -270,7 +270,6 @@ var _ = Describe("Domain informer", func() {
 		})
 
 		It("should resync active domains after resync period.", func() {
-
 			domain := api.NewMinimalDomain("test")
 			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
@@ -310,19 +309,18 @@ var _ = Describe("Domain informer", func() {
 		})
 
 		It("should detect unresponsive sockets.", func() {
-
 			f, err := os.Create(socketPath)
 			Expect(err).ToNot(HaveOccurred())
-			f.Close()
+			Expect(f.Close()).To(Succeed())
 
-			ghostRecordStore.Add("test", "test", socketPath, "1234")
+			Expect(ghostRecordStore.Add("test", "test", socketPath, "1234")).To(Succeed())
 
 			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
-				resyncPeriod:             time.Duration(1) * time.Hour,
+				resyncPeriod:             1 * time.Hour,
 			}
 
 			err = d.startBackground()
@@ -330,7 +328,9 @@ var _ = Describe("Domain informer", func() {
 			defer d.Stop()
 
 			timedOut := false
-			timeout := time.After(5 * time.Second)
+			// The timeout on trying to dial the socket is 5 seconds, doubling that to make sure we reach that point
+			// before our own timeout.
+			timeout := time.After(10 * time.Second)
 			select {
 			case event := <-d.eventChan:
 				Expect(event.Type).To(Equal(watch.Modified))
@@ -340,11 +340,9 @@ var _ = Describe("Domain informer", func() {
 			}
 
 			Expect(timedOut).To(BeFalse())
-
 		})
 
 		It("should detect responsive sockets and not mark for deletion.", func() {
-
 			l, err := net.Listen("unix", socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			defer l.Close()
@@ -356,12 +354,11 @@ var _ = Describe("Domain informer", func() {
 						// closes when socket listener is closed
 						return
 					}
-					conn.Close()
+					Expect(conn.Close()).To(Succeed())
 				}
 			}()
 
-			err = ghostRecordStore.Add("test", "test", socketPath, "1234")
-			Expect(err).ToNot(HaveOccurred())
+			Expect(ghostRecordStore.Add("test", "test", socketPath, "1234")).To(Succeed())
 
 			d := &domainWatcher{
 				backgroundWatcherStarted: false,
