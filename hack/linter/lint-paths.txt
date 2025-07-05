@@ -26,6 +26,7 @@ pkg/virtctl/clientconfig
 pkg/virtctl/create/params
 pkg/virtctl/create/vm
 pkg/virtctl/credentials
+pkg/virtctl/create/instancetype
 tests/conformance
 tests/console
 tests/decorators
