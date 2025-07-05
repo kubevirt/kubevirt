@@ -3056,6 +3056,44 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		Context("with a downwardMetrics virtio-serial device", func() {
+			It("Should have the required environmental variables", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithDownwardMetricsChannel(),
+				)
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				var compute *k8sv1.Container
+				for _, container := range pod.Spec.Containers {
+					if container.Name == "compute" {
+						compute = &container
+						break
+					}
+				}
+
+				Expect(compute).ToNot(BeNil(), "Compute container not found")
+
+				Expect(compute.Env).To(ContainElements(
+					k8sv1.EnvVar{
+						Name:  ENV_VAR_VIRT_LAUNCHER_DOWNWARDMETRICS_SERVER,
+						Value: "1",
+					},
+					k8sv1.EnvVar{
+						Name: ENV_VAR_NODE_NAME,
+						ValueFrom: &k8sv1.EnvVarSource{
+							FieldRef: &k8sv1.ObjectFieldSelector{
+								FieldPath: "spec.nodeName",
+							},
+						},
+					},
+				))
+			})
+		})
+
 		Context("with a configMap volume source", func() {
 			It("Should add the ConfigMap to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)

@@ -169,7 +169,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockCgroupManager = cgroup.NewMockManager(ctrl)
 
 		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
-		fakeDownwardMetricsManager := newFakeManager()
 
 		launcherClientManager := &launcher_clients.MockLauncherClientManager{
 			Initialized: true,
@@ -188,7 +187,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			config,
 			mockIsolationDetector,
 			migrationProxy,
-			fakeDownwardMetricsManager,
 			nil, // capabilities
 			"",  // host cpu model
 			&netConfStub{},
@@ -2956,18 +2954,6 @@ func (ns *netStatStub) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.
 }
 
 func (ns *netStatStub) Teardown(vmi *v1.VirtualMachineInstance) {}
-
-func newFakeManager() *fakeManager {
-	return &fakeManager{}
-}
-
-type fakeManager struct{}
-
-func (*fakeManager) Run(_ chan struct{}) {}
-func (*fakeManager) StartServer(_ *v1.VirtualMachineInstance, _ int) error {
-	return nil
-}
-func (*fakeManager) StopServer(_ *v1.VirtualMachineInstance) {}
 
 type stubNetBindingPluginMemoryCalculator struct {
 	calculatedMemoryOverhead bool

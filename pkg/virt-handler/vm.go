@@ -90,19 +90,12 @@ type netstat interface {
 	Teardown(vmi *v1.VirtualMachineInstance)
 }
 
-type downwardMetricsManager interface {
-	Run(stopCh chan struct{})
-	StartServer(vmi *v1.VirtualMachineInstance, pid int) error
-	StopServer(vmi *v1.VirtualMachineInstance)
-}
-
 type VirtualMachineController struct {
 	*BaseController
 	launcherClients          launcher_clients.LauncherClientsManager
 	capabilities             *libvirtxml.Caps
 	clientset                kubecli.KubevirtClient
 	containerDiskMounter     container_disk.Mounter
-	downwardMetricsManager   downwardMetricsManager
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	hostCpuModel             string
 	ioErrorRetryManager      *FailRetryManager
@@ -139,7 +132,6 @@ func NewVirtualMachineController(
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
-	downwardMetricsManager downwardMetricsManager,
 	capabilities *libvirtxml.Caps,
 	hostCpuModel string,
 	netConf netconf,
@@ -177,7 +169,6 @@ func NewVirtualMachineController(
 		capabilities:             capabilities,
 		clientset:                clientset,
 		containerDiskMounter:     container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
-		downwardMetricsManager:   downwardMetricsManager,
 		hotplugVolumeMounter:     hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
 		hostCpuModel:             hostCpuModel,
 		ioErrorRetryManager:      NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
@@ -242,8 +233,6 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	log.Log.Info("Starting virt-handler vms controller.")
 
 	go c.deviceManagerController.Run(stopCh)
-
-	go c.downwardMetricsManager.Run(stopCh)
 
 	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
@@ -1502,8 +1491,6 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	c.migrationProxy.StopTargetListener(vmiId)
 	c.migrationProxy.StopSourceListener(vmiId)
 
-	c.downwardMetricsManager.StopServer(vmi)
-
 	// Unmount container disks and clean up remaining files
 	if err := c.containerDiskMounter.Unmount(vmi); err != nil {
 		return err
@@ -1978,15 +1965,6 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 	}
 
 	if err := c.getMemoryDump(vmi); err != nil {
-		return err
-	}
-
-	isolationRes, err := c.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return fmt.Errorf(failedDetectIsolationFmt, err)
-	}
-
-	if err := c.downwardMetricsManager.StartServer(vmi, isolationRes.Pid()); err != nil {
 		return err
 	}
 
