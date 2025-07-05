@@ -196,50 +196,6 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv-cr --names
     --featureGates='{{.FeatureGates}}' --infraReplicas='{{.InfraReplicas}}' >${ResourceDir}/kubevirt-cr.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac --namespace='{{.Namespace}}' >${ResourceDir}/rbac-operator.authorization.k8s.yaml.in
 
-# used for Image fields in manifests
-function getVersion() {
-    echo "{{if $1}}@{{$1}}{{else}}:{{.DockerTag}}{{end}}"
-}
-virtapi_version=$(getVersion ".VirtApiSha")
-virtcontroller_version=$(getVersion ".VirtControllerSha")
-virthandler_version=$(getVersion ".VirtHandlerSha")
-virtlauncher_version=$(getVersion ".VirtLauncherSha")
-virtoperator_version=$(getVersion ".VirtOperatorSha")
-virtexportproxy_version=$(getVersion ".VirtExportProxySha")
-virtexportserver_version=$(getVersion ".VirtExportServerSha")
-virtsynchronizationcontroller_version=$(getVersion ".VirtSynchronizationControllerSha")
-
-# used as env var for operator
-function getShasum() {
-    echo "{{if $1}}@{{$1}}{{end}}"
-}
-
-# without the '@' symbole used in 'getShasum'
-function getRawShasum() {
-    echo "{{if $1}}{{$1}}{{end}}"
-}
-virtapi_sha=$(getShasum ".VirtApiSha")
-virtcontroller_sha=$(getShasum ".VirtControllerSha")
-virthandler_sha=$(getShasum ".VirtHandlerSha")
-virtlauncher_sha=$(getShasum ".VirtLauncherSha")
-virtexportproxy_sha=$(getShasum ".VirtExportProxySha")
-virtexportserver_sha=$(getShasum ".VirtExportServerSha")
-virtsynchronizationcontroller_sha=$(getShasum ".VirtSynchronizationControllerSha")
-gs_sha=$(getShasum ".GsSha")
-pr_helper_sha=$(getShasum ".PrHelperSha")
-sidecar_shim_sha=$(getShasum ".SidecarShimSha")
-
-virtapi_rawsha=$(getRawShasum ".VirtApiSha")
-virtcontroller_rawsha=$(getRawShasum ".VirtControllerSha")
-virthandler_rawsha=$(getRawShasum ".VirtHandlerSha")
-virtlauncher_rawsha=$(getRawShasum ".VirtLauncherSha")
-virtexportproxy_rawsha=$(getRawShasum ".VirtExportProxySha")
-virtexportserver_rawsha=$(getRawShasum ".VirtExportServerSha")
-virtsynchronizationcontroller_rawsha=$(getRawShasum ".VirtSynchronizationControllerSha")
-gs_rawsha=$(getRawShasum ".GsSha")
-prhelper_rawsha=$(getRawShasum ".PrHelperSha")
-sidecar_shim_rawsha=$(getRawShasum ".SidecarShimSha")
-
 # The generation code for CSV requires a valid semver to be used.
 # But we're trying to generate a template for a CSV here from code
 # rather than an actual usable CSV. To work around this, we set the
@@ -248,25 +204,15 @@ sidecar_shim_rawsha=$(getRawShasum ".SidecarShimSha")
 _fake_replaces_csv_version="1111.1111.1111"
 _fake_csv_version="2222.2222.2222"
 ${KUBEVIRT_DIR}/tools/csv-generator/csv-generator \
-    --apiSha="$virtapi_rawsha" \
-    --controllerSha="$virtcontroller_rawsha" \
+    --operatorImageVersion="{{.DockerTag}}" \
     --csvCreatedAtTimestamp={{.CreatedAt}} \
     --csvVersion="$_fake_csv_version" \
     --dockerPrefix={{.DockerPrefix}} \
-    --exportProxySha="$virtexportproxy_rawsha" \
-    --exportServerSha="$virtexportserver_rawsha" \
-    --synchronizationControllerSha="$virtsynchronizationcontroller_rawsha" \
-    --gsSha="$gs_rawsha" \
-    --handlerSha="$virthandler_rawsha" \
     --kubevirtLogo={{.KubeVirtLogo}} \
     --kubeVirtVersion={{.DockerTag}} \
-    --launcherSha="$virtlauncher_rawsha" \
     --namespace={{.CSVNamespace}} \
-    --operatorImageVersion="$virtoperator_version" \
-    --prHelperSha="$prhelper_rawsha" \
     --pullPolicy={{.ImagePullPolicy}} \
     --replacesCsvVersion="$_fake_replaces_csv_version" \
-    --sidecarShimSha="$sidecar_shim_rawsha" \
     --verbosity={{.Verbosity}} \
     >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 
