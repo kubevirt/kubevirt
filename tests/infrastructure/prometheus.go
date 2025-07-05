@@ -527,6 +527,11 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		}
 
 		for _, key := range keys {
+			// skip verification of metrics from previous migrations
+			if strings.Contains(key, "name=\"") && !stringContainsAny(key, nameMatchers) {
+				continue
+			}
+
 			// we don't care about the ordering of the labels
 			if strings.HasPrefix(key, "kubevirt_vmi_info") {
 				// special case: namespace and name don't make sense for this metric
@@ -761,4 +766,17 @@ func cleanupClusterRoleAndBinding(namespace string) {
 	// Delete ClusterRoleBinding
 	err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), clusterRoleBindingName, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred(), "Failed to delete ClusterRoleBinding: %s", clusterRoleBindingName)
+}
+
+func stringContainsAny(s string, matchers []gomegatypes.GomegaMatcher) bool {
+	for _, matcher := range matchers {
+		m, err := matcher.Match(s)
+		if err != nil {
+			return false
+		}
+		if m {
+			return true
+		}
+	}
+	return false
 }
