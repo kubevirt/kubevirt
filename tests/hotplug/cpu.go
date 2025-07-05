@@ -67,7 +67,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			By("Kubevirt CR with default MaxHotplugRatio set to 4")
 
 			By("Run VM with 5 sockets without topology")
-			vmi := libvmifact.NewAlpine(libvmi.WithResourceCPU("5000m"))
+			vmi := libvmifact.NewAlpine(libvmi.WithCPURequest("5000m"))
 
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 

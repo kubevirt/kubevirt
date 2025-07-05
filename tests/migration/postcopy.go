@@ -209,7 +209,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				By("creating a large VM with RunStrategyRerunOnFailure")
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
-					libvmi.WithResourceMemory("3Gi"),
+					libvmi.WithMemoryRequest("3Gi"),
 					libvmi.WithRng(),
 					libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				)
@@ -275,7 +275,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithPersistentVolumeClaim("disk0", pvName),
-		libvmi.WithResourceMemory(memoryRequestSize),
+		libvmi.WithMemoryRequest(memoryRequestSize),
 		libvmi.WithRng(),
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountSvcAccCommands)),
 		libvmi.WithServiceAccountDisk("default"),
