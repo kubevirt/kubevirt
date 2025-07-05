@@ -23,6 +23,18 @@ TARGET_DIRS=(
     "pkg/monitoring"
     "pkg/instancetype"
     "pkg/network"
+    "pkg/storage"
+    "pkg/container-disk"
+    "pkg/emptydisk"
+    "pkg/host-disk"
+    "pkg/hotplug-disk"
+    "pkg/libdv"
+    "pkg/virtiofs"
+    "pkg/virt-controller/watch/volume-migration"
+    "pkg/virtctl/guestfs"
+    "pkg/virtctl/imageupload"
+    "pkg/virtctl/memorydump"
+    "pkg/virtctl/vmexport"
 )
 
 IGNORE_FILES=(
