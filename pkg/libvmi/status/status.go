@@ -141,6 +141,13 @@ func WithNodeName(node string) Option {
 	}
 }
 
+// WithMemoryStatus sets the memory status
+func WithMemoryStatus(memoryStatus *v1.MemoryStatus) Option {
+	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
+		vmiStatus.Memory = memoryStatus
+	}
+}
+
 type VMOption func(vmiStatus *v1.VirtualMachineStatus)
 
 // WithStatus sets the status with specified value
