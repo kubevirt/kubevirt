@@ -50,6 +50,22 @@ func WithUefi(secureBoot bool) Option {
 	}
 }
 
+// WithPersistentUefi configures the Persistent config in the EFI bootloader.
+func WithPersistentUefi(persistent bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader == nil {
+			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader.EFI == nil {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
+		}
+		vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(persistent)
+	}
+}
+
 func WithKernelBootContainer(imageName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Firmware = &v1.Firmware{
