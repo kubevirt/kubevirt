@@ -1,5 +1,5 @@
-//go:build codegen
-// +build codegen
+//go:build never
+// +build never
 
 package tools
 
