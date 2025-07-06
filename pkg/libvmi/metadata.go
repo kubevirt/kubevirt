@@ -59,3 +59,9 @@ func WithUID(uid types.UID) Option {
 		vmi.ObjectMeta.UID = uid
 	}
 }
+
+func WithFinalizer(finalizer string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Finalizers = append(vmi.Finalizers, finalizer)
+	}
+}
