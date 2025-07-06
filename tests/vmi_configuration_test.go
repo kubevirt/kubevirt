@@ -983,7 +983,21 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with hugepages", func() {
-			verifyHugepagesConsumption := func(hugepagesVmi *v1.VirtualMachineInstance) bool {
+			noGuestOption := func() libvmi.Option {
+				return func(vmi *v1.VirtualMachineInstance) {
+					vmi.Spec.Domain.Memory.Guest = nil
+				}
+			}
+
+			DescribeTable("should consume hugepages ", func(options ...libvmi.Option) {
+				hugepagesVmi := libvmifact.NewCirros(options...)
+
+				By("Starting a VM")
+				hugepagesVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), hugepagesVmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitForSuccessfulVMIStart(hugepagesVmi)
+
+				By("Checking that the VM memory equals to a number of consumed hugepages")
 				vmiPod, err := libpod.GetPodByVirtualMachineInstance(hugepagesVmi, testsuite.GetTestNamespace(hugepagesVmi))
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1028,28 +1042,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					vmMemory = *hugepagesVmi.Spec.Domain.Memory.Guest
 				}
 
-				if vmHugepagesConsumption == vmMemory.Value() {
-					return true
-				}
-				return false
-			}
-
-			noGuestOption := func() libvmi.Option {
-				return func(vmi *v1.VirtualMachineInstance) {
-					vmi.Spec.Domain.Memory.Guest = nil
-				}
-			}
-
-			DescribeTable("should consume hugepages ", func(options ...libvmi.Option) {
-				hugepagesVmi := libvmifact.NewCirros(options...)
-
-				By("Starting a VM")
-				hugepagesVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), hugepagesVmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(hugepagesVmi)
-
-				By("Checking that the VM memory equals to a number of consumed hugepages")
-				Eventually(func() bool { return verifyHugepagesConsumption(hugepagesVmi) }, 30*time.Second, 5*time.Second).Should(BeTrue())
+				Expect(vmHugepagesConsumption).To(Equal(vmMemory.Value()))
 			},
 				Entry("[test_id:1671]hugepages-2Mi", decorators.RequiresHugepages2Mi, Serial, libvmi.WithHugepages("2Mi"), libvmi.WithMemoryRequest("64Mi"), noGuestOption()),
 				Entry("[test_id:1672]hugepages-1Gi", decorators.RequiresHugepages1Gi, Serial, libvmi.WithHugepages("1Gi"), libvmi.WithMemoryRequest("1Gi"), noGuestOption()),
