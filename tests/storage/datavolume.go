@@ -185,8 +185,13 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			By("Expanding PVC")
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			origSize, exists := pvc.Status.Capacity[k8sv1.ResourceStorage]
+			Expect(exists).To(BeTrue())
+			newSize := *resource.NewQuantity(2*origSize.Value(), origSize.Format)
 			patchSet := patch.New(
-				patch.WithAdd("/spec/resources/requests/storage", resource.MustParse("2Gi")),
+				patch.WithAdd("/spec/resources/requests/storage", newSize),
 			)
 			patchData, err := patchSet.GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
@@ -201,7 +206,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "dmesg |grep 'new size'\n"},
 					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "dmesg |grep -c 'new size: [34]'\n"},
+					&expect.BSnd{S: "dmesg |grep -c 'new size: [1-9]'\n"},
 					&expect.BExp{R: "1"},
 				}, 10)
 				return err
@@ -713,25 +718,28 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					libdv.WithStorage(libdv.StorageWithStorageClass(storageClass)),
 					libdv.WithForceBindAnnotation(),
 				)
-
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dataVolume, 90, HaveSucceeded())
 
-				vm = renderVMWithCloneDataVolume(testsuite.NamespaceTestAlternative, dataVolume.Name, testsuite.GetTestNamespace(nil), storageClass)
+				dv := libdv.NewDataVolume(
+					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libdv.WithPVCSource(testsuite.NamespaceTestAlternative, dataVolume.Name),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(storageClass),
+						libdv.StorageWithoutVolumeSize(),
+					),
+				)
 
-				const volumeName = "sa"
-				saVol := v1.Volume{
-					Name: volumeName,
-					VolumeSource: v1.VolumeSource{
-						ServiceAccount: &v1.ServiceAccountVolumeSource{
-							ServiceAccountName: testsuite.AdminServiceAccountName,
-						},
-					},
-				}
-				vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName = pointer.P(storageClass)
-				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, saVol)
-				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{Name: volumeName})
+				vm = libvmi.NewVirtualMachine(
+					libvmi.New(
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+						libvmi.WithResourceMemory("1Mi"),
+						libvmi.WithDataVolume("disk0", dv.Name),
+						libvmi.WithServiceAccountDisk(testsuite.AdminServiceAccountName),
+					),
+					libvmi.WithDataVolumeTemplate(dv),
+				)
 			})
 
 			AfterEach(func() {
@@ -812,6 +820,9 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 				// set the target DV size to the snapshot restore size if it is not zero
 				if !snap.Status.RestoreSize.IsZero() {
+					if dvt.Spec.Storage.Resources.Requests == nil {
+						dvt.Spec.Storage.Resources.Requests = k8sv1.ResourceList{}
+					}
 					dvt.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage] = *snap.Status.RestoreSize
 				}
 			}
@@ -1317,15 +1328,6 @@ func volumeExpansionAllowed(sc string) bool {
 	Expect(err).ToNot(HaveOccurred())
 	return storageClass.AllowVolumeExpansion != nil &&
 		*storageClass.AllowVolumeExpansion
-}
-
-func renderVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {
-	dv := libdv.NewDataVolume(
-		libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
-		libdv.WithPVCSource(sourceNamespace, sourceName),
-		libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize("1Gi")),
-	)
-	return libstorage.RenderVMWithDataVolumeTemplate(dv)
 }
 
 func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storageClass string) *v1.VirtualMachine {
