@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -3138,55 +3139,21 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		It("Should properly create attachmentpod, if correct volume and disk are added", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
-			volumes := make([]virtv1.Volume, 0)
-			volumes = append(volumes, virtv1.Volume{
-				Name: "existing",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "existing",
-						},
-					},
-				},
-			})
-			volumes = append(volumes, virtv1.Volume{
-				Name: "hotplug",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "hotplug",
-						},
-					},
-				},
-			})
-			vmi.Spec.Volumes = volumes
-			disks := make([]virtv1.Disk, 0)
-			disks = append(disks, virtv1.Disk{
-				Name: "existing",
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{
-						Bus: virtv1.DiskBusVirtio,
-					},
-				},
-			})
-			disks = append(disks, virtv1.Disk{
-				Name: "hotplug",
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{
-						Bus: virtv1.DiskBusSATA,
-					},
-				},
-			})
-			vmi.Spec.Domain.Devices.Disks = disks
-			vmi.Status.Phase = virtv1.Running
-			addVolumeStatuses(vmi, virtv1.VolumeStatus{
-				Name:   "existing",
-				Target: "",
-			})
-			addActivePods(vmi, "virt-launch-uid", "")
-			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
+			vmiOptions := append(defaultPendingVmiOptions,
+				libvmi.WithName("testvmi"),
+				libvmi.WithPersistentVolumeClaim("existing", "existing"),
+				libvmi.WithPersistentVolumeClaim("hotplug", "hotplug",
+					libvmi.WithDiskBus(virtv1.DiskBusSATA)))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodConditionMissingReason),
+				libvmistatus.WithVolumeStatus(virtv1.VolumeStatus{
+					Name:   "existing",
+					Target: ""}),
+				libvmistatus.WithSelinuxContext("system_u:system_r:container_file_t:s0:c1,c2"),
+				libvmistatus.WithActivePod("virt-launch-uid", "")}
+			vmi := newPendingVMIWithOptions(vmiOptions, vmiStatusOptions)
+
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			existingPVC := &k8sv1.PersistentVolumeClaim{
@@ -3252,43 +3219,25 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("Should properly delete attachment, if volume and disk are removed", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
-			volumes := make([]virtv1.Volume, 0)
-			volumes = append(volumes, virtv1.Volume{
-				Name: "existing",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "existing",
-					}},
-				},
-			})
-			vmi.Spec.Volumes = volumes
-			disks := make([]virtv1.Disk, 0)
-			disks = append(disks, virtv1.Disk{
-				Name: "existing",
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{
-						Bus: virtv1.DiskBusVirtio,
-					},
-				},
-			})
-			vmi.Spec.Domain.Devices.Disks = disks
-			vmi.Status.Phase = virtv1.Running
-			addVolumeStatuses(vmi,
-				virtv1.VolumeStatus{
+			vmiOptions := append(defaultPendingVmiOptions,
+				libvmi.WithName("testvmi"),
+				libvmi.WithPersistentVolumeClaim("existing", "existing"))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodConditionMissingReason),
+				libvmistatus.WithVolumeStatus(virtv1.VolumeStatus{
 					Name:   "existing",
-					Target: "",
-				}, virtv1.VolumeStatus{
+					Target: ""}),
+				libvmistatus.WithVolumeStatus(virtv1.VolumeStatus{
 					Name:   "hotplug",
 					Target: "",
 					HotplugVolume: &virtv1.HotplugVolumeStatus{
 						AttachPodName: "hp-volume-hotplug",
 						AttachPodUID:  "abcd",
-					},
-				},
-			)
-			addActivePods(vmi, "virt-launch-uid", "")
+					}}),
+				libvmistatus.WithActivePod("virt-launch-uid", "")}
+			vmi := newPendingVMIWithOptions(vmiOptions, vmiStatusOptions)
+
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			existingPVC := &k8sv1.PersistentVolumeClaim{
@@ -3387,11 +3336,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				})
 			}
 
-			vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testnode",
-				},
-			})
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithUID(types.UID(uuid.NewString())),
+				libvmi.WithLabel(virtv1.NodeNameLabel, "testnode"), libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithPhase(virtv1.Running), libvmistatus.WithNodeName("testnode"),
+				)),
+			)
+
 			if currentPod == nil && len(oldPods) > 0 {
 				currentPod = oldPods[0]
 			}
@@ -3461,28 +3413,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	Context("topology hints", func() {
 
 		getVmiWithInvTsc := func() *virtv1.VirtualMachineInstance {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Spec.Architecture = "amd64"
-			vmi.Spec.Domain.CPU = &virtv1.CPU{
-				Features: []virtv1.CPUFeature{
-					{
-						Name:   "invtsc",
-						Policy: "require",
-					},
-				},
-			}
+			vmiOpts := append(defaultPendingVmiOptions,
+				libvmi.WithName("testvmi"),
+				libvmi.WithArchitecture("amd64"),
+				libvmi.WithCPUFeature("invtsc", "require"))
+			vmi := newPendingVMIWithOptions(vmiOpts, []libvmistatus.Option{})
 
 			return vmi
 		}
 
 		getVmiWithReenlightenment := func() *virtv1.VirtualMachineInstance {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Spec.Architecture = "amd64"
-			vmi.Spec.Domain.Features = &virtv1.Features{
-				Hyperv: &virtv1.FeatureHyperv{
-					Reenlightenment: &virtv1.FeatureState{Enabled: pointer.P(true)},
-				},
-			}
+			vmiOpts := append(defaultPendingVmiOptions,
+				libvmi.WithName("testvmi"),
+				libvmi.WithArchitecture("amd64"),
+				libvmi.WithDomainFeatures(&virtv1.Features{
+					Hyperv: &virtv1.FeatureHyperv{
+						Reenlightenment: &virtv1.FeatureState{Enabled: pointer.P(true)},
+					}}))
+			vmi := newPendingVMIWithOptions(vmiOpts, []libvmistatus.Option{})
 
 			return vmi
 		}
