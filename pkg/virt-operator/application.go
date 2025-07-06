@@ -193,6 +193,7 @@ func Execute() {
 		ConfigMap:                app.informerFactory.OperatorConfigMap(),
 		ClusterInstancetype:      app.informerFactory.VirtualMachineClusterInstancetype(),
 		ClusterPreference:        app.informerFactory.VirtualMachineClusterPreference(),
+		Leases:                   app.informerFactory.Leases(),
 	}
 
 	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)

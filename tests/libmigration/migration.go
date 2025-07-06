@@ -101,17 +101,17 @@ func RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient k
 
 func CheckSynchronizationAddressPopulated(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) {
 	kv := libkubevirt.GetCurrentKv(virtClient)
-	synchronizationAddress := kv.Status.SynchronizationAddress
-	Expect(synchronizationAddress).ToNot(BeNil())
+	Expect(kv.Status.SynchronizationAddresses).ToNot(BeNil())
+	synchronizationAddress := kv.Status.SynchronizationAddresses[0]
 
 	Eventually(func() string {
 		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		if migration.Status.SynchronizationAddress == nil {
+		if migration.Status.SynchronizationAddresses == nil {
 			return ""
 		}
-		return *migration.Status.SynchronizationAddress
-	}).WithTimeout(time.Second * 20).WithPolling(500 * time.Millisecond).Should(Equal(*synchronizationAddress))
+		return migration.Status.SynchronizationAddresses[0]
+	}).WithTimeout(time.Second * 20).WithPolling(500 * time.Millisecond).Should(Equal(synchronizationAddress))
 }
 
 func RunDecentralizedMigrationAndExpectToComplete(virtClient kubecli.KubevirtClient, sourceMigration, targetMigration *v1.VirtualMachineInstanceMigration, timeout int) (*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigration) {
