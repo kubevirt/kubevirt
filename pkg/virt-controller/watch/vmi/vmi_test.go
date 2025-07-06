@@ -3522,10 +3522,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	Context("auto attach VSOCK", func() {
 		It("should allocate CID when VirtualMachineInstance is scheduled", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-			vmi.Status.Phase = virtv1.Scheduling
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+			vmiOptions := append(defaultPendingVmiOptions, libvmi.WithName("testvmi"), libvmi.WithAutoattachVSOCK(true))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)}
+
+			vmi := newPendingVMIWithOptions(vmiOptions, vmiStatusOptions)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			addVirtualMachine(vmi)
@@ -3542,10 +3544,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			alc := &fakeAllocator{}
 			controller.cidsMap = alc
 
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+			vmiOptions := append(defaultPendingVmiOptions, libvmi.WithName("testvmi"), libvmi.WithAutoattachVSOCK(true))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Succeeded),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason)}
+
+			vmi := newPendingVMIWithOptions(vmiOptions, vmiStatusOptions)
 			Expect(controller.cidsMap.Allocate(vmi)).To(Succeed())
-			vmi.Status.Phase = virtv1.Succeeded
 			addVirtualMachine(vmi)
 
 			Expect(controller.vmiIndexer.Delete(vmi)).To(Succeed())
@@ -3557,38 +3562,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	})
 
 	Context("Aggregating DataVolume conditions", func() {
-
-		dvVolumeSource1 := virtv1.VolumeSource{
-			DataVolume: &virtv1.DataVolumeSource{
-				Name: "test1",
-			},
-		}
-		dvVolumeSource2 := virtv1.VolumeSource{
-			DataVolume: &virtv1.DataVolumeSource{
-				Name: "test2",
-			},
-		}
-		dvVolumeSource3 := virtv1.VolumeSource{
-			DataVolume: &virtv1.DataVolumeSource{
-				Name: "test3",
-			},
-		}
 		DescribeTable("Should aggregate conditions from 3 DataVolumes on VMI status",
 			func(dvConds1, dvConds2, dvConds3 []cdiv1.DataVolumeCondition, expectedStatus k8sv1.ConditionStatus, expectedMessage string) {
-				vmi := newPendingVirtualMachine("testvmi")
-
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-					Name:         "test1",
-					VolumeSource: dvVolumeSource1,
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-					Name:         "test2",
-					VolumeSource: dvVolumeSource2,
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-					Name:         "test3",
-					VolumeSource: dvVolumeSource3,
-				})
+				vmiOptions := append(defaultPendingVmiOptions,
+					libvmi.WithName("testvmi"),
+					libvmi.WithDataVolume("test1", "test1"),
+					libvmi.WithDataVolume("test2", "test2"),
+					libvmi.WithDataVolume("test3", "test3"),
+				)
+				vmi := newPendingVMIWithOptions(vmiOptions, defaultPendingVmiStatusOptions)
 
 				dvPVC1 := newPvc(vmi.Namespace, "test1")
 				dvPVC2 := newPvc(vmi.Namespace, "test2")
@@ -3840,13 +3822,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		DescribeTable("Auto migration logic",
 			func(existingCondition *virtv1.VirtualMachineInstanceCondition, evaluator migrationEvaluator, matcher gomegaTypes.GomegaMatcher) {
-				vmi := newPendingVirtualMachine("testvmi")
-				vmi.Status.Phase = virtv1.Running
-
-				if existingCondition != nil {
-					vmi.Status.Conditions = append(vmi.Status.Conditions, *existingCondition)
+				vmiStatusOptions := []libvmistatus.Option{
+					libvmistatus.WithPhase(virtv1.Running),
+					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
 				}
 
+				if existingCondition != nil {
+					vmiStatusOptions = append(vmiStatusOptions,
+						libvmistatus.WithCondition(*existingCondition))
+				}
+
+				vmi := newPendingVMIWithOptions(append(defaultPendingVmiOptions, libvmi.WithName("testvmi")), vmiStatusOptions)
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 				addVirtualMachine(vmi)
