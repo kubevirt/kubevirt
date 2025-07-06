@@ -2237,12 +2237,16 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		DescribeTable("should set VirtualMachineUnpaused=False pod condition when VMI is paused", func(currUnpausedStatus k8sv1.ConditionStatus) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Running
-			kvcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
-				Type:   virtv1.VirtualMachineInstancePaused,
-				Status: k8sv1.ConditionTrue,
-			})
+			vmiOpts := append(defaultPendingVmiOptions, libvmi.WithName("testvmi"))
+			vmiStatusOpts := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
+				libvmistatus.WithCondition(virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstancePaused,
+					Status: k8sv1.ConditionTrue,
+				}),
+			}
+			vmi := newPendingVMIWithOptions(vmiOpts, vmiStatusOpts)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			addActivePods(vmi, pod.UID, "")
@@ -2265,9 +2269,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("should set VirtualMachineUnpaused=True pod condition when VMI is not paused", func(currUnpausedStatus k8sv1.ConditionStatus) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Running
-			kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstancePaused)
+			vmi := newPendingVMIWithPhase("testvmi", virtv1.Running)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			addActivePods(vmi, pod.UID, "")
@@ -2291,20 +2293,21 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		Context("with memory hotplug enabled", func() {
 			It("should add MemoryChange condition when guest memory changes", func() {
-				currentGuestMemory := resource.MustParse("128Mi")
-				requestedGuestMemory := resource.MustParse("512Mi")
+				currentGuestMemory := "128Mi"
+				requestedGuestMemory := "512Mi"
+				currentGuestMemoryResource := resource.MustParse(currentGuestMemory)
 
-				vmi := newPendingVirtualMachine("testvmi")
-				vmi.Status.Phase = virtv1.Running
-				vmi.Status.Memory = &virtv1.MemoryStatus{
-					GuestAtBoot:    &currentGuestMemory,
-					GuestCurrent:   &currentGuestMemory,
-					GuestRequested: &currentGuestMemory,
+				vmiOpts := append(defaultPendingVmiOptions, libvmi.WithName("testvmi"), libvmi.WithGuestMemory(requestedGuestMemory), libvmi.WithMaxGuest(requestedGuestMemory))
+				vmiStatusOpts := []libvmistatus.Option{
+					libvmistatus.WithPhase(virtv1.Running),
+					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
+					libvmistatus.WithMemoryStatus(&virtv1.MemoryStatus{
+						GuestAtBoot:    &currentGuestMemoryResource,
+						GuestCurrent:   &currentGuestMemoryResource,
+						GuestRequested: &currentGuestMemoryResource,
+					}),
 				}
-				vmi.Spec.Domain.Memory = &virtv1.Memory{
-					Guest:    &requestedGuestMemory,
-					MaxGuest: &requestedGuestMemory,
-				}
+				vmi := newPendingVMIWithOptions(vmiOpts, vmiStatusOpts)
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 				addActivePods(vmi, pod.UID, "")
@@ -2322,18 +2325,20 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			It("should store guestMemoryOverheadRatio if used during memory hotplug", func() {
-				currentGuestMemory := resource.MustParse("128Mi")
-				requestedGuestMemory := resource.MustParse("512Mi")
+				currentGuestMemory := "128Mi"
+				requestedGuestMemory := "512Mi"
+				currentGuestMemoryResource := resource.MustParse(currentGuestMemory)
 
-				vmi := newPendingVirtualMachine("testvmi")
-				vmi.Status.Phase = virtv1.Running
-				vmi.Status.Memory = &virtv1.MemoryStatus{
-					GuestCurrent: &currentGuestMemory,
+				vmiOpts := append(defaultPendingVmiOptions, libvmi.WithName("testvmi"), libvmi.WithGuestMemory(requestedGuestMemory), libvmi.WithMaxGuest(requestedGuestMemory))
+				vmiStatusOpts := []libvmistatus.Option{
+					libvmistatus.WithPhase(virtv1.Running),
+					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
+					libvmistatus.WithMemoryStatus(&virtv1.MemoryStatus{
+						GuestCurrent: &currentGuestMemoryResource,
+					}),
 				}
-				vmi.Spec.Domain.Memory = &virtv1.Memory{
-					Guest:    &requestedGuestMemory,
-					MaxGuest: &requestedGuestMemory,
-				}
+				vmi := newPendingVMIWithOptions(vmiOpts, vmiStatusOpts)
+
 				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 				overheadRatio := "2"
 				kvCR.Spec.Configuration.AdditionalGuestMemoryOverheadRatio = &overheadRatio
