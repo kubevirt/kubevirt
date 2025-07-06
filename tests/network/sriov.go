@@ -284,7 +284,10 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				Expect(err).NotTo(HaveOccurred())
 				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(libnet.CheckMacAddress(updatedVMI, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
+
+				Eventually(func() error {
+					return libnet.CheckMacAddress(updatedVMI, ifaceName, mac)
+				}, 60*time.Second, 1*time.Second).Should(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
 			})
 		})
 	})
