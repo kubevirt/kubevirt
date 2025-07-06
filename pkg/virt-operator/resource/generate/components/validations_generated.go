@@ -6976,6 +6976,9 @@ var CRDsValidation map[string]string = map[string]string{
                             pageSize:
                               description: PageSize specifies the hugepage size, for
                                 x86_64 architecture valid values are 1Gi and 2Mi.
+                              enum:
+                              - 1Gi
+                              - 2Mi
                               type: string
                           type: object
                         maxGuest:
@@ -9132,6 +9135,9 @@ var CRDsValidation map[string]string = map[string]string{
                 pageSize:
                   description: PageSize specifies the hugepage size, for x86_64 architecture
                     valid values are 1Gi and 2Mi.
+                  enum:
+                  - 1Gi
+                  - 2Mi
                   type: string
               type: object
             maxGuest:
@@ -12416,6 +12422,9 @@ var CRDsValidation map[string]string = map[string]string{
                     pageSize:
                       description: PageSize specifies the hugepage size, for x86_64
                         architecture valid values are 1Gi and 2Mi.
+                      enum:
+                      - 1Gi
+                      - 2Mi
                       type: string
                   type: object
                 maxGuest:
@@ -16111,6 +16120,9 @@ var CRDsValidation map[string]string = map[string]string{
                     pageSize:
                       description: PageSize specifies the hugepage size, for x86_64
                         architecture valid values are 1Gi and 2Mi.
+                      enum:
+                      - 1Gi
+                      - 2Mi
                       type: string
                   type: object
                 maxGuest:
@@ -18608,6 +18620,9 @@ var CRDsValidation map[string]string = map[string]string{
                             pageSize:
                               description: PageSize specifies the hugepage size, for
                                 x86_64 architecture valid values are 1Gi and 2Mi.
+                              enum:
+                              - 1Gi
+                              - 2Mi
                               type: string
                           type: object
                         maxGuest:
@@ -20032,6 +20047,9 @@ var CRDsValidation map[string]string = map[string]string{
                 pageSize:
                   description: PageSize specifies the hugepage size, for x86_64 architecture
                     valid values are 1Gi and 2Mi.
+                  enum:
+                  - 1Gi
+                  - 2Mi
                   type: string
               type: object
             maxGuest:
@@ -23295,6 +23313,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: PageSize specifies the hugepage
                                         size, for x86_64 architecture valid values
                                         are 1Gi and 2Mi.
+                                      enum:
+                                      - 1Gi
+                                      - 2Mi
                                       type: string
                                   type: object
                                 maxGuest:
@@ -28654,6 +28675,9 @@ var CRDsValidation map[string]string = map[string]string{
                                           description: PageSize specifies the hugepage
                                             size, for x86_64 architecture valid values
                                             are 1Gi and 2Mi.
+                                          enum:
+                                          - 1Gi
+                                          - 2Mi
                                           type: string
                                       type: object
                                     maxGuest:
