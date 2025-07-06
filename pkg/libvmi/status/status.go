@@ -148,6 +148,13 @@ func WithMemoryStatus(memoryStatus *v1.MemoryStatus) Option {
 	}
 }
 
+// WithSelinuxContext sets the SELinux context
+func WithSelinuxContext(selinuxContext string) Option {
+	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
+		vmiStatus.SelinuxContext = selinuxContext
+	}
+}
+
 type VMOption func(vmiStatus *v1.VirtualMachineStatus)
 
 // WithStatus sets the status with specified value

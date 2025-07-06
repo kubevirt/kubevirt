@@ -2509,14 +2509,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("CreateAttachmentPodTemplate should update status to bound if DV owning PVC is bound but not ready", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			addVolumeStatuses(vmi, virtv1.VolumeStatus{
+			vmi := newPendingVMIWithExtraStatusOptions("testvmi", libvmistatus.WithVolumeStatus(virtv1.VolumeStatus{
 				Name:          "test-pvc-volume",
 				HotplugVolume: &virtv1.HotplugVolumeStatus{},
 				Phase:         virtv1.VolumePending,
 				Message:       "some technical reason",
 				Reason:        kvcontroller.PVCNotReadyReason,
-			})
+			}))
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			addDataVolumePVC(pvc)
@@ -2551,8 +2550,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("CreateAttachmentPodTemplate should create a pod template if DV of owning PVC is ready", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
+			vmi := newPendingVMIWithExtraStatusOptions("testvmi", libvmistatus.WithSelinuxContext("system_u:system_r:container_file_t:s0:c1,c2"))
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			addDataVolumePVC(pvc)
@@ -2744,8 +2742,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}
 
 		DescribeTable("handleHotplugVolumes should properly react to input", func(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod, createPodReaction func(*k8sv1.Pod, ...int), pvcFunc func(...int), pvcIndexes []int, orgStatus []virtv1.VolumeStatus, expectedEvent string, expectedErr common.SyncError) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.VolumeStatus = orgStatus
+			volumeStatusOptions := []libvmistatus.Option{}
+			for _, volumeStatus := range orgStatus {
+				volumeStatusOptions = append(volumeStatusOptions, libvmistatus.WithVolumeStatus(volumeStatus))
+			}
+			vmi := newPendingVMIWithExtraStatusOptions("testvmi", volumeStatusOptions...)
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvcFunc(pvcIndexes...)
 			datavolumes := []*cdiv1.DataVolume{}
