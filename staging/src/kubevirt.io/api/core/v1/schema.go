@@ -418,6 +418,7 @@ type MemoryStatus struct {
 // Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
 type Hugepages struct {
 	// PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.
+	// +kubebuilder:validation:Enum={"1Gi","2Mi"}
 	PageSize string `json:"pageSize,omitempty"`
 }
 
