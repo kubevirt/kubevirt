@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -34,8 +33,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	container_disk "kubevirt.io/kubevirt/pkg/container-disk"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -393,8 +390,8 @@ func podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*v1.Volum
 	)
 	containerDisksNames := make(map[string]struct{})
 	for _, ctr := range attachmentPod.Spec.Containers {
-		if strings.HasPrefix(ctr.Name, services.HotplugContainerDisk) {
-			containerDisksNames[strings.TrimPrefix(ctr.Name, services.HotplugContainerDisk)] = struct{}{}
+		if name, ok := attachmentPod.GetAnnotations()[ctr.Name]; ok {
+			containerDisksNames[name] = struct{}{}
 		}
 	}
 

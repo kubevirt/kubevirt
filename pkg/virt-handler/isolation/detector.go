@@ -22,6 +22,8 @@ package isolation
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -223,8 +225,12 @@ func (s *socketBasedIsolationDetector) socketHack(socket string) (sock net.Conn,
 		}
 		return sock, fn, err
 	}
+
 	base := path.Base(socket)
-	newPath := fmt.Sprintf("/tmp/%s", base)
+	md5sum := md5.Sum([]byte(base))
+	md5string := hex.EncodeToString(md5sum[:])
+	newPath := path.Join("/tmp", md5string)
+
 	if err = os.Symlink(socket, newPath); err != nil {
 		return nil, fn, err
 	}
