@@ -1017,8 +1017,8 @@ var _ = Describe("Template", func() {
 						Name:      "testvmi",
 						Namespace: "default",
 						UID:       "1234",
-						Annotations: map[string]string{
-							istio.InjectSidecarAnnotation: "true",
+						Labels: map[string]string{
+							istio.InjectSidecarLabel: "true",
 						},
 					},
 				}

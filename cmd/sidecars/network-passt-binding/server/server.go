@@ -77,10 +77,18 @@ func (s V1alpha3Server) OnDefineDomain(_ context.Context, params *hooksV1alpha3.
 
 	useVirtioTransitional := vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional
 
-	const istioInjectAnnotation = "sidecar.istio.io/inject"
+	const istioInjectLabel = "sidecar.istio.io/inject"
+	const InjectSidecarDeprecatedAnnotation = "sidecar.istio.io/inject"
+
 	istioProxyInjectionEnabled := false
-	if val, ok := vmi.GetAnnotations()[istioInjectAnnotation]; ok {
-		istioProxyInjectionEnabled = strings.ToLower(val) == "true"
+	val, ok := vmi.GetLabels()[istioInjectLabel]
+	if ok {
+		istioProxyInjectionEnabled = strings.EqualFold(val, "true")
+	} else {
+		val, ok = vmi.GetAnnotations()[InjectSidecarDeprecatedAnnotation]
+		if ok {
+			istioProxyInjectionEnabled = strings.EqualFold(val, "true")
+		}
 	}
 
 	opts := domain.NetworkConfiguratorOptions{

@@ -20,9 +20,10 @@
 package istio
 
 const (
-	// InjectSidecarAnnotation Specifies whether an Envoy sidecar should be automatically injected into the workload
-	// https://istio.io/latest/docs/reference/config/annotations/#SidecarInject
-	InjectSidecarAnnotation = "sidecar.istio.io/inject"
+	// InjectSidecarLabel Specifies whether an Envoy sidecar should be automatically injected into the workload
+	// https://istio.io/latest/docs/reference/config/labels/#SidecarInject
+	InjectSidecarLabel                = "sidecar.istio.io/inject"
+	InjectSidecarDeprecatedAnnotation = "sidecar.istio.io/inject"
 
 	// KubeVirtTrafficAnnotation Specifies a comma separated list of virtual interfaces
 	// whose inbound traffic (from VM) will be treated as outbound
