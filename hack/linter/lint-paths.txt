@@ -1,4 +1,6 @@
 cmd/cniplugins
+cmd/sidecars/network-passt-binding/callback
+cmd/sidecars/network-slirp-binding/callback
 cmd/virtctl
 pkg/instancetype
 pkg/libvmi
@@ -7,6 +9,7 @@ pkg/network/controllers
 pkg/network/deviceinfo
 pkg/network/domainspec
 pkg/network/downwardapi
+pkg/network/driver/netlink
 pkg/network/errors
 pkg/network/istio
 pkg/network/migration
