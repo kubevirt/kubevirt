@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	"kubevirt.io/client-go/testing"
@@ -155,7 +155,7 @@ var _ = Describe("Pool", func() {
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
-			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(fakeVirtClient.PoolV1alpha1().VirtualMachinePools(testNamespace)).AnyTimes()
+			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(fakeVirtClient.PoolV1beta1().VirtualMachinePools(testNamespace)).AnyTimes()
 
 			fakeVirtClient.Fake.PrependReactor("*", "*", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				Expect(action).To(BeNil())

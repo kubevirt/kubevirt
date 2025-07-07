@@ -17,7 +17,7 @@ import (
 	clonev1beta1 "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1beta1 "kubevirt.io/api/export/v1beta1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"

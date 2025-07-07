@@ -63,7 +63,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/api/migrations"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"

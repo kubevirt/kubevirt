@@ -17,6 +17,7 @@ swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/instancetype/v1alpha
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/instancetype/v1alpha2/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/instancetype/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/pool/v1alpha1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/pool/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/migrations/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1beta1/types.go
@@ -35,6 +36,7 @@ deepcopy-gen \
     kubevirt.io/api/instancetype/v1alpha2 \
     kubevirt.io/api/instancetype/v1beta1 \
     kubevirt.io/api/pool/v1alpha1 \
+    kubevirt.io/api/pool/v1beta1 \
     kubevirt.io/api/migrations/v1alpha1 \
     kubevirt.io/api/clone/v1alpha1 \
     kubevirt.io/api/clone/v1beta1 \
@@ -66,6 +68,7 @@ openapi-gen \
     kubevirt.io/api/instancetype/v1beta1 \
     kubevirt.io/api/migrations/v1alpha1 \
     kubevirt.io/api/pool/v1alpha1 \
+    kubevirt.io/api/pool/v1beta1 \
     kubevirt.io/api/snapshot/v1alpha1 \
     kubevirt.io/api/snapshot/v1beta1 \
     kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
@@ -88,7 +91,7 @@ fi
 
 client-gen --clientset-name kubevirt \
     --input-base kubevirt.io/api \
-    --input core/v1,export/v1alpha1,export/v1beta1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1alpha1,instancetype/v1alpha2,instancetype/v1beta1,pool/v1alpha1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1 \
+    --input core/v1,export/v1alpha1,export/v1beta1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1alpha1,instancetype/v1alpha2,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1 \
     --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
     --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
@@ -151,6 +154,7 @@ deepcopy-gen \
 
     #include pool
     GOFLAGS= controller-gen crd paths=../api/pool/v1alpha1/
+    GOFLAGS= controller-gen crd paths=../api/pool/v1beta1/
 
     #include migrations
     GOFLAGS= controller-gen crd paths=../api/migrations/v1alpha1/

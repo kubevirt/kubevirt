@@ -38,7 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
