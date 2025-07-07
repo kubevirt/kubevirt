@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	rt "runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -241,11 +240,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	)
 
 	DescribeTable("should apply configurable defaults on VMI create", func(arch string, cpuModel string) {
-		defer func() {
-			webhooks.Arch = rt.GOARCH
-		}()
-		webhooks.Arch = arch
-
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
