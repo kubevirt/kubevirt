@@ -492,6 +492,26 @@ virNodeDeviceUndefineWrapper(virNodeDevicePtr dev,
 }
 
 int
+virNodeDeviceUpdateWrapper(virNodeDevicePtr dev,
+                           const char * xmlDesc,
+                           unsigned int flags,
+                           virErrorPtr err)
+{
+    int ret = -1;
+#if !LIBVIR_CHECK_VERSION(10, 1, 0)
+    setVirError(err, "Function virNodeDeviceUpdate not available prior to libvirt version 10.1.0");
+#else
+    ret = virNodeDeviceUpdate(dev,
+                              xmlDesc,
+                              flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+#endif
+    return ret;
+}
+
+int
 virNodeListDevicesWrapper(virConnectPtr conn,
                           const char * cap,
                           char ** const names,

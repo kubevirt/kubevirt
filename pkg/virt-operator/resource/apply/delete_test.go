@@ -20,11 +20,18 @@
 package apply
 
 import (
+	"context"
+
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	kubecli "kubevirt.io/client-go/kubecli"
 
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/testing"
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -167,6 +174,89 @@ var _ = Describe("Deletion", func() {
 
 			needRemoved := crdFilterNeedFinalizerRemoved(crds)
 			Expect(needRemoved).To(BeEmpty())
+		})
+	})
+
+	Context("Node label deletion", func() {
+		var clientset *fake.Clientset
+		var kubevirtClient *kubecli.MockKubevirtClient
+		var ctrl *gomock.Controller
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			clientset = fake.NewSimpleClientset()
+			kubevirtClient = kubecli.NewMockKubevirtClient(ctrl)
+			kubevirtClient.EXPECT().CoreV1().Return(clientset.CoreV1()).AnyTimes()
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
+		})
+
+		It("should delete kubevirt labels from nodes", func() {
+			nodes := &k8sv1.NodeList{
+				Items: []k8sv1.Node{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "node1",
+							Labels: map[string]string{
+								"kubevirt.io/schedulable": "true",
+								"kubevirt.io/some-label":  "value",
+								"other-label":             "value",
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "node2",
+							Labels: map[string]string{
+								"kubevirt.io/schedulable":   "true",
+								"kubevirt.io/another-label": "value",
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "node3",
+							Labels: map[string]string{},
+						},
+					},
+				},
+			}
+
+			_, err := clientset.CoreV1().Nodes().Create(context.Background(), &nodes.Items[0], metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = clientset.CoreV1().Nodes().Create(context.Background(), &nodes.Items[1], metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = clientset.CoreV1().Nodes().Create(context.Background(), &nodes.Items[2], metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = deleteKubeVirtLabelsFromNodes(kubevirtClient)
+			Expect(err).ToNot(HaveOccurred())
+
+			updatedNode1, err := clientset.CoreV1().Nodes().Get(context.Background(), "node1", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedNode1.Labels).ToNot(HaveKey("kubevirt.io/some-label"))
+			Expect(updatedNode1.Labels).To(HaveKey("other-label"))
+
+			updatedNode2, err := clientset.CoreV1().Nodes().Get(context.Background(), "node2", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedNode2.Labels).To(BeEmpty())
+
+			Expect(clientset.Actions()).To(WithTransform(func(actions []testing.Action) []testing.Action {
+				var node3patchActions []testing.Action
+				for _, action := range actions {
+					if action.GetVerb() == "patch" &&
+						action.GetResource().Resource == "nodes" {
+						patchAction := action.(testing.PatchAction)
+						if patchAction.GetName() == "node3" {
+							node3patchActions = append(node3patchActions, action)
+						}
+					}
+				}
+				return node3patchActions
+			}, BeEmpty()))
+
 		})
 	})
 })

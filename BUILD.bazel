@@ -54,10 +54,12 @@ nogo(
     # that are always correct).
     # You can see the what `go vet` does by running `go doc cmd/vet`.
     deps = [
-        "//vendor/github.com/nunnatsa/ginkgolinter:go_default_library",
+        # Nogo dependencies removed due to issue with gazelle recreating the
+        # Build.bazel files
+        #"//vendor/github.com/nunnatsa/ginkgolinter:go_default_library",
         "//tools/analyzers/banncheck:go_default_library",
-        "//vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign:go_default_library",
-        "//vendor/github.com/kisielk/errcheck/errcheck:go_default_library",
+        #"//vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign:go_default_library",
+        #"//vendor/github.com/kisielk/errcheck/errcheck:go_default_library",
         "@org_golang_x_tools//go/analysis/passes/asmdecl:go_default_library",
         "@org_golang_x_tools//go/analysis/passes/assign:go_default_library",
         "@org_golang_x_tools//go/analysis/passes/atomic:go_default_library",
@@ -93,9 +95,16 @@ gazelle(
 
 bazeldnf(name = "bazeldnf")
 
-load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
+load("@buildifier_prebuilt//:rules.bzl", "buildifier")
 
-buildifier(name = "buildifier")
+alias(
+    name = "buildozer",
+    actual = "@buildifier_prebuilt//:buildozer",
+)
+
+buildifier(
+    name = "buildifier",
+)
 
 genrule(
     name = "get-version",
@@ -110,23 +119,25 @@ cc_library(
     name = "libvirt-libs",
     srcs = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:libvirt-libs_aarch64/usr/lib64"],
+        "@io_bazel_rules_go//go/platform:linux_s390x": ["//rpm:libvirt-libs_s390x/usr/lib64"],
         "//conditions:default": ["//rpm:libvirt-libs_x86_64/usr/lib64"],
     }),
     hdrs = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:libvirt-libs_aarch64/usr/include/libvirt"],
+        "@io_bazel_rules_go//go/platform:linux_s390x": ["//rpm:libvirt-libs_s390x/usr/include/libvirt"],
         "//conditions:default": ["//rpm:libvirt-libs_x86_64/usr/include/libvirt"],
     }),
-    include_prefix = "libvirt",
     linkstatic = 1,
     strip_include_prefix = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "/rpm/libvirt-libs_aarch64/",
-        "//conditions:default": "/rpm/libvirt-libs_x86_64/",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "/rpm/libvirt-libs_aarch64/usr/include/",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "/rpm/libvirt-libs_s390x/usr/include/",
+        "//conditions:default": "/rpm/libvirt-libs_x86_64/usr/include/",
     }),
     visibility = ["//visibility:public"],
 )
 
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 passwd_entry(
     name = "nonroot-user",
@@ -163,10 +174,12 @@ container_image(
     name = "passwd-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64//image",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x//image",
         "//conditions:default": "@go_image_base//image",
     }),
     tars = [":passwd-tar"],
@@ -184,30 +197,60 @@ config_setting(
     values = {"define": "release=true"},
 )
 
-container_bundle(
-    name = "build-other-images",
-    images = {
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
+
+build_other_images_default = {
+    # cmd images
+    "$(container_prefix)/$(image_prefix)sidecar-shim:$(container_tag)": "//cmd/sidecars:sidecar-shim-image",
+    # container-disk images
+    "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//containerimages:alpine-container-disk-image",
+    # Kernel boot container
+    # -
+    # Customized container-disk images
+    "$(container_prefix)/$(image_prefix)fedora-with-test-tooling-container-disk:$(container_tag)": "//containerimages:fedora-with-test-tooling",
+    # testing images
+    "$(container_prefix)/$(image_prefix)disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
+    "$(container_prefix)/$(image_prefix)vm-killer:$(container_tag)": "//images/vm-killer:vm-killer-image",
+}
+
+build_other_images_aarch64_x86_64 = dicts.add(
+    build_other_images_default,
+    {
         # cmd images
-        "$(container_prefix)/$(image_prefix)example-hook-sidecar:$(container_tag)": "//cmd/example-hook-sidecar:example-hook-sidecar-image",
-        "$(container_prefix)/$(image_prefix)example-disk-mutation-hook-sidecar:$(container_tag)": "//cmd/example-disk-mutation-hook-sidecar:example-disk-mutation-hook-sidecar-image",
-        "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/example-cloudinit-hook-sidecar:example-cloudinit-hook-sidecar-image",
+        "$(container_prefix)/$(image_prefix)example-hook-sidecar:$(container_tag)": "//cmd/sidecars/smbios:example-hook-sidecar-image",
+        "$(container_prefix)/$(image_prefix)example-disk-mutation-hook-sidecar:$(container_tag)": "//cmd/sidecars/disk-mutation:example-disk-mutation-hook-sidecar-image",
+        "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
+        "$(container_prefix)/$(image_prefix)network-slirp-binding:$(container_tag)": "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
+        "$(container_prefix)/$(image_prefix)network-passt-binding:$(container_tag)": "//cmd/sidecars/network-passt-binding:network-passt-binding-image",
+        "$(container_prefix)/$(image_prefix)libguestfs-tools:$(container_tag)": "//cmd/libguestfs:libguestfs-tools-image",
+        "$(container_prefix)/$(image_prefix)pr-helper:$(container_tag)": "//cmd/pr-helper:pr-helper",
         # container-disk images
-        "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//containerimages:alpine-container-disk-image",
         "$(container_prefix)/$(image_prefix)cirros-container-disk-demo:$(container_tag)": "//containerimages:cirros-container-disk-image",
         "$(container_prefix)/$(image_prefix)cirros-custom-container-disk-demo:$(container_tag)": "//containerimages:cirros-custom-container-disk-image",
         "$(container_prefix)/$(image_prefix)virtio-container-disk:$(container_tag)": "//containerimages:virtio-container-disk-image",
         # Kernel boot container
         "$(container_prefix)/$(image_prefix)alpine-ext-kernel-boot-demo:$(container_tag)": "//containerimages:alpine-ext-kernel-boot-demo-container",
         # Customized container-disk images
-        "$(container_prefix)/$(image_prefix)fedora-with-test-tooling-container-disk:$(container_tag)": "//containerimages:fedora-with-test-tooling",
         "$(container_prefix)/$(image_prefix)alpine-with-test-tooling-container-disk:$(container_tag)": "//containerimages:alpine-with-test-tooling",
         "$(container_prefix)/$(image_prefix)fedora-realtime-container-disk:$(container_tag)": "//containerimages:fedora-realtime",
         # testing images
-        "$(container_prefix)/$(image_prefix)disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
-        "$(container_prefix)/$(image_prefix)nfs-server:$(container_tag)": "//images/nfs-server:nfs-server-image",
-        "$(container_prefix)/$(image_prefix)vm-killer:$(container_tag)": "//images/vm-killer:vm-killer-image",
         "$(container_prefix)/$(image_prefix)winrmcli:$(container_tag)": "//images/winrmcli:winrmcli-image",
     },
+)
+
+container_bundle(
+    name = "build-other-images_s390x",
+    images = build_other_images_default,
+)
+
+container_bundle(
+    name = "build-other-images_aarch64",
+    images = build_other_images_aarch64_x86_64,
+)
+
+container_bundle(
+    name = "build-other-images_x86_64",
+    images = build_other_images_aarch64_x86_64,
 )
 
 # This is for generating a bundle of the core components for external processing
@@ -224,11 +267,6 @@ container_bundle(
 
 # heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
 load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
-
-docker_push(
-    name = "push-other-images",
-    bundle = ":build-other-images",
-)
 
 # we need to push virt images with the rule from container:container in order to get the digest file
 container_push(
@@ -287,7 +325,7 @@ container_push(
 )
 
 container_push(
-    name = "push-libguestfs",
+    name = "push-libguestfs-tools",
     format = "Docker",
     image = "//cmd/libguestfs:libguestfs-tools-image",
     registry = "$(container_prefix)",
@@ -310,6 +348,174 @@ container_push(
     image = "//cmd/virt-exportproxy:virt-exportproxy-image",
     registry = "$(container_prefix)",
     repository = "$(image_prefix)virt-exportproxy",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-pr-helper",
+    format = "Docker",
+    image = "//cmd/pr-helper:pr-helper",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)pr-helper",
+    tag = "$(container_tag)",
+)
+
+# The following container_push list is synced with the images in container_bundle "build-other-images".
+# cmd images
+container_push(
+    name = "push-sidecar-shim",
+    format = "Docker",
+    image = "//cmd/sidecars:sidecar-shim-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)sidecar-shim",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-network-slirp-binding",
+    format = "Docker",
+    image = "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)network-slirp-binding",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-network-passt-binding",
+    format = "Docker",
+    image = "//cmd/sidecars/network-passt-binding:network-passt-binding-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)network-passt-binding",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-example-hook-sidecar",
+    format = "Docker",
+    image = "//cmd/sidecars/smbios:example-hook-sidecar-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)example-hook-sidecar",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-example-disk-mutation-hook-sidecar",
+    format = "Docker",
+    image = "//cmd/sidecars/disk-mutation:example-disk-mutation-hook-sidecar-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)example-disk-mutation-hook-sidecar",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-example-cloudinit-hook-sidecar",
+    format = "Docker",
+    image = "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)example-cloudinit-hook-sidecar",
+    tag = "$(container_tag)",
+)
+
+# container-disk images
+container_push(
+    name = "push-alpine-container-disk-demo",
+    format = "Docker",
+    image = "//containerimages:alpine-container-disk-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)alpine-container-disk-demo",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-cirros-container-disk-demo",
+    format = "Docker",
+    image = "//containerimages:cirros-container-disk-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)cirros-container-disk-demo",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-cirros-custom-container-disk-demo",
+    format = "Docker",
+    image = "//containerimages:cirros-custom-container-disk-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)cirros-custom-container-disk-demo",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-virtio-container-disk",
+    format = "Docker",
+    image = "//containerimages:virtio-container-disk-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)virtio-container-disk",
+    tag = "$(container_tag)",
+)
+
+# Kernel boot container
+container_push(
+    name = "push-alpine-ext-kernel-boot-demo",
+    format = "Docker",
+    image = "//containerimages:alpine-ext-kernel-boot-demo-container",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)alpine-ext-kernel-boot-demo",
+    tag = "$(container_tag)",
+)
+
+# Customized container-disk images
+container_push(
+    name = "push-fedora-with-test-tooling-container-disk",
+    format = "Docker",
+    image = "//containerimages:fedora-with-test-tooling",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)fedora-with-test-tooling-container-disk",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-alpine-with-test-tooling-container-disk",
+    format = "Docker",
+    image = "//containerimages:alpine-with-test-tooling",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)alpine-with-test-tooling-container-disk",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-fedora-realtime-container-disk",
+    format = "Docker",
+    image = "//containerimages:fedora-realtime",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)fedora-realtime-container-disk",
+    tag = "$(container_tag)",
+)
+
+# testing images
+container_push(
+    name = "push-disks-images-provider",
+    format = "Docker",
+    image = "//images/disks-images-provider:disks-images-provider-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)disks-images-provider",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-vm-killer",
+    format = "Docker",
+    image = "//images/vm-killer:vm-killer-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)vm-killer",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-winrmcli",
+    format = "Docker",
+    image = "//images/winrmcli:winrmcli-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)winrmcli",
     tag = "$(container_tag)",
 )
 
@@ -349,6 +555,36 @@ genrule(
         "//cmd/virtctl:virtctl-windows",
     ],
     outs = ["virtctl-copier-windows"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-virtctl-arm64",
+    srcs = [
+        "//cmd/virtctl:virtctl-arm64",
+    ],
+    outs = ["virtctl-copier-arm64"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-virtctl-darwin-arm64",
+    srcs = [
+        "//cmd/virtctl:virtctl-darwin-arm64",
+    ],
+    outs = ["virtctl-copier-darwin-arm64"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-virtctl-s390x",
+    srcs = [
+        "//cmd/virtctl:virtctl-s390x",
+    ],
+    outs = ["virtctl-copier-s390x"],
     cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
@@ -441,6 +677,16 @@ genrule(
         "//cmd/dump",
     ],
     outs = ["dump-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-cni-passt-binding",
+    srcs = [
+        "//cmd/cniplugins/passt-binding/cmd:kubevirt-passt-binding",
+    ],
+    outs = ["kubevirt-passt-binding-copier"],
     cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )

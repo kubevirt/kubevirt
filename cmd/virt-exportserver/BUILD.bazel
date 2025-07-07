@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/service:go_default_library",
+        "//pkg/storage/export/export:go_default_library",
         "//pkg/storage/export/virt-exportserver:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
     ],
@@ -27,14 +28,14 @@ load(
     "container_image",
 )
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 passwd_entry(
     name = "nonroot-user",
-    gid = 1001,
+    gid = 107,
     home = "/home/nonroot-user",
     shell = "/bin/bash",
-    uid = 1001,
+    uid = 107,
     username = "nonroot-user",
 )
 
@@ -64,6 +65,10 @@ container_image(
             ":passwd-tar",
             "//rpm:exportserverbase_aarch64",
         ],
+        "@io_bazel_rules_go//go/platform:linux_s390x": [
+            ":passwd-tar",
+            "//rpm:exportserverbase_s390x",
+        ],
         "//conditions:default": [
             ":passwd-tar",
             "//rpm:exportserverbase_x86_64",
@@ -75,6 +80,7 @@ container_image(
     name = "virt-exportserver-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
     base = ":version-container",

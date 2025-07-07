@@ -114,6 +114,12 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(client.UnfreezeVirtualMachine(vmi)).To(Succeed())
 		})
 
+		It("should reset a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().ResetVMI(vmi)
+			Expect(client.ResetVirtualMachine(vmi)).To(Succeed())
+		})
+
 		It("should soft reboot a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domainManager.EXPECT().SoftRebootVMI(vmi)
@@ -210,21 +216,20 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 		It("should return domain stats", func() {
-			var list []*stats.DomainStats
 			dom := api.NewMinimalDomain("testvmstats1")
-			list = append(list, &stats.DomainStats{
+			domainStats := &stats.DomainStats{
 				Name: dom.Spec.Name,
 				UUID: dom.Spec.UUID,
-			})
+			}
 
-			domainManager.EXPECT().GetDomainStats().Return(list, nil)
+			domainManager.EXPECT().GetDomainStats().Return(domainStats, nil)
 			domStats, exists, err := client.GetDomainStats()
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(exists).To(BeTrue())
 			Expect(domStats).ToNot(BeNil())
-			Expect(domStats.Name).To(Equal(list[0].Name))
-			Expect(domStats.UUID).To(Equal(list[0].UUID))
+			Expect(domStats.Name).To(Equal(domainStats.Name))
+			Expect(domStats.UUID).To(Equal(domainStats.UUID))
 		})
 
 		It("should return full user list", func() {
@@ -249,6 +254,12 @@ var _ = Describe("Virt remote commands", func() {
 					FileSystemType: "EXT4",
 					UsedBytes:      3333,
 					TotalBytes:     9999,
+					Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+						{
+							BusType: "scsi",
+							Serial:  "testserial-1234",
+						},
+					},
 				},
 			}
 
@@ -261,16 +272,69 @@ var _ = Describe("Virt remote commands", func() {
 
 		It("should finalize VM migration", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
-			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi).Return(nil)
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{}).Return(nil)
 
-			Expect(client.FinalizeVirtualMachineMigration(vmi)).Should(Succeed())
+			Expect(client.FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{})).Should(Succeed())
 		})
 
 		It("should fail to finalize VM migration", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
-			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi).Return(errors.New("error"))
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{}).Return(errors.New("error"))
 
-			Expect(client.FinalizeVirtualMachineMigration(vmi)).ToNot(Succeed())
+			Expect(client.FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{})).ToNot(Succeed())
+		})
+
+		It("should get the qemu version", func() {
+			server := &Launcher{
+				domainManager: domainManager,
+			}
+			var mockedQemuVersion = "7.2.0"
+			domainManager.EXPECT().GetQemuVersion().Return(mockedQemuVersion, nil)
+			request := &cmdv1.EmptyRequest{}
+			qemuVersion, err := server.GetQemuVersion(context.TODO(), request)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mockedQemuVersion).To(Equal(qemuVersion.GetVersion()))
+		})
+
+		It("should return SEV platform info", func() {
+			sevPlatformInfo := &v1.SEVPlatformInfo{
+				PDH:       "AAABBBCCC",
+				CertChain: "DDDEEEFFF",
+			}
+			domainManager.EXPECT().GetSEVInfo().Return(sevPlatformInfo, nil)
+			fetchedSEVPlatformInfo, err := client.GetSEVInfo()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetchedSEVPlatformInfo).To(Equal(sevPlatformInfo))
+		})
+
+		It("should return a vmi launch measurement", func() {
+			sevMeasurementInfo := &v1.SEVMeasurementInfo{
+				Measurement: "AAABBBCCC",
+				APIMajor:    1,
+				APIMinor:    2,
+				BuildID:     0xee,
+				Policy:      0xff,
+			}
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().GetLaunchMeasurement(vmi).Return(sevMeasurementInfo, nil)
+			fetchedSEVMeasurementInfo, err := client.GetLaunchMeasurement(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetchedSEVMeasurementInfo).To(Equal(sevMeasurementInfo))
+		})
+
+		It("should inject a launch secret into a vmi", func() {
+			sevSecretOptions := &v1.SEVSecretOptions{}
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().InjectLaunchSecret(vmi, sevSecretOptions).Return(nil)
+			err := client.InjectLaunchSecret(vmi, sevSecretOptions)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should call UpdateGuestMemory", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().UpdateGuestMemory(vmi).Return(nil)
+			Expect(client.SyncVirtualMachineMemory(vmi, &cmdv1.VirtualMachineOptions{})).To(Succeed())
 		})
 
 		Context("exec & guestPing", func() {
@@ -375,7 +439,9 @@ var _ = Describe("Virt remote commands", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Response.Success).To(BeTrue())
 			})
+
 		})
+
 	})
 
 	Describe("Version mismatch", func() {

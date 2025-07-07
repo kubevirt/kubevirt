@@ -43,8 +43,8 @@ package libvirt
 
 
 typedef int
-(*virConnectDomainEventDeregisterType)(virConnectPtr conn,
-                                       virConnectDomainEventCallback cb);
+(*virConnectDomainEventDeregisterFuncType)(virConnectPtr conn,
+                                           virConnectDomainEventCallback cb);
 
 int
 virConnectDomainEventDeregisterWrapper(virConnectPtr conn,
@@ -52,7 +52,7 @@ virConnectDomainEventDeregisterWrapper(virConnectPtr conn,
                                        virErrorPtr err)
 {
     int ret = -1;
-    static virConnectDomainEventDeregisterType virConnectDomainEventDeregisterSymbol;
+    static virConnectDomainEventDeregisterFuncType virConnectDomainEventDeregisterSymbol;
     static bool once;
     static bool success;
 
@@ -72,8 +72,8 @@ virConnectDomainEventDeregisterWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectDomainEventDeregisterAnyType)(virConnectPtr conn,
-                                          int callbackID);
+(*virConnectDomainEventDeregisterAnyFuncType)(virConnectPtr conn,
+                                              int callbackID);
 
 int
 virConnectDomainEventDeregisterAnyWrapper(virConnectPtr conn,
@@ -81,7 +81,7 @@ virConnectDomainEventDeregisterAnyWrapper(virConnectPtr conn,
                                           virErrorPtr err)
 {
     int ret = -1;
-    static virConnectDomainEventDeregisterAnyType virConnectDomainEventDeregisterAnySymbol;
+    static virConnectDomainEventDeregisterAnyFuncType virConnectDomainEventDeregisterAnySymbol;
     static bool once;
     static bool success;
 
@@ -101,10 +101,10 @@ virConnectDomainEventDeregisterAnyWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectDomainEventRegisterType)(virConnectPtr conn,
-                                     virConnectDomainEventCallback cb,
-                                     void * opaque,
-                                     virFreeCallback freecb);
+(*virConnectDomainEventRegisterFuncType)(virConnectPtr conn,
+                                         virConnectDomainEventCallback cb,
+                                         void * opaque,
+                                         virFreeCallback freecb);
 
 int
 virConnectDomainEventRegisterWrapper(virConnectPtr conn,
@@ -114,7 +114,7 @@ virConnectDomainEventRegisterWrapper(virConnectPtr conn,
                                      virErrorPtr err)
 {
     int ret = -1;
-    static virConnectDomainEventRegisterType virConnectDomainEventRegisterSymbol;
+    static virConnectDomainEventRegisterFuncType virConnectDomainEventRegisterSymbol;
     static bool once;
     static bool success;
 
@@ -136,12 +136,12 @@ virConnectDomainEventRegisterWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectDomainEventRegisterAnyType)(virConnectPtr conn,
-                                        virDomainPtr dom,
-                                        int eventID,
-                                        virConnectDomainEventGenericCallback cb,
-                                        void * opaque,
-                                        virFreeCallback freecb);
+(*virConnectDomainEventRegisterAnyFuncType)(virConnectPtr conn,
+                                            virDomainPtr dom,
+                                            int eventID,
+                                            virConnectDomainEventGenericCallback cb,
+                                            void * opaque,
+                                            virFreeCallback freecb);
 
 int
 virConnectDomainEventRegisterAnyWrapper(virConnectPtr conn,
@@ -153,7 +153,7 @@ virConnectDomainEventRegisterAnyWrapper(virConnectPtr conn,
                                         virErrorPtr err)
 {
     int ret = -1;
-    static virConnectDomainEventRegisterAnyType virConnectDomainEventRegisterAnySymbol;
+    static virConnectDomainEventRegisterAnyFuncType virConnectDomainEventRegisterAnySymbol;
     static bool once;
     static bool success;
 
@@ -177,10 +177,10 @@ virConnectDomainEventRegisterAnyWrapper(virConnectPtr conn,
 }
 
 typedef char *
-(*virConnectDomainXMLFromNativeType)(virConnectPtr conn,
-                                     const char * nativeFormat,
-                                     const char * nativeConfig,
-                                     unsigned int flags);
+(*virConnectDomainXMLFromNativeFuncType)(virConnectPtr conn,
+                                         const char * nativeFormat,
+                                         const char * nativeConfig,
+                                         unsigned int flags);
 
 char *
 virConnectDomainXMLFromNativeWrapper(virConnectPtr conn,
@@ -190,7 +190,7 @@ virConnectDomainXMLFromNativeWrapper(virConnectPtr conn,
                                      virErrorPtr err)
 {
     char * ret = NULL;
-    static virConnectDomainXMLFromNativeType virConnectDomainXMLFromNativeSymbol;
+    static virConnectDomainXMLFromNativeFuncType virConnectDomainXMLFromNativeSymbol;
     static bool once;
     static bool success;
 
@@ -212,10 +212,10 @@ virConnectDomainXMLFromNativeWrapper(virConnectPtr conn,
 }
 
 typedef char *
-(*virConnectDomainXMLToNativeType)(virConnectPtr conn,
-                                   const char * nativeFormat,
-                                   const char * domainXml,
-                                   unsigned int flags);
+(*virConnectDomainXMLToNativeFuncType)(virConnectPtr conn,
+                                       const char * nativeFormat,
+                                       const char * domainXml,
+                                       unsigned int flags);
 
 char *
 virConnectDomainXMLToNativeWrapper(virConnectPtr conn,
@@ -225,7 +225,7 @@ virConnectDomainXMLToNativeWrapper(virConnectPtr conn,
                                    virErrorPtr err)
 {
     char * ret = NULL;
-    static virConnectDomainXMLToNativeType virConnectDomainXMLToNativeSymbol;
+    static virConnectDomainXMLToNativeFuncType virConnectDomainXMLToNativeSymbol;
     static bool once;
     static bool success;
 
@@ -247,10 +247,10 @@ virConnectDomainXMLToNativeWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectGetAllDomainStatsType)(virConnectPtr conn,
-                                   unsigned int stats,
-                                   virDomainStatsRecordPtr ** retStats,
-                                   unsigned int flags);
+(*virConnectGetAllDomainStatsFuncType)(virConnectPtr conn,
+                                       unsigned int stats,
+                                       virDomainStatsRecordPtr ** retStats,
+                                       unsigned int flags);
 
 int
 virConnectGetAllDomainStatsWrapper(virConnectPtr conn,
@@ -260,7 +260,7 @@ virConnectGetAllDomainStatsWrapper(virConnectPtr conn,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virConnectGetAllDomainStatsType virConnectGetAllDomainStatsSymbol;
+    static virConnectGetAllDomainStatsFuncType virConnectGetAllDomainStatsSymbol;
     static bool once;
     static bool success;
 
@@ -282,12 +282,12 @@ virConnectGetAllDomainStatsWrapper(virConnectPtr conn,
 }
 
 typedef char *
-(*virConnectGetDomainCapabilitiesType)(virConnectPtr conn,
-                                       const char * emulatorbin,
-                                       const char * arch,
-                                       const char * machine,
-                                       const char * virttype,
-                                       unsigned int flags);
+(*virConnectGetDomainCapabilitiesFuncType)(virConnectPtr conn,
+                                           const char * emulatorbin,
+                                           const char * arch,
+                                           const char * machine,
+                                           const char * virttype,
+                                           unsigned int flags);
 
 char *
 virConnectGetDomainCapabilitiesWrapper(virConnectPtr conn,
@@ -299,7 +299,7 @@ virConnectGetDomainCapabilitiesWrapper(virConnectPtr conn,
                                        virErrorPtr err)
 {
     char * ret = NULL;
-    static virConnectGetDomainCapabilitiesType virConnectGetDomainCapabilitiesSymbol;
+    static virConnectGetDomainCapabilitiesFuncType virConnectGetDomainCapabilitiesSymbol;
     static bool once;
     static bool success;
 
@@ -323,9 +323,9 @@ virConnectGetDomainCapabilitiesWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListAllDomainsType)(virConnectPtr conn,
-                                virDomainPtr ** domains,
-                                unsigned int flags);
+(*virConnectListAllDomainsFuncType)(virConnectPtr conn,
+                                    virDomainPtr ** domains,
+                                    unsigned int flags);
 
 int
 virConnectListAllDomainsWrapper(virConnectPtr conn,
@@ -334,7 +334,7 @@ virConnectListAllDomainsWrapper(virConnectPtr conn,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListAllDomainsType virConnectListAllDomainsSymbol;
+    static virConnectListAllDomainsFuncType virConnectListAllDomainsSymbol;
     static bool once;
     static bool success;
 
@@ -355,9 +355,9 @@ virConnectListAllDomainsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListDefinedDomainsType)(virConnectPtr conn,
-                                    char ** const names,
-                                    int maxnames);
+(*virConnectListDefinedDomainsFuncType)(virConnectPtr conn,
+                                        char ** const names,
+                                        int maxnames);
 
 int
 virConnectListDefinedDomainsWrapper(virConnectPtr conn,
@@ -366,7 +366,7 @@ virConnectListDefinedDomainsWrapper(virConnectPtr conn,
                                     virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListDefinedDomainsType virConnectListDefinedDomainsSymbol;
+    static virConnectListDefinedDomainsFuncType virConnectListDefinedDomainsSymbol;
     static bool once;
     static bool success;
 
@@ -387,9 +387,9 @@ virConnectListDefinedDomainsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListDomainsType)(virConnectPtr conn,
-                             int * ids,
-                             int maxids);
+(*virConnectListDomainsFuncType)(virConnectPtr conn,
+                                 int * ids,
+                                 int maxids);
 
 int
 virConnectListDomainsWrapper(virConnectPtr conn,
@@ -398,7 +398,7 @@ virConnectListDomainsWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListDomainsType virConnectListDomainsSymbol;
+    static virConnectListDomainsFuncType virConnectListDomainsSymbol;
     static bool once;
     static bool success;
 
@@ -419,14 +419,14 @@ virConnectListDomainsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNumOfDefinedDomainsType)(virConnectPtr conn);
+(*virConnectNumOfDefinedDomainsFuncType)(virConnectPtr conn);
 
 int
 virConnectNumOfDefinedDomainsWrapper(virConnectPtr conn,
                                      virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNumOfDefinedDomainsType virConnectNumOfDefinedDomainsSymbol;
+    static virConnectNumOfDefinedDomainsFuncType virConnectNumOfDefinedDomainsSymbol;
     static bool once;
     static bool success;
 
@@ -445,14 +445,14 @@ virConnectNumOfDefinedDomainsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNumOfDomainsType)(virConnectPtr conn);
+(*virConnectNumOfDomainsFuncType)(virConnectPtr conn);
 
 int
 virConnectNumOfDomainsWrapper(virConnectPtr conn,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNumOfDomainsType virConnectNumOfDomainsSymbol;
+    static virConnectNumOfDomainsFuncType virConnectNumOfDomainsSymbol;
     static bool once;
     static bool success;
 
@@ -471,14 +471,14 @@ virConnectNumOfDomainsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virDomainAbortJobType)(virDomainPtr domain);
+(*virDomainAbortJobFuncType)(virDomainPtr domain);
 
 int
 virDomainAbortJobWrapper(virDomainPtr domain,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virDomainAbortJobType virDomainAbortJobSymbol;
+    static virDomainAbortJobFuncType virDomainAbortJobSymbol;
     static bool once;
     static bool success;
 
@@ -497,8 +497,8 @@ virDomainAbortJobWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainAbortJobFlagsType)(virDomainPtr domain,
-                              unsigned int flags);
+(*virDomainAbortJobFlagsFuncType)(virDomainPtr domain,
+                                  unsigned int flags);
 
 int
 virDomainAbortJobFlagsWrapper(virDomainPtr domain,
@@ -506,7 +506,7 @@ virDomainAbortJobFlagsWrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainAbortJobFlagsType virDomainAbortJobFlagsSymbol;
+    static virDomainAbortJobFlagsFuncType virDomainAbortJobFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -526,9 +526,9 @@ virDomainAbortJobFlagsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainAddIOThreadType)(virDomainPtr domain,
-                            unsigned int iothread_id,
-                            unsigned int flags);
+(*virDomainAddIOThreadFuncType)(virDomainPtr domain,
+                                unsigned int iothread_id,
+                                unsigned int flags);
 
 int
 virDomainAddIOThreadWrapper(virDomainPtr domain,
@@ -537,7 +537,7 @@ virDomainAddIOThreadWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainAddIOThreadType virDomainAddIOThreadSymbol;
+    static virDomainAddIOThreadFuncType virDomainAddIOThreadSymbol;
     static bool once;
     static bool success;
 
@@ -558,9 +558,9 @@ virDomainAddIOThreadWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainAgentSetResponseTimeoutType)(virDomainPtr domain,
-                                        int timeout,
-                                        unsigned int flags);
+(*virDomainAgentSetResponseTimeoutFuncType)(virDomainPtr domain,
+                                            int timeout,
+                                            unsigned int flags);
 
 int
 virDomainAgentSetResponseTimeoutWrapper(virDomainPtr domain,
@@ -569,7 +569,7 @@ virDomainAgentSetResponseTimeoutWrapper(virDomainPtr domain,
                                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainAgentSetResponseTimeoutType virDomainAgentSetResponseTimeoutSymbol;
+    static virDomainAgentSetResponseTimeoutFuncType virDomainAgentSetResponseTimeoutSymbol;
     static bool once;
     static bool success;
 
@@ -590,8 +590,8 @@ virDomainAgentSetResponseTimeoutWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainAttachDeviceType)(virDomainPtr domain,
-                             const char * xml);
+(*virDomainAttachDeviceFuncType)(virDomainPtr domain,
+                                 const char * xml);
 
 int
 virDomainAttachDeviceWrapper(virDomainPtr domain,
@@ -599,7 +599,7 @@ virDomainAttachDeviceWrapper(virDomainPtr domain,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainAttachDeviceType virDomainAttachDeviceSymbol;
+    static virDomainAttachDeviceFuncType virDomainAttachDeviceSymbol;
     static bool once;
     static bool success;
 
@@ -619,9 +619,9 @@ virDomainAttachDeviceWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainAttachDeviceFlagsType)(virDomainPtr domain,
-                                  const char * xml,
-                                  unsigned int flags);
+(*virDomainAttachDeviceFlagsFuncType)(virDomainPtr domain,
+                                      const char * xml,
+                                      unsigned int flags);
 
 int
 virDomainAttachDeviceFlagsWrapper(virDomainPtr domain,
@@ -630,7 +630,7 @@ virDomainAttachDeviceFlagsWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainAttachDeviceFlagsType virDomainAttachDeviceFlagsSymbol;
+    static virDomainAttachDeviceFlagsFuncType virDomainAttachDeviceFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -651,10 +651,10 @@ virDomainAttachDeviceFlagsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainAuthorizedSSHKeysGetType)(virDomainPtr domain,
-                                     const char * user,
-                                     char *** keys,
-                                     unsigned int flags);
+(*virDomainAuthorizedSSHKeysGetFuncType)(virDomainPtr domain,
+                                         const char * user,
+                                         char *** keys,
+                                         unsigned int flags);
 
 int
 virDomainAuthorizedSSHKeysGetWrapper(virDomainPtr domain,
@@ -664,7 +664,7 @@ virDomainAuthorizedSSHKeysGetWrapper(virDomainPtr domain,
                                      virErrorPtr err)
 {
     int ret = -1;
-    static virDomainAuthorizedSSHKeysGetType virDomainAuthorizedSSHKeysGetSymbol;
+    static virDomainAuthorizedSSHKeysGetFuncType virDomainAuthorizedSSHKeysGetSymbol;
     static bool once;
     static bool success;
 
@@ -686,11 +686,11 @@ virDomainAuthorizedSSHKeysGetWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainAuthorizedSSHKeysSetType)(virDomainPtr domain,
-                                     const char * user,
-                                     const char ** keys,
-                                     unsigned int nkeys,
-                                     unsigned int flags);
+(*virDomainAuthorizedSSHKeysSetFuncType)(virDomainPtr domain,
+                                         const char * user,
+                                         const char ** keys,
+                                         unsigned int nkeys,
+                                         unsigned int flags);
 
 int
 virDomainAuthorizedSSHKeysSetWrapper(virDomainPtr domain,
@@ -701,7 +701,7 @@ virDomainAuthorizedSSHKeysSetWrapper(virDomainPtr domain,
                                      virErrorPtr err)
 {
     int ret = -1;
-    static virDomainAuthorizedSSHKeysSetType virDomainAuthorizedSSHKeysSetSymbol;
+    static virDomainAuthorizedSSHKeysSetFuncType virDomainAuthorizedSSHKeysSetSymbol;
     static bool once;
     static bool success;
 
@@ -724,10 +724,10 @@ virDomainAuthorizedSSHKeysSetWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainBackupBeginType)(virDomainPtr domain,
-                            const char * backupXML,
-                            const char * checkpointXML,
-                            unsigned int flags);
+(*virDomainBackupBeginFuncType)(virDomainPtr domain,
+                                const char * backupXML,
+                                const char * checkpointXML,
+                                unsigned int flags);
 
 int
 virDomainBackupBeginWrapper(virDomainPtr domain,
@@ -737,7 +737,7 @@ virDomainBackupBeginWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainBackupBeginType virDomainBackupBeginSymbol;
+    static virDomainBackupBeginFuncType virDomainBackupBeginSymbol;
     static bool once;
     static bool success;
 
@@ -759,8 +759,8 @@ virDomainBackupBeginWrapper(virDomainPtr domain,
 }
 
 typedef char *
-(*virDomainBackupGetXMLDescType)(virDomainPtr domain,
-                                 unsigned int flags);
+(*virDomainBackupGetXMLDescFuncType)(virDomainPtr domain,
+                                     unsigned int flags);
 
 char *
 virDomainBackupGetXMLDescWrapper(virDomainPtr domain,
@@ -768,7 +768,7 @@ virDomainBackupGetXMLDescWrapper(virDomainPtr domain,
                                  virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainBackupGetXMLDescType virDomainBackupGetXMLDescSymbol;
+    static virDomainBackupGetXMLDescFuncType virDomainBackupGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -788,12 +788,12 @@ virDomainBackupGetXMLDescWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainBlockCommitType)(virDomainPtr dom,
-                            const char * disk,
-                            const char * base,
-                            const char * top,
-                            unsigned long bandwidth,
-                            unsigned int flags);
+(*virDomainBlockCommitFuncType)(virDomainPtr dom,
+                                const char * disk,
+                                const char * base,
+                                const char * top,
+                                unsigned long bandwidth,
+                                unsigned int flags);
 
 int
 virDomainBlockCommitWrapper(virDomainPtr dom,
@@ -805,7 +805,7 @@ virDomainBlockCommitWrapper(virDomainPtr dom,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainBlockCommitType virDomainBlockCommitSymbol;
+    static virDomainBlockCommitFuncType virDomainBlockCommitSymbol;
     static bool once;
     static bool success;
 
@@ -829,12 +829,12 @@ virDomainBlockCommitWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainBlockCopyType)(virDomainPtr dom,
-                          const char * disk,
-                          const char * destxml,
-                          virTypedParameterPtr params,
-                          int nparams,
-                          unsigned int flags);
+(*virDomainBlockCopyFuncType)(virDomainPtr dom,
+                              const char * disk,
+                              const char * destxml,
+                              virTypedParameterPtr params,
+                              int nparams,
+                              unsigned int flags);
 
 int
 virDomainBlockCopyWrapper(virDomainPtr dom,
@@ -846,7 +846,7 @@ virDomainBlockCopyWrapper(virDomainPtr dom,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virDomainBlockCopyType virDomainBlockCopySymbol;
+    static virDomainBlockCopyFuncType virDomainBlockCopySymbol;
     static bool once;
     static bool success;
 
@@ -870,9 +870,9 @@ virDomainBlockCopyWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainBlockJobAbortType)(virDomainPtr dom,
-                              const char * disk,
-                              unsigned int flags);
+(*virDomainBlockJobAbortFuncType)(virDomainPtr dom,
+                                  const char * disk,
+                                  unsigned int flags);
 
 int
 virDomainBlockJobAbortWrapper(virDomainPtr dom,
@@ -881,7 +881,7 @@ virDomainBlockJobAbortWrapper(virDomainPtr dom,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainBlockJobAbortType virDomainBlockJobAbortSymbol;
+    static virDomainBlockJobAbortFuncType virDomainBlockJobAbortSymbol;
     static bool once;
     static bool success;
 
@@ -902,10 +902,10 @@ virDomainBlockJobAbortWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainBlockJobSetSpeedType)(virDomainPtr dom,
-                                 const char * disk,
-                                 unsigned long bandwidth,
-                                 unsigned int flags);
+(*virDomainBlockJobSetSpeedFuncType)(virDomainPtr dom,
+                                     const char * disk,
+                                     unsigned long bandwidth,
+                                     unsigned int flags);
 
 int
 virDomainBlockJobSetSpeedWrapper(virDomainPtr dom,
@@ -915,7 +915,7 @@ virDomainBlockJobSetSpeedWrapper(virDomainPtr dom,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virDomainBlockJobSetSpeedType virDomainBlockJobSetSpeedSymbol;
+    static virDomainBlockJobSetSpeedFuncType virDomainBlockJobSetSpeedSymbol;
     static bool once;
     static bool success;
 
@@ -937,12 +937,12 @@ virDomainBlockJobSetSpeedWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainBlockPeekType)(virDomainPtr dom,
-                          const char * disk,
-                          unsigned long long offset,
-                          size_t size,
-                          void * buffer,
-                          unsigned int flags);
+(*virDomainBlockPeekFuncType)(virDomainPtr dom,
+                              const char * disk,
+                              unsigned long long offset,
+                              size_t size,
+                              void * buffer,
+                              unsigned int flags);
 
 int
 virDomainBlockPeekWrapper(virDomainPtr dom,
@@ -954,7 +954,7 @@ virDomainBlockPeekWrapper(virDomainPtr dom,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virDomainBlockPeekType virDomainBlockPeekSymbol;
+    static virDomainBlockPeekFuncType virDomainBlockPeekSymbol;
     static bool once;
     static bool success;
 
@@ -978,10 +978,10 @@ virDomainBlockPeekWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainBlockPullType)(virDomainPtr dom,
-                          const char * disk,
-                          unsigned long bandwidth,
-                          unsigned int flags);
+(*virDomainBlockPullFuncType)(virDomainPtr dom,
+                              const char * disk,
+                              unsigned long bandwidth,
+                              unsigned int flags);
 
 int
 virDomainBlockPullWrapper(virDomainPtr dom,
@@ -991,7 +991,7 @@ virDomainBlockPullWrapper(virDomainPtr dom,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virDomainBlockPullType virDomainBlockPullSymbol;
+    static virDomainBlockPullFuncType virDomainBlockPullSymbol;
     static bool once;
     static bool success;
 
@@ -1013,11 +1013,11 @@ virDomainBlockPullWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainBlockRebaseType)(virDomainPtr dom,
-                            const char * disk,
-                            const char * base,
-                            unsigned long bandwidth,
-                            unsigned int flags);
+(*virDomainBlockRebaseFuncType)(virDomainPtr dom,
+                                const char * disk,
+                                const char * base,
+                                unsigned long bandwidth,
+                                unsigned int flags);
 
 int
 virDomainBlockRebaseWrapper(virDomainPtr dom,
@@ -1028,7 +1028,7 @@ virDomainBlockRebaseWrapper(virDomainPtr dom,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainBlockRebaseType virDomainBlockRebaseSymbol;
+    static virDomainBlockRebaseFuncType virDomainBlockRebaseSymbol;
     static bool once;
     static bool success;
 
@@ -1051,10 +1051,10 @@ virDomainBlockRebaseWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainBlockResizeType)(virDomainPtr dom,
-                            const char * disk,
-                            unsigned long long size,
-                            unsigned int flags);
+(*virDomainBlockResizeFuncType)(virDomainPtr dom,
+                                const char * disk,
+                                unsigned long long size,
+                                unsigned int flags);
 
 int
 virDomainBlockResizeWrapper(virDomainPtr dom,
@@ -1064,7 +1064,7 @@ virDomainBlockResizeWrapper(virDomainPtr dom,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainBlockResizeType virDomainBlockResizeSymbol;
+    static virDomainBlockResizeFuncType virDomainBlockResizeSymbol;
     static bool once;
     static bool success;
 
@@ -1086,10 +1086,10 @@ virDomainBlockResizeWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainBlockStatsType)(virDomainPtr dom,
-                           const char * disk,
-                           virDomainBlockStatsPtr stats,
-                           size_t size);
+(*virDomainBlockStatsFuncType)(virDomainPtr dom,
+                               const char * disk,
+                               virDomainBlockStatsPtr stats,
+                               size_t size);
 
 int
 virDomainBlockStatsWrapper(virDomainPtr dom,
@@ -1099,7 +1099,7 @@ virDomainBlockStatsWrapper(virDomainPtr dom,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virDomainBlockStatsType virDomainBlockStatsSymbol;
+    static virDomainBlockStatsFuncType virDomainBlockStatsSymbol;
     static bool once;
     static bool success;
 
@@ -1121,11 +1121,11 @@ virDomainBlockStatsWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainBlockStatsFlagsType)(virDomainPtr dom,
-                                const char * disk,
-                                virTypedParameterPtr params,
-                                int * nparams,
-                                unsigned int flags);
+(*virDomainBlockStatsFlagsFuncType)(virDomainPtr dom,
+                                    const char * disk,
+                                    virTypedParameterPtr params,
+                                    int * nparams,
+                                    unsigned int flags);
 
 int
 virDomainBlockStatsFlagsWrapper(virDomainPtr dom,
@@ -1136,7 +1136,7 @@ virDomainBlockStatsFlagsWrapper(virDomainPtr dom,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virDomainBlockStatsFlagsType virDomainBlockStatsFlagsSymbol;
+    static virDomainBlockStatsFlagsFuncType virDomainBlockStatsFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -1159,9 +1159,9 @@ virDomainBlockStatsFlagsWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainCoreDumpType)(virDomainPtr domain,
-                         const char * to,
-                         unsigned int flags);
+(*virDomainCoreDumpFuncType)(virDomainPtr domain,
+                             const char * to,
+                             unsigned int flags);
 
 int
 virDomainCoreDumpWrapper(virDomainPtr domain,
@@ -1170,7 +1170,7 @@ virDomainCoreDumpWrapper(virDomainPtr domain,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virDomainCoreDumpType virDomainCoreDumpSymbol;
+    static virDomainCoreDumpFuncType virDomainCoreDumpSymbol;
     static bool once;
     static bool success;
 
@@ -1191,10 +1191,10 @@ virDomainCoreDumpWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainCoreDumpWithFormatType)(virDomainPtr domain,
-                                   const char * to,
-                                   unsigned int dumpformat,
-                                   unsigned int flags);
+(*virDomainCoreDumpWithFormatFuncType)(virDomainPtr domain,
+                                       const char * to,
+                                       unsigned int dumpformat,
+                                       unsigned int flags);
 
 int
 virDomainCoreDumpWithFormatWrapper(virDomainPtr domain,
@@ -1204,7 +1204,7 @@ virDomainCoreDumpWithFormatWrapper(virDomainPtr domain,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainCoreDumpWithFormatType virDomainCoreDumpWithFormatSymbol;
+    static virDomainCoreDumpWithFormatFuncType virDomainCoreDumpWithFormatSymbol;
     static bool once;
     static bool success;
 
@@ -1226,14 +1226,14 @@ virDomainCoreDumpWithFormatWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainCreateType)(virDomainPtr domain);
+(*virDomainCreateFuncType)(virDomainPtr domain);
 
 int
 virDomainCreateWrapper(virDomainPtr domain,
                        virErrorPtr err)
 {
     int ret = -1;
-    static virDomainCreateType virDomainCreateSymbol;
+    static virDomainCreateFuncType virDomainCreateSymbol;
     static bool once;
     static bool success;
 
@@ -1252,9 +1252,9 @@ virDomainCreateWrapper(virDomainPtr domain,
 }
 
 typedef virDomainPtr
-(*virDomainCreateLinuxType)(virConnectPtr conn,
-                            const char * xmlDesc,
-                            unsigned int flags);
+(*virDomainCreateLinuxFuncType)(virConnectPtr conn,
+                                const char * xmlDesc,
+                                unsigned int flags);
 
 virDomainPtr
 virDomainCreateLinuxWrapper(virConnectPtr conn,
@@ -1263,7 +1263,7 @@ virDomainCreateLinuxWrapper(virConnectPtr conn,
                             virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainCreateLinuxType virDomainCreateLinuxSymbol;
+    static virDomainCreateLinuxFuncType virDomainCreateLinuxSymbol;
     static bool once;
     static bool success;
 
@@ -1284,10 +1284,10 @@ virDomainCreateLinuxWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virDomainCreateWithFilesType)(virDomainPtr domain,
-                                unsigned int nfiles,
-                                int * files,
-                                unsigned int flags);
+(*virDomainCreateWithFilesFuncType)(virDomainPtr domain,
+                                    unsigned int nfiles,
+                                    int * files,
+                                    unsigned int flags);
 
 int
 virDomainCreateWithFilesWrapper(virDomainPtr domain,
@@ -1297,7 +1297,7 @@ virDomainCreateWithFilesWrapper(virDomainPtr domain,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virDomainCreateWithFilesType virDomainCreateWithFilesSymbol;
+    static virDomainCreateWithFilesFuncType virDomainCreateWithFilesSymbol;
     static bool once;
     static bool success;
 
@@ -1319,8 +1319,8 @@ virDomainCreateWithFilesWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainCreateWithFlagsType)(virDomainPtr domain,
-                                unsigned int flags);
+(*virDomainCreateWithFlagsFuncType)(virDomainPtr domain,
+                                    unsigned int flags);
 
 int
 virDomainCreateWithFlagsWrapper(virDomainPtr domain,
@@ -1328,7 +1328,7 @@ virDomainCreateWithFlagsWrapper(virDomainPtr domain,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virDomainCreateWithFlagsType virDomainCreateWithFlagsSymbol;
+    static virDomainCreateWithFlagsFuncType virDomainCreateWithFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -1348,9 +1348,9 @@ virDomainCreateWithFlagsWrapper(virDomainPtr domain,
 }
 
 typedef virDomainPtr
-(*virDomainCreateXMLType)(virConnectPtr conn,
-                          const char * xmlDesc,
-                          unsigned int flags);
+(*virDomainCreateXMLFuncType)(virConnectPtr conn,
+                              const char * xmlDesc,
+                              unsigned int flags);
 
 virDomainPtr
 virDomainCreateXMLWrapper(virConnectPtr conn,
@@ -1359,7 +1359,7 @@ virDomainCreateXMLWrapper(virConnectPtr conn,
                           virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainCreateXMLType virDomainCreateXMLSymbol;
+    static virDomainCreateXMLFuncType virDomainCreateXMLSymbol;
     static bool once;
     static bool success;
 
@@ -1380,11 +1380,11 @@ virDomainCreateXMLWrapper(virConnectPtr conn,
 }
 
 typedef virDomainPtr
-(*virDomainCreateXMLWithFilesType)(virConnectPtr conn,
-                                   const char * xmlDesc,
-                                   unsigned int nfiles,
-                                   int * files,
-                                   unsigned int flags);
+(*virDomainCreateXMLWithFilesFuncType)(virConnectPtr conn,
+                                       const char * xmlDesc,
+                                       unsigned int nfiles,
+                                       int * files,
+                                       unsigned int flags);
 
 virDomainPtr
 virDomainCreateXMLWithFilesWrapper(virConnectPtr conn,
@@ -1395,7 +1395,7 @@ virDomainCreateXMLWithFilesWrapper(virConnectPtr conn,
                                    virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainCreateXMLWithFilesType virDomainCreateXMLWithFilesSymbol;
+    static virDomainCreateXMLWithFilesFuncType virDomainCreateXMLWithFilesSymbol;
     static bool once;
     static bool success;
 
@@ -1418,8 +1418,8 @@ virDomainCreateXMLWithFilesWrapper(virConnectPtr conn,
 }
 
 typedef virDomainPtr
-(*virDomainDefineXMLType)(virConnectPtr conn,
-                          const char * xml);
+(*virDomainDefineXMLFuncType)(virConnectPtr conn,
+                              const char * xml);
 
 virDomainPtr
 virDomainDefineXMLWrapper(virConnectPtr conn,
@@ -1427,7 +1427,7 @@ virDomainDefineXMLWrapper(virConnectPtr conn,
                           virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainDefineXMLType virDomainDefineXMLSymbol;
+    static virDomainDefineXMLFuncType virDomainDefineXMLSymbol;
     static bool once;
     static bool success;
 
@@ -1447,9 +1447,9 @@ virDomainDefineXMLWrapper(virConnectPtr conn,
 }
 
 typedef virDomainPtr
-(*virDomainDefineXMLFlagsType)(virConnectPtr conn,
-                               const char * xml,
-                               unsigned int flags);
+(*virDomainDefineXMLFlagsFuncType)(virConnectPtr conn,
+                                   const char * xml,
+                                   unsigned int flags);
 
 virDomainPtr
 virDomainDefineXMLFlagsWrapper(virConnectPtr conn,
@@ -1458,7 +1458,7 @@ virDomainDefineXMLFlagsWrapper(virConnectPtr conn,
                                virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainDefineXMLFlagsType virDomainDefineXMLFlagsSymbol;
+    static virDomainDefineXMLFlagsFuncType virDomainDefineXMLFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -1479,9 +1479,9 @@ virDomainDefineXMLFlagsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virDomainDelIOThreadType)(virDomainPtr domain,
-                            unsigned int iothread_id,
-                            unsigned int flags);
+(*virDomainDelIOThreadFuncType)(virDomainPtr domain,
+                                unsigned int iothread_id,
+                                unsigned int flags);
 
 int
 virDomainDelIOThreadWrapper(virDomainPtr domain,
@@ -1490,7 +1490,7 @@ virDomainDelIOThreadWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainDelIOThreadType virDomainDelIOThreadSymbol;
+    static virDomainDelIOThreadFuncType virDomainDelIOThreadSymbol;
     static bool once;
     static bool success;
 
@@ -1511,14 +1511,14 @@ virDomainDelIOThreadWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainDestroyType)(virDomainPtr domain);
+(*virDomainDestroyFuncType)(virDomainPtr domain);
 
 int
 virDomainDestroyWrapper(virDomainPtr domain,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainDestroyType virDomainDestroySymbol;
+    static virDomainDestroyFuncType virDomainDestroySymbol;
     static bool once;
     static bool success;
 
@@ -1537,8 +1537,8 @@ virDomainDestroyWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainDestroyFlagsType)(virDomainPtr domain,
-                             unsigned int flags);
+(*virDomainDestroyFlagsFuncType)(virDomainPtr domain,
+                                 unsigned int flags);
 
 int
 virDomainDestroyFlagsWrapper(virDomainPtr domain,
@@ -1546,7 +1546,7 @@ virDomainDestroyFlagsWrapper(virDomainPtr domain,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainDestroyFlagsType virDomainDestroyFlagsSymbol;
+    static virDomainDestroyFlagsFuncType virDomainDestroyFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -1566,8 +1566,8 @@ virDomainDestroyFlagsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainDetachDeviceType)(virDomainPtr domain,
-                             const char * xml);
+(*virDomainDetachDeviceFuncType)(virDomainPtr domain,
+                                 const char * xml);
 
 int
 virDomainDetachDeviceWrapper(virDomainPtr domain,
@@ -1575,7 +1575,7 @@ virDomainDetachDeviceWrapper(virDomainPtr domain,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainDetachDeviceType virDomainDetachDeviceSymbol;
+    static virDomainDetachDeviceFuncType virDomainDetachDeviceSymbol;
     static bool once;
     static bool success;
 
@@ -1595,9 +1595,9 @@ virDomainDetachDeviceWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainDetachDeviceAliasType)(virDomainPtr domain,
-                                  const char * alias,
-                                  unsigned int flags);
+(*virDomainDetachDeviceAliasFuncType)(virDomainPtr domain,
+                                      const char * alias,
+                                      unsigned int flags);
 
 int
 virDomainDetachDeviceAliasWrapper(virDomainPtr domain,
@@ -1606,7 +1606,7 @@ virDomainDetachDeviceAliasWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainDetachDeviceAliasType virDomainDetachDeviceAliasSymbol;
+    static virDomainDetachDeviceAliasFuncType virDomainDetachDeviceAliasSymbol;
     static bool once;
     static bool success;
 
@@ -1627,9 +1627,9 @@ virDomainDetachDeviceAliasWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainDetachDeviceFlagsType)(virDomainPtr domain,
-                                  const char * xml,
-                                  unsigned int flags);
+(*virDomainDetachDeviceFlagsFuncType)(virDomainPtr domain,
+                                      const char * xml,
+                                      unsigned int flags);
 
 int
 virDomainDetachDeviceFlagsWrapper(virDomainPtr domain,
@@ -1638,7 +1638,7 @@ virDomainDetachDeviceFlagsWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainDetachDeviceFlagsType virDomainDetachDeviceFlagsSymbol;
+    static virDomainDetachDeviceFlagsFuncType virDomainDetachDeviceFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -1659,11 +1659,11 @@ virDomainDetachDeviceFlagsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainFDAssociateType)(virDomainPtr domain,
-                            const char * name,
-                            unsigned int nfds,
-                            int * fds,
-                            unsigned int flags);
+(*virDomainFDAssociateFuncType)(virDomainPtr domain,
+                                const char * name,
+                                unsigned int nfds,
+                                int * fds,
+                                unsigned int flags);
 
 int
 virDomainFDAssociateWrapper(virDomainPtr domain,
@@ -1674,7 +1674,7 @@ virDomainFDAssociateWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainFDAssociateType virDomainFDAssociateSymbol;
+    static virDomainFDAssociateFuncType virDomainFDAssociateSymbol;
     static bool once;
     static bool success;
 
@@ -1697,10 +1697,10 @@ virDomainFDAssociateWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainFSFreezeType)(virDomainPtr dom,
-                         const char ** mountpoints,
-                         unsigned int nmountpoints,
-                         unsigned int flags);
+(*virDomainFSFreezeFuncType)(virDomainPtr dom,
+                             const char ** mountpoints,
+                             unsigned int nmountpoints,
+                             unsigned int flags);
 
 int
 virDomainFSFreezeWrapper(virDomainPtr dom,
@@ -1710,7 +1710,7 @@ virDomainFSFreezeWrapper(virDomainPtr dom,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virDomainFSFreezeType virDomainFSFreezeSymbol;
+    static virDomainFSFreezeFuncType virDomainFSFreezeSymbol;
     static bool once;
     static bool success;
 
@@ -1732,13 +1732,13 @@ virDomainFSFreezeWrapper(virDomainPtr dom,
 }
 
 typedef void
-(*virDomainFSInfoFreeType)(virDomainFSInfoPtr info);
+(*virDomainFSInfoFreeFuncType)(virDomainFSInfoPtr info);
 
 void
 virDomainFSInfoFreeWrapper(virDomainFSInfoPtr info)
 {
 
-    static virDomainFSInfoFreeType virDomainFSInfoFreeSymbol;
+    static virDomainFSInfoFreeFuncType virDomainFSInfoFreeSymbol;
     static bool once;
     static bool success;
 
@@ -1753,10 +1753,10 @@ virDomainFSInfoFreeWrapper(virDomainFSInfoPtr info)
 }
 
 typedef int
-(*virDomainFSThawType)(virDomainPtr dom,
-                       const char ** mountpoints,
-                       unsigned int nmountpoints,
-                       unsigned int flags);
+(*virDomainFSThawFuncType)(virDomainPtr dom,
+                           const char ** mountpoints,
+                           unsigned int nmountpoints,
+                           unsigned int flags);
 
 int
 virDomainFSThawWrapper(virDomainPtr dom,
@@ -1766,7 +1766,7 @@ virDomainFSThawWrapper(virDomainPtr dom,
                        virErrorPtr err)
 {
     int ret = -1;
-    static virDomainFSThawType virDomainFSThawSymbol;
+    static virDomainFSThawFuncType virDomainFSThawSymbol;
     static bool once;
     static bool success;
 
@@ -1788,10 +1788,10 @@ virDomainFSThawWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainFSTrimType)(virDomainPtr dom,
-                       const char * mountPoint,
-                       unsigned long long minimum,
-                       unsigned int flags);
+(*virDomainFSTrimFuncType)(virDomainPtr dom,
+                           const char * mountPoint,
+                           unsigned long long minimum,
+                           unsigned int flags);
 
 int
 virDomainFSTrimWrapper(virDomainPtr dom,
@@ -1801,7 +1801,7 @@ virDomainFSTrimWrapper(virDomainPtr dom,
                        virErrorPtr err)
 {
     int ret = -1;
-    static virDomainFSTrimType virDomainFSTrimSymbol;
+    static virDomainFSTrimFuncType virDomainFSTrimSymbol;
     static bool once;
     static bool success;
 
@@ -1823,14 +1823,14 @@ virDomainFSTrimWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainFreeType)(virDomainPtr domain);
+(*virDomainFreeFuncType)(virDomainPtr domain);
 
 int
 virDomainFreeWrapper(virDomainPtr domain,
                      virErrorPtr err)
 {
     int ret = -1;
-    static virDomainFreeType virDomainFreeSymbol;
+    static virDomainFreeFuncType virDomainFreeSymbol;
     static bool once;
     static bool success;
 
@@ -1849,8 +1849,8 @@ virDomainFreeWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetAutostartType)(virDomainPtr domain,
-                             int * autostart);
+(*virDomainGetAutostartFuncType)(virDomainPtr domain,
+                                 int * autostart);
 
 int
 virDomainGetAutostartWrapper(virDomainPtr domain,
@@ -1858,7 +1858,7 @@ virDomainGetAutostartWrapper(virDomainPtr domain,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetAutostartType virDomainGetAutostartSymbol;
+    static virDomainGetAutostartFuncType virDomainGetAutostartSymbol;
     static bool once;
     static bool success;
 
@@ -1878,10 +1878,10 @@ virDomainGetAutostartWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetBlkioParametersType)(virDomainPtr domain,
-                                   virTypedParameterPtr params,
-                                   int * nparams,
-                                   unsigned int flags);
+(*virDomainGetBlkioParametersFuncType)(virDomainPtr domain,
+                                       virTypedParameterPtr params,
+                                       int * nparams,
+                                       unsigned int flags);
 
 int
 virDomainGetBlkioParametersWrapper(virDomainPtr domain,
@@ -1891,7 +1891,7 @@ virDomainGetBlkioParametersWrapper(virDomainPtr domain,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetBlkioParametersType virDomainGetBlkioParametersSymbol;
+    static virDomainGetBlkioParametersFuncType virDomainGetBlkioParametersSymbol;
     static bool once;
     static bool success;
 
@@ -1913,10 +1913,10 @@ virDomainGetBlkioParametersWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetBlockInfoType)(virDomainPtr domain,
-                             const char * disk,
-                             virDomainBlockInfoPtr info,
-                             unsigned int flags);
+(*virDomainGetBlockInfoFuncType)(virDomainPtr domain,
+                                 const char * disk,
+                                 virDomainBlockInfoPtr info,
+                                 unsigned int flags);
 
 int
 virDomainGetBlockInfoWrapper(virDomainPtr domain,
@@ -1926,7 +1926,7 @@ virDomainGetBlockInfoWrapper(virDomainPtr domain,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetBlockInfoType virDomainGetBlockInfoSymbol;
+    static virDomainGetBlockInfoFuncType virDomainGetBlockInfoSymbol;
     static bool once;
     static bool success;
 
@@ -1948,11 +1948,11 @@ virDomainGetBlockInfoWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetBlockIoTuneType)(virDomainPtr dom,
-                               const char * disk,
-                               virTypedParameterPtr params,
-                               int * nparams,
-                               unsigned int flags);
+(*virDomainGetBlockIoTuneFuncType)(virDomainPtr dom,
+                                   const char * disk,
+                                   virTypedParameterPtr params,
+                                   int * nparams,
+                                   unsigned int flags);
 
 int
 virDomainGetBlockIoTuneWrapper(virDomainPtr dom,
@@ -1963,7 +1963,7 @@ virDomainGetBlockIoTuneWrapper(virDomainPtr dom,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetBlockIoTuneType virDomainGetBlockIoTuneSymbol;
+    static virDomainGetBlockIoTuneFuncType virDomainGetBlockIoTuneSymbol;
     static bool once;
     static bool success;
 
@@ -1986,10 +1986,10 @@ virDomainGetBlockIoTuneWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainGetBlockJobInfoType)(virDomainPtr dom,
-                                const char * disk,
-                                virDomainBlockJobInfoPtr info,
-                                unsigned int flags);
+(*virDomainGetBlockJobInfoFuncType)(virDomainPtr dom,
+                                    const char * disk,
+                                    virDomainBlockJobInfoPtr info,
+                                    unsigned int flags);
 
 int
 virDomainGetBlockJobInfoWrapper(virDomainPtr dom,
@@ -1999,7 +1999,7 @@ virDomainGetBlockJobInfoWrapper(virDomainPtr dom,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetBlockJobInfoType virDomainGetBlockJobInfoSymbol;
+    static virDomainGetBlockJobInfoFuncType virDomainGetBlockJobInfoSymbol;
     static bool once;
     static bool success;
 
@@ -2021,12 +2021,12 @@ virDomainGetBlockJobInfoWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainGetCPUStatsType)(virDomainPtr domain,
-                            virTypedParameterPtr params,
-                            unsigned int nparams,
-                            int start_cpu,
-                            unsigned int ncpus,
-                            unsigned int flags);
+(*virDomainGetCPUStatsFuncType)(virDomainPtr domain,
+                                virTypedParameterPtr params,
+                                unsigned int nparams,
+                                int start_cpu,
+                                unsigned int ncpus,
+                                unsigned int flags);
 
 int
 virDomainGetCPUStatsWrapper(virDomainPtr domain,
@@ -2038,7 +2038,7 @@ virDomainGetCPUStatsWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetCPUStatsType virDomainGetCPUStatsSymbol;
+    static virDomainGetCPUStatsFuncType virDomainGetCPUStatsSymbol;
     static bool once;
     static bool success;
 
@@ -2062,14 +2062,14 @@ virDomainGetCPUStatsWrapper(virDomainPtr domain,
 }
 
 typedef virConnectPtr
-(*virDomainGetConnectType)(virDomainPtr dom);
+(*virDomainGetConnectFuncType)(virDomainPtr dom);
 
 virConnectPtr
 virDomainGetConnectWrapper(virDomainPtr dom,
                            virErrorPtr err)
 {
     virConnectPtr ret = NULL;
-    static virDomainGetConnectType virDomainGetConnectSymbol;
+    static virDomainGetConnectFuncType virDomainGetConnectSymbol;
     static bool once;
     static bool success;
 
@@ -2088,9 +2088,9 @@ virDomainGetConnectWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainGetControlInfoType)(virDomainPtr domain,
-                               virDomainControlInfoPtr info,
-                               unsigned int flags);
+(*virDomainGetControlInfoFuncType)(virDomainPtr domain,
+                                   virDomainControlInfoPtr info,
+                                   unsigned int flags);
 
 int
 virDomainGetControlInfoWrapper(virDomainPtr domain,
@@ -2099,7 +2099,7 @@ virDomainGetControlInfoWrapper(virDomainPtr domain,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetControlInfoType virDomainGetControlInfoSymbol;
+    static virDomainGetControlInfoFuncType virDomainGetControlInfoSymbol;
     static bool once;
     static bool success;
 
@@ -2120,10 +2120,10 @@ virDomainGetControlInfoWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetDiskErrorsType)(virDomainPtr dom,
-                              virDomainDiskErrorPtr errors,
-                              unsigned int maxerrors,
-                              unsigned int flags);
+(*virDomainGetDiskErrorsFuncType)(virDomainPtr dom,
+                                  virDomainDiskErrorPtr errors,
+                                  unsigned int maxerrors,
+                                  unsigned int flags);
 
 int
 virDomainGetDiskErrorsWrapper(virDomainPtr dom,
@@ -2133,7 +2133,7 @@ virDomainGetDiskErrorsWrapper(virDomainPtr dom,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetDiskErrorsType virDomainGetDiskErrorsSymbol;
+    static virDomainGetDiskErrorsFuncType virDomainGetDiskErrorsSymbol;
     static bool once;
     static bool success;
 
@@ -2155,10 +2155,10 @@ virDomainGetDiskErrorsWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainGetEmulatorPinInfoType)(virDomainPtr domain,
-                                   unsigned char * cpumap,
-                                   int maplen,
-                                   unsigned int flags);
+(*virDomainGetEmulatorPinInfoFuncType)(virDomainPtr domain,
+                                       unsigned char * cpumap,
+                                       int maplen,
+                                       unsigned int flags);
 
 int
 virDomainGetEmulatorPinInfoWrapper(virDomainPtr domain,
@@ -2168,7 +2168,7 @@ virDomainGetEmulatorPinInfoWrapper(virDomainPtr domain,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetEmulatorPinInfoType virDomainGetEmulatorPinInfoSymbol;
+    static virDomainGetEmulatorPinInfoFuncType virDomainGetEmulatorPinInfoSymbol;
     static bool once;
     static bool success;
 
@@ -2190,9 +2190,9 @@ virDomainGetEmulatorPinInfoWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetFSInfoType)(virDomainPtr dom,
-                          virDomainFSInfoPtr ** info,
-                          unsigned int flags);
+(*virDomainGetFSInfoFuncType)(virDomainPtr dom,
+                              virDomainFSInfoPtr ** info,
+                              unsigned int flags);
 
 int
 virDomainGetFSInfoWrapper(virDomainPtr dom,
@@ -2201,7 +2201,7 @@ virDomainGetFSInfoWrapper(virDomainPtr dom,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetFSInfoType virDomainGetFSInfoSymbol;
+    static virDomainGetFSInfoFuncType virDomainGetFSInfoSymbol;
     static bool once;
     static bool success;
 
@@ -2222,11 +2222,11 @@ virDomainGetFSInfoWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainGetGuestInfoType)(virDomainPtr domain,
-                             unsigned int types,
-                             virTypedParameterPtr * params,
-                             int * nparams,
-                             unsigned int flags);
+(*virDomainGetGuestInfoFuncType)(virDomainPtr domain,
+                                 unsigned int types,
+                                 virTypedParameterPtr * params,
+                                 int * nparams,
+                                 unsigned int flags);
 
 int
 virDomainGetGuestInfoWrapper(virDomainPtr domain,
@@ -2237,7 +2237,7 @@ virDomainGetGuestInfoWrapper(virDomainPtr domain,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetGuestInfoType virDomainGetGuestInfoSymbol;
+    static virDomainGetGuestInfoFuncType virDomainGetGuestInfoSymbol;
     static bool once;
     static bool success;
 
@@ -2260,10 +2260,10 @@ virDomainGetGuestInfoWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetGuestVcpusType)(virDomainPtr domain,
-                              virTypedParameterPtr * params,
-                              unsigned int * nparams,
-                              unsigned int flags);
+(*virDomainGetGuestVcpusFuncType)(virDomainPtr domain,
+                                  virTypedParameterPtr * params,
+                                  unsigned int * nparams,
+                                  unsigned int flags);
 
 int
 virDomainGetGuestVcpusWrapper(virDomainPtr domain,
@@ -2273,7 +2273,7 @@ virDomainGetGuestVcpusWrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetGuestVcpusType virDomainGetGuestVcpusSymbol;
+    static virDomainGetGuestVcpusFuncType virDomainGetGuestVcpusSymbol;
     static bool once;
     static bool success;
 
@@ -2295,8 +2295,8 @@ virDomainGetGuestVcpusWrapper(virDomainPtr domain,
 }
 
 typedef char *
-(*virDomainGetHostnameType)(virDomainPtr domain,
-                            unsigned int flags);
+(*virDomainGetHostnameFuncType)(virDomainPtr domain,
+                                unsigned int flags);
 
 char *
 virDomainGetHostnameWrapper(virDomainPtr domain,
@@ -2304,7 +2304,7 @@ virDomainGetHostnameWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainGetHostnameType virDomainGetHostnameSymbol;
+    static virDomainGetHostnameFuncType virDomainGetHostnameSymbol;
     static bool once;
     static bool success;
 
@@ -2324,14 +2324,14 @@ virDomainGetHostnameWrapper(virDomainPtr domain,
 }
 
 typedef unsigned int
-(*virDomainGetIDType)(virDomainPtr domain);
+(*virDomainGetIDFuncType)(virDomainPtr domain);
 
 unsigned int
 virDomainGetIDWrapper(virDomainPtr domain,
                       virErrorPtr err)
 {
     unsigned int ret = 0;
-    static virDomainGetIDType virDomainGetIDSymbol;
+    static virDomainGetIDFuncType virDomainGetIDSymbol;
     static bool once;
     static bool success;
 
@@ -2350,9 +2350,9 @@ virDomainGetIDWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetIOThreadInfoType)(virDomainPtr dom,
-                                virDomainIOThreadInfoPtr ** info,
-                                unsigned int flags);
+(*virDomainGetIOThreadInfoFuncType)(virDomainPtr dom,
+                                    virDomainIOThreadInfoPtr ** info,
+                                    unsigned int flags);
 
 int
 virDomainGetIOThreadInfoWrapper(virDomainPtr dom,
@@ -2361,7 +2361,7 @@ virDomainGetIOThreadInfoWrapper(virDomainPtr dom,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetIOThreadInfoType virDomainGetIOThreadInfoSymbol;
+    static virDomainGetIOThreadInfoFuncType virDomainGetIOThreadInfoSymbol;
     static bool once;
     static bool success;
 
@@ -2382,8 +2382,8 @@ virDomainGetIOThreadInfoWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainGetInfoType)(virDomainPtr domain,
-                        virDomainInfoPtr info);
+(*virDomainGetInfoFuncType)(virDomainPtr domain,
+                            virDomainInfoPtr info);
 
 int
 virDomainGetInfoWrapper(virDomainPtr domain,
@@ -2391,7 +2391,7 @@ virDomainGetInfoWrapper(virDomainPtr domain,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetInfoType virDomainGetInfoSymbol;
+    static virDomainGetInfoFuncType virDomainGetInfoSymbol;
     static bool once;
     static bool success;
 
@@ -2411,11 +2411,11 @@ virDomainGetInfoWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetInterfaceParametersType)(virDomainPtr domain,
-                                       const char * device,
-                                       virTypedParameterPtr params,
-                                       int * nparams,
-                                       unsigned int flags);
+(*virDomainGetInterfaceParametersFuncType)(virDomainPtr domain,
+                                           const char * device,
+                                           virTypedParameterPtr params,
+                                           int * nparams,
+                                           unsigned int flags);
 
 int
 virDomainGetInterfaceParametersWrapper(virDomainPtr domain,
@@ -2426,7 +2426,7 @@ virDomainGetInterfaceParametersWrapper(virDomainPtr domain,
                                        virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetInterfaceParametersType virDomainGetInterfaceParametersSymbol;
+    static virDomainGetInterfaceParametersFuncType virDomainGetInterfaceParametersSymbol;
     static bool once;
     static bool success;
 
@@ -2449,8 +2449,8 @@ virDomainGetInterfaceParametersWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetJobInfoType)(virDomainPtr domain,
-                           virDomainJobInfoPtr info);
+(*virDomainGetJobInfoFuncType)(virDomainPtr domain,
+                               virDomainJobInfoPtr info);
 
 int
 virDomainGetJobInfoWrapper(virDomainPtr domain,
@@ -2458,7 +2458,7 @@ virDomainGetJobInfoWrapper(virDomainPtr domain,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetJobInfoType virDomainGetJobInfoSymbol;
+    static virDomainGetJobInfoFuncType virDomainGetJobInfoSymbol;
     static bool once;
     static bool success;
 
@@ -2478,11 +2478,11 @@ virDomainGetJobInfoWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetJobStatsType)(virDomainPtr domain,
-                            int * type,
-                            virTypedParameterPtr * params,
-                            int * nparams,
-                            unsigned int flags);
+(*virDomainGetJobStatsFuncType)(virDomainPtr domain,
+                                int * type,
+                                virTypedParameterPtr * params,
+                                int * nparams,
+                                unsigned int flags);
 
 int
 virDomainGetJobStatsWrapper(virDomainPtr domain,
@@ -2493,7 +2493,7 @@ virDomainGetJobStatsWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetJobStatsType virDomainGetJobStatsSymbol;
+    static virDomainGetJobStatsFuncType virDomainGetJobStatsSymbol;
     static bool once;
     static bool success;
 
@@ -2516,10 +2516,10 @@ virDomainGetJobStatsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetLaunchSecurityInfoType)(virDomainPtr domain,
-                                      virTypedParameterPtr * params,
-                                      int * nparams,
-                                      unsigned int flags);
+(*virDomainGetLaunchSecurityInfoFuncType)(virDomainPtr domain,
+                                          virTypedParameterPtr * params,
+                                          int * nparams,
+                                          unsigned int flags);
 
 int
 virDomainGetLaunchSecurityInfoWrapper(virDomainPtr domain,
@@ -2529,7 +2529,7 @@ virDomainGetLaunchSecurityInfoWrapper(virDomainPtr domain,
                                       virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetLaunchSecurityInfoType virDomainGetLaunchSecurityInfoSymbol;
+    static virDomainGetLaunchSecurityInfoFuncType virDomainGetLaunchSecurityInfoSymbol;
     static bool once;
     static bool success;
 
@@ -2551,14 +2551,14 @@ virDomainGetLaunchSecurityInfoWrapper(virDomainPtr domain,
 }
 
 typedef unsigned long
-(*virDomainGetMaxMemoryType)(virDomainPtr domain);
+(*virDomainGetMaxMemoryFuncType)(virDomainPtr domain);
 
 unsigned long
 virDomainGetMaxMemoryWrapper(virDomainPtr domain,
                              virErrorPtr err)
 {
     unsigned long ret = 0;
-    static virDomainGetMaxMemoryType virDomainGetMaxMemorySymbol;
+    static virDomainGetMaxMemoryFuncType virDomainGetMaxMemorySymbol;
     static bool once;
     static bool success;
 
@@ -2577,14 +2577,14 @@ virDomainGetMaxMemoryWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetMaxVcpusType)(virDomainPtr domain);
+(*virDomainGetMaxVcpusFuncType)(virDomainPtr domain);
 
 int
 virDomainGetMaxVcpusWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetMaxVcpusType virDomainGetMaxVcpusSymbol;
+    static virDomainGetMaxVcpusFuncType virDomainGetMaxVcpusSymbol;
     static bool once;
     static bool success;
 
@@ -2603,10 +2603,10 @@ virDomainGetMaxVcpusWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetMemoryParametersType)(virDomainPtr domain,
-                                    virTypedParameterPtr params,
-                                    int * nparams,
-                                    unsigned int flags);
+(*virDomainGetMemoryParametersFuncType)(virDomainPtr domain,
+                                        virTypedParameterPtr params,
+                                        int * nparams,
+                                        unsigned int flags);
 
 int
 virDomainGetMemoryParametersWrapper(virDomainPtr domain,
@@ -2616,7 +2616,7 @@ virDomainGetMemoryParametersWrapper(virDomainPtr domain,
                                     virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetMemoryParametersType virDomainGetMemoryParametersSymbol;
+    static virDomainGetMemoryParametersFuncType virDomainGetMemoryParametersSymbol;
     static bool once;
     static bool success;
 
@@ -2638,9 +2638,9 @@ virDomainGetMemoryParametersWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetMessagesType)(virDomainPtr domain,
-                            char *** msgs,
-                            unsigned int flags);
+(*virDomainGetMessagesFuncType)(virDomainPtr domain,
+                                char *** msgs,
+                                unsigned int flags);
 
 int
 virDomainGetMessagesWrapper(virDomainPtr domain,
@@ -2649,7 +2649,7 @@ virDomainGetMessagesWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetMessagesType virDomainGetMessagesSymbol;
+    static virDomainGetMessagesFuncType virDomainGetMessagesSymbol;
     static bool once;
     static bool success;
 
@@ -2670,10 +2670,10 @@ virDomainGetMessagesWrapper(virDomainPtr domain,
 }
 
 typedef char *
-(*virDomainGetMetadataType)(virDomainPtr domain,
-                            int type,
-                            const char * uri,
-                            unsigned int flags);
+(*virDomainGetMetadataFuncType)(virDomainPtr domain,
+                                int type,
+                                const char * uri,
+                                unsigned int flags);
 
 char *
 virDomainGetMetadataWrapper(virDomainPtr domain,
@@ -2683,7 +2683,7 @@ virDomainGetMetadataWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainGetMetadataType virDomainGetMetadataSymbol;
+    static virDomainGetMetadataFuncType virDomainGetMetadataSymbol;
     static bool once;
     static bool success;
 
@@ -2705,14 +2705,14 @@ virDomainGetMetadataWrapper(virDomainPtr domain,
 }
 
 typedef const char *
-(*virDomainGetNameType)(virDomainPtr domain);
+(*virDomainGetNameFuncType)(virDomainPtr domain);
 
 const char *
 virDomainGetNameWrapper(virDomainPtr domain,
                         virErrorPtr err)
 {
     const char * ret = NULL;
-    static virDomainGetNameType virDomainGetNameSymbol;
+    static virDomainGetNameFuncType virDomainGetNameSymbol;
     static bool once;
     static bool success;
 
@@ -2731,10 +2731,10 @@ virDomainGetNameWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetNumaParametersType)(virDomainPtr domain,
-                                  virTypedParameterPtr params,
-                                  int * nparams,
-                                  unsigned int flags);
+(*virDomainGetNumaParametersFuncType)(virDomainPtr domain,
+                                      virTypedParameterPtr params,
+                                      int * nparams,
+                                      unsigned int flags);
 
 int
 virDomainGetNumaParametersWrapper(virDomainPtr domain,
@@ -2744,7 +2744,7 @@ virDomainGetNumaParametersWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetNumaParametersType virDomainGetNumaParametersSymbol;
+    static virDomainGetNumaParametersFuncType virDomainGetNumaParametersSymbol;
     static bool once;
     static bool success;
 
@@ -2766,14 +2766,14 @@ virDomainGetNumaParametersWrapper(virDomainPtr domain,
 }
 
 typedef char *
-(*virDomainGetOSTypeType)(virDomainPtr domain);
+(*virDomainGetOSTypeFuncType)(virDomainPtr domain);
 
 char *
 virDomainGetOSTypeWrapper(virDomainPtr domain,
                           virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainGetOSTypeType virDomainGetOSTypeSymbol;
+    static virDomainGetOSTypeFuncType virDomainGetOSTypeSymbol;
     static bool once;
     static bool success;
 
@@ -2792,10 +2792,10 @@ virDomainGetOSTypeWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetPerfEventsType)(virDomainPtr domain,
-                              virTypedParameterPtr * params,
-                              int * nparams,
-                              unsigned int flags);
+(*virDomainGetPerfEventsFuncType)(virDomainPtr domain,
+                                  virTypedParameterPtr * params,
+                                  int * nparams,
+                                  unsigned int flags);
 
 int
 virDomainGetPerfEventsWrapper(virDomainPtr domain,
@@ -2805,7 +2805,7 @@ virDomainGetPerfEventsWrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetPerfEventsType virDomainGetPerfEventsSymbol;
+    static virDomainGetPerfEventsFuncType virDomainGetPerfEventsSymbol;
     static bool once;
     static bool success;
 
@@ -2827,9 +2827,9 @@ virDomainGetPerfEventsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetSchedulerParametersType)(virDomainPtr domain,
-                                       virTypedParameterPtr params,
-                                       int * nparams);
+(*virDomainGetSchedulerParametersFuncType)(virDomainPtr domain,
+                                           virTypedParameterPtr params,
+                                           int * nparams);
 
 int
 virDomainGetSchedulerParametersWrapper(virDomainPtr domain,
@@ -2838,7 +2838,7 @@ virDomainGetSchedulerParametersWrapper(virDomainPtr domain,
                                        virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetSchedulerParametersType virDomainGetSchedulerParametersSymbol;
+    static virDomainGetSchedulerParametersFuncType virDomainGetSchedulerParametersSymbol;
     static bool once;
     static bool success;
 
@@ -2859,10 +2859,10 @@ virDomainGetSchedulerParametersWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetSchedulerParametersFlagsType)(virDomainPtr domain,
-                                            virTypedParameterPtr params,
-                                            int * nparams,
-                                            unsigned int flags);
+(*virDomainGetSchedulerParametersFlagsFuncType)(virDomainPtr domain,
+                                                virTypedParameterPtr params,
+                                                int * nparams,
+                                                unsigned int flags);
 
 int
 virDomainGetSchedulerParametersFlagsWrapper(virDomainPtr domain,
@@ -2872,7 +2872,7 @@ virDomainGetSchedulerParametersFlagsWrapper(virDomainPtr domain,
                                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetSchedulerParametersFlagsType virDomainGetSchedulerParametersFlagsSymbol;
+    static virDomainGetSchedulerParametersFlagsFuncType virDomainGetSchedulerParametersFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -2894,8 +2894,8 @@ virDomainGetSchedulerParametersFlagsWrapper(virDomainPtr domain,
 }
 
 typedef char *
-(*virDomainGetSchedulerTypeType)(virDomainPtr domain,
-                                 int * nparams);
+(*virDomainGetSchedulerTypeFuncType)(virDomainPtr domain,
+                                     int * nparams);
 
 char *
 virDomainGetSchedulerTypeWrapper(virDomainPtr domain,
@@ -2903,7 +2903,7 @@ virDomainGetSchedulerTypeWrapper(virDomainPtr domain,
                                  virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainGetSchedulerTypeType virDomainGetSchedulerTypeSymbol;
+    static virDomainGetSchedulerTypeFuncType virDomainGetSchedulerTypeSymbol;
     static bool once;
     static bool success;
 
@@ -2923,8 +2923,8 @@ virDomainGetSchedulerTypeWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetSecurityLabelType)(virDomainPtr domain,
-                                 virSecurityLabelPtr seclabel);
+(*virDomainGetSecurityLabelFuncType)(virDomainPtr domain,
+                                     virSecurityLabelPtr seclabel);
 
 int
 virDomainGetSecurityLabelWrapper(virDomainPtr domain,
@@ -2932,7 +2932,7 @@ virDomainGetSecurityLabelWrapper(virDomainPtr domain,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetSecurityLabelType virDomainGetSecurityLabelSymbol;
+    static virDomainGetSecurityLabelFuncType virDomainGetSecurityLabelSymbol;
     static bool once;
     static bool success;
 
@@ -2952,8 +2952,8 @@ virDomainGetSecurityLabelWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetSecurityLabelListType)(virDomainPtr domain,
-                                     virSecurityLabelPtr * seclabels);
+(*virDomainGetSecurityLabelListFuncType)(virDomainPtr domain,
+                                         virSecurityLabelPtr * seclabels);
 
 int
 virDomainGetSecurityLabelListWrapper(virDomainPtr domain,
@@ -2961,7 +2961,7 @@ virDomainGetSecurityLabelListWrapper(virDomainPtr domain,
                                      virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetSecurityLabelListType virDomainGetSecurityLabelListSymbol;
+    static virDomainGetSecurityLabelListFuncType virDomainGetSecurityLabelListSymbol;
     static bool once;
     static bool success;
 
@@ -2981,10 +2981,10 @@ virDomainGetSecurityLabelListWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetStateType)(virDomainPtr domain,
-                         int * state,
-                         int * reason,
-                         unsigned int flags);
+(*virDomainGetStateFuncType)(virDomainPtr domain,
+                             int * state,
+                             int * reason,
+                             unsigned int flags);
 
 int
 virDomainGetStateWrapper(virDomainPtr domain,
@@ -2994,7 +2994,7 @@ virDomainGetStateWrapper(virDomainPtr domain,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetStateType virDomainGetStateSymbol;
+    static virDomainGetStateFuncType virDomainGetStateSymbol;
     static bool once;
     static bool success;
 
@@ -3016,10 +3016,10 @@ virDomainGetStateWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetTimeType)(virDomainPtr dom,
-                        long long * seconds,
-                        unsigned int * nseconds,
-                        unsigned int flags);
+(*virDomainGetTimeFuncType)(virDomainPtr dom,
+                            long long * seconds,
+                            unsigned int * nseconds,
+                            unsigned int flags);
 
 int
 virDomainGetTimeWrapper(virDomainPtr dom,
@@ -3029,7 +3029,7 @@ virDomainGetTimeWrapper(virDomainPtr dom,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetTimeType virDomainGetTimeSymbol;
+    static virDomainGetTimeFuncType virDomainGetTimeSymbol;
     static bool once;
     static bool success;
 
@@ -3051,8 +3051,8 @@ virDomainGetTimeWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainGetUUIDType)(virDomainPtr domain,
-                        unsigned char * uuid);
+(*virDomainGetUUIDFuncType)(virDomainPtr domain,
+                            unsigned char * uuid);
 
 int
 virDomainGetUUIDWrapper(virDomainPtr domain,
@@ -3060,7 +3060,7 @@ virDomainGetUUIDWrapper(virDomainPtr domain,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetUUIDType virDomainGetUUIDSymbol;
+    static virDomainGetUUIDFuncType virDomainGetUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -3080,8 +3080,8 @@ virDomainGetUUIDWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetUUIDStringType)(virDomainPtr domain,
-                              char * buf);
+(*virDomainGetUUIDStringFuncType)(virDomainPtr domain,
+                                  char * buf);
 
 int
 virDomainGetUUIDStringWrapper(virDomainPtr domain,
@@ -3089,7 +3089,7 @@ virDomainGetUUIDStringWrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetUUIDStringType virDomainGetUUIDStringSymbol;
+    static virDomainGetUUIDStringFuncType virDomainGetUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -3109,11 +3109,11 @@ virDomainGetUUIDStringWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetVcpuPinInfoType)(virDomainPtr domain,
-                               int ncpumaps,
-                               unsigned char * cpumaps,
-                               int maplen,
-                               unsigned int flags);
+(*virDomainGetVcpuPinInfoFuncType)(virDomainPtr domain,
+                                   int ncpumaps,
+                                   unsigned char * cpumaps,
+                                   int maplen,
+                                   unsigned int flags);
 
 int
 virDomainGetVcpuPinInfoWrapper(virDomainPtr domain,
@@ -3124,7 +3124,7 @@ virDomainGetVcpuPinInfoWrapper(virDomainPtr domain,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetVcpuPinInfoType virDomainGetVcpuPinInfoSymbol;
+    static virDomainGetVcpuPinInfoFuncType virDomainGetVcpuPinInfoSymbol;
     static bool once;
     static bool success;
 
@@ -3147,11 +3147,11 @@ virDomainGetVcpuPinInfoWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetVcpusType)(virDomainPtr domain,
-                         virVcpuInfoPtr info,
-                         int maxinfo,
-                         unsigned char * cpumaps,
-                         int maplen);
+(*virDomainGetVcpusFuncType)(virDomainPtr domain,
+                             virVcpuInfoPtr info,
+                             int maxinfo,
+                             unsigned char * cpumaps,
+                             int maplen);
 
 int
 virDomainGetVcpusWrapper(virDomainPtr domain,
@@ -3162,7 +3162,7 @@ virDomainGetVcpusWrapper(virDomainPtr domain,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetVcpusType virDomainGetVcpusSymbol;
+    static virDomainGetVcpusFuncType virDomainGetVcpusSymbol;
     static bool once;
     static bool success;
 
@@ -3185,8 +3185,8 @@ virDomainGetVcpusWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainGetVcpusFlagsType)(virDomainPtr domain,
-                              unsigned int flags);
+(*virDomainGetVcpusFlagsFuncType)(virDomainPtr domain,
+                                  unsigned int flags);
 
 int
 virDomainGetVcpusFlagsWrapper(virDomainPtr domain,
@@ -3194,7 +3194,7 @@ virDomainGetVcpusFlagsWrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainGetVcpusFlagsType virDomainGetVcpusFlagsSymbol;
+    static virDomainGetVcpusFlagsFuncType virDomainGetVcpusFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -3214,8 +3214,8 @@ virDomainGetVcpusFlagsWrapper(virDomainPtr domain,
 }
 
 typedef char *
-(*virDomainGetXMLDescType)(virDomainPtr domain,
-                           unsigned int flags);
+(*virDomainGetXMLDescFuncType)(virDomainPtr domain,
+                               unsigned int flags);
 
 char *
 virDomainGetXMLDescWrapper(virDomainPtr domain,
@@ -3223,7 +3223,7 @@ virDomainGetXMLDescWrapper(virDomainPtr domain,
                            virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainGetXMLDescType virDomainGetXMLDescSymbol;
+    static virDomainGetXMLDescFuncType virDomainGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -3243,8 +3243,40 @@ virDomainGetXMLDescWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainHasManagedSaveImageType)(virDomainPtr dom,
-                                    unsigned int flags);
+(*virDomainGraphicsReloadFuncType)(virDomainPtr domain,
+                                   unsigned int type,
+                                   unsigned int flags);
+
+int
+virDomainGraphicsReloadWrapper(virDomainPtr domain,
+                               unsigned int type,
+                               unsigned int flags,
+                               virErrorPtr err)
+{
+    int ret = -1;
+    static virDomainGraphicsReloadFuncType virDomainGraphicsReloadSymbol;
+    static bool once;
+    static bool success;
+
+    if (!libvirtSymbol("virDomainGraphicsReload",
+                       (void**)&virDomainGraphicsReloadSymbol,
+                       &once,
+                       &success,
+                       err)) {
+        return ret;
+    }
+    ret = virDomainGraphicsReloadSymbol(domain,
+                                        type,
+                                        flags);
+    if (ret < 0) {
+        virCopyLastErrorWrapper(err);
+    }
+    return ret;
+}
+
+typedef int
+(*virDomainHasManagedSaveImageFuncType)(virDomainPtr dom,
+                                        unsigned int flags);
 
 int
 virDomainHasManagedSaveImageWrapper(virDomainPtr dom,
@@ -3252,7 +3284,7 @@ virDomainHasManagedSaveImageWrapper(virDomainPtr dom,
                                     virErrorPtr err)
 {
     int ret = -1;
-    static virDomainHasManagedSaveImageType virDomainHasManagedSaveImageSymbol;
+    static virDomainHasManagedSaveImageFuncType virDomainHasManagedSaveImageSymbol;
     static bool once;
     static bool success;
 
@@ -3272,13 +3304,13 @@ virDomainHasManagedSaveImageWrapper(virDomainPtr dom,
 }
 
 typedef void
-(*virDomainIOThreadInfoFreeType)(virDomainIOThreadInfoPtr info);
+(*virDomainIOThreadInfoFreeFuncType)(virDomainIOThreadInfoPtr info);
 
 void
 virDomainIOThreadInfoFreeWrapper(virDomainIOThreadInfoPtr info)
 {
 
-    static virDomainIOThreadInfoFreeType virDomainIOThreadInfoFreeSymbol;
+    static virDomainIOThreadInfoFreeFuncType virDomainIOThreadInfoFreeSymbol;
     static bool once;
     static bool success;
 
@@ -3293,8 +3325,8 @@ virDomainIOThreadInfoFreeWrapper(virDomainIOThreadInfoPtr info)
 }
 
 typedef int
-(*virDomainInjectNMIType)(virDomainPtr domain,
-                          unsigned int flags);
+(*virDomainInjectNMIFuncType)(virDomainPtr domain,
+                              unsigned int flags);
 
 int
 virDomainInjectNMIWrapper(virDomainPtr domain,
@@ -3302,7 +3334,7 @@ virDomainInjectNMIWrapper(virDomainPtr domain,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virDomainInjectNMIType virDomainInjectNMISymbol;
+    static virDomainInjectNMIFuncType virDomainInjectNMISymbol;
     static bool once;
     static bool success;
 
@@ -3322,10 +3354,10 @@ virDomainInjectNMIWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainInterfaceAddressesType)(virDomainPtr dom,
-                                   virDomainInterfacePtr ** ifaces,
-                                   unsigned int source,
-                                   unsigned int flags);
+(*virDomainInterfaceAddressesFuncType)(virDomainPtr dom,
+                                       virDomainInterfacePtr ** ifaces,
+                                       unsigned int source,
+                                       unsigned int flags);
 
 int
 virDomainInterfaceAddressesWrapper(virDomainPtr dom,
@@ -3335,7 +3367,7 @@ virDomainInterfaceAddressesWrapper(virDomainPtr dom,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainInterfaceAddressesType virDomainInterfaceAddressesSymbol;
+    static virDomainInterfaceAddressesFuncType virDomainInterfaceAddressesSymbol;
     static bool once;
     static bool success;
 
@@ -3357,13 +3389,13 @@ virDomainInterfaceAddressesWrapper(virDomainPtr dom,
 }
 
 typedef void
-(*virDomainInterfaceFreeType)(virDomainInterfacePtr iface);
+(*virDomainInterfaceFreeFuncType)(virDomainInterfacePtr iface);
 
 void
 virDomainInterfaceFreeWrapper(virDomainInterfacePtr iface)
 {
 
-    static virDomainInterfaceFreeType virDomainInterfaceFreeSymbol;
+    static virDomainInterfaceFreeFuncType virDomainInterfaceFreeSymbol;
     static bool once;
     static bool success;
 
@@ -3378,10 +3410,10 @@ virDomainInterfaceFreeWrapper(virDomainInterfacePtr iface)
 }
 
 typedef int
-(*virDomainInterfaceStatsType)(virDomainPtr dom,
-                               const char * device,
-                               virDomainInterfaceStatsPtr stats,
-                               size_t size);
+(*virDomainInterfaceStatsFuncType)(virDomainPtr dom,
+                                   const char * device,
+                                   virDomainInterfaceStatsPtr stats,
+                                   size_t size);
 
 int
 virDomainInterfaceStatsWrapper(virDomainPtr dom,
@@ -3391,7 +3423,7 @@ virDomainInterfaceStatsWrapper(virDomainPtr dom,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virDomainInterfaceStatsType virDomainInterfaceStatsSymbol;
+    static virDomainInterfaceStatsFuncType virDomainInterfaceStatsSymbol;
     static bool once;
     static bool success;
 
@@ -3413,14 +3445,14 @@ virDomainInterfaceStatsWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainIsActiveType)(virDomainPtr dom);
+(*virDomainIsActiveFuncType)(virDomainPtr dom);
 
 int
 virDomainIsActiveWrapper(virDomainPtr dom,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virDomainIsActiveType virDomainIsActiveSymbol;
+    static virDomainIsActiveFuncType virDomainIsActiveSymbol;
     static bool once;
     static bool success;
 
@@ -3439,14 +3471,14 @@ virDomainIsActiveWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainIsPersistentType)(virDomainPtr dom);
+(*virDomainIsPersistentFuncType)(virDomainPtr dom);
 
 int
 virDomainIsPersistentWrapper(virDomainPtr dom,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainIsPersistentType virDomainIsPersistentSymbol;
+    static virDomainIsPersistentFuncType virDomainIsPersistentSymbol;
     static bool once;
     static bool success;
 
@@ -3465,14 +3497,14 @@ virDomainIsPersistentWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainIsUpdatedType)(virDomainPtr dom);
+(*virDomainIsUpdatedFuncType)(virDomainPtr dom);
 
 int
 virDomainIsUpdatedWrapper(virDomainPtr dom,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virDomainIsUpdatedType virDomainIsUpdatedSymbol;
+    static virDomainIsUpdatedFuncType virDomainIsUpdatedSymbol;
     static bool once;
     static bool success;
 
@@ -3491,10 +3523,10 @@ virDomainIsUpdatedWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainListGetStatsType)(virDomainPtr * doms,
-                             unsigned int stats,
-                             virDomainStatsRecordPtr ** retStats,
-                             unsigned int flags);
+(*virDomainListGetStatsFuncType)(virDomainPtr * doms,
+                                 unsigned int stats,
+                                 virDomainStatsRecordPtr ** retStats,
+                                 unsigned int flags);
 
 int
 virDomainListGetStatsWrapper(virDomainPtr * doms,
@@ -3504,7 +3536,7 @@ virDomainListGetStatsWrapper(virDomainPtr * doms,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainListGetStatsType virDomainListGetStatsSymbol;
+    static virDomainListGetStatsFuncType virDomainListGetStatsSymbol;
     static bool once;
     static bool success;
 
@@ -3526,8 +3558,8 @@ virDomainListGetStatsWrapper(virDomainPtr * doms,
 }
 
 typedef virDomainPtr
-(*virDomainLookupByIDType)(virConnectPtr conn,
-                           int id);
+(*virDomainLookupByIDFuncType)(virConnectPtr conn,
+                               int id);
 
 virDomainPtr
 virDomainLookupByIDWrapper(virConnectPtr conn,
@@ -3535,7 +3567,7 @@ virDomainLookupByIDWrapper(virConnectPtr conn,
                            virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainLookupByIDType virDomainLookupByIDSymbol;
+    static virDomainLookupByIDFuncType virDomainLookupByIDSymbol;
     static bool once;
     static bool success;
 
@@ -3555,8 +3587,8 @@ virDomainLookupByIDWrapper(virConnectPtr conn,
 }
 
 typedef virDomainPtr
-(*virDomainLookupByNameType)(virConnectPtr conn,
-                             const char * name);
+(*virDomainLookupByNameFuncType)(virConnectPtr conn,
+                                 const char * name);
 
 virDomainPtr
 virDomainLookupByNameWrapper(virConnectPtr conn,
@@ -3564,7 +3596,7 @@ virDomainLookupByNameWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainLookupByNameType virDomainLookupByNameSymbol;
+    static virDomainLookupByNameFuncType virDomainLookupByNameSymbol;
     static bool once;
     static bool success;
 
@@ -3584,8 +3616,8 @@ virDomainLookupByNameWrapper(virConnectPtr conn,
 }
 
 typedef virDomainPtr
-(*virDomainLookupByUUIDType)(virConnectPtr conn,
-                             const unsigned char * uuid);
+(*virDomainLookupByUUIDFuncType)(virConnectPtr conn,
+                                 const unsigned char * uuid);
 
 virDomainPtr
 virDomainLookupByUUIDWrapper(virConnectPtr conn,
@@ -3593,7 +3625,7 @@ virDomainLookupByUUIDWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainLookupByUUIDType virDomainLookupByUUIDSymbol;
+    static virDomainLookupByUUIDFuncType virDomainLookupByUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -3613,8 +3645,8 @@ virDomainLookupByUUIDWrapper(virConnectPtr conn,
 }
 
 typedef virDomainPtr
-(*virDomainLookupByUUIDStringType)(virConnectPtr conn,
-                                   const char * uuidstr);
+(*virDomainLookupByUUIDStringFuncType)(virConnectPtr conn,
+                                       const char * uuidstr);
 
 virDomainPtr
 virDomainLookupByUUIDStringWrapper(virConnectPtr conn,
@@ -3622,7 +3654,7 @@ virDomainLookupByUUIDStringWrapper(virConnectPtr conn,
                                    virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainLookupByUUIDStringType virDomainLookupByUUIDStringSymbol;
+    static virDomainLookupByUUIDStringFuncType virDomainLookupByUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -3642,8 +3674,8 @@ virDomainLookupByUUIDStringWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virDomainManagedSaveType)(virDomainPtr dom,
-                            unsigned int flags);
+(*virDomainManagedSaveFuncType)(virDomainPtr dom,
+                                unsigned int flags);
 
 int
 virDomainManagedSaveWrapper(virDomainPtr dom,
@@ -3651,7 +3683,7 @@ virDomainManagedSaveWrapper(virDomainPtr dom,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainManagedSaveType virDomainManagedSaveSymbol;
+    static virDomainManagedSaveFuncType virDomainManagedSaveSymbol;
     static bool once;
     static bool success;
 
@@ -3671,9 +3703,9 @@ virDomainManagedSaveWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainManagedSaveDefineXMLType)(virDomainPtr domain,
-                                     const char * dxml,
-                                     unsigned int flags);
+(*virDomainManagedSaveDefineXMLFuncType)(virDomainPtr domain,
+                                         const char * dxml,
+                                         unsigned int flags);
 
 int
 virDomainManagedSaveDefineXMLWrapper(virDomainPtr domain,
@@ -3682,7 +3714,7 @@ virDomainManagedSaveDefineXMLWrapper(virDomainPtr domain,
                                      virErrorPtr err)
 {
     int ret = -1;
-    static virDomainManagedSaveDefineXMLType virDomainManagedSaveDefineXMLSymbol;
+    static virDomainManagedSaveDefineXMLFuncType virDomainManagedSaveDefineXMLSymbol;
     static bool once;
     static bool success;
 
@@ -3703,8 +3735,8 @@ virDomainManagedSaveDefineXMLWrapper(virDomainPtr domain,
 }
 
 typedef char *
-(*virDomainManagedSaveGetXMLDescType)(virDomainPtr domain,
-                                      unsigned int flags);
+(*virDomainManagedSaveGetXMLDescFuncType)(virDomainPtr domain,
+                                          unsigned int flags);
 
 char *
 virDomainManagedSaveGetXMLDescWrapper(virDomainPtr domain,
@@ -3712,7 +3744,7 @@ virDomainManagedSaveGetXMLDescWrapper(virDomainPtr domain,
                                       virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainManagedSaveGetXMLDescType virDomainManagedSaveGetXMLDescSymbol;
+    static virDomainManagedSaveGetXMLDescFuncType virDomainManagedSaveGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -3732,8 +3764,8 @@ virDomainManagedSaveGetXMLDescWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainManagedSaveRemoveType)(virDomainPtr dom,
-                                  unsigned int flags);
+(*virDomainManagedSaveRemoveFuncType)(virDomainPtr dom,
+                                      unsigned int flags);
 
 int
 virDomainManagedSaveRemoveWrapper(virDomainPtr dom,
@@ -3741,7 +3773,7 @@ virDomainManagedSaveRemoveWrapper(virDomainPtr dom,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainManagedSaveRemoveType virDomainManagedSaveRemoveSymbol;
+    static virDomainManagedSaveRemoveFuncType virDomainManagedSaveRemoveSymbol;
     static bool once;
     static bool success;
 
@@ -3761,11 +3793,11 @@ virDomainManagedSaveRemoveWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainMemoryPeekType)(virDomainPtr dom,
-                           unsigned long long start,
-                           size_t size,
-                           void * buffer,
-                           unsigned int flags);
+(*virDomainMemoryPeekFuncType)(virDomainPtr dom,
+                               unsigned long long start,
+                               size_t size,
+                               void * buffer,
+                               unsigned int flags);
 
 int
 virDomainMemoryPeekWrapper(virDomainPtr dom,
@@ -3776,7 +3808,7 @@ virDomainMemoryPeekWrapper(virDomainPtr dom,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMemoryPeekType virDomainMemoryPeekSymbol;
+    static virDomainMemoryPeekFuncType virDomainMemoryPeekSymbol;
     static bool once;
     static bool success;
 
@@ -3799,10 +3831,10 @@ virDomainMemoryPeekWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainMemoryStatsType)(virDomainPtr dom,
-                            virDomainMemoryStatPtr stats,
-                            unsigned int nr_stats,
-                            unsigned int flags);
+(*virDomainMemoryStatsFuncType)(virDomainPtr dom,
+                                virDomainMemoryStatPtr stats,
+                                unsigned int nr_stats,
+                                unsigned int flags);
 
 int
 virDomainMemoryStatsWrapper(virDomainPtr dom,
@@ -3812,7 +3844,7 @@ virDomainMemoryStatsWrapper(virDomainPtr dom,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMemoryStatsType virDomainMemoryStatsSymbol;
+    static virDomainMemoryStatsFuncType virDomainMemoryStatsSymbol;
     static bool once;
     static bool success;
 
@@ -3834,12 +3866,12 @@ virDomainMemoryStatsWrapper(virDomainPtr dom,
 }
 
 typedef virDomainPtr
-(*virDomainMigrateType)(virDomainPtr domain,
-                        virConnectPtr dconn,
-                        unsigned long flags,
-                        const char * dname,
-                        const char * uri,
-                        unsigned long bandwidth);
+(*virDomainMigrateFuncType)(virDomainPtr domain,
+                            virConnectPtr dconn,
+                            unsigned long flags,
+                            const char * dname,
+                            const char * uri,
+                            unsigned long bandwidth);
 
 virDomainPtr
 virDomainMigrateWrapper(virDomainPtr domain,
@@ -3851,7 +3883,7 @@ virDomainMigrateWrapper(virDomainPtr domain,
                         virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainMigrateType virDomainMigrateSymbol;
+    static virDomainMigrateFuncType virDomainMigrateSymbol;
     static bool once;
     static bool success;
 
@@ -3875,13 +3907,13 @@ virDomainMigrateWrapper(virDomainPtr domain,
 }
 
 typedef virDomainPtr
-(*virDomainMigrate2Type)(virDomainPtr domain,
-                         virConnectPtr dconn,
-                         const char * dxml,
-                         unsigned long flags,
-                         const char * dname,
-                         const char * uri,
-                         unsigned long bandwidth);
+(*virDomainMigrate2FuncType)(virDomainPtr domain,
+                             virConnectPtr dconn,
+                             const char * dxml,
+                             unsigned long flags,
+                             const char * dname,
+                             const char * uri,
+                             unsigned long bandwidth);
 
 virDomainPtr
 virDomainMigrate2Wrapper(virDomainPtr domain,
@@ -3894,7 +3926,7 @@ virDomainMigrate2Wrapper(virDomainPtr domain,
                          virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainMigrate2Type virDomainMigrate2Symbol;
+    static virDomainMigrate2FuncType virDomainMigrate2Symbol;
     static bool once;
     static bool success;
 
@@ -3919,11 +3951,11 @@ virDomainMigrate2Wrapper(virDomainPtr domain,
 }
 
 typedef virDomainPtr
-(*virDomainMigrate3Type)(virDomainPtr domain,
-                         virConnectPtr dconn,
-                         virTypedParameterPtr params,
-                         unsigned int nparams,
-                         unsigned int flags);
+(*virDomainMigrate3FuncType)(virDomainPtr domain,
+                             virConnectPtr dconn,
+                             virTypedParameterPtr params,
+                             unsigned int nparams,
+                             unsigned int flags);
 
 virDomainPtr
 virDomainMigrate3Wrapper(virDomainPtr domain,
@@ -3934,7 +3966,7 @@ virDomainMigrate3Wrapper(virDomainPtr domain,
                          virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainMigrate3Type virDomainMigrate3Symbol;
+    static virDomainMigrate3FuncType virDomainMigrate3Symbol;
     static bool once;
     static bool success;
 
@@ -3957,9 +3989,9 @@ virDomainMigrate3Wrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainMigrateGetCompressionCacheType)(virDomainPtr domain,
-                                           unsigned long long * cacheSize,
-                                           unsigned int flags);
+(*virDomainMigrateGetCompressionCacheFuncType)(virDomainPtr domain,
+                                               unsigned long long * cacheSize,
+                                               unsigned int flags);
 
 int
 virDomainMigrateGetCompressionCacheWrapper(virDomainPtr domain,
@@ -3968,7 +4000,7 @@ virDomainMigrateGetCompressionCacheWrapper(virDomainPtr domain,
                                            virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMigrateGetCompressionCacheType virDomainMigrateGetCompressionCacheSymbol;
+    static virDomainMigrateGetCompressionCacheFuncType virDomainMigrateGetCompressionCacheSymbol;
     static bool once;
     static bool success;
 
@@ -3989,9 +4021,9 @@ virDomainMigrateGetCompressionCacheWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainMigrateGetMaxDowntimeType)(virDomainPtr domain,
-                                      unsigned long long * downtime,
-                                      unsigned int flags);
+(*virDomainMigrateGetMaxDowntimeFuncType)(virDomainPtr domain,
+                                          unsigned long long * downtime,
+                                          unsigned int flags);
 
 int
 virDomainMigrateGetMaxDowntimeWrapper(virDomainPtr domain,
@@ -4000,7 +4032,7 @@ virDomainMigrateGetMaxDowntimeWrapper(virDomainPtr domain,
                                       virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMigrateGetMaxDowntimeType virDomainMigrateGetMaxDowntimeSymbol;
+    static virDomainMigrateGetMaxDowntimeFuncType virDomainMigrateGetMaxDowntimeSymbol;
     static bool once;
     static bool success;
 
@@ -4021,9 +4053,9 @@ virDomainMigrateGetMaxDowntimeWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainMigrateGetMaxSpeedType)(virDomainPtr domain,
-                                   unsigned long * bandwidth,
-                                   unsigned int flags);
+(*virDomainMigrateGetMaxSpeedFuncType)(virDomainPtr domain,
+                                       unsigned long * bandwidth,
+                                       unsigned int flags);
 
 int
 virDomainMigrateGetMaxSpeedWrapper(virDomainPtr domain,
@@ -4032,7 +4064,7 @@ virDomainMigrateGetMaxSpeedWrapper(virDomainPtr domain,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMigrateGetMaxSpeedType virDomainMigrateGetMaxSpeedSymbol;
+    static virDomainMigrateGetMaxSpeedFuncType virDomainMigrateGetMaxSpeedSymbol;
     static bool once;
     static bool success;
 
@@ -4053,9 +4085,9 @@ virDomainMigrateGetMaxSpeedWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainMigrateSetCompressionCacheType)(virDomainPtr domain,
-                                           unsigned long long cacheSize,
-                                           unsigned int flags);
+(*virDomainMigrateSetCompressionCacheFuncType)(virDomainPtr domain,
+                                               unsigned long long cacheSize,
+                                               unsigned int flags);
 
 int
 virDomainMigrateSetCompressionCacheWrapper(virDomainPtr domain,
@@ -4064,7 +4096,7 @@ virDomainMigrateSetCompressionCacheWrapper(virDomainPtr domain,
                                            virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMigrateSetCompressionCacheType virDomainMigrateSetCompressionCacheSymbol;
+    static virDomainMigrateSetCompressionCacheFuncType virDomainMigrateSetCompressionCacheSymbol;
     static bool once;
     static bool success;
 
@@ -4085,9 +4117,9 @@ virDomainMigrateSetCompressionCacheWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainMigrateSetMaxDowntimeType)(virDomainPtr domain,
-                                      unsigned long long downtime,
-                                      unsigned int flags);
+(*virDomainMigrateSetMaxDowntimeFuncType)(virDomainPtr domain,
+                                          unsigned long long downtime,
+                                          unsigned int flags);
 
 int
 virDomainMigrateSetMaxDowntimeWrapper(virDomainPtr domain,
@@ -4096,7 +4128,7 @@ virDomainMigrateSetMaxDowntimeWrapper(virDomainPtr domain,
                                       virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMigrateSetMaxDowntimeType virDomainMigrateSetMaxDowntimeSymbol;
+    static virDomainMigrateSetMaxDowntimeFuncType virDomainMigrateSetMaxDowntimeSymbol;
     static bool once;
     static bool success;
 
@@ -4117,9 +4149,9 @@ virDomainMigrateSetMaxDowntimeWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainMigrateSetMaxSpeedType)(virDomainPtr domain,
-                                   unsigned long bandwidth,
-                                   unsigned int flags);
+(*virDomainMigrateSetMaxSpeedFuncType)(virDomainPtr domain,
+                                       unsigned long bandwidth,
+                                       unsigned int flags);
 
 int
 virDomainMigrateSetMaxSpeedWrapper(virDomainPtr domain,
@@ -4128,7 +4160,7 @@ virDomainMigrateSetMaxSpeedWrapper(virDomainPtr domain,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMigrateSetMaxSpeedType virDomainMigrateSetMaxSpeedSymbol;
+    static virDomainMigrateSetMaxSpeedFuncType virDomainMigrateSetMaxSpeedSymbol;
     static bool once;
     static bool success;
 
@@ -4149,8 +4181,8 @@ virDomainMigrateSetMaxSpeedWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainMigrateStartPostCopyType)(virDomainPtr domain,
-                                     unsigned int flags);
+(*virDomainMigrateStartPostCopyFuncType)(virDomainPtr domain,
+                                         unsigned int flags);
 
 int
 virDomainMigrateStartPostCopyWrapper(virDomainPtr domain,
@@ -4158,7 +4190,7 @@ virDomainMigrateStartPostCopyWrapper(virDomainPtr domain,
                                      virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMigrateStartPostCopyType virDomainMigrateStartPostCopySymbol;
+    static virDomainMigrateStartPostCopyFuncType virDomainMigrateStartPostCopySymbol;
     static bool once;
     static bool success;
 
@@ -4178,11 +4210,11 @@ virDomainMigrateStartPostCopyWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainMigrateToURIType)(virDomainPtr domain,
-                             const char * duri,
-                             unsigned long flags,
-                             const char * dname,
-                             unsigned long bandwidth);
+(*virDomainMigrateToURIFuncType)(virDomainPtr domain,
+                                 const char * duri,
+                                 unsigned long flags,
+                                 const char * dname,
+                                 unsigned long bandwidth);
 
 int
 virDomainMigrateToURIWrapper(virDomainPtr domain,
@@ -4193,7 +4225,7 @@ virDomainMigrateToURIWrapper(virDomainPtr domain,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMigrateToURIType virDomainMigrateToURISymbol;
+    static virDomainMigrateToURIFuncType virDomainMigrateToURISymbol;
     static bool once;
     static bool success;
 
@@ -4216,13 +4248,13 @@ virDomainMigrateToURIWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainMigrateToURI2Type)(virDomainPtr domain,
-                              const char * dconnuri,
-                              const char * miguri,
-                              const char * dxml,
-                              unsigned long flags,
-                              const char * dname,
-                              unsigned long bandwidth);
+(*virDomainMigrateToURI2FuncType)(virDomainPtr domain,
+                                  const char * dconnuri,
+                                  const char * miguri,
+                                  const char * dxml,
+                                  unsigned long flags,
+                                  const char * dname,
+                                  unsigned long bandwidth);
 
 int
 virDomainMigrateToURI2Wrapper(virDomainPtr domain,
@@ -4235,7 +4267,7 @@ virDomainMigrateToURI2Wrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMigrateToURI2Type virDomainMigrateToURI2Symbol;
+    static virDomainMigrateToURI2FuncType virDomainMigrateToURI2Symbol;
     static bool once;
     static bool success;
 
@@ -4260,11 +4292,11 @@ virDomainMigrateToURI2Wrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainMigrateToURI3Type)(virDomainPtr domain,
-                              const char * dconnuri,
-                              virTypedParameterPtr params,
-                              unsigned int nparams,
-                              unsigned int flags);
+(*virDomainMigrateToURI3FuncType)(virDomainPtr domain,
+                                  const char * dconnuri,
+                                  virTypedParameterPtr params,
+                                  unsigned int nparams,
+                                  unsigned int flags);
 
 int
 virDomainMigrateToURI3Wrapper(virDomainPtr domain,
@@ -4275,7 +4307,7 @@ virDomainMigrateToURI3Wrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainMigrateToURI3Type virDomainMigrateToURI3Symbol;
+    static virDomainMigrateToURI3FuncType virDomainMigrateToURI3Symbol;
     static bool once;
     static bool success;
 
@@ -4298,10 +4330,10 @@ virDomainMigrateToURI3Wrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainOpenChannelType)(virDomainPtr dom,
-                            const char * name,
-                            virStreamPtr st,
-                            unsigned int flags);
+(*virDomainOpenChannelFuncType)(virDomainPtr dom,
+                                const char * name,
+                                virStreamPtr st,
+                                unsigned int flags);
 
 int
 virDomainOpenChannelWrapper(virDomainPtr dom,
@@ -4311,7 +4343,7 @@ virDomainOpenChannelWrapper(virDomainPtr dom,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainOpenChannelType virDomainOpenChannelSymbol;
+    static virDomainOpenChannelFuncType virDomainOpenChannelSymbol;
     static bool once;
     static bool success;
 
@@ -4333,10 +4365,10 @@ virDomainOpenChannelWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainOpenConsoleType)(virDomainPtr dom,
-                            const char * dev_name,
-                            virStreamPtr st,
-                            unsigned int flags);
+(*virDomainOpenConsoleFuncType)(virDomainPtr dom,
+                                const char * dev_name,
+                                virStreamPtr st,
+                                unsigned int flags);
 
 int
 virDomainOpenConsoleWrapper(virDomainPtr dom,
@@ -4346,7 +4378,7 @@ virDomainOpenConsoleWrapper(virDomainPtr dom,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainOpenConsoleType virDomainOpenConsoleSymbol;
+    static virDomainOpenConsoleFuncType virDomainOpenConsoleSymbol;
     static bool once;
     static bool success;
 
@@ -4368,10 +4400,10 @@ virDomainOpenConsoleWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainOpenGraphicsType)(virDomainPtr dom,
-                             unsigned int idx,
-                             int fd,
-                             unsigned int flags);
+(*virDomainOpenGraphicsFuncType)(virDomainPtr dom,
+                                 unsigned int idx,
+                                 int fd,
+                                 unsigned int flags);
 
 int
 virDomainOpenGraphicsWrapper(virDomainPtr dom,
@@ -4381,7 +4413,7 @@ virDomainOpenGraphicsWrapper(virDomainPtr dom,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainOpenGraphicsType virDomainOpenGraphicsSymbol;
+    static virDomainOpenGraphicsFuncType virDomainOpenGraphicsSymbol;
     static bool once;
     static bool success;
 
@@ -4403,9 +4435,9 @@ virDomainOpenGraphicsWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainOpenGraphicsFDType)(virDomainPtr dom,
-                               unsigned int idx,
-                               unsigned int flags);
+(*virDomainOpenGraphicsFDFuncType)(virDomainPtr dom,
+                                   unsigned int idx,
+                                   unsigned int flags);
 
 int
 virDomainOpenGraphicsFDWrapper(virDomainPtr dom,
@@ -4414,7 +4446,7 @@ virDomainOpenGraphicsFDWrapper(virDomainPtr dom,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virDomainOpenGraphicsFDType virDomainOpenGraphicsFDSymbol;
+    static virDomainOpenGraphicsFDFuncType virDomainOpenGraphicsFDSymbol;
     static bool once;
     static bool success;
 
@@ -4435,10 +4467,10 @@ virDomainOpenGraphicsFDWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainPMSuspendForDurationType)(virDomainPtr dom,
-                                     unsigned int target,
-                                     unsigned long long duration,
-                                     unsigned int flags);
+(*virDomainPMSuspendForDurationFuncType)(virDomainPtr dom,
+                                         unsigned int target,
+                                         unsigned long long duration,
+                                         unsigned int flags);
 
 int
 virDomainPMSuspendForDurationWrapper(virDomainPtr dom,
@@ -4448,7 +4480,7 @@ virDomainPMSuspendForDurationWrapper(virDomainPtr dom,
                                      virErrorPtr err)
 {
     int ret = -1;
-    static virDomainPMSuspendForDurationType virDomainPMSuspendForDurationSymbol;
+    static virDomainPMSuspendForDurationFuncType virDomainPMSuspendForDurationSymbol;
     static bool once;
     static bool success;
 
@@ -4470,8 +4502,8 @@ virDomainPMSuspendForDurationWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainPMWakeupType)(virDomainPtr dom,
-                         unsigned int flags);
+(*virDomainPMWakeupFuncType)(virDomainPtr dom,
+                             unsigned int flags);
 
 int
 virDomainPMWakeupWrapper(virDomainPtr dom,
@@ -4479,7 +4511,7 @@ virDomainPMWakeupWrapper(virDomainPtr dom,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virDomainPMWakeupType virDomainPMWakeupSymbol;
+    static virDomainPMWakeupFuncType virDomainPMWakeupSymbol;
     static bool once;
     static bool success;
 
@@ -4499,10 +4531,10 @@ virDomainPMWakeupWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainPinEmulatorType)(virDomainPtr domain,
-                            unsigned char * cpumap,
-                            int maplen,
-                            unsigned int flags);
+(*virDomainPinEmulatorFuncType)(virDomainPtr domain,
+                                unsigned char * cpumap,
+                                int maplen,
+                                unsigned int flags);
 
 int
 virDomainPinEmulatorWrapper(virDomainPtr domain,
@@ -4512,7 +4544,7 @@ virDomainPinEmulatorWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainPinEmulatorType virDomainPinEmulatorSymbol;
+    static virDomainPinEmulatorFuncType virDomainPinEmulatorSymbol;
     static bool once;
     static bool success;
 
@@ -4534,11 +4566,11 @@ virDomainPinEmulatorWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainPinIOThreadType)(virDomainPtr domain,
-                            unsigned int iothread_id,
-                            unsigned char * cpumap,
-                            int maplen,
-                            unsigned int flags);
+(*virDomainPinIOThreadFuncType)(virDomainPtr domain,
+                                unsigned int iothread_id,
+                                unsigned char * cpumap,
+                                int maplen,
+                                unsigned int flags);
 
 int
 virDomainPinIOThreadWrapper(virDomainPtr domain,
@@ -4549,7 +4581,7 @@ virDomainPinIOThreadWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainPinIOThreadType virDomainPinIOThreadSymbol;
+    static virDomainPinIOThreadFuncType virDomainPinIOThreadSymbol;
     static bool once;
     static bool success;
 
@@ -4572,10 +4604,10 @@ virDomainPinIOThreadWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainPinVcpuType)(virDomainPtr domain,
-                        unsigned int vcpu,
-                        unsigned char * cpumap,
-                        int maplen);
+(*virDomainPinVcpuFuncType)(virDomainPtr domain,
+                            unsigned int vcpu,
+                            unsigned char * cpumap,
+                            int maplen);
 
 int
 virDomainPinVcpuWrapper(virDomainPtr domain,
@@ -4585,7 +4617,7 @@ virDomainPinVcpuWrapper(virDomainPtr domain,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainPinVcpuType virDomainPinVcpuSymbol;
+    static virDomainPinVcpuFuncType virDomainPinVcpuSymbol;
     static bool once;
     static bool success;
 
@@ -4607,11 +4639,11 @@ virDomainPinVcpuWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainPinVcpuFlagsType)(virDomainPtr domain,
-                             unsigned int vcpu,
-                             unsigned char * cpumap,
-                             int maplen,
-                             unsigned int flags);
+(*virDomainPinVcpuFlagsFuncType)(virDomainPtr domain,
+                                 unsigned int vcpu,
+                                 unsigned char * cpumap,
+                                 int maplen,
+                                 unsigned int flags);
 
 int
 virDomainPinVcpuFlagsWrapper(virDomainPtr domain,
@@ -4622,7 +4654,7 @@ virDomainPinVcpuFlagsWrapper(virDomainPtr domain,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainPinVcpuFlagsType virDomainPinVcpuFlagsSymbol;
+    static virDomainPinVcpuFlagsFuncType virDomainPinVcpuFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -4645,8 +4677,8 @@ virDomainPinVcpuFlagsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainRebootType)(virDomainPtr domain,
-                       unsigned int flags);
+(*virDomainRebootFuncType)(virDomainPtr domain,
+                           unsigned int flags);
 
 int
 virDomainRebootWrapper(virDomainPtr domain,
@@ -4654,7 +4686,7 @@ virDomainRebootWrapper(virDomainPtr domain,
                        virErrorPtr err)
 {
     int ret = -1;
-    static virDomainRebootType virDomainRebootSymbol;
+    static virDomainRebootFuncType virDomainRebootSymbol;
     static bool once;
     static bool success;
 
@@ -4674,14 +4706,14 @@ virDomainRebootWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainRefType)(virDomainPtr domain);
+(*virDomainRefFuncType)(virDomainPtr domain);
 
 int
 virDomainRefWrapper(virDomainPtr domain,
                     virErrorPtr err)
 {
     int ret = -1;
-    static virDomainRefType virDomainRefSymbol;
+    static virDomainRefFuncType virDomainRefSymbol;
     static bool once;
     static bool success;
 
@@ -4700,9 +4732,9 @@ virDomainRefWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainRenameType)(virDomainPtr dom,
-                       const char * new_name,
-                       unsigned int flags);
+(*virDomainRenameFuncType)(virDomainPtr dom,
+                           const char * new_name,
+                           unsigned int flags);
 
 int
 virDomainRenameWrapper(virDomainPtr dom,
@@ -4711,7 +4743,7 @@ virDomainRenameWrapper(virDomainPtr dom,
                        virErrorPtr err)
 {
     int ret = -1;
-    static virDomainRenameType virDomainRenameSymbol;
+    static virDomainRenameFuncType virDomainRenameSymbol;
     static bool once;
     static bool success;
 
@@ -4732,8 +4764,8 @@ virDomainRenameWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainResetType)(virDomainPtr domain,
-                      unsigned int flags);
+(*virDomainResetFuncType)(virDomainPtr domain,
+                          unsigned int flags);
 
 int
 virDomainResetWrapper(virDomainPtr domain,
@@ -4741,7 +4773,7 @@ virDomainResetWrapper(virDomainPtr domain,
                       virErrorPtr err)
 {
     int ret = -1;
-    static virDomainResetType virDomainResetSymbol;
+    static virDomainResetFuncType virDomainResetSymbol;
     static bool once;
     static bool success;
 
@@ -4761,8 +4793,8 @@ virDomainResetWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainRestoreType)(virConnectPtr conn,
-                        const char * from);
+(*virDomainRestoreFuncType)(virConnectPtr conn,
+                            const char * from);
 
 int
 virDomainRestoreWrapper(virConnectPtr conn,
@@ -4770,7 +4802,7 @@ virDomainRestoreWrapper(virConnectPtr conn,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainRestoreType virDomainRestoreSymbol;
+    static virDomainRestoreFuncType virDomainRestoreSymbol;
     static bool once;
     static bool success;
 
@@ -4790,10 +4822,10 @@ virDomainRestoreWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virDomainRestoreFlagsType)(virConnectPtr conn,
-                             const char * from,
-                             const char * dxml,
-                             unsigned int flags);
+(*virDomainRestoreFlagsFuncType)(virConnectPtr conn,
+                                 const char * from,
+                                 const char * dxml,
+                                 unsigned int flags);
 
 int
 virDomainRestoreFlagsWrapper(virConnectPtr conn,
@@ -4803,7 +4835,7 @@ virDomainRestoreFlagsWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainRestoreFlagsType virDomainRestoreFlagsSymbol;
+    static virDomainRestoreFlagsFuncType virDomainRestoreFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -4825,10 +4857,10 @@ virDomainRestoreFlagsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virDomainRestoreParamsType)(virConnectPtr conn,
-                              virTypedParameterPtr params,
-                              int nparams,
-                              unsigned int flags);
+(*virDomainRestoreParamsFuncType)(virConnectPtr conn,
+                                  virTypedParameterPtr params,
+                                  int nparams,
+                                  unsigned int flags);
 
 int
 virDomainRestoreParamsWrapper(virConnectPtr conn,
@@ -4838,7 +4870,7 @@ virDomainRestoreParamsWrapper(virConnectPtr conn,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainRestoreParamsType virDomainRestoreParamsSymbol;
+    static virDomainRestoreParamsFuncType virDomainRestoreParamsSymbol;
     static bool once;
     static bool success;
 
@@ -4860,14 +4892,14 @@ virDomainRestoreParamsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virDomainResumeType)(virDomainPtr domain);
+(*virDomainResumeFuncType)(virDomainPtr domain);
 
 int
 virDomainResumeWrapper(virDomainPtr domain,
                        virErrorPtr err)
 {
     int ret = -1;
-    static virDomainResumeType virDomainResumeSymbol;
+    static virDomainResumeFuncType virDomainResumeSymbol;
     static bool once;
     static bool success;
 
@@ -4886,8 +4918,8 @@ virDomainResumeWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSaveType)(virDomainPtr domain,
-                     const char * to);
+(*virDomainSaveFuncType)(virDomainPtr domain,
+                         const char * to);
 
 int
 virDomainSaveWrapper(virDomainPtr domain,
@@ -4895,7 +4927,7 @@ virDomainSaveWrapper(virDomainPtr domain,
                      virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSaveType virDomainSaveSymbol;
+    static virDomainSaveFuncType virDomainSaveSymbol;
     static bool once;
     static bool success;
 
@@ -4915,10 +4947,10 @@ virDomainSaveWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSaveFlagsType)(virDomainPtr domain,
-                          const char * to,
-                          const char * dxml,
-                          unsigned int flags);
+(*virDomainSaveFlagsFuncType)(virDomainPtr domain,
+                              const char * to,
+                              const char * dxml,
+                              unsigned int flags);
 
 int
 virDomainSaveFlagsWrapper(virDomainPtr domain,
@@ -4928,7 +4960,7 @@ virDomainSaveFlagsWrapper(virDomainPtr domain,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSaveFlagsType virDomainSaveFlagsSymbol;
+    static virDomainSaveFlagsFuncType virDomainSaveFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -4950,10 +4982,10 @@ virDomainSaveFlagsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSaveImageDefineXMLType)(virConnectPtr conn,
-                                   const char * file,
-                                   const char * dxml,
-                                   unsigned int flags);
+(*virDomainSaveImageDefineXMLFuncType)(virConnectPtr conn,
+                                       const char * file,
+                                       const char * dxml,
+                                       unsigned int flags);
 
 int
 virDomainSaveImageDefineXMLWrapper(virConnectPtr conn,
@@ -4963,7 +4995,7 @@ virDomainSaveImageDefineXMLWrapper(virConnectPtr conn,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSaveImageDefineXMLType virDomainSaveImageDefineXMLSymbol;
+    static virDomainSaveImageDefineXMLFuncType virDomainSaveImageDefineXMLSymbol;
     static bool once;
     static bool success;
 
@@ -4985,9 +5017,9 @@ virDomainSaveImageDefineXMLWrapper(virConnectPtr conn,
 }
 
 typedef char *
-(*virDomainSaveImageGetXMLDescType)(virConnectPtr conn,
-                                    const char * file,
-                                    unsigned int flags);
+(*virDomainSaveImageGetXMLDescFuncType)(virConnectPtr conn,
+                                        const char * file,
+                                        unsigned int flags);
 
 char *
 virDomainSaveImageGetXMLDescWrapper(virConnectPtr conn,
@@ -4996,7 +5028,7 @@ virDomainSaveImageGetXMLDescWrapper(virConnectPtr conn,
                                     virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainSaveImageGetXMLDescType virDomainSaveImageGetXMLDescSymbol;
+    static virDomainSaveImageGetXMLDescFuncType virDomainSaveImageGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -5017,10 +5049,10 @@ virDomainSaveImageGetXMLDescWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virDomainSaveParamsType)(virDomainPtr domain,
-                           virTypedParameterPtr params,
-                           int nparams,
-                           unsigned int flags);
+(*virDomainSaveParamsFuncType)(virDomainPtr domain,
+                               virTypedParameterPtr params,
+                               int nparams,
+                               unsigned int flags);
 
 int
 virDomainSaveParamsWrapper(virDomainPtr domain,
@@ -5030,7 +5062,7 @@ virDomainSaveParamsWrapper(virDomainPtr domain,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSaveParamsType virDomainSaveParamsSymbol;
+    static virDomainSaveParamsFuncType virDomainSaveParamsSymbol;
     static bool once;
     static bool success;
 
@@ -5052,10 +5084,10 @@ virDomainSaveParamsWrapper(virDomainPtr domain,
 }
 
 typedef char *
-(*virDomainScreenshotType)(virDomainPtr domain,
-                           virStreamPtr stream,
-                           unsigned int screen,
-                           unsigned int flags);
+(*virDomainScreenshotFuncType)(virDomainPtr domain,
+                               virStreamPtr stream,
+                               unsigned int screen,
+                               unsigned int flags);
 
 char *
 virDomainScreenshotWrapper(virDomainPtr domain,
@@ -5065,7 +5097,7 @@ virDomainScreenshotWrapper(virDomainPtr domain,
                            virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainScreenshotType virDomainScreenshotSymbol;
+    static virDomainScreenshotFuncType virDomainScreenshotSymbol;
     static bool once;
     static bool success;
 
@@ -5087,12 +5119,12 @@ virDomainScreenshotWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSendKeyType)(virDomainPtr domain,
-                        unsigned int codeset,
-                        unsigned int holdtime,
-                        unsigned int * keycodes,
-                        int nkeycodes,
-                        unsigned int flags);
+(*virDomainSendKeyFuncType)(virDomainPtr domain,
+                            unsigned int codeset,
+                            unsigned int holdtime,
+                            unsigned int * keycodes,
+                            int nkeycodes,
+                            unsigned int flags);
 
 int
 virDomainSendKeyWrapper(virDomainPtr domain,
@@ -5104,7 +5136,7 @@ virDomainSendKeyWrapper(virDomainPtr domain,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSendKeyType virDomainSendKeySymbol;
+    static virDomainSendKeyFuncType virDomainSendKeySymbol;
     static bool once;
     static bool success;
 
@@ -5128,10 +5160,10 @@ virDomainSendKeyWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSendProcessSignalType)(virDomainPtr domain,
-                                  long long pid_value,
-                                  unsigned int signum,
-                                  unsigned int flags);
+(*virDomainSendProcessSignalFuncType)(virDomainPtr domain,
+                                      long long pid_value,
+                                      unsigned int signum,
+                                      unsigned int flags);
 
 int
 virDomainSendProcessSignalWrapper(virDomainPtr domain,
@@ -5141,7 +5173,7 @@ virDomainSendProcessSignalWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSendProcessSignalType virDomainSendProcessSignalSymbol;
+    static virDomainSendProcessSignalFuncType virDomainSendProcessSignalSymbol;
     static bool once;
     static bool success;
 
@@ -5163,8 +5195,8 @@ virDomainSendProcessSignalWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetAutostartType)(virDomainPtr domain,
-                             int autostart);
+(*virDomainSetAutostartFuncType)(virDomainPtr domain,
+                                 int autostart);
 
 int
 virDomainSetAutostartWrapper(virDomainPtr domain,
@@ -5172,7 +5204,7 @@ virDomainSetAutostartWrapper(virDomainPtr domain,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetAutostartType virDomainSetAutostartSymbol;
+    static virDomainSetAutostartFuncType virDomainSetAutostartSymbol;
     static bool once;
     static bool success;
 
@@ -5192,10 +5224,10 @@ virDomainSetAutostartWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetBlkioParametersType)(virDomainPtr domain,
-                                   virTypedParameterPtr params,
-                                   int nparams,
-                                   unsigned int flags);
+(*virDomainSetBlkioParametersFuncType)(virDomainPtr domain,
+                                       virTypedParameterPtr params,
+                                       int nparams,
+                                       unsigned int flags);
 
 int
 virDomainSetBlkioParametersWrapper(virDomainPtr domain,
@@ -5205,7 +5237,7 @@ virDomainSetBlkioParametersWrapper(virDomainPtr domain,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetBlkioParametersType virDomainSetBlkioParametersSymbol;
+    static virDomainSetBlkioParametersFuncType virDomainSetBlkioParametersSymbol;
     static bool once;
     static bool success;
 
@@ -5227,11 +5259,11 @@ virDomainSetBlkioParametersWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetBlockIoTuneType)(virDomainPtr dom,
-                               const char * disk,
-                               virTypedParameterPtr params,
-                               int nparams,
-                               unsigned int flags);
+(*virDomainSetBlockIoTuneFuncType)(virDomainPtr dom,
+                                   const char * disk,
+                                   virTypedParameterPtr params,
+                                   int nparams,
+                                   unsigned int flags);
 
 int
 virDomainSetBlockIoTuneWrapper(virDomainPtr dom,
@@ -5242,7 +5274,7 @@ virDomainSetBlockIoTuneWrapper(virDomainPtr dom,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetBlockIoTuneType virDomainSetBlockIoTuneSymbol;
+    static virDomainSetBlockIoTuneFuncType virDomainSetBlockIoTuneSymbol;
     static bool once;
     static bool success;
 
@@ -5265,10 +5297,10 @@ virDomainSetBlockIoTuneWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainSetBlockThresholdType)(virDomainPtr domain,
-                                  const char * dev,
-                                  unsigned long long threshold,
-                                  unsigned int flags);
+(*virDomainSetBlockThresholdFuncType)(virDomainPtr domain,
+                                      const char * dev,
+                                      unsigned long long threshold,
+                                      unsigned int flags);
 
 int
 virDomainSetBlockThresholdWrapper(virDomainPtr domain,
@@ -5278,7 +5310,7 @@ virDomainSetBlockThresholdWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetBlockThresholdType virDomainSetBlockThresholdSymbol;
+    static virDomainSetBlockThresholdFuncType virDomainSetBlockThresholdSymbol;
     static bool once;
     static bool success;
 
@@ -5300,10 +5332,10 @@ virDomainSetBlockThresholdWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetGuestVcpusType)(virDomainPtr domain,
-                              const char * cpumap,
-                              int state,
-                              unsigned int flags);
+(*virDomainSetGuestVcpusFuncType)(virDomainPtr domain,
+                                  const char * cpumap,
+                                  int state,
+                                  unsigned int flags);
 
 int
 virDomainSetGuestVcpusWrapper(virDomainPtr domain,
@@ -5313,7 +5345,7 @@ virDomainSetGuestVcpusWrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetGuestVcpusType virDomainSetGuestVcpusSymbol;
+    static virDomainSetGuestVcpusFuncType virDomainSetGuestVcpusSymbol;
     static bool once;
     static bool success;
 
@@ -5335,11 +5367,11 @@ virDomainSetGuestVcpusWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetIOThreadParamsType)(virDomainPtr domain,
-                                  unsigned int iothread_id,
-                                  virTypedParameterPtr params,
-                                  int nparams,
-                                  unsigned int flags);
+(*virDomainSetIOThreadParamsFuncType)(virDomainPtr domain,
+                                      unsigned int iothread_id,
+                                      virTypedParameterPtr params,
+                                      int nparams,
+                                      unsigned int flags);
 
 int
 virDomainSetIOThreadParamsWrapper(virDomainPtr domain,
@@ -5350,7 +5382,7 @@ virDomainSetIOThreadParamsWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetIOThreadParamsType virDomainSetIOThreadParamsSymbol;
+    static virDomainSetIOThreadParamsFuncType virDomainSetIOThreadParamsSymbol;
     static bool once;
     static bool success;
 
@@ -5373,11 +5405,11 @@ virDomainSetIOThreadParamsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetInterfaceParametersType)(virDomainPtr domain,
-                                       const char * device,
-                                       virTypedParameterPtr params,
-                                       int nparams,
-                                       unsigned int flags);
+(*virDomainSetInterfaceParametersFuncType)(virDomainPtr domain,
+                                           const char * device,
+                                           virTypedParameterPtr params,
+                                           int nparams,
+                                           unsigned int flags);
 
 int
 virDomainSetInterfaceParametersWrapper(virDomainPtr domain,
@@ -5388,7 +5420,7 @@ virDomainSetInterfaceParametersWrapper(virDomainPtr domain,
                                        virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetInterfaceParametersType virDomainSetInterfaceParametersSymbol;
+    static virDomainSetInterfaceParametersFuncType virDomainSetInterfaceParametersSymbol;
     static bool once;
     static bool success;
 
@@ -5411,10 +5443,10 @@ virDomainSetInterfaceParametersWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetLaunchSecurityStateType)(virDomainPtr domain,
-                                       virTypedParameterPtr params,
-                                       int nparams,
-                                       unsigned int flags);
+(*virDomainSetLaunchSecurityStateFuncType)(virDomainPtr domain,
+                                           virTypedParameterPtr params,
+                                           int nparams,
+                                           unsigned int flags);
 
 int
 virDomainSetLaunchSecurityStateWrapper(virDomainPtr domain,
@@ -5424,7 +5456,7 @@ virDomainSetLaunchSecurityStateWrapper(virDomainPtr domain,
                                        virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetLaunchSecurityStateType virDomainSetLaunchSecurityStateSymbol;
+    static virDomainSetLaunchSecurityStateFuncType virDomainSetLaunchSecurityStateSymbol;
     static bool once;
     static bool success;
 
@@ -5446,10 +5478,10 @@ virDomainSetLaunchSecurityStateWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetLifecycleActionType)(virDomainPtr domain,
-                                   unsigned int type,
-                                   unsigned int action,
-                                   unsigned int flags);
+(*virDomainSetLifecycleActionFuncType)(virDomainPtr domain,
+                                       unsigned int type,
+                                       unsigned int action,
+                                       unsigned int flags);
 
 int
 virDomainSetLifecycleActionWrapper(virDomainPtr domain,
@@ -5459,7 +5491,7 @@ virDomainSetLifecycleActionWrapper(virDomainPtr domain,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetLifecycleActionType virDomainSetLifecycleActionSymbol;
+    static virDomainSetLifecycleActionFuncType virDomainSetLifecycleActionSymbol;
     static bool once;
     static bool success;
 
@@ -5481,8 +5513,8 @@ virDomainSetLifecycleActionWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetMaxMemoryType)(virDomainPtr domain,
-                             unsigned long memory);
+(*virDomainSetMaxMemoryFuncType)(virDomainPtr domain,
+                                 unsigned long memory);
 
 int
 virDomainSetMaxMemoryWrapper(virDomainPtr domain,
@@ -5490,7 +5522,7 @@ virDomainSetMaxMemoryWrapper(virDomainPtr domain,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetMaxMemoryType virDomainSetMaxMemorySymbol;
+    static virDomainSetMaxMemoryFuncType virDomainSetMaxMemorySymbol;
     static bool once;
     static bool success;
 
@@ -5510,8 +5542,8 @@ virDomainSetMaxMemoryWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetMemoryType)(virDomainPtr domain,
-                          unsigned long memory);
+(*virDomainSetMemoryFuncType)(virDomainPtr domain,
+                              unsigned long memory);
 
 int
 virDomainSetMemoryWrapper(virDomainPtr domain,
@@ -5519,7 +5551,7 @@ virDomainSetMemoryWrapper(virDomainPtr domain,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetMemoryType virDomainSetMemorySymbol;
+    static virDomainSetMemoryFuncType virDomainSetMemorySymbol;
     static bool once;
     static bool success;
 
@@ -5539,9 +5571,9 @@ virDomainSetMemoryWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetMemoryFlagsType)(virDomainPtr domain,
-                               unsigned long memory,
-                               unsigned int flags);
+(*virDomainSetMemoryFlagsFuncType)(virDomainPtr domain,
+                                   unsigned long memory,
+                                   unsigned int flags);
 
 int
 virDomainSetMemoryFlagsWrapper(virDomainPtr domain,
@@ -5550,7 +5582,7 @@ virDomainSetMemoryFlagsWrapper(virDomainPtr domain,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetMemoryFlagsType virDomainSetMemoryFlagsSymbol;
+    static virDomainSetMemoryFlagsFuncType virDomainSetMemoryFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -5571,10 +5603,10 @@ virDomainSetMemoryFlagsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetMemoryParametersType)(virDomainPtr domain,
-                                    virTypedParameterPtr params,
-                                    int nparams,
-                                    unsigned int flags);
+(*virDomainSetMemoryParametersFuncType)(virDomainPtr domain,
+                                        virTypedParameterPtr params,
+                                        int nparams,
+                                        unsigned int flags);
 
 int
 virDomainSetMemoryParametersWrapper(virDomainPtr domain,
@@ -5584,7 +5616,7 @@ virDomainSetMemoryParametersWrapper(virDomainPtr domain,
                                     virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetMemoryParametersType virDomainSetMemoryParametersSymbol;
+    static virDomainSetMemoryParametersFuncType virDomainSetMemoryParametersSymbol;
     static bool once;
     static bool success;
 
@@ -5606,9 +5638,9 @@ virDomainSetMemoryParametersWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetMemoryStatsPeriodType)(virDomainPtr domain,
-                                     int period,
-                                     unsigned int flags);
+(*virDomainSetMemoryStatsPeriodFuncType)(virDomainPtr domain,
+                                         int period,
+                                         unsigned int flags);
 
 int
 virDomainSetMemoryStatsPeriodWrapper(virDomainPtr domain,
@@ -5617,7 +5649,7 @@ virDomainSetMemoryStatsPeriodWrapper(virDomainPtr domain,
                                      virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetMemoryStatsPeriodType virDomainSetMemoryStatsPeriodSymbol;
+    static virDomainSetMemoryStatsPeriodFuncType virDomainSetMemoryStatsPeriodSymbol;
     static bool once;
     static bool success;
 
@@ -5638,12 +5670,12 @@ virDomainSetMemoryStatsPeriodWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetMetadataType)(virDomainPtr domain,
-                            int type,
-                            const char * metadata,
-                            const char * key,
-                            const char * uri,
-                            unsigned int flags);
+(*virDomainSetMetadataFuncType)(virDomainPtr domain,
+                                int type,
+                                const char * metadata,
+                                const char * key,
+                                const char * uri,
+                                unsigned int flags);
 
 int
 virDomainSetMetadataWrapper(virDomainPtr domain,
@@ -5655,7 +5687,7 @@ virDomainSetMetadataWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetMetadataType virDomainSetMetadataSymbol;
+    static virDomainSetMetadataFuncType virDomainSetMetadataSymbol;
     static bool once;
     static bool success;
 
@@ -5679,10 +5711,10 @@ virDomainSetMetadataWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetNumaParametersType)(virDomainPtr domain,
-                                  virTypedParameterPtr params,
-                                  int nparams,
-                                  unsigned int flags);
+(*virDomainSetNumaParametersFuncType)(virDomainPtr domain,
+                                      virTypedParameterPtr params,
+                                      int nparams,
+                                      unsigned int flags);
 
 int
 virDomainSetNumaParametersWrapper(virDomainPtr domain,
@@ -5692,7 +5724,7 @@ virDomainSetNumaParametersWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetNumaParametersType virDomainSetNumaParametersSymbol;
+    static virDomainSetNumaParametersFuncType virDomainSetNumaParametersSymbol;
     static bool once;
     static bool success;
 
@@ -5714,10 +5746,10 @@ virDomainSetNumaParametersWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetPerfEventsType)(virDomainPtr domain,
-                              virTypedParameterPtr params,
-                              int nparams,
-                              unsigned int flags);
+(*virDomainSetPerfEventsFuncType)(virDomainPtr domain,
+                                  virTypedParameterPtr params,
+                                  int nparams,
+                                  unsigned int flags);
 
 int
 virDomainSetPerfEventsWrapper(virDomainPtr domain,
@@ -5727,7 +5759,7 @@ virDomainSetPerfEventsWrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetPerfEventsType virDomainSetPerfEventsSymbol;
+    static virDomainSetPerfEventsFuncType virDomainSetPerfEventsSymbol;
     static bool once;
     static bool success;
 
@@ -5749,9 +5781,9 @@ virDomainSetPerfEventsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetSchedulerParametersType)(virDomainPtr domain,
-                                       virTypedParameterPtr params,
-                                       int nparams);
+(*virDomainSetSchedulerParametersFuncType)(virDomainPtr domain,
+                                           virTypedParameterPtr params,
+                                           int nparams);
 
 int
 virDomainSetSchedulerParametersWrapper(virDomainPtr domain,
@@ -5760,7 +5792,7 @@ virDomainSetSchedulerParametersWrapper(virDomainPtr domain,
                                        virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetSchedulerParametersType virDomainSetSchedulerParametersSymbol;
+    static virDomainSetSchedulerParametersFuncType virDomainSetSchedulerParametersSymbol;
     static bool once;
     static bool success;
 
@@ -5781,10 +5813,10 @@ virDomainSetSchedulerParametersWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetSchedulerParametersFlagsType)(virDomainPtr domain,
-                                            virTypedParameterPtr params,
-                                            int nparams,
-                                            unsigned int flags);
+(*virDomainSetSchedulerParametersFlagsFuncType)(virDomainPtr domain,
+                                                virTypedParameterPtr params,
+                                                int nparams,
+                                                unsigned int flags);
 
 int
 virDomainSetSchedulerParametersFlagsWrapper(virDomainPtr domain,
@@ -5794,7 +5826,7 @@ virDomainSetSchedulerParametersFlagsWrapper(virDomainPtr domain,
                                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetSchedulerParametersFlagsType virDomainSetSchedulerParametersFlagsSymbol;
+    static virDomainSetSchedulerParametersFlagsFuncType virDomainSetSchedulerParametersFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -5816,10 +5848,10 @@ virDomainSetSchedulerParametersFlagsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetTimeType)(virDomainPtr dom,
-                        long long seconds,
-                        unsigned int nseconds,
-                        unsigned int flags);
+(*virDomainSetTimeFuncType)(virDomainPtr dom,
+                            long long seconds,
+                            unsigned int nseconds,
+                            unsigned int flags);
 
 int
 virDomainSetTimeWrapper(virDomainPtr dom,
@@ -5829,7 +5861,7 @@ virDomainSetTimeWrapper(virDomainPtr dom,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetTimeType virDomainSetTimeSymbol;
+    static virDomainSetTimeFuncType virDomainSetTimeSymbol;
     static bool once;
     static bool success;
 
@@ -5851,10 +5883,10 @@ virDomainSetTimeWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainSetUserPasswordType)(virDomainPtr dom,
-                                const char * user,
-                                const char * password,
-                                unsigned int flags);
+(*virDomainSetUserPasswordFuncType)(virDomainPtr dom,
+                                    const char * user,
+                                    const char * password,
+                                    unsigned int flags);
 
 int
 virDomainSetUserPasswordWrapper(virDomainPtr dom,
@@ -5864,7 +5896,7 @@ virDomainSetUserPasswordWrapper(virDomainPtr dom,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetUserPasswordType virDomainSetUserPasswordSymbol;
+    static virDomainSetUserPasswordFuncType virDomainSetUserPasswordSymbol;
     static bool once;
     static bool success;
 
@@ -5886,10 +5918,10 @@ virDomainSetUserPasswordWrapper(virDomainPtr dom,
 }
 
 typedef int
-(*virDomainSetVcpuType)(virDomainPtr domain,
-                        const char * vcpumap,
-                        int state,
-                        unsigned int flags);
+(*virDomainSetVcpuFuncType)(virDomainPtr domain,
+                            const char * vcpumap,
+                            int state,
+                            unsigned int flags);
 
 int
 virDomainSetVcpuWrapper(virDomainPtr domain,
@@ -5899,7 +5931,7 @@ virDomainSetVcpuWrapper(virDomainPtr domain,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetVcpuType virDomainSetVcpuSymbol;
+    static virDomainSetVcpuFuncType virDomainSetVcpuSymbol;
     static bool once;
     static bool success;
 
@@ -5921,8 +5953,8 @@ virDomainSetVcpuWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetVcpusType)(virDomainPtr domain,
-                         unsigned int nvcpus);
+(*virDomainSetVcpusFuncType)(virDomainPtr domain,
+                             unsigned int nvcpus);
 
 int
 virDomainSetVcpusWrapper(virDomainPtr domain,
@@ -5930,7 +5962,7 @@ virDomainSetVcpusWrapper(virDomainPtr domain,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetVcpusType virDomainSetVcpusSymbol;
+    static virDomainSetVcpusFuncType virDomainSetVcpusSymbol;
     static bool once;
     static bool success;
 
@@ -5950,9 +5982,9 @@ virDomainSetVcpusWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSetVcpusFlagsType)(virDomainPtr domain,
-                              unsigned int nvcpus,
-                              unsigned int flags);
+(*virDomainSetVcpusFlagsFuncType)(virDomainPtr domain,
+                                  unsigned int nvcpus,
+                                  unsigned int flags);
 
 int
 virDomainSetVcpusFlagsWrapper(virDomainPtr domain,
@@ -5961,7 +5993,7 @@ virDomainSetVcpusFlagsWrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSetVcpusFlagsType virDomainSetVcpusFlagsSymbol;
+    static virDomainSetVcpusFlagsFuncType virDomainSetVcpusFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -5982,14 +6014,14 @@ virDomainSetVcpusFlagsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainShutdownType)(virDomainPtr domain);
+(*virDomainShutdownFuncType)(virDomainPtr domain);
 
 int
 virDomainShutdownWrapper(virDomainPtr domain,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virDomainShutdownType virDomainShutdownSymbol;
+    static virDomainShutdownFuncType virDomainShutdownSymbol;
     static bool once;
     static bool success;
 
@@ -6008,8 +6040,8 @@ virDomainShutdownWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainShutdownFlagsType)(virDomainPtr domain,
-                              unsigned int flags);
+(*virDomainShutdownFlagsFuncType)(virDomainPtr domain,
+                                  unsigned int flags);
 
 int
 virDomainShutdownFlagsWrapper(virDomainPtr domain,
@@ -6017,7 +6049,7 @@ virDomainShutdownFlagsWrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainShutdownFlagsType virDomainShutdownFlagsSymbol;
+    static virDomainShutdownFlagsFuncType virDomainShutdownFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -6037,9 +6069,9 @@ virDomainShutdownFlagsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainStartDirtyRateCalcType)(virDomainPtr domain,
-                                   int seconds,
-                                   unsigned int flags);
+(*virDomainStartDirtyRateCalcFuncType)(virDomainPtr domain,
+                                       int seconds,
+                                       unsigned int flags);
 
 int
 virDomainStartDirtyRateCalcWrapper(virDomainPtr domain,
@@ -6048,7 +6080,7 @@ virDomainStartDirtyRateCalcWrapper(virDomainPtr domain,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainStartDirtyRateCalcType virDomainStartDirtyRateCalcSymbol;
+    static virDomainStartDirtyRateCalcFuncType virDomainStartDirtyRateCalcSymbol;
     static bool once;
     static bool success;
 
@@ -6069,13 +6101,13 @@ virDomainStartDirtyRateCalcWrapper(virDomainPtr domain,
 }
 
 typedef void
-(*virDomainStatsRecordListFreeType)(virDomainStatsRecordPtr * stats);
+(*virDomainStatsRecordListFreeFuncType)(virDomainStatsRecordPtr * stats);
 
 void
 virDomainStatsRecordListFreeWrapper(virDomainStatsRecordPtr * stats)
 {
 
-    static virDomainStatsRecordListFreeType virDomainStatsRecordListFreeSymbol;
+    static virDomainStatsRecordListFreeFuncType virDomainStatsRecordListFreeSymbol;
     static bool once;
     static bool success;
 
@@ -6090,14 +6122,14 @@ virDomainStatsRecordListFreeWrapper(virDomainStatsRecordPtr * stats)
 }
 
 typedef int
-(*virDomainSuspendType)(virDomainPtr domain);
+(*virDomainSuspendFuncType)(virDomainPtr domain);
 
 int
 virDomainSuspendWrapper(virDomainPtr domain,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSuspendType virDomainSuspendSymbol;
+    static virDomainSuspendFuncType virDomainSuspendSymbol;
     static bool once;
     static bool success;
 
@@ -6116,14 +6148,14 @@ virDomainSuspendWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainUndefineType)(virDomainPtr domain);
+(*virDomainUndefineFuncType)(virDomainPtr domain);
 
 int
 virDomainUndefineWrapper(virDomainPtr domain,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virDomainUndefineType virDomainUndefineSymbol;
+    static virDomainUndefineFuncType virDomainUndefineSymbol;
     static bool once;
     static bool success;
 
@@ -6142,8 +6174,8 @@ virDomainUndefineWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainUndefineFlagsType)(virDomainPtr domain,
-                              unsigned int flags);
+(*virDomainUndefineFlagsFuncType)(virDomainPtr domain,
+                                  unsigned int flags);
 
 int
 virDomainUndefineFlagsWrapper(virDomainPtr domain,
@@ -6151,7 +6183,7 @@ virDomainUndefineFlagsWrapper(virDomainPtr domain,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virDomainUndefineFlagsType virDomainUndefineFlagsSymbol;
+    static virDomainUndefineFlagsFuncType virDomainUndefineFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -6171,9 +6203,9 @@ virDomainUndefineFlagsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainUpdateDeviceFlagsType)(virDomainPtr domain,
-                                  const char * xml,
-                                  unsigned int flags);
+(*virDomainUpdateDeviceFlagsFuncType)(virDomainPtr domain,
+                                      const char * xml,
+                                      unsigned int flags);
 
 int
 virDomainUpdateDeviceFlagsWrapper(virDomainPtr domain,
@@ -6182,7 +6214,7 @@ virDomainUpdateDeviceFlagsWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainUpdateDeviceFlagsType virDomainUpdateDeviceFlagsSymbol;
+    static virDomainUpdateDeviceFlagsFuncType virDomainUpdateDeviceFlagsSymbol;
     static bool once;
     static bool success;
 

@@ -43,9 +43,9 @@ package libvirt
 
 
 typedef int
-(*virConnectListAllNWFilterBindingsType)(virConnectPtr conn,
-                                         virNWFilterBindingPtr ** bindings,
-                                         unsigned int flags);
+(*virConnectListAllNWFilterBindingsFuncType)(virConnectPtr conn,
+                                             virNWFilterBindingPtr ** bindings,
+                                             unsigned int flags);
 
 int
 virConnectListAllNWFilterBindingsWrapper(virConnectPtr conn,
@@ -54,7 +54,7 @@ virConnectListAllNWFilterBindingsWrapper(virConnectPtr conn,
                                          virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListAllNWFilterBindingsType virConnectListAllNWFilterBindingsSymbol;
+    static virConnectListAllNWFilterBindingsFuncType virConnectListAllNWFilterBindingsSymbol;
     static bool once;
     static bool success;
 
@@ -75,9 +75,9 @@ virConnectListAllNWFilterBindingsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListAllNWFiltersType)(virConnectPtr conn,
-                                  virNWFilterPtr ** filters,
-                                  unsigned int flags);
+(*virConnectListAllNWFiltersFuncType)(virConnectPtr conn,
+                                      virNWFilterPtr ** filters,
+                                      unsigned int flags);
 
 int
 virConnectListAllNWFiltersWrapper(virConnectPtr conn,
@@ -86,7 +86,7 @@ virConnectListAllNWFiltersWrapper(virConnectPtr conn,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListAllNWFiltersType virConnectListAllNWFiltersSymbol;
+    static virConnectListAllNWFiltersFuncType virConnectListAllNWFiltersSymbol;
     static bool once;
     static bool success;
 
@@ -107,9 +107,9 @@ virConnectListAllNWFiltersWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListNWFiltersType)(virConnectPtr conn,
-                               char ** const names,
-                               int maxnames);
+(*virConnectListNWFiltersFuncType)(virConnectPtr conn,
+                                   char ** const names,
+                                   int maxnames);
 
 int
 virConnectListNWFiltersWrapper(virConnectPtr conn,
@@ -118,7 +118,7 @@ virConnectListNWFiltersWrapper(virConnectPtr conn,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListNWFiltersType virConnectListNWFiltersSymbol;
+    static virConnectListNWFiltersFuncType virConnectListNWFiltersSymbol;
     static bool once;
     static bool success;
 
@@ -139,14 +139,14 @@ virConnectListNWFiltersWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNumOfNWFiltersType)(virConnectPtr conn);
+(*virConnectNumOfNWFiltersFuncType)(virConnectPtr conn);
 
 int
 virConnectNumOfNWFiltersWrapper(virConnectPtr conn,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNumOfNWFiltersType virConnectNumOfNWFiltersSymbol;
+    static virConnectNumOfNWFiltersFuncType virConnectNumOfNWFiltersSymbol;
     static bool once;
     static bool success;
 
@@ -165,9 +165,9 @@ virConnectNumOfNWFiltersWrapper(virConnectPtr conn,
 }
 
 typedef virNWFilterBindingPtr
-(*virNWFilterBindingCreateXMLType)(virConnectPtr conn,
-                                   const char * xml,
-                                   unsigned int flags);
+(*virNWFilterBindingCreateXMLFuncType)(virConnectPtr conn,
+                                       const char * xml,
+                                       unsigned int flags);
 
 virNWFilterBindingPtr
 virNWFilterBindingCreateXMLWrapper(virConnectPtr conn,
@@ -176,7 +176,7 @@ virNWFilterBindingCreateXMLWrapper(virConnectPtr conn,
                                    virErrorPtr err)
 {
     virNWFilterBindingPtr ret = NULL;
-    static virNWFilterBindingCreateXMLType virNWFilterBindingCreateXMLSymbol;
+    static virNWFilterBindingCreateXMLFuncType virNWFilterBindingCreateXMLSymbol;
     static bool once;
     static bool success;
 
@@ -197,14 +197,14 @@ virNWFilterBindingCreateXMLWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNWFilterBindingDeleteType)(virNWFilterBindingPtr binding);
+(*virNWFilterBindingDeleteFuncType)(virNWFilterBindingPtr binding);
 
 int
 virNWFilterBindingDeleteWrapper(virNWFilterBindingPtr binding,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virNWFilterBindingDeleteType virNWFilterBindingDeleteSymbol;
+    static virNWFilterBindingDeleteFuncType virNWFilterBindingDeleteSymbol;
     static bool once;
     static bool success;
 
@@ -223,14 +223,14 @@ virNWFilterBindingDeleteWrapper(virNWFilterBindingPtr binding,
 }
 
 typedef int
-(*virNWFilterBindingFreeType)(virNWFilterBindingPtr binding);
+(*virNWFilterBindingFreeFuncType)(virNWFilterBindingPtr binding);
 
 int
 virNWFilterBindingFreeWrapper(virNWFilterBindingPtr binding,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virNWFilterBindingFreeType virNWFilterBindingFreeSymbol;
+    static virNWFilterBindingFreeFuncType virNWFilterBindingFreeSymbol;
     static bool once;
     static bool success;
 
@@ -249,14 +249,14 @@ virNWFilterBindingFreeWrapper(virNWFilterBindingPtr binding,
 }
 
 typedef const char *
-(*virNWFilterBindingGetFilterNameType)(virNWFilterBindingPtr binding);
+(*virNWFilterBindingGetFilterNameFuncType)(virNWFilterBindingPtr binding);
 
 const char *
 virNWFilterBindingGetFilterNameWrapper(virNWFilterBindingPtr binding,
                                        virErrorPtr err)
 {
     const char * ret = NULL;
-    static virNWFilterBindingGetFilterNameType virNWFilterBindingGetFilterNameSymbol;
+    static virNWFilterBindingGetFilterNameFuncType virNWFilterBindingGetFilterNameSymbol;
     static bool once;
     static bool success;
 
@@ -275,14 +275,14 @@ virNWFilterBindingGetFilterNameWrapper(virNWFilterBindingPtr binding,
 }
 
 typedef const char *
-(*virNWFilterBindingGetPortDevType)(virNWFilterBindingPtr binding);
+(*virNWFilterBindingGetPortDevFuncType)(virNWFilterBindingPtr binding);
 
 const char *
 virNWFilterBindingGetPortDevWrapper(virNWFilterBindingPtr binding,
                                     virErrorPtr err)
 {
     const char * ret = NULL;
-    static virNWFilterBindingGetPortDevType virNWFilterBindingGetPortDevSymbol;
+    static virNWFilterBindingGetPortDevFuncType virNWFilterBindingGetPortDevSymbol;
     static bool once;
     static bool success;
 
@@ -301,8 +301,8 @@ virNWFilterBindingGetPortDevWrapper(virNWFilterBindingPtr binding,
 }
 
 typedef char *
-(*virNWFilterBindingGetXMLDescType)(virNWFilterBindingPtr binding,
-                                    unsigned int flags);
+(*virNWFilterBindingGetXMLDescFuncType)(virNWFilterBindingPtr binding,
+                                        unsigned int flags);
 
 char *
 virNWFilterBindingGetXMLDescWrapper(virNWFilterBindingPtr binding,
@@ -310,7 +310,7 @@ virNWFilterBindingGetXMLDescWrapper(virNWFilterBindingPtr binding,
                                     virErrorPtr err)
 {
     char * ret = NULL;
-    static virNWFilterBindingGetXMLDescType virNWFilterBindingGetXMLDescSymbol;
+    static virNWFilterBindingGetXMLDescFuncType virNWFilterBindingGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -330,8 +330,8 @@ virNWFilterBindingGetXMLDescWrapper(virNWFilterBindingPtr binding,
 }
 
 typedef virNWFilterBindingPtr
-(*virNWFilterBindingLookupByPortDevType)(virConnectPtr conn,
-                                         const char * portdev);
+(*virNWFilterBindingLookupByPortDevFuncType)(virConnectPtr conn,
+                                             const char * portdev);
 
 virNWFilterBindingPtr
 virNWFilterBindingLookupByPortDevWrapper(virConnectPtr conn,
@@ -339,7 +339,7 @@ virNWFilterBindingLookupByPortDevWrapper(virConnectPtr conn,
                                          virErrorPtr err)
 {
     virNWFilterBindingPtr ret = NULL;
-    static virNWFilterBindingLookupByPortDevType virNWFilterBindingLookupByPortDevSymbol;
+    static virNWFilterBindingLookupByPortDevFuncType virNWFilterBindingLookupByPortDevSymbol;
     static bool once;
     static bool success;
 
@@ -359,14 +359,14 @@ virNWFilterBindingLookupByPortDevWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNWFilterBindingRefType)(virNWFilterBindingPtr binding);
+(*virNWFilterBindingRefFuncType)(virNWFilterBindingPtr binding);
 
 int
 virNWFilterBindingRefWrapper(virNWFilterBindingPtr binding,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virNWFilterBindingRefType virNWFilterBindingRefSymbol;
+    static virNWFilterBindingRefFuncType virNWFilterBindingRefSymbol;
     static bool once;
     static bool success;
 
@@ -385,8 +385,8 @@ virNWFilterBindingRefWrapper(virNWFilterBindingPtr binding,
 }
 
 typedef virNWFilterPtr
-(*virNWFilterDefineXMLType)(virConnectPtr conn,
-                            const char * xmlDesc);
+(*virNWFilterDefineXMLFuncType)(virConnectPtr conn,
+                                const char * xmlDesc);
 
 virNWFilterPtr
 virNWFilterDefineXMLWrapper(virConnectPtr conn,
@@ -394,7 +394,7 @@ virNWFilterDefineXMLWrapper(virConnectPtr conn,
                             virErrorPtr err)
 {
     virNWFilterPtr ret = NULL;
-    static virNWFilterDefineXMLType virNWFilterDefineXMLSymbol;
+    static virNWFilterDefineXMLFuncType virNWFilterDefineXMLSymbol;
     static bool once;
     static bool success;
 
@@ -414,9 +414,9 @@ virNWFilterDefineXMLWrapper(virConnectPtr conn,
 }
 
 typedef virNWFilterPtr
-(*virNWFilterDefineXMLFlagsType)(virConnectPtr conn,
-                                 const char * xmlDesc,
-                                 unsigned int flags);
+(*virNWFilterDefineXMLFlagsFuncType)(virConnectPtr conn,
+                                     const char * xmlDesc,
+                                     unsigned int flags);
 
 virNWFilterPtr
 virNWFilterDefineXMLFlagsWrapper(virConnectPtr conn,
@@ -425,7 +425,7 @@ virNWFilterDefineXMLFlagsWrapper(virConnectPtr conn,
                                  virErrorPtr err)
 {
     virNWFilterPtr ret = NULL;
-    static virNWFilterDefineXMLFlagsType virNWFilterDefineXMLFlagsSymbol;
+    static virNWFilterDefineXMLFlagsFuncType virNWFilterDefineXMLFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -446,14 +446,14 @@ virNWFilterDefineXMLFlagsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNWFilterFreeType)(virNWFilterPtr nwfilter);
+(*virNWFilterFreeFuncType)(virNWFilterPtr nwfilter);
 
 int
 virNWFilterFreeWrapper(virNWFilterPtr nwfilter,
                        virErrorPtr err)
 {
     int ret = -1;
-    static virNWFilterFreeType virNWFilterFreeSymbol;
+    static virNWFilterFreeFuncType virNWFilterFreeSymbol;
     static bool once;
     static bool success;
 
@@ -472,14 +472,14 @@ virNWFilterFreeWrapper(virNWFilterPtr nwfilter,
 }
 
 typedef const char *
-(*virNWFilterGetNameType)(virNWFilterPtr nwfilter);
+(*virNWFilterGetNameFuncType)(virNWFilterPtr nwfilter);
 
 const char *
 virNWFilterGetNameWrapper(virNWFilterPtr nwfilter,
                           virErrorPtr err)
 {
     const char * ret = NULL;
-    static virNWFilterGetNameType virNWFilterGetNameSymbol;
+    static virNWFilterGetNameFuncType virNWFilterGetNameSymbol;
     static bool once;
     static bool success;
 
@@ -498,8 +498,8 @@ virNWFilterGetNameWrapper(virNWFilterPtr nwfilter,
 }
 
 typedef int
-(*virNWFilterGetUUIDType)(virNWFilterPtr nwfilter,
-                          unsigned char * uuid);
+(*virNWFilterGetUUIDFuncType)(virNWFilterPtr nwfilter,
+                              unsigned char * uuid);
 
 int
 virNWFilterGetUUIDWrapper(virNWFilterPtr nwfilter,
@@ -507,7 +507,7 @@ virNWFilterGetUUIDWrapper(virNWFilterPtr nwfilter,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virNWFilterGetUUIDType virNWFilterGetUUIDSymbol;
+    static virNWFilterGetUUIDFuncType virNWFilterGetUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -527,8 +527,8 @@ virNWFilterGetUUIDWrapper(virNWFilterPtr nwfilter,
 }
 
 typedef int
-(*virNWFilterGetUUIDStringType)(virNWFilterPtr nwfilter,
-                                char * buf);
+(*virNWFilterGetUUIDStringFuncType)(virNWFilterPtr nwfilter,
+                                    char * buf);
 
 int
 virNWFilterGetUUIDStringWrapper(virNWFilterPtr nwfilter,
@@ -536,7 +536,7 @@ virNWFilterGetUUIDStringWrapper(virNWFilterPtr nwfilter,
                                 virErrorPtr err)
 {
     int ret = -1;
-    static virNWFilterGetUUIDStringType virNWFilterGetUUIDStringSymbol;
+    static virNWFilterGetUUIDStringFuncType virNWFilterGetUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -556,8 +556,8 @@ virNWFilterGetUUIDStringWrapper(virNWFilterPtr nwfilter,
 }
 
 typedef char *
-(*virNWFilterGetXMLDescType)(virNWFilterPtr nwfilter,
-                             unsigned int flags);
+(*virNWFilterGetXMLDescFuncType)(virNWFilterPtr nwfilter,
+                                 unsigned int flags);
 
 char *
 virNWFilterGetXMLDescWrapper(virNWFilterPtr nwfilter,
@@ -565,7 +565,7 @@ virNWFilterGetXMLDescWrapper(virNWFilterPtr nwfilter,
                              virErrorPtr err)
 {
     char * ret = NULL;
-    static virNWFilterGetXMLDescType virNWFilterGetXMLDescSymbol;
+    static virNWFilterGetXMLDescFuncType virNWFilterGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -585,8 +585,8 @@ virNWFilterGetXMLDescWrapper(virNWFilterPtr nwfilter,
 }
 
 typedef virNWFilterPtr
-(*virNWFilterLookupByNameType)(virConnectPtr conn,
-                               const char * name);
+(*virNWFilterLookupByNameFuncType)(virConnectPtr conn,
+                                   const char * name);
 
 virNWFilterPtr
 virNWFilterLookupByNameWrapper(virConnectPtr conn,
@@ -594,7 +594,7 @@ virNWFilterLookupByNameWrapper(virConnectPtr conn,
                                virErrorPtr err)
 {
     virNWFilterPtr ret = NULL;
-    static virNWFilterLookupByNameType virNWFilterLookupByNameSymbol;
+    static virNWFilterLookupByNameFuncType virNWFilterLookupByNameSymbol;
     static bool once;
     static bool success;
 
@@ -614,8 +614,8 @@ virNWFilterLookupByNameWrapper(virConnectPtr conn,
 }
 
 typedef virNWFilterPtr
-(*virNWFilterLookupByUUIDType)(virConnectPtr conn,
-                               const unsigned char * uuid);
+(*virNWFilterLookupByUUIDFuncType)(virConnectPtr conn,
+                                   const unsigned char * uuid);
 
 virNWFilterPtr
 virNWFilterLookupByUUIDWrapper(virConnectPtr conn,
@@ -623,7 +623,7 @@ virNWFilterLookupByUUIDWrapper(virConnectPtr conn,
                                virErrorPtr err)
 {
     virNWFilterPtr ret = NULL;
-    static virNWFilterLookupByUUIDType virNWFilterLookupByUUIDSymbol;
+    static virNWFilterLookupByUUIDFuncType virNWFilterLookupByUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -643,8 +643,8 @@ virNWFilterLookupByUUIDWrapper(virConnectPtr conn,
 }
 
 typedef virNWFilterPtr
-(*virNWFilterLookupByUUIDStringType)(virConnectPtr conn,
-                                     const char * uuidstr);
+(*virNWFilterLookupByUUIDStringFuncType)(virConnectPtr conn,
+                                         const char * uuidstr);
 
 virNWFilterPtr
 virNWFilterLookupByUUIDStringWrapper(virConnectPtr conn,
@@ -652,7 +652,7 @@ virNWFilterLookupByUUIDStringWrapper(virConnectPtr conn,
                                      virErrorPtr err)
 {
     virNWFilterPtr ret = NULL;
-    static virNWFilterLookupByUUIDStringType virNWFilterLookupByUUIDStringSymbol;
+    static virNWFilterLookupByUUIDStringFuncType virNWFilterLookupByUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -672,14 +672,14 @@ virNWFilterLookupByUUIDStringWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNWFilterRefType)(virNWFilterPtr nwfilter);
+(*virNWFilterRefFuncType)(virNWFilterPtr nwfilter);
 
 int
 virNWFilterRefWrapper(virNWFilterPtr nwfilter,
                       virErrorPtr err)
 {
     int ret = -1;
-    static virNWFilterRefType virNWFilterRefSymbol;
+    static virNWFilterRefFuncType virNWFilterRefSymbol;
     static bool once;
     static bool success;
 
@@ -698,14 +698,14 @@ virNWFilterRefWrapper(virNWFilterPtr nwfilter,
 }
 
 typedef int
-(*virNWFilterUndefineType)(virNWFilterPtr nwfilter);
+(*virNWFilterUndefineFuncType)(virNWFilterPtr nwfilter);
 
 int
 virNWFilterUndefineWrapper(virNWFilterPtr nwfilter,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virNWFilterUndefineType virNWFilterUndefineSymbol;
+    static virNWFilterUndefineFuncType virNWFilterUndefineSymbol;
     static bool once;
     static bool success;
 

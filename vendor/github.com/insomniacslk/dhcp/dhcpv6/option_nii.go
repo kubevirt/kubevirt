@@ -3,7 +3,7 @@ package dhcpv6
 import (
 	"fmt"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // NetworkInterfaceType is the NIC type as defined by RFC 4578 Section 2.2
@@ -59,7 +59,7 @@ func (op *OptNetworkInterfaceID) ToBytes() []byte {
 }
 
 func (op *OptNetworkInterfaceID) String() string {
-	return fmt.Sprintf("NetworkInterfaceID: %s (Revision %d.%d)", op.Typ, op.Major, op.Minor)
+	return fmt.Sprintf("%s: %s (Revision %d.%d)", op.Code(), op.Typ, op.Major, op.Minor)
 }
 
 // FromBytes builds an OptNetworkInterfaceID structure from a sequence of

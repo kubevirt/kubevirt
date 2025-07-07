@@ -6,7 +6,8 @@ import (
 	"fmt"
 
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -24,16 +25,15 @@ type topologyHinter struct {
 	clusterConfig *virtconfig.ClusterConfig
 	nodeStore     cache.Store
 	vmiStore      cache.Store
-	arch          string
 }
 
 func (t *topologyHinter) IsTscFrequencyRequired(vmi *k6tv1.VirtualMachineInstance) bool {
-	return t.arch == "amd64" && GetTscFrequencyRequirement(vmi).Type != NotRequired
+	return vmi.Spec.Architecture == "amd64" && GetTscFrequencyRequirement(vmi).Type != NotRequired
 }
 
 func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) (hints *k6tv1.TopologyHints, requirement TscFrequencyRequirementType, err error) {
 	requirement = GetTscFrequencyRequirement(vmi).Type
-	if requirement == NotRequired || t.arch != "amd64" {
+	if requirement == NotRequired || vmi.Spec.Architecture != "amd64" {
 		return
 	}
 
@@ -42,7 +42,7 @@ func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) 
 		return nil, requirement, fmt.Errorf("failed to determine the lowest tsc frequency on the cluster: %v", err)
 	}
 
-	hints = &k6tv1.TopologyHints{TSCFrequency: pointer.Int64Ptr(freq)}
+	hints = &k6tv1.TopologyHints{TSCFrequency: pointer.P(int64(freq))}
 	return
 }
 
@@ -57,6 +57,10 @@ func (t *topologyHinter) LowestTSCFrequencyOnCluster() (int64, error) {
 	}
 	nodes := FilterNodesFromCache(t.nodeStore.List(),
 		HasInvTSCFrequency,
+		Or(
+			IsSchedulable,
+			IsNodeRunningVmis(t.vmiStore),
+		),
 	)
 	freq := LowestTSCFrequency(nodes)
 	return freq, nil
@@ -77,6 +81,6 @@ func (t *topologyHinter) TSCFrequenciesInUse() []int64 {
 	return frequencies
 }
 
-func NewTopologyHinter(nodeStore cache.Store, vmiStore cache.Store, arch string, clusterConfig *virtconfig.ClusterConfig) *topologyHinter {
-	return &topologyHinter{nodeStore: nodeStore, vmiStore: vmiStore, arch: arch, clusterConfig: clusterConfig}
+func NewTopologyHinter(nodeStore cache.Store, vmiStore cache.Store, clusterConfig *virtconfig.ClusterConfig) *topologyHinter {
+	return &topologyHinter{nodeStore: nodeStore, vmiStore: vmiStore, clusterConfig: clusterConfig}
 }

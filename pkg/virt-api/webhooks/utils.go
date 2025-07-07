@@ -20,19 +20,13 @@
 package webhooks
 
 import (
-	"fmt"
 	"runtime"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	"kubevirt.io/client-go/log"
-
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
 	v1 "kubevirt.io/api/core/v1"
-	clientutil "kubevirt.io/client-go/util"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 )
 
 var Arch = runtime.GOARCH
@@ -77,33 +71,16 @@ type Informers struct {
 	VMIPresetInformer  cache.SharedIndexInformer
 	VMRestoreInformer  cache.SharedIndexInformer
 	DataSourceInformer cache.SharedIndexInformer
+	NamespaceInformer  cache.SharedIndexInformer
 }
 
-func IsKubeVirtServiceAccount(serviceAccount string) bool {
-	ns, err := clientutil.GetNamespace()
-	logger := log.DefaultLogger()
-
-	if err != nil {
-		logger.Info("Failed to get namespace. Fallback to default: 'kubevirt'")
-		ns = "kubevirt"
-	}
-
-	prefix := fmt.Sprintf("system:serviceaccount:%s", ns)
-	return serviceAccount == fmt.Sprintf("%s:%s", prefix, components.ApiServiceAccountName) ||
-		serviceAccount == fmt.Sprintf("%s:%s", prefix, components.HandlerServiceAccountName) ||
-		serviceAccount == fmt.Sprintf("%s:%s", prefix, components.ControllerServiceAccountName)
+func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	return vmiSpec.Architecture == "arm64"
 }
 
-func IsARM64() bool {
-	if Arch == "arm64" {
-		return true
-	}
-	return false
+func IsPPC64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	return vmiSpec.Architecture == "ppc64le"
 }
-
-func IsPPC64() bool {
-	if Arch == "ppc64le" {
-		return true
-	}
-	return false
+func IsS390X(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	return vmiSpec.Architecture == "s390x"
 }

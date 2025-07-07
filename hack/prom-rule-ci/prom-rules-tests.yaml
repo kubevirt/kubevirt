@@ -3,63 +3,10 @@ rule_files:
   - /tmp/rules.verify
 
 group_eval_order:
-  - kubevirt.rules
+  - recordingRules.rules
+  - alerts.rules
 #information about this format can be found in: https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/
 tests:
-  # Pod is using more CPU than expected
-  - interval: 1m
-    input_series:
-      - series: 'node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate{namespace="ci",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: '2+0x10'
-      - series: 'kube_pod_container_resource_requests{namespace="ci",container="virt-controller",resource="cpu",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: '0+0x6'
-
-    alert_rule_test:
-      - eval_time: 5m
-        alertname: KubeVirtComponentExceedsRequestedCPU
-        exp_alerts:
-          - exp_annotations:
-              description: "Container virt-controller in pod virt-controller-8546c99968-x9jgg cpu usage exceeds the CPU requested"
-              summary: "The container is using more CPU than what is defined in the containers resource requests"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtComponentExceedsRequestedCPU"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "none"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-              pod: "virt-controller-8546c99968-x9jgg"
-              container: "virt-controller"
-              namespace: ci
-              node: node1
-              resource: cpu
-
-  # Pod is using more memory than expected
-  - interval: 1m
-    input_series:
-      - series: 'container_memory_working_set_bytes{namespace="ci",container="",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: "157286400 157286400 157286400 157286400 157286400 157286400 157286400 157286400"
-      - series: 'kube_pod_container_resource_requests{namespace="ci",container="virt-controller",resource="memory",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: "118325248 118325248 118325248 118325248 118325248 118325248 118325248 118325248"
-
-    alert_rule_test:
-      - eval_time: 5m
-        alertname: KubeVirtComponentExceedsRequestedMemory
-        exp_alerts:
-          - exp_annotations:
-              description: "Container virt-controller in pod virt-controller-8546c99968-x9jgg memory usage exceeds the memory requested"
-              summary: "The container is using more memory than what is defined in the containers resource requests"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtComponentExceedsRequestedMemory"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "none"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-              namespace: ci
-              node: "node1"
-              pod: "virt-controller-8546c99968-x9jgg"
-              resource: "memory"
-              container: virt-controller
-
   # Alerts to test whether our operators are up or not
   - interval: 1m
     input_series:
@@ -246,9 +193,9 @@ tests:
   # Some virt controllers are not ready
   - interval: 1m
     input_series:
-      - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-1"}'
+      - series: 'kubevirt_virt_controller_ready_status{namespace="ci", pod="virt-controller-1"}'
         values: '1+0x11'
-      - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-2"}'
+      - series: 'kubevirt_virt_controller_ready_status{namespace="ci", pod="virt-controller-2"}'
         values: '0+0x11'
       - series: 'up{namespace="ci", pod="virt-controller-1"}'
         values: '1+0x11'
@@ -271,7 +218,7 @@ tests:
   # All virt controllers are not ready
   - interval: 1m
     input_series:
-      - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-1"}'
+      - series: 'kubevirt_virt_controller_ready_status{namespace="ci", pod="virt-controller-1"}'
         values: "0 0 0 0 0 0 0 0 0 0 0"
 
     alert_rule_test:
@@ -293,7 +240,7 @@ tests:
   # All virt controllers are not ready (ImagePullBackOff)
   - interval: 1m
     input_series:
-      - series: 'kubevirt_virt_controller_ready{namespace="ci", pod="virt-controller-1"}'
+      - series: 'kubevirt_virt_controller_ready_status{namespace="ci", pod="virt-controller-1"}'
         values: "stale stale stale stale stale stale stale stale stale stale"
 
     alert_rule_test:
@@ -316,7 +263,9 @@ tests:
   # All virt operators are not ready (ImagePullBackOff)
   - interval: 1m
     input_series:
-      - series: 'kubevirt_virt_operator_ready{namespace="ci", pod="virt-operator-1"}'
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: "stale stale stale stale stale stale stale stale stale stale"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
         values: "stale stale stale stale stale stale stale stale stale stale"
 
     alert_rule_test:
@@ -339,8 +288,10 @@ tests:
   # All virt operators are not ready
   - interval: 1m
     input_series:
-      - series: 'kubevirt_virt_operator_ready{namespace="ci", pod="virt-operator-1"}'
-        values: "0 0 0 0 0 0 0 0 0 0 0"
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: "0x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
+        values: "0x10"
 
     alert_rule_test:
       # no alert before 10 minutes
@@ -359,6 +310,71 @@ tests:
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
+  # All virt operators are not ready, according to kubevirt_virt_operator_ready_status
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: "0x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
+        values: "1x10"
+
+    alert_rule_test:
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoReadyVirtOperator
+        exp_alerts:
+          - exp_annotations:
+              summary: "No ready virt-operator was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtOperator"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # All virt operators are not ready, according to kube_pod_status_ready
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: "1x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1", condition="true"}'
+        values: "0x10"
+
+    alert_rule_test:
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoReadyVirtOperator
+        exp_alerts:
+          - exp_annotations:
+              summary: "No ready virt-operator was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtOperator"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # virt operator is ready, according to both metrics
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: "1x10"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1", condition="true"}'
+        values: "1x10"
+
+    alert_rule_test:
+      # no alert at 10 minutes
+      - eval_time: 10m
+        alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+
+
   # Burst REST errors
   # values: '0+10x20' == values: "0 10 20 30 40 ... 190"
   # values: '0+100x20' == values :"0 100 200 .... 1900"
@@ -370,21 +386,21 @@ tests:
   # values : `0+100x15  0+100x5`  the same way because prometheus counters might reset
   - interval: 1m
     input_series:
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
         values: '0+100x15  0+100x5'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
         values: '0+100x15  0+100x5'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
         values: '0+100x15  0+100x5'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
         values: '0+100x15  0+100x5'
 
     alert_rule_test:
@@ -443,21 +459,21 @@ tests:
   # values : '0+5x90 0+5x10'  the same way because prometheus counters might reset
   - interval: 1m
     input_series:
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
         values: '0+5x90 0+5x10'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
         values: '0+5x90 0+5x10'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
         values: '0+5x90 0+5x10'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
         values: '0+5x90 0+5x10'
 
     alert_rule_test:
@@ -563,102 +579,29 @@ tests:
         alertname: LowKVMNodesCount
         exp_alerts: []
 
-  # Memory utilization less than 50MB close to requested memory - based on memory working set
+  # Test recording rule
   - interval: 1m
     input_series:
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory", namespace="ns-test"}'
-        values: "67108864 67108864 67108864 67108864"
-      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
-        values: "17185920 18234496 18234496 19283072"
-      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
-        values: "19922944 18874368 18874368 17825792"
-
-    alert_rule_test:
-      - eval_time: 1m
-        alertname: KubevirtVmHighMemoryUsage
-        exp_alerts:
-          - exp_annotations:
-              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 20 MB and it is close to requested memory"
-              summary: "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "none"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-              pod: "virt-launcher-testvm-123"
-              container: "compute"
-              namespace: "ns-test"
-
-  # Memory utilization less than 50MB close to requested memory - based on memory RSS
-  - interval: 1m
-    input_series:
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory", namespace="ns-test"}'
-        values: "67108864 67108864 67108864 67108864"
-      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
-        values: "19922944 18874368 18874368 17825792"
-      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
-        values: "17185920 18234496 18234496 19283072"
-
-    alert_rule_test:
-      - eval_time: 1m
-        alertname: KubevirtVmHighMemoryUsage
-        exp_alerts:
-          - exp_annotations:
-              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 20 MB and it is close to requested memory"
-              summary: "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "none"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-              pod: "virt-launcher-testvm-123"
-              container: "compute"
-              namespace: "ns-test"
-
-  # Memory utilization less than 50MB close to requested memory - based on memory RSS and memory working set
-  - interval: 1m
-    input_series:
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory", namespace="ns-test"}'
-        values: "67108864 67108864 67108864 67108864"
-      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
-        values: "17185920 18234496 18234496 19283072"
-      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
-        values: "17185920 18234496 18234496 19283072"
-
-    alert_rule_test:
-      - eval_time: 1m
-        alertname: KubevirtVmHighMemoryUsage
-        exp_alerts:
-          - exp_annotations:
-              description: "Container compute in pod virt-launcher-testvm-123 in namespace ns-test free memory is less than 20 MB and it is close to requested memory"
-              summary: "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtVmHighMemoryUsage"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "none"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-              pod: "virt-launcher-testvm-123"
-              container: "compute"
-              namespace: "ns-test"
-
-  # Memory utilization more than 50MB close to requested memory
-  - interval: 30s
-    input_series:
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-testvm-123", container="compute", resource="memory", namespace="ns-test"}'
-        values: "67108864 67108864 67108864 67108864"
-      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
-        values: "9922944 8874368 8874368 7825792"
-      - series: 'container_memory_rss{pod="virt-launcher-testvm-123", container="compute", namespace="ns-test"}'
-        values: "9922944 8874368 8874368 7825792"
-
-    alert_rule_test:
-      - eval_time: 1m
-        alertname: KubevirtVmHighMemoryUsage
-        exp_alerts: []
-
+      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute", resource="memory"}'
+        # time:  0          1          2          3
+        values: "1376882688 1376882688 1376882688 1376882688"
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute", resource="memory", prometheus_replica="prometheus-k8s-0"}'
+        # time:  0          1          2          3
+        values: "1073176576 1073176576 1073176576 1273176576"
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute", resource="memory", prometheus_replica="prometheus-k8s-1"}'
+        # time:  0          1          2          3
+        values: "1073176576 1073176576 1073176576 1273176576"
+    promql_expr_test:
+      - expr: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
+            value: 303706112
+      - expr: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes'
+        eval_time: 3m
+        exp_samples:
+          - labels: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
+            value: 103706112
   # VM eviction strategy is set but vm is not migratable
   - interval: 1m
     input_series:
@@ -670,7 +613,7 @@ tests:
         alertname: VMCannotBeEvicted
         exp_alerts:
           - exp_annotations:
-              description: "Eviction policy for vm-evict-nonmigratable (on node node1) is set to Live Migration but the VM is not migratable"
+              description: "Eviction policy for VirtualMachine vm-evict-nonmigratable in namespace ns-test (on node node1) is set to Live Migration but the VM is not migratable"
               summary: "The VM's eviction strategy is set to Live Migration but the VM is not migratable"
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VMCannotBeEvicted"
             exp_labels:
@@ -729,7 +672,7 @@ tests:
   # Excessive VMI Migrations in a period of time
   - interval: 1h
     input_series:
-      - series: 'kubevirt_migrate_vmi_succeeded{vmi="vmi-example-1"}'
+      - series: 'kubevirt_vmi_migration_succeeded{vmi="vmi-example-1", namespace="namespace-example-1"}'
         # time:  0 1 2 3 4 5
         values: "_ _ _ 1 7 13"
 
@@ -743,7 +686,7 @@ tests:
         alertname: KubeVirtVMIExcessiveMigrations
         exp_alerts:
           - exp_annotations:
-              description: "VirtualMachineInstance vmi-example-1 has been migrated more than 12 times during the last 24 hours"
+              description: "VirtualMachineInstance vmi-example-1 in namespace namespace-example-1 has been migrated more than 12 times during the last 24 hours"
               summary: "An excessive amount of migrations have been detected on a VirtualMachineInstance in the last 24 hours."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMIExcessiveMigrations"
             exp_labels:
@@ -752,11 +695,12 @@ tests:
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               vmi: vmi-example-1
+              namespace: namespace-example-1
       - eval_time: 24h
         alertname: KubeVirtVMIExcessiveMigrations
         exp_alerts:
           - exp_annotations:
-              description: "VirtualMachineInstance vmi-example-1 has been migrated more than 12 times during the last 24 hours"
+              description: "VirtualMachineInstance vmi-example-1 in namespace namespace-example-1 has been migrated more than 12 times during the last 24 hours"
               summary: "An excessive amount of migrations have been detected on a VirtualMachineInstance in the last 24 hours."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMIExcessiveMigrations"
             exp_labels:
@@ -765,10 +709,46 @@ tests:
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               vmi: vmi-example-1
+              namespace: namespace-example-1
       # will need to evaluate 24h after the alert is triggered to disregard the increases and clear the alert.
       - eval_time: 30h
         alertname: KubeVirtVMIExcessiveMigrations
         exp_alerts: []
+
+  - interval: 1h
+    input_series:
+    # the same migration is being reported by different virt-controllers
+      - series: 'kubevirt_vmi_migration_succeeded{vmi="vmi-example-1", namespace="namespace-example-1"}'
+        # time:  0 1 2 3 4 5  6
+        values: "_ 1 2 3 8 10 10" # total: 10
+      - series: 'kubevirt_vmi_migration_succeeded{vmi="vmi-example-1", namespace="namespace-example-1", vmim="same-migration", pod="virt-controller-1"}'
+        # time:  0 1 2 3 4 5 6
+        values: "_ _ _ 1 1 1 2"
+      - series: 'kubevirt_vmi_migration_succeeded{vmi="vmi-example-1", namespace="namespace-example-1", vmim="same-migration", pod="virt-controller-2"}'
+        # time:  0 1 2 3 4 5 6
+        values: "_ _ _ 1 1 1 2"
+    alert_rule_test:
+      # at 5h, there are total of 11 different migrations made on a single VMI, so the alert should not be fired.
+      # the two reports by virt-controller-1 and virt-controller-2 for the same migration are being considered as one.
+      - eval_time: 5h
+        alertname: KubeVirtVMIExcessiveMigrations
+        exp_alerts: []
+      # at 6h, there are total of 13 different migrations made on a single VMI, so the alert is expected to be fired.
+      - eval_time: 6h
+        alertname: KubeVirtVMIExcessiveMigrations
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachineInstance vmi-example-1 in namespace namespace-example-1 has been migrated more than 12 times during the last 24 hours"
+              summary: "An excessive amount of migrations have been detected on a VirtualMachineInstance in the last 24 hours."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMIExcessiveMigrations"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              vmi: vmi-example-1
+              namespace: namespace-example-1
+
 
   # No nodes are available to host VMs
   - interval: 1m
@@ -787,6 +767,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "There are no available nodes in the cluster to run VMs."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtNoAvailableNodesToRunVMs"
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
@@ -804,6 +785,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "There are no available nodes in the cluster to run VMs."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtNoAvailableNodesToRunVMs"
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
@@ -826,6 +808,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "There are no available nodes in the cluster to run VMs."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtNoAvailableNodesToRunVMs"
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
@@ -843,8 +826,55 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "There are no available nodes in the cluster to run VMs."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtNoAvailableNodesToRunVMs"
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
               kubernetes_operator_part_of: "kubevirt"
               operator_health_impact: "critical"
+
+  # Deprecated APIs being requested.
+  - interval: 1m
+    input_series:
+      - series: 'apiserver_requested_deprecated_apis{resource="virtualmachines", group="kubevirt.io", version="v1alpha3"}'
+        values: '0 0 1'
+      - series: 'apiserver_request_total{resource="virtualmachines", group="kubevirt.io", version="v1alpha3"}'
+        values: '0 0 1 2'
+
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: KubeVirtDeprecatedAPIRequested
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: KubeVirtDeprecatedAPIRequested
+        exp_alerts:
+          - exp_annotations:
+              description: "Detected requests to the deprecated virtualmachines.kubevirt.io/v1alpha3 API."
+              summary: "Detected 1 requests in the last 10 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtDeprecatedAPIRequested"
+            exp_labels:
+              severity: "info"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              resource: "virtualmachines"
+              group: "kubevirt.io"
+              version: "v1alpha3"
+      - eval_time: 3m
+        alertname: KubeVirtDeprecatedAPIRequested
+        exp_alerts:
+          - exp_annotations:
+              description: "Detected requests to the deprecated virtualmachines.kubevirt.io/v1alpha3 API."
+              summary: "Detected 2 requests in the last 10 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtDeprecatedAPIRequested"
+            exp_labels:
+              severity: "info"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              resource: "virtualmachines"
+              group: "kubevirt.io"
+              version: "v1alpha3"
+      - eval_time: 13m
+        alertname: KubeVirtDeprecatedAPIRequested
+        exp_alerts: []

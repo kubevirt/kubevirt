@@ -29,12 +29,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
-
-	exportv1 "kubevirt.io/api/export/v1alpha1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 
@@ -127,6 +127,7 @@ func (ctrl *VMExportController) handlePVCsForVirtualMachineSnapshot(vmExport *ex
 		if exists {
 			sourceVm := content.Spec.Source.VirtualMachine
 			totalVolumes = len(content.Status.VolumeSnapshotStatus)
+
 			for _, volumeBackup := range content.Spec.VolumeBackups {
 				if pvc, err := ctrl.getOrCreatePVCFromSnapshot(vmExport, &volumeBackup, sourceVm); err != nil {
 					return nil, 0, err
@@ -158,7 +159,10 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 	}
 
 	// leaving source name and namespace blank because we don't care in this context
-	pvc := snapshot.CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+	pvc, err := snapshot.CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+	if err != nil {
+		return nil, err
+	}
 	if volumeBackupIsKubeVirtContent(volumeBackup, sourceVm) {
 		if len(pvc.GetAnnotations()) == 0 {
 			pvc.SetAnnotations(make(map[string]string))
@@ -171,8 +175,8 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 			Kind:               exportGVK.Kind,
 			Name:               vmExport.Name,
 			UID:                vmExport.UID,
-			Controller:         pointer.BoolPtr(true),
-			BlockOwnerDeletion: pointer.BoolPtr(true),
+			Controller:         pointer.P(true),
+			BlockOwnerDeletion: pointer.P(true),
 		},
 	})
 
@@ -185,7 +189,7 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 
 func (ctrl *VMExportController) updateVMExporVMSnapshotStatus(vmExport *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) (time.Duration, error) {
 	vmExportCopy := vmExport.DeepCopy()
-	vmExportCopy.Status.VirtualMachineName = pointer.StringPtr(ctrl.getVmNameFromVmSnapshot(vmExport))
+	vmExportCopy.Status.VirtualMachineName = pointer.P(ctrl.getVmNameFromVmSnapshot(vmExport))
 
 	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes, getSnapshotVolumeName); err != nil {
 		return 0, err

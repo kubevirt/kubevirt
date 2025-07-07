@@ -27,6 +27,7 @@ import (
 // +genclient:nonNamespaced
 // +genclient:method=UpdateApproval,verb=update,subresource=approval,input=k8s.io/api/certificates/v1.CertificateSigningRequest,result=k8s.io/api/certificates/v1.CertificateSigningRequest
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:prerelease-lifecycle-gen:introduced=1.19
 
 // CertificateSigningRequest objects provide a mechanism to obtain x509 certificates
 // by submitting a certificate signing request, and having it asynchronously approved and issued.
@@ -102,8 +103,6 @@ type CertificateSigningRequestSpec struct {
 	//   3. Signer whose configured minimum is longer than the requested duration
 	//
 	// The minimum valid value for expirationSeconds is 600, i.e. 10 minutes.
-	//
-	// As of v1.22, this field is beta and is controlled via the CSRDuration feature gate.
 	//
 	// +optional
 	ExpirationSeconds *int32 `json:"expirationSeconds,omitempty" protobuf:"varint,8,opt,name=expirationSeconds"`
@@ -214,7 +213,6 @@ type CertificateSigningRequestStatus struct {
 }
 
 // RequestConditionType is the type of a CertificateSigningRequestCondition
-// +enum
 type RequestConditionType string
 
 // Well-known condition types for certificate requests.
@@ -265,6 +263,7 @@ type CertificateSigningRequestCondition struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:prerelease-lifecycle-gen:introduced=1.19
 
 // CertificateSigningRequestList is a collection of CertificateSigningRequest objects
 type CertificateSigningRequestList struct {
@@ -277,8 +276,11 @@ type CertificateSigningRequestList struct {
 }
 
 // KeyUsage specifies valid usage contexts for keys.
-// See: https://tools.ietf.org/html/rfc5280#section-4.2.1.3
-//      https://tools.ietf.org/html/rfc5280#section-4.2.1.12
+// See:
+//
+//	https://tools.ietf.org/html/rfc5280#section-4.2.1.3
+//	https://tools.ietf.org/html/rfc5280#section-4.2.1.12
+//
 // +enum
 type KeyUsage string
 

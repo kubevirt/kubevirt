@@ -24,7 +24,7 @@ var _ = Describe("VCPU pinning", func() {
 
 	BeforeEach(func() {
 		seed := time.Now().UnixNano()
-		rand.Seed(seed)
+		rand.NewSource(seed)
 		log.DefaultLogger().Infof("using seed %v for cpu pinning tests", seed)
 	})
 

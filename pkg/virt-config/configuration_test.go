@@ -11,13 +11,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("test configuration", func() {
@@ -50,7 +52,7 @@ var _ = Describe("test configuration", func() {
 	DescribeTable(" when permitSlirpInterface", func(value *bool, result bool) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			NetworkConfiguration: &v1.NetworkConfiguration{
-				PermitSlirpInterface: value,
+				DeprecatedPermitSlirpInterface: value,
 			},
 		})
 
@@ -117,7 +119,7 @@ var _ = Describe("test configuration", func() {
 	)
 
 	nodeSelectors := map[string]string{
-		"kubernetes.io/hostname":          "node02",
+		kubev1.LabelHostname:              "node02",
 		"node-role.kubernetes.io/compute": "true",
 	}
 	DescribeTable(" when nodeSelectors", func(value, result map[string]string) {
@@ -133,7 +135,7 @@ var _ = Describe("test configuration", func() {
 		Entry("is empty, GetNodeSelectors should return the default", map[string]string{}, nil),
 	)
 
-	DescribeTable(" when machineType", func(cpuArch string, machineType string, result string) {
+	DescribeTable(" when machineType", func(cpuArch string, machineTypeAMD64 string, machineTypeARM64 string, machineTypePPC64le string, machineTypeS390X string, result string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -141,7 +143,48 @@ var _ = Describe("test configuration", func() {
 			},
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					MachineType: machineType,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeAMD64},
+						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeARM64},
+						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: machineTypePPC64le},
+					},
+				},
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: "Deployed",
+			},
+		}, cpuArch)
+		Expect(clusterConfig.GetMachineType(cpuArch)).To(Equal(result))
+	},
+		Entry("when amd64 set, GetMachineType should return the value", "amd64", "pc-q35-3.0", "", "", "", "pc-q35-3.0"),
+		Entry("when arm64 set, GetMachineType should return the value", "arm64", "", "virt", "", "", "virt"),
+		Entry("when ppc64le set, GetMachineType should return the value", "ppc64le", "", "", "pseries", "", "pseries"),
+		Entry("when s390x set, GetMachineType should return the value", "s390x", "", "", "", "s390-ccw-virtio", "s390-ccw-virtio"),
+		Entry("when amd64 unset, GetMachineType should return the default with amd64", "amd64", "", "", "", "", virtconfig.DefaultAMD64MachineType),
+		Entry("when arm64 unset, GetMachineType should return the default with arm64", "arm64", "", "", "", "", virtconfig.DefaultAARCH64MachineType),
+		Entry("when ppc64le unset, GetMachineType should return the default with ppc64le", "ppc64le", "", "", "", "", virtconfig.DefaultPPC64LEMachineType),
+		Entry("when s390x unset, GetMachineType should return the default with s390x", "s390x", "", "", "", "", virtconfig.DefaultS390XMachineType),
+	)
+
+	It("architectureConfiguration fields should not have higher priority when deprecated options are set", func() {
+		const machineType = "quantum-qc35"
+		const ovmfPath = "/usr/share/something"
+		const cpuArch = "amd64"
+		emulatedMachines := []string{"quantum-*", "old-something-*"}
+
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MachineType:      machineType,
+					EmulatedMachines: emulatedMachines,
+					OVMFPath:         ovmfPath,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64: &v1.ArchSpecificConfiguration{MachineType: virtconfig.DefaultAMD64MachineType},
+					},
 				},
 			},
 			Status: v1.KubeVirtStatus{
@@ -149,13 +192,10 @@ var _ = Describe("test configuration", func() {
 			},
 		}, cpuArch)
 
-		Expect(clusterConfig.GetMachineType()).To(Equal(result))
-	},
-		Entry("when set, GetMachineType should return the value", "", "pc-q35-3.0", "pc-q35-3.0"),
-		Entry("when unset, GetMachineType should return the default with amd64", "amd64", "", virtconfig.DefaultAMD64MachineType),
-		Entry("when unset, GetMachineType should return the default with arm64", "arm64", "", virtconfig.DefaultAARCH64MachineType),
-		Entry("when unset, GetMachineType should return the default with ppc64le", "ppc64le", "", virtconfig.DefaultPPC64LEMachineType),
-	)
+		Expect(clusterConfig.GetMachineType(cpuArch)).To(Equal(machineType))
+		Expect(clusterConfig.GetEmulatedMachines(cpuArch)).To(Equal(emulatedMachines))
+		Expect(clusterConfig.GetOVMFPath(cpuArch)).To(Equal(ovmfPath))
+	})
 
 	DescribeTable(" when cpuModel", func(value string, result string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
@@ -205,7 +245,7 @@ var _ = Describe("test configuration", func() {
 		Entry("when negative, GetCPUAllocationRatio should return the default", -150, virtconfig.DefaultCPUAllocationRatio),
 	)
 
-	DescribeTable(" when emulatedMachines", func(cpuArch string, emuMachines []string, result []string) {
+	DescribeTable(" when emulatedMachines", func(cpuArch string, emuMachinesAMD64 []string, emuMachinesARM64 []string, emuMachinesAPC64le64 []string, emuMachinesS390X []string, result []string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -213,23 +253,100 @@ var _ = Describe("test configuration", func() {
 			},
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					EmulatedMachines: emuMachines,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64:   &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesAMD64},
+						Arm64:   &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesARM64},
+						Ppc64le: &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesAPC64le64},
+					},
 				},
 			},
 			Status: v1.KubeVirtStatus{
 				Phase: "Deployed",
 			},
 		}, cpuArch)
-		emulatedMachines := clusterConfig.GetEmulatedMachines()
+		emulatedMachines := clusterConfig.GetEmulatedMachines(cpuArch)
 		Expect(emulatedMachines).To(ConsistOf(result))
 	},
-		Entry("when set, GetEmulatedMachines should return the value", "", []string{"q35", "i440*"}, []string{"q35", "i440*"}),
-		Entry("when unset, GetEmulatedMachines should return the defaults with amd64", "amd64", nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
-		Entry("when empty, GetEmulatedMachines should return the defaults with amd64", "amd64", []string{}, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
-		Entry("when unset, GetEmulatedMachines should return the defaults with arm64", "arm64", nil, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
-		Entry("when empty, GetEmulatedMachines should return the defaults with arm64", "arm64", []string{}, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
-		Entry("when unset, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", nil, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
-		Entry("when empty, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", []string{}, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
+		Entry("when amd64 set, GetEmulatedMachines should return the value", "amd64", []string{"q35", "i440*"}, nil, nil, nil, []string{"q35", "i440*"}),
+		Entry("when arm64 set, GetEmulatedMachines should return the value", "arm64", nil, []string{"virt*"}, nil, nil, []string{"virt*"}),
+		Entry("when ppc64le set, GetEmulatedMachines should return the value", "ppc64le", nil, nil, []string{"pseries*"}, nil, []string{"pseries*"}),
+		Entry("when s390x set, GetEmulatedMachines should return the value", "s390x", nil, nil, nil, []string{"s390-ccw-virtio*"}, []string{"s390-ccw-virtio*"}),
+		Entry("when unset, GetEmulatedMachines should return the defaults with amd64", "amd64", nil, nil, nil, nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
+		Entry("when empty, GetEmulatedMachines should return the defaults with amd64", "amd64", []string{}, []string{}, []string{}, nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
+		Entry("when unset, GetEmulatedMachines should return the defaults with arm64", "arm64", nil, nil, nil, nil, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
+		Entry("when empty, GetEmulatedMachines should return the defaults with arm64", "arm64", []string{}, []string{}, nil, []string{}, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
+		Entry("when unset, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", nil, nil, nil, nil, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
+		Entry("when empty, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", []string{}, []string{}, []string{}, nil, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
+		Entry("when unset, GetEmulatedMachines should return the defaults with s390x", "s390x", nil, nil, nil, nil, strings.Split(virtconfig.DefaultS390XEmulatedMachines, ",")),
+		Entry("when empty, GetEmulatedMachines should return the defaults with s390x", "s390x", []string{}, []string{}, []string{}, nil, strings.Split(virtconfig.DefaultS390XEmulatedMachines, ",")),
+	)
+
+	DescribeTable("when virtualMachineOptions", func(virtualMachineOptions *v1.VirtualMachineOptions, expected bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					VirtualMachineOptions: virtualMachineOptions,
+				},
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: "Deployed",
+			},
+		})
+		Expect(clusterConfig.IsFreePageReportingDisabled()).To(BeEquivalentTo(expected))
+	},
+		Entry("is nil, IsFreePageReportingDisabled should return false",
+			nil, false,
+		),
+		Entry("is an empty struct, IsFreePageReportingDisabled should return false",
+			&v1.VirtualMachineOptions{}, false,
+		),
+		Entry("contains disableFreePageReporting, IsFreePageReportingDisabled should return true",
+			&v1.VirtualMachineOptions{DisableFreePageReporting: &v1.DisableFreePageReporting{}}, true,
+		),
+	)
+
+	DescribeTable("when vmRolloutStrategy", func(vmRolloutStrategy *v1.VMRolloutStrategy, expected bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					VMRolloutStrategy: vmRolloutStrategy,
+				},
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: "Deployed",
+			},
+		})
+		Expect(clusterConfig.IsVMRolloutStrategyLiveUpdate()).To(BeEquivalentTo(expected))
+	},
+		Entry("is nil, IsVMRolloutStrategyLiveUpdate should return false",
+			nil, false,
+		),
+		Entry("is Stage, IsVMRolloutStrategyLiveUpdate should return false",
+			pointer.P(v1.VMRolloutStrategyStage), false,
+		),
+		Entry("is LiveUpdate, IsVMRolloutStrategyLiveUpdate should return true",
+			pointer.P(v1.VMRolloutStrategyLiveUpdate), true,
+		),
+	)
+
+	DescribeTable(" when maxHotplugRatio", func(value int, expected int) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
+				MaxHotplugRatio: uint32(value),
+			},
+		})
+		Expect(clusterConfig.GetMaxHotplugRatio()).To(Equal(uint32(expected)))
+	},
+		Entry("is set, GetMaxHotplugRatio should return the set value", 100, 100),
+		Entry("is unset, GetMaxHotplugRatio should return the default", 0, virtconfig.DefaultMaxHotplugRatio),
 	)
 
 	// deprecated
@@ -291,7 +408,7 @@ var _ = Describe("test configuration", func() {
 
 	It("Should update the config if a newer version is available", func() {
 		oldValue := uint32(10)
-		clusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+		clusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			MigrationConfiguration: &v1.MigrationConfiguration{
 				ParallelOutboundMigrationsPerNode: &oldValue,
 			},
@@ -316,7 +433,7 @@ var _ = Describe("test configuration", func() {
 				Phase: "Deployed",
 			},
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 		Eventually(func() uint32 {
 			return *clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode
 		}).Should(BeEquivalentTo(9))
@@ -324,7 +441,7 @@ var _ = Describe("test configuration", func() {
 
 	It("Should stick with the last good config", func() {
 
-		clusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+		clusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			ImagePullPolicy: kubev1.PullAlways,
 		})
 		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(kubev1.PullAlways))
@@ -343,7 +460,7 @@ var _ = Describe("test configuration", func() {
 				Phase: "Deployed",
 			},
 		}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
 		Consistently(func() kubev1.PullPolicy {
 			return clusterConfig.GetImagePullPolicy()
@@ -354,11 +471,6 @@ var _ = Describe("test configuration", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		result := clusterConfig.GetMigrationConfiguration()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeEquivalentTo(2))
-	})
-
-	It("should contain a default machine type that is supported by default", func() {
-		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-		Expect(clusterConfig.GetMachineType()).To(testutils.SatisfyAnyRegexp(clusterConfig.GetEmulatedMachines()))
 	})
 
 	DescribeTable("SMBIOS values", func(value *v1.SMBiosConfiguration, result *cmdv1.SMBios) {
@@ -390,7 +502,7 @@ var _ = Describe("test configuration", func() {
 		Entry("when unset, GetSELinuxLauncherType should return the default", virtconfig.DefaultSELinuxLauncherType, virtconfig.DefaultSELinuxLauncherType),
 	)
 
-	DescribeTable(" when OVMFPath", func(cpuArch string, ovmfPathKey string, result string) {
+	DescribeTable(" when OVMFPath", func(cpuArch string, ovmfPathKeyAMD64 string, ovmfPathKeyARM64 string, ovmfPathKeyPPC64le64 string, ovmfPathKeyS390X string, result string) {
 
 		kv := &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -399,7 +511,11 @@ var _ = Describe("test configuration", func() {
 			},
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					OVMFPath: ovmfPathKey,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64:   &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyAMD64},
+						Arm64:   &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyARM64},
+						Ppc64le: &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyPPC64le64},
+					},
 				},
 			},
 			Status: v1.KubeVirtStatus{
@@ -408,13 +524,17 @@ var _ = Describe("test configuration", func() {
 		}
 
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
-		ovmfPath := clusterConfig.GetOVMFPath()
+		ovmfPath := clusterConfig.GetOVMFPath(cpuArch)
 		Expect(ovmfPath).To(Equal(result))
 	},
-		Entry("when set, GetOVMFPath should return the value", "", "/usr/share/ovmf/x64", "/usr/share/ovmf/x64"),
-		Entry("when unset, GetOVMFPath should return the default with amd64", "amd64", "", virtconfig.DefaultARCHOVMFPath),
-		Entry("when unset, GetOVMFPath should return the default with arm64", "arm64", "", virtconfig.DefaultAARCH64OVMFPath),
-		Entry("when unset, GetOVMFPath should return the default with ppc64le", "ppc64le", "", virtconfig.DefaultARCHOVMFPath),
+		Entry("when amd64 set, GetOVMFPath should return the value", "amd64", "/usr/share/ovmf/x64", "", "", "", "/usr/share/ovmf/x64"),
+		Entry("when arm64 set, GetOVMFPath should return the value", "arm64", "", "/usr/share/AAVMF", "", "", "/usr/share/AAVMF"),
+		Entry("when ppc64le set, GetOVMFPath should return the value", "ppc64le", "", "", "/usr/share/ovmf/x64", "", "/usr/share/ovmf/x64"),
+		Entry("when s390x set, GetOVMFPath should return the value", "s390x", "", "", "", "", ""),
+		Entry("when unset, GetOVMFPath should return the default with amd64", "amd64", "", "", "", "", virtconfig.DefaultARCHOVMFPath),
+		Entry("when unset, GetOVMFPath should return the default with arm64", "arm64", "", "", "", "", virtconfig.DefaultAARCH64OVMFPath),
+		Entry("when unset, GetOVMFPath should return the default with ppc64le", "ppc64le", "", "", "", "", virtconfig.DefaultARCHOVMFPath),
+		Entry("when unset, GetOVMFPath should return an empty string with s390x", "s390x", "", "", "", "", ""),
 	)
 
 	It("verifies that SetConfigModifiedCallback works as expected ", func() {
@@ -449,7 +569,7 @@ var _ = Describe("test configuration", func() {
 				Phase: v1.KubeVirtPhaseDeploying,
 			},
 		}
-		clusterConfig, _, kubeVirtInformer := testutils.NewFakeClusterConfigUsingKV(KV)
+		clusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKV(KV)
 		callbackSet1 = false
 		callbackSet2 = false
 		clusterConfig.SetConfigModifiedCallback(callback1)
@@ -457,7 +577,7 @@ var _ = Describe("test configuration", func() {
 
 		Expect(clusterConfig.GetVirtLauncherVerbosity()).To(Equal(uint(3)))
 		KV.Spec.Configuration.DeveloperConfiguration.LogVerbosity.VirtLauncher = 6
-		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtInformer, KV)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, KV)
 		Expect(clusterConfig.GetVirtLauncherVerbosity()).To(Equal(uint(6)))
 		Eventually(func() bool {
 			lock.Lock()
@@ -596,8 +716,8 @@ var _ = Describe("test configuration", func() {
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
 					NetworkInterface:                  "test",
-					PermitSlirpInterface:              pointer.BoolPtr(true),
-					PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(false),
+					DeprecatedPermitSlirpInterface:    pointer.P(true),
+					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
 				},
 			},
 			func(c *v1.KubeVirtConfiguration) interface{} {
@@ -607,9 +727,9 @@ var _ = Describe("test configuration", func() {
 		Entry("when networkConfiguration set, should equal to result",
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
-					NetworkInterface:                  string(v1.SlirpInterface),
-					PermitSlirpInterface:              pointer.BoolPtr(true),
-					PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(false),
+					NetworkInterface:                  string(v1.DeprecatedSlirpInterface),
+					DeprecatedPermitSlirpInterface:    pointer.P(true),
+					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
 				},
 			},
 			func(c *v1.KubeVirtConfiguration) interface{} {
@@ -619,8 +739,8 @@ var _ = Describe("test configuration", func() {
 		Entry("when networkConfiguration set with empty NetworkInterface, should use the default",
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
-					PermitSlirpInterface:              pointer.BoolPtr(true),
-					PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(false),
+					DeprecatedPermitSlirpInterface:    pointer.P(true),
+					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
 				},
 			},
 			func(c *v1.KubeVirtConfiguration) interface{} {
@@ -629,24 +749,19 @@ var _ = Describe("test configuration", func() {
 			`{"defaultNetworkInterface":"bridge","permitSlirpInterface":true,"permitBridgeInterfaceOnPodNetwork":false}`),
 	)
 
-	DescribeTable("when ClusterProfiler feature-gate", func(openFeatureGates []string, isEnabled bool) {
+	DescribeTable("when ClusterProfiler config", func(config *v1.DeveloperConfiguration, isEnabled bool) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: openFeatureGates,
-			},
+			DeveloperConfiguration: config,
 		})
 
 		Expect(clusterConfig.ClusterProfilerEnabled()).To(Equal(isEnabled))
 	},
-		Entry("ClusterProfiler feature gate not set should result in cluster profiler being disabled",
-			nil, false),
-		Entry("ClusterProfiler feature gate empty should result in cluster profiler being disabled",
-			[]string{}, false),
-		Entry("ClusterProfiler feature gate enabled should result in cluster profiler being enabled",
-			[]string{virtconfig.ClusterProfiler}, true),
+		Entry("is not set it should result in cluster profiler being disabled", &v1.DeveloperConfiguration{ClusterProfiler: false}, false),
+		Entry("is empty it should result in cluster profiler being disabled", &v1.DeveloperConfiguration{}, false),
+		Entry("is enabled it should result in cluster profiler being enabled", &v1.DeveloperConfiguration{ClusterProfiler: true}, true),
 	)
 
-	Context("deprecated feature gates should always be considered as enabled", func() {
+	Context("GAed feature gates should be considered as enabled by default", func() {
 		var clusterConfig *virtconfig.ClusterConfig
 
 		BeforeEach(func() {
@@ -665,4 +780,29 @@ var _ = Describe("test configuration", func() {
 			Expect(clusterConfig.SRIOVLiveMigrationEnabled()).To(BeTrue())
 		})
 	})
+
+	disableInstancetypeRferencePolicyFG := []string{}
+	enableInstancetypeReferencePolicyFG := []string{featuregate.InstancetypeReferencePolicy}
+
+	DescribeTable("GetInstancetypeReferencePolicy should return", func(
+		instancetypeConfig *v1.InstancetypeConfiguration, featureGates []string, expectedPolicy v1.InstancetypeReferencePolicy) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(
+			&v1.KubeVirtConfiguration{
+				Instancetype: instancetypeConfig,
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: featureGates,
+				},
+			},
+		)
+		Expect(clusterConfig.GetInstancetypeReferencePolicy()).To(Equal(expectedPolicy))
+	},
+		Entry("reference when FG unset and InstancetypeConfiguration is nil", nil, disableInstancetypeRferencePolicyFG, v1.Reference),
+		Entry("reference when FG unset and InstancetypeConfiguration.ReferencePolicy is nil", &v1.InstancetypeConfiguration{}, disableInstancetypeRferencePolicyFG, v1.Reference),
+		Entry("reference when FG unset and InstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, disableInstancetypeRferencePolicyFG, v1.Reference),
+		Entry("reference when FG unset andInstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, disableInstancetypeRferencePolicyFG, v1.Reference),
+		Entry("reference when FG set and InstancetypeConfiguration is nil", nil, enableInstancetypeReferencePolicyFG, v1.Reference),
+		Entry("reference when FG set and InstancetypeConfiguration.ReferencePolicy is nil", &v1.InstancetypeConfiguration{}, enableInstancetypeReferencePolicyFG, v1.Reference),
+		Entry("reference when FG set andInstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, enableInstancetypeReferencePolicyFG, v1.Reference),
+		Entry("expand when FG set andInstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, enableInstancetypeReferencePolicyFG, v1.Expand),
+	)
 })

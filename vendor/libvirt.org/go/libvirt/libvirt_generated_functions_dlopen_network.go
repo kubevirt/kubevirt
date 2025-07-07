@@ -43,9 +43,9 @@ package libvirt
 
 
 typedef int
-(*virConnectListAllNetworksType)(virConnectPtr conn,
-                                 virNetworkPtr ** nets,
-                                 unsigned int flags);
+(*virConnectListAllNetworksFuncType)(virConnectPtr conn,
+                                     virNetworkPtr ** nets,
+                                     unsigned int flags);
 
 int
 virConnectListAllNetworksWrapper(virConnectPtr conn,
@@ -54,7 +54,7 @@ virConnectListAllNetworksWrapper(virConnectPtr conn,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListAllNetworksType virConnectListAllNetworksSymbol;
+    static virConnectListAllNetworksFuncType virConnectListAllNetworksSymbol;
     static bool once;
     static bool success;
 
@@ -75,9 +75,9 @@ virConnectListAllNetworksWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListDefinedNetworksType)(virConnectPtr conn,
-                                     char ** const names,
-                                     int maxnames);
+(*virConnectListDefinedNetworksFuncType)(virConnectPtr conn,
+                                         char ** const names,
+                                         int maxnames);
 
 int
 virConnectListDefinedNetworksWrapper(virConnectPtr conn,
@@ -86,7 +86,7 @@ virConnectListDefinedNetworksWrapper(virConnectPtr conn,
                                      virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListDefinedNetworksType virConnectListDefinedNetworksSymbol;
+    static virConnectListDefinedNetworksFuncType virConnectListDefinedNetworksSymbol;
     static bool once;
     static bool success;
 
@@ -107,9 +107,9 @@ virConnectListDefinedNetworksWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectListNetworksType)(virConnectPtr conn,
-                              char ** const names,
-                              int maxnames);
+(*virConnectListNetworksFuncType)(virConnectPtr conn,
+                                  char ** const names,
+                                  int maxnames);
 
 int
 virConnectListNetworksWrapper(virConnectPtr conn,
@@ -118,7 +118,7 @@ virConnectListNetworksWrapper(virConnectPtr conn,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virConnectListNetworksType virConnectListNetworksSymbol;
+    static virConnectListNetworksFuncType virConnectListNetworksSymbol;
     static bool once;
     static bool success;
 
@@ -139,8 +139,8 @@ virConnectListNetworksWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNetworkEventDeregisterAnyType)(virConnectPtr conn,
-                                           int callbackID);
+(*virConnectNetworkEventDeregisterAnyFuncType)(virConnectPtr conn,
+                                               int callbackID);
 
 int
 virConnectNetworkEventDeregisterAnyWrapper(virConnectPtr conn,
@@ -148,7 +148,7 @@ virConnectNetworkEventDeregisterAnyWrapper(virConnectPtr conn,
                                            virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNetworkEventDeregisterAnyType virConnectNetworkEventDeregisterAnySymbol;
+    static virConnectNetworkEventDeregisterAnyFuncType virConnectNetworkEventDeregisterAnySymbol;
     static bool once;
     static bool success;
 
@@ -168,12 +168,12 @@ virConnectNetworkEventDeregisterAnyWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNetworkEventRegisterAnyType)(virConnectPtr conn,
-                                         virNetworkPtr net,
-                                         int eventID,
-                                         virConnectNetworkEventGenericCallback cb,
-                                         void * opaque,
-                                         virFreeCallback freecb);
+(*virConnectNetworkEventRegisterAnyFuncType)(virConnectPtr conn,
+                                             virNetworkPtr net,
+                                             int eventID,
+                                             virConnectNetworkEventGenericCallback cb,
+                                             void * opaque,
+                                             virFreeCallback freecb);
 
 int
 virConnectNetworkEventRegisterAnyWrapper(virConnectPtr conn,
@@ -185,7 +185,7 @@ virConnectNetworkEventRegisterAnyWrapper(virConnectPtr conn,
                                          virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNetworkEventRegisterAnyType virConnectNetworkEventRegisterAnySymbol;
+    static virConnectNetworkEventRegisterAnyFuncType virConnectNetworkEventRegisterAnySymbol;
     static bool once;
     static bool success;
 
@@ -209,14 +209,14 @@ virConnectNetworkEventRegisterAnyWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNumOfDefinedNetworksType)(virConnectPtr conn);
+(*virConnectNumOfDefinedNetworksFuncType)(virConnectPtr conn);
 
 int
 virConnectNumOfDefinedNetworksWrapper(virConnectPtr conn,
                                       virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNumOfDefinedNetworksType virConnectNumOfDefinedNetworksSymbol;
+    static virConnectNumOfDefinedNetworksFuncType virConnectNumOfDefinedNetworksSymbol;
     static bool once;
     static bool success;
 
@@ -235,14 +235,14 @@ virConnectNumOfDefinedNetworksWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectNumOfNetworksType)(virConnectPtr conn);
+(*virConnectNumOfNetworksFuncType)(virConnectPtr conn);
 
 int
 virConnectNumOfNetworksWrapper(virConnectPtr conn,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virConnectNumOfNetworksType virConnectNumOfNetworksSymbol;
+    static virConnectNumOfNetworksFuncType virConnectNumOfNetworksSymbol;
     static bool once;
     static bool success;
 
@@ -261,14 +261,14 @@ virConnectNumOfNetworksWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNetworkCreateType)(virNetworkPtr network);
+(*virNetworkCreateFuncType)(virNetworkPtr network);
 
 int
 virNetworkCreateWrapper(virNetworkPtr network,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkCreateType virNetworkCreateSymbol;
+    static virNetworkCreateFuncType virNetworkCreateSymbol;
     static bool once;
     static bool success;
 
@@ -287,8 +287,8 @@ virNetworkCreateWrapper(virNetworkPtr network,
 }
 
 typedef virNetworkPtr
-(*virNetworkCreateXMLType)(virConnectPtr conn,
-                           const char * xmlDesc);
+(*virNetworkCreateXMLFuncType)(virConnectPtr conn,
+                               const char * xmlDesc);
 
 virNetworkPtr
 virNetworkCreateXMLWrapper(virConnectPtr conn,
@@ -296,7 +296,7 @@ virNetworkCreateXMLWrapper(virConnectPtr conn,
                            virErrorPtr err)
 {
     virNetworkPtr ret = NULL;
-    static virNetworkCreateXMLType virNetworkCreateXMLSymbol;
+    static virNetworkCreateXMLFuncType virNetworkCreateXMLSymbol;
     static bool once;
     static bool success;
 
@@ -316,9 +316,9 @@ virNetworkCreateXMLWrapper(virConnectPtr conn,
 }
 
 typedef virNetworkPtr
-(*virNetworkCreateXMLFlagsType)(virConnectPtr conn,
-                                const char * xmlDesc,
-                                unsigned int flags);
+(*virNetworkCreateXMLFlagsFuncType)(virConnectPtr conn,
+                                    const char * xmlDesc,
+                                    unsigned int flags);
 
 virNetworkPtr
 virNetworkCreateXMLFlagsWrapper(virConnectPtr conn,
@@ -327,7 +327,7 @@ virNetworkCreateXMLFlagsWrapper(virConnectPtr conn,
                                 virErrorPtr err)
 {
     virNetworkPtr ret = NULL;
-    static virNetworkCreateXMLFlagsType virNetworkCreateXMLFlagsSymbol;
+    static virNetworkCreateXMLFlagsFuncType virNetworkCreateXMLFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -348,13 +348,13 @@ virNetworkCreateXMLFlagsWrapper(virConnectPtr conn,
 }
 
 typedef void
-(*virNetworkDHCPLeaseFreeType)(virNetworkDHCPLeasePtr lease);
+(*virNetworkDHCPLeaseFreeFuncType)(virNetworkDHCPLeasePtr lease);
 
 void
 virNetworkDHCPLeaseFreeWrapper(virNetworkDHCPLeasePtr lease)
 {
 
-    static virNetworkDHCPLeaseFreeType virNetworkDHCPLeaseFreeSymbol;
+    static virNetworkDHCPLeaseFreeFuncType virNetworkDHCPLeaseFreeSymbol;
     static bool once;
     static bool success;
 
@@ -369,8 +369,8 @@ virNetworkDHCPLeaseFreeWrapper(virNetworkDHCPLeasePtr lease)
 }
 
 typedef virNetworkPtr
-(*virNetworkDefineXMLType)(virConnectPtr conn,
-                           const char * xml);
+(*virNetworkDefineXMLFuncType)(virConnectPtr conn,
+                               const char * xml);
 
 virNetworkPtr
 virNetworkDefineXMLWrapper(virConnectPtr conn,
@@ -378,7 +378,7 @@ virNetworkDefineXMLWrapper(virConnectPtr conn,
                            virErrorPtr err)
 {
     virNetworkPtr ret = NULL;
-    static virNetworkDefineXMLType virNetworkDefineXMLSymbol;
+    static virNetworkDefineXMLFuncType virNetworkDefineXMLSymbol;
     static bool once;
     static bool success;
 
@@ -398,9 +398,9 @@ virNetworkDefineXMLWrapper(virConnectPtr conn,
 }
 
 typedef virNetworkPtr
-(*virNetworkDefineXMLFlagsType)(virConnectPtr conn,
-                                const char * xml,
-                                unsigned int flags);
+(*virNetworkDefineXMLFlagsFuncType)(virConnectPtr conn,
+                                    const char * xml,
+                                    unsigned int flags);
 
 virNetworkPtr
 virNetworkDefineXMLFlagsWrapper(virConnectPtr conn,
@@ -409,7 +409,7 @@ virNetworkDefineXMLFlagsWrapper(virConnectPtr conn,
                                 virErrorPtr err)
 {
     virNetworkPtr ret = NULL;
-    static virNetworkDefineXMLFlagsType virNetworkDefineXMLFlagsSymbol;
+    static virNetworkDefineXMLFlagsFuncType virNetworkDefineXMLFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -430,14 +430,14 @@ virNetworkDefineXMLFlagsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNetworkDestroyType)(virNetworkPtr network);
+(*virNetworkDestroyFuncType)(virNetworkPtr network);
 
 int
 virNetworkDestroyWrapper(virNetworkPtr network,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkDestroyType virNetworkDestroySymbol;
+    static virNetworkDestroyFuncType virNetworkDestroySymbol;
     static bool once;
     static bool success;
 
@@ -456,14 +456,14 @@ virNetworkDestroyWrapper(virNetworkPtr network,
 }
 
 typedef int
-(*virNetworkFreeType)(virNetworkPtr network);
+(*virNetworkFreeFuncType)(virNetworkPtr network);
 
 int
 virNetworkFreeWrapper(virNetworkPtr network,
                       virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkFreeType virNetworkFreeSymbol;
+    static virNetworkFreeFuncType virNetworkFreeSymbol;
     static bool once;
     static bool success;
 
@@ -482,8 +482,8 @@ virNetworkFreeWrapper(virNetworkPtr network,
 }
 
 typedef int
-(*virNetworkGetAutostartType)(virNetworkPtr network,
-                              int * autostart);
+(*virNetworkGetAutostartFuncType)(virNetworkPtr network,
+                                  int * autostart);
 
 int
 virNetworkGetAutostartWrapper(virNetworkPtr network,
@@ -491,7 +491,7 @@ virNetworkGetAutostartWrapper(virNetworkPtr network,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkGetAutostartType virNetworkGetAutostartSymbol;
+    static virNetworkGetAutostartFuncType virNetworkGetAutostartSymbol;
     static bool once;
     static bool success;
 
@@ -511,14 +511,14 @@ virNetworkGetAutostartWrapper(virNetworkPtr network,
 }
 
 typedef char *
-(*virNetworkGetBridgeNameType)(virNetworkPtr network);
+(*virNetworkGetBridgeNameFuncType)(virNetworkPtr network);
 
 char *
 virNetworkGetBridgeNameWrapper(virNetworkPtr network,
                                virErrorPtr err)
 {
     char * ret = NULL;
-    static virNetworkGetBridgeNameType virNetworkGetBridgeNameSymbol;
+    static virNetworkGetBridgeNameFuncType virNetworkGetBridgeNameSymbol;
     static bool once;
     static bool success;
 
@@ -537,14 +537,14 @@ virNetworkGetBridgeNameWrapper(virNetworkPtr network,
 }
 
 typedef virConnectPtr
-(*virNetworkGetConnectType)(virNetworkPtr net);
+(*virNetworkGetConnectFuncType)(virNetworkPtr net);
 
 virConnectPtr
 virNetworkGetConnectWrapper(virNetworkPtr net,
                             virErrorPtr err)
 {
     virConnectPtr ret = NULL;
-    static virNetworkGetConnectType virNetworkGetConnectSymbol;
+    static virNetworkGetConnectFuncType virNetworkGetConnectSymbol;
     static bool once;
     static bool success;
 
@@ -563,10 +563,10 @@ virNetworkGetConnectWrapper(virNetworkPtr net,
 }
 
 typedef int
-(*virNetworkGetDHCPLeasesType)(virNetworkPtr network,
-                               const char * mac,
-                               virNetworkDHCPLeasePtr ** leases,
-                               unsigned int flags);
+(*virNetworkGetDHCPLeasesFuncType)(virNetworkPtr network,
+                                   const char * mac,
+                                   virNetworkDHCPLeasePtr ** leases,
+                                   unsigned int flags);
 
 int
 virNetworkGetDHCPLeasesWrapper(virNetworkPtr network,
@@ -576,7 +576,7 @@ virNetworkGetDHCPLeasesWrapper(virNetworkPtr network,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkGetDHCPLeasesType virNetworkGetDHCPLeasesSymbol;
+    static virNetworkGetDHCPLeasesFuncType virNetworkGetDHCPLeasesSymbol;
     static bool once;
     static bool success;
 
@@ -597,15 +597,50 @@ virNetworkGetDHCPLeasesWrapper(virNetworkPtr network,
     return ret;
 }
 
+typedef char *
+(*virNetworkGetMetadataFuncType)(virNetworkPtr network,
+                                 int type,
+                                 const char * uri,
+                                 unsigned int flags);
+
+char *
+virNetworkGetMetadataWrapper(virNetworkPtr network,
+                             int type,
+                             const char * uri,
+                             unsigned int flags,
+                             virErrorPtr err)
+{
+    char * ret = NULL;
+    static virNetworkGetMetadataFuncType virNetworkGetMetadataSymbol;
+    static bool once;
+    static bool success;
+
+    if (!libvirtSymbol("virNetworkGetMetadata",
+                       (void**)&virNetworkGetMetadataSymbol,
+                       &once,
+                       &success,
+                       err)) {
+        return ret;
+    }
+    ret = virNetworkGetMetadataSymbol(network,
+                                      type,
+                                      uri,
+                                      flags);
+    if (!ret) {
+        virCopyLastErrorWrapper(err);
+    }
+    return ret;
+}
+
 typedef const char *
-(*virNetworkGetNameType)(virNetworkPtr network);
+(*virNetworkGetNameFuncType)(virNetworkPtr network);
 
 const char *
 virNetworkGetNameWrapper(virNetworkPtr network,
                          virErrorPtr err)
 {
     const char * ret = NULL;
-    static virNetworkGetNameType virNetworkGetNameSymbol;
+    static virNetworkGetNameFuncType virNetworkGetNameSymbol;
     static bool once;
     static bool success;
 
@@ -624,8 +659,8 @@ virNetworkGetNameWrapper(virNetworkPtr network,
 }
 
 typedef int
-(*virNetworkGetUUIDType)(virNetworkPtr network,
-                         unsigned char * uuid);
+(*virNetworkGetUUIDFuncType)(virNetworkPtr network,
+                             unsigned char * uuid);
 
 int
 virNetworkGetUUIDWrapper(virNetworkPtr network,
@@ -633,7 +668,7 @@ virNetworkGetUUIDWrapper(virNetworkPtr network,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkGetUUIDType virNetworkGetUUIDSymbol;
+    static virNetworkGetUUIDFuncType virNetworkGetUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -653,8 +688,8 @@ virNetworkGetUUIDWrapper(virNetworkPtr network,
 }
 
 typedef int
-(*virNetworkGetUUIDStringType)(virNetworkPtr network,
-                               char * buf);
+(*virNetworkGetUUIDStringFuncType)(virNetworkPtr network,
+                                   char * buf);
 
 int
 virNetworkGetUUIDStringWrapper(virNetworkPtr network,
@@ -662,7 +697,7 @@ virNetworkGetUUIDStringWrapper(virNetworkPtr network,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkGetUUIDStringType virNetworkGetUUIDStringSymbol;
+    static virNetworkGetUUIDStringFuncType virNetworkGetUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -682,8 +717,8 @@ virNetworkGetUUIDStringWrapper(virNetworkPtr network,
 }
 
 typedef char *
-(*virNetworkGetXMLDescType)(virNetworkPtr network,
-                            unsigned int flags);
+(*virNetworkGetXMLDescFuncType)(virNetworkPtr network,
+                                unsigned int flags);
 
 char *
 virNetworkGetXMLDescWrapper(virNetworkPtr network,
@@ -691,7 +726,7 @@ virNetworkGetXMLDescWrapper(virNetworkPtr network,
                             virErrorPtr err)
 {
     char * ret = NULL;
-    static virNetworkGetXMLDescType virNetworkGetXMLDescSymbol;
+    static virNetworkGetXMLDescFuncType virNetworkGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -711,14 +746,14 @@ virNetworkGetXMLDescWrapper(virNetworkPtr network,
 }
 
 typedef int
-(*virNetworkIsActiveType)(virNetworkPtr net);
+(*virNetworkIsActiveFuncType)(virNetworkPtr net);
 
 int
 virNetworkIsActiveWrapper(virNetworkPtr net,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkIsActiveType virNetworkIsActiveSymbol;
+    static virNetworkIsActiveFuncType virNetworkIsActiveSymbol;
     static bool once;
     static bool success;
 
@@ -737,14 +772,14 @@ virNetworkIsActiveWrapper(virNetworkPtr net,
 }
 
 typedef int
-(*virNetworkIsPersistentType)(virNetworkPtr net);
+(*virNetworkIsPersistentFuncType)(virNetworkPtr net);
 
 int
 virNetworkIsPersistentWrapper(virNetworkPtr net,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkIsPersistentType virNetworkIsPersistentSymbol;
+    static virNetworkIsPersistentFuncType virNetworkIsPersistentSymbol;
     static bool once;
     static bool success;
 
@@ -763,9 +798,9 @@ virNetworkIsPersistentWrapper(virNetworkPtr net,
 }
 
 typedef int
-(*virNetworkListAllPortsType)(virNetworkPtr network,
-                              virNetworkPortPtr ** ports,
-                              unsigned int flags);
+(*virNetworkListAllPortsFuncType)(virNetworkPtr network,
+                                  virNetworkPortPtr ** ports,
+                                  unsigned int flags);
 
 int
 virNetworkListAllPortsWrapper(virNetworkPtr network,
@@ -774,7 +809,7 @@ virNetworkListAllPortsWrapper(virNetworkPtr network,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkListAllPortsType virNetworkListAllPortsSymbol;
+    static virNetworkListAllPortsFuncType virNetworkListAllPortsSymbol;
     static bool once;
     static bool success;
 
@@ -795,8 +830,8 @@ virNetworkListAllPortsWrapper(virNetworkPtr network,
 }
 
 typedef virNetworkPtr
-(*virNetworkLookupByNameType)(virConnectPtr conn,
-                              const char * name);
+(*virNetworkLookupByNameFuncType)(virConnectPtr conn,
+                                  const char * name);
 
 virNetworkPtr
 virNetworkLookupByNameWrapper(virConnectPtr conn,
@@ -804,7 +839,7 @@ virNetworkLookupByNameWrapper(virConnectPtr conn,
                               virErrorPtr err)
 {
     virNetworkPtr ret = NULL;
-    static virNetworkLookupByNameType virNetworkLookupByNameSymbol;
+    static virNetworkLookupByNameFuncType virNetworkLookupByNameSymbol;
     static bool once;
     static bool success;
 
@@ -824,8 +859,8 @@ virNetworkLookupByNameWrapper(virConnectPtr conn,
 }
 
 typedef virNetworkPtr
-(*virNetworkLookupByUUIDType)(virConnectPtr conn,
-                              const unsigned char * uuid);
+(*virNetworkLookupByUUIDFuncType)(virConnectPtr conn,
+                                  const unsigned char * uuid);
 
 virNetworkPtr
 virNetworkLookupByUUIDWrapper(virConnectPtr conn,
@@ -833,7 +868,7 @@ virNetworkLookupByUUIDWrapper(virConnectPtr conn,
                               virErrorPtr err)
 {
     virNetworkPtr ret = NULL;
-    static virNetworkLookupByUUIDType virNetworkLookupByUUIDSymbol;
+    static virNetworkLookupByUUIDFuncType virNetworkLookupByUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -853,8 +888,8 @@ virNetworkLookupByUUIDWrapper(virConnectPtr conn,
 }
 
 typedef virNetworkPtr
-(*virNetworkLookupByUUIDStringType)(virConnectPtr conn,
-                                    const char * uuidstr);
+(*virNetworkLookupByUUIDStringFuncType)(virConnectPtr conn,
+                                        const char * uuidstr);
 
 virNetworkPtr
 virNetworkLookupByUUIDStringWrapper(virConnectPtr conn,
@@ -862,7 +897,7 @@ virNetworkLookupByUUIDStringWrapper(virConnectPtr conn,
                                     virErrorPtr err)
 {
     virNetworkPtr ret = NULL;
-    static virNetworkLookupByUUIDStringType virNetworkLookupByUUIDStringSymbol;
+    static virNetworkLookupByUUIDStringFuncType virNetworkLookupByUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -882,9 +917,9 @@ virNetworkLookupByUUIDStringWrapper(virConnectPtr conn,
 }
 
 typedef virNetworkPortPtr
-(*virNetworkPortCreateXMLType)(virNetworkPtr net,
-                               const char * xmldesc,
-                               unsigned int flags);
+(*virNetworkPortCreateXMLFuncType)(virNetworkPtr net,
+                                   const char * xmldesc,
+                                   unsigned int flags);
 
 virNetworkPortPtr
 virNetworkPortCreateXMLWrapper(virNetworkPtr net,
@@ -893,7 +928,7 @@ virNetworkPortCreateXMLWrapper(virNetworkPtr net,
                                virErrorPtr err)
 {
     virNetworkPortPtr ret = NULL;
-    static virNetworkPortCreateXMLType virNetworkPortCreateXMLSymbol;
+    static virNetworkPortCreateXMLFuncType virNetworkPortCreateXMLSymbol;
     static bool once;
     static bool success;
 
@@ -914,8 +949,8 @@ virNetworkPortCreateXMLWrapper(virNetworkPtr net,
 }
 
 typedef int
-(*virNetworkPortDeleteType)(virNetworkPortPtr port,
-                            unsigned int flags);
+(*virNetworkPortDeleteFuncType)(virNetworkPortPtr port,
+                                unsigned int flags);
 
 int
 virNetworkPortDeleteWrapper(virNetworkPortPtr port,
@@ -923,7 +958,7 @@ virNetworkPortDeleteWrapper(virNetworkPortPtr port,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkPortDeleteType virNetworkPortDeleteSymbol;
+    static virNetworkPortDeleteFuncType virNetworkPortDeleteSymbol;
     static bool once;
     static bool success;
 
@@ -943,14 +978,14 @@ virNetworkPortDeleteWrapper(virNetworkPortPtr port,
 }
 
 typedef int
-(*virNetworkPortFreeType)(virNetworkPortPtr port);
+(*virNetworkPortFreeFuncType)(virNetworkPortPtr port);
 
 int
 virNetworkPortFreeWrapper(virNetworkPortPtr port,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkPortFreeType virNetworkPortFreeSymbol;
+    static virNetworkPortFreeFuncType virNetworkPortFreeSymbol;
     static bool once;
     static bool success;
 
@@ -969,14 +1004,14 @@ virNetworkPortFreeWrapper(virNetworkPortPtr port,
 }
 
 typedef virNetworkPtr
-(*virNetworkPortGetNetworkType)(virNetworkPortPtr port);
+(*virNetworkPortGetNetworkFuncType)(virNetworkPortPtr port);
 
 virNetworkPtr
 virNetworkPortGetNetworkWrapper(virNetworkPortPtr port,
                                 virErrorPtr err)
 {
     virNetworkPtr ret = NULL;
-    static virNetworkPortGetNetworkType virNetworkPortGetNetworkSymbol;
+    static virNetworkPortGetNetworkFuncType virNetworkPortGetNetworkSymbol;
     static bool once;
     static bool success;
 
@@ -995,10 +1030,10 @@ virNetworkPortGetNetworkWrapper(virNetworkPortPtr port,
 }
 
 typedef int
-(*virNetworkPortGetParametersType)(virNetworkPortPtr port,
-                                   virTypedParameterPtr * params,
-                                   int * nparams,
-                                   unsigned int flags);
+(*virNetworkPortGetParametersFuncType)(virNetworkPortPtr port,
+                                       virTypedParameterPtr * params,
+                                       int * nparams,
+                                       unsigned int flags);
 
 int
 virNetworkPortGetParametersWrapper(virNetworkPortPtr port,
@@ -1008,7 +1043,7 @@ virNetworkPortGetParametersWrapper(virNetworkPortPtr port,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkPortGetParametersType virNetworkPortGetParametersSymbol;
+    static virNetworkPortGetParametersFuncType virNetworkPortGetParametersSymbol;
     static bool once;
     static bool success;
 
@@ -1030,8 +1065,8 @@ virNetworkPortGetParametersWrapper(virNetworkPortPtr port,
 }
 
 typedef int
-(*virNetworkPortGetUUIDType)(virNetworkPortPtr port,
-                             unsigned char * uuid);
+(*virNetworkPortGetUUIDFuncType)(virNetworkPortPtr port,
+                                 unsigned char * uuid);
 
 int
 virNetworkPortGetUUIDWrapper(virNetworkPortPtr port,
@@ -1039,7 +1074,7 @@ virNetworkPortGetUUIDWrapper(virNetworkPortPtr port,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkPortGetUUIDType virNetworkPortGetUUIDSymbol;
+    static virNetworkPortGetUUIDFuncType virNetworkPortGetUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -1059,8 +1094,8 @@ virNetworkPortGetUUIDWrapper(virNetworkPortPtr port,
 }
 
 typedef int
-(*virNetworkPortGetUUIDStringType)(virNetworkPortPtr port,
-                                   char * buf);
+(*virNetworkPortGetUUIDStringFuncType)(virNetworkPortPtr port,
+                                       char * buf);
 
 int
 virNetworkPortGetUUIDStringWrapper(virNetworkPortPtr port,
@@ -1068,7 +1103,7 @@ virNetworkPortGetUUIDStringWrapper(virNetworkPortPtr port,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkPortGetUUIDStringType virNetworkPortGetUUIDStringSymbol;
+    static virNetworkPortGetUUIDStringFuncType virNetworkPortGetUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -1088,8 +1123,8 @@ virNetworkPortGetUUIDStringWrapper(virNetworkPortPtr port,
 }
 
 typedef char *
-(*virNetworkPortGetXMLDescType)(virNetworkPortPtr port,
-                                unsigned int flags);
+(*virNetworkPortGetXMLDescFuncType)(virNetworkPortPtr port,
+                                    unsigned int flags);
 
 char *
 virNetworkPortGetXMLDescWrapper(virNetworkPortPtr port,
@@ -1097,7 +1132,7 @@ virNetworkPortGetXMLDescWrapper(virNetworkPortPtr port,
                                 virErrorPtr err)
 {
     char * ret = NULL;
-    static virNetworkPortGetXMLDescType virNetworkPortGetXMLDescSymbol;
+    static virNetworkPortGetXMLDescFuncType virNetworkPortGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -1117,8 +1152,8 @@ virNetworkPortGetXMLDescWrapper(virNetworkPortPtr port,
 }
 
 typedef virNetworkPortPtr
-(*virNetworkPortLookupByUUIDType)(virNetworkPtr net,
-                                  const unsigned char * uuid);
+(*virNetworkPortLookupByUUIDFuncType)(virNetworkPtr net,
+                                      const unsigned char * uuid);
 
 virNetworkPortPtr
 virNetworkPortLookupByUUIDWrapper(virNetworkPtr net,
@@ -1126,7 +1161,7 @@ virNetworkPortLookupByUUIDWrapper(virNetworkPtr net,
                                   virErrorPtr err)
 {
     virNetworkPortPtr ret = NULL;
-    static virNetworkPortLookupByUUIDType virNetworkPortLookupByUUIDSymbol;
+    static virNetworkPortLookupByUUIDFuncType virNetworkPortLookupByUUIDSymbol;
     static bool once;
     static bool success;
 
@@ -1146,8 +1181,8 @@ virNetworkPortLookupByUUIDWrapper(virNetworkPtr net,
 }
 
 typedef virNetworkPortPtr
-(*virNetworkPortLookupByUUIDStringType)(virNetworkPtr net,
-                                        const char * uuidstr);
+(*virNetworkPortLookupByUUIDStringFuncType)(virNetworkPtr net,
+                                            const char * uuidstr);
 
 virNetworkPortPtr
 virNetworkPortLookupByUUIDStringWrapper(virNetworkPtr net,
@@ -1155,7 +1190,7 @@ virNetworkPortLookupByUUIDStringWrapper(virNetworkPtr net,
                                         virErrorPtr err)
 {
     virNetworkPortPtr ret = NULL;
-    static virNetworkPortLookupByUUIDStringType virNetworkPortLookupByUUIDStringSymbol;
+    static virNetworkPortLookupByUUIDStringFuncType virNetworkPortLookupByUUIDStringSymbol;
     static bool once;
     static bool success;
 
@@ -1175,14 +1210,14 @@ virNetworkPortLookupByUUIDStringWrapper(virNetworkPtr net,
 }
 
 typedef int
-(*virNetworkPortRefType)(virNetworkPortPtr port);
+(*virNetworkPortRefFuncType)(virNetworkPortPtr port);
 
 int
 virNetworkPortRefWrapper(virNetworkPortPtr port,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkPortRefType virNetworkPortRefSymbol;
+    static virNetworkPortRefFuncType virNetworkPortRefSymbol;
     static bool once;
     static bool success;
 
@@ -1201,10 +1236,10 @@ virNetworkPortRefWrapper(virNetworkPortPtr port,
 }
 
 typedef int
-(*virNetworkPortSetParametersType)(virNetworkPortPtr port,
-                                   virTypedParameterPtr params,
-                                   int nparams,
-                                   unsigned int flags);
+(*virNetworkPortSetParametersFuncType)(virNetworkPortPtr port,
+                                       virTypedParameterPtr params,
+                                       int nparams,
+                                       unsigned int flags);
 
 int
 virNetworkPortSetParametersWrapper(virNetworkPortPtr port,
@@ -1214,7 +1249,7 @@ virNetworkPortSetParametersWrapper(virNetworkPortPtr port,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkPortSetParametersType virNetworkPortSetParametersSymbol;
+    static virNetworkPortSetParametersFuncType virNetworkPortSetParametersSymbol;
     static bool once;
     static bool success;
 
@@ -1236,14 +1271,14 @@ virNetworkPortSetParametersWrapper(virNetworkPortPtr port,
 }
 
 typedef int
-(*virNetworkRefType)(virNetworkPtr network);
+(*virNetworkRefFuncType)(virNetworkPtr network);
 
 int
 virNetworkRefWrapper(virNetworkPtr network,
                      virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkRefType virNetworkRefSymbol;
+    static virNetworkRefFuncType virNetworkRefSymbol;
     static bool once;
     static bool success;
 
@@ -1262,8 +1297,8 @@ virNetworkRefWrapper(virNetworkPtr network,
 }
 
 typedef int
-(*virNetworkSetAutostartType)(virNetworkPtr network,
-                              int autostart);
+(*virNetworkSetAutostartFuncType)(virNetworkPtr network,
+                                  int autostart);
 
 int
 virNetworkSetAutostartWrapper(virNetworkPtr network,
@@ -1271,7 +1306,7 @@ virNetworkSetAutostartWrapper(virNetworkPtr network,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkSetAutostartType virNetworkSetAutostartSymbol;
+    static virNetworkSetAutostartFuncType virNetworkSetAutostartSymbol;
     static bool once;
     static bool success;
 
@@ -1291,14 +1326,55 @@ virNetworkSetAutostartWrapper(virNetworkPtr network,
 }
 
 typedef int
-(*virNetworkUndefineType)(virNetworkPtr network);
+(*virNetworkSetMetadataFuncType)(virNetworkPtr network,
+                                 int type,
+                                 const char * metadata,
+                                 const char * key,
+                                 const char * uri,
+                                 unsigned int flags);
+
+int
+virNetworkSetMetadataWrapper(virNetworkPtr network,
+                             int type,
+                             const char * metadata,
+                             const char * key,
+                             const char * uri,
+                             unsigned int flags,
+                             virErrorPtr err)
+{
+    int ret = -1;
+    static virNetworkSetMetadataFuncType virNetworkSetMetadataSymbol;
+    static bool once;
+    static bool success;
+
+    if (!libvirtSymbol("virNetworkSetMetadata",
+                       (void**)&virNetworkSetMetadataSymbol,
+                       &once,
+                       &success,
+                       err)) {
+        return ret;
+    }
+    ret = virNetworkSetMetadataSymbol(network,
+                                      type,
+                                      metadata,
+                                      key,
+                                      uri,
+                                      flags);
+    if (ret < 0) {
+        virCopyLastErrorWrapper(err);
+    }
+    return ret;
+}
+
+typedef int
+(*virNetworkUndefineFuncType)(virNetworkPtr network);
 
 int
 virNetworkUndefineWrapper(virNetworkPtr network,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkUndefineType virNetworkUndefineSymbol;
+    static virNetworkUndefineFuncType virNetworkUndefineSymbol;
     static bool once;
     static bool success;
 
@@ -1317,12 +1393,12 @@ virNetworkUndefineWrapper(virNetworkPtr network,
 }
 
 typedef int
-(*virNetworkUpdateType)(virNetworkPtr network,
-                        unsigned int command,
-                        unsigned int section,
-                        int parentIndex,
-                        const char * xml,
-                        unsigned int flags);
+(*virNetworkUpdateFuncType)(virNetworkPtr network,
+                            unsigned int command,
+                            unsigned int section,
+                            int parentIndex,
+                            const char * xml,
+                            unsigned int flags);
 
 int
 virNetworkUpdateWrapper(virNetworkPtr network,
@@ -1334,7 +1410,7 @@ virNetworkUpdateWrapper(virNetworkPtr network,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virNetworkUpdateType virNetworkUpdateSymbol;
+    static virNetworkUpdateFuncType virNetworkUpdateSymbol;
     static bool once;
     static bool success;
 

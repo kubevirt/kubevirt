@@ -6,10 +6,12 @@ import (
 
 // OptBootFileURL returns a OptionBootfileURL as defined by RFC 5970.
 func OptBootFileURL(url string) Option {
-	return optBootFileURL(url)
+	return &optBootFileURL{url}
 }
 
-type optBootFileURL string
+type optBootFileURL struct {
+	url string
+}
 
 // Code returns the option code
 func (op optBootFileURL) Code() OptionCode {
@@ -18,15 +20,16 @@ func (op optBootFileURL) Code() OptionCode {
 
 // ToBytes serializes the option and returns it as a sequence of bytes
 func (op optBootFileURL) ToBytes() []byte {
-	return []byte(op)
+	return []byte(op.url)
 }
 
 func (op optBootFileURL) String() string {
-	return fmt.Sprintf("BootFileURL: %s", string(op))
+	return fmt.Sprintf("%s: %s", op.Code(), op.url)
 }
 
-// parseOptBootFileURL builds an optBootFileURL structure from a sequence
+// FromBytes builds an optBootFileURL structure from a sequence
 // of bytes. The input data does not include option code and length bytes.
-func parseOptBootFileURL(data []byte) (optBootFileURL, error) {
-	return optBootFileURL(string(data)), nil
+func (op *optBootFileURL) FromBytes(data []byte) error {
+	op.url = string(data)
+	return nil
 }

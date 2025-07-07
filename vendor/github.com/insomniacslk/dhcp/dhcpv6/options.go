@@ -2,8 +2,9 @@ package dhcpv6
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // Option is an interface that all DHCPv6 options adhere to.
@@ -11,6 +12,7 @@ type Option interface {
 	Code() OptionCode
 	ToBytes() []byte
 	String() string
+	FromBytes([]byte) error
 }
 
 type OptionGeneric struct {
@@ -27,93 +29,125 @@ func (og *OptionGeneric) ToBytes() []byte {
 }
 
 func (og *OptionGeneric) String() string {
-	return fmt.Sprintf("%s -> %v", og.OptionCode, og.OptionData)
+	if len(og.OptionData) == 0 {
+		return og.OptionCode.String()
+	}
+	return fmt.Sprintf("%s: %v", og.OptionCode, og.OptionData)
+}
+
+// FromBytes resets OptionData to p.
+func (og *OptionGeneric) FromBytes(p []byte) error {
+	og.OptionData = append([]byte(nil), p...)
+	return nil
 }
 
 // ParseOption parses data according to the given code.
+//
+// Parse a sequence of bytes as a single DHCPv6 option.
+// Returns the option structure, or an error if any.
 func ParseOption(code OptionCode, optData []byte) (Option, error) {
-	// Parse a sequence of bytes as a single DHCPv6 option.
-	// Returns the option structure, or an error if any.
-	var (
-		err error
-		opt Option
-	)
+	var opt Option
 	switch code {
 	case OptionClientID:
-		opt, err = parseOptClientID(optData)
+		opt = &optClientID{}
 	case OptionServerID:
-		opt, err = parseOptServerID(optData)
+		opt = &optServerID{}
 	case OptionIANA:
-		opt, err = ParseOptIANA(optData)
+		opt = &OptIANA{}
 	case OptionIATA:
-		opt, err = ParseOptIATA(optData)
+		opt = &OptIATA{}
 	case OptionIAAddr:
-		opt, err = ParseOptIAAddress(optData)
+		opt = &OptIAAddress{}
 	case OptionORO:
-		var o optRequestedOption
-		err = o.FromBytes(optData)
-		opt = &o
+		opt = &optRequestedOption{}
 	case OptionElapsedTime:
-		opt, err = parseOptElapsedTime(optData)
+		opt = &optElapsedTime{}
 	case OptionRelayMsg:
-		opt, err = parseOptRelayMsg(optData)
+		opt = &optRelayMsg{}
 	case OptionStatusCode:
-		opt, err = ParseOptStatusCode(optData)
+		opt = &OptStatusCode{}
 	case OptionUserClass:
-		opt, err = ParseOptUserClass(optData)
+		opt = &OptUserClass{}
 	case OptionVendorClass:
-		opt, err = ParseOptVendorClass(optData)
+		opt = &OptVendorClass{}
 	case OptionVendorOpts:
-		opt, err = ParseOptVendorOpts(optData)
+		opt = &OptVendorOpts{}
 	case OptionInterfaceID:
-		opt, err = parseOptInterfaceID(optData)
+		opt = &optInterfaceID{}
 	case OptionDNSRecursiveNameServer:
-		opt, err = parseOptDNS(optData)
+		opt = &optDNS{}
 	case OptionDomainSearchList:
-		opt, err = parseOptDomainSearchList(optData)
+		opt = &optDomainSearchList{}
 	case OptionIAPD:
-		opt, err = ParseOptIAPD(optData)
+		opt = &OptIAPD{}
 	case OptionIAPrefix:
-		opt, err = ParseOptIAPrefix(optData)
+		opt = &OptIAPrefix{}
 	case OptionInformationRefreshTime:
-		opt, err = parseOptInformationRefreshTime(optData)
+		opt = &optInformationRefreshTime{}
 	case OptionRemoteID:
-		opt, err = ParseOptRemoteID(optData)
+		opt = &OptRemoteID{}
 	case OptionFQDN:
-		opt, err = ParseOptFQDN(optData)
+		opt = &OptFQDN{}
+	case OptionNTPServer:
+		opt = &OptNTPServer{}
 	case OptionBootfileURL:
-		opt, err = parseOptBootFileURL(optData)
+		opt = &optBootFileURL{}
 	case OptionBootfileParam:
-		opt, err = parseOptBootFileParam(optData)
+		opt = &optBootFileParam{}
 	case OptionClientArchType:
-		opt, err = parseOptClientArchType(optData)
+		opt = &optClientArchType{}
 	case OptionNII:
-		var o OptNetworkInterfaceID
-		err = o.FromBytes(optData)
-		opt = &o
+		opt = &OptNetworkInterfaceID{}
 	case OptionClientLinkLayerAddr:
-		opt, err = parseOptClientLinkLayerAddress(optData)
+		opt = &optClientLinkLayerAddress{}
 	case OptionDHCPv4Msg:
-		opt, err = ParseOptDHCPv4Msg(optData)
+		opt = &OptDHCPv4Msg{}
 	case OptionDHCP4oDHCP6Server:
-		opt, err = ParseOptDHCP4oDHCP6Server(optData)
+		opt = &OptDHCP4oDHCP6Server{}
 	case Option4RD:
-		opt, err = ParseOpt4RD(optData)
+		opt = &Opt4RD{}
 	case Option4RDMapRule:
-		opt, err = ParseOpt4RDMapRule(optData)
+		opt = &Opt4RDMapRule{}
 	case Option4RDNonMapRule:
-		opt, err = ParseOpt4RDNonMapRule(optData)
+		opt = &Opt4RDNonMapRule{}
+	case OptionRelayPort:
+		opt = &optRelayPort{}
 	default:
-		opt = &OptionGeneric{OptionCode: code, OptionData: optData}
+		opt = &OptionGeneric{OptionCode: code}
 	}
-	if err != nil {
-		return nil, err
-	}
-	return opt, nil
+	return opt, opt.FromBytes(optData)
+}
+
+type longStringer interface {
+	LongString(spaceIndent int) string
 }
 
 // Options is a collection of options.
 type Options []Option
+
+// LongString prints options with indentation of at least spaceIndent spaces.
+func (o Options) LongString(spaceIndent int) string {
+	indent := strings.Repeat(" ", spaceIndent)
+	var s strings.Builder
+	if len(o) == 0 {
+		s.WriteString("[]")
+	} else {
+		s.WriteString("[\n")
+		for _, opt := range o {
+			s.WriteString(indent)
+			s.WriteString("  ")
+			if ls, ok := opt.(longStringer); ok {
+				s.WriteString(ls.LongString(spaceIndent + 2))
+			} else {
+				s.WriteString(opt.String())
+			}
+			s.WriteString("\n")
+		}
+		s.WriteString(indent)
+		s.WriteString("]")
+	}
+	return s.String()
+}
 
 // Get returns all options matching the option code.
 func (o Options) Get(code OptionCode) []Option {
@@ -190,7 +224,9 @@ type OptionParser func(code OptionCode, data []byte) (Option, error)
 // FromBytesWithParser parses Options from byte sequences using the parsing
 // function that is passed in as a paremeter
 func (o *Options) FromBytesWithParser(data []byte, parser OptionParser) error {
-	*o = make(Options, 0, 10)
+	if *o == nil {
+		*o = make(Options, 0, 10)
+	}
 	if len(data) == 0 {
 		// no options, no party
 		return nil

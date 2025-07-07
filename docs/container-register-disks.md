@@ -45,7 +45,7 @@ else a user might want to distribute with their VMIs.
 
 ### High Level Design
 
-**Standardised KubeVirt VMI disk Wrapper**
+**Standardized KubeVirt VMI disk Wrapper**
 
 KubeVirt provides a standardized base wrapper container image that serves up a
 user provided VMI disk as a local file consumable by Libvirt. This base
@@ -63,7 +63,7 @@ Example:
 ```
 cat << END > Dockerfile
 FROM scratch
-ADD fedora25.qcow2 /disk/
+ADD --chown=107:107 fedora25.qcow2 /disk/
 END
 docker build -t vmdisks/fedora25:latest .
 docker push vmdisks/fedora25:latest

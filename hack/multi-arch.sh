@@ -17,6 +17,8 @@
 # Copyright 2023 NVIDIA CORPORATION
 #
 
+source hack/common.sh
+
 COMMAND=$1
 
 build_count=$(echo ${BUILD_ARCH//,/ } | wc -w)
@@ -25,8 +27,11 @@ build_count=$(echo ${BUILD_ARCH//,/ } | wc -w)
 if [ "$build_count" -gt 1 ]; then
     for arch in ${BUILD_ARCH//,/ }; do
         echo "[INFO] -- working on $arch --"
-        DOCKER_TAG=$DOCKER_TAG-$arch ARCHITECTURE=$arch hack/bazel-${COMMAND}.sh
+        arch=$(format_archname $arch)
+        tag=$(format_archname $arch tag)
+        DOCKER_TAG=$DOCKER_TAG-$tag ARCHITECTURE=$arch hack/bazel-${COMMAND}.sh
     done
 else
-    hack/bazel-${COMMAND}.sh
+    arch=$(format_archname ${BUILD_ARCH})
+    ARCHITECTURE=${arch} hack/bazel-${COMMAND}.sh
 fi

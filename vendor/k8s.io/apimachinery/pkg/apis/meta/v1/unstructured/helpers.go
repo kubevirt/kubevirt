@@ -173,7 +173,7 @@ func NestedStringMap(obj map[string]interface{}, fields ...string) (map[string]s
 		if str, ok := v.(string); ok {
 			strMap[k] = str
 		} else {
-			return nil, false, fmt.Errorf("%v accessor error: contains non-string key in the map: %v is of the type %T, expected string", jsonPath(fields), v, v)
+			return nil, false, fmt.Errorf("%v accessor error: contains non-string value in the map under key %q: %v is of the type %T, expected string", jsonPath(fields), k, v, v)
 		}
 	}
 	return strMap, true, nil
@@ -340,6 +340,7 @@ func (s unstructuredJSONScheme) Decode(data []byte, _ *schema.GroupVersionKind, 
 	if len(gvk.Kind) == 0 {
 		return nil, &gvk, runtime.NewMissingKindErr(string(data))
 	}
+	// TODO(109023): require apiVersion here as well
 
 	return obj, &gvk, nil
 }

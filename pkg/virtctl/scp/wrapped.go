@@ -1,12 +1,8 @@
 package scp
 
-import (
-	"strings"
+import "strings"
 
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
-)
-
-func (o *SCP) buildSCPTarget(local templates.LocalSCPArgument, remote templates.RemoteSCPArgument, toRemote bool) (opts []string) {
+func (o *SCP) buildSCPTarget(local *LocalArgument, remote *RemoteArgument, toRemote bool) (opts []string) {
 	if o.recursive {
 		opts = append(opts, "-r")
 	}
@@ -19,8 +15,10 @@ func (o *SCP) buildSCPTarget(local templates.LocalSCPArgument, remote templates.
 		target.WriteString(o.options.SSHUsername)
 		target.WriteRune('@')
 	}
+	target.WriteString(remote.Kind)
+	target.WriteString(".")
 	target.WriteString(remote.Name)
-	target.WriteRune('.')
+	target.WriteString(".")
 	target.WriteString(remote.Namespace)
 	target.WriteRune(':')
 	target.WriteString(remote.Path)

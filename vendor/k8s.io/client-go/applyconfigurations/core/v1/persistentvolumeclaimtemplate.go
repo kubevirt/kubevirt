@@ -24,14 +24,14 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// PersistentVolumeClaimTemplateApplyConfiguration represents an declarative configuration of the PersistentVolumeClaimTemplate type for use
+// PersistentVolumeClaimTemplateApplyConfiguration represents a declarative configuration of the PersistentVolumeClaimTemplate type for use
 // with apply.
 type PersistentVolumeClaimTemplateApplyConfiguration struct {
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	Spec                             *PersistentVolumeClaimSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
-// PersistentVolumeClaimTemplateApplyConfiguration constructs an declarative configuration of the PersistentVolumeClaimTemplate type for use with
+// PersistentVolumeClaimTemplateApplyConfiguration constructs a declarative configuration of the PersistentVolumeClaimTemplate type for use with
 // apply.
 func PersistentVolumeClaimTemplate() *PersistentVolumeClaimTemplateApplyConfiguration {
 	return &PersistentVolumeClaimTemplateApplyConfiguration{}
@@ -61,15 +61,6 @@ func (b *PersistentVolumeClaimTemplateApplyConfiguration) WithGenerateName(value
 func (b *PersistentVolumeClaimTemplateApplyConfiguration) WithNamespace(value string) *PersistentVolumeClaimTemplateApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *PersistentVolumeClaimTemplateApplyConfiguration) WithSelfLink(value string) *PersistentVolumeClaimTemplateApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -182,15 +173,6 @@ func (b *PersistentVolumeClaimTemplateApplyConfiguration) WithFinalizers(values 
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *PersistentVolumeClaimTemplateApplyConfiguration) WithClusterName(value string) *PersistentVolumeClaimTemplateApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *PersistentVolumeClaimTemplateApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -203,4 +185,10 @@ func (b *PersistentVolumeClaimTemplateApplyConfiguration) ensureObjectMetaApplyC
 func (b *PersistentVolumeClaimTemplateApplyConfiguration) WithSpec(value *PersistentVolumeClaimSpecApplyConfiguration) *PersistentVolumeClaimTemplateApplyConfiguration {
 	b.Spec = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *PersistentVolumeClaimTemplateApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

@@ -6,9 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-api",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/monitoring/client/prometheus:go_default_library",
-        "//pkg/monitoring/reflector/prometheus:go_default_library",
-        "//pkg/monitoring/workqueue/prometheus:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/virt-api:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
@@ -41,6 +38,7 @@ container_image(
     name = "virt-api-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
     base = ":version-container",

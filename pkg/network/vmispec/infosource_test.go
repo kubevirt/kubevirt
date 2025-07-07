@@ -44,4 +44,18 @@ var _ = Describe("infoSource", func() {
 		Entry("given an already existing infoSource entry",
 			"domain, guest-agent, multus-status", "multus-status", "domain, guest-agent, multus-status"),
 	)
+
+	DescribeTable("can remove an infoSource entry",
+		func(infoSourceData, infoSourceItem, expectedInfoSourceData string) {
+			Expect(vmispec.RemoveInfoSource(infoSourceData, infoSourceItem)).To(Equal(expectedInfoSourceData))
+		},
+		Entry("given no infoSource entries",
+			emptySourceInfo, vmispec.InfoSourceDomain, emptySourceInfo),
+		Entry("given one infoSource entry",
+			vmispec.InfoSourceDomain, vmispec.InfoSourceDomain, emptySourceInfo),
+		Entry("given two infoSource entries",
+			"domain, guest-agent", "domain", "guest-agent"),
+		Entry("given different infoSource entries",
+			"domain, guest-agent, multus-status", "foo", "domain, guest-agent, multus-status"),
+	)
 })

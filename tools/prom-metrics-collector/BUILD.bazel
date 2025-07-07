@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "metrics_collector.go",
+        "metrics_json_generator.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/tools/prom-metrics-collector",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//vendor/github.com/kubevirt/monitoring/pkg/metrics/parser:go_default_library",
+        "//vendor/github.com/prometheus/client_model/go:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "prom-metrics-collector",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

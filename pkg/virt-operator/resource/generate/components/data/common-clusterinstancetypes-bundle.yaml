@@ -1,0 +1,1550 @@
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "8"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 16Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: 2xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: cx1.2xlarge
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 8
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 16Gi
+    hugepages:
+      pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "16"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 32Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: 4xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: cx1.4xlarge
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 16
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 32Gi
+    hugepages:
+      pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "32"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 64Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: 8xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: cx1.8xlarge
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 32
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 64Gi
+    hugepages:
+      pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "2"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 4Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: large
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: cx1.large
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 2
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 4Gi
+    hugepages:
+      pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 2Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: medium
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: cx1.medium
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 1
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 2Gi
+    hugepages:
+      pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "4"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 8Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: cx1.xlarge
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 4
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 8Gi
+    hugepages:
+      pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The M Series provides resources for memory intensive
+      applications.
+
+      *M* is the abbreviation of "Memory".
+    instancetype.kubevirt.io/displayName: Memory Intensive
+  labels:
+    instancetype.kubevirt.io/class: memory.intensive
+    instancetype.kubevirt.io/cpu: "8"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: fa-memory
+    instancetype.kubevirt.io/memory: 64Gi
+    instancetype.kubevirt.io/size: 2xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: m1.2xlarge
+spec:
+  cpu:
+    guest: 8
+  memory:
+    guest: 64Gi
+    hugepages:
+      pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The M Series provides resources for memory intensive
+      applications.
+
+      *M* is the abbreviation of "Memory".
+    instancetype.kubevirt.io/displayName: Memory Intensive
+  labels:
+    instancetype.kubevirt.io/class: memory.intensive
+    instancetype.kubevirt.io/cpu: "16"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: fa-memory
+    instancetype.kubevirt.io/memory: 128Gi
+    instancetype.kubevirt.io/size: 4xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: m1.4xlarge
+spec:
+  cpu:
+    guest: 16
+  memory:
+    guest: 128Gi
+    hugepages:
+      pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The M Series provides resources for memory intensive
+      applications.
+
+      *M* is the abbreviation of "Memory".
+    instancetype.kubevirt.io/displayName: Memory Intensive
+  labels:
+    instancetype.kubevirt.io/class: memory.intensive
+    instancetype.kubevirt.io/cpu: "32"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: fa-memory
+    instancetype.kubevirt.io/memory: 256Gi
+    instancetype.kubevirt.io/size: 8xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: m1.8xlarge
+spec:
+  cpu:
+    guest: 32
+  memory:
+    guest: 256Gi
+    hugepages:
+      pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The M Series provides resources for memory intensive
+      applications.
+
+      *M* is the abbreviation of "Memory".
+    instancetype.kubevirt.io/displayName: Memory Intensive
+  labels:
+    instancetype.kubevirt.io/class: memory.intensive
+    instancetype.kubevirt.io/cpu: "2"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: fa-memory
+    instancetype.kubevirt.io/memory: 16Gi
+    instancetype.kubevirt.io/size: large
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: m1.large
+spec:
+  cpu:
+    guest: 2
+  memory:
+    guest: 16Gi
+    hugepages:
+      pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The M Series provides resources for memory intensive
+      applications.
+
+      *M* is the abbreviation of "Memory".
+    instancetype.kubevirt.io/displayName: Memory Intensive
+  labels:
+    instancetype.kubevirt.io/class: memory.intensive
+    instancetype.kubevirt.io/cpu: "4"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: fa-memory
+    instancetype.kubevirt.io/memory: 32Gi
+    instancetype.kubevirt.io/size: xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: m1.xlarge
+spec:
+  cpu:
+    guest: 4
+  memory:
+    guest: 32Gi
+    hugepages:
+      pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The N Series provides resources for network intensive DPDK
+      applications, like VNFs.
+
+      *N* is the abbreviation for "Network".
+
+      This series of instancetypes requires nodes capable
+      of running DPDK workloads and being marked with the respective
+      node-role.kubevirt.io/worker-dpdk label as such.
+    instancetype.kubevirt.io/displayName: Network
+  labels:
+    instancetype.kubevirt.io/class: network
+    instancetype.kubevirt.io/cpu: "16"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-network
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 32Gi
+    instancetype.kubevirt.io/size: 2xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: n1.2xlarge
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 16
+    isolateEmulatorThread: true
+  memory:
+    guest: 32Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The N Series provides resources for network intensive DPDK
+      applications, like VNFs.
+
+      *N* is the abbreviation for "Network".
+
+      This series of instancetypes requires nodes capable
+      of running DPDK workloads and being marked with the respective
+      node-role.kubevirt.io/worker-dpdk label as such.
+    instancetype.kubevirt.io/displayName: Network
+  labels:
+    instancetype.kubevirt.io/class: network
+    instancetype.kubevirt.io/cpu: "32"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-network
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 64Gi
+    instancetype.kubevirt.io/size: 4xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: n1.4xlarge
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 32
+    isolateEmulatorThread: true
+  memory:
+    guest: 64Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The N Series provides resources for network intensive DPDK
+      applications, like VNFs.
+
+      *N* is the abbreviation for "Network".
+
+      This series of instancetypes requires nodes capable
+      of running DPDK workloads and being marked with the respective
+      node-role.kubevirt.io/worker-dpdk label as such.
+    instancetype.kubevirt.io/displayName: Network
+  labels:
+    instancetype.kubevirt.io/class: network
+    instancetype.kubevirt.io/cpu: "64"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-network
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 128Gi
+    instancetype.kubevirt.io/size: 8xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: n1.8xlarge
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 64
+    isolateEmulatorThread: true
+  memory:
+    guest: 128Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The N Series provides resources for network intensive DPDK
+      applications, like VNFs.
+
+      *N* is the abbreviation for "Network".
+
+      This series of instancetypes requires nodes capable
+      of running DPDK workloads and being marked with the respective
+      node-role.kubevirt.io/worker-dpdk label as such.
+    instancetype.kubevirt.io/displayName: Network
+  labels:
+    instancetype.kubevirt.io/class: network
+    instancetype.kubevirt.io/cpu: "4"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-network
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 8Gi
+    instancetype.kubevirt.io/size: large
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: n1.large
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 4
+    isolateEmulatorThread: true
+  memory:
+    guest: 8Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The N Series provides resources for network intensive DPDK
+      applications, like VNFs.
+
+      *N* is the abbreviation for "Network".
+
+      This series of instancetypes requires nodes capable
+      of running DPDK workloads and being marked with the respective
+      node-role.kubevirt.io/worker-dpdk label as such.
+    instancetype.kubevirt.io/displayName: Network
+  labels:
+    instancetype.kubevirt.io/class: network
+    instancetype.kubevirt.io/cpu: "4"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-network
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 4Gi
+    instancetype.kubevirt.io/size: medium
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: n1.medium
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 4
+    isolateEmulatorThread: true
+  memory:
+    guest: 4Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The N Series provides resources for network intensive DPDK
+      applications, like VNFs.
+
+      *N* is the abbreviation for "Network".
+
+      This series of instancetypes requires nodes capable
+      of running DPDK workloads and being marked with the respective
+      node-role.kubevirt.io/worker-dpdk label as such.
+    instancetype.kubevirt.io/displayName: Network
+  labels:
+    instancetype.kubevirt.io/class: network
+    instancetype.kubevirt.io/cpu: "8"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-network
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 16Gi
+    instancetype.kubevirt.io/size: xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: n1.xlarge
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 8
+    isolateEmulatorThread: true
+  memory:
+    guest: 16Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The O Series is based on the U Series, with the only difference
+      being that memory is overcommitted.
+
+      *O* is the abbreviation for "Overcommitted".
+    instancetype.kubevirt.io/displayName: Overcommitted
+  labels:
+    instancetype.kubevirt.io/class: overcommitted
+    instancetype.kubevirt.io/cpu: "8"
+    instancetype.kubevirt.io/icon-pf: pficon-virtual-machine
+    instancetype.kubevirt.io/memory: 32Gi
+    instancetype.kubevirt.io/size: 2xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: o1.2xlarge
+spec:
+  cpu:
+    guest: 8
+  memory:
+    guest: 32Gi
+    overcommitPercent: 50
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The O Series is based on the U Series, with the only difference
+      being that memory is overcommitted.
+
+      *O* is the abbreviation for "Overcommitted".
+    instancetype.kubevirt.io/displayName: Overcommitted
+  labels:
+    instancetype.kubevirt.io/class: overcommitted
+    instancetype.kubevirt.io/cpu: "16"
+    instancetype.kubevirt.io/icon-pf: pficon-virtual-machine
+    instancetype.kubevirt.io/memory: 64Gi
+    instancetype.kubevirt.io/size: 4xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: o1.4xlarge
+spec:
+  cpu:
+    guest: 16
+  memory:
+    guest: 64Gi
+    overcommitPercent: 50
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The O Series is based on the U Series, with the only difference
+      being that memory is overcommitted.
+
+      *O* is the abbreviation for "Overcommitted".
+    instancetype.kubevirt.io/displayName: Overcommitted
+  labels:
+    instancetype.kubevirt.io/class: overcommitted
+    instancetype.kubevirt.io/cpu: "32"
+    instancetype.kubevirt.io/icon-pf: pficon-virtual-machine
+    instancetype.kubevirt.io/memory: 128Gi
+    instancetype.kubevirt.io/size: 8xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: o1.8xlarge
+spec:
+  cpu:
+    guest: 32
+  memory:
+    guest: 128Gi
+    overcommitPercent: 50
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The O Series is based on the U Series, with the only difference
+      being that memory is overcommitted.
+
+      *O* is the abbreviation for "Overcommitted".
+    instancetype.kubevirt.io/displayName: Overcommitted
+  labels:
+    instancetype.kubevirt.io/class: overcommitted
+    instancetype.kubevirt.io/cpu: "2"
+    instancetype.kubevirt.io/icon-pf: pficon-virtual-machine
+    instancetype.kubevirt.io/memory: 8Gi
+    instancetype.kubevirt.io/size: large
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: o1.large
+spec:
+  cpu:
+    guest: 2
+  memory:
+    guest: 8Gi
+    overcommitPercent: 50
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The O Series is based on the U Series, with the only difference
+      being that memory is overcommitted.
+
+      *O* is the abbreviation for "Overcommitted".
+    instancetype.kubevirt.io/displayName: Overcommitted
+  labels:
+    instancetype.kubevirt.io/class: overcommitted
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/icon-pf: pficon-virtual-machine
+    instancetype.kubevirt.io/memory: 4Gi
+    instancetype.kubevirt.io/size: medium
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: o1.medium
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 4Gi
+    overcommitPercent: 50
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The O Series is based on the U Series, with the only difference
+      being that memory is overcommitted.
+
+      *O* is the abbreviation for "Overcommitted".
+    instancetype.kubevirt.io/displayName: Overcommitted
+  labels:
+    instancetype.kubevirt.io/class: overcommitted
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/icon-pf: pficon-virtual-machine
+    instancetype.kubevirt.io/memory: 1Gi
+    instancetype.kubevirt.io/size: micro
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: o1.micro
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 1Gi
+    overcommitPercent: 50
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The O Series is based on the U Series, with the only difference
+      being that memory is overcommitted.
+
+      *O* is the abbreviation for "Overcommitted".
+    instancetype.kubevirt.io/displayName: Overcommitted
+  labels:
+    instancetype.kubevirt.io/class: overcommitted
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/icon-pf: pficon-virtual-machine
+    instancetype.kubevirt.io/memory: 512Mi
+    instancetype.kubevirt.io/size: nano
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: o1.nano
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 512Mi
+    overcommitPercent: 50
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The O Series is based on the U Series, with the only difference
+      being that memory is overcommitted.
+
+      *O* is the abbreviation for "Overcommitted".
+    instancetype.kubevirt.io/displayName: Overcommitted
+  labels:
+    instancetype.kubevirt.io/class: overcommitted
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/icon-pf: pficon-virtual-machine
+    instancetype.kubevirt.io/memory: 2Gi
+    instancetype.kubevirt.io/size: small
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: o1.small
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 2Gi
+    overcommitPercent: 50
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The O Series is based on the U Series, with the only difference
+      being that memory is overcommitted.
+
+      *O* is the abbreviation for "Overcommitted".
+    instancetype.kubevirt.io/displayName: Overcommitted
+  labels:
+    instancetype.kubevirt.io/class: overcommitted
+    instancetype.kubevirt.io/cpu: "4"
+    instancetype.kubevirt.io/icon-pf: pficon-virtual-machine
+    instancetype.kubevirt.io/memory: 16Gi
+    instancetype.kubevirt.io/size: xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: o1.xlarge
+spec:
+  cpu:
+    guest: 4
+  memory:
+    guest: 16Gi
+    overcommitPercent: 50
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The RT Series provides resources for realtime applications, like Oslat.
+
+      *RT* is the abbreviation for "realtime".
+
+      This series of instance types requires nodes capable of running
+      realtime applications.
+    instancetype.kubevirt.io/displayName: Realtime
+  labels:
+    instancetype.kubevirt.io/class: realtime
+    instancetype.kubevirt.io/cpu: "8"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 32Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/realtime: "true"
+    instancetype.kubevirt.io/size: 2xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: rt1.2xlarge
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 8
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+    realtime: {}
+  memory:
+    guest: 32Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The RT Series provides resources for realtime applications, like Oslat.
+
+      *RT* is the abbreviation for "realtime".
+
+      This series of instance types requires nodes capable of running
+      realtime applications.
+    instancetype.kubevirt.io/displayName: Realtime
+  labels:
+    instancetype.kubevirt.io/class: realtime
+    instancetype.kubevirt.io/cpu: "16"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 64Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/realtime: "true"
+    instancetype.kubevirt.io/size: 4xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: rt1.4xlarge
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 16
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+    realtime: {}
+  memory:
+    guest: 64Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The RT Series provides resources for realtime applications, like Oslat.
+
+      *RT* is the abbreviation for "realtime".
+
+      This series of instance types requires nodes capable of running
+      realtime applications.
+    instancetype.kubevirt.io/displayName: Realtime
+  labels:
+    instancetype.kubevirt.io/class: realtime
+    instancetype.kubevirt.io/cpu: "32"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 128Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/realtime: "true"
+    instancetype.kubevirt.io/size: 8xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: rt1.8xlarge
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 32
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+    realtime: {}
+  memory:
+    guest: 128Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The RT Series provides resources for realtime applications, like Oslat.
+
+      *RT* is the abbreviation for "realtime".
+
+      This series of instance types requires nodes capable of running
+      realtime applications.
+    instancetype.kubevirt.io/displayName: Realtime
+  labels:
+    instancetype.kubevirt.io/class: realtime
+    instancetype.kubevirt.io/cpu: "2"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 8Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/realtime: "true"
+    instancetype.kubevirt.io/size: large
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: rt1.large
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 2
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+    realtime: {}
+  memory:
+    guest: 8Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The RT Series provides resources for realtime applications, like Oslat.
+
+      *RT* is the abbreviation for "realtime".
+
+      This series of instance types requires nodes capable of running
+      realtime applications.
+    instancetype.kubevirt.io/displayName: Realtime
+  labels:
+    instancetype.kubevirt.io/class: realtime
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 4Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/realtime: "true"
+    instancetype.kubevirt.io/size: medium
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: rt1.medium
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 1
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+    realtime: {}
+  memory:
+    guest: 4Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The RT Series provides resources for realtime applications, like Oslat.
+
+      *RT* is the abbreviation for "realtime".
+
+      This series of instance types requires nodes capable of running
+      realtime applications.
+    instancetype.kubevirt.io/displayName: Realtime
+  labels:
+    instancetype.kubevirt.io/class: realtime
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 1Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/realtime: "true"
+    instancetype.kubevirt.io/size: micro
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: rt1.micro
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 1
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+    realtime: {}
+  memory:
+    guest: 1Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The RT Series provides resources for realtime applications, like Oslat.
+
+      *RT* is the abbreviation for "realtime".
+
+      This series of instance types requires nodes capable of running
+      realtime applications.
+    instancetype.kubevirt.io/displayName: Realtime
+  labels:
+    instancetype.kubevirt.io/class: realtime
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 2Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/realtime: "true"
+    instancetype.kubevirt.io/size: small
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: rt1.small
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 1
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+    realtime: {}
+  memory:
+    guest: 2Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The RT Series provides resources for realtime applications, like Oslat.
+
+      *RT* is the abbreviation for "realtime".
+
+      This series of instance types requires nodes capable of running
+      realtime applications.
+    instancetype.kubevirt.io/displayName: Realtime
+  labels:
+    instancetype.kubevirt.io/class: realtime
+    instancetype.kubevirt.io/cpu: "4"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 16Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/realtime: "true"
+    instancetype.kubevirt.io/size: xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: rt1.xlarge
+spec:
+  annotations:
+    cpu-load-balancing.crio.io: disable
+    cpu-quota.crio.io: disable
+    irq-load-balancing.crio.io: disable
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 4
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+    realtime: {}
+  memory:
+    guest: 16Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The U Series is quite neutral and provides resources for
+      general purpose applications.
+
+      *U* is the abbreviation for "Universal", hinting at the universal
+      attitude towards workloads.
+
+      VMs of instance types will share physical CPU cores on a
+      time-slice basis with other VMs.
+    instancetype.kubevirt.io/displayName: General Purpose
+  labels:
+    instancetype.kubevirt.io/class: general.purpose
+    instancetype.kubevirt.io/cpu: "8"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/memory: 32Gi
+    instancetype.kubevirt.io/size: 2xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: u1.2xlarge
+spec:
+  cpu:
+    guest: 8
+  memory:
+    guest: 32Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The U Series is quite neutral and provides resources for
+      general purpose applications.
+
+      *U* is the abbreviation for "Universal", hinting at the universal
+      attitude towards workloads.
+
+      VMs of instance types will share physical CPU cores on a
+      time-slice basis with other VMs.
+    instancetype.kubevirt.io/displayName: General Purpose
+  labels:
+    instancetype.kubevirt.io/class: general.purpose
+    instancetype.kubevirt.io/cpu: "2"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/memory: 4Gi
+    instancetype.kubevirt.io/size: 2xmedium
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: u1.2xmedium
+spec:
+  cpu:
+    guest: 2
+  memory:
+    guest: 4Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The U Series is quite neutral and provides resources for
+      general purpose applications.
+
+      *U* is the abbreviation for "Universal", hinting at the universal
+      attitude towards workloads.
+
+      VMs of instance types will share physical CPU cores on a
+      time-slice basis with other VMs.
+    instancetype.kubevirt.io/displayName: General Purpose
+  labels:
+    instancetype.kubevirt.io/class: general.purpose
+    instancetype.kubevirt.io/cpu: "16"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/memory: 64Gi
+    instancetype.kubevirt.io/size: 4xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: u1.4xlarge
+spec:
+  cpu:
+    guest: 16
+  memory:
+    guest: 64Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The U Series is quite neutral and provides resources for
+      general purpose applications.
+
+      *U* is the abbreviation for "Universal", hinting at the universal
+      attitude towards workloads.
+
+      VMs of instance types will share physical CPU cores on a
+      time-slice basis with other VMs.
+    instancetype.kubevirt.io/displayName: General Purpose
+  labels:
+    instancetype.kubevirt.io/class: general.purpose
+    instancetype.kubevirt.io/cpu: "32"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/memory: 128Gi
+    instancetype.kubevirt.io/size: 8xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: u1.8xlarge
+spec:
+  cpu:
+    guest: 32
+  memory:
+    guest: 128Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The U Series is quite neutral and provides resources for
+      general purpose applications.
+
+      *U* is the abbreviation for "Universal", hinting at the universal
+      attitude towards workloads.
+
+      VMs of instance types will share physical CPU cores on a
+      time-slice basis with other VMs.
+    instancetype.kubevirt.io/displayName: General Purpose
+  labels:
+    instancetype.kubevirt.io/class: general.purpose
+    instancetype.kubevirt.io/cpu: "2"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/memory: 8Gi
+    instancetype.kubevirt.io/size: large
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: u1.large
+spec:
+  cpu:
+    guest: 2
+  memory:
+    guest: 8Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The U Series is quite neutral and provides resources for
+      general purpose applications.
+
+      *U* is the abbreviation for "Universal", hinting at the universal
+      attitude towards workloads.
+
+      VMs of instance types will share physical CPU cores on a
+      time-slice basis with other VMs.
+    instancetype.kubevirt.io/displayName: General Purpose
+  labels:
+    instancetype.kubevirt.io/class: general.purpose
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/memory: 4Gi
+    instancetype.kubevirt.io/size: medium
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: u1.medium
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 4Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The U Series is quite neutral and provides resources for
+      general purpose applications.
+
+      *U* is the abbreviation for "Universal", hinting at the universal
+      attitude towards workloads.
+
+      VMs of instance types will share physical CPU cores on a
+      time-slice basis with other VMs.
+    instancetype.kubevirt.io/displayName: General Purpose
+  labels:
+    instancetype.kubevirt.io/class: general.purpose
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/memory: 1Gi
+    instancetype.kubevirt.io/size: micro
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: u1.micro
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The U Series is quite neutral and provides resources for
+      general purpose applications.
+
+      *U* is the abbreviation for "Universal", hinting at the universal
+      attitude towards workloads.
+
+      VMs of instance types will share physical CPU cores on a
+      time-slice basis with other VMs.
+    instancetype.kubevirt.io/displayName: General Purpose
+  labels:
+    instancetype.kubevirt.io/class: general.purpose
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/memory: 512Mi
+    instancetype.kubevirt.io/size: nano
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: u1.nano
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 512Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The U Series is quite neutral and provides resources for
+      general purpose applications.
+
+      *U* is the abbreviation for "Universal", hinting at the universal
+      attitude towards workloads.
+
+      VMs of instance types will share physical CPU cores on a
+      time-slice basis with other VMs.
+    instancetype.kubevirt.io/displayName: General Purpose
+  labels:
+    instancetype.kubevirt.io/class: general.purpose
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/memory: 2Gi
+    instancetype.kubevirt.io/size: small
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: u1.small
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 2Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The U Series is quite neutral and provides resources for
+      general purpose applications.
+
+      *U* is the abbreviation for "Universal", hinting at the universal
+      attitude towards workloads.
+
+      VMs of instance types will share physical CPU cores on a
+      time-slice basis with other VMs.
+    instancetype.kubevirt.io/displayName: General Purpose
+  labels:
+    instancetype.kubevirt.io/class: general.purpose
+    instancetype.kubevirt.io/cpu: "4"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/memory: 16Gi
+    instancetype.kubevirt.io/size: xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+  name: u1.xlarge
+spec:
+  cpu:
+    guest: 4
+  memory:
+    guest: 16Gi

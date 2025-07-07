@@ -20,7 +20,6 @@
 package mutators
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -35,15 +34,17 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/defaults"
+	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type VMIsMutator struct {
-	ClusterConfig     *virtconfig.ClusterConfig
-	VMIPresetInformer cache.SharedIndexInformer
+	ClusterConfig           *virtconfig.ClusterConfig
+	VMIPresetInformer       cache.SharedIndexInformer
+	KubeVirtServiceAccounts map[string]struct{}
 }
 
 const presetDeprecationWarning = "kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."
@@ -63,7 +64,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	var patchOps []patch.PatchOperation
+	patchSet := patch.New()
 
 	// Patch the spec, metadata and status with defaults if we deal with a create operation
 	if ar.Request.Operation == admissionv1.Create {
@@ -80,17 +81,20 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 
 		// Set VirtualMachineInstance defaults
 		log.Log.Object(newVMI).V(4).Info("Apply defaults")
-		if err = webhooks.SetDefaultVirtualMachineInstance(mutator.ClusterConfig, newVMI); err != nil {
+		if err = defaults.SetDefaultVirtualMachineInstance(mutator.ClusterConfig, newVMI); err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		if newVMI.IsRealtimeEnabled() {
-			log.Log.V(4).Info("Add realtime node label selector")
-			addNodeSelector(newVMI, v1.RealtimeLabel)
-		}
-		if util.IsSEVVMI(newVMI) {
-			log.Log.V(4).Info("Add SEV node label selector")
-			addNodeSelector(newVMI, v1.SEVLabel)
+		if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
+			_, emulatorThreadCompleteToEvenParityAnnotationExists := mutator.ClusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
+			if emulatorThreadCompleteToEvenParityAnnotationExists &&
+				mutator.ClusterConfig.AlignCPUsEnabled() {
+				log.Log.V(4).Infof("Copy %s annotation from Kubevirt CR", v1.EmulatorThreadCompleteToEvenParity)
+				if newVMI.Annotations == nil {
+					newVMI.Annotations = map[string]string{}
+				}
+				newVMI.Annotations[v1.EmulatorThreadCompleteToEvenParity] = ""
+			}
 		}
 
 		// Add foreground finalizer
@@ -106,76 +110,54 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		})
 
 		if !mutator.ClusterConfig.RootEnabled() {
-			util.MarkAsNonroot(newVMI)
+			markAsNonroot(newVMI)
 		}
 
-		var value interface{}
-		value = newVMI.Spec
-		patchOps = append(patchOps, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/spec",
-			Value: value,
-		})
-
-		value = newVMI.ObjectMeta
-		patchOps = append(patchOps, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/metadata",
-			Value: value,
-		})
-
-		value = newVMI.Status
-		patchOps = append(patchOps, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/status",
-			Value: value,
-		})
+		patchSet.AddOption(
+			patch.WithReplace("/spec", newVMI.Spec),
+			patch.WithReplace("/metadata", newVMI.ObjectMeta),
+			patch.WithReplace("/status", newVMI.Status),
+		)
 
 	} else if ar.Request.Operation == admissionv1.Update {
 		// Ignore status updates if they are not coming from our service accounts
 		// TODO: As soon as CRDs support field selectors we can remove this and just enable
 		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
 		if !equality.Semantic.DeepEqual(newVMI.Status, oldVMI.Status) {
-			if !webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
-				patchOps = append(patchOps, patch.PatchOperation{
-					Op:    "replace",
-					Path:  "/status",
-					Value: oldVMI.Status,
-				})
+			if _, isKubeVirtServiceAccount := mutator.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]; !isKubeVirtServiceAccount {
+				patchSet.AddOption(patch.WithReplace("/status", oldVMI.Status))
 			}
 		}
 
 	}
 
-	patchBytes, err := json.Marshal(patchOps)
+	if patchSet.IsEmpty() {
+		return &admissionv1.AdmissionResponse{
+			Allowed: true,
+		}
+	}
+
+	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	jsonPatchType := admissionv1.PatchTypeJSONPatch
-
+	response := &admissionv1.AdmissionResponse{
+		Allowed:   true,
+		Patch:     patchBytes,
+		PatchType: kvpointer.P(admissionv1.PatchTypeJSONPatch),
+	}
 	// If newVMI has been annotated with presets include a deprecation warning in the response
 	for annotation := range newVMI.Annotations {
 		if strings.Contains(annotation, "virtualmachinepreset") {
-			return &admissionv1.AdmissionResponse{
-				Allowed:   true,
-				Patch:     patchBytes,
-				PatchType: &jsonPatchType,
-				Warnings:  []string{presetDeprecationWarning},
-			}
+			response.Warnings = []string{presetDeprecationWarning}
+			break
 		}
 	}
 
-	return &admissionv1.AdmissionResponse{
-		Allowed:   true,
-		Patch:     patchBytes,
-		PatchType: &jsonPatchType,
-	}
+	return response
 }
 
-func addNodeSelector(vmi *v1.VirtualMachineInstance, label string) {
-	if vmi.Spec.NodeSelector == nil {
-		vmi.Spec.NodeSelector = map[string]string{}
-	}
-	vmi.Spec.NodeSelector[label] = ""
+func markAsNonroot(vmi *v1.VirtualMachineInstance) {
+	vmi.Status.RuntimeUser = 107
 }

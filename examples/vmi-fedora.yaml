@@ -15,10 +15,16 @@ spec:
       - disk:
           bus: virtio
         name: cloudinitdisk
+      interfaces:
+      - masquerade: {}
+        name: default
       rng: {}
     resources:
       requests:
         memory: 1024M
+  networks:
+  - name: default
+    pod: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// ValidatingWebhookConfigurationApplyConfiguration represents an declarative configuration of the ValidatingWebhookConfiguration type for use
+// ValidatingWebhookConfigurationApplyConfiguration represents a declarative configuration of the ValidatingWebhookConfiguration type for use
 // with apply.
 type ValidatingWebhookConfigurationApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -35,7 +35,7 @@ type ValidatingWebhookConfigurationApplyConfiguration struct {
 	Webhooks                         []ValidatingWebhookApplyConfiguration `json:"webhooks,omitempty"`
 }
 
-// ValidatingWebhookConfiguration constructs an declarative configuration of the ValidatingWebhookConfiguration type for use with
+// ValidatingWebhookConfiguration constructs a declarative configuration of the ValidatingWebhookConfiguration type for use with
 // apply.
 func ValidatingWebhookConfiguration(name string) *ValidatingWebhookConfigurationApplyConfiguration {
 	b := &ValidatingWebhookConfigurationApplyConfiguration{}
@@ -120,15 +120,6 @@ func (b *ValidatingWebhookConfigurationApplyConfiguration) WithGenerateName(valu
 func (b *ValidatingWebhookConfigurationApplyConfiguration) WithNamespace(value string) *ValidatingWebhookConfigurationApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *ValidatingWebhookConfigurationApplyConfiguration) WithSelfLink(value string) *ValidatingWebhookConfigurationApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -241,15 +232,6 @@ func (b *ValidatingWebhookConfigurationApplyConfiguration) WithFinalizers(values
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *ValidatingWebhookConfigurationApplyConfiguration) WithClusterName(value string) *ValidatingWebhookConfigurationApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *ValidatingWebhookConfigurationApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -267,4 +249,10 @@ func (b *ValidatingWebhookConfigurationApplyConfiguration) WithWebhooks(values .
 		b.Webhooks = append(b.Webhooks, *values[i])
 	}
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *ValidatingWebhookConfigurationApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

@@ -29,6 +29,7 @@ mkdir -p ${CMD_OUT_DIR}/dump
 mkdir -p ${CMD_OUT_DIR}/perfscale-audit
 mkdir -p ${CMD_OUT_DIR}/perfscale-load-generator
 mkdir -p ${CMD_OUT_DIR}/cluster-profiler
+mkdir -p ${CMD_OUT_DIR}/cniplugins
 
 # Build all binaries for amd64
 bazel build \
@@ -62,22 +63,35 @@ bazel run \
 
 # build platform native virtctl explicitly
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config="$(uname -m)" \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl
 
-# cross-compile virtctl for
-
-# linux
+# Copy kubevirt-passt-binding binary to a reachable place outside of the build container
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
-    :build-virtctl-amd64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-amd64
+    --config=${ARCHITECTURE} \
+    :build-cni-passt-binding -- ${CMD_OUT_DIR}/cniplugins/kubevirt-passt-binding
 
-# darwin
-bazel run \
-    --config=${HOST_ARCHITECTURE} \
-    :build-virtctl-darwin -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
+# compile virtctl for amd64 and arm64
 
-# windows
-bazel run \
-    --config=${HOST_ARCHITECTURE} \
-    :build-virtctl-windows -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe
+if [[ "${KUBEVIRT_RELEASE}" == "true" || "${CI}" == "true" ]]; then
+    # linux
+    bazel run \
+        :build-virtctl-amd64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-amd64
+
+    bazel run \
+        :build-virtctl-arm64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-arm64
+
+    bazel run \
+        :build-virtctl-s390x -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-s390x
+
+    # darwin
+    bazel run \
+        :build-virtctl-darwin -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
+
+    bazel run \
+        :build-virtctl-darwin-arm64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-arm64
+
+    # windows
+    bazel run \
+        :build-virtctl-windows -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe
+fi

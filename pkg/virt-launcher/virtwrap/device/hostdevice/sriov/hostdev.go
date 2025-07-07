@@ -20,18 +20,19 @@
 package sriov
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/network/sriov"
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
+	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
+	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
@@ -39,14 +40,20 @@ import (
 )
 
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
-	SRIOVInterfaces := vmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
+	SRIOVInterfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		if iface.SRIOV == nil {
+			return false
+		}
+		ifaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, iface.Name)
+		return ifaceStatus != nil && vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+	})
 	if len(SRIOVInterfaces) == 0 {
 		return []api.HostDevice{}, nil
 	}
-	netStatusPath := path.Join(sriov.MountPath, sriov.VolumePath)
+	netStatusPath := path.Join(downwardapi.MountPath, downwardapi.NetworkInfoVolumePath)
 	pciAddressPoolWithNetworkStatus, err := newPCIAddressPoolWithNetworkStatusFromFile(netStatusPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create SR-IOV hostdevices: %v", err)
 	}
 	if pciAddressPoolWithNetworkStatus.Len() == 0 {
 		log.Log.Object(vmi).Warningf("found no SR-IOV networks to PCI-Address mapping. fall back to resource address pool")
@@ -63,29 +70,38 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 // - file empty post-polling (timeout) - return err to fail SyncVMI.
 // - other error reading file (i.e. file not exist) - return no error but PCIAddressWithNetworkStatusPool.Len() will return 0.
 func newPCIAddressPoolWithNetworkStatusFromFile(path string) (*PCIAddressWithNetworkStatusPool, error) {
-	networkPCIMapBytes, err := readFileUntilNotEmpty(path)
+	const failedCreatePciPoolFmt = "failed to create PCI address pool with network status from file: %w"
+
+	networkDeviceInfoBytes, err := readFileUntilNotEmpty(path)
 	if err != nil {
-		if isFileEmptyAfterTimeout(err, networkPCIMapBytes) {
-			return nil, err
+		if isFileEmptyAfterTimeout(err, networkDeviceInfoBytes) {
+			return nil, fmt.Errorf(failedCreatePciPoolFmt, err)
 		}
 		return nil, nil
 	}
 
-	return NewPCIAddressPoolWithNetworkStatus(networkPCIMapBytes)
+	pciPool, err := NewPCIAddressPoolWithNetworkStatus(networkDeviceInfoBytes)
+	if err != nil {
+		return nil, fmt.Errorf(failedCreatePciPoolFmt, err)
+	}
+	return pciPool, nil
 }
 
 func readFileUntilNotEmpty(networkPCIMapPath string) ([]byte, error) {
 	var networkPCIMapBytes []byte
-	err := wait.PollImmediate(100*time.Millisecond, time.Second, func() (bool, error) {
+	err := virtwait.PollImmediately(100*time.Millisecond, time.Second, func(_ context.Context) (bool, error) {
 		var err error
 		networkPCIMapBytes, err = os.ReadFile(networkPCIMapPath)
 		return len(networkPCIMapBytes) > 0, err
 	})
+	if errors.Is(err, context.DeadlineExceeded) {
+		return nil, fmt.Errorf("%w: file is not populated with network-info", err)
+	}
 	return networkPCIMapBytes, err
 }
 
 func isFileEmptyAfterTimeout(err error, data []byte) bool {
-	return errors.Is(err, wait.ErrWaitTimeout) && len(data) == 0
+	return errors.Is(err, context.DeadlineExceeded) && len(data) == 0
 }
 
 func CreateHostDevicesFromIfacesAndPool(ifaces []v1.Interface, pool hostdevice.AddressPooler) ([]api.HostDevice, error) {
@@ -97,7 +113,7 @@ func createHostDevicesMetadata(ifaces []v1.Interface) []hostdevice.HostDeviceMet
 	var hostDevicesMetaData []hostdevice.HostDeviceMetaData
 	for _, iface := range ifaces {
 		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
-			AliasPrefix:  sriov.AliasPrefix,
+			AliasPrefix:  deviceinfo.SRIOVAliasPrefix,
 			Name:         iface.Name,
 			ResourceName: iface.Name,
 			DecorateHook: newDecorateHook(iface),
@@ -124,7 +140,7 @@ func newDecorateHook(iface v1.Interface) func(hostDevice *api.HostDevice) error 
 }
 
 func SafelyDetachHostDevices(domainSpec *api.DomainSpec, eventDetach hostdevice.EventRegistrar, dom hostdevice.DeviceDetacher, timeout time.Duration) error {
-	sriovDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, sriov.AliasPrefix)
+	sriovDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, deviceinfo.SRIOVAliasPrefix)
 	return hostdevice.SafelyDetachHostDevices(sriovDevices, eventDetach, dom, timeout)
 }
 
@@ -133,7 +149,7 @@ func GetHostDevicesToAttach(vmi *v1.VirtualMachineInstance, domainSpec *api.Doma
 	if err != nil {
 		return nil, err
 	}
-	currentAttachedSRIOVHostDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, sriov.AliasPrefix)
+	currentAttachedSRIOVHostDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, deviceinfo.SRIOVAliasPrefix)
 
 	sriovHostDevicesToAttach := hostdevice.DifferenceHostDevicesByAlias(sriovDevices, currentAttachedSRIOVHostDevices)
 

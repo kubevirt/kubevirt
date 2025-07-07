@@ -45,6 +45,10 @@ func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in
 	}
 	out.UUID = uuid
 
+	if inDomInfo != nil {
+		out.NrVirtCpu = inDomInfo.NrVirtCpu
+	}
+
 	out.Cpu = Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in.Cpu)
 	out.Memory = Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem, inDomInfo)
 	out.Vcpu = Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in.Vcpu)
@@ -84,6 +88,9 @@ func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.Domai
 		case libvirt.DOMAIN_MEMORY_STAT_UNUSED:
 			ret.UnusedSet = true
 			ret.Unused = stat.Val
+		case libvirt.DOMAIN_MEMORY_STAT_DISK_CACHES:
+			ret.CachedSet = true
+			ret.Cached = stat.Val
 		case libvirt.DOMAIN_MEMORY_STAT_AVAILABLE:
 			ret.AvailableSet = true
 			ret.Available = stat.Val
@@ -123,6 +130,8 @@ func Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in []libvirt.Domai
 			Time:     inItem.Time,
 			WaitSet:  inItem.WaitSet,
 			Wait:     inItem.Wait,
+			Delay:    inItem.Delay,
+			DelaySet: inItem.DelaySet,
 		})
 	}
 	return ret
@@ -212,12 +221,12 @@ func Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(info *libvirt.DomainJo
 	}
 
 	return &stats.DomainJobInfo{
+		DataTotalSet:     info.DataTotalSet,
+		DataTotal:        info.DataTotal,
 		DataProcessedSet: info.DataProcessedSet,
 		DataProcessed:    info.DataProcessed,
 		MemoryBpsSet:     info.MemBpsSet,
 		MemoryBps:        info.MemBps,
-		DiskBpsSet:       info.DiskBpsSet,
-		DiskBps:          info.DiskBps,
 		DataRemainingSet: info.DataRemainingSet,
 		DataRemaining:    info.DataRemaining,
 		MemDirtyRateSet:  info.MemDirtyRateSet && info.MemPageSizeSet,

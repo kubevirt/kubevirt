@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// LeaseApplyConfiguration represents an declarative configuration of the Lease type for use
+// LeaseApplyConfiguration represents a declarative configuration of the Lease type for use
 // with apply.
 type LeaseApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -35,7 +35,7 @@ type LeaseApplyConfiguration struct {
 	Spec                             *LeaseSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
-// Lease constructs an declarative configuration of the Lease type for use with
+// Lease constructs a declarative configuration of the Lease type for use with
 // apply.
 func Lease(name, namespace string) *LeaseApplyConfiguration {
 	b := &LeaseApplyConfiguration{}
@@ -122,15 +122,6 @@ func (b *LeaseApplyConfiguration) WithGenerateName(value string) *LeaseApplyConf
 func (b *LeaseApplyConfiguration) WithNamespace(value string) *LeaseApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *LeaseApplyConfiguration) WithSelfLink(value string) *LeaseApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -243,15 +234,6 @@ func (b *LeaseApplyConfiguration) WithFinalizers(values ...string) *LeaseApplyCo
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *LeaseApplyConfiguration) WithClusterName(value string) *LeaseApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *LeaseApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -264,4 +246,10 @@ func (b *LeaseApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 func (b *LeaseApplyConfiguration) WithSpec(value *LeaseSpecApplyConfiguration) *LeaseApplyConfiguration {
 	b.Spec = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *LeaseApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

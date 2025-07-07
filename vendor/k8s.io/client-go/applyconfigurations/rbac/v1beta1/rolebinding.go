@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// RoleBindingApplyConfiguration represents an declarative configuration of the RoleBinding type for use
+// RoleBindingApplyConfiguration represents a declarative configuration of the RoleBinding type for use
 // with apply.
 type RoleBindingApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -36,7 +36,7 @@ type RoleBindingApplyConfiguration struct {
 	RoleRef                          *RoleRefApplyConfiguration  `json:"roleRef,omitempty"`
 }
 
-// RoleBinding constructs an declarative configuration of the RoleBinding type for use with
+// RoleBinding constructs a declarative configuration of the RoleBinding type for use with
 // apply.
 func RoleBinding(name, namespace string) *RoleBindingApplyConfiguration {
 	b := &RoleBindingApplyConfiguration{}
@@ -123,15 +123,6 @@ func (b *RoleBindingApplyConfiguration) WithGenerateName(value string) *RoleBind
 func (b *RoleBindingApplyConfiguration) WithNamespace(value string) *RoleBindingApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *RoleBindingApplyConfiguration) WithSelfLink(value string) *RoleBindingApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -244,15 +235,6 @@ func (b *RoleBindingApplyConfiguration) WithFinalizers(values ...string) *RoleBi
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *RoleBindingApplyConfiguration) WithClusterName(value string) *RoleBindingApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *RoleBindingApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -278,4 +260,10 @@ func (b *RoleBindingApplyConfiguration) WithSubjects(values ...*SubjectApplyConf
 func (b *RoleBindingApplyConfiguration) WithRoleRef(value *RoleRefApplyConfiguration) *RoleBindingApplyConfiguration {
 	b.RoleRef = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *RoleBindingApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

@@ -2,21 +2,22 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/imdario/mergo"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
 func (r *Reconciler) createOrUpdateServiceMonitors() error {
-	if !r.stores.ServiceMonitorEnabled {
+	if !r.config.ServiceMonitorEnabled {
 		return nil
 	}
 
@@ -63,19 +64,12 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 		log.Log.V(4).Infof("serviceMonitor %v is up-to-date", serviceMonitor.GetName())
 		return nil
 	}
-
-	// Add Spec Patch
-	newSpec, err := json.Marshal(serviceMonitor.Spec)
+	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, &serviceMonitor.ObjectMeta, serviceMonitor.Spec)...).GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &serviceMonitor.ObjectMeta, newSpec)
-	if err != nil {
-		return err
-	}
-
-	_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(context.Background(), serviceMonitor.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(context.Background(), serviceMonitor.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch serviceMonitor %+v: %v", serviceMonitor, err)
 	}
@@ -98,7 +92,7 @@ func ensureServiceMonitorSpec(required, existing *promv1.ServiceMonitor) (bool, 
 }
 
 func (r *Reconciler) createOrUpdatePrometheusRules() error {
-	if !r.stores.PrometheusRulesEnabled {
+	if !r.config.PrometheusRulesEnabled {
 		return nil
 	}
 
@@ -141,19 +135,12 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 		log.Log.V(4).Infof("PrometheusRule %v is up-to-date", prometheusRule.GetName())
 		return nil
 	}
-
-	// Add Spec Patch
-	newSpec, err := json.Marshal(prometheusRule.Spec)
+	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, &prometheusRule.ObjectMeta, prometheusRule.Spec)...).GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &prometheusRule.ObjectMeta, newSpec)
-	if err != nil {
-		return err
-	}
-
-	_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Patch(context.Background(), prometheusRule.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Patch(context.Background(), prometheusRule.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch PrometheusRule %+v: %v", prometheusRule, err)
 	}

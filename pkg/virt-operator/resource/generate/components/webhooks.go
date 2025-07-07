@@ -7,10 +7,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 
-	"kubevirt.io/api/clone"
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/pointer"
+
+	clonebase "kubevirt.io/api/clone"
+	clone "kubevirt.io/api/clone/v1beta1"
 
 	"kubevirt.io/api/instancetype"
 
@@ -20,10 +21,12 @@ import (
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 )
 
 var sideEffectNone = admissionregistrationv1.SideEffectClassNone
@@ -135,6 +138,30 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *admissi
 					},
 				},
 			},
+			{
+				Name:                    "kubevirt-create-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{core.GroupName},
+						APIVersions: virtv1.ApiSupportedWebhookVersions,
+						Resources:   []string{"kubevirts"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: operatorNamespace,
+						Name:      VirtOperatorServiceName,
+						Path:      pointer.P(KubeVirtCreateValidatePath),
+					},
+				},
+			},
 		},
 	}
 }
@@ -236,7 +263,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 				},
 			},
 			{
-				Name:                    fmt.Sprintf("%s-mutator.kubevirt.io", clone.ResourceVMClonePlural),
+				Name:                    fmt.Sprintf("%s-mutator.kubevirt.io", clonebase.ResourceVMClonePlural),
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				SideEffects:             &sideEffectNone,
 				FailurePolicy:           &failurePolicy,
@@ -246,16 +273,16 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 						admissionregistrationv1.Create,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{clone.GroupName},
-						APIVersions: clone.ApiSupportedWebhookVersions,
-						Resources:   []string{clone.ResourceVMClonePlural},
+						APIGroups:   []string{clonebase.GroupName},
+						APIVersions: clonebase.ApiSupportedWebhookVersions,
+						Resources:   []string{clonebase.ResourceVMClonePlural},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
 					Service: &admissionregistrationv1.ServiceReference{
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
-						Path:      pointer.String(VMCloneCreateMutatePath),
+						Path:      pointer.P(VMCloneCreateMutatePath),
 					},
 				},
 			},
@@ -285,7 +312,6 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	migrationPolicyCreateValidatePath := MigrationPolicyCreateValidatePath
 	vmCloneCreateValidatePath := VMCloneCreateValidatePath
 	failurePolicy := admissionregistrationv1.Fail
-	ignorePolicy := admissionregistrationv1.Ignore
 
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 		TypeMeta: metav1.TypeMeta{
@@ -308,7 +334,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				// We don't want to block evictions in the cluster in a case where this webhook is down.
 				// The eviction of virt-launcher will still be protected by our pdb.
-				FailurePolicy:  &ignorePolicy,
+				FailurePolicy:  &failurePolicy,
 				TimeoutSeconds: &defaultTimeoutSeconds,
 				SideEffects:    &sideEffectNoneOnDryRun,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
@@ -326,6 +352,12 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &launcherEvictionValidatePath,
+					},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{
+						Name:       "only-vms",
+						Expression: `object.metadata.name.startsWith("virt-launcher")`,
 					},
 				},
 			},
@@ -612,9 +644,13 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{instancetypev1alpha2.SchemeGroupVersion.Group},
-						APIVersions: []string{instancetypev1alpha2.SchemeGroupVersion.Version},
-						Resources:   []string{instancetype.PluralResourceName},
+						APIGroups: []string{instancetypev1beta1.SchemeGroupVersion.Group},
+						APIVersions: []string{
+							instancetypev1alpha1.SchemeGroupVersion.Version,
+							instancetypev1alpha2.SchemeGroupVersion.Version,
+							instancetypev1beta1.SchemeGroupVersion.Version,
+						},
+						Resources: []string{instancetype.PluralResourceName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -637,9 +673,13 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{instancetypev1alpha2.SchemeGroupVersion.Group},
-						APIVersions: []string{instancetypev1alpha2.SchemeGroupVersion.Version},
-						Resources:   []string{instancetype.ClusterPluralResourceName},
+						APIGroups: []string{instancetypev1beta1.SchemeGroupVersion.Group},
+						APIVersions: []string{
+							instancetypev1alpha1.SchemeGroupVersion.Version,
+							instancetypev1alpha2.SchemeGroupVersion.Version,
+							instancetypev1beta1.SchemeGroupVersion.Version,
+						},
+						Resources: []string{instancetype.ClusterPluralResourceName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -662,9 +702,13 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{instancetypev1alpha2.SchemeGroupVersion.Group},
-						APIVersions: []string{instancetypev1alpha2.SchemeGroupVersion.Version},
-						Resources:   []string{instancetype.PluralPreferenceResourceName},
+						APIGroups: []string{instancetypev1beta1.SchemeGroupVersion.Group},
+						APIVersions: []string{
+							instancetypev1alpha1.SchemeGroupVersion.Version,
+							instancetypev1alpha2.SchemeGroupVersion.Version,
+							instancetypev1beta1.SchemeGroupVersion.Version,
+						},
+						Resources: []string{instancetype.PluralPreferenceResourceName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -687,9 +731,13 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{instancetypev1alpha2.SchemeGroupVersion.Group},
-						APIVersions: []string{instancetypev1alpha2.SchemeGroupVersion.Version},
-						Resources:   []string{instancetype.ClusterPluralPreferenceResourceName},
+						APIGroups: []string{instancetypev1beta1.SchemeGroupVersion.Group},
+						APIVersions: []string{
+							instancetypev1alpha1.SchemeGroupVersion.Version,
+							instancetypev1alpha2.SchemeGroupVersion.Version,
+							instancetypev1beta1.SchemeGroupVersion.Version,
+						},
+						Resources: []string{instancetype.ClusterPluralPreferenceResourceName},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -766,9 +814,9 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{clonev1alpha1.SchemeGroupVersion.Group},
-						APIVersions: []string{clonev1alpha1.SchemeGroupVersion.Version},
-						Resources:   []string{clone.ResourceVMClonePlural},
+						APIGroups:   []string{clone.SchemeGroupVersion.Group},
+						APIVersions: []string{clone.SchemeGroupVersion.Version},
+						Resources:   []string{clonebase.ResourceVMClonePlural},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -784,6 +832,8 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 }
 
 const KubeVirtUpdateValidatePath = "/kubevirt-validate-update"
+
+const KubeVirtCreateValidatePath = "/kubevirt-validate-create"
 
 const VMICreateValidatePath = "/virtualmachineinstances-validate-create"
 

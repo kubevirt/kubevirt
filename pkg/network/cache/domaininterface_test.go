@@ -39,4 +39,17 @@ var _ = Describe("DomainInterfaceCache", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(newObj).To(Equal(obj))
 	})
+
+	It("should delete pod interface from the cache", func() {
+		domainIfaceCache, err := cache.NewDomainInterfaceCache(&cacheCreator, "123").IfaceEntry("abc")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(domainIfaceCache.Write(obj)).To(Succeed())
+		newObj, err := domainIfaceCache.Read()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(newObj).To(Equal(obj))
+
+		Expect(domainIfaceCache.Delete()).To(Succeed())
+		_, err = domainIfaceCache.Read()
+		Expect(err).To(MatchError(os.ErrNotExist))
+	})
 })

@@ -19,8 +19,8 @@ cp -rf "${PYTHON_CLIENT_OUT_DIR}"/* "${CLIENT_PYTHON_DIR}/"
 
 cd "${CLIENT_PYTHON_DIR}"
 
-git config user.email "${GIT_AUTHOR_NAME:-kubevirt-bot}"
-git config user.name "${GIT_AUTHOR_EMAIL:-rmohr+kubebot@redhat.com}"
+git config user.email "${GIT_AUTHOR_EMAIL:-kubevirtbot@redhat.com}"
+git config user.name "${GIT_AUTHOR_NAME:-kubevirt-bot}"
 
 CLIENT_UPDATED="false"
 # Check api_client.py and configuration.py whether there are other changes

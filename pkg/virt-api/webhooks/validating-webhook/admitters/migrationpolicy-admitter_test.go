@@ -20,21 +20,15 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 
-	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/testutils"
-
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/utils/pointer"
 
 	"kubevirt.io/api/migrations"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -42,25 +36,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Validating MigrationPolicy Admitter", func() {
-	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-
-	var ctrl *gomock.Controller
-	var virtClient *kubecli.MockKubevirtClient
 	var admitter *MigrationPolicyAdmitter
 	var policyName string
-	var kubeClient *fake.Clientset
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		kubeClient = fake.NewSimpleClientset()
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		admitter = &MigrationPolicyAdmitter{ClusterConfig: config, Client: virtClient}
+		admitter = &MigrationPolicyAdmitter{}
 		policyName = "test-policy"
-
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 	})
 
 	DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
@@ -76,7 +62,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		),
 
 		Entry("negative CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(-1)},
+			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(-1))},
 		),
 	)
 
@@ -93,11 +79,11 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		),
 
 		Entry("greater than zero CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(1)},
+			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(1))},
 		),
 
 		Entry("zero CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(0)},
+			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(0))},
 		),
 
 		Entry("zero BandwidthPerMigration",
@@ -132,6 +118,6 @@ func createPolicyAdmissionReview(policy *migrationsv1.MigrationPolicy, namespace
 
 func (admitter *MigrationPolicyAdmitter) admitAndExpect(policy *migrationsv1.MigrationPolicy, expectAllowed bool) {
 	ar := createPolicyAdmissionReview(policy, policy.Namespace)
-	resp := admitter.Admit(ar)
+	resp := admitter.Admit(context.Background(), ar)
 	Expect(resp.Allowed).To(Equal(expectAllowed))
 }

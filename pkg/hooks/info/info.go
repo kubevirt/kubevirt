@@ -21,3 +21,4 @@ package info
 
 const OnDefineDomainHookPointName = "OnDefineDomain"
 const PreCloudInitIsoHookPointName = "PreCloudInitIso"
+const ShutdownHookPointName = "Shutdown"

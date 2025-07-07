@@ -30,7 +30,7 @@ var _ = Describe("Libvirt Suite", func() {
 	Context("Upon attempt to connect to Libvirt", func() {
 		It("should time out while waiting for libvirt", func() {
 			_, err := NewConnectionWithTimeout("http://", "", "", 1*time.Microsecond, 100*time.Millisecond, 500*time.Millisecond)
-			Expect(err).To(MatchError("cannot connect to libvirt daemon: timed out waiting for the condition"))
+			Expect(err).To(MatchError("cannot connect to libvirt daemon: context deadline exceeded"))
 		})
 	})
 })

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/tools/cache"
@@ -14,7 +16,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
-	"kubevirt.io/kubevirt/pkg/network/sriov"
+	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -23,14 +25,15 @@ import (
 type VolumeRendererOption func(renderer *VolumeRenderer) error
 
 type VolumeRenderer struct {
-	containerDiskDir string
-	ephemeralDiskDir string
-	virtShareDir     string
-	namespace        string
-	vmiVolumes       []v1.Volume
-	podVolumes       []k8sv1.Volume
-	podVolumeMounts  []k8sv1.VolumeMount
-	volumeDevices    []k8sv1.VolumeDevice
+	containerDiskDir      string
+	ephemeralDiskDir      string
+	virtShareDir          string
+	namespace             string
+	vmiVolumes            []v1.Volume
+	podVolumes            []k8sv1.Volume
+	podVolumeMounts       []k8sv1.VolumeMount
+	sharedFilesystemPaths []string
+	volumeDevices         []k8sv1.VolumeDevice
 }
 
 func NewVolumeRenderer(namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
@@ -75,6 +78,10 @@ func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
 
 func (vr *VolumeRenderer) VolumeDevices() []k8sv1.VolumeDevice {
 	return vr.volumeDevices
+}
+
+func (vr *VolumeRenderer) SharedFilesystemPaths() []string {
+	return vr.sharedFilesystemPaths
 }
 
 func mountPath(name string, path string) k8sv1.VolumeMount {
@@ -148,18 +155,6 @@ func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeS
 				}
 			}
 
-			if volume.ConfigMap != nil {
-				renderer.handleConfigMap(volume)
-			}
-
-			if volume.Secret != nil {
-				renderer.handleSecret(volume)
-			}
-
-			if volume.DownwardAPI != nil {
-				renderer.handleDownwardAPI(volume)
-			}
-
 			if volume.DownwardMetrics != nil {
 				renderer.handleDownwardMetrics(volume)
 			}
@@ -169,11 +164,54 @@ func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeS
 			}
 
 			if volume.Sysprep != nil {
-				renderer.handleSysprep(volume)
+				if err := renderer.handleSysprep(volume); err != nil {
+					return err
+				}
 			}
 
 			if volume.CloudInitConfigDrive != nil {
 				renderer.handleCloudInitConfigDrive(volume)
+			}
+		}
+		return nil
+	}
+}
+
+func withVMIConfigVolumes(vmiDisks []v1.Disk, vmiVolumes []v1.Volume) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		volumes := make(map[string]v1.Volume)
+		for _, volume := range vmiVolumes {
+			volumes[volume.Name] = volume
+
+			if volume.Secret != nil {
+				renderer.addSecretVolume(volume)
+			}
+
+			if volume.ConfigMap != nil {
+				renderer.addConfigMapVolume(volume)
+			}
+
+			if volume.DownwardAPI != nil {
+				renderer.addDownwardAPIVolume(volume)
+			}
+		}
+
+		for _, disk := range vmiDisks {
+			volume, ok := volumes[disk.Name]
+			if !ok {
+				continue
+			}
+
+			if volume.Secret != nil {
+				renderer.addSecretVolumeMount(volume)
+			}
+
+			if volume.ConfigMap != nil {
+				renderer.addConfigMapVolumeMount(volume)
+			}
+
+			if volume.DownwardAPI != nil {
+				renderer.addDownwardAPIVolumeMount(volume)
 			}
 		}
 		return nil
@@ -233,13 +271,13 @@ func (vr *VolumeRenderer) handleCloudInitConfigDrive(volume v1.Volume) {
 	}
 }
 
-func (vr *VolumeRenderer) handleSysprep(volume v1.Volume) {
+func (vr *VolumeRenderer) handleSysprep(volume v1.Volume) error {
 	if volume.Sysprep != nil {
 		var volumeSource k8sv1.VolumeSource
 		// attach a Secret or ConfigMap referenced by the user
 		volumeSource, err := sysprepVolumeSource(*volume.Sysprep)
 		if err != nil {
-			//return nil, err
+			return err
 		}
 		vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 			Name:         volume.Name,
@@ -251,6 +289,7 @@ func (vr *VolumeRenderer) handleSysprep(volume v1.Volume) {
 			ReadOnly:  true,
 		})
 	}
+	return nil
 }
 
 func hotplugVolumes(vmiVolumeStatus []v1.VolumeStatus, vmiSpecVolumes []v1.Volume) map[string]struct{} {
@@ -297,6 +336,105 @@ func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRender
 				ReadOnly:  true,
 			})
 		}
+		return nil
+	}
+}
+
+func PathForSwtpm(vmi *v1.VirtualMachineInstance) string {
+	swtpmPath := "/var/lib/libvirt/swtpm"
+	if util.IsNonRootVMI(vmi) {
+		swtpmPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "swtpm")
+	}
+
+	return swtpmPath
+}
+
+func PathForSwtpmLocalca(vmi *v1.VirtualMachineInstance) string {
+	localCaPath := "/var/lib/swtpm-localca"
+	if util.IsNonRootVMI(vmi) {
+		localCaPath = filepath.Join(util.VirtPrivateDir, "var", "lib", "swtpm-localca")
+	}
+
+	return localCaPath
+}
+
+func PathForNVram(vmi *v1.VirtualMachineInstance) string {
+	nvramPath := "/var/lib/libvirt/qemu/nvram"
+	if util.IsNonRootVMI(vmi) {
+		nvramPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "nvram")
+	}
+
+	return nvramPath
+}
+
+func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName string) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		if !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+			return nil
+		}
+
+		volumeName := "vm-state"
+		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
+			Name: volumeName,
+			VolumeSource: k8sv1.VolumeSource{
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: backendStoragePVCName,
+					ReadOnly:  false,
+				},
+			},
+		})
+
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+			Name:      volumeName,
+			ReadOnly:  false,
+			MountPath: "/run/kubevirt-private/backend-storage-meta",
+			SubPath:   "meta",
+		})
+
+		if util.IsNonRootVMI(vmi) {
+			// For non-root VMIs, the TPM state lives under /var/run/kubevirt-private/libvirt/qemu/swtpm
+			// To persist it, we need the persistent PVC to be mounted under that location.
+			// /var/run/kubevirt-private is an emptyDir, and k8s would automatically create the right sub-directories under it.
+			// However, the sub-directories would get created as root:<fsGroup>, with a mode like 0755 (drwxr-xr-x), preventing write access to them.
+			// Depending on the storage class used, the SELinux label of the sub-directories can also be problematic (like nfs_t for nfs-csi).
+			// Creating emptydirs for each intermediate directory (+ setting fsGroup to 107) solves both issues.
+			// The only viable alternative would be to use an init container to `mkdir -p /var/run/kubevirt-private/libvirt/qemu/swtpm`,
+			//   but init containers are expensive, and emptyDirs were deemed to be the least undesirable approach.
+			renderer.podVolumes = append(renderer.podVolumes,
+				emptyDirVolume("private-libvirt"),
+				emptyDirVolume("private-libvirt-qemu"))
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      "private-libvirt",
+				MountPath: filepath.Join(util.VirtPrivateDir, "libvirt"),
+			}, k8sv1.VolumeMount{
+				Name:      "private-libvirt-qemu",
+				MountPath: filepath.Join(util.VirtPrivateDir, "libvirt", "qemu"),
+			})
+		}
+
+		if backendstorage.HasPersistentTPMDevice(&vmi.Spec) {
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      volumeName,
+				ReadOnly:  false,
+				MountPath: PathForSwtpm(vmi),
+				SubPath:   "swtpm",
+			}, k8sv1.VolumeMount{
+				Name:      volumeName,
+				ReadOnly:  false,
+				MountPath: PathForSwtpmLocalca(vmi),
+				SubPath:   "swtpm-localca",
+			})
+		}
+
+		if backendstorage.HasPersistentEFI(&vmi.Spec) {
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      volumeName,
+				ReadOnly:  false,
+				MountPath: PathForNVram(vmi),
+				SubPath:   "nvram",
+			})
+		}
+
 		return nil
 	}
 }
@@ -366,12 +504,11 @@ func withHotplugSupport(hotplugDiskDir string) VolumeRendererOption {
 	}
 }
 
-func withSRIOVPciMapAnnotation() VolumeRendererOption {
+func withNetworkDeviceInfoMapAnnotation() VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
-		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(sriov.VolumeName, sriov.MountPath))
 		renderer.podVolumes = append(renderer.podVolumes,
 			downwardAPIDirVolume(
-				sriov.VolumeName, sriov.VolumePath, fmt.Sprintf("metadata.annotations['%s']", sriov.NetworkPCIMapAnnot)),
+				downwardapi.NetworkInfoVolumeName, downwardapi.NetworkInfoVolumePath, fmt.Sprintf("metadata.annotations['%s']", downwardapi.NetworkInfoAnnot)),
 		)
 		return nil
 	}
@@ -400,7 +537,7 @@ func serviceAccount(volumes ...v1.Volume) string {
 
 func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1.Volume, claimName string) error {
 	logger := log.DefaultLogger()
-	_, exists, isBlock, err := types.IsPVCBlockFromStore(pvcStore, vr.namespace, claimName)
+	pvc, exists, isBlock, err := types.IsPVCBlockFromStore(pvcStore, vr.namespace, claimName)
 	if err != nil {
 		logger.Errorf("error getting PVC: %v", claimName)
 		return err
@@ -415,11 +552,15 @@ func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1
 		}
 		vr.volumeDevices = append(vr.volumeDevices, device)
 	} else {
+		path := hostdisk.GetMountedHostDiskDir(volume.Name)
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
-			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
+			MountPath: path,
 		}
 		vr.podVolumeMounts = append(vr.podVolumeMounts, volumeMount)
+		if types.HasSharedAccessMode(pvc.Spec.AccessModes) {
+			vr.sharedFilesystemPaths = append(vr.sharedFilesystemPaths, path)
+		}
 	}
 	return nil
 }
@@ -496,12 +637,7 @@ func (vr *VolumeRenderer) handleHostDisk(volume v1.Volume) {
 	})
 }
 
-func (vr *VolumeRenderer) handleSecret(volume v1.Volume) {
-	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
-		Name:      volume.Name,
-		MountPath: config.GetSecretSourcePath(volume.Name),
-		ReadOnly:  true,
-	})
+func (vr *VolumeRenderer) addSecretVolume(volume v1.Volume) {
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
 		VolumeSource: k8sv1.VolumeSource{
@@ -513,12 +649,15 @@ func (vr *VolumeRenderer) handleSecret(volume v1.Volume) {
 	})
 }
 
-func (vr *VolumeRenderer) handleConfigMap(volume v1.Volume) {
+func (vr *VolumeRenderer) addSecretVolumeMount(volume v1.Volume) {
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
 		Name:      volume.Name,
-		MountPath: config.GetConfigMapSourcePath(volume.Name),
+		MountPath: config.GetSecretSourcePath(volume.Name),
 		ReadOnly:  true,
 	})
+}
+
+func (vr *VolumeRenderer) addConfigMapVolume(volume v1.Volume) {
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
 		VolumeSource: k8sv1.VolumeSource{
@@ -530,13 +669,15 @@ func (vr *VolumeRenderer) handleConfigMap(volume v1.Volume) {
 	})
 }
 
-func (vr *VolumeRenderer) handleDownwardAPI(volume v1.Volume) {
-	// attach a Secret to the pod
+func (vr *VolumeRenderer) addConfigMapVolumeMount(volume v1.Volume) {
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
 		Name:      volume.Name,
-		MountPath: config.GetDownwardAPISourcePath(volume.Name),
+		MountPath: config.GetConfigMapSourcePath(volume.Name),
 		ReadOnly:  true,
 	})
+}
+
+func (vr *VolumeRenderer) addDownwardAPIVolume(volume v1.Volume) {
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
 		VolumeSource: k8sv1.VolumeSource{
@@ -544,6 +685,14 @@ func (vr *VolumeRenderer) handleDownwardAPI(volume v1.Volume) {
 				Items: volume.DownwardAPI.Fields,
 			},
 		},
+	})
+}
+
+func (vr *VolumeRenderer) addDownwardAPIVolumeMount(volume v1.Volume) {
+	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+		Name:      volume.Name,
+		MountPath: config.GetDownwardAPISourcePath(volume.Name),
+		ReadOnly:  true,
 	})
 }
 

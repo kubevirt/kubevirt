@@ -2,6 +2,7 @@ package generators
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,7 +10,7 @@ import (
 	"strings"
 	"text/template"
 
-	sprig "github.com/go-task/slim-sprig"
+	sprig "github.com/go-task/slim-sprig/v3"
 	"github.com/onsi/ginkgo/v2/ginkgo/command"
 	"github.com/onsi/ginkgo/v2/ginkgo/internal"
 	"github.com/onsi/ginkgo/v2/types"
@@ -28,6 +29,12 @@ func BuildGenerateCommand() command.Command {
 			{Name: "template", KeyPath: "CustomTemplate",
 				UsageArgument: "template-file",
 				Usage:         "If specified, generate will use the contents of the file passed as the test file template"},
+			{Name: "template-data", KeyPath: "CustomTemplateData",
+				UsageArgument: "template-data-file",
+				Usage:         "If specified, generate will use the contents of the file passed as data to be rendered in the test file template"},
+			{Name: "tags", KeyPath: "Tags",
+				UsageArgument: "build-tags",
+				Usage:         "If specified, generate will create a test file that uses the given build tags (i.e. `--tags e2e,!unit` will add `//go:build e2e,!unit`)"},
 		},
 		&conf,
 		types.GinkgoFlagSections{},
@@ -55,6 +62,7 @@ You can also pass a <filename> of the form "file.go" and generate will emit "fil
 }
 
 type specData struct {
+	BuildTags         string
 	Package           string
 	Subject           string
 	PackageImportPath string
@@ -64,6 +72,7 @@ type specData struct {
 	GomegaImport  string
 	GinkgoPackage string
 	GomegaPackage string
+	CustomData    map[string]any
 }
 
 func generateTestFiles(conf GeneratorsConfig, args []string) {
@@ -88,6 +97,7 @@ func generateTestFileForSubject(subject string, conf GeneratorsConfig) {
 	}
 
 	data := specData{
+		BuildTags:         getBuildTags(conf.Tags),
 		Package:           determinePackageName(packageName, conf.Internal),
 		Subject:           formattedName,
 		PackageImportPath: getPackageImportPath(),
@@ -122,22 +132,37 @@ func generateTestFileForSubject(subject string, conf GeneratorsConfig) {
 		tpl, err := os.ReadFile(conf.CustomTemplate)
 		command.AbortIfError("Failed to read custom template file:", err)
 		templateText = string(tpl)
+		if conf.CustomTemplateData != "" {
+			var tplCustomDataMap map[string]any
+			tplCustomData, err := os.ReadFile(conf.CustomTemplateData)
+			command.AbortIfError("Failed to read custom template data file:", err)
+			if !json.Valid([]byte(tplCustomData)) {
+				command.AbortWith("Invalid JSON object in custom data file.")
+			}
+			//create map from the custom template data
+			json.Unmarshal(tplCustomData, &tplCustomDataMap)
+			data.CustomData = tplCustomDataMap
+		}
 	} else if conf.Agouti {
 		templateText = agoutiSpecText
 	} else {
 		templateText = specText
 	}
 
-	specTemplate, err := template.New("spec").Funcs(sprig.TxtFuncMap()).Parse(templateText)
+	//Setting the option to explicitly fail if template is rendered trying to access missing key
+	specTemplate, err := template.New("spec").Funcs(sprig.TxtFuncMap()).Option("missingkey=error").Parse(templateText)
 	command.AbortIfError("Failed to read parse test template:", err)
 
-	specTemplate.Execute(f, data)
+	//Being explicit about failing sooner during template rendering
+	//when accessing custom data rather than during the go fmt command
+	err = specTemplate.Execute(f, data)
+	command.AbortIfError("Failed to render bootstrap template:", err)
 	internal.GoFmt(targetFile)
 }
 
 func formatSubject(name string) string {
-	name = strings.Replace(name, "-", "_", -1)
-	name = strings.Replace(name, " ", "_", -1)
+	name = strings.ReplaceAll(name, "-", "_")
+	name = strings.ReplaceAll(name, " ", "_")
 	name = strings.Split(name, ".go")[0]
 	name = strings.Split(name, "_test")[0]
 	return name
@@ -149,6 +174,7 @@ func moduleName(modRoot string) string {
 	if err != nil {
 		return ""
 	}
+	defer modFile.Close()
 
 	mod := make([]byte, 128)
 	_, err = modFile.Read(mod)
@@ -223,7 +249,7 @@ func getPackageImportPath() string {
 	if modRoot != "" {
 		modName := moduleName(modRoot)
 		if modName != "" {
-			cd := strings.Replace(workingDir, modRoot, "", -1)
+			cd := strings.ReplaceAll(workingDir, modRoot, "")
 			cd = strings.ReplaceAll(cd, sep, "/")
 			return modName + cd
 		}

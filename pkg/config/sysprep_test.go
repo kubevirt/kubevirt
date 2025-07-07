@@ -25,11 +25,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
-
-	"kubevirt.io/client-go/api"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
 func createFiles(filenames []string) {
@@ -60,29 +59,13 @@ var _ = Describe("SysprepConfigMap", func() {
 		os.RemoveAll(SysprepDisksDir)
 	})
 
-	vmiConfigMap := api.NewMinimalVMI("fake-vmi")
-	vmiConfigMap.Spec.Volumes = append(vmiConfigMap.Spec.Volumes, v1.Volume{
-		Name: "sysprep-volume",
-		VolumeSource: v1.VolumeSource{
-			Sysprep: &v1.SysprepSource{
-				ConfigMap: &k8sv1.LocalObjectReference{
-					Name: "test-config",
-				},
-			},
-		},
-	})
+	vmiConfigMap := libvmi.New(
+		libvmi.WithSysprepConfigMap("sysprep-volume", "test-config"),
+	)
 
-	vmiSecret := api.NewMinimalVMI("fake-vmi")
-	vmiSecret.Spec.Volumes = append(vmiSecret.Spec.Volumes, v1.Volume{
-		Name: "sysprep-volume",
-		VolumeSource: v1.VolumeSource{
-			Sysprep: &v1.SysprepSource{
-				Secret: &k8sv1.LocalObjectReference{
-					Name: "secret-config",
-				},
-			},
-		},
-	})
+	vmiSecret := libvmi.New(
+		libvmi.WithSysprepSecret("sysprep-volume", "secret-config"),
+	)
 
 	DescribeTable("Assert successful sysprep ISO creation with CreateSysprepDisks",
 		func(vmi *v1.VirtualMachineInstance, filenames []string) {

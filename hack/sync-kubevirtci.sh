@@ -6,8 +6,8 @@ source $(dirname "$0")/common.sh
 source $(dirname "$0")/config.sh
 
 # update cluster-up if needed
-version_file="cluster-up/version.txt"
-sha_file="cluster-up-sha.txt"
+version_file="kubevirtci/cluster-up/version.txt"
+sha_file="kubevirtci/cluster-up-sha.txt"
 download_cluster_up=true
 function getClusterUpShasum() {
     (
@@ -20,7 +20,7 @@ function getClusterUpShasum() {
         # native byte values.
         # ```
         # [1] https://man7.org/linux/man-pages/man1/sort.1.html
-        find cluster-up -type f | LC_ALL=C sort | xargs sha1sum | sha1sum | awk '{print $1}'
+        find kubevirtci/cluster-up -type f | LC_ALL=C sort | xargs sha1sum | sha1sum | awk '{print $1}'
     )
 }
 
@@ -39,11 +39,14 @@ else
 fi
 if [[ "$download_cluster_up" == true ]]; then
     echo "downloading cluster-up"
-    rm -rf cluster-up
-    curl --fail -L https://github.com/kubevirt/kubevirtci/archive/refs/tags/${kubevirtci_git_hash}.tar.gz | tar xz kubevirtci-${kubevirtci_git_hash}/cluster-up --strip-component 1
+    rm -rf kubevirtci/cluster-up
+    (
+        cd kubevirtci
+        curl --fail -L https://github.com/kubevirt/kubevirtci/archive/refs/tags/${kubevirtci_git_hash}.tar.gz | tar xz kubevirtci-${kubevirtci_git_hash}/cluster-up --strip-component 1
+    )
 
     echo ${kubevirtci_git_hash} >${version_file}
     new_sha=$(getClusterUpShasum)
     echo ${new_sha} >${sha_file}
-    echo "KUBEVIRTCI_TAG=${kubevirtci_git_hash}" >>cluster-up/hack/common.sh
+    echo "KUBEVIRTCI_TAG=${kubevirtci_git_hash}" >>kubevirtci/cluster-up/hack/common.sh
 fi

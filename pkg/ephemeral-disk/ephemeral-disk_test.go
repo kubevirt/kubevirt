@@ -27,12 +27,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
 
-	api2 "kubevirt.io/client-go/api"
-
-	v1 "kubevirt.io/api/core/v1"
-
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -50,38 +46,18 @@ var _ = Describe("ContainerDisk", func() {
 		if err != nil {
 			return err
 		}
-		return f.Close()
-	}
-
-	AppendEphemeralPVC := func(vmi *v1.VirtualMachineInstance, diskName string, claimName string, backingDiskIsblock bool) {
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: diskName,
-			DiskDevice: v1.DiskDevice{
-				Disk: &v1.DiskTarget{},
-			},
-		})
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: diskName,
-			VolumeSource: v1.VolumeSource{
-				Ephemeral: &v1.EphemeralVolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: claimName,
-					},
-				},
-			},
-		})
-
-		By("Creating a backing image for the PVC")
-		Expect(createBackingImageForPVC(diskName, backingDiskIsblock)).To(Succeed())
-
+		defer f.Close()
 		// Test the test infra itself: make sure that the backing file has been created.
-		var err error
-		if backingDiskIsblock {
-			_, err = os.Stat(filepath.Join(blockDevBaseDir, diskName))
+		if isBlock {
+			if _, err := os.Stat(filepath.Join(blockDevBaseDir, volumeName)); err != nil {
+				return err
+			}
 		} else {
-			_, err = os.Stat(filepath.Join(pvcBaseTempDirPath, diskName, "disk.img"))
+			if _, err := os.Stat(filepath.Join(pvcBaseTempDirPath, volumeName, "disk.img")); err != nil {
+				return err
+			}
 		}
-		Expect(err).NotTo(HaveOccurred())
+		return nil
 	}
 
 	BeforeEach(func() {
@@ -100,11 +76,13 @@ var _ = Describe("ContainerDisk", func() {
 	Describe("ephemeral-backed PVC", func() {
 		Context("With single ephemeral volume", func() {
 			It("Should create VirtualMachineInstance's ephemeral image", func() {
-				By("Creating a minimal VirtualMachineInstance object")
-				vmi := api2.NewMinimalVMI("fake-vmi")
+				By("Creating a minimal VirtualMachineInstance object with single ephemeral-backed PVC")
+				vmi := libvmi.New(
+					libvmi.WithEphemeralPersistentVolumeClaim("fake-disk", "fake-pvc"),
+				)
 
-				By("Adding a single ephemeral-backed PVC to the VirtualMachineInstance")
-				AppendEphemeralPVC(vmi, "fake-disk", "fake-pvc", false)
+				By("Creating a backing image for the PVC")
+				Expect(createBackingImageForPVC("fake-disk", false)).To(Succeed())
 
 				By("Creating VirtualMachineInstance disk image that corresponds to the VMIs PVC")
 				err := creator.CreateEphemeralImages(vmi, &api.Domain{})
@@ -118,13 +96,17 @@ var _ = Describe("ContainerDisk", func() {
 
 		Context("With multiple ephemeral volumes", func() {
 			It("Should create VirtualMachineInstance's ephemeral images", func() {
-				By("Creating a minimal VirtualMachineInstance object")
-				vmi := api2.NewMinimalVMI("fake-vmi")
+				By("Creating a minimal VirtualMachineInstance object with multiple ephemeral-backed PVC")
+				vmi := libvmi.New(
+					libvmi.WithEphemeralPersistentVolumeClaim("fake-disk1", "fake-pvc1"),
+					libvmi.WithEphemeralPersistentVolumeClaim("fake-disk2", "fake-pvc2"),
+					libvmi.WithEphemeralPersistentVolumeClaim("fake-disk3", "fake-pvc3"),
+				)
 
-				By("Adding multiple ephemeral-backed PVCs to the VirtualMachineInstance")
-				AppendEphemeralPVC(vmi, "fake-disk1", "fake-pvc1", false)
-				AppendEphemeralPVC(vmi, "fake-disk2", "fake-pvc2", false)
-				AppendEphemeralPVC(vmi, "fake-disk3", "fake-pvc3", false)
+				By("Creating a backing images for the PVC")
+				Expect(createBackingImageForPVC("fake-disk1", false)).To(Succeed())
+				Expect(createBackingImageForPVC("fake-disk2", false)).To(Succeed())
+				Expect(createBackingImageForPVC("fake-disk3", false)).To(Succeed())
 
 				By("Creating VirtualMachineInstance disk image that corresponds to the VMIs PVC")
 				err := creator.CreateEphemeralImages(vmi, &api.Domain{})
@@ -139,8 +121,14 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("Should create ephemeral images in an idempotent way", func() {
-				vmi := api2.NewMinimalVMI("fake-vmi")
-				AppendEphemeralPVC(vmi, "fake-disk1", "fake-pvc1", false)
+				By("Creating a minimal VirtualMachineInstance object with single ephemeral-backed PVC")
+				vmi := libvmi.New(
+					libvmi.WithEphemeralPersistentVolumeClaim("fake-disk", "fake-pvc"),
+				)
+
+				By("Creating a backing image for the PVC")
+				Expect(createBackingImageForPVC("fake-disk", false)).To(Succeed())
+
 				err := creator.CreateEphemeralImages(vmi, &api.Domain{})
 				Expect(err).NotTo(HaveOccurred())
 				err = creator.CreateEphemeralImages(vmi, &api.Domain{})
@@ -150,11 +138,13 @@ var _ = Describe("ContainerDisk", func() {
 
 		Context("With a block pvc backed ephemeral volume", func() {
 			It("Should create VirtualMachineInstance's ephemeral image", func() {
-				By("Creating a minimal VirtualMachineInstance object")
-				vmi := api2.NewMinimalVMI("fake-vmi")
+				By("Creating a minimal VirtualMachineInstance object with single ephemeral-backed PVC")
+				vmi := libvmi.New(
+					libvmi.WithEphemeralPersistentVolumeClaim("fake-disk", "fake-pvc"),
+				)
 
-				By("Adding a single ephemeral-backed PVC to the VirtualMachineInstance")
-				AppendEphemeralPVC(vmi, "fake-disk", "fake-pvc", true)
+				By("Creating a backing images for the PVC")
+				Expect(createBackingImageForPVC("fake-disk", true)).To(Succeed())
 
 				By("Creating VirtualMachineInstance disk image that corresponds to the VMIs PVC")
 				err := creator.CreateEphemeralImages(vmi, &api.Domain{

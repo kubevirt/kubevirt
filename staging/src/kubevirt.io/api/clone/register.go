@@ -21,10 +21,12 @@ package clone
 
 // GroupName is the group name used in this package
 const (
-	GroupName     = "clone.kubevirt.io"
-	LatestVersion = "v1alpha1"
-	Kind          = "VirtualMachineClone"
-	ListKind      = "VirtualMachineCloneList"
+	GroupName          = "clone.kubevirt.io"
+	LatestAlphaVersion = "v1alpha1"
+	LatestBetaVersion  = "v1beta1"
+	LatestVersion      = LatestBetaVersion
+	Kind               = "VirtualMachineClone"
+	ListKind           = "VirtualMachineCloneList"
 
 	ResourceVMCloneSingular = "virtualmachineclone"
 	ResourceVMClonePlural   = ResourceVMCloneSingular + "s"

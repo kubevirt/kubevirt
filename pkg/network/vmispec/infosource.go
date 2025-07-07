@@ -8,13 +8,13 @@ const (
 	InfoSourceMultusStatus string = "multus-status"
 	InfoSourceDomainAndGA  string = InfoSourceDomain + ", " + InfoSourceGuestAgent
 
-	seperator = ", "
+	separator = ", "
 )
 
 func AddInfoSource(infoSourceData, name string) string {
 	var infoSources []string
 	if infoSourceData != "" {
-		infoSources = strings.Split(infoSourceData, seperator)
+		infoSources = strings.Split(infoSourceData, separator)
 	}
 	for _, infoSourceName := range infoSources {
 		if infoSourceName == name {
@@ -25,8 +25,19 @@ func AddInfoSource(infoSourceData, name string) string {
 	return NewInfoSource(infoSources...)
 }
 
+func RemoveInfoSource(infoSourceData, name string) string {
+	var newInfoSources []string
+	infoSources := strings.Split(infoSourceData, separator)
+	for _, infoSourceName := range infoSources {
+		if infoSourceName != name {
+			newInfoSources = append(newInfoSources, infoSourceName)
+		}
+	}
+	return NewInfoSource(newInfoSources...)
+}
+
 func ContainsInfoSource(infoSourceData, name string) bool {
-	infoSources := strings.Split(infoSourceData, seperator)
+	infoSources := strings.Split(infoSourceData, separator)
 	for _, infoSourceName := range infoSources {
 		if infoSourceName == name {
 			return true
@@ -36,5 +47,5 @@ func ContainsInfoSource(infoSourceData, name string) bool {
 }
 
 func NewInfoSource(names ...string) string {
-	return strings.Join(names, seperator)
+	return strings.Join(names, separator)
 }

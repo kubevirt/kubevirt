@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 
+	cbor "k8s.io/apimachinery/pkg/runtime/serializer/cbor/direct"
+
 	inf "gopkg.in/inf.v0"
 )
 
@@ -34,8 +36,11 @@ import (
 //
 // The serialization format is:
 //
+// ```
 // <quantity>        ::= <signedNumber><suffix>
-//   (Note that <suffix> may be empty, from the "" case in <decimalSI>.)
+//
+//	(Note that <suffix> may be empty, from the "" case in <decimalSI>.)
+//
 // <digit>           ::= 0 | 1 | ... | 9
 // <digits>          ::= <digit> | <digit><digits>
 // <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits>
@@ -43,10 +48,15 @@ import (
 // <signedNumber>    ::= <number> | <sign><number>
 // <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI>
 // <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei
-//   (International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)
+//
+//	(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)
+//
 // <decimalSI>       ::= m | "" | k | M | G | T | P | E
-//   (Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)
+//
+//	(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)
+//
 // <decimalExponent> ::= "e" <signedNumber> | "E" <signedNumber>
+// ```
 //
 // No matter which of the three exponent forms is used, no quantity may represent
 // a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal
@@ -60,14 +70,17 @@ import (
 // Before serializing, Quantity will be put in "canonical form".
 // This means that Exponent/suffix will be adjusted up or down (with a
 // corresponding increase or decrease in Mantissa) such that:
-//   a. No precision is lost
-//   b. No fractional digits will be emitted
-//   c. The exponent (or suffix) is as large as possible.
+//
+// - No precision is lost
+// - No fractional digits will be emitted
+// - The exponent (or suffix) is as large as possible.
+//
 // The sign will be omitted unless the number is negative.
 //
 // Examples:
-//   1.5 will be serialized as "1500m"
-//   1.5Gi will be serialized as "1536Mi"
+//
+// - 1.5 will be serialized as "1500m"
+// - 1.5Gi will be serialized as "1536Mi"
 //
 // Note that the quantity will NEVER be internally represented by a
 // floating point number. That is the whole point of this exercise.
@@ -397,13 +410,17 @@ func (_ Quantity) OpenAPISchemaType() []string { return []string{"string"} }
 // the OpenAPI spec of this type.
 func (_ Quantity) OpenAPISchemaFormat() string { return "" }
 
+// OpenAPIV3OneOfTypes is used by the kube-openapi generator when constructing
+// the OpenAPI v3 spec of this type.
+func (Quantity) OpenAPIV3OneOfTypes() []string { return []string{"string", "number"} }
+
 // CanonicalizeBytes returns the canonical form of q and its suffix (see comment on Quantity).
 //
 // Note about BinarySI:
-// * If q.Format is set to BinarySI and q.Amount represents a non-zero value between
-//   -1 and +1, it will be emitted as if q.Format were DecimalSI.
-// * Otherwise, if q.Format is set to BinarySI, fractional parts of q.Amount will be
-//   rounded up. (1.1i becomes 2i.)
+//   - If q.Format is set to BinarySI and q.Amount represents a non-zero value between
+//     -1 and +1, it will be emitted as if q.Format were DecimalSI.
+//   - Otherwise, if q.Format is set to BinarySI, fractional parts of q.Amount will be
+//     rounded up. (1.1i becomes 2i.)
 func (q *Quantity) CanonicalizeBytes(out []byte) (result, suffix []byte) {
 	if q.IsZero() {
 		return zeroBytes, nil
@@ -577,6 +594,16 @@ func (q *Quantity) Sub(y Quantity) {
 	q.ToDec().d.Dec.Sub(q.d.Dec, y.AsDec())
 }
 
+// Mul multiplies the provided y to the current value.
+// It will return false if the result is inexact. Otherwise, it will return true.
+func (q *Quantity) Mul(y int64) bool {
+	q.s = ""
+	if q.d.Dec == nil && q.i.Mul(y) {
+		return true
+	}
+	return q.ToDec().d.Dec.Mul(q.d.Dec, inf.NewDec(y, inf.Scale(0))).UnscaledBig().IsInt64()
+}
+
 // Cmp returns 0 if the quantity is equal to y, -1 if the quantity is less than y, or 1 if the
 // quantity is greater than y.
 func (q *Quantity) Cmp(y Quantity) int {
@@ -639,7 +666,7 @@ func (q Quantity) MarshalJSON() ([]byte, error) {
 		copy(out[1:], q.s)
 		return out, nil
 	}
-	result := make([]byte, int64QuantityExpectedBytes, int64QuantityExpectedBytes)
+	result := make([]byte, int64QuantityExpectedBytes)
 	result[0] = '"'
 	number, suffix := q.CanonicalizeBytes(result[1:1])
 	// if the same slice was returned to us that we passed in, avoid another allocation by copying number into
@@ -656,6 +683,12 @@ func (q Quantity) MarshalJSON() ([]byte, error) {
 	result = append(result, suffix...)
 	result = append(result, '"')
 	return result, nil
+}
+
+func (q Quantity) MarshalCBOR() ([]byte, error) {
+	// The call to String() should never return the string "<nil>" because the receiver's
+	// address will never be nil.
+	return cbor.Marshal(q.String())
 }
 
 // ToUnstructured implements the value.UnstructuredConverter interface.
@@ -682,6 +715,27 @@ func (q *Quantity) UnmarshalJSON(value []byte) error {
 	}
 
 	// This copy is safe because parsed will not be referred to again.
+	*q = parsed
+	return nil
+}
+
+func (q *Quantity) UnmarshalCBOR(value []byte) error {
+	var s *string
+	if err := cbor.Unmarshal(value, &s); err != nil {
+		return err
+	}
+
+	if s == nil {
+		q.d.Dec = nil
+		q.i = int64Amount{}
+		return nil
+	}
+
+	parsed, err := ParseQuantity(strings.TrimSpace(*s))
+	if err != nil {
+		return err
+	}
+
 	*q = parsed
 	return nil
 }

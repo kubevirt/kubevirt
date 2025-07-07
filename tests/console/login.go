@@ -23,10 +23,10 @@ const (
 )
 
 // LoginToFunction represents any of the LoginTo* functions
-type LoginToFunction func(*v1.VirtualMachineInstance) error
+type LoginToFunction func(*v1.VirtualMachineInstance, ...time.Duration) error
 
 // LoginToCirros performs a console login to a Cirros base VM
-func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
+func LoginToCirros(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 	virtClient := kubevirt.Client()
 	expecter, _, err := NewExpecter(virtClient, vmi, connectionTimeout)
 	if err != nil {
@@ -55,9 +55,11 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "gocubsgo\n"},
 		&expect.BExp{R: PromptExpression},
 	}
-	const loginTimeout = 180 * time.Second
+	loginTimeout := 180 * time.Second
+	if len(timeout) > 0 {
+		loginTimeout = timeout[0]
+	}
 	resp, err := expecter.ExpectBatch(b, loginTimeout)
-
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
 		return err
@@ -71,7 +73,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 }
 
 // LoginToAlpine performs a console login to an Alpine base VM
-func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
+func LoginToAlpine(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 	virtClient := kubevirt.Client()
 
 	expecter, _, err := NewExpecter(virtClient, vmi, connectionTimeout)
@@ -103,7 +105,10 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "root\n"},
 		&expect.BExp{R: PromptExpression},
 	}
-	const loginTimeout = 180 * time.Second
+	loginTimeout := 180 * time.Second
+	if len(timeout) > 0 {
+		loginTimeout = timeout[0]
+	}
 	res, err := expecter.ExpectBatch(b, loginTimeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login failed: %+v", res)
@@ -118,10 +123,15 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 }
 
 // LoginToFedora performs a console login to a Fedora base VM
-func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
+func LoginToFedora(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 	virtClient := kubevirt.Client()
 
-	expecter, _, err := NewExpecter(virtClient, vmi, connectionTimeout)
+	// TODO: This is temporary workaround for issue seen in CI
+	// We see that 10seconds for an initial boot is not enough
+	// At the same time it seems the OS is booted within 10sec
+	// We need to have a look on Running -> Booting time
+	const double = 2
+	expecter, _, err := NewExpecter(virtClient, vmi, double*connectionTimeout)
 	if err != nil {
 		return err
 	}
@@ -132,9 +142,11 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 		return err
 	}
 
+	hostName := dns.SanitizeHostname(vmi)
+
 	// Do not login, if we already logged in
 	loggedInPromptRegex := fmt.Sprintf(
-		`(\[fedora@(localhost|fedora|%s) ~\]\$ |\[root@(localhost|fedora|%s) fedora\]\# )`, vmi.Name, vmi.Name,
+		`(\[fedora@(localhost|fedora|%s|%s) ~\]\$ |\[root@(localhost|fedora|%s|%s) fedora\]\# )`, vmi.Name, hostName, vmi.Name, hostName,
 	)
 	b := []expect.Batcher{
 		&expect.BSnd{S: "\n"},
@@ -152,7 +164,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 			&expect.Case{
 				// Using only "login: " would match things like "Last failed login: Tue Jun  9 22:25:30 UTC 2020 on ttyS0"
 				// and in case the VM's did not get hostname form DHCP server try the default hostname
-				R:  regexp.MustCompile(fmt.Sprintf(`(localhost|fedora|%s) login: `, vmi.Name)),
+				R:  regexp.MustCompile(fmt.Sprintf(`(localhost|fedora|%s|%s) login: `, vmi.Name, hostName)),
 				S:  "fedora\n",
 				T:  expect.Next(),
 				Rt: 10,
@@ -176,12 +188,15 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "sudo su\n"},
 		&expect.BExp{R: PromptExpression},
 	}
-	const loginTimeout = 2 * time.Minute
+	loginTimeout := 2 * time.Minute
+	if len(timeout) > 0 {
+		loginTimeout = timeout[0]
+	}
 	res, err := expecter.ExpectBatch(b, loginTimeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login attempt failed: %+v", res)
 		// Try once more since sometimes the login prompt is ripped apart by asynchronous daemon updates
-		if retryRes, retryErr := expecter.ExpectBatch(b, 1*time.Minute); retryErr != nil {
+		if retryRes, retryErr := expecter.ExpectBatch(b, loginTimeout); retryErr != nil {
 			log.DefaultLogger().Object(vmi).Reason(retryErr).Errorf("Retried login attempt after two minutes failed: %+v", retryRes)
 			return retryErr
 		}

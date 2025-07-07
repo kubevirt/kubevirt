@@ -21,9 +21,10 @@ package tests_test
 
 import (
 	"context"
-	"encoding/xml"
 	"fmt"
+	"strconv"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,18 +35,18 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -66,20 +67,20 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 		})
 
 		DescribeTable("should be able to successfully boot fedora to the login prompt with multi-queue without being blocked by selinux", func(interfaceModel string, expectedQueueCount int32) {
-			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
 			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)
 
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = interfaceModel
 
 			By("Creating and starting the VMI")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Checking if we can login")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -92,19 +93,16 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 		)
 
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
+			Expect(availableCPUs).To(BeNumerically(">=", numCpus),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
 
-			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.Bool(true)
-			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
-
-			tests.AddEphemeralDisk(vmi, "disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			cpuResources := strconv.Itoa(int(numCpus))
+			vmi := libvmifact.NewAlpine(libvmi.WithResourceCPU(cpuResources), libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
 
 			By("Creating VMI with 2 disks, 3 CPUs and multi-queue enabled")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
@@ -114,7 +112,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching VMI from cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VMI")
@@ -123,10 +121,8 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			Expect(*newVMI.Spec.Domain.Devices.BlockMultiQueue).To(BeTrue())
 
 			By("Fetching Domain XML from running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 
 			By("Ensuring each disk has three queues assigned")
 			for _, disk := range domSpec.Devices.Disks {
@@ -135,21 +131,19 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 		})
 
 		It("should be able to create a multi-queue VMI when requesting a single vCPU", func() {
-			vmi := libvmi.NewCirros()
+			vmi := libvmifact.NewCirros()
 
 			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 1, Sockets: 1, Threads: 1}
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)
 
 			By("Creating and starting the VMI")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Fetching Domain XML from running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 
 			for i, iface := range domSpec.Devices.Interfaces {
 				expectedIfaceName := fmt.Sprintf("tap%d", i)

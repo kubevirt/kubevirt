@@ -23,7 +23,45 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-PUSH_TARGETS=(${PUSH_TARGETS:-other-images virt-operator virt-api virt-controller virt-handler virt-launcher virt-exportserver virt-exportproxy conformance libguestfs})
+default_targets="
+    virt-operator
+    virt-api
+    virt-controller
+    virt-handler
+    virt-launcher
+    virt-exportserver
+    virt-exportproxy
+    alpine-container-disk-demo
+    fedora-with-test-tooling-container-disk
+    vm-killer
+    sidecar-shim
+    disks-images-provider
+"
+
+case ${ARCHITECTURE} in
+"s390x" | "crossbuild-s390x") ;;
+*)
+    default_targets+="
+        conformance
+        libguestfs-tools
+        pr-helper
+        example-hook-sidecar
+        example-disk-mutation-hook-sidecar
+        example-cloudinit-hook-sidecar
+        cirros-container-disk-demo
+        cirros-custom-container-disk-demo
+        virtio-container-disk
+        alpine-ext-kernel-boot-demo
+        alpine-with-test-tooling-container-disk
+        fedora-realtime-container-disk
+        winrmcli
+        network-slirp-binding
+        network-passt-binding
+    "
+    ;;
+esac
+
+PUSH_TARGETS=(${PUSH_TARGETS:-${default_targets}})
 
 for tag in ${docker_tag} ${docker_tag_alt}; do
     for target in ${PUSH_TARGETS[@]}; do

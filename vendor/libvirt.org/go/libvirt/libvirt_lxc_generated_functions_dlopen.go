@@ -43,8 +43,8 @@ package libvirt
 
 
 typedef int
-(*virDomainLxcEnterCGroupType)(virDomainPtr domain,
-                               unsigned int flags);
+(*virDomainLxcEnterCGroupFuncType)(virDomainPtr domain,
+                                   unsigned int flags);
 
 int
 virDomainLxcEnterCGroupWrapper(virDomainPtr domain,
@@ -52,7 +52,7 @@ virDomainLxcEnterCGroupWrapper(virDomainPtr domain,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virDomainLxcEnterCGroupType virDomainLxcEnterCGroupSymbol;
+    static virDomainLxcEnterCGroupFuncType virDomainLxcEnterCGroupSymbol;
     static bool once;
     static bool success;
 
@@ -72,12 +72,12 @@ virDomainLxcEnterCGroupWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainLxcEnterNamespaceType)(virDomainPtr domain,
-                                  unsigned int nfdlist,
-                                  int * fdlist,
-                                  unsigned int * noldfdlist,
-                                  int ** oldfdlist,
-                                  unsigned int flags);
+(*virDomainLxcEnterNamespaceFuncType)(virDomainPtr domain,
+                                      unsigned int nfdlist,
+                                      int * fdlist,
+                                      unsigned int * noldfdlist,
+                                      int ** oldfdlist,
+                                      unsigned int flags);
 
 int
 virDomainLxcEnterNamespaceWrapper(virDomainPtr domain,
@@ -89,7 +89,7 @@ virDomainLxcEnterNamespaceWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainLxcEnterNamespaceType virDomainLxcEnterNamespaceSymbol;
+    static virDomainLxcEnterNamespaceFuncType virDomainLxcEnterNamespaceSymbol;
     static bool once;
     static bool success;
 
@@ -113,10 +113,10 @@ virDomainLxcEnterNamespaceWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainLxcEnterSecurityLabelType)(virSecurityModelPtr model,
-                                      virSecurityLabelPtr label,
-                                      virSecurityLabelPtr oldlabel,
-                                      unsigned int flags);
+(*virDomainLxcEnterSecurityLabelFuncType)(virSecurityModelPtr model,
+                                          virSecurityLabelPtr label,
+                                          virSecurityLabelPtr oldlabel,
+                                          unsigned int flags);
 
 int
 virDomainLxcEnterSecurityLabelWrapper(virSecurityModelPtr model,
@@ -126,7 +126,7 @@ virDomainLxcEnterSecurityLabelWrapper(virSecurityModelPtr model,
                                       virErrorPtr err)
 {
     int ret = -1;
-    static virDomainLxcEnterSecurityLabelType virDomainLxcEnterSecurityLabelSymbol;
+    static virDomainLxcEnterSecurityLabelFuncType virDomainLxcEnterSecurityLabelSymbol;
     static bool once;
     static bool success;
 
@@ -148,9 +148,9 @@ virDomainLxcEnterSecurityLabelWrapper(virSecurityModelPtr model,
 }
 
 typedef int
-(*virDomainLxcOpenNamespaceType)(virDomainPtr domain,
-                                 int ** fdlist,
-                                 unsigned int flags);
+(*virDomainLxcOpenNamespaceFuncType)(virDomainPtr domain,
+                                     int ** fdlist,
+                                     unsigned int flags);
 
 int
 virDomainLxcOpenNamespaceWrapper(virDomainPtr domain,
@@ -159,7 +159,7 @@ virDomainLxcOpenNamespaceWrapper(virDomainPtr domain,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virDomainLxcOpenNamespaceType virDomainLxcOpenNamespaceSymbol;
+    static virDomainLxcOpenNamespaceFuncType virDomainLxcOpenNamespaceSymbol;
     static bool once;
     static bool success;
 

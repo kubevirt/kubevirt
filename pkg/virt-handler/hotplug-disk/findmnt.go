@@ -25,8 +25,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -60,7 +58,7 @@ type FileSystems struct {
 func LookupFindmntInfoByVolume(volumeName string, pid int) ([]FindmntInfo, error) {
 	mntInfoJson, err := findMntByVolume(volumeName, pid)
 	if err != nil {
-		return make([]FindmntInfo, 0), errors.Wrapf(err, "Error running findmnt for volume %s", volumeName)
+		return make([]FindmntInfo, 0), fmt.Errorf("Error running findmnt for volume %s: %w", volumeName, err)
 	}
 	return parseMntInfoJson(mntInfoJson)
 }
@@ -68,7 +66,7 @@ func LookupFindmntInfoByVolume(volumeName string, pid int) ([]FindmntInfo, error
 func LookupFindmntInfoByDevice(deviceName string) ([]FindmntInfo, error) {
 	mntInfoJson, err := findMntByDevice(deviceName)
 	if err != nil {
-		return make([]FindmntInfo, 0), errors.Wrapf(err, "Error running findmnt for device %s", deviceName)
+		return make([]FindmntInfo, 0), fmt.Errorf("Error running findmnt for device %s: %w", deviceName, err)
 	}
 	return parseMntInfoJson(mntInfoJson)
 }
@@ -76,7 +74,7 @@ func LookupFindmntInfoByDevice(deviceName string) ([]FindmntInfo, error) {
 func parseMntInfoJson(mntInfoJson []byte) ([]FindmntInfo, error) {
 	mntinfo := FileSystems{}
 	if err := json.Unmarshal(mntInfoJson, &mntinfo); err != nil {
-		return mntinfo.Filesystems, errors.Wrapf(err, "unable to unmarshal [%v]", mntInfoJson)
+		return mntinfo.Filesystems, fmt.Errorf("unable to unmarshal [%v]: %w", mntInfoJson, err)
 	}
 	return mntinfo.Filesystems, nil
 }

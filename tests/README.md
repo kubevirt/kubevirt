@@ -9,14 +9,9 @@ We aim to run e2e tests in parallel by default. As such the following rules shou
    to create resources outside the test namespaces, discuss potential
    solutions on such a PR.
  * If you really have to run tests serial (destructive tests, infra-tests,
-  ...), mark the test with a `[Serial]` tag and add the [Serial decorator](https://onsi.github.io/ginkgo/#serial-specs) to the test.
+  ...), add the [Serial decorator](https://onsi.github.io/ginkgo/#serial-specs) to the test.
  * If tests are not using the default cleanup code, additional custom
    preparations may be necessary.
-
-The following types of tests need to be marked as `[Serial]` right now:
-
- * Tests which use PVCs or DataVolumes (parallelizing these is on the way).
- * Tests which use `BeforeAll`.
 
 Additional suggestions:
 
@@ -122,3 +117,52 @@ docker run \
         --deploy-testing-infra \
         --path-to-testing-infra-manifests=data/manifests
 ```
+
+## Skipping tests when cluster requirements aren't met
+KubeVirt provides [tests decorators](https://github.com/kubevirt/kubevirt/blob/main/tests/decorators/decorators.go)
+to indicate the cluster requirements for certain tests. If your
+cluster doesn't meet these requirements, you can choose to skip
+the relevant tests by explicitly setting the `KUBEVIRT_E2E_SKIP`
+environment variable with the appropriate decorators.
+
+For example, to skip tests that require more than one schedulable node,
+which is useful for single-node clusters, run:
+
+``` bash
+export KUBEVIRT_E2E_SKIP=requires-two-schedulable-nodes
+```
+
+The `KUBEVIRT_E2E_SKIP` variable supports regular expressions.
+For example, to skip tests requiring two schedulable nodes
+and specific storage, run:
+
+``` bash
+export KUBEVIRT_E2E_SKIP=requires-two-schedulable-nodes|storage-req
+```
+
+For more information on filtering tests when using Ginkgo directly,
+refer to [Ginkgo documentation](https://onsi.github.io/ginkgo/#description-based-filtering).
+
+## Filtering tests by labels
+You can filter tests by labels using the `KUBEVIRT_LABEL_FILTER`
+environment variable. This variable allows you to specify labels
+that tests must have to be executed.  
+For example, to run only tests with the Conformance label, run:
+
+``` bash
+export KUBEVIRT_LABEL_FILTER=Conformance
+```
+
+The `KUBEVIRT_LABEL_FILTER` variable supports regular expressions.
+
+## Focusing on specific tests
+To focus on specific tests, you can use the `KUBEVIRT_E2E_FOCUS`
+environment variable. This variable supports regular expressions
+to match the test descriptions.  
+For example, to run only tests related to networking, run:
+
+``` bash  
+export KUBEVIRT_E2E_FOCUS=networking
+```  
+
+The `KUBEVIRT_LABEL_FILTER` variable supports regular expressions.

@@ -23,6 +23,12 @@ Make a few passes over the code you want to review.
   index in a hash map on one of the lists and iterate over the other list. This
   trades `O(n^2)` with `O(n)`, which keeps kubevirt robust and scalable.
 
+## Release notes labels
+
+PRs have a ```release-notes``` section of their description and we use GitHub labels to filter release notes when we generate them at release time. For some PRs, kubevirt-bot is able to apply one of more of these labels but in general they need to be manually added.
+
+If a release note is included in the PR, ensure that it has a `kind/` label and, if relevant, a 'sig/' label as well. For more information on these labels, see the [release-procedure.md](release-procedure.md#using-github-labels-for-release-notes) doc in this repo.
+
 ## Pull Request structure
 
 * It's preferred that authors rebase on main instead of merging the main branch into their PRs.
@@ -102,7 +108,7 @@ end-to-end tests for their features and fixes. All tests are run and required
 to pass on each PR.
 Maintainers are allowed to take in code with varying quality for as long as the
 project's maintainability is not at stake and all required criterias are met
-(especially the testing and architectural criterias) to be open and inclusive.
+(especially the testing and architectural criteria) to be open and inclusive.
 
 The lowest bar for acceptable **coding styles** is enforced via automation:
 * [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) to enforce a common coding style for go code.

@@ -19,6 +19,7 @@ import (
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
 
 	"kubevirt.io/kubevirt/pkg/util"
+	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
 
 type v1Manager struct {
@@ -55,7 +56,7 @@ func (v *v1Manager) GetBasePathToHostSubsystem(subsystem string) (string, error)
 	if subsystemPath == "" {
 		return "", fmt.Errorf("controller %s does not exist", subsystem)
 	}
-	return filepath.Join(HostCgroupBasePath, subsystemPath), nil
+	return filepath.Join(cgroupconsts.HostCgroupBasePath, subsystemPath), nil
 }
 
 func (v *v1Manager) Set(r *runc_configs.Resources) error {
@@ -92,7 +93,7 @@ func getCurrentlyDefinedRules(runcManager runc_cgroups.Manager) ([]*devices.Rule
 	if !ok {
 		return nil, fmt.Errorf("devices subsystem's path is not defined for this manager")
 	}
-	devicesPath = filepath.Join(HostCgroupBasePath, devicesPath)
+	devicesPath = filepath.Join(cgroupconsts.HostCgroupBasePath, devicesPath)
 
 	currentRulesStr, err := runc_cgroups.ReadFile(devicesPath, "devices.list")
 	if err != nil {

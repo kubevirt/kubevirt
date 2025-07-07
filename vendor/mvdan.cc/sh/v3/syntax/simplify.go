@@ -10,12 +10,12 @@ import "bytes"
 //
 // The changes currently applied are:
 //
-//     Remove clearly useless parentheses       $(( (expr) ))
-//     Remove dollars from vars in exprs        (($var))
-//     Remove duplicate subshells               $( (stmts) )
-//     Remove redundant quotes                  [[ "$var" == str ]]
-//     Merge negations with unary operators     [[ ! -n $var ]]
-//     Use single quotes to shorten literals    "\$foo"
+//	Remove clearly useless parentheses       $(( (expr) ))
+//	Remove dollars from vars in exprs        (($var))
+//	Remove duplicate subshells               $( (stmts) )
+//	Remove redundant quotes                  [[ "$var" == str ]]
+//	Merge negations with unary operators     [[ ! -n $var ]]
+//	Use single quotes to shorten literals    "\$foo"
 func Simplify(n Node) bool {
 	s := simplifier{}
 	Walk(n, s.visit)
@@ -153,16 +153,17 @@ func (s *simplifier) inlineSimpleParams(x ArithmExpr) ArithmExpr {
 	}
 	pe, _ := w.Parts[0].(*ParamExp)
 	if pe == nil || !ValidName(pe.Param.Value) {
+		// Not a parameter expansion, or not a valid name, like $3.
 		return x
 	}
 	if pe.Excl || pe.Length || pe.Width || pe.Slice != nil ||
-		pe.Repl != nil || pe.Exp != nil {
+		pe.Repl != nil || pe.Exp != nil || pe.Index != nil {
+		// A complex parameter expansion can't be simplified.
+		//
+		// Note that index expressions can't generally be simplified
+		// either. It's fine to turn ${a[0]} into a[0], but others like
+		// a[*] are invalid in many shells including Bash.
 		return x
-	}
-	if pe.Index != nil {
-		s.modified = true
-		pe.Short = true
-		return w
 	}
 	s.modified = true
 	return &Word{Parts: []WordPart{pe.Param}}

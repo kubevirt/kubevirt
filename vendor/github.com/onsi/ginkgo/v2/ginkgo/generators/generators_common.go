@@ -1,6 +1,7 @@
 package generators
 
 import (
+	"fmt"
 	"go/build"
 	"os"
 	"path/filepath"
@@ -13,14 +14,16 @@ import (
 type GeneratorsConfig struct {
 	Agouti, NoDot, Internal bool
 	CustomTemplate          string
+	CustomTemplateData      string
+	Tags                    string
 }
 
 func getPackageAndFormattedName() (string, string, string) {
 	path, err := os.Getwd()
 	command.AbortIfError("Could not get current working directory:", err)
 
-	dirName := strings.Replace(filepath.Base(path), "-", "_", -1)
-	dirName = strings.Replace(dirName, " ", "_", -1)
+	dirName := strings.ReplaceAll(filepath.Base(path), "-", "_")
+	dirName = strings.ReplaceAll(dirName, " ", "_")
 
 	pkg, err := build.ImportDir(path, 0)
 	packageName := pkg.Name
@@ -47,10 +50,10 @@ func ensureLegalPackageName(name string) string {
 }
 
 func prettifyName(name string) string {
-	name = strings.Replace(name, "-", " ", -1)
-	name = strings.Replace(name, "_", " ", -1)
+	name = strings.ReplaceAll(name, "-", " ")
+	name = strings.ReplaceAll(name, "_", " ")
 	name = strings.Title(name)
-	name = strings.Replace(name, " ", "", -1)
+	name = strings.ReplaceAll(name, " ", "")
 	return name
 }
 
@@ -60,4 +63,14 @@ func determinePackageName(name string, internal bool) string {
 	}
 
 	return name + "_test"
+}
+
+// getBuildTags returns the resultant string to be added.
+// If the input string is not empty, then returns a `//go:build {}` string,
+// otherwise returns an empty string.
+func getBuildTags(tags string) string {
+	if tags != "" {
+		return fmt.Sprintf("//go:build %s\n", tags)
+	}
+	return ""
 }

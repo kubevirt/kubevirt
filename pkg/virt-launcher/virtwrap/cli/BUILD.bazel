@@ -10,13 +10,13 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/wait:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/errors:go_default_library",
         "//pkg/virt-launcher/virtwrap/stats:go_default_library",
         "//pkg/virt-launcher/virtwrap/statsconv:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )

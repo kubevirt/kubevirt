@@ -1,6 +1,6 @@
 package nl
 
-// syscall package lack of rule atributes type.
+// syscall package lack of rule attributes type.
 // Thus there are defined below
 const (
 	FRA_UNSPEC  = iota
@@ -46,6 +46,7 @@ const (
 // socket diags related
 const (
 	SOCK_DIAG_BY_FAMILY = 20         /* linux.sock_diag.h */
+	SOCK_DESTROY	    = 21
 	TCPDIAG_NOCOOKIE    = 0xFFFFFFFF /* TCPDIAG_NOCOOKIE in net/ipv4/tcp_diag.h*/
 )
 

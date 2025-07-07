@@ -28,6 +28,5 @@ import (
 )
 
 func main() {
-	virtctl.Execute()
-	os.Exit(0)
+	os.Exit(virtctl.Execute())
 }

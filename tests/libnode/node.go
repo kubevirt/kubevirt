@@ -27,15 +27,11 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
-	"kubevirt.io/kubevirt/pkg/util/nodes"
-
-	"k8s.io/apimachinery/pkg/api/equality"
-
+	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -43,14 +39,20 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/util/nodes"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
+
+const workerLabel = "node-role.kubernetes.io/worker"
 
 var SchedulableNode = ""
 
@@ -62,12 +64,11 @@ func CleanNodes() {
 	for _, node := range GetAllSchedulableNodes(virtCli).Items {
 		old, err := json.Marshal(node)
 		Expect(err).ToNot(HaveOccurred())
-		new := node.DeepCopy()
+		newNode := node.DeepCopy()
 
 		found := false
 		taints := []k8sv1.Taint{}
 		for _, taint := range node.Spec.Taints {
-
 			if taint.Key == clusterDrainKey && taint.Effect == k8sv1.TaintEffectNoSchedule {
 				found = true
 			} else if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
@@ -79,32 +80,32 @@ func CleanNodes() {
 			} else {
 				taints = append(taints, taint)
 			}
-
 		}
-		new.Spec.Taints = taints
+		newNode.Spec.Taints = taints
 
 		for k := range node.Labels {
 			if strings.HasPrefix(k, cleanup.KubeVirtTestLabelPrefix) {
 				found = true
-				delete(new.Labels, k)
+				delete(newNode.Labels, k)
 			}
 		}
 
 		if node.Spec.Unschedulable {
-			new.Spec.Unschedulable = false
+			newNode.Spec.Unschedulable = false
 			found = true
 		}
 
 		if !found {
 			continue
 		}
-		newJson, err := json.Marshal(new)
+		newJSON, err := json.Marshal(newNode)
 		Expect(err).ToNot(HaveOccurred())
 
-		patchBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
+		patchBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJSON, node)
 		Expect(err).ToNot(HaveOccurred())
 
-		_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{})
+		_, err = virtCli.CoreV1().Nodes().Patch(
+			context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 }
@@ -112,12 +113,33 @@ func CleanNodes() {
 func GetNodeDrainKey() string {
 	virtClient := kubevirt.Client()
 
-	kv := util.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	if kv.Spec.Configuration.MigrationConfiguration != nil && kv.Spec.Configuration.MigrationConfiguration.NodeDrainTaintKey != nil {
 		return *kv.Spec.Configuration.MigrationConfiguration.NodeDrainTaintKey
 	}
 
 	return virtconfig.NodeDrainTaintDefaultKey
+}
+
+// TemporaryNodeDrain also sets the `NoSchedule` taint on the node.
+// nodes with this taint will be reset to their original state on each
+// test teardown by the test framework. Check `libnode.CleanNodes`.
+func TemporaryNodeDrain(nodeName string) {
+	Taint(nodeName, GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
+
+	// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
+	// time that we call it.
+	vmiSelector := v1.AppLabel + "=virt-launcher"
+	k8sClient := clientcmd.GetK8sCmdClient()
+	if k8sClient == "oc" {
+		_, _, err := clientcmd.RunCommand("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			"--ignore-daemonsets=true", "--force", "--timeout=180s")
+		Expect(err).ToNot(HaveOccurred())
+	} else {
+		_, _, err := clientcmd.RunCommand("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			"--ignore-daemonsets=true", "--force", "--timeout=180s")
+		Expect(err).ToNot(HaveOccurred())
+	}
 }
 
 type mapType string
@@ -134,24 +156,13 @@ const (
 	remove mapAction = "remove"
 )
 
-func patchLabelAnnotationHelper(virtCli kubecli.KubevirtClient, nodeName string, newMap, oldMap map[string]string, mapType mapType) (*k8sv1.Node, error) {
-	p := []patch.PatchOperation{
-		{
-			Op:    "test",
-			Path:  "/metadata/" + string(mapType) + "s",
-			Value: oldMap,
-		},
-		{
-			Op:    "replace",
-			Path:  "/metadata/" + string(mapType) + "s",
-			Value: newMap,
-		},
-	}
-
-	patchBytes, err := json.Marshal(p)
+func patchLabelAnnotationHelper(nodeName string, newMap, oldMap map[string]string, mapType mapType) (*k8sv1.Node, error) {
+	path := "/metadata/" + string(mapType) + "s"
+	patchBytes, err := patch.New(patch.WithTest(path, oldMap), patch.WithReplace(path, newMap)).GeneratePayload()
 	Expect(err).ToNot(HaveOccurred())
-
-	patchedNode, err := virtCli.CoreV1().Nodes().Patch(context.Background(), nodeName, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{})
+	client := kubevirt.Client()
+	patchedNode, err := client.CoreV1().Nodes().Patch(
+		context.Background(), nodeName, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{})
 	return patchedNode, err
 }
 
@@ -187,6 +198,7 @@ func addRemoveLabelAnnotationHelper(nodeName, key, value string, mapType mapType
 	virtCli := kubevirt.Client()
 
 	var nodeToReturn *k8sv1.Node
+
 	EventuallyWithOffset(2, func() error {
 		origNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -205,7 +217,7 @@ func addRemoveLabelAnnotationHelper(nodeName, key, value string, mapType mapType
 			return nil
 		}
 
-		patchedNode, err := patchLabelAnnotationHelper(virtCli, nodeName, expectedMap, originalMap, mapType)
+		patchedNode, err := patchLabelAnnotationHelper(nodeName, expectedMap, originalMap, mapType)
 		if err != nil {
 			return err
 		}
@@ -232,34 +244,35 @@ func AddAnnotationToNode(nodeName, key, value string) *k8sv1.Node {
 	return addRemoveLabelAnnotationHelper(nodeName, key, value, annotation, add)
 }
 
-func RemoveLabelFromNode(nodeName string, key string) *k8sv1.Node {
+func RemoveLabelFromNode(nodeName, key string) *k8sv1.Node {
 	return addRemoveLabelAnnotationHelper(nodeName, key, "", label, remove)
 }
 
-func RemoveAnnotationFromNode(nodeName string, key string) *k8sv1.Node {
+func RemoveAnnotationFromNode(nodeName, key string) *k8sv1.Node {
 	return addRemoveLabelAnnotationHelper(nodeName, key, "", annotation, remove)
 }
 
-func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
+func Taint(nodeName, key string, effect k8sv1.TaintEffect) {
 	virtCli := kubevirt.Client()
 	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	old, err := json.Marshal(node)
 	Expect(err).ToNot(HaveOccurred())
-	new := node.DeepCopy()
-	new.Spec.Taints = append(new.Spec.Taints, k8sv1.Taint{
+	newNode := node.DeepCopy()
+	newNode.Spec.Taints = append(newNode.Spec.Taints, k8sv1.Taint{
 		Key:    key,
 		Effect: effect,
 	})
 
-	newJson, err := json.Marshal(new)
+	newJSON, err := json.Marshal(newNode)
 	Expect(err).ToNot(HaveOccurred())
 
-	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJSON, node)
 	Expect(err).ToNot(HaveOccurred())
 
-	_, err = virtCli.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{})
+	_, err = virtCli.CoreV1().Nodes().Patch(
+		context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -269,33 +282,37 @@ func GetNodesWithKVM() []*k8sv1.Node {
 	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 	Expect(err).ToNot(HaveOccurred())
 
-	nodes := make([]*k8sv1.Node, 0)
-	// cluster is not ready until all nodes are ready.
-	for _, pod := range virtHandlerPods.Items {
+	nodeList := make([]*k8sv1.Node, 0)
+	// cluster is not ready until all nodeList are ready.
+	for i := range virtHandlerPods.Items {
+		pod := virtHandlerPods.Items[i]
 		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		_, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
 		if ok {
-			nodes = append(nodes, virtHandlerNode)
+			nodeList = append(nodeList, virtHandlerNode)
 		}
 	}
-	return nodes
+	return nodeList
 }
 
+// GetAllSchedulableNodes returns list of Nodes which are "KubeVirt" schedulable.
 func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
-	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
-	return nodes
+	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{
+		LabelSelector: v1.NodeSchedulable + "=" + "true",
+	})
+	Expect(err).ToNot(HaveOccurred(), "Should list compute nodeList")
+	return nodeList
 }
 
 func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
 	var cpus int64
 
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
+	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	for _, node := range nodes.Items {
+	for _, node := range nodeList.Items {
 		if v, ok := node.Status.Capacity[k8sv1.ResourceCPU]; ok && v.Value() > cpus {
 			cpus = v.Value()
 		}
@@ -305,10 +322,10 @@ func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
 }
 
 func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.ResourceName) *k8sv1.Node {
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
+	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	for _, node := range nodes.Items {
+	for _, node := range nodeList.Items {
 		if v, ok := node.Status.Capacity[hugepages]; ok && !v.IsZero() {
 			return &node
 		}
@@ -316,11 +333,21 @@ func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.Res
 	return nil
 }
 
+func GetNodeNameWithHandler() string {
+	listOptions := k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
+	virtClient := kubevirt.Client()
+	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+	Expect(err).ToNot(HaveOccurred())
+	node, err := virtClient.CoreV1().Nodes().Get(context.Background(), virtHandlerPods.Items[0].Spec.NodeName, k8smetav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return node.ObjectMeta.Name
+}
+
 func GetArch() string {
 	virtCli := kubevirt.Client()
-	nodes := GetAllSchedulableNodes(virtCli).Items
-	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
-	return nodes[0].Status.NodeInfo.Architecture
+	nodeList := GetAllSchedulableNodes(virtCli).Items
+	Expect(nodeList).ToNot(BeEmpty(), "There should be some node")
+	return nodeList[0].Status.NodeInfo.Architecture
 }
 
 func setNodeSchedualability(nodeName string, virtCli kubecli.KubevirtClient, setSchedulable bool) {
@@ -338,7 +365,9 @@ func setNodeSchedualability(nodeName string, virtCli kubecli.KubevirtClient, set
 		Expect(err).ShouldNot(HaveOccurred())
 
 		return patchedNode.Spec.Unschedulable
-	}, 30*time.Second, time.Second).Should(Equal(!setSchedulable), fmt.Sprintf("node %s is expected to set to Unschedulable=%t, but it's set to %t", nodeName, !setSchedulable, setSchedulable))
+	}, 30*time.Second, time.Second).Should(
+		Equal(!setSchedulable),
+		fmt.Sprintf("node %s is expected to set to Unschedulable=%t, but it's set to %t", nodeName, !setSchedulable, setSchedulable))
 }
 
 func SetNodeUnschedulable(nodeName string, virtCli kubecli.KubevirtClient) {
@@ -351,4 +380,95 @@ func SetNodeSchedulable(nodeName string, virtCli kubecli.KubevirtClient) {
 
 func GetVirtHandlerPod(virtCli kubecli.KubevirtClient, nodeName string) (*k8sv1.Pod, error) {
 	return kubecli.NewVirtHandlerClient(virtCli, &http.Client{}).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+}
+
+func GetControlPlaneNodes(virtCli kubecli.KubevirtClient) *k8sv1.NodeList {
+	controlPlaneNodes, err := virtCli.
+		CoreV1().
+		Nodes().
+		List(context.Background(),
+			k8smetav1.ListOptions{LabelSelector: `node-role.kubernetes.io/control-plane`})
+	Expect(err).ShouldNot(HaveOccurred(), "could not list control-plane nodes")
+	Expect(controlPlaneNodes.Items).ShouldNot(BeEmpty(),
+		"There are no control-plane nodes in the cluster")
+	return controlPlaneNodes
+}
+
+func GetWorkerNodesWithCPUManagerEnabled(virtClient kubecli.KubevirtClient) []k8sv1.Node {
+	ginkgo.By("getting the list of worker nodes that have cpumanager enabled")
+	nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(nodeList).ToNot(BeNil())
+	return nodeList.Items
+}
+
+func GetSupportedCPUFeatures(nodesList k8sv1.NodeList) []string {
+	featureDenyList := map[string]bool{
+		"svm": true,
+	}
+	featuresMap := make(map[string]bool)
+	for _, node := range nodesList.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, v1.CPUFeatureLabel) {
+				feature := strings.TrimPrefix(key, v1.CPUFeatureLabel)
+				if _, ok := featureDenyList[feature]; !ok {
+					featuresMap[feature] = true
+				}
+			}
+		}
+	}
+
+	features := make([]string, 0)
+	for feature := range featuresMap {
+		features = append(features, feature)
+	}
+	return features
+}
+
+func GetSupportedCPUModels(nodeList k8sv1.NodeList) []string {
+	cpuDenyList := map[string]bool{
+		"qemu64":     true,
+		"Opteron_G2": true,
+	}
+	cpuMap := make(map[string]bool)
+	for _, node := range nodeList.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, v1.CPUModelLabel) {
+				cpu := strings.TrimPrefix(key, v1.CPUModelLabel)
+				if _, ok := cpuDenyList[cpu]; !ok {
+					cpuMap[cpu] = true
+				}
+			}
+		}
+	}
+
+	cpus := make([]string, 0)
+	for model := range cpuMap {
+		cpus = append(cpus, model)
+	}
+	return cpus
+}
+
+func GetNodeHostModel(node *k8sv1.Node) (hostModel string) {
+	for key := range node.Labels {
+		if strings.HasPrefix(key, v1.HostModelCPULabel) {
+			hostModel = strings.TrimPrefix(key, v1.HostModelCPULabel)
+			break
+		}
+	}
+	return hostModel
+}
+
+func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
+	virtHandlerPod, err := GetVirtHandlerPod(kubevirt.Client(), nodeName)
+	if err != nil {
+		return "", err
+	}
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, args)
+	if err != nil {
+		return stdout, fmt.Errorf("failed excuting command=%v, error=%v, stdout=%s, stderr=%s", args, err, stdout, stderr)
+	}
+	return stdout, nil
 }

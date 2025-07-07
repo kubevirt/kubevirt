@@ -22,14 +22,13 @@ package vmispec_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 var _ = Describe("VMI network spec", func() {
-
 	Context("pod network", func() {
 		const podNet0 = "podnet0"
 
@@ -69,11 +68,11 @@ var _ = Describe("VMI network spec", func() {
 		})
 
 		It("finds two SR-IOV interfaces in list", func() {
-			sriov_net1 := v1.Interface{
+			sriovNet1 := v1.Interface{
 				Name:                   "sriov-net1",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 			}
-			sriov_net2 := v1.Interface{
+			sriovNet2 := v1.Interface{
 				Name:                   "sriov-net2",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 			}
@@ -83,75 +82,158 @@ var _ = Describe("VMI network spec", func() {
 					Name:                   "masq-net0",
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				},
-				sriov_net1,
-				sriov_net2,
+				sriovNet1,
+				sriovNet2,
 			}
 
-			Expect(netvmispec.FilterSRIOVInterfaces(ifaces)).To(Equal([]v1.Interface{sriov_net1, sriov_net2}))
+			Expect(netvmispec.FilterSRIOVInterfaces(ifaces)).To(Equal([]v1.Interface{sriovNet1, sriovNet2}))
 			Expect(netvmispec.SRIOVInterfaceExist(ifaces)).To(BeTrue())
 		})
 	})
 
-	const iface1, iface2, iface3, iface4, iface5 = "iface1", "iface2", "iface3", "iface4", "iface5"
+	Context("migratable", func() {
+		const (
+			migratablePlugin    = "mig"
+			nonMigratablePlugin = "non_mig"
+			podNet0             = "default"
+		)
 
-	DescribeTable("return VMI spec interface names, given",
-		func(interfaces []v1.Interface, expectedNames []string) {
-			Expect(netvmispec.InterfacesNames(interfaces)).To(Equal(expectedNames))
-		},
-		Entry("no interfaces", nil, nil),
-		Entry("single interface", vmiSpecInterfaces(iface1), []string{iface1}),
-		Entry("more then one interface", vmiSpecInterfaces(iface1, iface2, iface3), []string{iface1, iface2, iface3}),
+		bindingPlugins := map[string]v1.InterfaceBindingPlugin{
+			migratablePlugin:    {Migration: &v1.InterfaceBindingMigration{}},
+			nonMigratablePlugin: {},
+		}
+
+		Context("pod network with migratable binding plugin", func() {
+			It("returns false when there is no pod network", func() {
+				const nonPodNet = "nonPodNet"
+				networks := []v1.Network{
+					{Name: nonPodNet, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+				}
+				ifaces := []v1.Interface{interfaceWithBridgeBinding(nonPodNet)}
+				Expect(netvmispec.IsPodNetworkWithMigratableBindingPlugin(networks, ifaces, bindingPlugins)).To(BeFalse())
+			})
+			It("returns false when the binding is not a plugin", func() {
+				networks := []v1.Network{podNetwork(podNet0)}
+				ifaces := []v1.Interface{interfaceWithBridgeBinding(podNet0)}
+				Expect(netvmispec.IsPodNetworkWithMigratableBindingPlugin(networks, ifaces, bindingPlugins)).To(BeFalse())
+			})
+
+			It("returns false when the plugin is not migratable", func() {
+				networks := []v1.Network{podNetwork(podNet0)}
+				ifaces := []v1.Interface{interfaceWithBindingPlugin(podNet0, nonMigratablePlugin)}
+				Expect(netvmispec.IsPodNetworkWithMigratableBindingPlugin(networks, ifaces, bindingPlugins)).To(BeFalse())
+			})
+
+			It("returns false when non pod network is migratable", func() {
+				const nonPodNetName = "nonPod"
+				nonPodNetwork := v1.Network{
+					Name:          nonPodNetName,
+					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
+				}
+				networks := []v1.Network{nonPodNetwork}
+				ifaces := []v1.Interface{interfaceWithBindingPlugin(nonPodNetName, migratablePlugin)}
+				Expect(netvmispec.IsPodNetworkWithMigratableBindingPlugin(networks, ifaces, bindingPlugins)).To(BeFalse())
+			})
+
+			It("returns true when the plugin is migratable", func() {
+				networks := []v1.Network{podNetwork(podNet0)}
+				ifaces := []v1.Interface{interfaceWithBindingPlugin(podNet0, migratablePlugin)}
+				Expect(netvmispec.IsPodNetworkWithMigratableBindingPlugin(networks, ifaces, bindingPlugins)).To(BeTrue())
+			})
+			It("returns true when the secondary interface has is migratable", func() {
+				networks := []v1.Network{podNetwork(podNet0)}
+				ifaces := []v1.Interface{interfaceWithBindingPlugin(podNet0, migratablePlugin)}
+				Expect(netvmispec.IsPodNetworkWithMigratableBindingPlugin(networks, ifaces, bindingPlugins)).To(BeTrue())
+			})
+		})
+
+		Context("vmi", func() {
+			It("shouldn't allow migration if the VMI use non-migratable binding plugin to connect to the pod network", func() {
+				network := podNetwork(podNet0)
+				vmi := libvmi.New(
+					libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, nonMigratablePlugin)),
+					libvmi.WithNetwork(&network),
+				)
+				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).ToNot(Succeed())
+			})
+			It("shouldn't allow migration if the VMI uses bridge binding to connect to the pod network", func() {
+				network := podNetwork(podNet0)
+				vmi := libvmi.New(
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithNetwork(&network),
+				)
+				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).ToNot(Succeed())
+			})
+			It("should allow migration if the VMI uses masquerade to connect to the pod network", func() {
+				network := podNetwork(podNet0)
+				vmi := libvmi.New(
+					libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+					libvmi.WithNetwork(&network),
+				)
+				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
+			})
+			It("should allow migration if the VMI use bridge to connect to the pod network and has AllowLiveMigrationBridgePodNetwork annotation",
+				func() {
+					network := podNetwork(podNet0)
+					vmi := libvmi.New(
+						libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+						libvmi.WithNetwork(&network),
+						libvmi.WithAnnotation(v1.AllowPodBridgeNetworkLiveMigrationAnnotation, ""),
+					)
+					Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
+				})
+			It("should allow migration if the VMI use migratable binding plugin to connect to the pod network", func() {
+				network := podNetwork(podNet0)
+				vmi := libvmi.New(
+					libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, migratablePlugin)),
+					libvmi.WithNetwork(&network),
+				)
+				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
+			})
+		})
+	})
+
+	const (
+		deviceInfoPlugin    = "deviceinfo"
+		nonDeviceInfoPlugin = "non_deviceinfo"
 	)
 
-	Context("pop interface by network", func() {
-		const netName = "net1"
-		network := podNetwork(netName)
-		expectedStatusIfaces := vmiStatusInterfaces(iface1, iface2)
-
-		It("has no network", func() {
-			statusIface, statusIfaces := netvmispec.PopInterfaceByNetwork(vmiStatusInterfaces(iface1, iface2), nil)
-			Expect(statusIface).To(BeNil())
-			Expect(statusIfaces).To(Equal(expectedStatusIfaces))
+	bindingPlugins := map[string]v1.InterfaceBindingPlugin{
+		deviceInfoPlugin:    {DownwardAPI: v1.DeviceInfo},
+		nonDeviceInfoPlugin: {},
+	}
+	Context("binding plugin network with device info", func() {
+		It("returns false given non binding-plugin interface", func() {
+			Expect(netvmispec.HasBindingPluginDeviceInfo(
+				libvmi.InterfaceDeviceWithBridgeBinding("net1"),
+				bindingPlugins,
+			)).To(BeFalse())
 		})
-
-		It("has no interfaces", func() {
-			statusIface, _ := netvmispec.PopInterfaceByNetwork(nil, &network)
-			Expect(statusIface).To(BeNil())
+		It("returns false when interface binding is not plugin with device-info", func() {
+			Expect(netvmispec.HasBindingPluginDeviceInfo(
+				interfaceWithBindingPlugin("net1", nonDeviceInfoPlugin),
+				bindingPlugins,
+			)).To(BeFalse())
 		})
-
-		It("interface not found", func() {
-			statusIface, _ := netvmispec.PopInterfaceByNetwork(vmiStatusInterfaces(iface1, iface2), &network)
-			Expect(statusIface).To(BeNil())
+		It("returns true when interface binding is plugin with device-info", func() {
+			Expect(netvmispec.HasBindingPluginDeviceInfo(
+				interfaceWithBindingPlugin("net2", deviceInfoPlugin),
+				bindingPlugins,
+			)).To(BeTrue())
 		})
-
-		DescribeTable("pop interface from position", func(statusIfaces []v1.VirtualMachineInstanceNetworkInterface) {
-			expectedStatusIface := v1.VirtualMachineInstanceNetworkInterface{Name: netName}
-			statusIface, statusIfaces := netvmispec.PopInterfaceByNetwork(statusIfaces, &network)
-			Expect(*statusIface).To(Equal(expectedStatusIface))
-			Expect(statusIfaces).To(Equal(expectedStatusIfaces))
-		},
-			Entry("first", vmiStatusInterfaces(netName, iface1, iface2)),
-			Entry("last", vmiStatusInterfaces(iface1, iface2, netName)),
-			Entry("mid", vmiStatusInterfaces(iface1, netName, iface2)),
-		)
 	})
-
-	It("filter status interfaces, given 0 interfaces and 0 names", func() {
-		Expect(netvmispec.FilterStatusInterfacesByNames(nil, nil)).To(BeEmpty())
-	})
-	It("filter status interfaces, given 0 interfaces and 3 names", func() {
-		names := []string{iface1, iface2, iface3}
-		Expect(netvmispec.FilterStatusInterfacesByNames(nil, names)).To(BeEmpty())
-	})
-	It("filter status interfaces, given 3 interfaces and 0 names", func() {
-		statusInterfaces := vmiStatusInterfaces(iface1, iface2, iface3)
-		Expect(netvmispec.FilterStatusInterfacesByNames(statusInterfaces, nil)).To(BeEmpty())
-	})
-	It("filter status interfaces, given 5 interfaces and 2 names", func() {
-		statusInterfaces := vmiStatusInterfaces(iface1, iface4, iface3, iface5, iface2)
-		names := []string{iface4, iface5}
-		expectedInterfaces := vmiStatusInterfaces(names...)
-		Expect(netvmispec.FilterStatusInterfacesByNames(statusInterfaces, names)).To(Equal(expectedInterfaces))
+	Context("binding plugin network with device info exist", func() {
+		It("returns false when there is no network with device info plugin", func() {
+			ifaces := []v1.Interface{interfaceWithBindingPlugin("net1", nonDeviceInfoPlugin)}
+			Expect(netvmispec.BindingPluginNetworkWithDeviceInfoExist(ifaces, bindingPlugins)).To(BeFalse())
+		})
+		It("returns true when there is at least one network with device-info plugin", func() {
+			ifaces := []v1.Interface{
+				interfaceWithBindingPlugin("net1", nonDeviceInfoPlugin),
+				interfaceWithBindingPlugin("net2", deviceInfoPlugin),
+			}
+			Expect(netvmispec.BindingPluginNetworkWithDeviceInfoExist(ifaces, bindingPlugins)).To(BeTrue())
+		})
 	})
 })
 
@@ -176,19 +258,9 @@ func interfaceWithMasqueradeBinding(name string) v1.Interface {
 	}
 }
 
-func vmiStatusInterfaces(names ...string) []v1.VirtualMachineInstanceNetworkInterface {
-	var statusInterfaces []v1.VirtualMachineInstanceNetworkInterface
-	for _, name := range names {
-		iface := v1.VirtualMachineInstanceNetworkInterface{Name: name}
-		statusInterfaces = append(statusInterfaces, iface)
+func interfaceWithBindingPlugin(name, pluginName string) v1.Interface {
+	return v1.Interface{
+		Name:    name,
+		Binding: &v1.PluginBinding{Name: pluginName},
 	}
-	return statusInterfaces
-}
-
-func vmiSpecInterfaces(names ...string) []v1.Interface {
-	var specInterfaces []v1.Interface
-	for _, name := range names {
-		specInterfaces = append(specInterfaces, v1.Interface{Name: name})
-	}
-	return specInterfaces
 }

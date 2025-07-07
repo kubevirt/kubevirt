@@ -6,18 +6,18 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-operator",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/monitoring/client/prometheus:go_default_library",
-        "//pkg/monitoring/reflector/prometheus:go_default_library",
-        "//pkg/monitoring/workqueue/prometheus:go_default_library",
         "//pkg/virt-operator:go_default_library",
     ],
 )
+
+load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
 go_binary(
     name = "virt-operator",
     embed = [":go_default_library"],
     static = "on",
     visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
 )
 
 load(
@@ -36,6 +36,7 @@ container_image(
     name = "virt-operator-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
     base = ":version-container",

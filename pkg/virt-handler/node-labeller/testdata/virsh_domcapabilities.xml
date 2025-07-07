@@ -24,6 +24,8 @@
         <sev supported='yes'>
           <cbitpos>47</cbitpos>
           <reducedPhysBits>1</reducedPhysBits>
+          <maxGuests>15</maxGuests>
+          <maxESGuests>15</maxESGuests>
         </sev>
     </features>
 </domainCapabilities>

@@ -1,0 +1,9 @@
+- op: add
+  path: /spec/template/spec/nodeSelector
+  value: {}
+- op: add
+  path: /spec/template/spec/nodeSelector/$LABEL_KEY
+  value: "$LABEL_VALUE"
+- op: test
+  path: /spec/template/spec/nodeSelector/$LABEL_KEY
+  value: "$LABEL_VALUE"

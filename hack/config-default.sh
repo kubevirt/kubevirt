@@ -1,5 +1,30 @@
-binaries="cmd/virt-operator cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virtctl cmd/fake-qemu-process cmd/virt-api cmd/example-hook-sidecar cmd/example-cloudinit-hook-sidecar cmd/virt-chroot"
-docker_images="cmd/virt-operator cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-api images/disks-images-provider images/vm-killer images/nfs-server images/winrmcli cmd/example-hook-sidecar cmd/example-cloudinit-hook-sidecar tests/conformance"
+binaries_and_docker_images="
+    cmd/virt-operator
+    cmd/virt-controller
+    cmd/virt-launcher
+    cmd/virt-handler
+    cmd/virt-api
+    cmd/sidecars
+    cmd/sidecars/smbios
+    cmd/sidecars/cloudinit
+"
+
+binaries="
+    ${binaries_and_docker_images}
+    cmd/virtctl
+    cmd/fake-qemu-process
+    cmd/virt-chroot
+    cmd/virt-tail
+"
+
+docker_images="
+    ${binaries_and_docker_images}
+    images/disks-images-provider
+    images/vm-killer
+    images/winrmcli
+    tests/conformance
+"
+
 docker_tag=${DOCKER_TAG:-latest}
 docker_tag_alt=${DOCKER_TAG_ALT}
 image_prefix=${IMAGE_PREFIX}
@@ -11,12 +36,15 @@ cdi_namespace=cdi
 image_pull_policy=${IMAGE_PULL_POLICY:-IfNotPresent}
 verbosity=${VERBOSITY:-2}
 package_name=${PACKAGE_NAME:-kubevirt-dev}
-kubevirtci_git_hash="2303092154-4b9b02c"
+kubevirtci_git_hash="2503050812-2627fc1c"
 conn_check_ipv4_address=${CONN_CHECK_IPV4_ADDRESS:-""}
 conn_check_ipv6_address=${CONN_CHECK_IPV6_ADDRESS:-""}
 conn_check_dns=${CONN_CHECK_DNS:-""}
 migration_network_nic=${MIGRATION_NETWORK_NIC:-"eth1"}
 infra_replicas=${KUBEVIRT_INFRA_REPLICAS:-0}
+test_image_replicas=${KUBEVIRT_E2E_PARALLEL_NODES:-6}
+base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+kubevirt_test_config=${KUBEVIRT_TEST_CONFIG:-$(if [[ "${KUBEVIRT_STORAGE:-}" == rook-ceph* ]]; then echo "${base_dir}/tests/default-ceph-config.json"; else echo "${base_dir}/tests/default-config.json"; fi)}
 
 # try to derive csv_version from docker tag. But it must start with x.y.z, without leading v
 default_csv_version="${docker_tag/latest/0.0.0}"

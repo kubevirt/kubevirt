@@ -43,8 +43,8 @@ package libvirt
 
 
 typedef int
-(*virDomainHasCurrentSnapshotType)(virDomainPtr domain,
-                                   unsigned int flags);
+(*virDomainHasCurrentSnapshotFuncType)(virDomainPtr domain,
+                                       unsigned int flags);
 
 int
 virDomainHasCurrentSnapshotWrapper(virDomainPtr domain,
@@ -52,7 +52,7 @@ virDomainHasCurrentSnapshotWrapper(virDomainPtr domain,
                                    virErrorPtr err)
 {
     int ret = -1;
-    static virDomainHasCurrentSnapshotType virDomainHasCurrentSnapshotSymbol;
+    static virDomainHasCurrentSnapshotFuncType virDomainHasCurrentSnapshotSymbol;
     static bool once;
     static bool success;
 
@@ -72,9 +72,9 @@ virDomainHasCurrentSnapshotWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainListAllSnapshotsType)(virDomainPtr domain,
-                                 virDomainSnapshotPtr ** snaps,
-                                 unsigned int flags);
+(*virDomainListAllSnapshotsFuncType)(virDomainPtr domain,
+                                     virDomainSnapshotPtr ** snaps,
+                                     unsigned int flags);
 
 int
 virDomainListAllSnapshotsWrapper(virDomainPtr domain,
@@ -83,7 +83,7 @@ virDomainListAllSnapshotsWrapper(virDomainPtr domain,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virDomainListAllSnapshotsType virDomainListAllSnapshotsSymbol;
+    static virDomainListAllSnapshotsFuncType virDomainListAllSnapshotsSymbol;
     static bool once;
     static bool success;
 
@@ -104,8 +104,8 @@ virDomainListAllSnapshotsWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainRevertToSnapshotType)(virDomainSnapshotPtr snapshot,
-                                 unsigned int flags);
+(*virDomainRevertToSnapshotFuncType)(virDomainSnapshotPtr snapshot,
+                                     unsigned int flags);
 
 int
 virDomainRevertToSnapshotWrapper(virDomainSnapshotPtr snapshot,
@@ -113,7 +113,7 @@ virDomainRevertToSnapshotWrapper(virDomainSnapshotPtr snapshot,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virDomainRevertToSnapshotType virDomainRevertToSnapshotSymbol;
+    static virDomainRevertToSnapshotFuncType virDomainRevertToSnapshotSymbol;
     static bool once;
     static bool success;
 
@@ -133,9 +133,9 @@ virDomainRevertToSnapshotWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef virDomainSnapshotPtr
-(*virDomainSnapshotCreateXMLType)(virDomainPtr domain,
-                                  const char * xmlDesc,
-                                  unsigned int flags);
+(*virDomainSnapshotCreateXMLFuncType)(virDomainPtr domain,
+                                      const char * xmlDesc,
+                                      unsigned int flags);
 
 virDomainSnapshotPtr
 virDomainSnapshotCreateXMLWrapper(virDomainPtr domain,
@@ -144,7 +144,7 @@ virDomainSnapshotCreateXMLWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     virDomainSnapshotPtr ret = NULL;
-    static virDomainSnapshotCreateXMLType virDomainSnapshotCreateXMLSymbol;
+    static virDomainSnapshotCreateXMLFuncType virDomainSnapshotCreateXMLSymbol;
     static bool once;
     static bool success;
 
@@ -165,8 +165,8 @@ virDomainSnapshotCreateXMLWrapper(virDomainPtr domain,
 }
 
 typedef virDomainSnapshotPtr
-(*virDomainSnapshotCurrentType)(virDomainPtr domain,
-                                unsigned int flags);
+(*virDomainSnapshotCurrentFuncType)(virDomainPtr domain,
+                                    unsigned int flags);
 
 virDomainSnapshotPtr
 virDomainSnapshotCurrentWrapper(virDomainPtr domain,
@@ -174,7 +174,7 @@ virDomainSnapshotCurrentWrapper(virDomainPtr domain,
                                 virErrorPtr err)
 {
     virDomainSnapshotPtr ret = NULL;
-    static virDomainSnapshotCurrentType virDomainSnapshotCurrentSymbol;
+    static virDomainSnapshotCurrentFuncType virDomainSnapshotCurrentSymbol;
     static bool once;
     static bool success;
 
@@ -194,8 +194,8 @@ virDomainSnapshotCurrentWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSnapshotDeleteType)(virDomainSnapshotPtr snapshot,
-                               unsigned int flags);
+(*virDomainSnapshotDeleteFuncType)(virDomainSnapshotPtr snapshot,
+                                   unsigned int flags);
 
 int
 virDomainSnapshotDeleteWrapper(virDomainSnapshotPtr snapshot,
@@ -203,7 +203,7 @@ virDomainSnapshotDeleteWrapper(virDomainSnapshotPtr snapshot,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSnapshotDeleteType virDomainSnapshotDeleteSymbol;
+    static virDomainSnapshotDeleteFuncType virDomainSnapshotDeleteSymbol;
     static bool once;
     static bool success;
 
@@ -223,14 +223,14 @@ virDomainSnapshotDeleteWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef int
-(*virDomainSnapshotFreeType)(virDomainSnapshotPtr snapshot);
+(*virDomainSnapshotFreeFuncType)(virDomainSnapshotPtr snapshot);
 
 int
 virDomainSnapshotFreeWrapper(virDomainSnapshotPtr snapshot,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSnapshotFreeType virDomainSnapshotFreeSymbol;
+    static virDomainSnapshotFreeFuncType virDomainSnapshotFreeSymbol;
     static bool once;
     static bool success;
 
@@ -249,14 +249,14 @@ virDomainSnapshotFreeWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef virConnectPtr
-(*virDomainSnapshotGetConnectType)(virDomainSnapshotPtr snapshot);
+(*virDomainSnapshotGetConnectFuncType)(virDomainSnapshotPtr snapshot);
 
 virConnectPtr
 virDomainSnapshotGetConnectWrapper(virDomainSnapshotPtr snapshot,
                                    virErrorPtr err)
 {
     virConnectPtr ret = NULL;
-    static virDomainSnapshotGetConnectType virDomainSnapshotGetConnectSymbol;
+    static virDomainSnapshotGetConnectFuncType virDomainSnapshotGetConnectSymbol;
     static bool once;
     static bool success;
 
@@ -275,14 +275,14 @@ virDomainSnapshotGetConnectWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef virDomainPtr
-(*virDomainSnapshotGetDomainType)(virDomainSnapshotPtr snapshot);
+(*virDomainSnapshotGetDomainFuncType)(virDomainSnapshotPtr snapshot);
 
 virDomainPtr
 virDomainSnapshotGetDomainWrapper(virDomainSnapshotPtr snapshot,
                                   virErrorPtr err)
 {
     virDomainPtr ret = NULL;
-    static virDomainSnapshotGetDomainType virDomainSnapshotGetDomainSymbol;
+    static virDomainSnapshotGetDomainFuncType virDomainSnapshotGetDomainSymbol;
     static bool once;
     static bool success;
 
@@ -301,14 +301,14 @@ virDomainSnapshotGetDomainWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef const char *
-(*virDomainSnapshotGetNameType)(virDomainSnapshotPtr snapshot);
+(*virDomainSnapshotGetNameFuncType)(virDomainSnapshotPtr snapshot);
 
 const char *
 virDomainSnapshotGetNameWrapper(virDomainSnapshotPtr snapshot,
                                 virErrorPtr err)
 {
     const char * ret = NULL;
-    static virDomainSnapshotGetNameType virDomainSnapshotGetNameSymbol;
+    static virDomainSnapshotGetNameFuncType virDomainSnapshotGetNameSymbol;
     static bool once;
     static bool success;
 
@@ -327,8 +327,8 @@ virDomainSnapshotGetNameWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef virDomainSnapshotPtr
-(*virDomainSnapshotGetParentType)(virDomainSnapshotPtr snapshot,
-                                  unsigned int flags);
+(*virDomainSnapshotGetParentFuncType)(virDomainSnapshotPtr snapshot,
+                                      unsigned int flags);
 
 virDomainSnapshotPtr
 virDomainSnapshotGetParentWrapper(virDomainSnapshotPtr snapshot,
@@ -336,7 +336,7 @@ virDomainSnapshotGetParentWrapper(virDomainSnapshotPtr snapshot,
                                   virErrorPtr err)
 {
     virDomainSnapshotPtr ret = NULL;
-    static virDomainSnapshotGetParentType virDomainSnapshotGetParentSymbol;
+    static virDomainSnapshotGetParentFuncType virDomainSnapshotGetParentSymbol;
     static bool once;
     static bool success;
 
@@ -356,8 +356,8 @@ virDomainSnapshotGetParentWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef char *
-(*virDomainSnapshotGetXMLDescType)(virDomainSnapshotPtr snapshot,
-                                   unsigned int flags);
+(*virDomainSnapshotGetXMLDescFuncType)(virDomainSnapshotPtr snapshot,
+                                       unsigned int flags);
 
 char *
 virDomainSnapshotGetXMLDescWrapper(virDomainSnapshotPtr snapshot,
@@ -365,7 +365,7 @@ virDomainSnapshotGetXMLDescWrapper(virDomainSnapshotPtr snapshot,
                                    virErrorPtr err)
 {
     char * ret = NULL;
-    static virDomainSnapshotGetXMLDescType virDomainSnapshotGetXMLDescSymbol;
+    static virDomainSnapshotGetXMLDescFuncType virDomainSnapshotGetXMLDescSymbol;
     static bool once;
     static bool success;
 
@@ -385,8 +385,8 @@ virDomainSnapshotGetXMLDescWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef int
-(*virDomainSnapshotHasMetadataType)(virDomainSnapshotPtr snapshot,
-                                    unsigned int flags);
+(*virDomainSnapshotHasMetadataFuncType)(virDomainSnapshotPtr snapshot,
+                                        unsigned int flags);
 
 int
 virDomainSnapshotHasMetadataWrapper(virDomainSnapshotPtr snapshot,
@@ -394,7 +394,7 @@ virDomainSnapshotHasMetadataWrapper(virDomainSnapshotPtr snapshot,
                                     virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSnapshotHasMetadataType virDomainSnapshotHasMetadataSymbol;
+    static virDomainSnapshotHasMetadataFuncType virDomainSnapshotHasMetadataSymbol;
     static bool once;
     static bool success;
 
@@ -414,8 +414,8 @@ virDomainSnapshotHasMetadataWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef int
-(*virDomainSnapshotIsCurrentType)(virDomainSnapshotPtr snapshot,
-                                  unsigned int flags);
+(*virDomainSnapshotIsCurrentFuncType)(virDomainSnapshotPtr snapshot,
+                                      unsigned int flags);
 
 int
 virDomainSnapshotIsCurrentWrapper(virDomainSnapshotPtr snapshot,
@@ -423,7 +423,7 @@ virDomainSnapshotIsCurrentWrapper(virDomainSnapshotPtr snapshot,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSnapshotIsCurrentType virDomainSnapshotIsCurrentSymbol;
+    static virDomainSnapshotIsCurrentFuncType virDomainSnapshotIsCurrentSymbol;
     static bool once;
     static bool success;
 
@@ -443,9 +443,9 @@ virDomainSnapshotIsCurrentWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef int
-(*virDomainSnapshotListAllChildrenType)(virDomainSnapshotPtr snapshot,
-                                        virDomainSnapshotPtr ** snaps,
-                                        unsigned int flags);
+(*virDomainSnapshotListAllChildrenFuncType)(virDomainSnapshotPtr snapshot,
+                                            virDomainSnapshotPtr ** snaps,
+                                            unsigned int flags);
 
 int
 virDomainSnapshotListAllChildrenWrapper(virDomainSnapshotPtr snapshot,
@@ -454,7 +454,7 @@ virDomainSnapshotListAllChildrenWrapper(virDomainSnapshotPtr snapshot,
                                         virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSnapshotListAllChildrenType virDomainSnapshotListAllChildrenSymbol;
+    static virDomainSnapshotListAllChildrenFuncType virDomainSnapshotListAllChildrenSymbol;
     static bool once;
     static bool success;
 
@@ -475,10 +475,10 @@ virDomainSnapshotListAllChildrenWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef int
-(*virDomainSnapshotListChildrenNamesType)(virDomainSnapshotPtr snapshot,
-                                          char ** names,
-                                          int nameslen,
-                                          unsigned int flags);
+(*virDomainSnapshotListChildrenNamesFuncType)(virDomainSnapshotPtr snapshot,
+                                              char ** names,
+                                              int nameslen,
+                                              unsigned int flags);
 
 int
 virDomainSnapshotListChildrenNamesWrapper(virDomainSnapshotPtr snapshot,
@@ -488,7 +488,7 @@ virDomainSnapshotListChildrenNamesWrapper(virDomainSnapshotPtr snapshot,
                                           virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSnapshotListChildrenNamesType virDomainSnapshotListChildrenNamesSymbol;
+    static virDomainSnapshotListChildrenNamesFuncType virDomainSnapshotListChildrenNamesSymbol;
     static bool once;
     static bool success;
 
@@ -510,10 +510,10 @@ virDomainSnapshotListChildrenNamesWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef int
-(*virDomainSnapshotListNamesType)(virDomainPtr domain,
-                                  char ** names,
-                                  int nameslen,
-                                  unsigned int flags);
+(*virDomainSnapshotListNamesFuncType)(virDomainPtr domain,
+                                      char ** names,
+                                      int nameslen,
+                                      unsigned int flags);
 
 int
 virDomainSnapshotListNamesWrapper(virDomainPtr domain,
@@ -523,7 +523,7 @@ virDomainSnapshotListNamesWrapper(virDomainPtr domain,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSnapshotListNamesType virDomainSnapshotListNamesSymbol;
+    static virDomainSnapshotListNamesFuncType virDomainSnapshotListNamesSymbol;
     static bool once;
     static bool success;
 
@@ -545,9 +545,9 @@ virDomainSnapshotListNamesWrapper(virDomainPtr domain,
 }
 
 typedef virDomainSnapshotPtr
-(*virDomainSnapshotLookupByNameType)(virDomainPtr domain,
-                                     const char * name,
-                                     unsigned int flags);
+(*virDomainSnapshotLookupByNameFuncType)(virDomainPtr domain,
+                                         const char * name,
+                                         unsigned int flags);
 
 virDomainSnapshotPtr
 virDomainSnapshotLookupByNameWrapper(virDomainPtr domain,
@@ -556,7 +556,7 @@ virDomainSnapshotLookupByNameWrapper(virDomainPtr domain,
                                      virErrorPtr err)
 {
     virDomainSnapshotPtr ret = NULL;
-    static virDomainSnapshotLookupByNameType virDomainSnapshotLookupByNameSymbol;
+    static virDomainSnapshotLookupByNameFuncType virDomainSnapshotLookupByNameSymbol;
     static bool once;
     static bool success;
 
@@ -577,8 +577,8 @@ virDomainSnapshotLookupByNameWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSnapshotNumType)(virDomainPtr domain,
-                            unsigned int flags);
+(*virDomainSnapshotNumFuncType)(virDomainPtr domain,
+                                unsigned int flags);
 
 int
 virDomainSnapshotNumWrapper(virDomainPtr domain,
@@ -586,7 +586,7 @@ virDomainSnapshotNumWrapper(virDomainPtr domain,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSnapshotNumType virDomainSnapshotNumSymbol;
+    static virDomainSnapshotNumFuncType virDomainSnapshotNumSymbol;
     static bool once;
     static bool success;
 
@@ -606,8 +606,8 @@ virDomainSnapshotNumWrapper(virDomainPtr domain,
 }
 
 typedef int
-(*virDomainSnapshotNumChildrenType)(virDomainSnapshotPtr snapshot,
-                                    unsigned int flags);
+(*virDomainSnapshotNumChildrenFuncType)(virDomainSnapshotPtr snapshot,
+                                        unsigned int flags);
 
 int
 virDomainSnapshotNumChildrenWrapper(virDomainSnapshotPtr snapshot,
@@ -615,7 +615,7 @@ virDomainSnapshotNumChildrenWrapper(virDomainSnapshotPtr snapshot,
                                     virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSnapshotNumChildrenType virDomainSnapshotNumChildrenSymbol;
+    static virDomainSnapshotNumChildrenFuncType virDomainSnapshotNumChildrenSymbol;
     static bool once;
     static bool success;
 
@@ -635,14 +635,14 @@ virDomainSnapshotNumChildrenWrapper(virDomainSnapshotPtr snapshot,
 }
 
 typedef int
-(*virDomainSnapshotRefType)(virDomainSnapshotPtr snapshot);
+(*virDomainSnapshotRefFuncType)(virDomainSnapshotPtr snapshot);
 
 int
 virDomainSnapshotRefWrapper(virDomainSnapshotPtr snapshot,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virDomainSnapshotRefType virDomainSnapshotRefSymbol;
+    static virDomainSnapshotRefFuncType virDomainSnapshotRefSymbol;
     static bool once;
     static bool success;
 

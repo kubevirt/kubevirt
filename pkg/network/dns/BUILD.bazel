@@ -5,6 +5,7 @@ go_library(
     srcs = ["resolveconf.go"],
     importpath = "kubevirt.io/kubevirt/pkg/network/dns",
     visibility = ["//visibility:public"],
+    deps = ["//staging/src/kubevirt.io/client-go/log:go_default_library"],
 )
 
 go_test(

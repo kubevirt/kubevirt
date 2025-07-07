@@ -27,10 +27,14 @@ import (
 
 	"kubevirt.io/client-go/api"
 
+	"kubevirt.io/kubevirt/pkg/checkpoint"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
+	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gomega_types "github.com/onsi/gomega/types"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 
@@ -55,7 +59,7 @@ var _ = Describe("ContainerDisk", func() {
 
 		m = &mounter{
 			mountRecords:           make(map[types.UID]*vmiMountTargetRecord),
-			mountStateDir:          tmpDir,
+			checkpointManager:      checkpoint.NewSimpleCheckpointManager(tmpDir),
 			suppressWarningTimeout: 1 * time.Minute,
 			socketPathGetter:       containerdisk.NewSocketPathGetter(""),
 		}
@@ -74,38 +78,157 @@ var _ = Describe("ContainerDisk", func() {
 		})
 	})
 
+	detectsSocket := func(detector *isolation.MockPodIsolationDetector) {
+		detector.EXPECT().DetectForSocket(vmi, "someting").Return(nil, nil)
+	}
+
+	noSocketDetected := func(detector *isolation.MockPodIsolationDetector) {
+		detector.EXPECT().DetectForSocket(vmi, "someting").Return(nil, fmt.Errorf("Not Found"))
+	}
+
+	detectForSocketNotCalled := func(detector *isolation.MockPodIsolationDetector) {
+		detector.EXPECT().DetectForSocket(gomock.Any(), gomock.Any()).Times(0)
+	}
+
 	Context("checking if containerDisks are ready", func() {
-		It("should return false and no error if we are still within the tolerated retry period", func() {
-			m.socketPathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
-				return "", fmt.Errorf("not found")
-			}
-			ready, err := m.ContainerDisksReady(vmi, time.Now())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(ready).To(BeFalse())
-		})
-		It("should return false and an error if we are outside the tolerated retry period", func() {
-			m.socketPathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
-				return "", fmt.Errorf("not found")
-			}
-			ready, err := m.ContainerDisksReady(vmi, time.Now().Add(-2*time.Minute))
-			Expect(err).To(HaveOccurred())
-			Expect(ready).To(BeFalse())
-		})
-		It("should return true and no error once everything is ready and we are within the tolerated retry period", func() {
-			m.socketPathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
-				return "someting", nil
-			}
-			ready, err := m.ContainerDisksReady(vmi, time.Now())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(ready).To(BeTrue())
-		})
-		It("should return true and no error once everything is ready when we are outside of the tolerated retry period", func() {
-			m.socketPathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
-				return "someting", nil
-			}
-			ready, err := m.ContainerDisksReady(vmi, time.Now().Add(-2*time.Minute))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(ready).To(BeTrue())
+
+		DescribeTable("should", func(
+			pathGetter containerdisk.SocketPathGetter,
+			mockSetup func(*isolation.MockPodIsolationDetector),
+			addedDelay time.Duration,
+			errorMatcher gomega_types.GomegaMatcher,
+			shouldBeReady bool,
+		) {
+			ctrl := gomock.NewController(GinkgoT())
+			mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
+			m.podIsolationDetector = mockIsolationDetector
+			mockSetup(mockIsolationDetector)
+
+			m.socketPathGetter = pathGetter
+			ready, err := m.ContainerDisksReady(vmi, time.Now().Add(addedDelay))
+			Expect(err).To(errorMatcher)
+			Expect(ready).To(Equal(shouldBeReady))
+		},
+			Entry("return false and no error if we are still within the tolerated retry period",
+				func(*v1.VirtualMachineInstance, int) (string, error) { return "", fmt.Errorf("not found") },
+				detectForSocketNotCalled,
+				time.Duration(0),
+				Succeed(),
+				false,
+			),
+			Entry("return false and an error if we are outside the tolerated retry period",
+				func(*v1.VirtualMachineInstance, int) (string, error) { return "", fmt.Errorf("not found") },
+				detectForSocketNotCalled,
+				-2*time.Minute,
+				HaveOccurred(),
+				false,
+			),
+			Entry("return true and no error once everything is ready and we are within the tolerated retry period",
+				func(*v1.VirtualMachineInstance, int) (string, error) { return "someting", nil },
+				detectsSocket,
+				time.Duration(0),
+				Succeed(),
+				true,
+			),
+			Entry("return true and no error once everything is ready when we are outside of the tolerated retry period",
+				func(*v1.VirtualMachineInstance, int) (string, error) { return "someting", nil },
+				detectsSocket,
+				-2*time.Minute,
+				Succeed(),
+				true,
+			),
+			Entry("return false and no error if we are still within the tolerated retry period but socket is not there",
+				func(*v1.VirtualMachineInstance, int) (string, error) { return "someting", nil },
+				noSocketDetected,
+				time.Duration(0),
+				Succeed(),
+				false,
+			),
+			Entry("return false and an error if we are outside the tolerated retry period but socket is not there",
+				func(*v1.VirtualMachineInstance, int) (string, error) { return "someting", nil },
+				noSocketDetected,
+				-2*time.Minute,
+				HaveOccurred(),
+				false,
+			),
+		)
+
+		Context("with kernelBoot container", func() {
+
+			BeforeEach(func() {
+				vmi.Spec.Volumes = []v1.Volume{}
+
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					KernelBoot: &v1.KernelBoot{
+						Container: &v1.KernelBootContainer{
+							KernelPath: "/fake-kernel",
+							InitrdPath: "/fake-initrd",
+						},
+					},
+				}
+			})
+
+			DescribeTable("should", func(
+				pathGetter containerdisk.KernelBootSocketPathGetter,
+				mockSetup func(*isolation.MockPodIsolationDetector),
+				addedDelay time.Duration,
+				errorMatcher gomega_types.GomegaMatcher,
+				shouldBeReady bool,
+			) {
+				ctrl := gomock.NewController(GinkgoT())
+				mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
+				m.podIsolationDetector = mockIsolationDetector
+				mockSetup(mockIsolationDetector)
+
+				m.kernelBootSocketPathGetter = pathGetter
+				ready, err := m.ContainerDisksReady(vmi, time.Now().Add(addedDelay))
+				Expect(err).To(errorMatcher)
+				Expect(ready).To(Equal(shouldBeReady))
+			},
+				Entry("return false and no error if we are still within the tolerated retry period",
+					func(*v1.VirtualMachineInstance) (string, error) { return "", fmt.Errorf("not found") },
+					detectForSocketNotCalled,
+					time.Duration(0),
+					Succeed(),
+					false,
+				),
+				Entry("return false and an error if we are outside the tolerated retry period",
+					func(*v1.VirtualMachineInstance) (string, error) { return "", fmt.Errorf("not found") },
+					detectForSocketNotCalled,
+					-2*time.Minute,
+					HaveOccurred(),
+					false,
+				),
+				Entry("return true and no error once everything is ready and we are within the tolerated retry period",
+					func(*v1.VirtualMachineInstance) (string, error) { return "someting", nil },
+					detectsSocket,
+					time.Duration(0),
+					Succeed(),
+					true,
+				),
+				Entry("return true and no error once everything is ready when we are outside of the tolerated retry period",
+					func(*v1.VirtualMachineInstance) (string, error) { return "someting", nil },
+					detectsSocket,
+					-2*time.Minute,
+					Succeed(),
+					true,
+				),
+
+				Entry("return false and no error if we are still within the tolerated retry period but socket is not there",
+					func(*v1.VirtualMachineInstance) (string, error) { return "someting", nil },
+					noSocketDetected,
+					time.Duration(0),
+					Succeed(),
+					false,
+				),
+				Entry("return false and an error if we are outside the tolerated retry period but socket is not there",
+					func(*v1.VirtualMachineInstance) (string, error) { return "someting", nil },
+					noSocketDetected,
+					-2*time.Minute,
+					HaveOccurred(),
+					false,
+				),
+			)
 		})
 	})
 

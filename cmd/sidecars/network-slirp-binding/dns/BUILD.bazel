@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["resolvconf.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding/dns",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/network/dns:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+    ],
+)

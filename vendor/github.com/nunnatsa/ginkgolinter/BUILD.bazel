@@ -8,9 +8,11 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/go-toolsmith/astcopy:go_default_library",
+        "//vendor/github.com/nunnatsa/ginkgolinter/ginkgohandler:go_default_library",
         "//vendor/github.com/nunnatsa/ginkgolinter/gomegahandler:go_default_library",
         "//vendor/github.com/nunnatsa/ginkgolinter/reverseassertion:go_default_library",
         "//vendor/github.com/nunnatsa/ginkgolinter/types:go_default_library",
+        "//vendor/github.com/nunnatsa/ginkgolinter/version:go_default_library",
         "@org_golang_x_tools//go/analysis:go_default_library",
     ],
 )

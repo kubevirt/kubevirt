@@ -1,0 +1,51 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "annotations.go",
+        "clock.go",
+        "cpu.go",
+        "device.go",
+        "disk.go",
+        "features.go",
+        "firmware.go",
+        "interface.go",
+        "machine.go",
+        "subdomain.go",
+        "termination.go",
+        "vmi.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/instancetype/preference/apply",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/pointer:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "apply_suite_test.go",
+        "clock_test.go",
+        "device_test.go",
+        "features_test.go",
+        "firmware_test.go",
+        "machine_test.go",
+        "subdomain_test.go",
+        "termination_test.go",
+    ],
+    deps = [
+        "//pkg/instancetype/apply:go_default_library",
+        "//pkg/libvmi:go_default_library",
+        "//pkg/pointer:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
+    ],
+)

@@ -21,7 +21,7 @@ A new volume type `emptyDisk` is introduced. The only parameter it supports is
 to make sure that the kubelet can take care of clean-up and that
 `ephemeral-store` resource definitions apply to the `emptyDisks` too.
 
-The definition look like this:
+The definition looks like this:
 
 
 ```golang

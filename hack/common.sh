@@ -23,8 +23,8 @@ fail_if_cri_bin_missing() {
     fi
 }
 
-if [ -f cluster-up/hack/common.sh ]; then
-    source cluster-up/hack/common.sh
+if [ -f kubevirtci/cluster-up/hack/common.sh ]; then
+    source kubevirtci/cluster-up/hack/common.sh
 fi
 
 export GOFLAGS="$GOFLAGS -mod=vendor"
@@ -47,6 +47,7 @@ PYTHON_CLIENT_OUT_DIR=$OUT_DIR/client-python
 ARCHITECTURE="${ARCHITECTURE:-$(uname -m)}"
 HOST_ARCHITECTURE="$(uname -m)"
 KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL:-false}
+KUBEVIRT_RELEASE=${KUBEVIRT_RELEASE:-false}
 OPERATOR_MANIFEST_PATH=$MANIFESTS_OUT_DIR/release/kubevirt-operator.yaml
 TESTING_MANIFEST_PATH=$MANIFESTS_OUT_DIR/testing
 KUBEVIRT_CRI="$(determine_cri_bin)"
@@ -103,3 +104,47 @@ function go_build() {
 
 DOCKER_CA_CERT_FILE="${DOCKER_CA_CERT_FILE:-}"
 DOCKERIZED_CUSTOM_CA_PATH="/etc/pki/ca-trust/source/anchors/custom-ca.crt"
+
+# We are formatting the architecture name here to ensure that
+# it is consistent with the platform name specified in ../.bazelrc
+# if the second argument is set, the function formats arch name for
+# image tag.
+function format_archname() {
+    local local_platform=$(uname -m)
+    local platform=$1
+    local tag=$2
+
+    if [ $# -lt 1 ]; then
+        echo ${local_platform}
+    else
+        case ${platform} in
+        x86_64 | amd64)
+            [[ $tag ]] && echo "amd64" && return
+            arch="x86_64"
+            echo ${arch}
+            ;;
+        crossbuild-aarch64 | aarch64 | arm64)
+            [[ $tag ]] && echo "arm64" && return
+            if [ ${local_platform} != "aarch64" ]; then
+                arch="crossbuild-aarch64"
+            else
+                arch="aarch64"
+            fi
+            echo ${arch}
+            ;;
+        crossbuild-s390x | s390x)
+            [[ $tag ]] && echo "s390x" && return
+            if [ ${local_platform} != "s390x" ]; then
+                arch="crossbuild-s390x"
+            else
+                arch="s390x"
+            fi
+            echo ${arch}
+            ;;
+        *)
+            echo "ERROR: invalid Arch, ${platform}, only support x86_64, aarch64 and s390x"
+            exit 1
+            ;;
+        esac
+    fi
+}

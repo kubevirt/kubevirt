@@ -21,6 +21,7 @@ package hostdevice
 
 import (
 	"fmt"
+	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -51,15 +52,43 @@ func CreatePCIHostDevices(hostDevicesData []HostDeviceMetaData, pciAddrPool Addr
 	return createHostDevices(hostDevicesData, pciAddrPool, createPCIHostDevice)
 }
 
+func isVgpuDisplaySet(hostDevicesData []HostDeviceMetaData) bool {
+	for _, hostDeviceData := range hostDevicesData {
+		if hostDeviceData.VirtualGPUOptions != nil &&
+			hostDeviceData.VirtualGPUOptions.Display != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func CreateMDEVHostDevices(hostDevicesData []HostDeviceMetaData, mdevAddrPool AddressPooler, enableDefaultDisplay bool) ([]api.HostDevice, error) {
 	if enableDefaultDisplay {
-		return createHostDevices(hostDevicesData, mdevAddrPool, createMDEVHostDeviceWithDisplay)
+		devices, err := createHostDevices(hostDevicesData, mdevAddrPool, createMDEVHostDeviceWithDisplay)
+		if err != nil {
+			return devices, err
+		}
+		// add a default single display option with enabled ramfb
+		// only if no vgpuDisplay option was configured.
+		if !isVgpuDisplaySet(hostDevicesData) && len(devices) > 0 {
+			devices[0].Display = "on"
+			devices[0].RamFB = "on"
+		}
+		return devices, nil
+
 	}
 	return createHostDevices(hostDevicesData, mdevAddrPool, createMDEVHostDevice)
 }
 
+func CreateUSBHostDevices(hostDevicesData []HostDeviceMetaData, usbAddrPool AddressPooler) ([]api.HostDevice, error) {
+	return createHostDevices(hostDevicesData, usbAddrPool, createUSBHostDevice)
+}
+
 func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPooler, createHostDev createHostDevice) ([]api.HostDevice, error) {
-	var hostDevices []api.HostDevice
+	var (
+		hostDevices          []api.HostDevice
+		hostDevicesAddresses []string
+	)
 
 	for _, hostDeviceData := range hostDevicesData {
 		address, err := addrPool.Pop(hostDeviceData.ResourceName)
@@ -83,8 +112,13 @@ func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPoo
 			}
 		}
 		hostDevices = append(hostDevices, *hostDevice)
-		log.Log.Infof("host-device created: %s", address)
+		hostDevicesAddresses = append(hostDevicesAddresses, address)
 	}
+
+	if len(hostDevices) > 0 {
+		log.Log.Infof("host-devices created: [%s]", strings.Join(hostDevicesAddresses, ", "))
+	}
+
 	return hostDevices, nil
 }
 
@@ -117,9 +151,6 @@ func createMDEVHostDeviceWithDisplay(hostDeviceData HostDeviceMetaData, mdevUUID
 				}
 			}
 		}
-	} else {
-		mdev.Display = "on"
-		mdev.RamFB = "on"
 	}
 	return mdev, nil
 }
@@ -137,4 +168,24 @@ func createMDEVHostDevice(hostDeviceData HostDeviceMetaData, mdevUUID string) (*
 		Model: "vfio-pci",
 	}
 	return domainHostDevice, nil
+}
+
+func createUSBHostDevice(device HostDeviceMetaData, usbAddress string) (*api.HostDevice, error) {
+	strs := strings.Split(usbAddress, ":")
+	if len(strs) != 2 {
+		return nil, fmt.Errorf("Bad value: %s", usbAddress)
+	}
+	bus, deviceNumber := strs[0], strs[1]
+
+	return &api.HostDevice{
+		Type:  api.HostDeviceUSB,
+		Mode:  "subsystem",
+		Alias: api.NewUserDefinedAlias("usb-host-" + device.Name),
+		Source: api.HostDeviceSource{
+			Address: &api.Address{
+				Bus:    bus,
+				Device: deviceNumber,
+			},
+		},
+	}, nil
 }

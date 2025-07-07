@@ -39,11 +39,11 @@ type LeaseLock struct {
 
 // Get returns the election record from a Lease spec
 func (ll *LeaseLock) Get(ctx context.Context) (*LeaderElectionRecord, []byte, error) {
-	var err error
-	ll.lease, err = ll.Client.Leases(ll.LeaseMeta.Namespace).Get(ctx, ll.LeaseMeta.Name, metav1.GetOptions{})
+	lease, err := ll.Client.Leases(ll.LeaseMeta.Namespace).Get(ctx, ll.LeaseMeta.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}
+	ll.lease = lease
 	record := LeaseSpecToLeaderElectionRecord(&ll.lease.Spec)
 	recordByte, err := json.Marshal(*record)
 	if err != nil {
@@ -117,10 +117,16 @@ func LeaseSpecToLeaderElectionRecord(spec *coordinationv1.LeaseSpec) *LeaderElec
 		r.LeaderTransitions = int(*spec.LeaseTransitions)
 	}
 	if spec.AcquireTime != nil {
-		r.AcquireTime = metav1.Time{spec.AcquireTime.Time}
+		r.AcquireTime = metav1.Time{Time: spec.AcquireTime.Time}
 	}
 	if spec.RenewTime != nil {
-		r.RenewTime = metav1.Time{spec.RenewTime.Time}
+		r.RenewTime = metav1.Time{Time: spec.RenewTime.Time}
+	}
+	if spec.PreferredHolder != nil {
+		r.PreferredHolder = *spec.PreferredHolder
+	}
+	if spec.Strategy != nil {
+		r.Strategy = *spec.Strategy
 	}
 	return &r
 
@@ -129,11 +135,18 @@ func LeaseSpecToLeaderElectionRecord(spec *coordinationv1.LeaseSpec) *LeaderElec
 func LeaderElectionRecordToLeaseSpec(ler *LeaderElectionRecord) coordinationv1.LeaseSpec {
 	leaseDurationSeconds := int32(ler.LeaseDurationSeconds)
 	leaseTransitions := int32(ler.LeaderTransitions)
-	return coordinationv1.LeaseSpec{
+	spec := coordinationv1.LeaseSpec{
 		HolderIdentity:       &ler.HolderIdentity,
 		LeaseDurationSeconds: &leaseDurationSeconds,
-		AcquireTime:          &metav1.MicroTime{ler.AcquireTime.Time},
-		RenewTime:            &metav1.MicroTime{ler.RenewTime.Time},
+		AcquireTime:          &metav1.MicroTime{Time: ler.AcquireTime.Time},
+		RenewTime:            &metav1.MicroTime{Time: ler.RenewTime.Time},
 		LeaseTransitions:     &leaseTransitions,
 	}
+	if ler.PreferredHolder != "" {
+		spec.PreferredHolder = &ler.PreferredHolder
+	}
+	if ler.Strategy != "" {
+		spec.Strategy = &ler.Strategy
+	}
+	return spec
 }

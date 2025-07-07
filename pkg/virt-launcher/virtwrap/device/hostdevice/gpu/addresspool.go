@@ -44,7 +44,7 @@ func extractResources(gpuDevices []v1.GPU) []string {
 	}
 
 	var resources []string
-	for resource, _ := range resourceSet {
+	for resource := range resourceSet {
 		resources = append(resources, resource)
 	}
 	return resources

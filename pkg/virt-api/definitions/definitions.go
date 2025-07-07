@@ -25,8 +25,8 @@ import (
 	"path"
 	"reflect"
 
-	"kubevirt.io/api/clone"
-	clonev1lpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonebase "kubevirt.io/api/clone"
+	clone "kubevirt.io/api/clone/v1beta1"
 
 	"kubevirt.io/api/instancetype"
 
@@ -34,16 +34,16 @@ import (
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
-	restful "github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	exportv1 "kubevirt.io/api/export/v1beta1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	mime "kubevirt.io/kubevirt/pkg/rest"
 )
@@ -194,32 +194,32 @@ func migrationPoliciesApiServiceDefinitions() []*restful.WebService {
 }
 
 func instancetypeApiServiceDefinitions() []*restful.WebService {
-	instancetypeGVR := instancetypev1alpha2.SchemeGroupVersion.WithResource(instancetype.PluralResourceName)
-	clusterInstancetypeGVR := instancetypev1alpha2.SchemeGroupVersion.WithResource(instancetype.ClusterPluralResourceName)
-	preferenceGVR := instancetypev1alpha2.SchemeGroupVersion.WithResource(instancetype.PluralPreferenceResourceName)
-	clusterPreferenceGVR := instancetypev1alpha2.SchemeGroupVersion.WithResource(instancetype.ClusterPluralPreferenceResourceName)
+	instancetypeGVR := instancetypev1beta1.SchemeGroupVersion.WithResource(instancetype.PluralResourceName)
+	clusterInstancetypeGVR := instancetypev1beta1.SchemeGroupVersion.WithResource(instancetype.ClusterPluralResourceName)
+	preferenceGVR := instancetypev1beta1.SchemeGroupVersion.WithResource(instancetype.PluralPreferenceResourceName)
+	clusterPreferenceGVR := instancetypev1beta1.SchemeGroupVersion.WithResource(instancetype.ClusterPluralPreferenceResourceName)
 
-	ws, err := groupVersionProxyBase(instancetypev1alpha2.SchemeGroupVersion)
+	ws, err := groupVersionProxyBase(instancetypev1beta1.SchemeGroupVersion)
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericNamespacedResourceProxy(ws, instancetypeGVR, &instancetypev1alpha2.VirtualMachineInstancetype{}, "VirtualMachineInstancetype", &instancetypev1alpha2.VirtualMachineInstancetypeList{})
+	ws, err = genericNamespacedResourceProxy(ws, instancetypeGVR, &instancetypev1beta1.VirtualMachineInstancetype{}, "VirtualMachineInstancetype", &instancetypev1beta1.VirtualMachineInstancetypeList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericClusterResourceProxy(ws, clusterInstancetypeGVR, &instancetypev1alpha2.VirtualMachineClusterInstancetype{}, "VirtualMachineClusterInstancetype", &instancetypev1alpha2.VirtualMachineClusterInstancetypeList{})
+	ws, err = genericClusterResourceProxy(ws, clusterInstancetypeGVR, &instancetypev1beta1.VirtualMachineClusterInstancetype{}, "VirtualMachineClusterInstancetype", &instancetypev1beta1.VirtualMachineClusterInstancetypeList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericNamespacedResourceProxy(ws, preferenceGVR, &instancetypev1alpha2.VirtualMachinePreference{}, "VirtualMachinePreference", &instancetypev1alpha2.VirtualMachinePreferenceList{})
+	ws, err = genericNamespacedResourceProxy(ws, preferenceGVR, &instancetypev1beta1.VirtualMachinePreference{}, "VirtualMachinePreference", &instancetypev1beta1.VirtualMachinePreferenceList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericClusterResourceProxy(ws, clusterPreferenceGVR, &instancetypev1alpha2.VirtualMachineClusterPreference{}, "VirtualMachineClusterPreference", &instancetypev1alpha2.VirtualMachineClusterPreferenceList{})
+	ws, err = genericClusterResourceProxy(ws, clusterPreferenceGVR, &instancetypev1beta1.VirtualMachineClusterPreference{}, "VirtualMachineClusterPreference", &instancetypev1beta1.VirtualMachineClusterPreferenceList{})
 	if err != nil {
 		panic(err)
 	}
@@ -254,14 +254,14 @@ func poolApiServiceDefinitions() []*restful.WebService {
 }
 
 func vmCloneDefinitions() []*restful.WebService {
-	mpGVR := clonev1lpha1.SchemeGroupVersion.WithResource(clone.ResourceVMClonePlural)
+	mpGVR := clone.SchemeGroupVersion.WithResource(clonebase.ResourceVMClonePlural)
 
-	ws, err := groupVersionProxyBase(schema.GroupVersion{Group: clonev1lpha1.SchemeGroupVersion.Group, Version: clonev1lpha1.SchemeGroupVersion.Version})
+	ws, err := groupVersionProxyBase(schema.GroupVersion{Group: clone.SchemeGroupVersion.Group, Version: clone.SchemeGroupVersion.Version})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericClusterResourceProxy(ws, mpGVR, &clonev1lpha1.VirtualMachineClone{}, clonev1lpha1.VirtualMachineCloneKind.Kind, &clonev1lpha1.VirtualMachineCloneList{})
+	ws, err = genericClusterResourceProxy(ws, mpGVR, &clone.VirtualMachineClone{}, clone.VirtualMachineCloneKind.Kind, &clone.VirtualMachineCloneList{})
 	if err != nil {
 		panic(err)
 	}
@@ -643,11 +643,11 @@ func GroupVersionBasePath(gvr schema.GroupVersion) string {
 }
 
 func NamespacedResourceBasePath(gvr schema.GroupVersionResource) string {
-	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s", gvr.Resource)
+	return fmt.Sprintf("/namespaces/{namespace}/%s", gvr.Resource)
 }
 
 func NamespacedResourcePath(gvr schema.GroupVersionResource) string {
-	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s/{name:[a-z0-9][a-z0-9\\-]*}", gvr.Resource)
+	return fmt.Sprintf("/namespaces/{namespace}/%s/{name}", gvr.Resource)
 }
 
 func ClusterResourceBasePath(gvr schema.GroupVersionResource) string {
@@ -655,7 +655,7 @@ func ClusterResourceBasePath(gvr schema.GroupVersionResource) string {
 }
 
 func ClusterResourcePath(gvr schema.GroupVersionResource) string {
-	return fmt.Sprintf("%s/{name:[a-z0-9][a-z0-9\\-]*}", gvr.Resource)
+	return fmt.Sprintf("%s/{name}", gvr.Resource)
 }
 
 func SubResourcePath(subResource string) string {
@@ -665,9 +665,9 @@ func SubResourcePath(subResource string) string {
 const (
 	PortParamName     = "port"
 	TLSParamName      = "tls"
-	PortPath          = "/{port:[0-9]+}"
+	PortPath          = "/{port}"
 	ProtocolParamName = "protocol"
-	ProtocolPath      = "/{protocol:tcp|udp}"
+	ProtocolPath      = "/{protocol}"
 )
 
 func PortForwardPortParameter(ws *restful.WebService) *restful.Parameter {

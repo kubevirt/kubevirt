@@ -9,7 +9,7 @@ spec:
   instancetype:
     kind: VirtualMachineInstancetype
     name: clarge
-  running: false
+  runStrategy: Halted
   template:
     metadata:
       labels:

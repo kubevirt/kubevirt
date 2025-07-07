@@ -10,6 +10,7 @@ go_library(
     importpath = "github.com/onsi/gomega",
     visibility = ["//visibility:public"],
     deps = [
+        "//vendor/github.com/google/go-cmp/cmp:go_default_library",
         "//vendor/github.com/onsi/gomega/internal:go_default_library",
         "//vendor/github.com/onsi/gomega/matchers:go_default_library",
         "//vendor/github.com/onsi/gomega/types:go_default_library",

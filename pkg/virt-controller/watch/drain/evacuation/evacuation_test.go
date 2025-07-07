@@ -1,12 +1,16 @@
-package evacuation_test
+package evacuation
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	v12 "k8s.io/api/core/v1"
-	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
@@ -14,25 +18,22 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
+	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("Evacuation", func() {
 	var ctrl *gomock.Controller
 	var stop chan struct{}
 	var virtClient *kubecli.MockKubevirtClient
-	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
+	var fakeVirtClient *kubevirtfake.Clientset
 	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var nodeSource *framework.FakeControllerSource
@@ -42,12 +43,12 @@ var _ = Describe("Evacuation", func() {
 	var podInformer cache.SharedIndexInformer
 	var podSource *framework.FakeControllerSource
 	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
+	var mockQueue *testutils.MockWorkQueue[string]
 	var kubeClient *fake.Clientset
-	var migrationFeeder *testutils.MigrationFeeder
-	var vmiFeeder *testutils.VirtualMachineFeeder
+	var migrationFeeder *testutils.MigrationFeeder[string]
+	var vmiFeeder *testutils.VirtualMachineFeeder[string]
 
-	var controller *evacuation.EvacuationController
+	var controller *EvacuationController
 
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
@@ -63,17 +64,23 @@ var _ = Describe("Evacuation", func() {
 		)).To(BeTrue())
 	}
 
-	addNode := func(node *v12.Node) {
+	addNode := func(node *k8sv1.Node) {
 		mockQueue.ExpectAdds(1)
 		nodeSource.Add(node)
 		mockQueue.Wait()
+	}
+
+	expectMigrationCreation := func() {
+		migrationList, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, migrationList.Items).To(HaveLen(1))
 	}
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
+		fakeVirtClient = kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, cache.Indexers{
 			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
@@ -82,20 +89,20 @@ var _ = Describe("Evacuation", func() {
 			},
 		})
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
-		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&v12.Node{})
-		podInformer, podSource = testutils.NewFakeInformerFor(&v12.Pod{})
+		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&k8sv1.Node{})
+		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-		controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
+		controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 
 		// Set up mock client
-		virtClient.EXPECT().VirtualMachineInstanceMigration(v12.NamespaceDefault).Return(migrationInterface).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
@@ -108,9 +115,16 @@ var _ = Describe("Evacuation", func() {
 		syncCaches(stop)
 	})
 
+	sanityExecute := func() {
+		controllertesting.SanityExecute(controller, []cache.Store{
+			controller.vmiIndexer, controller.vmiPodIndexer, controller.migrationStore, controller.nodeStore,
+		}, Default)
+
+	}
+
 	Context("migration object creation", func() {
 		It("should have expected values and annotations", func() {
-			migration := evacuation.GenerateNewMigration("my-vmi", "somenode")
+			migration := GenerateNewMigration("my-vmi", "somenode")
 			Expect(migration.Spec.VMIName).To(Equal("my-vmi"))
 			Expect(migration.Annotations[v1.EvacuationMigrationAnnotation]).To(Equal("somenode"))
 		})
@@ -125,7 +139,7 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmiFeeder.Add(vmi)
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should do nothing if the target node is not evicting", func() {
@@ -138,7 +152,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmiFeeder.Add(vmi)
 
-			controller.Execute()
+			sanityExecute()
 		})
 	})
 
@@ -155,10 +169,9 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
-
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 		})
 
 		It("should ignore VMIs which are not migratable", func() {
@@ -170,7 +183,7 @@ var _ = Describe("Evacuation", func() {
 
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: v12.ConditionFalse}}
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionFalse}}
 			vmiFeeder.Add(vmi)
 
 			vmi1 := newVirtualMachine("testvm1", node.Name)
@@ -178,10 +191,10 @@ var _ = Describe("Evacuation", func() {
 			vmi1.Status.Conditions = nil
 			vmiFeeder.Add(vmi1)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvents(recorder,
-				evacuation.FailedCreateVirtualMachineInstanceMigrationReason,
-				evacuation.FailedCreateVirtualMachineInstanceMigrationReason,
+				FailedCreateVirtualMachineInstanceMigrationReason,
+				FailedCreateVirtualMachineInstanceMigrationReason,
 			)
 		})
 
@@ -203,7 +216,7 @@ var _ = Describe("Evacuation", func() {
 			migrationFeeder.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
 			migrationFeeder.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
 
-			controller.Execute()
+			sanityExecute()
 
 		})
 
@@ -225,18 +238,14 @@ var _ = Describe("Evacuation", func() {
 			vmi3 := newVirtualMachineMarkedForEviction("testvmi3", node.Name)
 			vmiFeeder.Add(vmi3)
 
-			controller.Execute()
+			sanityExecute()
 
 			migration2.Status.Phase = v1.MigrationSucceeded
 			migrationFeeder.Modify(migration2)
 
-			migrationInterface.
-				EXPECT().
-				Create(gomock.Any(), &v13.CreateOptions{}).
-				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
-
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 		})
 	})
 
@@ -249,9 +258,9 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi.Status.EvacuationNodeName = node.Name
 			vmiFeeder.Add(vmi)
-			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 		})
 
 		It("Should record a warning on a not migratable VMI", func() {
@@ -262,19 +271,19 @@ var _ = Describe("Evacuation", func() {
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: v12.ConditionFalse,
+					Status: k8sv1.ConditionFalse,
 				},
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: v12.ConditionFalse,
+					Status: k8sv1.ConditionFalse,
 				},
 			}
 			vmi.Status.EvacuationNodeName = vmi.Status.NodeName
 			vmiFeeder.Add(vmi)
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.FailedCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, FailedCreateVirtualMachineInstanceMigrationReason)
 		})
 
 		It("Should not evict VMI if max migrations are in progress", func() {
@@ -285,7 +294,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: v12.ConditionFalse,
+					Status: k8sv1.ConditionFalse,
 				},
 			}
 			vmi.Status.EvacuationNodeName = node.Name
@@ -295,7 +304,7 @@ var _ = Describe("Evacuation", func() {
 			migrationFeeder.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
 			migrationFeeder.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
 			migrationFeeder.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("Shound do nothing when active migrations exceed the configured concurrent maximum", func() {
@@ -312,7 +321,7 @@ var _ = Describe("Evacuation", func() {
 			nodeName := "node01"
 			addNode(newNode(nodeName))
 
-			controller = evacuation.
+			controller, _ =
 				NewEvacuationController(
 					vmiInformer,
 					migrationInformer,
@@ -328,7 +337,7 @@ var _ = Describe("Evacuation", func() {
 				migrationFeeder.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
 			}
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("Should not create a migration if one is already in progress", func() {
@@ -338,7 +347,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: v12.ConditionTrue,
+					Status: k8sv1.ConditionTrue,
 				},
 			}
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
@@ -350,7 +359,7 @@ var _ = Describe("Evacuation", func() {
 
 			migrationFeeder.Add(migration)
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should evict the VMI if only one pod is running", func() {
@@ -363,10 +372,10 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 
-			podSource.Add(newPod(vmi, "runningPod", v12.PodRunning, true))
-			podSource.Add(newPod(vmi, "succededPod", v12.PodSucceeded, true))
-			podSource.Add(newPod(vmi, "failedPod", v12.PodFailed, true))
-			podSource.Add(newPod(vmi, "notOwnedRunningPod", v12.PodRunning, false))
+			podSource.Add(newPod(vmi, "runningPod", k8sv1.PodRunning, true))
+			podSource.Add(newPod(vmi, "succededPod", k8sv1.PodSucceeded, true))
+			podSource.Add(newPod(vmi, "failedPod", k8sv1.PodFailed, true))
+			podSource.Add(newPod(vmi, "notOwnedRunningPod", k8sv1.PodRunning, false))
 			// pods do not cause the queue to get added to
 			// we just use them for caching purposes
 			// so wait for cache to catch up with a brief sleep
@@ -374,10 +383,9 @@ var _ = Describe("Evacuation", func() {
 
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
-
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 		})
 
 		It("should not evict the VMI with multiple pods active", func() {
@@ -390,8 +398,8 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 
-			podSource.Add(newPod(vmi, "runningPod", v12.PodRunning, true))
-			podSource.Add(newPod(vmi, "pendingPod", v12.PodPending, true))
+			podSource.Add(newPod(vmi, "runningPod", k8sv1.PodRunning, true))
+			podSource.Add(newPod(vmi, "pendingPod", k8sv1.PodPending, true))
 			// pods do not cause the queue to get added to
 			// we just use them for caching purposes
 			// so wait for cache to catch up with a brief sleep
@@ -399,14 +407,14 @@ var _ = Describe("Evacuation", func() {
 
 			vmiFeeder.Add(vmi)
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should migrate the VMI if EvictionStrategy is set in the cluster config", func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				EvictionStrategy: newEvictionStrategyLiveMigrate(),
 			})
-			controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
+			controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 
 			node := newNode("testnode")
 			node1 := newNode("anothernode")
@@ -417,17 +425,16 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
-
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
 		})
 
 		It("should do nothing if EvictionStrategy is set in the cluster config but VMI opted-out", func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				EvictionStrategy: newEvictionStrategyLiveMigrate(),
 			})
-			controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
+			controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 
 			node := newNode("testnode")
 			node1 := newNode("anothernode")
@@ -439,7 +446,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyNone()
 			vmiFeeder.Add(vmi)
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("Should create new evictions up to the configured maximum migrations per outbound node", func() {
@@ -454,7 +461,7 @@ var _ = Describe("Evacuation", func() {
 				},
 			})
 
-			controller = evacuation.
+			controller, _ =
 				NewEvacuationController(
 					vmiInformer,
 					migrationInformer,
@@ -481,15 +488,54 @@ var _ = Describe("Evacuation", func() {
 			}
 
 			By(fmt.Sprintf("Expect only one new migration from node %s although cluster capacity allows more candidates", nodeName))
-			migrationInterface.
-				EXPECT().
-				Create(gomock.Any(), &v13.CreateOptions{}).
-				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).
-				Times(1)
 
-			controller.Execute()
+			sanityExecute()
 
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
+		})
+
+		It("should treat pending migrations as non-running migrations", func() {
+			const maxParallelMigrationsPerCluster uint32 = 10
+			const maxParallelMigrationsPerSourceNode uint32 = 10
+			const pendingMigrations = 10
+
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{
+					ParallelMigrationsPerCluster:      pointer.P(maxParallelMigrationsPerCluster),
+					ParallelOutboundMigrationsPerNode: pointer.P(maxParallelMigrationsPerSourceNode),
+				},
+			})
+
+			controller, _ =
+				NewEvacuationController(
+					vmiInformer,
+					migrationInformer,
+					nodeInformer,
+					podInformer,
+					recorder,
+					virtClient,
+					config)
+
+			nodeName := "node01"
+			addNode(newNode(nodeName))
+
+			By(fmt.Sprintf("Creating %d pending migrations from source node %s", pendingMigrations, nodeName))
+			for i := 1; i <= pendingMigrations; i++ {
+				vmiName := fmt.Sprintf("testvmi%d", i)
+				vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
+				migrationFeeder.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationPending))
+			}
+
+			By(fmt.Sprintf("Creating a migration candidate from source node %s", nodeName))
+			vmiName := fmt.Sprintf("testvmi%d", pendingMigrations+1)
+			vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			expectMigrationCreation()
+
 		})
 	})
 
@@ -500,12 +546,12 @@ var _ = Describe("Evacuation", func() {
 	})
 })
 
-func newNode(name string) *v12.Node {
-	return &v12.Node{
-		ObjectMeta: v13.ObjectMeta{
+func newNode(name string) *k8sv1.Node {
+	return &k8sv1.Node{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: v12.NodeSpec{},
+		Spec: k8sv1.NodeSpec{},
 	}
 }
 
@@ -514,7 +560,7 @@ func newVirtualMachineMarkedForEviction(name string, nodeName string) *v1.Virtua
 	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 		{
 			Type:   v1.VirtualMachineInstanceIsMigratable,
-			Status: v12.ConditionTrue,
+			Status: k8sv1.ConditionTrue,
 		},
 	}
 
@@ -527,22 +573,22 @@ func newVirtualMachine(name string, nodeName string) *v1.VirtualMachineInstance 
 	vmi := api.NewMinimalVMI("testvm")
 	vmi.Name = name
 	vmi.Status.NodeName = nodeName
-	vmi.Namespace = v12.NamespaceDefault
+	vmi.Namespace = k8sv1.NamespaceDefault
 	vmi.UID = "1234"
-	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: v12.ConditionTrue}}
+	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue}}
 	return vmi
 }
 
-func newPod(vmi *v1.VirtualMachineInstance, name string, phase v12.PodPhase, ownedByVMI bool) *v12.Pod {
-	pod := &v12.Pod{
-		ObjectMeta: v13.ObjectMeta{
+func newPod(vmi *v1.VirtualMachineInstance, name string, phase k8sv1.PodPhase, ownedByVMI bool) *k8sv1.Pod {
+	pod := &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: vmi.Namespace,
 		},
-		Status: v12.PodStatus{
+		Status: k8sv1.PodStatus{
 			Phase: phase,
-			ContainerStatuses: []v12.ContainerStatus{
-				{Ready: false, Name: "compute", State: v12.ContainerState{Running: &v12.ContainerStateRunning{}}},
+			ContainerStatuses: []k8sv1.ContainerStatus{
+				{Ready: false, Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}}},
 			},
 		},
 	}
@@ -564,7 +610,7 @@ func newMigration(name string, vmi string, phase v1.VirtualMachineInstanceMigrat
 	migration := kubecli.NewMinimalMigration(name)
 	migration.Status.Phase = phase
 	migration.Spec.VMIName = vmi
-	migration.Namespace = v12.NamespaceDefault
+	migration.Namespace = k8sv1.NamespaceDefault
 	return migration
 }
 
@@ -578,9 +624,9 @@ func newEvictionStrategyNone() *v1.EvictionStrategy {
 	return &strategy
 }
 
-func newTaint() *v12.Taint {
-	return &v12.Taint{
-		Effect: v12.TaintEffectNoSchedule,
+func newTaint() *k8sv1.Taint {
+	return &k8sv1.Taint{
+		Effect: k8sv1.TaintEffectNoSchedule,
 		Key:    "kubevirt.io/drain",
 	}
 }

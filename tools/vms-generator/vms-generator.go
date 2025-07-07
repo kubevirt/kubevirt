@@ -25,6 +25,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"kubevirt.io/api/migrations/v1alpha1"
+
 	"kubevirt.io/kubevirt/tools/util"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -34,7 +36,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -51,10 +53,10 @@ func main() {
 
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 		DeveloperConfiguration: &v1.DeveloperConfiguration{
-			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap"},
+			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap", "HostDevices", "Sidecar"},
 		},
 		NetworkConfiguration: &v1.NetworkConfiguration{
-			PermitSlirpInterface:              &permit,
+			DeprecatedPermitSlirpInterface:    &permit,
 			PermitBridgeInterfaceOnPodNetwork: &permit,
 		},
 		PermittedHostDevices: &v1.PermittedHostDevices{
@@ -68,16 +70,16 @@ func main() {
 		},
 	})
 
-	var virtualMachineInstancetypes = map[string]*instancetypev1alpha2.VirtualMachineInstancetype{
+	var virtualMachineInstancetypes = map[string]*instancetypev1beta1.VirtualMachineInstancetype{
 		utils.VirtualMachineInstancetypeComputeSmall: utils.GetVirtualMachineInstancetypeComputeSmall(),
 		utils.VirtualMachineInstancetypeComputeLarge: utils.GetVirtualMachineInstancetypeComputeLarge(),
 	}
 
-	var virtualMachineClusterInstancetypes = map[string]*instancetypev1alpha2.VirtualMachineClusterInstancetype{
+	var virtualMachineClusterInstancetypes = map[string]*instancetypev1beta1.VirtualMachineClusterInstancetype{
 		utils.VirtualMachineClusterInstancetypeComputeSmall: utils.GetVirtualMachineClusterInstancetypeComputeSmall(),
 	}
 
-	var vmps = map[string]*instancetypev1alpha2.VirtualMachinePreference{
+	var vmps = map[string]*instancetypev1beta1.VirtualMachinePreference{
 		utils.VirtualMachinePreferenceVirtio:  utils.GetVirtualMachinePreferenceVirtio(),
 		utils.VirtualMachinePreferenceWindows: utils.GetVirtualMachinePreferenceWindows(),
 	}
@@ -93,6 +95,7 @@ func main() {
 		utils.VmAlpineDataVolume:                                  utils.GetVMDataVolume(),
 		utils.VMPriorityClass:                                     utils.GetVMPriorityClass(),
 		utils.VmCirrosSata:                                        utils.GetVMCirrosSata(),
+		utils.VmCirrosWithHookSidecarConfigMap:                    utils.GetVMCirrosWithHookSidecarConfigMap(),
 		utils.VmCirrosInstancetypeComputeSmall:                    utils.GetVmCirrosInstancetypeComputeSmall(),
 		utils.VmCirrosClusterInstancetypeComputeSmall:             utils.GetVmCirrosClusterInstancetypeComputeSmall(),
 		utils.VmCirrosInstancetypeComputeLarge:                    utils.GetVmCirrosInstancetypeComputeLarge(),
@@ -102,27 +105,27 @@ func main() {
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
-		utils.VmiEphemeral:         utils.GetVMIEphemeral(),
-		utils.VmiMigratable:        utils.GetVMIMigratable(),
-		utils.VmiSata:              utils.GetVMISata(),
-		utils.VmiFedora:            utils.GetVMIEphemeralFedora(),
-		utils.VmiFedoraIsolated:    utils.GetVMIEphemeralFedoraIsolated(),
-		utils.VmiSecureBoot:        utils.GetVMISecureBoot(),
-		utils.VmiAlpineEFI:         utils.GetVMIAlpineEFI(),
-		utils.VmiNoCloud:           utils.GetVMINoCloud(),
-		utils.VmiPVC:               utils.GetVMIPvc(),
-		utils.VmiWindows:           utils.GetVMIWindows(),
-		utils.VmiSlirp:             utils.GetVMISlirp(),
-		utils.VmiSRIOV:             utils.GetVMISRIOV(),
-		utils.VmiWithHookSidecar:   utils.GetVMIWithHookSidecar(),
-		utils.VmiMultusPtp:         utils.GetVMIMultusPtp(),
-		utils.VmiMultusMultipleNet: utils.GetVMIMultusMultipleNet(),
-		utils.VmiMasquerade:        utils.GetVMIMasquerade(),
-		utils.VmiHostDisk:          utils.GetVMIHostDisk(),
-		utils.VmiGPU:               utils.GetVMIGPU(),
-		utils.VmiMacvtap:           utils.GetVMIMacvtap(),
-		utils.VmiKernelBoot:        utils.GetVMIKernelBoot(),
-		utils.VmiARM:               utils.GetVMIARM(),
+		utils.VmiEphemeral:                utils.GetVMIEphemeral(),
+		utils.VmiMigratable:               utils.GetVMIMigratable(),
+		utils.VmiSata:                     utils.GetVMISata(),
+		utils.VmiFedora:                   utils.GetVMIEphemeralFedora(),
+		utils.VmiFedoraIsolated:           utils.GetVMIEphemeralFedoraIsolated(),
+		utils.VmiSecureBoot:               utils.GetVMISecureBoot(),
+		utils.VmiAlpineEFI:                utils.GetVMIAlpineEFI(),
+		utils.VmiNoCloud:                  utils.GetVMINoCloud(),
+		utils.VmiPVC:                      utils.GetVMIPvc(),
+		utils.VmiWindows:                  utils.GetVMIWindows(),
+		utils.VmiSRIOV:                    utils.GetVMISRIOV(),
+		utils.VmiWithHookSidecar:          utils.GetVMIWithHookSidecar(),
+		utils.VmiWithHookSidecarConfigMap: utils.GetVmiWithHookSidecarConfigMap(),
+		utils.VmiMultusPtp:                utils.GetVMIMultusPtp(),
+		utils.VmiMultusMultipleNet:        utils.GetVMIMultusMultipleNet(),
+		utils.VmiMasquerade:               utils.GetVMIMasquerade(),
+		utils.VmiHostDisk:                 utils.GetVMIHostDisk(),
+		utils.VmiGPU:                      utils.GetVMIGPU(),
+		utils.VmiKernelBoot:               utils.GetVMIKernelBoot(),
+		utils.VmiARM:                      utils.GetVMIARM(),
+		utils.VmiUSB:                      utils.GetVMIUSB(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{
@@ -141,10 +144,8 @@ func main() {
 		utils.VmiMigration: utils.GetVMIMigration(),
 	}
 
-	var templates = map[string]*utils.Template{
-		utils.VmTemplateFedora:  utils.GetTemplateFedora(),
-		utils.VmTemplateRHEL7:   utils.GetTemplateRHEL7(),
-		utils.VmTemplateWindows: utils.GetTemplateWindows(),
+	var migrationPolicies = map[string]*v1alpha1.MigrationPolicy{
+		utils.MigrationPolicyName: utils.GetMigrationPolicy(),
 	}
 
 	handleError := func(err error) {
@@ -182,7 +183,7 @@ func main() {
 
 	// Having no generics is lots of fun
 	for name, obj := range vms {
-		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec, config, "user-account")
+		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec, config, false)
 		handleCauses(causes, name, "vm")
 		handleError(dumpObject(name, *obj))
 	}
@@ -221,7 +222,7 @@ func main() {
 				Operation: admissionv1.Create,
 			},
 		}
-		causes := validating_webhook.ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), obj, config)
+		causes := validating_webhook.ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), obj, config, false)
 		handleCauses(causes, name, "vm pool")
 		handleError(dumpObject(name, *obj))
 	}
@@ -238,12 +239,11 @@ func main() {
 		handleError(dumpObject(name, *obj))
 	}
 
-	// TODO:(ihar) how to validate templates?
-	for name, obj := range templates {
+	for name, obj := range priorityClasses {
 		handleError(dumpObject(name, *obj))
 	}
 
-	for name, obj := range priorityClasses {
+	for name, obj := range migrationPolicies {
 		handleError(dumpObject(name, *obj))
 	}
 }

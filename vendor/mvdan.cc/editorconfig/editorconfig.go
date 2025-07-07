@@ -1,7 +1,7 @@
 // Copyright (c) 2019, Daniel Martí <mvdan@mvdan.cc>
 // See LICENSE for licensing information
 
-// Pakage editorconfig allows parsing and using EditorConfig files, as defined
+// Package editorconfig allows parsing and using EditorConfig files, as defined
 // in https://editorconfig.org/.
 package editorconfig
 
@@ -28,12 +28,17 @@ type File struct {
 // properties to the filenames matching it.
 type Section struct {
 	// Name is the section's name. Usually, this will be a valid pattern
-	// matching string, such as "[*.go]".
+	// matching string, such as "[*.go]" without the square brackets.
+	//
+	// It may also describe a language such as "[[shell]]",
+	// although this is an out-of-spec feature that may be changed at any time.
 	Name string
 
 	// Properties is the list of name-value properties contained by a
 	// section. It is kept in increasing order, to allow binary searches.
 	Properties []Property
+
+	// TODO: properties are not actually kept in increasing order
 }
 
 // Property is a single property with a name and a value, which can be
@@ -138,7 +143,8 @@ func (s Section) String() string {
 	return b.String()
 }
 
-// Filter returns a set of properties from a file that apply to a file name.
+// Filter returns the set of properties in f which apply to a file
+// given its name and optional languages.
 // Properties from later sections take precedence. The name should be a path
 // relative to the directory holding the EditorConfig.
 //
@@ -149,11 +155,22 @@ func (s Section) String() string {
 //
 // Note that, since the EditorConfig spec doesn't allow backslashes as path
 // separators, backslashes in name are converted to forward slashes.
-func (f *File) Filter(name string, cache map[string]*regexp.Regexp) Section {
+func (f *File) Filter(name string, languages []string, cache map[string]*regexp.Regexp) Section {
 	name = filepath.ToSlash(name)
 	result := Section{}
 	for i := len(f.Sections) - 1; i >= 0; i-- {
 		section := f.Sections[i]
+
+		if len(section.Name) > 2 && section.Name[0] == '[' && section.Name[len(section.Name)-1] == ']' {
+			sectionLang := section.Name[1 : len(section.Name)-1]
+			for _, language := range languages {
+				if language == sectionLang {
+					result.Add(section.Properties...)
+					break
+				}
+			}
+			continue
+		}
 
 		rx := cache[section.Name]
 		if rx == nil {
@@ -174,8 +191,8 @@ func (f *File) Filter(name string, cache map[string]*regexp.Regexp) Section {
 //
 // It is equivalent to Query{}.Find; please note that no caching at all takes
 // place in this mode.
-func Find(name string) (Section, error) {
-	return Query{}.Find(name)
+func Find(name string, languages []string) (Section, error) {
+	return Query{}.Find(name, languages)
 }
 
 // Query allows fine-grained control of how EditorConfig files are found and
@@ -206,14 +223,15 @@ type Query struct {
 	Version string
 }
 
-// Find figures out the properties that apply to a file name on disk, and
-// returns them as a section. The name doesn't need to be an absolute path.
+// Find figures out the properties that apply to a file on disk
+// given its name and languages, returns them as a section.
+// The name doesn't need to be an absolute path.
 //
 // Any relevant EditorConfig files are parsed and used as necessary. Parsing the
 // files can be cached in Query.
 //
 // The defaults for supported properties are applied before returning.
-func (q Query) Find(name string) (Section, error) {
+func (q Query) Find(name string, languages []string) (Section, error) {
 	name, err := filepath.Abs(name)
 	if err != nil {
 		return Section{}, err
@@ -233,6 +251,7 @@ func (q Query) Find(name string) (Section, error) {
 		}
 		file, e := q.FileCache[dir]
 		if !e {
+			// TODO: replace with io/fs
 			f, err := os.Open(filepath.Join(dir, configName))
 			if os.IsNotExist(err) {
 				// continue below, caching the nil file
@@ -254,7 +273,7 @@ func (q Query) Find(name string) (Section, error) {
 			continue
 		}
 		relative := name[len(dir)+1:]
-		result.Add(file.Filter(relative, q.RegexpCache).Properties...)
+		result.Add(file.Filter(relative, languages, q.RegexpCache).Properties...)
 		if file.Root {
 			break
 		}
@@ -266,7 +285,7 @@ func (q Query) Find(name string) (Section, error) {
 			// indent_size should default to tab_width.
 			result.Add(Property{Name: "indent_size", Value: value})
 		}
-		if q.Version != "" && q.Version < "0.9.0" {
+		if q.Version != "" && q.Version < "0.9.0" { // TODO: semver comparison?
 		} else if result.Get("indent_size") == "" {
 			// When indent_style is "tab", indent_size defaults to
 			// "tab". Only on 0.9.0 and later.
@@ -281,17 +300,23 @@ func (q Query) Find(name string) (Section, error) {
 	return result, nil
 }
 
+// Bundle mvdan.cc/sh/v3/pattern into pattern_bundle.go,
+// since mvdan.cc/sh/v3/cmd/shfmt depends on this module
+// and we don't want to end up with circular module dependencies.
+// This should be fine, as the package is small, and the toolchain can omit what is unused.
+// Note that we can't use @version on the sh/v3 module, so we automatically pull @latest via go.mod.
+
 func toRegexp(pat string) *regexp.Regexp {
 	if i := strings.IndexByte(pat, '/'); i == 0 {
 		pat = pat[1:]
 	} else if i < 0 {
 		pat = "**/" + pat
 	}
-	rxStr, err := patternRegexp(pat, patternFilenames|patternBraces)
+	rxStr, err := patternRegexp(pat, patternFilenames|patternBraces|patternEntireString)
 	if err != nil {
 		panic(err)
 	}
-	return regexp.MustCompile("^" + rxStr + "$")
+	return regexp.MustCompile(rxStr)
 }
 
 func Parse(r io.Reader) (*File, error) {
@@ -328,7 +353,11 @@ func Parse(r io.Reader) (*File, error) {
 			"charset", "trim_trailing_whitespace", "insert_final_newline":
 			value = strings.ToLower(value)
 		}
-		if len(key) > 50 || len(value) > 255 {
+		// The spec tests require supporting at least these lengths.
+		// Larger lengths rarely make sense,
+		// and they could mean holding onto lots of memory,
+		// so use them as limits.
+		if len(key) > 1024 || len(value) > 4096 {
 			continue
 		}
 		if section != nil {

@@ -63,10 +63,8 @@ var _ = Describe("Isolation Detector", func() {
 			tmpDir, err = os.MkdirTemp("", "kubevirt")
 			Expect(err).ToNot(HaveOccurred())
 
-			cmdclient.SetLegacyBaseDir(tmpDir)
 			cmdclient.SetPodsBaseDir(tmpDir)
 
-			os.MkdirAll(filepath.Join(tmpDir, "sockets/"), os.ModePerm)
 			socketFile := cmdclient.SocketFilePathOnHost(podUID)
 			os.MkdirAll(filepath.Dir(socketFile), os.ModePerm)
 			socket, err = net.Listen("unix", socketFile)
@@ -94,25 +92,25 @@ var _ = Describe("Isolation Detector", func() {
 		})
 
 		It("Should detect the PID of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir).Allowlist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Pid()).To(Equal(os.Getpid()))
 		})
 
 		It("Should detect the PID namespace of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir).Allowlist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.PIDNamespace()).To(Equal(fmt.Sprintf("/proc/%d/ns/pid", os.Getpid())))
 		})
 
 		It("Should detect the Parent PID of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir).Allowlist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.PPid()).To(Equal(os.Getppid()))
 		})
 
 		It("Should detect the Mount root of the test suite", func() {
-			result, err := NewSocketBasedIsolationDetector(tmpDir).Allowlist([]string{"devices"}).Detect(vm)
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			root, err := result.MountRoot()
 			Expect(err).ToNot(HaveOccurred())
@@ -132,7 +130,7 @@ var _ = Describe("findIsolatedQemuProcess", func() {
 		fakeProcess3}
 
 	qemuKvmProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-kvm"}
-	qemuSystemProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-system"}
+	qemuSystemProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-system-x86_64"}
 
 	DescribeTable("should return QEMU process",
 		func(processes []ps.Process, pid int, expectedProcess ps.Process) {

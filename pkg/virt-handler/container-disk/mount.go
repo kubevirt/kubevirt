@@ -1,15 +1,17 @@
 package container_disk
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc32"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/checkpoint"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -20,7 +22,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -34,23 +35,33 @@ const (
 	failedUnmountFmt         = "failed to unmount containerDisk %v: %v : %v"
 )
 
+var (
+	ErrDiskContainerGone = errors.New("disk container is gone")
+)
+
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 type mounter struct {
 	podIsolationDetector       isolation.PodIsolationDetector
-	mountStateDir              string
+	checkpointManager          checkpoint.CheckpointManager
 	mountRecords               map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock           sync.Mutex
 	suppressWarningTimeout     time.Duration
 	socketPathGetter           containerdisk.SocketPathGetter
 	kernelBootSocketPathGetter containerdisk.KernelBootSocketPathGetter
 	clusterConfig              *virtconfig.ClusterConfig
+	nodeIsolationResult        isolation.IsolationResult
 }
 
 type Mounter interface {
 	ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error)
-	MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error)
+	MountAndVerify(vmi *v1.VirtualMachineInstance) error
 	Unmount(vmi *v1.VirtualMachineInstance) error
+	// ComputeChecksums method, along with the code added in this commit, can be removed after the 1.7 release.
+	// By then, we can be sure that during upgrades older versions of virt-handler no longer expect the checksum
+	// in the VMI status.
+	// Therefore, it will no longer be necessary to include this information in the VMI status.
+	ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error)
 }
 
 type vmiMountTargetEntry struct {
@@ -63,15 +74,31 @@ type vmiMountTargetRecord struct {
 	UsesSafePaths      bool                  `json:"usesSafePaths"`
 }
 
+type kernelArtifacts struct {
+	kernel *safepath.Path
+	initrd *safepath.Path
+}
+
+type DiskChecksums struct {
+	KernelBootChecksum     KernelBootChecksum
+	ContainerDiskChecksums map[string]uint32
+}
+
+type KernelBootChecksum struct {
+	Initrd *uint32
+	Kernel *uint32
+}
+
 func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string, clusterConfig *virtconfig.ClusterConfig) Mounter {
 	return &mounter{
 		mountRecords:               make(map[types.UID]*vmiMountTargetRecord),
 		podIsolationDetector:       isoDetector,
-		mountStateDir:              mountStateDir,
+		checkpointManager:          checkpoint.NewSimpleCheckpointManager(mountStateDir),
 		suppressWarningTimeout:     1 * time.Minute,
 		socketPathGetter:           containerdisk.NewSocketPathGetter(""),
 		kernelBootSocketPathGetter: containerdisk.NewKernelBootSocketPathGetter(""),
 		clusterConfig:              clusterConfig,
+		nodeIsolationResult:        isolation.NodeIsolationResult(),
 	}
 }
 
@@ -80,25 +107,20 @@ func (m *mounter) deleteMountTargetRecord(vmi *v1.VirtualMachineInstance) error 
 		return fmt.Errorf("unable to find container disk mounted directories for vmi without uid")
 	}
 
-	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
-
-	exists, err := diskutils.FileExists(recordFile)
-	if err != nil {
-		return err
+	record := vmiMountTargetRecord{}
+	err := m.checkpointManager.Get(string(vmi.UID), &record)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to get a checkpoint %s, %w", vmi.UID, err)
 	}
-
-	if exists {
-		record, err := m.getMountTargetRecord(vmi)
-		if err != nil {
-			return err
-		}
-
+	if !errors.Is(err, os.ErrNotExist) {
 		for _, target := range record.MountTargetEntries {
 			os.Remove(target.TargetFile)
 			os.Remove(target.SocketFile)
 		}
 
-		os.Remove(recordFile)
+		if err := m.checkpointManager.Delete(string(vmi.UID)); err != nil {
+			return fmt.Errorf("failed to delete checkpoint %s, %w", vmi.UID, err)
+		}
 	}
 
 	m.mountRecordsLock.Lock()
@@ -126,25 +148,13 @@ func (m *mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMoun
 	}
 
 	// if not there, see if record is on disk, this can happen if virt-handler restarts
-	recordFile := filepath.Join(m.mountStateDir, filepath.Clean(string(vmi.UID)))
-
-	exists, err := diskutils.FileExists(recordFile)
-	if err != nil {
-		return nil, err
+	record := vmiMountTargetRecord{}
+	err := m.checkpointManager.Get(string(vmi.UID), &record)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("failed to get checkpoint %s, %w", vmi.UID, err)
 	}
 
-	if exists {
-		record := vmiMountTargetRecord{}
-		// #nosec No risk for path injection. Using static base and cleaned filename
-		bytes, err := os.ReadFile(recordFile)
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(bytes, &record)
-		if err != nil {
-			return nil, err
-		}
-
+	if err == nil {
 		// XXX: backward compatibility for old unresolved paths, can be removed in July 2023
 		// After a one-time convert and persist, old records are safe too.
 		if !record.UsesSafePaths {
@@ -182,17 +192,16 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 	// After a one-time convert and persist, old records are safe too.
 	record.UsesSafePaths = true
 
-	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
-	fileExists, err := diskutils.FileExists(recordFile)
-	if err != nil {
-		return err
+	err := m.checkpointManager.Get(string(vmi.UID), &vmiMountTargetRecord{})
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to get checkpoint %s, %w", vmi.UID, err)
 	}
 
 	m.mountRecordsLock.Lock()
 	defer m.mountRecordsLock.Unlock()
 
 	existingRecord, ok := m.mountRecords[vmi.UID]
-	if ok && fileExists && equality.Semantic.DeepEqual(existingRecord, record) {
+	if ok && !errors.Is(err, os.ErrNotExist) && equality.Semantic.DeepEqual(existingRecord, record) {
 		// already done
 		return nil
 	}
@@ -201,19 +210,8 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 		record.MountTargetEntries = append(record.MountTargetEntries, existingRecord.MountTargetEntries...)
 	}
 
-	bytes, err := json.Marshal(record)
-	if err != nil {
-		return err
-	}
-
-	err = os.MkdirAll(filepath.Dir(recordFile), 0750)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(recordFile, bytes, 0600)
-	if err != nil {
-		return err
+	if err := m.checkpointManager.Store(string(vmi.UID), record); err != nil {
+		return fmt.Errorf("failed to checkpoint %s, %w", vmi.UID, err)
 	}
 
 	m.mountRecords[vmi.UID] = record
@@ -223,31 +221,29 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 
 // Mount takes a vmi and mounts all container disks of the VMI, so that they are visible for the qemu process.
 // Additionally qcow2 images are validated if "verify" is true. The validation happens with rlimits set, to avoid DOS.
-func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error) {
+func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
 	record := vmiMountTargetRecord{}
-	disksInfo := map[string]*containerdisk.DiskInfo{}
-
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
 			diskTargetDir, err := containerdisk.GetDiskTargetDirFromHostView(vmi)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			diskName := containerdisk.GetDiskTargetName(i)
 			// If diskName is a symlink it will fail if the target exists.
 			if err := safepath.TouchAtNoFollow(diskTargetDir, diskName, os.ModePerm); err != nil {
-				if err != nil && !os.IsExist(err) {
-					return nil, fmt.Errorf("failed to create mount point target: %v", err)
+				if !os.IsExist(err) {
+					return fmt.Errorf("failed to create mount point target: %v", err)
 				}
 			}
 			targetFile, err := safepath.JoinNoFollow(diskTargetDir, diskName)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			sock, err := m.socketPathGetter(vmi, i)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
@@ -260,73 +256,45 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 	if len(record.MountTargetEntries) > 0 {
 		err := m.setMountTargetRecord(vmi, &record)
 		if err != nil {
-			return nil, err
+			return err
 		}
-	}
-
-	vmiRes, err := m.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect VMI pod: %v", err)
 	}
 
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
 			diskTargetDir, err := containerdisk.GetDiskTargetDirFromHostView(vmi)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			diskName := containerdisk.GetDiskTargetName(i)
 			targetFile, err := safepath.JoinNoFollow(diskTargetDir, diskName)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
-			nodeRes := isolation.NodeIsolationResult()
-
 			if isMounted, err := isolation.IsMounted(targetFile); err != nil {
-				return nil, fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
+				return fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
 			} else if !isMounted {
-				sock, err := m.socketPathGetter(vmi, i)
-				if err != nil {
-					return nil, err
-				}
 
-				res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
+				sourceFile, err := m.getContainerDiskPath(vmi, &volume, i)
 				if err != nil {
-					return nil, fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
-				}
-				mountPoint, err := isolation.ParentPathForRootMount(nodeRes, res)
-				if err != nil {
-					return nil, fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
-				}
-				sourceFile, err := containerdisk.GetImage(mountPoint, volume.ContainerDisk.Path)
-				if err != nil {
-					return nil, fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
+					return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
 				}
 
 				log.DefaultLogger().Object(vmi).Infof("Bind mounting container disk at %s to %s", sourceFile, targetFile)
 				out, err := virt_chroot.MountChroot(sourceFile, targetFile, true).CombinedOutput()
 				if err != nil {
-					return nil, fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
+					return fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
 				}
 			}
-
-			imageInfo, err := isolation.GetImageInfo(containerdisk.GetDiskTargetPathFromLauncherView(i), vmiRes, m.clusterConfig.GetDiskVerification())
-			if err != nil {
-				return nil, fmt.Errorf("failed to get image info: %v", err)
-			}
-			if err := containerdisk.VerifyImage(imageInfo); err != nil {
-				return nil, fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
-			}
-			disksInfo[volume.Name] = imageInfo
 		}
 	}
-	err = m.mountKernelArtifacts(vmi, true)
+	err := m.mountKernelArtifacts(vmi, true)
 	if err != nil {
-		return nil, fmt.Errorf("error mounting kernel artifacts: %v", err)
+		return fmt.Errorf("error mounting kernel artifacts: %v", err)
 	}
 
-	return disksInfo, nil
+	return nil
 }
 
 // Unmount unmounts all container disks of a given VMI.
@@ -365,7 +333,7 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			return fmt.Errorf(failedCheckMountPointFmt, file, err)
 		} else if mounted {
 			log.DefaultLogger().Object(vmi).Infof("unmounting container disk at path %s", file)
-			// #nosec No risk for attacket injection. Parameters are predefined strings
+			// #nosec No risk for attacker injection. Parameters are predefined strings
 			out, err := virt_chroot.UmountChroot(file.Path()).CombinedOutput()
 			if err != nil {
 				return fmt.Errorf(failedUnmountFmt, file, string(out), err)
@@ -383,7 +351,11 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error) {
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
-			_, err := m.socketPathGetter(vmi, i)
+			sock, err := m.socketPathGetter(vmi, i)
+			if err == nil {
+				_, err = m.podIsolationDetector.DetectForSocket(vmi, sock)
+			}
+
 			if err != nil {
 				log.DefaultLogger().Object(vmi).Reason(err).Infof("containerdisk %s not yet ready", volume.Name)
 				if time.Now().After(notInitializedSince.Add(m.suppressWarningTimeout)) {
@@ -391,8 +363,24 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 				}
 				return false, nil
 			}
+
 		}
 	}
+
+	if util.HasKernelBootContainerImage(vmi) {
+		sock, err := m.kernelBootSocketPathGetter(vmi)
+		if err == nil {
+			_, err = m.podIsolationDetector.DetectForSocket(vmi, sock)
+		}
+		if err != nil {
+			log.DefaultLogger().Object(vmi).Reason(err).Info("kernelboot container not yet ready")
+			if time.Now().After(notInitializedSince.Add(m.suppressWarningTimeout)) {
+				return false, fmt.Errorf("kernelboot container still not ready after one minute")
+			}
+			return false, nil
+		}
+	}
+
 	log.DefaultLogger().Object(vmi).V(4).Info("all containerdisks are ready")
 	return true, nil
 }
@@ -431,7 +419,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 
 	socketFilePath, err := m.kernelBootSocketPathGetter(vmi)
 	if err != nil {
-		return fmt.Errorf("failed to find socker path for kernel artifacts: %v", err)
+		return fmt.Errorf("failed to find socket path for kernel artifacts: %v", err)
 	}
 
 	record := vmiMountTargetRecord{
@@ -445,8 +433,6 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	if err != nil {
 		return err
 	}
-
-	nodeRes := isolation.NodeIsolationResult()
 
 	var targetInitrdPath *safepath.Path
 	var targetKernelPath *safepath.Path
@@ -480,8 +466,15 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 			return false, err
 		}
 
-		mounted, err := nodeRes.AreMounted(artifactFiles...)
-		return mounted, err
+		for _, mountPoint := range artifactFiles {
+			if mountPoint != nil {
+				isMounted, err := isolation.IsMounted(mountPoint)
+				if !isMounted || err != nil {
+					return isMounted, err
+				}
+			}
+		}
+		return true, nil
 	}
 
 	if isMounted, err := areKernelArtifactsMounted(targetDir, targetInitrdPath, targetKernelPath); err != nil {
@@ -489,39 +482,22 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	} else if !isMounted {
 		log.Log.Object(vmi).Infof("kernel artifacts are not mounted - mounting...")
 
-		res, err := m.podIsolationDetector.DetectForSocket(vmi, socketFilePath)
+		kernelArtifacts, err := m.getKernelArtifactPaths(vmi)
 		if err != nil {
-			return fmt.Errorf("failed to detect socket for containerDisk %v: %v", kernelBootName, err)
-		}
-		mountRootPath, err := isolation.ParentPathForRootMount(nodeRes, res)
-		if err != nil {
-			return fmt.Errorf("failed to detect root mount point of %v on the node: %v", kernelBootName, err)
+			return err
 		}
 
-		mount := func(artifactPath string, targetPath *safepath.Path) error {
-
-			sourcePath, err := containerdisk.GetImage(mountRootPath, artifactPath)
-			if err != nil {
-				return err
-			}
-
-			out, err := virt_chroot.MountChroot(sourcePath, targetPath, true).CombinedOutput()
+		if kernelArtifacts.kernel != nil {
+			out, err := virt_chroot.MountChroot(kernelArtifacts.kernel, targetKernelPath, true).CombinedOutput()
 			if err != nil {
 				return fmt.Errorf("failed to bindmount %v: %v : %v", kernelBootName, string(out), err)
 			}
-
-			return nil
 		}
 
-		if kb.InitrdPath != "" {
-			if err = mount(kb.InitrdPath, targetInitrdPath); err != nil {
-				return err
-			}
-		}
-
-		if kb.KernelPath != "" {
-			if err = mount(kb.KernelPath, targetKernelPath); err != nil {
-				return err
+		if kernelArtifacts.initrd != nil {
+			out, err := virt_chroot.MountChroot(kernelArtifacts.initrd, targetInitrdPath, true).CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("failed to bindmount %v: %v : %v", kernelBootName, string(out), err)
 			}
 		}
 
@@ -608,4 +584,134 @@ func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	return fmt.Errorf("kernel artifacts record wasn't found")
+}
+
+func (m *mounter) getContainerDiskPath(vmi *v1.VirtualMachineInstance, volume *v1.Volume, volumeIndex int) (*safepath.Path, error) {
+	sock, err := m.socketPathGetter(vmi, volumeIndex)
+	if err != nil {
+		return nil, ErrDiskContainerGone
+	}
+
+	res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
+	}
+
+	mountPoint, err := isolation.ParentPathForRootMount(m.nodeIsolationResult, res)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
+	}
+
+	return containerdisk.GetImage(mountPoint, volume.ContainerDisk.Path)
+}
+
+func (m *mounter) getKernelArtifactPaths(vmi *v1.VirtualMachineInstance) (*kernelArtifacts, error) {
+	sock, err := m.kernelBootSocketPathGetter(vmi)
+	if err != nil {
+		return nil, ErrDiskContainerGone
+	}
+
+	res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect socket for kernelboot container: %v", err)
+	}
+
+	mountPoint, err := isolation.ParentPathForRootMount(m.nodeIsolationResult, res)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect root mount point of kernel/initrd container on the node: %v", err)
+	}
+
+	kernelContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
+	kernelArtifacts := &kernelArtifacts{}
+
+	if kernelContainer.KernelPath != "" {
+		kernelPath, err := containerdisk.GetImage(mountPoint, kernelContainer.KernelPath)
+		if err != nil {
+			return nil, err
+		}
+		kernelArtifacts.kernel = kernelPath
+	}
+	if kernelContainer.InitrdPath != "" {
+		initrdPath, err := containerdisk.GetImage(mountPoint, kernelContainer.InitrdPath)
+		if err != nil {
+			return nil, err
+		}
+		kernelArtifacts.initrd = initrdPath
+	}
+
+	return kernelArtifacts, nil
+}
+
+func getDigest(imageFile *safepath.Path) (uint32, error) {
+	digest := crc32.NewIEEE()
+
+	err := imageFile.ExecuteNoFollow(func(path string) (err error) {
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		// 32 MiB chunks
+		chunk := make([]byte, 1024*1024*32)
+
+		_, err = io.CopyBuffer(digest, f, chunk)
+		return err
+	})
+
+	return digest.Sum32(), err
+}
+
+func (m *mounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error) {
+
+	diskChecksums := &DiskChecksums{
+		ContainerDiskChecksums: map[string]uint32{},
+	}
+
+	// compute for containerdisks
+	for i, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.ContainerDisk == nil {
+			continue
+		}
+
+		path, err := m.getContainerDiskPath(vmi, &volume, i)
+		if err != nil {
+			return nil, err
+		}
+
+		checksum, err := getDigest(path)
+		if err != nil {
+			return nil, err
+		}
+
+		diskChecksums.ContainerDiskChecksums[volume.Name] = checksum
+	}
+
+	// kernel and initrd
+	if util.HasKernelBootContainerImage(vmi) {
+		kernelArtifacts, err := m.getKernelArtifactPaths(vmi)
+		if err != nil {
+			return nil, err
+		}
+
+		if kernelArtifacts.kernel != nil {
+			checksum, err := getDigest(kernelArtifacts.kernel)
+			if err != nil {
+				return nil, err
+			}
+
+			diskChecksums.KernelBootChecksum.Kernel = &checksum
+		}
+
+		if kernelArtifacts.initrd != nil {
+			checksum, err := getDigest(kernelArtifacts.initrd)
+			if err != nil {
+				return nil, err
+			}
+
+			diskChecksums.KernelBootChecksum.Initrd = &checksum
+		}
+	}
+
+	return diskChecksums, nil
 }

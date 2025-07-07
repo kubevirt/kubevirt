@@ -26,8 +26,8 @@ import (
 
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/insomniacslk/dhcp/rfc1035label"
-	"github.com/u-root/u-root/pkg/rand"
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/rand"
+	"github.com/u-root/uio/uio"
 )
 
 const (
@@ -134,8 +134,7 @@ func GenerateTransactionID() (TransactionID, error) {
 
 // New creates a new DHCPv4 structure and fill it up with default values. It
 // won't be a valid DHCPv4 message so you will need to adjust its fields.
-// See also NewDiscovery, NewOffer, NewRequest, NewAcknowledge, NewInform and
-// NewRelease .
+// See also NewDiscovery, NewRequest, NewAcknowledge, NewInform and NewRelease.
 func New(modifiers ...Modifier) (*DHCPv4, error) {
 	xid, err := GenerateTransactionID()
 	if err != nil {
@@ -223,8 +222,7 @@ func PrependModifiers(m []Modifier, other ...Modifier) []Modifier {
 // NewInform builds a new DHCPv4 Informational message with the specified
 // hardware address.
 func NewInform(hwaddr net.HardwareAddr, localIP net.IP, modifiers ...Modifier) (*DHCPv4, error) {
-	return New(PrependModifiers(
-		modifiers,
+	return New(PrependModifiers(modifiers,
 		WithHwAddr(hwaddr),
 		WithMessageType(MessageTypeInform),
 		WithClientIP(localIP),
@@ -232,23 +230,34 @@ func NewInform(hwaddr net.HardwareAddr, localIP net.IP, modifiers ...Modifier) (
 }
 
 // NewRequestFromOffer builds a DHCPv4 request from an offer.
+// It assumes the SELECTING state by default, see Section 4.3.2 in RFC 2131 for more details.
 func NewRequestFromOffer(offer *DHCPv4, modifiers ...Modifier) (*DHCPv4, error) {
-	// find server IP address
-	serverIP := offer.ServerIdentifier()
-	if serverIP == nil {
-		if offer.ServerIPAddr == nil || offer.ServerIPAddr.IsUnspecified() {
-			return nil, fmt.Errorf("missing Server IP Address in DHCP Offer")
-		}
-		serverIP = offer.ServerIPAddr
-	}
-
 	return New(PrependModifiers(modifiers,
 		WithReply(offer),
 		WithMessageType(MessageTypeRequest),
-		WithServerIP(serverIP),
 		WithClientIP(offer.ClientIPAddr),
 		WithOption(OptRequestedIPAddress(offer.YourIPAddr)),
-		WithOption(OptServerIdentifier(serverIP)),
+		// This is usually the server IP.
+		WithOptionCopied(offer, OptionServerIdentifier),
+		WithRequestedOptions(
+			OptionSubnetMask,
+			OptionRouter,
+			OptionDomainName,
+			OptionDomainNameServer,
+		),
+	)...)
+}
+
+// NewRenewFromAck builds a DHCPv4 RENEW-style request from the ACK of a lease. RENEW requests have
+// minor changes to their options compared to SELECT requests as specified by RFC 2131, section 4.3.2.
+func NewRenewFromAck(ack *DHCPv4, modifiers ...Modifier) (*DHCPv4, error) {
+	return New(PrependModifiers(modifiers,
+		WithReply(ack),
+		WithMessageType(MessageTypeRequest),
+		// The client IP must be filled in with the IP offered to the client
+		WithClientIP(ack.YourIPAddr),
+		// The renewal request must use unicast
+		WithBroadcast(false),
 		WithRequestedOptions(
 			OptionSubnetMask,
 			OptionRouter,
@@ -288,7 +297,7 @@ func NewReleaseFromACK(ack *DHCPv4, modifiers ...Modifier) (*DHCPv4, error) {
 	)...)
 }
 
-// FromBytes encodes the DHCPv4 packet into a sequence of bytes, and returns an
+// FromBytes decodes a DHCPv4 packet from a sequence of bytes, and returns an
 // error if the packet is not valid.
 func FromBytes(q []byte) (*DHCPv4, error) {
 	var p DHCPv4
@@ -390,6 +399,13 @@ func (d *DHCPv4) SetUnicast() {
 // concatenated, and hence this should always just return one option.
 func (d *DHCPv4) GetOneOption(code OptionCode) []byte {
 	return d.Options.Get(code)
+}
+
+// DeleteOption deletes an existing option with the given option code.
+func (d *DHCPv4) DeleteOption(code OptionCode) {
+	if d.Options != nil {
+		d.Options.Del(code)
+	}
 }
 
 // UpdateOption replaces an existing option with the same option code with the
@@ -520,20 +536,18 @@ func (d *DHCPv4) ToBytes() []byte {
 	// Write all options.
 	d.Options.Marshal(buf)
 
+	// Finish the options.
+	buf.Write8(OptionEnd.Code())
+
 	// DHCP is based on BOOTP, and BOOTP messages have a minimum length of
 	// 300 bytes per RFC 951. This not stated explicitly, but if you sum up
 	// all the bytes in the message layout, you'll get 300 bytes.
 	//
 	// Some DHCP servers and relay agents care about this BOOTP legacy B.S.
 	// and "conveniently" drop messages that are less than 300 bytes long.
-	//
-	// We subtract one byte for the OptionEnd option.
-	if buf.Len()+1 < bootpMinLen {
-		buf.WriteBytes(bytes.Repeat([]byte{OptionPad.Code()}, bootpMinLen-1-buf.Len()))
+	if buf.Len() < bootpMinLen {
+		buf.WriteBytes(bytes.Repeat([]byte{OptionPad.Code()}, bootpMinLen-buf.Len()))
 	}
-
-	// Finish the packet.
-	buf.Write8(OptionEnd.Code())
 
 	return buf.Data()
 }
@@ -606,7 +620,8 @@ func (d *DHCPv4) DomainName() string {
 //
 // The Host Name option is described by RFC 2132, Section 3.14.
 func (d *DHCPv4) HostName() string {
-	return GetString(OptionHostName, d.Options)
+	name := GetString(OptionHostName, d.Options)
+	return strings.TrimRight(name, "\x00")
 }
 
 // RootPath parses the DHCPv4 Root Path option if present.

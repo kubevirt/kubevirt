@@ -70,6 +70,7 @@ type DomainStats struct {
 	// extra stats
 	CPUMapSet bool
 	CPUMap    [][]bool
+	NrVirtCpu uint
 }
 
 type DomainStatsCPU struct {
@@ -88,6 +89,8 @@ type DomainStatsVcpu struct {
 	Time     uint64
 	WaitSet  bool
 	Wait     uint64
+	DelaySet bool
+	Delay    uint64
 }
 
 type DomainStatsNet struct {
@@ -152,6 +155,8 @@ type DomainStatsBlock struct {
 type DomainStatsMemory struct {
 	UnusedSet        bool
 	Unused           uint64
+	CachedSet        bool
+	Cached           uint64
 	AvailableSet     bool
 	Available        uint64
 	ActualBalloonSet bool
@@ -175,12 +180,12 @@ type DomainStatsMemory struct {
 // mimic existing structs, but data is taken from
 // DomainJobInfo
 type DomainJobInfo struct {
+	DataTotalSet     bool
+	DataTotal        uint64
 	DataProcessedSet bool
 	DataProcessed    uint64
 	MemoryBpsSet     bool
 	MemoryBps        uint64
-	DiskBpsSet       bool
-	DiskBps          uint64
 	DataRemainingSet bool
 	DataRemaining    uint64
 	MemDirtyRateSet  bool

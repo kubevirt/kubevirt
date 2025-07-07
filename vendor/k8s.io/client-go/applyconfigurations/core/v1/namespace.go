@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// NamespaceApplyConfiguration represents an declarative configuration of the Namespace type for use
+// NamespaceApplyConfiguration represents a declarative configuration of the Namespace type for use
 // with apply.
 type NamespaceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -36,7 +36,7 @@ type NamespaceApplyConfiguration struct {
 	Status                           *NamespaceStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// Namespace constructs an declarative configuration of the Namespace type for use with
+// Namespace constructs a declarative configuration of the Namespace type for use with
 // apply.
 func Namespace(name string) *NamespaceApplyConfiguration {
 	b := &NamespaceApplyConfiguration{}
@@ -121,15 +121,6 @@ func (b *NamespaceApplyConfiguration) WithGenerateName(value string) *NamespaceA
 func (b *NamespaceApplyConfiguration) WithNamespace(value string) *NamespaceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *NamespaceApplyConfiguration) WithSelfLink(value string) *NamespaceApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -242,15 +233,6 @@ func (b *NamespaceApplyConfiguration) WithFinalizers(values ...string) *Namespac
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *NamespaceApplyConfiguration) WithClusterName(value string) *NamespaceApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *NamespaceApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -271,4 +253,10 @@ func (b *NamespaceApplyConfiguration) WithSpec(value *NamespaceSpecApplyConfigur
 func (b *NamespaceApplyConfiguration) WithStatus(value *NamespaceStatusApplyConfiguration) *NamespaceApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *NamespaceApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

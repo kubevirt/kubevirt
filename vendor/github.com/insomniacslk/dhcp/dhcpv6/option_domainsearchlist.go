@@ -25,17 +25,13 @@ func (op *optDomainSearchList) ToBytes() []byte {
 }
 
 func (op *optDomainSearchList) String() string {
-	return fmt.Sprintf("DomainSearchList: %s", op.DomainSearchList)
+	return fmt.Sprintf("%s: %s", op.Code(), op.DomainSearchList)
 }
 
-// ParseOptDomainSearchList builds an OptDomainSearchList structure from a sequence
-// of bytes. The input data does not include option code and length bytes.
-func parseOptDomainSearchList(data []byte) (*optDomainSearchList, error) {
-	var opt optDomainSearchList
+// FromBytes builds an OptDomainSearchList structure from a sequence of bytes.
+// The input data does not include option code and length bytes.
+func (op *optDomainSearchList) FromBytes(data []byte) error {
 	var err error
-	opt.DomainSearchList, err = rfc1035label.FromBytes(data)
-	if err != nil {
-		return nil, err
-	}
-	return &opt, nil
+	op.DomainSearchList, err = rfc1035label.FromBytes(data)
+	return err
 }

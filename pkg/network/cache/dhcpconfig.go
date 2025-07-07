@@ -49,6 +49,14 @@ func WriteDHCPInterfaceCache(c cacheCreator, pid, ifaceName string, dhcpConfig *
 	return dhcpCache.Write(dhcpConfig)
 }
 
+func DeleteDHCPInterfaceCache(c cacheCreator, pid, ifaceName string) error {
+	dhcpCache, err := NewDHCPInterfaceCache(c, pid).IfaceEntry(ifaceName)
+	if err != nil {
+		return err
+	}
+	return dhcpCache.Delete()
+}
+
 func NewDHCPInterfaceCache(creator cacheCreator, pid string) DHCPInterfaceCache {
 	podRootFilesystemPath := fmt.Sprintf("/proc/%s/root", pid)
 	return DHCPInterfaceCache{creator.New(filepath.Join(podRootFilesystemPath, util.VirtPrivateDir))}
@@ -75,6 +83,10 @@ func (d DHCPInterfaceCache) Write(dhcpConfig *DHCPConfig) error {
 	return d.cache.Write(dhcpConfig)
 }
 
+func (d DHCPInterfaceCache) Delete() error {
+	return d.cache.Delete()
+}
+
 type DHCPConfig struct {
 	Name                string
 	IP                  netlink.Addr
@@ -91,7 +103,7 @@ type DHCPConfig struct {
 
 func (d DHCPConfig) String() string {
 	return fmt.Sprintf(
-		"DHCPConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, Gateway: %s, IPAMDisabled: %t}",
+		"DHCPConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, Gateway: %s, IPAMDisabled: %t, Routes: %v}",
 		d.Name,
 		d.IP,
 		d.IPv6,
@@ -100,5 +112,6 @@ func (d DHCPConfig) String() string {
 		d.Mtu,
 		d.Gateway,
 		d.IPAMDisabled,
+		d.Routes,
 	)
 }

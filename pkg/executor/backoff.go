@@ -23,8 +23,8 @@ import (
 	"math"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/clock"
 )
 
 // LimitedBackoff provides backoff rate limiter with limit functionality,

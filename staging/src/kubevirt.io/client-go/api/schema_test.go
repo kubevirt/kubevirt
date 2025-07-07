@@ -438,7 +438,7 @@ var _ = Describe("Schema", func() {
 				v12.Interface{
 					Name: "default",
 					InterfaceBindingMethod: v12.InterfaceBindingMethod{
-						Slirp: &v12.InterfaceSlirp{},
+						DeprecatedSlirp: &v12.DeprecatedInterfaceSlirp{},
 					},
 				},
 			}
@@ -458,7 +458,7 @@ var _ = Describe("Schema", func() {
 				v12.Interface{
 					Name: "default",
 					InterfaceBindingMethod: v12.InterfaceBindingMethod{
-						Slirp: &v12.InterfaceSlirp{},
+						DeprecatedSlirp: &v12.DeprecatedInterfaceSlirp{},
 					},
 				},
 			}
@@ -479,7 +479,7 @@ var _ = Describe("Schema", func() {
 				v12.Interface{
 					Name: "default",
 					InterfaceBindingMethod: v12.InterfaceBindingMethod{
-						Slirp: &v12.InterfaceSlirp{}},
+						DeprecatedSlirp: &v12.DeprecatedInterfaceSlirp{}},
 					Ports: []v12.Port{{Port: 80}},
 				},
 			}

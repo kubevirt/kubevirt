@@ -2,6 +2,7 @@ package dhcpv6
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
 )
@@ -25,15 +26,24 @@ func (op *OptDHCPv4Msg) ToBytes() []byte {
 }
 
 func (op *OptDHCPv4Msg) String() string {
-	return fmt.Sprintf("OptDHCPv4Msg{%v}", op.Msg)
+	return fmt.Sprintf("%s: %v", op.Code(), op.Msg)
 }
 
-// ParseOptDHCPv4Msg builds an OptDHCPv4Msg structure
-// from a sequence of bytes. The input data does not include option code and length
-// bytes.
-func ParseOptDHCPv4Msg(data []byte) (*OptDHCPv4Msg, error) {
-	var opt OptDHCPv4Msg
+// LongString returns a multi-line string representation of DHCPv4 data.
+func (op *OptDHCPv4Msg) LongString(indent int) string {
+	summary := op.Msg.Summary()
+	ind := strings.Repeat(" ", indent+2)
+	if strings.Contains(summary, "\n") {
+		summary = strings.Replace(summary, "\n  ", "\n"+ind, -1)
+	}
+	ind = strings.Repeat(" ", indent)
+	return fmt.Sprintf("%s: {%v%s}", op.Code(), summary, ind)
+}
+
+// FromBytes builds an OptDHCPv4Msg structure from a sequence of bytes. The
+// input data does not include option code and length bytes.
+func (op *OptDHCPv4Msg) FromBytes(data []byte) error {
 	var err error
-	opt.Msg, err = dhcpv4.FromBytes(data)
-	return &opt, err
+	op.Msg, err = dhcpv4.FromBytes(data)
+	return err
 }

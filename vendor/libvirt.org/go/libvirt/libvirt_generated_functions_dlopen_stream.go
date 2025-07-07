@@ -43,14 +43,14 @@ package libvirt
 
 
 typedef int
-(*virStreamAbortType)(virStreamPtr stream);
+(*virStreamAbortFuncType)(virStreamPtr stream);
 
 int
 virStreamAbortWrapper(virStreamPtr stream,
                       virErrorPtr err)
 {
     int ret = -1;
-    static virStreamAbortType virStreamAbortSymbol;
+    static virStreamAbortFuncType virStreamAbortSymbol;
     static bool once;
     static bool success;
 
@@ -69,11 +69,11 @@ virStreamAbortWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamEventAddCallbackType)(virStreamPtr stream,
-                                 int events,
-                                 virStreamEventCallback cb,
-                                 void * opaque,
-                                 virFreeCallback ff);
+(*virStreamEventAddCallbackFuncType)(virStreamPtr stream,
+                                     int events,
+                                     virStreamEventCallback cb,
+                                     void * opaque,
+                                     virFreeCallback ff);
 
 int
 virStreamEventAddCallbackWrapper(virStreamPtr stream,
@@ -84,7 +84,7 @@ virStreamEventAddCallbackWrapper(virStreamPtr stream,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virStreamEventAddCallbackType virStreamEventAddCallbackSymbol;
+    static virStreamEventAddCallbackFuncType virStreamEventAddCallbackSymbol;
     static bool once;
     static bool success;
 
@@ -107,14 +107,14 @@ virStreamEventAddCallbackWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamEventRemoveCallbackType)(virStreamPtr stream);
+(*virStreamEventRemoveCallbackFuncType)(virStreamPtr stream);
 
 int
 virStreamEventRemoveCallbackWrapper(virStreamPtr stream,
                                     virErrorPtr err)
 {
     int ret = -1;
-    static virStreamEventRemoveCallbackType virStreamEventRemoveCallbackSymbol;
+    static virStreamEventRemoveCallbackFuncType virStreamEventRemoveCallbackSymbol;
     static bool once;
     static bool success;
 
@@ -133,8 +133,8 @@ virStreamEventRemoveCallbackWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamEventUpdateCallbackType)(virStreamPtr stream,
-                                    int events);
+(*virStreamEventUpdateCallbackFuncType)(virStreamPtr stream,
+                                        int events);
 
 int
 virStreamEventUpdateCallbackWrapper(virStreamPtr stream,
@@ -142,7 +142,7 @@ virStreamEventUpdateCallbackWrapper(virStreamPtr stream,
                                     virErrorPtr err)
 {
     int ret = -1;
-    static virStreamEventUpdateCallbackType virStreamEventUpdateCallbackSymbol;
+    static virStreamEventUpdateCallbackFuncType virStreamEventUpdateCallbackSymbol;
     static bool once;
     static bool success;
 
@@ -162,14 +162,14 @@ virStreamEventUpdateCallbackWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamFinishType)(virStreamPtr stream);
+(*virStreamFinishFuncType)(virStreamPtr stream);
 
 int
 virStreamFinishWrapper(virStreamPtr stream,
                        virErrorPtr err)
 {
     int ret = -1;
-    static virStreamFinishType virStreamFinishSymbol;
+    static virStreamFinishFuncType virStreamFinishSymbol;
     static bool once;
     static bool success;
 
@@ -188,14 +188,14 @@ virStreamFinishWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamFreeType)(virStreamPtr stream);
+(*virStreamFreeFuncType)(virStreamPtr stream);
 
 int
 virStreamFreeWrapper(virStreamPtr stream,
                      virErrorPtr err)
 {
     int ret = -1;
-    static virStreamFreeType virStreamFreeSymbol;
+    static virStreamFreeFuncType virStreamFreeSymbol;
     static bool once;
     static bool success;
 
@@ -214,8 +214,8 @@ virStreamFreeWrapper(virStreamPtr stream,
 }
 
 typedef virStreamPtr
-(*virStreamNewType)(virConnectPtr conn,
-                    unsigned int flags);
+(*virStreamNewFuncType)(virConnectPtr conn,
+                        unsigned int flags);
 
 virStreamPtr
 virStreamNewWrapper(virConnectPtr conn,
@@ -223,7 +223,7 @@ virStreamNewWrapper(virConnectPtr conn,
                     virErrorPtr err)
 {
     virStreamPtr ret = NULL;
-    static virStreamNewType virStreamNewSymbol;
+    static virStreamNewFuncType virStreamNewSymbol;
     static bool once;
     static bool success;
 
@@ -243,9 +243,9 @@ virStreamNewWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virStreamRecvType)(virStreamPtr stream,
-                     char * data,
-                     size_t nbytes);
+(*virStreamRecvFuncType)(virStreamPtr stream,
+                         char * data,
+                         size_t nbytes);
 
 int
 virStreamRecvWrapper(virStreamPtr stream,
@@ -254,7 +254,7 @@ virStreamRecvWrapper(virStreamPtr stream,
                      virErrorPtr err)
 {
     int ret = -1;
-    static virStreamRecvType virStreamRecvSymbol;
+    static virStreamRecvFuncType virStreamRecvSymbol;
     static bool once;
     static bool success;
 
@@ -275,9 +275,9 @@ virStreamRecvWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamRecvAllType)(virStreamPtr stream,
-                        virStreamSinkFunc handler,
-                        void * opaque);
+(*virStreamRecvAllFuncType)(virStreamPtr stream,
+                            virStreamSinkFunc handler,
+                            void * opaque);
 
 int
 virStreamRecvAllWrapper(virStreamPtr stream,
@@ -286,7 +286,7 @@ virStreamRecvAllWrapper(virStreamPtr stream,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virStreamRecvAllType virStreamRecvAllSymbol;
+    static virStreamRecvAllFuncType virStreamRecvAllSymbol;
     static bool once;
     static bool success;
 
@@ -307,10 +307,10 @@ virStreamRecvAllWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamRecvFlagsType)(virStreamPtr stream,
-                          char * data,
-                          size_t nbytes,
-                          unsigned int flags);
+(*virStreamRecvFlagsFuncType)(virStreamPtr stream,
+                              char * data,
+                              size_t nbytes,
+                              unsigned int flags);
 
 int
 virStreamRecvFlagsWrapper(virStreamPtr stream,
@@ -320,7 +320,7 @@ virStreamRecvFlagsWrapper(virStreamPtr stream,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virStreamRecvFlagsType virStreamRecvFlagsSymbol;
+    static virStreamRecvFlagsFuncType virStreamRecvFlagsSymbol;
     static bool once;
     static bool success;
 
@@ -342,9 +342,9 @@ virStreamRecvFlagsWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamRecvHoleType)(virStreamPtr stream,
-                         long long * length,
-                         unsigned int flags);
+(*virStreamRecvHoleFuncType)(virStreamPtr stream,
+                             long long * length,
+                             unsigned int flags);
 
 int
 virStreamRecvHoleWrapper(virStreamPtr stream,
@@ -353,7 +353,7 @@ virStreamRecvHoleWrapper(virStreamPtr stream,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virStreamRecvHoleType virStreamRecvHoleSymbol;
+    static virStreamRecvHoleFuncType virStreamRecvHoleSymbol;
     static bool once;
     static bool success;
 
@@ -374,14 +374,14 @@ virStreamRecvHoleWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamRefType)(virStreamPtr stream);
+(*virStreamRefFuncType)(virStreamPtr stream);
 
 int
 virStreamRefWrapper(virStreamPtr stream,
                     virErrorPtr err)
 {
     int ret = -1;
-    static virStreamRefType virStreamRefSymbol;
+    static virStreamRefFuncType virStreamRefSymbol;
     static bool once;
     static bool success;
 
@@ -400,9 +400,9 @@ virStreamRefWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamSendType)(virStreamPtr stream,
-                     const char * data,
-                     size_t nbytes);
+(*virStreamSendFuncType)(virStreamPtr stream,
+                         const char * data,
+                         size_t nbytes);
 
 int
 virStreamSendWrapper(virStreamPtr stream,
@@ -411,7 +411,7 @@ virStreamSendWrapper(virStreamPtr stream,
                      virErrorPtr err)
 {
     int ret = -1;
-    static virStreamSendType virStreamSendSymbol;
+    static virStreamSendFuncType virStreamSendSymbol;
     static bool once;
     static bool success;
 
@@ -432,9 +432,9 @@ virStreamSendWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamSendAllType)(virStreamPtr stream,
-                        virStreamSourceFunc handler,
-                        void * opaque);
+(*virStreamSendAllFuncType)(virStreamPtr stream,
+                            virStreamSourceFunc handler,
+                            void * opaque);
 
 int
 virStreamSendAllWrapper(virStreamPtr stream,
@@ -443,7 +443,7 @@ virStreamSendAllWrapper(virStreamPtr stream,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virStreamSendAllType virStreamSendAllSymbol;
+    static virStreamSendAllFuncType virStreamSendAllSymbol;
     static bool once;
     static bool success;
 
@@ -464,9 +464,9 @@ virStreamSendAllWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamSendHoleType)(virStreamPtr stream,
-                         long long length,
-                         unsigned int flags);
+(*virStreamSendHoleFuncType)(virStreamPtr stream,
+                             long long length,
+                             unsigned int flags);
 
 int
 virStreamSendHoleWrapper(virStreamPtr stream,
@@ -475,7 +475,7 @@ virStreamSendHoleWrapper(virStreamPtr stream,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virStreamSendHoleType virStreamSendHoleSymbol;
+    static virStreamSendHoleFuncType virStreamSendHoleSymbol;
     static bool once;
     static bool success;
 
@@ -496,10 +496,10 @@ virStreamSendHoleWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamSparseRecvAllType)(virStreamPtr stream,
-                              virStreamSinkFunc handler,
-                              virStreamSinkHoleFunc holeHandler,
-                              void * opaque);
+(*virStreamSparseRecvAllFuncType)(virStreamPtr stream,
+                                  virStreamSinkFunc handler,
+                                  virStreamSinkHoleFunc holeHandler,
+                                  void * opaque);
 
 int
 virStreamSparseRecvAllWrapper(virStreamPtr stream,
@@ -509,7 +509,7 @@ virStreamSparseRecvAllWrapper(virStreamPtr stream,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virStreamSparseRecvAllType virStreamSparseRecvAllSymbol;
+    static virStreamSparseRecvAllFuncType virStreamSparseRecvAllSymbol;
     static bool once;
     static bool success;
 
@@ -531,11 +531,11 @@ virStreamSparseRecvAllWrapper(virStreamPtr stream,
 }
 
 typedef int
-(*virStreamSparseSendAllType)(virStreamPtr stream,
-                              virStreamSourceFunc handler,
-                              virStreamSourceHoleFunc holeHandler,
-                              virStreamSourceSkipFunc skipHandler,
-                              void * opaque);
+(*virStreamSparseSendAllFuncType)(virStreamPtr stream,
+                                  virStreamSourceFunc handler,
+                                  virStreamSourceHoleFunc holeHandler,
+                                  virStreamSourceSkipFunc skipHandler,
+                                  void * opaque);
 
 int
 virStreamSparseSendAllWrapper(virStreamPtr stream,
@@ -546,7 +546,7 @@ virStreamSparseSendAllWrapper(virStreamPtr stream,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virStreamSparseSendAllType virStreamSparseSendAllSymbol;
+    static virStreamSparseSendAllFuncType virStreamSparseSendAllSymbol;
     static bool once;
     static bool success;
 

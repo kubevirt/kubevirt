@@ -36,13 +36,15 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 )
 
 const (
-	PromptExpression = `(\$ |\# )`
-	CRLF             = "\r\n"
-	UTFPosEscape     = "\u001b\\[[0-9]+;[0-9]+H"
+	EchoLastReturnValue = "echo $?\n"
+	PromptExpression    = `(\$ |\# )`
+	CRLF                = "\r\n"
+	UTFPosEscape        = "\u001b\\[[0-9]+;[0-9]+H"
 
 	consoleConnectionTimeout = 30 * time.Second
 )
@@ -133,7 +135,7 @@ func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Dur
 func RunCommandAndStoreOutput(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) (string, error) {
 	virtClient := kubevirt.Client()
 
-	opts := &kubecli.SerialConsoleOptions{ConnectionTimeout: timeout}
+	opts := &kvcorev1.SerialConsoleOptions{ConnectionTimeout: timeout}
 	stream, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, opts)
 	if err != nil {
 		return "", err
@@ -163,7 +165,7 @@ func skipInput(scanner *bufio.Scanner) bool {
 // SecureBootExpecter should be called on a VMI that has EFI enabled
 // It will parse the kernel output (dmesg) and succeed if it finds that Secure boot is enabled
 // The VMI was just created and may not be running yet. This is because we want to catch early boot logs.
-func SecureBootExpecter(vmi *v1.VirtualMachineInstance) error {
+func SecureBootExpecter(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 	virtClient := kubevirt.Client()
 	expecter, _, err := NewExpecter(virtClient, vmi, consoleConnectionTimeout)
 	if err != nil {
@@ -172,11 +174,13 @@ func SecureBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	defer expecter.Close()
 
 	b := []expect.Batcher{&expect.BExp{R: "secureboot: Secure boot enabled"}}
-	const expectBatchTimeout = 180 * time.Second
+	expectBatchTimeout := 180 * time.Second
+	if len(timeout) > 0 {
+		expectBatchTimeout = timeout[0]
+	}
 	res, err := expecter.ExpectBatch(b, expectBatchTimeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Kernel: %+v", res)
-		return err
 	}
 
 	return err
@@ -204,7 +208,6 @@ func NetBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	res, err := expecter.ExpectBatch(b, expectBatchTimeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("BIOS: %+v", res)
-		return err
 	}
 
 	return err
@@ -215,21 +218,31 @@ func NewExpecter(
 	virtCli kubecli.KubevirtClient,
 	vmi *v1.VirtualMachineInstance,
 	timeout time.Duration,
-	opts ...expect.Option) (expect.Expecter, <-chan error, error) {
+	opts ...expect.Option,
+) (expect.Expecter, <-chan error, error) {
 	vmiReader, vmiWriter := io.Pipe()
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
 
 	startTime := time.Now()
-	serialConsoleOptions := &kubecli.SerialConsoleOptions{ConnectionTimeout: timeout}
+	serialConsoleOptions := &kvcorev1.SerialConsoleOptions{ConnectionTimeout: timeout}
 	con, err := virtCli.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, serialConsoleOptions)
 	if err != nil {
 		return nil, nil, err
 	}
-	timeout -= time.Since(startTime)
+	serialConsoleCreateDuration := time.Since(startTime)
+	if timeout-serialConsoleCreateDuration <= 0 {
+		return nil, nil,
+			fmt.Errorf(
+				"creation of SerialConsole took %s - longer than given expecter timeout %s",
+				serialConsoleCreateDuration.String(),
+				timeout.String(),
+			)
+	}
+	timeout -= serialConsoleCreateDuration
 
 	go func() {
-		resCh <- con.Stream(kubecli.StreamOptions{
+		resCh <- con.Stream(kvcorev1.StreamOptions{
 			In:  vmiReader,
 			Out: expecterWriter,
 		})

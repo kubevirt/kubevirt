@@ -134,7 +134,7 @@ Travis cares for this on every release.
 
 ## Installing OLM on Kubernetes
 
-- clone the [OLM repository](github.com/operator-framework/operator-lifecycle-manager)
+- clone the [OLM repository](https://github.com/operator-framework/operator-lifecycle-manager)
 - `cd deploy/upstream/quickstart`
 - `kubectl apply -f olm.yaml`
 >**Note:** if you get an error, try again, CRD creation might have been too slow
@@ -142,7 +142,7 @@ Travis cares for this on every release.
 
 ## Installing Marketplace on Kubernetes
 
-- clone the [Marketplace repository](github.com/operator-framework/operator-marketplace)
+- clone the [Marketplace repository](https://github.com/operator-framework/operator-marketplace)
 - `cd deploy`
 - `kubectl apply -f upstream/ --validate=false`
 - check that the marketplace operator is running in the `marketplace` namespace

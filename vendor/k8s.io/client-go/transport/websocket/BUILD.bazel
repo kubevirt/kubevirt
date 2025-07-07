@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["roundtripper.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/transport/websocket",
+    importpath = "k8s.io/client-go/transport/websocket",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/gorilla/websocket:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/httpstream:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/httpstream/wsstream:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/net:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/client-go/transport:go_default_library",
+    ],
+)

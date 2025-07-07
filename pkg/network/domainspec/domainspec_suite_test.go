@@ -20,47 +20,17 @@ func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func newVMISlirpInterface(namespace string, name string) *v1.VirtualMachineInstance {
-	vmi := newVMI(namespace, name)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultSlirpNetworkInterface()}
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-	return vmi
-}
-
-func newVMIMacvtapInterface(namespace string, vmiName string, ifaceName string) *v1.VirtualMachineInstance {
+func newVMIMasqueradeInterface(namespace, vmiName string) *v1.VirtualMachineInstance {
 	vmi := newVMI(namespace, vmiName)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface(ifaceName)}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }
 
-func NewDomainWithSlirpInterface() *api.Domain {
+func NewDomainInterface(name string) *api.Domain {
 	domain := &api.Domain{}
 	domain.Spec.Devices.Interfaces = []api.Interface{{
-		Model: &api.Model{
-			Type: "e1000",
-		},
-		Type:  "user",
-		Alias: api.NewUserDefinedAlias("default"),
-	},
-	}
-
-	// Create network interface
-	if domain.Spec.QEMUCmd == nil {
-		domain.Spec.QEMUCmd = &api.Commandline{}
-	}
-
-	if domain.Spec.QEMUCmd.QEMUArg == nil {
-		domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
-	}
-
-	return domain
-}
-
-func NewDomainWithMacvtapInterface(macvtapName string) *api.Domain {
-	domain := &api.Domain{}
-	domain.Spec.Devices.Interfaces = []api.Interface{{
-		Alias: api.NewUserDefinedAlias(macvtapName),
+		Alias: api.NewUserDefinedAlias(name),
 		Model: &api.Model{
 			Type: v1.VirtIO,
 		},

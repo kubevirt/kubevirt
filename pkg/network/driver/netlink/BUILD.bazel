@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "ip.go",
+        "link.go",
+        "netlink.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/network/driver/netlink",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/vishvananda/netlink:go_default_library"],
+)

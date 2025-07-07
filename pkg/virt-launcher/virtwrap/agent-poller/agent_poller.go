@@ -53,7 +53,6 @@ const (
 
 // AgentUpdatedEvent fire up when data is changes in the store
 type AgentUpdatedEvent struct {
-	Type       AgentCommand
 	DomainInfo api.DomainGuestInfo
 }
 
@@ -84,21 +83,14 @@ func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
 
 	if updated {
 		domainInfo := api.DomainGuestInfo{}
-		// Fill only updated part of the domainInfo
-		// not everything have to be watched for
 		switch key {
-		case GET_OSINFO:
-			info := value.(api.GuestOSInfo)
-			domainInfo.OSInfo = &info
-		case GET_INTERFACES:
-			domainInfo.Interfaces = value.([]api.InterfaceStatus)
-		case GET_FSFREEZE_STATUS:
-			status := value.(api.FSFreeze)
-			domainInfo.FSFreezeStatus = &status
+		case GET_OSINFO, GET_INTERFACES, GET_FSFREEZE_STATUS:
+			domainInfo.OSInfo = s.GetGuestOSInfo()
+			domainInfo.Interfaces = s.GetInterfaceStatus()
+			domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
 		}
 
 		s.AgentUpdated <- AgentUpdatedEvent{
-			Type:       key,
 			DomainInfo: domainInfo,
 		}
 	}
@@ -169,15 +161,14 @@ func (s *AsyncAgentStore) GetGA() AgentInfo {
 }
 
 // GetFSFreezeStatus returns the Guest fsfreeze status
-func (s *AsyncAgentStore) GetFSFreezeStatus() api.FSFreeze {
+func (s *AsyncAgentStore) GetFSFreezeStatus() *api.FSFreeze {
 	data, ok := s.store.Load(GET_FSFREEZE_STATUS)
-	status := api.FSFreeze{}
 	if !ok {
-		return status
+		return nil
 	}
 
 	fsfreezeStatus := data.(api.FSFreeze)
-	return fsfreezeStatus
+	return &fsfreezeStatus
 }
 
 // GetFS returns the filesystem list limited to the limit set
@@ -243,10 +234,10 @@ func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan c
 	}
 
 	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-closeChan:
-			ticker.Stop()
 			return
 		case <-ticker.C:
 			execAgentCommands(p.AgentCommands)
@@ -364,48 +355,56 @@ func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStor
 			interfaces, err := parseInterfaces(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent interface %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_INTERFACES, interfaces)
 		case GET_OSINFO:
 			osInfo, err := parseGuestOSInfo(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent guestosinfo %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_OSINFO, osInfo)
 		case GET_HOSTNAME:
 			hostname, err := parseHostname(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent hostname %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_HOSTNAME, hostname)
 		case GET_TIMEZONE:
 			timezone, err := parseTimezone(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent timezone %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_TIMEZONE, timezone)
 		case GET_USERS:
 			users, err := parseUsers(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent users %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_USERS, users)
 		case GET_FSFREEZE_STATUS:
 			fsfreezeStatus, err := ParseFSFreezeStatus(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent fsfreeze status %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_FSFREEZE_STATUS, fsfreezeStatus)
 		case GET_FILESYSTEM:
 			filesystems, err := parseFilesystem(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent filesystem %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_FILESYSTEM, filesystems)
 		case GET_AGENT:
 			agent, err := parseAgent(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent information %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_AGENT, agent)
 		}

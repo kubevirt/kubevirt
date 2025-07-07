@@ -14,7 +14,7 @@ import (
 // unwrapper unwraps the value to the underlying value.
 // This is implemented by List and Map.
 type unwrapper interface {
-	protoUnwrap() interface{}
+	protoUnwrap() any
 }
 
 // A Converter coverts to/from Go reflect.Value types and protobuf protoreflect.Value types.
@@ -59,7 +59,6 @@ func NewConverter(t reflect.Type, fd protoreflect.FieldDescriptor) Converter {
 	default:
 		return newSingularConverter(t, fd)
 	}
-	panic(fmt.Sprintf("invalid Go type %v for field %v", t, fd.FullName()))
 }
 
 var (

@@ -270,6 +270,14 @@ typedef void (*virConnectNetworkEventLifecycleCallback)(virConnectPtr conn,
                                                         void * opaque);
 #endif
 
+#if !LIBVIR_CHECK_VERSION(9, 8, 0)
+typedef void (*virConnectNetworkEventMetadataChangeCallback)(virConnectPtr conn,
+                                                             virNetworkPtr net,
+                                                             int type,
+                                                             const char * nsuri,
+                                                             void * opaque);
+#endif
+
 #if !LIBVIR_CHECK_VERSION(2, 2, 0)
 typedef void (*virConnectNodeDeviceEventGenericCallback)(virConnectPtr conn,
                                                          virNodeDevicePtr dev,

@@ -20,62 +20,51 @@
 package cache
 
 import (
-	"encoding/json"
 	"fmt"
-	"net"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"k8s.io/client-go/tools/record"
 
-	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/util"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	"kubevirt.io/kubevirt/pkg/checkpoint"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
-const socketDialTimeout = 5
-
-func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.ListerWatcher {
-	d := &DomainWatcher{
-		backgroundWatcherStarted: false,
-		virtShareDir:             virtShareDir,
-		watchdogTimeout:          watchdogTimeout,
-		recorder:                 recorder,
-		vmiStore:                 vmiStore,
-		unresponsiveSockets:      make(map[string]int64),
-		resyncPeriod:             resyncPeriod,
-	}
-
-	return d
+type IterableCheckpointManager interface {
+	ListKeys() []string
+	checkpoint.CheckpointManager
 }
 
-type DomainWatcher struct {
-	lock                     sync.Mutex
-	wg                       sync.WaitGroup
-	stopChan                 chan struct{}
-	eventChan                chan watch.Event
-	backgroundWatcherStarted bool
-	virtShareDir             string
-	watchdogTimeout          int
-	recorder                 record.EventRecorder
-	vmiStore                 cache.Store
-	resyncPeriod             time.Duration
+type iterableCheckpointManager struct {
+	base string
+	checkpoint.CheckpointManager
+}
 
-	watchDogLock        sync.Mutex
-	unresponsiveSockets map[string]int64
+func (icp *iterableCheckpointManager) ListKeys() []string {
+	entries, err := os.ReadDir(icp.base)
+	if err != nil {
+		return []string{}
+	}
+
+	keys := []string{}
+	for _, entry := range entries {
+		keys = append(keys, entry.Name())
+	}
+	return keys
+
+}
+
+func NewIterableCheckpointManager(base string) IterableCheckpointManager {
+	return &iterableCheckpointManager{
+		base,
+		checkpoint.NewSimpleCheckpointManager(base),
+	}
 }
 
 type ghostRecord struct {
@@ -85,65 +74,40 @@ type ghostRecord struct {
 	UID        types.UID `json:"uid"`
 }
 
-var ghostRecordGlobalCache map[string]ghostRecord
-var ghostRecordGlobalMutex sync.Mutex
-var ghostRecordDir string
+var GhostRecordGlobalStore GhostRecordStore
 
-// this function is only used by unit tests
-func clearGhostRecordCache() {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
-	ghostRecordGlobalCache = make(map[string]ghostRecord)
+type GhostRecordStore struct {
+	cache             map[string]ghostRecord
+	checkpointManager checkpoint.CheckpointManager
+	sync.Mutex
 }
 
-func InitializeGhostRecordCache(directoryPath string) error {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func InitializeGhostRecordCache(iterableCPManager IterableCheckpointManager) *GhostRecordStore {
 
-	ghostRecordGlobalCache = make(map[string]ghostRecord)
-	ghostRecordDir = directoryPath
-	err := util.MkdirAllWithNosec(ghostRecordDir)
-	if err != nil {
-		return err
+	GhostRecordGlobalStore = GhostRecordStore{
+		cache:             make(map[string]ghostRecord),
+		checkpointManager: iterableCPManager,
 	}
 
-	files, err := os.ReadDir(ghostRecordDir)
-	if err != nil {
-		return err
-	}
-
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-		recordPath := filepath.Join(ghostRecordDir, file.Name())
-		// #nosec no risk for path injection. Used only for testing and using static location
-		fileBytes, err := os.ReadFile(recordPath)
-		if err != nil {
-			log.Log.Reason(err).Errorf("Unable to read ghost record file at path %s", recordPath)
-			continue
-		}
-
+	keys := iterableCPManager.ListKeys()
+	for _, key := range keys {
 		ghostRecord := ghostRecord{}
-		err = json.Unmarshal(fileBytes, &ghostRecord)
-		if err != nil {
-			log.Log.Reason(err).Errorf("Unable to unmarshal json contents of ghost record file at path %s", recordPath)
+		if err := GhostRecordGlobalStore.checkpointManager.Get(key, &ghostRecord); err != nil {
+			log.Log.Reason(err).Errorf("Unable to read ghost record checkpoint, %s", key)
 			continue
 		}
-
 		key := ghostRecord.Namespace + "/" + ghostRecord.Name
-		ghostRecordGlobalCache[key] = ghostRecord
+		GhostRecordGlobalStore.cache[key] = ghostRecord
 		log.Log.Infof("Added ghost record for key %s", key)
 	}
-
-	return nil
+	return &GhostRecordGlobalStore
 }
 
-func LastKnownUIDFromGhostRecordCache(key string) types.UID {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
+	store.Lock()
+	defer store.Unlock()
 
-	record, ok := ghostRecordGlobalCache[key]
+	record, ok := store.cache[key]
 	if !ok {
 		return ""
 	}
@@ -151,24 +115,24 @@ func LastKnownUIDFromGhostRecordCache(key string) types.UID {
 	return record.UID
 }
 
-func getGhostRecords() ([]ghostRecord, error) {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) list() []ghostRecord {
+	store.Lock()
+	defer store.Unlock()
 
 	var records []ghostRecord
 
-	for _, record := range ghostRecordGlobalCache {
+	for _, record := range store.cache {
 		records = append(records, record)
 	}
 
-	return records, nil
+	return records
 }
 
-func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) findBySocket(socketFile string) (ghostRecord, bool) {
+	store.Lock()
+	defer store.Unlock()
 
-	for _, record := range ghostRecordGlobalCache {
+	for _, record := range store.cache {
 		if record.SocketFile == socketFile {
 			return record, true
 		}
@@ -177,33 +141,31 @@ func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
 	return ghostRecord{}, false
 }
 
-func HasGhostRecord(namespace string, name string) bool {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) Exists(namespace string, name string) bool {
+	store.Lock()
+	defer store.Unlock()
 
 	key := namespace + "/" + name
-	_, ok := ghostRecordGlobalCache[key]
+	_, ok := store.cache[key]
 
 	return ok
 }
 
-func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) (err error) {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) Add(namespace string, name string, socketFile string, uid types.UID) (err error) {
+	store.Lock()
+	defer store.Unlock()
 	if name == "" {
 		return fmt.Errorf("can not add ghost record when 'name' is not provided")
 	} else if namespace == "" {
 		return fmt.Errorf("can not add ghost record when 'namespace' is not provided")
 	} else if string(uid) == "" {
-		return fmt.Errorf("Unable to add ghost record with empty UID")
+		return fmt.Errorf("unable to add ghost record with empty UID")
 	} else if socketFile == "" {
-		return fmt.Errorf("Unable to add ghost record without a socketFile")
+		return fmt.Errorf("unable to add ghost record without a socketFile")
 	}
 
 	key := namespace + "/" + name
-	recordPath := filepath.Join(ghostRecordDir, string(uid))
-
-	record, ok := ghostRecordGlobalCache[key]
+	record, ok := store.cache[key]
 	if !ok {
 		// record doesn't exist, so add new one.
 		record := ghostRecord{
@@ -212,22 +174,10 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 			SocketFile: socketFile,
 			UID:        uid,
 		}
-
-		fileBytes, err := json.Marshal(&record)
-		if err != nil {
-			return err
+		if err := store.checkpointManager.Store(string(uid), &record); err != nil {
+			return fmt.Errorf("failed to checkpoint %s, %w", uid, err)
 		}
-		f, err := os.Create(recordPath)
-		if err != nil {
-			return err
-		}
-		defer util.CloseIOAndCheckErr(f, &err)
-
-		_, err = f.Write(fileBytes)
-		if err != nil {
-			return err
-		}
-		ghostRecordGlobalCache[key] = record
+		store.cache[key] = record
 	}
 
 	// This protects us from stomping on a previous ghost record
@@ -245,355 +195,30 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 	return nil
 }
 
-func DeleteGhostRecord(namespace string, name string) error {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) Delete(namespace string, name string) error {
+	store.Lock()
+	defer store.Unlock()
 	key := namespace + "/" + name
-	record, ok := ghostRecordGlobalCache[key]
+	record, ok := store.cache[key]
 	if !ok {
 		// already deleted
 		return nil
 	}
 
 	if string(record.UID) == "" {
-		return fmt.Errorf("Unable to remove ghost record with empty UID")
+		return fmt.Errorf("unable to remove ghost record with empty UID")
 	}
 
-	recordPath := filepath.Join(ghostRecordDir, string(record.UID))
-	err := os.RemoveAll(recordPath)
-	if err != nil {
-		return nil
+	if err := store.checkpointManager.Delete(string(record.UID)); err != nil {
+		return fmt.Errorf("failed to delete checkpoint %s, %w", record.UID, err)
 	}
 
-	delete(ghostRecordGlobalCache, key)
+	delete(store.cache, key)
 
 	return nil
 }
 
-func listSockets() ([]string, error) {
-	var sockets []string
-
-	knownSocketFiles, err := cmdclient.ListAllSockets()
-	if err != nil {
-		return sockets, err
-	}
-	ghostRecords, err := getGhostRecords()
-	if err != nil {
-		return sockets, err
-	}
-
-	sockets = append(sockets, knownSocketFiles...)
-
-	for _, record := range ghostRecords {
-		exists := false
-		for _, socket := range knownSocketFiles {
-			if record.SocketFile == socket {
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			sockets = append(sockets, record.SocketFile)
-		}
-	}
-
-	return sockets, nil
-}
-
-func (d *DomainWatcher) startBackground() error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	if d.backgroundWatcherStarted == true {
-		return nil
-	}
-
-	d.stopChan = make(chan struct{}, 1)
-	d.eventChan = make(chan watch.Event, 100)
-
-	d.wg.Add(1)
-	go func() {
-		defer d.wg.Done()
-
-		resyncTicker := time.NewTicker(d.resyncPeriod)
-		resyncTickerChan := resyncTicker.C
-		defer resyncTicker.Stop()
-
-		// Divide the watchdogTimeout by 3 for our ticker.
-		// This ensures we always have at least 2 response failures
-		// in a row before we mark the socket as unavailable (which results in shutdown of VMI)
-		expiredWatchdogTicker := time.NewTicker(time.Duration((d.watchdogTimeout/3)+1) * time.Second)
-		defer expiredWatchdogTicker.Stop()
-
-		expiredWatchdogTickerChan := expiredWatchdogTicker.C
-
-		srvErr := make(chan error)
-		go func() {
-			defer close(srvErr)
-			err := notifyserver.RunServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
-			srvErr <- err
-		}()
-
-		for {
-			select {
-			case <-resyncTickerChan:
-				d.handleResync()
-			case <-expiredWatchdogTickerChan:
-				d.handleStaleWatchdogFiles()
-				d.handleStaleSocketConnections()
-			case err := <-srvErr:
-				if err != nil {
-					log.Log.Reason(err).Errorf("Unexpected err encountered with Domain Notify aggregation server")
-				}
-
-				// server exitted so this goroutine is done.
-				return
-			}
-		}
-	}()
-
-	d.backgroundWatcherStarted = true
-	return nil
-}
-
-// TODO remove watchdog file usage eventually and only rely on detecting stale socket connections
-// for now we have to keep watchdog files around for backwards compatibility with old VMIs
-func (d *DomainWatcher) handleStaleWatchdogFiles() error {
-	domains, err := watchdog.GetExpiredDomains(d.watchdogTimeout, d.virtShareDir)
-	if err != nil {
-		log.Log.Reason(err).Error("failed to detect expired watchdog files in domain informer")
-		return err
-	}
-
-	for _, domain := range domains {
-		log.Log.Object(domain).Warning("detected expired watchdog for domain")
-		now := k8sv1.Now()
-		domain.ObjectMeta.DeletionTimestamp = &now
-		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
-	}
-	return nil
-}
-
-func (d *DomainWatcher) handleResync() {
-
-	socketFiles, err := listSockets()
-	if err != nil {
-		log.Log.Reason(err).Error("failed to list sockets")
-		return
-	}
-
-	log.Log.Infof("resyncing virt-launcher domains")
-	for _, socket := range socketFiles {
-		client, err := cmdclient.NewClient(socket)
-		if err != nil {
-			log.Log.Reason(err).Error("failed to connect to cmd client socket during resync")
-			// Ignore failure to connect to client.
-			// These are all local connections via unix socket.
-			// A failure to connect means there's nothing on the other
-			// end listening.
-			continue
-		}
-		defer client.Close()
-
-		domain, exists, err := client.GetDomain()
-		if err != nil {
-			// this resync is best effort only.
-			log.Log.Reason(err).Errorf("unable to retrieve domain at socket %s during resync", socket)
-			continue
-		} else if !exists {
-			// nothing to sync if it doesn't exist
-			continue
-		}
-
-		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
-	}
-}
-
-func (d *DomainWatcher) handleStaleSocketConnections() error {
-	var unresponsive []string
-
-	socketFiles, err := listSockets()
-	if err != nil {
-		log.Log.Reason(err).Error("failed to list sockets")
-		return err
-	}
-
-	for _, socket := range socketFiles {
-		if !cmdclient.SocketMonitoringEnabled(socket) {
-			// don't process legacy sockets here. They still use the
-			// old watchdog file method
-			continue
-		}
-
-		sock, err := net.DialTimeout("unix", socket, time.Duration(socketDialTimeout)*time.Second)
-		if err == nil {
-			// socket is alive still
-			sock.Close()
-			continue
-		}
-		unresponsive = append(unresponsive, socket)
-	}
-
-	d.watchDogLock.Lock()
-	defer d.watchDogLock.Unlock()
-
-	now := time.Now().UTC().Unix()
-
-	// Add new unresponsive sockets
-	for _, socket := range unresponsive {
-		_, ok := d.unresponsiveSockets[socket]
-		if !ok {
-			d.unresponsiveSockets[socket] = now
-		}
-	}
-
-	for key, timeStamp := range d.unresponsiveSockets {
-		found := false
-		for _, socket := range unresponsive {
-			if socket == key {
-				found = true
-				break
-			}
-		}
-		// reap old unresponsive sockets
-		// remove from unresponsive list if not found unresponsive this iteration
-		if !found {
-			delete(d.unresponsiveSockets, key)
-			break
-		}
-
-		diff := now - timeStamp
-
-		if diff > int64(d.watchdogTimeout) {
-
-			record, exists := findGhostRecordBySocket(key)
-
-			if !exists {
-				// ignore if info file doesn't exist
-				// this is possible with legacy VMIs that haven't
-				// been updated. The watchdog file will catch these.
-			} else {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				domain.Spec.Metadata.KubeVirt.UID = record.UID
-				now := k8sv1.Now()
-				domain.ObjectMeta.DeletionTimestamp = &now
-				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
-				d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
-
-				err := cmdclient.MarkSocketUnresponsive(key)
-				if err != nil {
-					log.Log.Reason(err).Errorf("Unable to mark vmi as unresponsive socket %s", key)
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
-	var domains []*api.Domain
-
-	socketFiles, err := listSockets()
-	if err != nil {
-		return nil, err
-	}
-	for _, socketFile := range socketFiles {
-
-		exists, err := diskutils.FileExists(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Error("failed access cmd client socket")
-			continue
-		}
-
-		if !exists {
-			record, recordExists := findGhostRecordBySocket(socketFile)
-			if recordExists {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				now := k8sv1.Now()
-				domain.ObjectMeta.DeletionTimestamp = &now
-				log.Log.Object(domain).Warning("detected stale domain from ghost record")
-				domains = append(domains, domain)
-			}
-			continue
-		}
-
-		log.Log.V(3).Infof("List domains from sock %s", socketFile)
-		client, err := cmdclient.NewClient(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Error("failed to connect to cmd client socket")
-			// Ignore failure to connect to client.
-			// These are all local connections via unix socket.
-			// A failure to connect means there's nothing on the other
-			// end listening.
-			continue
-		}
-		defer client.Close()
-
-		domain, exists, err := client.GetDomain()
-		if err != nil {
-			log.Log.Reason(err).Error("failed to list domains on cmd client socket")
-			// Failure to get domain list means that client
-			// was unable to contact libvirt. As soon as the connection
-			// is restored on the client's end, a domain notification will
-			// be sent.
-			continue
-		}
-		if exists == true {
-			domains = append(domains, domain)
-		}
-	}
-	return domains, nil
-}
-
-func (d *DomainWatcher) List(_ k8sv1.ListOptions) (runtime.Object, error) {
-
-	log.Log.V(3).Info("Synchronizing domains")
-	err := d.startBackground()
-	if err != nil {
-		return nil, err
-	}
-
-	domains, err := d.listAllKnownDomains()
-	if err != nil {
-		return nil, err
-	}
-
-	list := api.DomainList{
-		Items: []api.Domain{},
-	}
-
-	for _, domain := range domains {
-		list.Items = append(list.Items, *domain)
-	}
-	return &list, nil
-}
-
-func (d *DomainWatcher) Watch(_ k8sv1.ListOptions) (watch.Interface, error) {
-	return d, nil
-}
-
-func (d *DomainWatcher) Stop() {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	if d.backgroundWatcherStarted == false {
-		return
-	}
-	close(d.stopChan)
-	d.wg.Wait()
-	d.backgroundWatcherStarted = false
-	close(d.eventChan)
-}
-
-func (d *DomainWatcher) ResultChan() <-chan watch.Event {
-	return d.eventChan
-}
-
-func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) (cache.SharedInformer, error) {
+func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
 	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout, recorder, vmiStore, resyncPeriod)
-	informer := cache.NewSharedInformer(lw, &api.Domain{}, 0)
-	return informer, nil
+	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
 }

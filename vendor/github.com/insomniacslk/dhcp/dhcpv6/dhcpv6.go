@@ -5,10 +5,8 @@ package dhcpv6
 import (
 	"fmt"
 	"net"
-	"strings"
 
-	"github.com/insomniacslk/dhcp/iana"
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 type DHCPv6 interface {
@@ -16,6 +14,7 @@ type DHCPv6 interface {
 	ToBytes() []byte
 	String() string
 	Summary() string
+	LongString(indent int) string
 	IsRelay() bool
 
 	// GetInnerMessage returns the innermost encapsulated DHCPv6 message.
@@ -48,7 +47,7 @@ func MessageFromBytes(data []byte) (*Message, error) {
 	}
 	buf.ReadBytes(d.TransactionID[:])
 	if buf.Error() != nil {
-		return nil, fmt.Errorf("Error parsing DHCPv6 header: %v", buf.Error())
+		return nil, fmt.Errorf("failed to parse DHCPv6 header: %w", buf.Error())
 	}
 	if err := d.Options.FromBytes(buf.Data()); err != nil {
 		return nil, err
@@ -179,40 +178,6 @@ func EncapsulateRelay(d DHCPv6, mType MessageType, linkAddr, peerAddr net.IP) (*
 	}
 	outer.AddOption(OptRelayMessage(d))
 	return &outer, nil
-}
-
-// IsUsingUEFI function takes a DHCPv6 message and returns true if
-// the machine trying to netboot is using UEFI of false if it is not.
-func IsUsingUEFI(msg *Message) bool {
-	// RFC 4578 says:
-	// As of the writing of this document, the following pre-boot
-	//    architecture types have been requested.
-	//             Type   Architecture Name
-	//             ----   -----------------
-	//               0    Intel x86PC
-	//               1    NEC/PC98
-	//               2    EFI Itanium
-	//               3    DEC Alpha
-	//               4    Arc x86
-	//               5    Intel Lean Client
-	//               6    EFI IA32
-	//               7    EFI BC
-	//               8    EFI Xscale
-	//               9    EFI x86-64
-	if archTypes := msg.Options.ArchTypes(); archTypes != nil {
-		if archTypes.Contains(iana.EFI_BC) || archTypes.Contains(iana.EFI_X86_64) {
-			return true
-		}
-	}
-	if opt := msg.GetOneOption(OptionUserClass); opt != nil {
-		optuc := opt.(*OptUserClass)
-		for _, uc := range optuc.UserClasses {
-			if strings.Contains(string(uc), "EFI") {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // GetTransactionID returns a transactionID of a message or its inner message

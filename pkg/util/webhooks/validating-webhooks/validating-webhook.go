@@ -1,6 +1,7 @@
 package validating_webhooks
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,19 +15,12 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-type Admitter interface {
-	Admit(*admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
-}
-
-type AlwaysPassAdmitter struct {
+type admitter interface {
+	Admit(context.Context, *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
 }
 
 func NewPassingAdmissionResponse() *admissionv1.AdmissionResponse {
 	return &admissionv1.AdmissionResponse{Allowed: true}
-}
-
-func (*AlwaysPassAdmitter) Admit(*admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	return NewPassingAdmissionResponse()
 }
 
 func NewAdmissionResponse(causes []v1.StatusCause) *admissionv1.AdmissionResponse {
@@ -55,7 +49,7 @@ func NewAdmissionResponse(causes []v1.StatusCause) *admissionv1.AdmissionRespons
 	}
 }
 
-func Serve(resp http.ResponseWriter, req *http.Request, admitter Admitter) {
+func Serve(resp http.ResponseWriter, req *http.Request, admitter admitter) {
 	review, err := webhooks.GetAdmissionReview(req)
 	if err != nil {
 		resp.WriteHeader(http.StatusBadRequest)
@@ -70,7 +64,8 @@ func Serve(resp http.ResponseWriter, req *http.Request, admitter Admitter) {
 			Kind:       "AdmissionReview",
 		},
 	}
-	reviewResponse := admitter.Admit(review)
+
+	reviewResponse := admitter.Admit(req.Context(), review)
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		response.Response.UID = review.Request.UID

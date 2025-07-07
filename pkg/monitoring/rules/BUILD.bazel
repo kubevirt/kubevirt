@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["rules.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/rules",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/monitoring/rules/alerts:go_default_library",
+        "//pkg/monitoring/rules/recordingrules:go_default_library",
+        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatorrules:go_default_library",
+        "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "rules_suite_test.go",
+        "rules_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//vendor/github.com/machadovilaca/operator-observability/pkg/testutil:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

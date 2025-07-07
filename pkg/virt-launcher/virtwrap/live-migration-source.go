@@ -20,36 +20,36 @@
 package virtwrap
 
 import (
-	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io"
-	"reflect"
+	"path/filepath"
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/util/migrations"
-
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"libvirt.org/go/libvirt"
+	"libvirt.org/go/libvirtxml"
+
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
-
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	convxml "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/libvirtxml"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -64,8 +64,9 @@ const (
 )
 
 type migrationDisks struct {
-	shared    map[string]bool
-	generated map[string]bool
+	shared         map[string]bool
+	generated      map[string]bool
+	localToMigrate map[string]bool
 }
 
 type migrationMonitor struct {
@@ -90,23 +91,26 @@ type inflightMigrationAborted struct {
 	abortStatus v1.MigrationAbortStatus
 }
 
-func generateMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, allowPostyCopy, migratePaused bool) libvirt.DomainMigrateFlags {
+func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdclient.MigrationOptions) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
 	if isBlockMigration {
 		migrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
 	}
-	if isUnsafeMigration {
+	if options.UnsafeMigration {
 		migrateFlags |= libvirt.MIGRATE_UNSAFE
 	}
-	if allowAutoConverge {
+	if options.AllowAutoConverge {
 		migrateFlags |= libvirt.MIGRATE_AUTO_CONVERGE
 	}
-	if allowPostyCopy {
+	if options.AllowPostCopy {
 		migrateFlags |= libvirt.MIGRATE_POSTCOPY
 	}
 	if migratePaused {
 		migrateFlags |= libvirt.MIGRATE_PAUSED
+	}
+	if shouldConfigureParallel, _ := shouldConfigureParallelMigration(options); shouldConfigureParallel {
+		migrateFlags |= libvirt.MIGRATE_PARALLEL
 	}
 
 	return migrateFlags
@@ -133,7 +137,6 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	}
 	return nil
 }
-
 func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
 	var targetTopology cmdv1.Topology
 	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
@@ -153,6 +156,13 @@ func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, do
 	domain.Spec = *domSpec
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
+
+	// update cpu count to maximum hot plugable CPUs
+	vmiCPU := vmi.Spec.Domain.CPU
+	if vmiCPU != nil && vmiCPU.MaxSockets != 0 {
+		cpuTopology.Sockets = vmiCPU.MaxSockets
+		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
+	}
 	domain.Spec.CPU.Topology = cpuTopology
 	domain.Spec.VCPU = &api.VCPU{
 		Placement: "static",
@@ -166,100 +176,22 @@ func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, do
 	return domain, err
 }
 
-func injectNewSection(encoder *xml.Encoder, domain *api.Domain, section []string, logger *log.FilteredLogger) error {
-	// Marshalling the whole domain, even if we just need the cputune section, for indentation purposes
-	xmlstr, err := xml.MarshalIndent(domain.Spec, "", "  ")
-	if err != nil {
-		logger.Reason(err).Error("Live migration failed. Failed to get XML.")
-		return err
+func convertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) error {
+	if domcfg.CPU == nil {
+		domcfg.CPU = &libvirtxml.DomainCPU{}
 	}
-	decoder := xml.NewDecoder(bytes.NewReader(xmlstr))
-	var location = make([]string, 0)
-	var newLocation []string = nil
-	injecting := false
-	for {
-		if newLocation != nil {
-			// Postpone popping end elements from `location` to ensure their removal
-			location = newLocation
-			newLocation = nil
-		}
-		token, err := decoder.RawToken()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			logger.Errorf("error getting token: %v\n", err)
-			return err
-		}
-
-		switch v := token.(type) {
-		case xml.StartElement:
-			location = append(location, v.Name.Local)
-
-		case xml.EndElement:
-			newLocation = location[:len(location)-1]
-		}
-
-		if len(location) >= len(section) &&
-			reflect.DeepEqual(location[:len(section)], section) {
-			injecting = true
-		} else {
-			if injecting == true {
-				// We just left the section block, we're done
-				break
-			} else {
-				// We're not in the section block yet, skipping elements
-				continue
-			}
-		}
-
-		if injecting {
-			if err := encoder.EncodeToken(xml.CopyToken(token)); err != nil {
-				logger.Reason(err).Errorf("Failed to encode token %v", token)
-				return err
-			}
-		}
-	}
+	domcfg.CPU.Topology = convxml.ConvertKubeVirtCPUTopologyToDomainCPUTopology(domain.Spec.CPU.Topology)
+	domcfg.VCPU = convxml.ConvertKubeVirtVCPUToDomainVCPU(domain.Spec.VCPU)
+	domcfg.CPUTune = convxml.ConvertKubeVirtCPUTuneToDomainCPUTune(domain.Spec.CPUTune)
+	domcfg.NUMATune = convxml.ConvertKubeVirtNUMATuneToDomainNUMATune(domain.Spec.NUMATune)
+	domcfg.Features = convxml.ConvertKubeVirtFeaturesToDomainFeatureList(domain.Spec.Features)
 
 	return nil
-}
-
-// This function returns true for every section that should be adjusted with target data when migrating a VMI
-//
-//	that includes dedicated CPUs
-//
-// Strict mode only returns true if we just entered the block
-func shouldOverrideForDedicatedCPUTarget(section []string, strict bool) bool {
-	if (!strict || len(section) == 2) &&
-		len(section) >= 2 &&
-		section[0] == "domain" &&
-		section[1] == "cputune" {
-		return true
-	}
-	if (!strict || len(section) == 2) &&
-		len(section) >= 2 &&
-		section[0] == "domain" &&
-		section[1] == "numatune" {
-		return true
-	}
-	if (!strict || len(section) == 3) &&
-		len(section) >= 3 &&
-		section[0] == "domain" &&
-		section[1] == "cpu" &&
-		section[2] == "numa" {
-		return true
-	}
-
-	return false
 }
 
 // This returns domain xml without the metadata section, as it is only relevant to the source domain
 // Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
 func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (string, error) {
-	const (
-		exactLocation = true
-		insideBlock   = false
-	)
 	var domain *api.Domain
 	var err error
 
@@ -268,7 +200,10 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 		log.Log.Object(vmi).Reason(err).Error("Live migration failed. Failed to get XML.")
 		return "", err
 	}
-
+	domcfg := &libvirtxml.Domain{}
+	if err := domcfg.Unmarshal(xmlstr); err != nil {
+		return "", err
+	}
 	if vmi.IsCPUDedicated() {
 		// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
 		// assigned in the source node with the new CPUs assigned in the target node
@@ -280,61 +215,17 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 		if err != nil {
 			return "", err
 		}
-	}
-
-	decoder := xml.NewDecoder(bytes.NewReader([]byte(xmlstr)))
-	var buf bytes.Buffer
-	encoder := xml.NewEncoder(&buf)
-
-	var location = make([]string, 0)
-	var newLocation []string = nil
-
-	for {
-		if newLocation != nil {
-			// Postpone popping end elements from `location` to ensure their removal
-			location = newLocation
-			newLocation = nil
-		}
-		token, err := decoder.RawToken()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Log.Object(vmi).Errorf("error getting token: %v\n", err)
-			return "", err
-		}
-
-		switch v := token.(type) {
-		case xml.StartElement:
-			location = append(location, v.Name.Local)
-
-			// If the VMI requires dedicated CPUs, we need to patch the domain with
-			// the new CPU/NUMA info calculated for the target node prior to migration
-			if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location, exactLocation) {
-				err = injectNewSection(encoder, domain, location, log.Log.Object(vmi))
-				if err != nil {
-					return "", err
-				}
-			}
-		case xml.EndElement:
-			newLocation = location[:len(location)-1]
-		}
-		if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location, insideBlock) {
-			continue
-		}
-
-		if err := encoder.EncodeToken(xml.CopyToken(token)); err != nil {
-			log.Log.Object(vmi).Reason(err).Errorf("Failed to encode token %v", token)
+		if err = convertCPUDedicatedFields(domain, domcfg); err != nil {
 			return "", err
 		}
 	}
-
-	if err := encoder.Flush(); err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to flush XML encoder")
+	// set slice size for local disks to migrate
+	if err := configureLocalDiskToMigrate(domcfg, vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to set size for local disk.")
 		return "", err
 	}
 
-	return string(buf.Bytes()), nil
+	return domcfg.Marshal()
 }
 
 func (d *migrationDisks) isSharedVolume(name string) bool {
@@ -347,29 +238,48 @@ func (d *migrationDisks) isGeneratedVolume(name string) bool {
 	return generated
 }
 
+func (d *migrationDisks) isLocalVolumeToMigrate(name string) bool {
+	_, migrate := d.localToMigrate[name]
+	return migrate
+}
+
 func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks {
 	// This method collects all VMI volumes that should not be copied during
 	// live migration. It also collects all generated disks suck as cloudinit, secrets, ServiceAccount and ConfigMaps
 	// to make sure that these are being copied during migration.
-	// Persistent volume claims without ReadWriteMany access mode
-	// should be filtered out earlier in the process
 
 	disks := &migrationDisks{
-		shared:    make(map[string]bool),
-		generated: make(map[string]bool),
+		shared:         make(map[string]bool),
+		generated:      make(map[string]bool),
+		localToMigrate: make(map[string]bool),
+	}
+	migrateDisks := make(map[string]bool)
+	for _, v := range vmi.Status.MigratedVolumes {
+		migrateDisks[v.VolumeName] = true
 	}
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
-		if volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil ||
-			(volSrc.HostDisk != nil && *volSrc.HostDisk.Shared) {
-			disks.shared[volume.Name] = true
-		}
-		if volSrc.ConfigMap != nil || volSrc.Secret != nil || volSrc.DownwardAPI != nil ||
+		switch {
+		case volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil:
+			if _, ok := migrateDisks[volume.Name]; ok {
+				disks.localToMigrate[volume.Name] = true
+			} else {
+				disks.shared[volume.Name] = true
+			}
+		case volSrc.HostDisk != nil:
+			if volSrc.HostDisk.Shared != nil && *volSrc.HostDisk.Shared {
+				disks.shared[volume.Name] = true
+			} else if _, ok := migrateDisks[volume.Name]; ok {
+				disks.localToMigrate[volume.Name] = true
+			}
+
+		case volSrc.ConfigMap != nil || volSrc.Secret != nil || volSrc.DownwardAPI != nil ||
 			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil ||
-			volSrc.CloudInitConfigDrive != nil || volSrc.ContainerDisk != nil {
+			volSrc.CloudInitConfigDrive != nil || volSrc.ContainerDisk != nil:
 			disks.generated[volume.Name] = true
 		}
 	}
+
 	return disks
 }
 
@@ -489,7 +399,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 		}
 	})
 
-	logger := log.Log
+	logger := log.Log.V(2)
 	if !failed {
 		logger = logger.V(4)
 	}
@@ -525,6 +435,11 @@ func (m *migrationMonitor) isMigrationPostCopy() bool {
 	return migration.Mode == v1.MigrationPostCopy
 }
 
+func (m *migrationMonitor) isPausedMigration() bool {
+	migration, _ := m.l.metadataCache.Migration.Load()
+	return migration.Mode == v1.MigrationPaused
+}
+
 func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
 	if m.acceptableCompletionTime == 0 {
 		return false
@@ -533,8 +448,8 @@ func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
 	return elapsed/int64(time.Second) > m.acceptableCompletionTime
 }
 
-func (m *migrationMonitor) shouldTriggerPostCopy(elapsed int64) bool {
-	return m.shouldTriggerTimeout(elapsed) && m.options.AllowPostCopy
+func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsed int64) bool {
+	return m.shouldTriggerTimeout(elapsed) && m.options.AllowWorkloadDisruption
 }
 
 func (m *migrationMonitor) isMigrationProgressing() bool {
@@ -564,7 +479,7 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 			logger.Info("Migration job was canceled")
 			return &libvirt.DomainJobInfo{
 				Type:             libvirt.DOMAIN_JOB_CANCELLED,
-				DataRemaining:    uint64(m.remainingData),
+				DataRemaining:    m.remainingData,
 				DataRemainingSet: true,
 			}
 		}
@@ -584,7 +499,7 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 			logger.Info("Migration job failed")
 			return &libvirt.DomainJobInfo{
 				Type:             libvirt.DOMAIN_JOB_FAILED,
-				DataRemaining:    uint64(m.remainingData),
+				DataRemaining:    m.remainingData,
 				DataRemainingSet: true,
 			}
 		}
@@ -616,17 +531,35 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		// If we were to abort the migration due to a timeout while in post copy,
 		// then it would result in that active state being lost.
 
-	case m.shouldTriggerPostCopy(elapsed):
-		logger.Info("Starting post copy mode for migration")
-		// if a migration has stalled too long, post copy will be
-		// triggered when allowPostCopy is enabled
-		err := dom.MigrateStartPostCopy(uint32(0))
-		if err != nil {
-			logger.Reason(err).Error("failed to start post migration")
-			return nil
-		}
+	case m.shouldAssistMigrationToComplete(elapsed) && !m.isPausedMigration():
+		if m.options.AllowPostCopy {
+			logger.Info("Starting post copy mode for migration")
+			// if a migration has stalled too long, post copy will be
+			// triggered when allowPostCopy is enabled
+			err := dom.MigrateStartPostCopy(0)
+			if err != nil {
+				logger.Reason(err).Error("failed to start post migration")
+				return nil
+			}
+			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+		} else {
 
-		m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+			logger.Info("Pausing the guest to allow migration to complete")
+			// if a migration has stalled too long, the guest will be paused
+			// to complete the migration when allowPostCopy is disabled
+			err := dom.Suspend()
+			if err != nil {
+				logger.Reason(err).Error("Signalling suspension failed.")
+				return nil
+			}
+			logger.Infof("Signaled pause for %s", m.vmi.GetObjectMeta().GetName())
+
+			// update acceptableCompletionTime to prevent premature migration
+			// cancellation
+			m.acceptableCompletionTime *= 2
+			m.l.paused.add(m.vmi.UID)
+			m.l.updateVMIMigrationMode(v1.MigrationPaused)
+		}
 
 	case !m.isMigrationProgressing():
 		// check if the migration is still progressing
@@ -664,15 +597,6 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	return nil
 }
 
-func (m *migrationMonitor) hasMigrationErr() error {
-	select {
-	case err := <-m.migrationErr:
-		return err
-	default:
-		return nil
-	}
-}
-
 func (m *migrationMonitor) startMonitor() {
 	var completedJobInfo *libvirt.DomainJobInfo
 	vmi := m.vmi
@@ -697,9 +621,12 @@ func (m *migrationMonitor) startMonitor() {
 	logInterval := 0
 
 	for {
-		time.Sleep(monitorSleepPeriodMS * time.Millisecond)
+		err = nil
+		select {
+		case err = <-m.migrationErr:
+		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
+		}
 
-		err := m.hasMigrationErr()
 		if err != nil && m.migrationFailedWithError == nil {
 			logger.Reason(err).Error("Received a live migration error. Will check the latest migration status.")
 			m.migrationFailedWithError = err
@@ -710,6 +637,13 @@ func (m *migrationMonitor) startMonitor() {
 			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
 			}
+			// Improve the error message when the volume migration fails because the destination size is smaller then the source volume
+			if len(vmi.Status.MigratedVolumes) > 0 && strings.Contains(m.migrationFailedWithError.Error(),
+				"has to be smaller or equal to the actual size of the containing file") {
+				m.l.setMigrationResult(true, fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller then the source volume: %v",
+					m.migrationFailedWithError), abortStatus)
+				return
+			}
 			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
 			return
 		}
@@ -718,7 +652,7 @@ func (m *migrationMonitor) startMonitor() {
 		if stats == nil {
 			stats, err = dom.GetJobStats(0)
 			if err != nil {
-				logger.Reason(err).Error("failed to get domain job info")
+				logger.Reason(err).Warning("failed to get domain job info, will retry")
 				continue
 			}
 		}
@@ -759,14 +693,22 @@ func (m *migrationMonitor) startMonitor() {
 
 // logMigrationInfo logs the same migration info as `virsh -r domjobinfo`
 func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.DomainJobInfo) {
-	logger.V(4).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dB DataRemaining:%dB DataTotal:%dB `+
-		`MemoryProcessed:%dB MemoryRemaining:%dB MemoryTotal:%dB MemoryBandwidth:%dB/s DirtyRate:%dB/s `+
-		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dB ExpectedDowntime:%dms `+
-		`DiskBps:%d`,
-		uid, info.TimeElapsed, info.DataProcessed, info.DataRemaining, info.DataTotal,
-		info.MemProcessed, info.MemRemaining, info.MemTotal, info.MemBps, info.MemDirtyRate*info.MemPageSize,
-		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, info.MemNormalBytes, info.Downtime,
-		info.DiskBps,
+	bToMiB := func(bytes uint64) uint64 {
+		return bytes / 1024 / 1024
+	}
+
+	bpsToMbps := func(bytes uint64) uint64 {
+		return bytes * 8 / 1000000
+	}
+
+	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
+		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
+		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB ExpectedDowntime:%dms `+
+		`DiskMbps:%d`,
+		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
+		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
+		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), info.Downtime,
+		bpsToMbps(info.DiskBps),
 	))
 }
 
@@ -798,10 +740,6 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 	}(l, vmi)
 }
 
-func isBlockMigration(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Status.MigrationMethod == v1.BlockMigration
-}
-
 func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string, domSpec *api.DomainSpec) (*libvirt.DomainMigrateParameters, error) {
 	bandwidth, err := vcpu.QuantityToMebiByte(options.Bandwidth)
 	if err != nil {
@@ -813,17 +751,21 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		return nil, err
 	}
 
+	parallelMigrationSet, parallelMigrationThreads := shouldConfigureParallelMigration(options)
+
 	key := migrationproxy.ConstructProxyKey(string(vmi.UID), migrationproxy.LibvirtDirectMigrationPort)
 	migrURI := fmt.Sprintf("unix://%s", migrationproxy.SourceUnixFile(virtShareDir, key))
 	params := &libvirt.DomainMigrateParameters{
-		URI:           migrURI,
-		URISet:        true,
-		Bandwidth:     bandwidth, // MiB/s
-		BandwidthSet:  bandwidth > 0,
-		DestXML:       xmlstr,
-		DestXMLSet:    true,
-		PersistXML:    xmlstr,
-		PersistXMLSet: true,
+		URI:                    migrURI,
+		URISet:                 true,
+		Bandwidth:              bandwidth, // MiB/s
+		BandwidthSet:           bandwidth > 0,
+		DestXML:                xmlstr,
+		DestXMLSet:             true,
+		PersistXML:             xmlstr,
+		PersistXMLSet:          true,
+		ParallelConnectionsSet: parallelMigrationSet,
+		ParallelConnections:    parallelMigrationThreads,
 	}
 
 	copyDisks := getDiskTargetsForMigration(dom, vmi)
@@ -835,10 +777,160 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		disksURI := fmt.Sprintf("unix://%s", migrationproxy.SourceUnixFile(virtShareDir, key))
 		params.DisksURI = disksURI
 		params.DisksURISet = true
+		params.MigrateDisksDetectZeroesList = copyDisks
+		params.MigrateDisksDetectZeroesSet = true
 	}
 
 	log.Log.Object(vmi).Infof("generated migration parameters: %+v", params)
 	return params, nil
+}
+
+type getDiskVirtualSizeFuncType func(disk *libvirtxml.DomainDisk) (int64, error)
+
+var getDiskVirtualSizeFunc getDiskVirtualSizeFuncType
+
+func init() {
+	getDiskVirtualSizeFunc = getDiskVirtualSize
+}
+
+// getDiskVirtualSize return the size of a local volume to migrate.
+// See suggestion in: https://issues.redhat.com/browse/RHEL-4607
+func getDiskVirtualSize(disk *libvirtxml.DomainDisk) (int64, error) {
+	var path string
+	if disk.Source == nil {
+		return -1, fmt.Errorf("empty source for the disk")
+	}
+	switch {
+	case disk.Source.File != nil:
+		path = disk.Source.File.File
+	case disk.Source.Block != nil:
+		path = disk.Source.Block.Dev
+	default:
+		return -1, fmt.Errorf("not path set")
+	}
+	info, err := osdisk.GetDiskInfo(path)
+	if err != nil {
+		return -1, err
+	}
+	return info.VirtualSize, nil
+}
+
+func getDiskName(disk *libvirtxml.DomainDisk) string {
+	if disk == nil {
+		return ""
+	}
+	n := disk.Alias.Name
+	if len(n) < 3 {
+		return n
+	}
+	// Trim the ua- prefix
+	if strings.HasPrefix(n, "ua-") {
+		return n[3:]
+	}
+	return n
+}
+
+func getMigrateVolumeForCondition(vmi *v1.VirtualMachineInstance, condition func(info *v1.StorageMigratedVolumeInfo) bool) map[string]bool {
+	res := make(map[string]bool)
+
+	for _, v := range vmi.Status.MigratedVolumes {
+		if v.SourcePVCInfo == nil || v.DestinationPVCInfo == nil {
+			continue
+		}
+		if v.SourcePVCInfo.VolumeMode == nil || v.DestinationPVCInfo.VolumeMode == nil {
+			continue
+		}
+		if condition(&v) {
+			res[v.VolumeName] = true
+		}
+	}
+	return res
+}
+
+func getFsSrcBlockDstVols(vmi *v1.VirtualMachineInstance) map[string]bool {
+	return getMigrateVolumeForCondition(vmi, func(v *v1.StorageMigratedVolumeInfo) bool {
+		if v == nil {
+			return false
+		}
+		if *v.SourcePVCInfo.VolumeMode == k8sv1.PersistentVolumeFilesystem &&
+			*v.DestinationPVCInfo.VolumeMode == k8sv1.PersistentVolumeBlock {
+			return true
+		}
+		return false
+	})
+}
+
+func getBlockSrcFsDstVols(vmi *v1.VirtualMachineInstance) map[string]bool {
+	return getMigrateVolumeForCondition(vmi, func(v *v1.StorageMigratedVolumeInfo) bool {
+		if v == nil {
+			return false
+		}
+		if *v.SourcePVCInfo.VolumeMode == k8sv1.PersistentVolumeBlock &&
+			*v.DestinationPVCInfo.VolumeMode == k8sv1.PersistentVolumeFilesystem {
+			return true
+		}
+		return false
+	})
+}
+
+// configureLocalDiskToMigrate modifies the domain XML for the volume migration. For example, it sets the slice to allow the migration to a destination
+// volume with different size then the source, or it adjust the XML configuration when it migrates from a filesystem source to a block destination or
+// vice versa.
+func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineInstance) error {
+	if dom.Devices == nil {
+		return nil
+	}
+
+	migDisks := classifyVolumesForMigration(vmi)
+	fsSrcBlockDstVols := getFsSrcBlockDstVols(vmi)
+	blockSrcFsDstVols := getBlockSrcFsDstVols(vmi)
+
+	for i, d := range dom.Devices.Disks {
+		if d.Alias == nil {
+			return fmt.Errorf("empty alias")
+		}
+		name := getDiskName(&d)
+		if !migDisks.isLocalVolumeToMigrate(name) {
+			continue
+		}
+		// Calculate the size of the volume to migrate
+		size, err := getDiskVirtualSizeFunc(&d)
+		if err != nil {
+			return err
+		}
+		// Configure the slice to enable to migrate the volume to a destination with different size
+		// See suggestion in: https://issues.redhat.com/browse/RHEL-4607
+		if dom.Devices.Disks[i].Source.Slices == nil {
+			dom.Devices.Disks[i].Source.Slices = &libvirtxml.DomainDiskSlices{}
+		}
+		slice := libvirtxml.DomainDiskSlice{
+			Type:   "storage",
+			Offset: 0,
+			Size:   uint(size),
+		}
+		if len(dom.Devices.Disks[i].Source.Slices.Slices) > 0 {
+			dom.Devices.Disks[i].Source.Slices.Slices[0] = slice
+		} else {
+			dom.Devices.Disks[i].Source.Slices.Slices = append(dom.Devices.Disks[i].Source.Slices.Slices, slice)
+		}
+		// Adjust the XML configuration when it migrates from a filesystem source to a block destination or vice versa
+		if _, ok := fsSrcBlockDstVols[name]; ok {
+			log.Log.V(2).Infof("Replace filesystem source with block destination for volume %s", name)
+			dom.Devices.Disks[i].Source.Block = &libvirtxml.DomainDiskSourceBlock{
+				Dev: filepath.Join(string(filepath.Separator), "dev", name),
+			}
+			dom.Devices.Disks[i].Source.File = nil
+		}
+		if _, ok := blockSrcFsDstVols[name]; ok {
+			log.Log.V(2).Infof("Replace block source with destination for volume %s", name)
+			dom.Devices.Disks[i].Source.File = &libvirtxml.DomainDiskSourceFile{
+				File: filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img"),
+			}
+			dom.Devices.Disks[i].Source.Block = nil
+		}
+	}
+
+	return nil
 }
 
 func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
@@ -857,7 +949,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	if err != nil {
 		return fmt.Errorf("failed to retrive domain state")
 	}
-	migrateFlags := generateMigrationFlags(isBlockMigration(vmi), options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy, migratePaused)
+	migrateFlags := generateMigrationFlags(vmi.IsBlockMigration(), migratePaused, options)
 
 	// anything that modifies the domain needs to be performed with the domainModifyLock held
 	// The domain params and unHotplug need to be performed in a critical section together.
@@ -879,7 +971,6 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 
 		return nil
 	}
-
 	err = critSection()
 	if err != nil {
 		return err
@@ -952,4 +1043,20 @@ func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {
 		migrationMetadata.Mode = mode
 	})
 	log.Log.V(4).Infof("Migration mode set in metadata: %s", l.metadataCache.Migration.String())
+}
+
+func shouldConfigureParallelMigration(options *cmdclient.MigrationOptions) (shouldConfigure bool, threadsCount int) {
+	if options == nil {
+		return
+	}
+	if options.AllowPostCopy {
+		return
+	}
+	if options.ParallelMigrationThreads == nil {
+		return
+	}
+
+	shouldConfigure = true
+	threadsCount = int(*options.ParallelMigrationThreads)
+	return
 }

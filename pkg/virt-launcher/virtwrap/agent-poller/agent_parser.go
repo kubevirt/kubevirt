@@ -79,13 +79,20 @@ type User struct {
 	LoginTime float64 `json:"login-time"`
 }
 
+// Filesystem disk of the host
+type FSDisk struct {
+	Serial  string `json:"serial,omitempty"`
+	BusType string `json:"bus-type"`
+}
+
 // Filesystem of the host
 type Filesystem struct {
-	Name       string `json:"name"`
-	Mountpoint string `json:"mountpoint"`
-	Type       string `json:"type"`
-	UsedBytes  int    `json:"used-bytes,omitempty"`
-	TotalBytes int    `json:"total-bytes,omitempty"`
+	Name       string   `json:"name"`
+	Mountpoint string   `json:"mountpoint"`
+	Type       string   `json:"type"`
+	UsedBytes  int      `json:"used-bytes,omitempty"`
+	TotalBytes int      `json:"total-bytes,omitempty"`
+	Disk       []FSDisk `json:"disk,omitempty"`
 }
 
 // AgentInfo from the guest VM serves the purpose
@@ -196,10 +203,23 @@ func parseFilesystem(agentReply string) ([]api.Filesystem, error) {
 			Type:       fs.Type,
 			TotalBytes: fs.TotalBytes,
 			UsedBytes:  fs.UsedBytes,
+			Disk:       parseFSDisks(fs.Disk),
 		})
 	}
 
 	return convertedResult, nil
+}
+
+func parseFSDisks(fsDisks []FSDisk) []api.FSDisk {
+	disks := []api.FSDisk{}
+	for _, fsDisk := range fsDisks {
+		disks = append(disks, api.FSDisk{
+			Serial:  fsDisk.Serial,
+			BusType: fsDisk.BusType,
+		})
+	}
+
+	return disks
 }
 
 // parseUsers from the agent response

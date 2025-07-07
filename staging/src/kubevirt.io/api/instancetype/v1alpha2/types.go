@@ -20,11 +20,10 @@
 package v1alpha2
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // VirtualMachineInstancetype resource contains quantitative and resource related VirtualMachine configuration
@@ -112,7 +111,7 @@ type CPUInstancetype struct {
 
 	// Required number of vCPUs to expose to the guest.
 	//
-	// The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferCores.
+	// The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.
 	Guest uint32 `json:"guest"`
 
 	// Model specifies the CPU model inside the VMI.

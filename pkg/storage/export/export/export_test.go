@@ -21,6 +21,7 @@ package export
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -28,9 +29,12 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/uuid"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 
 	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -38,40 +42,49 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	framework "k8s.io/client-go/tools/cache/testing"
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
-	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	exportv1 "kubevirt.io/api/export/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
-	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 const (
-	testNamespace = "default"
-	ingressSecret = "ingress-secret"
+	testNamespace   = "default"
+	ingressSecret   = "ingress-secret"
+	currentVersion  = "v1beta1"
+	vmExportName    = "test"
+	labelKey        = "label-key"
+	labelValue      = "label-value"
+	annotationKey   = "annotation-key"
+	annotationValue = "annotation-value"
 )
 
 var (
@@ -116,11 +129,13 @@ var _ = Describe("Export controller", func() {
 		preferenceInformer          cache.SharedIndexInformer
 		clusterPreferenceInformer   cache.SharedIndexInformer
 		controllerRevisionInformer  cache.SharedIndexInformer
+		rqInformer                  cache.SharedIndexInformer
+		nsInformer                  cache.SharedIndexInformer
 		k8sClient                   *k8sfake.Clientset
 		virtClient                  *kubecli.MockKubevirtClient
 		vmExportClient              *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider  *MockVolumeSnapshotProvider
-		mockVMExportQueue           *testutils.MockWorkQueue
+		mockVMExportQueue           *testutils.MockWorkQueue[string]
 		routeCache                  cache.Store
 		ingressCache                cache.Store
 		certDir                     string
@@ -148,6 +163,8 @@ var _ = Describe("Export controller", func() {
 		go preferenceInformer.Run(stop)
 		go clusterPreferenceInformer.Run(stop)
 		go controllerRevisionInformer.Run(stop)
+		go rqInformer.Run(stop)
+		go nsInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(
 			stop,
 			vmExportInformer.HasSynced,
@@ -168,6 +185,8 @@ var _ = Describe("Export controller", func() {
 			preferenceInformer.HasSynced,
 			clusterPreferenceInformer.HasSynced,
 			controllerRevisionInformer.HasSynced,
+			rqInformer.HasSynced,
+			nsInformer.HasSynced,
 		)).To(BeTrue())
 	}
 
@@ -198,11 +217,13 @@ var _ = Describe("Export controller", func() {
 		secretInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Secret{})
 		kvInformer, _ = testutils.NewFakeInformerFor(&virtv1.KubeVirt{})
 		crdInformer, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
-		instancetypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineInstancetype{})
-		clusterInstancetypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterInstancetype{})
-		preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachinePreference{})
-		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterPreference{})
+		instancetypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
+		clusterInstancetypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+		preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
+		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 		controllerRevisionInformer, _ = testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
+		nsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 			volumeSnapshots: []*vsv1.VolumeSnapshot{},
 		}
@@ -214,7 +235,7 @@ var _ = Describe("Export controller", func() {
 
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
-			Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(testNamespace)).AnyTimes()
+			Return(vmExportClient.ExportV1beta1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		controller = &VMExportController{
 			Client:                      virtClient,
@@ -226,7 +247,7 @@ var _ = Describe("Export controller", func() {
 			ServiceInformer:             serviceInformer,
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
-			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			caCertManager:               bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,
@@ -360,7 +381,7 @@ var _ = Describe("Export controller", func() {
 	generateExpectedPem := func(allPem string) string {
 		now := time.Now()
 		pemOut := strings.Builder{}
-		certs, err := cert.ParseCertsPEM([]byte(allPem))
+		certs, err := certutil.ParseCertsPEM([]byte(allPem))
 		Expect(err).ToNot(HaveOccurred())
 		for _, cert := range certs {
 			if cert.NotAfter.After(now) && cert.NotBefore.Before(now) {
@@ -526,7 +547,7 @@ var _ = Describe("Export controller", func() {
 				Namespace: testNamespace,
 			},
 			Status: &snapshotv1.VirtualMachineSnapshotStatus{
-				ReadyToUse: pointer.BoolPtr(false),
+				ReadyToUse: pointer.P(false),
 			},
 		}
 		syncCaches(stop)
@@ -582,7 +603,7 @@ var _ = Describe("Export controller", func() {
 						APIVersion: virtv1.GroupVersion.String(),
 						Kind:       "VirtualMachine",
 						Name:       testVmName,
-						Controller: pointer.BoolPtr(true),
+						Controller: pointer.P(true),
 					},
 				},
 			},
@@ -619,7 +640,7 @@ var _ = Describe("Export controller", func() {
 						APIVersion: virtv1.GroupVersion.String(),
 						Kind:       "VirtualMachine",
 						Name:       testVmName,
-						Controller: pointer.BoolPtr(true),
+						Controller: pointer.P(true),
 					},
 				},
 			},
@@ -733,6 +754,10 @@ var _ = Describe("Export controller", func() {
 			service.Status.Conditions[0].Type = "test"
 			Expect(service.GetName()).To(Equal(controller.getExportServiceName(testVMExport)))
 			Expect(service.GetNamespace()).To(Equal(testNamespace))
+			Expect(service.Labels).To(And(
+				HaveKeyWithValue(virtv1.AppLabel, "virt-exporter"),
+				HaveKeyWithValue(labelKey, labelValue)))
+			Expect(service.Annotations).To(HaveKeyWithValue(annotationKey, annotationValue))
 			return true, service, nil
 		})
 
@@ -815,19 +840,19 @@ var _ = Describe("Export controller", func() {
 		return testVMExport
 	}
 
-	DescribeTable("Should create a pod based on the name of the VMExport", func(populateExportFunc func() *exportv1.VirtualMachineExport, numberOfVolumes int) {
+	DescribeTable("Should create a pod based on the name of the VMExport", func(populateExportFunc func() *exportv1.VirtualMachineExport, getPVCFromSource pvcFromSourceFunc, numberOfVolumes int) {
 		testPVC := &k8sv1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testPVCName,
 				Namespace: testNamespace,
 			},
 			Spec: k8sv1.PersistentVolumeClaimSpec{
-				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.StringPtr(string(k8sv1.PersistentVolumeBlock))),
+				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.P(string(k8sv1.PersistentVolumeBlock))),
 			},
 		}
 		testVMExport := populateExportFunc()
 		populateInitialVMExportStatus(testVMExport)
-		err := controller.handleVMExportToken(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, getPVCFromSource)
 		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
 		Expect(err).ToNot(HaveOccurred())
 		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -835,7 +860,8 @@ var _ = Describe("Export controller", func() {
 			Expect(ok).To(BeTrue())
 			pod, ok := create.GetObject().(*k8sv1.Pod)
 			Expect(ok).To(BeTrue())
-			Expect(pod.GetName()).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
+			Expect(pod.GetName()).To(Equal(controller.getExportPodName(testVMExport)))
+			Expect(len(pod.GetName())).To(BeNumerically("<=", validation.DNS1035LabelMaxLength))
 			Expect(pod.GetNamespace()).To(Equal(testNamespace))
 			return true, pod, nil
 		})
@@ -856,7 +882,7 @@ var _ = Describe("Export controller", func() {
 		pod, err := controller.createExporterPod(testVMExport, service, []*k8sv1.PersistentVolumeClaim{testPVC})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pod).ToNot(BeNil())
-		Expect(pod.Name).To(Equal(fmt.Sprintf("%s-%s", exportPrefix, testVMExport.Name)))
+		Expect(pod.Name).To(Equal(controller.getExportPodName(testVMExport)))
 		Expect(pod.Spec.Volumes).To(HaveLen(numberOfVolumes), "There should be 3/4 volumes, one pvc, and two secrets (token and certs) (and vm def manifest if VM)")
 		certSecretName := ""
 		for _, volume := range pod.Spec.Volumes {
@@ -903,12 +929,30 @@ var _ = Describe("Export controller", func() {
 			Name:       testPVC.Name,
 			DevicePath: fmt.Sprintf("%s/%s", blockVolumeMountPath, testPVC.Name),
 		}))
-		Expect(pod.Annotations[annCertParams]).To(Equal("{\"Duration\":7200000000000,\"RenewBefore\":3600000000000}"))
+		Expect(pod.Labels).To(And(
+			HaveKeyWithValue(exportServiceLabel, controller.getExportLabelValue(testVMExport)),
+			HaveKeyWithValue(labelKey, labelValue)))
+		Expect(pod.Annotations).To(And(
+			HaveKeyWithValue(annCertParams, fmt.Sprintf("{\"Duration\":%d,\"RenewBefore\":%d}",
+				metav1.Duration{Duration: 2 * time.Hour}.Nanoseconds(),
+				metav1.Duration{Duration: 1 * time.Hour}.Nanoseconds())),
+			HaveKeyWithValue(annotationKey, annotationValue)))
 		Expect(pod.Spec.Containers[0].Env).To(ContainElements(expectedPodEnvVars))
+		Expect(pod.Spec.Containers[0].Resources.Requests.Cpu()).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()).To(Equal(int64(100)))
+		Expect(pod.Spec.Containers[0].Resources.Requests.Memory()).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(int64(209715200)))
+		Expect(pod.Spec.Containers[0].Resources.Limits.Cpu()).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()).To(Equal(int64(1000)))
+		Expect(pod.Spec.Containers[0].Resources.Limits.Memory()).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1073741824)))
+		Expect(pod.Spec.Containers[0].ReadinessProbe).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].ReadinessProbe.ProbeHandler.HTTPGet.Path).To(Equal(ReadinessPath))
 	},
-		Entry("PVC", createPVCVMExport, 3),
-		Entry("VM", populateVmExportVM, 4),
-		Entry("Snapshot", populateVmExportVMSnapshot, 4),
+		Entry("PVC", createPVCVMExport, controller.getPVCFromSourcePVC, 3),
+		Entry("PVC, with long name export", createPVCVMExportLongName, controller.getPVCFromSourcePVC, 3),
+		Entry("VM", populateVmExportVM, controller.getPVCFromSourceVM, 4),
+		Entry("Snapshot", populateVmExportVMSnapshot, controller.getPVCFromSourceVMSnapshot, 4),
 	)
 
 	It("Should create a secret based on the vm export", func() {
@@ -917,7 +961,7 @@ var _ = Describe("Export controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 		testVMExport := createPVCVMExport()
 		populateInitialVMExportStatus(testVMExport)
-		err = controller.handleVMExportToken(testVMExport)
+		err = controller.handleVMExportToken(testVMExport, controller.getPVCFromSourcePVC)
 		Expect(err).ToNot(HaveOccurred())
 		testExportPod := &k8sv1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -950,6 +994,8 @@ var _ = Describe("Export controller", func() {
 		})
 		err = controller.createCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(controller.Recorder.(*record.FakeRecorder).Events).To(HaveLen(1))
+		testutils.ExpectEvent(recorder, secretCreatedEvent)
 		By("Creating again, and returning exists")
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
@@ -958,11 +1004,11 @@ var _ = Describe("Export controller", func() {
 			Expect(ok).To(BeTrue())
 			Expect(secret.GetName()).To(Equal(controller.getExportSecretName(testExportPod)))
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
-			secret.Name = "something"
-			return true, secret, errors.NewAlreadyExists(schema.GroupResource{}, "already exists")
+			return true, nil, errors.NewAlreadyExists(schema.GroupResource{}, secret.Name)
 		})
 		err = controller.createCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(controller.Recorder.(*record.FakeRecorder).Events).To(BeEmpty())
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
@@ -974,9 +1020,36 @@ var _ = Describe("Export controller", func() {
 		})
 		err = controller.createCertSecret(testVMExport, testExportPod)
 		Expect(err).To(HaveOccurred())
+		Expect(controller.Recorder.(*record.FakeRecorder).Events).To(BeEmpty())
 	})
 
-	It("handleVMExportToken should create the export secret if no TokenSecretRef is specified", func() {
+	It("handleVMExportToken should create the export secret if no TokenSecretRef is specified, and the referenced PVC exists", func() {
+		testVMExport := createPVCVMExportWithoutSecret()
+		expectedName := getDefaultTokenSecretName(testVMExport)
+		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			secret, ok := create.GetObject().(*k8sv1.Secret)
+			Expect(ok).To(BeTrue())
+			Expect(secret.GetName()).To(Equal(expectedName))
+			Expect(secret.GetNamespace()).To(Equal(testNamespace))
+			return true, secret, nil
+		})
+		Expect(controller.PVCInformer.GetStore().Add(&k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testPVCName,
+				Namespace: testNamespace,
+			},
+		})).To(Succeed())
+		populateInitialVMExportStatus(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, controller.getPVCFromSourcePVC)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
+		Expect(*testVMExport.Status.TokenSecretRef).To(Equal(expectedName))
+		testutils.ExpectEvent(recorder, secretCreatedEvent)
+	})
+
+	It("handleVMExportToken should not create the export secret if no TokenSecretRef is specified, and the referenced PVC doesn't exist", func() {
 		testVMExport := createPVCVMExportWithoutSecret()
 		expectedName := getDefaultTokenSecretName(testVMExport)
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -989,11 +1062,9 @@ var _ = Describe("Export controller", func() {
 			return true, secret, nil
 		})
 		populateInitialVMExportStatus(testVMExport)
-		err := controller.handleVMExportToken(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, controller.getPVCFromSourcePVC)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
-		Expect(*testVMExport.Status.TokenSecretRef).To(Equal(expectedName))
-		testutils.ExpectEvent(recorder, secretCreatedEvent)
+		Expect(testVMExport.Status.TokenSecretRef).To(BeNil())
 	})
 
 	It("handleVMExportToken should use the already specified secret if the status is already populated", func() {
@@ -1003,6 +1074,12 @@ var _ = Describe("Export controller", func() {
 		testVMExport.Status = &exportv1.VirtualMachineExportStatus{
 			TokenSecretRef: &oldSecretRef,
 		}
+		Expect(controller.PVCInformer.GetStore().Add(&k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testPVCName,
+				Namespace: testNamespace,
+			},
+		})).To(Succeed())
 		k8sClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
@@ -1012,7 +1089,7 @@ var _ = Describe("Export controller", func() {
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
 			return true, secret, nil
 		})
-		err := controller.handleVMExportToken(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, controller.getPVCFromSourcePVC)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
 		Expect(*testVMExport.Status.TokenSecretRef).ToNot(Equal(newSecretRef))
@@ -1025,7 +1102,7 @@ var _ = Describe("Export controller", func() {
 		Expect(testVMExport.Spec.TokenSecretRef).ToNot(BeNil())
 		expectedName := *testVMExport.Spec.TokenSecretRef
 		populateInitialVMExportStatus(testVMExport)
-		err := controller.handleVMExportToken(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, controller.getPVCFromSourcePVC)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
 		Expect(*testVMExport.Status.TokenSecretRef).To(Equal(expectedName))
@@ -1209,27 +1286,31 @@ var _ = Describe("Export controller", func() {
 	}
 	It("Should properly expand instance types of VMs", func() {
 		vm := createVM()
-		testInstanceType := &instancetypev1alpha2.VirtualMachineInstancetype{
+		testInstanceType := &instancetypev1beta1.VirtualMachineInstancetype{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       apiinstancetype.SingularResourceName,
-				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+				APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-instance-type",
 				Namespace: vm.Namespace,
 			},
-			Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-				CPU: instancetypev1alpha2.CPUInstancetype{
+			Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1beta1.CPUInstancetype{
 					Guest: uint32(2),
 				},
 			},
 		}
 		Expect(instancetypeInformer.GetStore().Add(testInstanceType)).To(Succeed())
 
-		res, err := controller.expandVirtualMachine(vm)
+		res, err := controller.generateVMDefinitionFromVm(vm)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res).ToNot(BeNil())
-		Expect(res.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
+
+		resVM := &virtv1.VirtualMachine{}
+		Expect(json.Unmarshal(res, resVM)).To(Succeed())
+		Expect(resVM.Spec.Instancetype).To(BeNil())
+		Expect(resVM.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
 	})
 
 	It("Should return error on conflict with instance types of VMs", func() {
@@ -1239,26 +1320,25 @@ var _ = Describe("Export controller", func() {
 				Cores: uint32(1),
 			},
 		}
-		testInstanceType := &instancetypev1alpha2.VirtualMachineInstancetype{
+		testInstanceType := &instancetypev1beta1.VirtualMachineInstancetype{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       apiinstancetype.SingularResourceName,
-				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+				APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-instance-type",
 				Namespace: vm.Namespace,
 			},
-			Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-				CPU: instancetypev1alpha2.CPUInstancetype{
+			Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1beta1.CPUInstancetype{
 					Guest: uint32(2),
 				},
 			},
 		}
 		Expect(instancetypeInformer.GetStore().Add(testInstanceType)).To(Succeed())
 
-		_, err := controller.expandVirtualMachine(vm)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("cannot expand instancetype to VM, due to 1 conflicts"))
+		_, err := controller.generateVMDefinitionFromVm(vm)
+		Expect(err).To(MatchError(ContainSubstring("VM field(s) spec.template.spec.domain.cpu.cores conflicts with selected instance type")))
 	})
 
 	createVMWithDVTemplateAndPVC := func() *virtv1.VirtualMachine {
@@ -1272,6 +1352,11 @@ var _ = Describe("Export controller", func() {
 				Spec: cdiv1.DataVolumeSpec{
 					Source: &cdiv1.DataVolumeSource{
 						Blank: &cdiv1.DataVolumeBlankImage{},
+					},
+					SourceRef: &cdiv1.DataVolumeSourceRef{
+						Kind:      "",
+						Name:      "test",
+						Namespace: pointer.P("default"),
 					},
 				},
 			},
@@ -1299,23 +1384,48 @@ var _ = Describe("Export controller", func() {
 
 	It("Should properly replace DVTemplates", func() {
 		vm := createVMWithDVTemplateAndPVC()
-		res := controller.updateHttpSourceDataVolumeTemplate(vm)
+		res, err := controller.updateHttpSourceDataVolumeTemplate(vm)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(res).ToNot(BeNil())
 		Expect(res.Spec.DataVolumeTemplates).To(HaveLen(1))
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.HTTP).ToNot(BeNil())
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(BeEmpty())
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.Blank).To(BeNil())
+		Expect(res.Spec.DataVolumeTemplates[0].Spec.SourceRef).To(BeNil())
 	})
 
 	It("Should generate DataVolumes from VM", func() {
 		pvc := createPVC("pvc", string(cdiv1.DataVolumeKubeVirt))
+		pvc.Spec.DataSource = &k8sv1.TypedLocalObjectReference{}
+		pvc.Spec.DataSourceRef = &k8sv1.TypedObjectReference{}
+		pvc.Spec.StorageClassName = pointer.P("somesc")
+		pvcCopy := pvc.DeepCopy()
 		pvcInformer.GetStore().Add(pvc)
 		vm := createVMWithDVTemplateAndPVC()
-		dvs := controller.generateDataVolumesFromVm(vm)
+		dvs, err := controller.generateDataVolumesFromVm(vm)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(dvs).To(HaveLen(1))
 		Expect(dvs[0]).ToNot(BeNil())
-		Expect(dvs[0].Name).To((Equal("pvc")))
+		Expect(dvs[0].Name).To(Equal("pvc"))
+		Expect(dvs[0].Spec.Storage).To(
+			gstruct.PointTo(
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"DataSource":       BeNil(),
+					"DataSourceRef":    BeNil(),
+					"StorageClassName": BeNil(),
+					"VolumeMode":       Equal(pvcCopy.Spec.VolumeMode),
+					"Resources":        Equal(pvcCopy.Spec.Resources),
+					"AccessModes":      HaveExactElements(pvcCopy.Spec.AccessModes),
+				}),
+			),
+		)
+		Expect(dvs[0].Spec).To(
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"PVC":       BeNil(),
+				"SourceRef": BeNil(),
+			}),
+		)
 	})
 })
 
@@ -1370,9 +1480,9 @@ func verifyKubevirtInternal(vmExport *exportv1.VirtualMachineExport, exportName,
 func verifyKubevirtExternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
 	verifyLinksExternal(vmExport,
 		exportv1.KubeVirtRaw,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img", namespace, exportName, volumeName),
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img", currentVersion, namespace, exportName, volumeName),
 		exportv1.KubeVirtGz,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img.gz", namespace, exportName, volumeName))
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img.gz", currentVersion, namespace, exportName, volumeName))
 }
 
 func verifyArchiveInternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
@@ -1449,9 +1559,9 @@ func ingressToHost() *networkingv1.Ingress {
 func verifyArchiveExternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
 	verifyLinksExternal(vmExport,
 		exportv1.Dir,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/dir", namespace, exportName, volumeName),
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/dir", currentVersion, namespace, exportName, volumeName),
 		exportv1.ArchiveGz,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.tar.gz", namespace, exportName, volumeName))
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.tar.gz", currentVersion, namespace, exportName, volumeName))
 }
 
 func writeCertsToDir(dir string) {
@@ -1462,30 +1572,42 @@ func writeCertsToDir(dir string) {
 	Expect(os.WriteFile(filepath.Join(dir, bootstrap.KeyBytesValue), key, 0777)).To(Succeed())
 }
 
+func createVMExportMeta(name string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:              name,
+		Namespace:         testNamespace,
+		UID:               uuid.NewUUID(),
+		CreationTimestamp: metav1.Now(),
+		Labels:            map[string]string{labelKey: labelValue},
+		Annotations:       map[string]string{annotationKey: annotationValue},
+	}
+}
+
 func createPVCVMExport() *exportv1.VirtualMachineExport {
+	return createPVCVMExportWithName(vmExportName)
+}
+
+func createPVCVMExportLongName() *exportv1.VirtualMachineExport {
+	return createPVCVMExportWithName(vmExportName + strings.Repeat("a", 63))
+}
+
+func createPVCVMExportWithName(name string) *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              "test",
-			Namespace:         testNamespace,
-			CreationTimestamp: metav1.Now(),
-		},
+		ObjectMeta: createVMExportMeta(name),
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: &k8sv1.SchemeGroupVersion.Group,
 				Kind:     "PersistentVolumeClaim",
 				Name:     testPVCName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: pointer.P("token"),
 		},
 	}
 }
 
 func createPVCVMExportWithoutSecret() *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-no-secret",
-			Namespace: testNamespace,
-		},
+		ObjectMeta: createVMExportMeta(vmExportName),
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: &k8sv1.SchemeGroupVersion.Group,
@@ -1498,38 +1620,28 @@ func createPVCVMExportWithoutSecret() *exportv1.VirtualMachineExport {
 
 func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              "test",
-			Namespace:         testNamespace,
-			UID:               "11111-22222-33333",
-			CreationTimestamp: metav1.Now(),
-		},
+		ObjectMeta: createVMExportMeta(vmExportName),
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: &snapshotv1.SchemeGroupVersion.Group,
 				Kind:     "VirtualMachineSnapshot",
 				Name:     testVmsnapshotName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: pointer.P("token"),
 		},
 	}
 }
 
 func createVMVMExport() *exportv1.VirtualMachineExport {
 	return &exportv1.VirtualMachineExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              "test",
-			Namespace:         testNamespace,
-			UID:               "44444-555555-666666",
-			CreationTimestamp: metav1.Now(),
-		},
+		ObjectMeta: createVMExportMeta(vmExportName),
 		Spec: exportv1.VirtualMachineExportSpec{
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: &virtv1.SchemeGroupVersion.Group,
 				Kind:     "VirtualMachine",
 				Name:     testVmName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: pointer.P("token"),
 		},
 	}
 }
@@ -1554,6 +1666,33 @@ func createPVC(name, contentType string) *k8sv1.PersistentVolumeClaim {
 			Namespace: testNamespace,
 			Annotations: map[string]string{
 				annContentType: contentType,
+			},
+		},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			VolumeMode:  pointer.P(k8sv1.PersistentVolumeMode("testvolumemode")),
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode("testaccessmode")},
+			Resources: k8sv1.VolumeResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceStorage: resource.MustParse("99Gi"),
+				},
+			},
+		},
+		Status: k8sv1.PersistentVolumeClaimStatus{
+			Phase: k8sv1.ClaimBound,
+		},
+	}
+}
+
+func createBackendPVC(vmName string) *k8sv1.PersistentVolumeClaim {
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s-", backendstorage.PVCPrefix, vmName),
+			Namespace: testNamespace,
+			Annotations: map[string]string{
+				annContentType: "archive",
+			},
+			Labels: map[string]string{
+				backendstorage.PVCPrefix: vmName,
 			},
 		},
 		Status: k8sv1.PersistentVolumeClaimStatus{

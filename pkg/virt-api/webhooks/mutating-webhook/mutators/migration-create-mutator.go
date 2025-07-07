@@ -54,29 +54,10 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	// Add our selector label
-	if migration.Labels == nil {
-		migration.Labels = map[string]string{v1.MigrationSelectorLabel: migration.Spec.VMIName}
-	} else {
-		migration.Labels[v1.MigrationSelectorLabel] = migration.Spec.VMIName
-	}
+	addMigrationSelectorLabel(&migration)
+	addMigrationFinalizer(&migration)
 
-	// Add a finalizer
-	migration.Finalizers = append(migration.Finalizers, v1.VirtualMachineInstanceMigrationFinalizer)
-
-	patchBytes, err := patch.GeneratePatchPayload(
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/spec",
-			Value: migration.Spec,
-		},
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/metadata",
-			Value: migration.ObjectMeta,
-		},
-	)
-
+	patchBytes, err := patch.New(patch.WithReplace("/metadata", migration.ObjectMeta)).GeneratePayload()
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -87,4 +68,16 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
 	}
+}
+
+func addMigrationSelectorLabel(migration *v1.VirtualMachineInstanceMigration) {
+	if migration.Labels == nil {
+		migration.Labels = make(map[string]string)
+	}
+
+	migration.Labels[v1.MigrationSelectorLabel] = migration.Spec.VMIName
+}
+
+func addMigrationFinalizer(migration *v1.VirtualMachineInstanceMigration) {
+	migration.Finalizers = append(migration.Finalizers, v1.VirtualMachineInstanceMigrationFinalizer)
 }

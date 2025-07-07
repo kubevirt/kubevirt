@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"reflect"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,13 +27,17 @@ func HaveSucceeded() types.GomegaMatcher {
 	}
 }
 
-func BeInPhase(phase interface{}) types.GomegaMatcher {
+func PendingPopulation() types.GomegaMatcher {
 	return phaseMatcher{
-		expectedPhase: phase,
+		expectedPhase: "PendingPopulation",
 	}
 }
 
-func HavePhase(phase interface{}) types.GomegaMatcher {
+func WaitForFirstConsumer() types.GomegaMatcher {
+	return Or(BeInPhase("WaitForFirstConsumer"), PendingPopulation())
+}
+
+func BeInPhase(phase interface{}) types.GomegaMatcher {
 	return phaseMatcher{
 		expectedPhase: phase,
 	}
@@ -156,4 +164,12 @@ func collectPhasesForPrinting(actual interface{}) (phases []string) {
 
 func getExpectedPhase(actual interface{}) string {
 	return reflect.ValueOf(actual).String()
+}
+
+func HavePrintableStatus(status v1.VirtualMachinePrintableStatus) types.GomegaMatcher {
+	return PointTo(MatchFields(IgnoreExtras, Fields{
+		"Status": MatchFields(IgnoreExtras, Fields{
+			"PrintableStatus": Equal(status),
+		}),
+	}))
 }

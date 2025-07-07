@@ -32,12 +32,12 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
-	"kubevirt.io/client-go/kubecli"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/vnc/screenshot"
 )
@@ -67,42 +67,34 @@ var listenAddress = "127.0.0.1"
 var proxyOnly bool
 var customPort = 0
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
+	log.InitializeLogging("vnc")
+	c := VNC{}
 	cmd := &cobra.Command{
 		Use:     "vnc (VMI)",
 		Short:   "Open a vnc connection to a virtual machine instance.",
 		Example: usage(),
-		Args:    templates.ExactArgs("vnc", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := VNC{clientConfig: clientConfig}
-			return c.Run(cmd, args)
-		},
+		Args:    cobra.ExactArgs(1),
+		RunE:    c.Run,
 	}
 	cmd.Flags().StringVar(&listenAddress, "address", listenAddress, "--address=127.0.0.1: Setting this will change the listening address of the VNC server. Example: --address=0.0.0.0 will make the server listen on all interfaces.")
 	cmd.Flags().BoolVar(&proxyOnly, "proxy-only", proxyOnly, "--proxy-only=false: Setting this true will run only the virtctl vnc proxy and show the port where VNC viewers can connect")
 	cmd.Flags().IntVar(&customPort, "port", customPort,
 		"--port=0: Assigning a port value to this will try to run the proxy on the given port if the port is accessible; If unassigned, the proxy will run on a random port")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.AddCommand(screenshot.NewScreenshotCommand(clientConfig))
+	cmd.AddCommand(screenshot.NewScreenshotCommand())
 	return cmd
 }
 
-type VNC struct {
-	clientConfig clientcmd.ClientConfig
-}
+type VNC struct{}
 
 func (o *VNC) Run(cmd *cobra.Command, args []string) error {
-	namespace, _, err := o.clientConfig.Namespace()
+	virtCli, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 
 	vmi := args[0]
-
-	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
-	if err != nil {
-		return err
-	}
 
 	// setup connection with VM
 	vnc, err := virtCli.VirtualMachineInstance(namespace).VNC(vmi)
@@ -113,7 +105,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	// Set listenAddress to localhost if proxy-only flag is not set
 	if !proxyOnly {
 		listenAddress = "127.0.0.1"
-		glog.V(2).Infof("--proxy-only is set to false, listening on %s\n", listenAddress)
+		log.Log.V(2).Infof("--proxy-only is set to false, listening on %s\n", listenAddress)
 	}
 	listenAddressFmt = listenAddress + ":%d"
 	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(listenAddressFmt, customPort))
@@ -145,7 +137,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 	go func() {
 		// transfer data from/to the VM
-		k8ResChan <- vnc.Stream(kubecli.StreamOptions{
+		k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
 			In:  pipeInReader,
 			Out: pipeOutWriter,
 		})
@@ -154,7 +146,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	// wait for vnc client to connect to our local proxy server
 	go func() {
 		start := time.Now()
-		glog.Infof("connection timeout: %v", LISTEN_TIMEOUT)
+		log.Log.Infof("connection timeout: %v", LISTEN_TIMEOUT)
 		// Don't set deadline if only proxy is running and VNC is to be connected manually
 		if !proxyOnly {
 			// exit early if spawning vnc client fails
@@ -162,12 +154,12 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		}
 		fd, err := ln.Accept()
 		if err != nil {
-			glog.V(2).Infof("Failed to accept unix sock connection. %s", err.Error())
+			log.Log.V(2).Infof("Failed to accept unix sock connection. %s", err.Error())
 			listenResChan <- err
 		}
 		defer fd.Close()
 
-		glog.V(2).Infof("VNC Client connected in %v", time.Now().Sub(start))
+		log.Log.V(2).Infof("VNC Client connected in %v", time.Now().Sub(start))
 		templates.PrintWarningForPausedVMI(virtCli, vmi, namespace)
 
 		// write to FD <- pipeOutReader
@@ -280,19 +272,17 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 	}
 
 	if vncBin == "" {
-		glog.Errorf("No supported VNC app found in %s", osType)
+		log.Log.Errorf("No supported VNC app found in %s", osType)
 		err = fmt.Errorf("No supported VNC app found in %s", osType)
 	} else {
-		if glog.V(4) {
-			glog.Infof("Executing commandline: '%s %v'", vncBin, args)
-		}
-		// #nosec No risk for attacket injection. vncBin and args include predefined strings
+		log.Log.V(4).Infof("Executing commandline: '%s %v'", vncBin, args)
+		// #nosec No risk for attacker injection. vncBin and args include predefined strings
 		cmnd := exec.Command(vncBin, args...)
 		output, err := cmnd.CombinedOutput()
 		if err != nil {
-			glog.Errorf("%s execution failed: %v, output: %v", vncBin, err, string(output))
+			log.Log.Errorf("%s execution failed: %v, output: %v", vncBin, err, string(output))
 		} else {
-			glog.V(2).Infof("%v output: %v", vncBin, string(output))
+			log.Log.V(2).Infof("%v output: %v", vncBin, string(output))
 		}
 	}
 	viewResChan <- err
@@ -300,7 +290,7 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 
 func tigerVncArgs(port int) (args []string) {
 	args = append(args, fmt.Sprintf(listenAddressFmt, port))
-	if glog.V(4) {
+	if log.Log.Verbosity(4) {
 		args = append(args, "Log=*:stderr:100")
 	}
 	return
@@ -316,7 +306,7 @@ func realVncArgs(port int) (args []string) {
 	args = append(args, "-WarnUnencrypted=0")
 	args = append(args, "-Shared=0")
 	args = append(args, "-ShareFiles=0")
-	if glog.V(4) {
+	if log.Log.Verbosity(4) {
 		args = append(args, "-log=*:stderr:100")
 	}
 	return
@@ -324,7 +314,7 @@ func realVncArgs(port int) (args []string) {
 
 func remoteViewerArgs(port int) (args []string) {
 	args = append(args, fmt.Sprintf("vnc://127.0.0.1:%d", port))
-	if glog.V(4) {
+	if log.Log.Verbosity(4) {
 		args = append(args, "--debug")
 	}
 	return

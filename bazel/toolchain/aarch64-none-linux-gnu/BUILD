@@ -4,29 +4,14 @@ load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
 filegroup(name = "empty")
 
-filegroup(
-    name = "wrappers",
-    srcs = glob([
-        "wrappers/**",
-    ]),
-)
-
-filegroup(
-    name = "all_files",
-    srcs = [
-        ":wrappers",
-        "@aarch64-none-linux-gnu//:toolchain",
-    ],
-)
-
 cc_toolchain_config(name = "aarch64_toolchain_config")
 
 cc_toolchain(
     name = "aarch64_toolchain",
-    all_files = ":all_files",
-    compiler_files = ":all_files",
+    all_files = ":empty",
+    compiler_files = ":empty",
     dwp_files = ":empty",
-    linker_files = ":all_files",
+    linker_files = ":empty",
     objcopy_files = ":empty",
     strip_files = ":empty",
     toolchain_config = ":aarch64_toolchain_config",

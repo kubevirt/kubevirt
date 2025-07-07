@@ -20,6 +20,7 @@
 package kubecli
 
 import (
+	"context"
 	"net/http"
 	"path"
 
@@ -31,11 +32,12 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Kubevirt Client", func() {
 	var server *ghttp.Server
-	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/kubevirts"
+	basePath := "/apis/kubevirt.io/v1/namespaces/default/kubevirts"
 	kubevirtPath := path.Join(basePath, "testkubevirt")
 	proxyPath := "/proxy/path"
 
@@ -52,7 +54,7 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, kubevirtPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, kubevirt),
 		))
-		fetchedKubeVirt, err := client.KubeVirt(k8sv1.NamespaceDefault).Get("testkubevirt", &k8smetav1.GetOptions{})
+		fetchedKubeVirt, err := client.KubeVirt(k8sv1.NamespaceDefault).Get(context.Background(), "testkubevirt", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -70,7 +72,7 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, kubevirtPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testkubevirt")),
 		))
-		_, err = client.KubeVirt(k8sv1.NamespaceDefault).Get("testkubevirt", &k8smetav1.GetOptions{})
+		_, err = client.KubeVirt(k8sv1.NamespaceDefault).Get(context.Background(), "testkubevirt", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
@@ -89,11 +91,14 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewKubeVirtList(*kubevirt)),
 		))
-		fetchedKubeVirtList, err := client.KubeVirt(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
+		fetchedKubeVirtList, err := client.KubeVirt(k8sv1.NamespaceDefault).List(context.Background(), k8smetav1.ListOptions{})
+		apiVersion, kind := v1.KubeVirtGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedKubeVirtList.Items).To(HaveLen(1))
+		Expect(fetchedKubeVirtList.Items[0].APIVersion).To(Equal(apiVersion))
+		Expect(fetchedKubeVirtList.Items[0].Kind).To(Equal(kind))
 		Expect(fetchedKubeVirtList.Items[0]).To(Equal(*kubevirt))
 	},
 		Entry("with regular server URL", ""),
@@ -109,7 +114,7 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, kubevirt),
 		))
-		createdKubeVirt, err := client.KubeVirt(k8sv1.NamespaceDefault).Create(kubevirt)
+		createdKubeVirt, err := client.KubeVirt(k8sv1.NamespaceDefault).Create(context.Background(), kubevirt, k8smetav1.CreateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -128,7 +133,7 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, kubevirtPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, kubevirt),
 		))
-		updatedKubeVirt, err := client.KubeVirt(k8sv1.NamespaceDefault).Update(kubevirt)
+		updatedKubeVirt, err := client.KubeVirt(k8sv1.NamespaceDefault).Update(context.Background(), kubevirt, k8smetav1.UpdateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -151,8 +156,8 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.RespondWithJSONEncoded(http.StatusOK, kubevirt),
 		))
 
-		_, err = client.KubeVirt(k8sv1.NamespaceDefault).Patch(kubevirt.Name, types.MergePatchType,
-			[]byte("{\"spec\":{\"imagePullPolicy\":something}}"), &k8smetav1.PatchOptions{})
+		_, err = client.KubeVirt(k8sv1.NamespaceDefault).Patch(context.Background(), kubevirt.Name, types.MergePatchType,
+			[]byte("{\"spec\":{\"imagePullPolicy\":something}}"), k8smetav1.PatchOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -169,7 +174,7 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, kubevirtPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.KubeVirt(k8sv1.NamespaceDefault).Delete("testkubevirt", &k8smetav1.DeleteOptions{})
+		err = client.KubeVirt(k8sv1.NamespaceDefault).Delete(context.Background(), "testkubevirt", k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

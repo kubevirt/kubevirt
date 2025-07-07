@@ -30,38 +30,45 @@ def _impl(ctx):
     tool_paths = [
         tool_path(
             name = "ar",
-            path = "wrappers/aarch64-none-linux-gnu-ar",
+            path = "/usr/bin/aarch64-linux-gnu-ar",
         ),
         tool_path(
             name = "cpp",
-            path = "wrappers/aarch64-none-linux-gnu-cpp",
+            path = "/usr/bin/aarch64-linux-gnu-cpp",
         ),
         tool_path(
             name = "gcc",
-            path = "wrappers/aarch64-none-linux-gnu-gcc",
+            path = "/usr/bin/aarch64-linux-gnu-gcc",
         ),
         tool_path(
             name = "gcov",
-            path = "wrappers/aarch64-none-linux-gnu-gcov",
+            path = "/usr/bin/aarch64-linux-gnu-gcov",
         ),
         tool_path(
             name = "ld",
-            path = "wrappers/aarch64-none-linux-gnu-ld",
+            path = "/usr/bin/aarch64-linux-gnu-ld",
         ),
         tool_path(
             name = "nm",
-            path = "wrappers/aarch64-none-linux-gnu-nm",
+            path = "/usr/bin/aarch64-linux-gnu-nm",
         ),
         tool_path(
             name = "objdump",
-            path = "wrappers/aarch64-none-linux-gnu-objdump",
+            path = "/usr/bin/aarch64-linux-gnu-objdump",
         ),
         tool_path(
             name = "strip",
-            path = "wrappers/aarch64-none-linux-gnu-strip",
+            path = "/usr/bin/aarch64-linux-gnu-strip",
         ),
     ]
 
+    # Update the value of __TOOLCHAIN_SYSROOT__ every time the list
+    # of cxx_builtin_include_directories has been modified.
+    #
+    # This is needed to make bazel realize that the updated toolchain
+    # is different from the previous one and handle caching correctly.
+    #
+    # https://github.com/kubevirt/kubevirt/pull/8404#issuecomment-1275096374
     default_compiler_flags = feature(
         name = "default_compiler_flags",
         enabled = True,
@@ -77,6 +84,11 @@ def _impl(ctx):
                             "-D__DATE__=\"redacted\"",
                             "-D__TIMESTAMP__=\"redacted\"",
                             "-D__TIME__=\"redacted\"",
+                            "-D__TOOLCHAIN_SYSROOT__=\"centos-stream-9\"",
+                            "-nostdinc",
+                            "-I/usr/aarch64-linux-gnu/sys-root/usr/include",
+                            "-I/usr/lib/gcc/aarch64-linux-gnu/12/include",
+                            "-I/usr/lib/gcc/aarch64-linux-gnu/12/include-fixed",
                         ],
                     ),
                 ],
@@ -93,7 +105,7 @@ def _impl(ctx):
                 flag_groups = ([
                     flag_group(
                         flags = [
-                            "-lstdc++",
+                            "",
                         ],
                     ),
                 ]),
@@ -109,12 +121,9 @@ def _impl(ctx):
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
         cxx_builtin_include_directories = [
-            "/proc/self/cwd/external/aarch64-none-linux-gnu/aarch64-none-linux-gnu/include/c++/11.3.1/",
-            "/proc/self/cwd/external/aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/usr/include/",
-            "/proc/self/cwd/external/aarch64-none-linux-gnu/lib/gcc/aarch64-none-linux-gnu/11.3.1/include/",
-            "/proc/self/cwd/external/aarch64-none-linux-gnu/lib/gcc/aarch64-none-linux-gnu/11.3.1/include-fixed/",
-            "/proc/self/cwd/external/aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib/",
-            "/usr/lib/gcc/aarch64-redhat-linux/11/include",
+            "/usr/aarch64-linux-gnu/sys-root/usr/include",
+            "/usr/lib/gcc/aarch64-linux-gnu/12/include",
+            "/usr/lib/gcc/aarch64-linux-gnu/12/include-fixed",
         ],
         features = features,
         toolchain_identifier = "aarch64-toolchain",

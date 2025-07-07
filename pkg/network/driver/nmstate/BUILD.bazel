@@ -1,0 +1,42 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "spec.go",
+        "status.go",
+        "types.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/network/driver/nmstate",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/network/driver/ethtool:go_default_library",
+        "//pkg/network/driver/netlink:go_default_library",
+        "//pkg/network/driver/procsys:go_default_library",
+        "//pkg/network/driver/virtchroot:go_default_library",
+        "//pkg/pointer:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "integration_test.go",
+        "nmstate_suite_test.go",
+        "spec_test.go",
+        "status_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//pkg/network/driver/netlink/fake:go_default_library",
+        "//pkg/network/driver/procsys:go_default_library",
+        "//pkg/network/driver/procsys/fake:go_default_library",
+        "//pkg/pointer:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
+    ],
+)

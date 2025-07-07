@@ -292,6 +292,7 @@ const (
 	DOMAIN_PAUSED_STARTING_UP     = DomainPausedReason(C.VIR_DOMAIN_PAUSED_STARTING_UP)     /* the domainis being started */
 	DOMAIN_PAUSED_POSTCOPY        = DomainPausedReason(C.VIR_DOMAIN_PAUSED_POSTCOPY)        /* paused for post-copy migration */
 	DOMAIN_PAUSED_POSTCOPY_FAILED = DomainPausedReason(C.VIR_DOMAIN_PAUSED_POSTCOPY_FAILED) /* paused after failed post-copy */
+	DOMAIN_PAUSED_API_ERROR       = DomainPausedReason(C.VIR_DOMAIN_PAUSED_API_ERROR)       /* Some APIs (e.g., migration, snapshot) internally need to suspend a domain. This paused state reason is used when resume operation at the end of such API fails.*/
 )
 
 type DomainXMLFlags uint
@@ -669,7 +670,8 @@ const (
 type DomainBlockResizeFlags uint
 
 const (
-	DOMAIN_BLOCK_RESIZE_BYTES = DomainBlockResizeFlags(C.VIR_DOMAIN_BLOCK_RESIZE_BYTES)
+	DOMAIN_BLOCK_RESIZE_BYTES    = DomainBlockResizeFlags(C.VIR_DOMAIN_BLOCK_RESIZE_BYTES)
+	DOMAIN_BLOCK_RESIZE_CAPACITY = DomainBlockResizeFlags(C.VIR_DOMAIN_BLOCK_RESIZE_CAPACITY)
 )
 
 type Domain struct {
@@ -1010,6 +1012,13 @@ const (
 	DOMAIN_FD_ASSOCIATE_SECLABEL_WRITABLE = DomainFDAssociateFlags(C.VIR_DOMAIN_FD_ASSOCIATE_SECLABEL_WRITABLE)
 )
 
+type DomainGraphicsReloadType uint
+
+const (
+	DOMAIN_GRAPHICS_RELOAD_TYPE_ANY = DomainGraphicsReloadType(C.VIR_DOMAIN_GRAPHICS_RELOAD_TYPE_ANY)
+	DOMAIN_GRAPHICS_RELOAD_TYPE_VNC = DomainGraphicsReloadType(C.VIR_DOMAIN_GRAPHICS_RELOAD_TYPE_VNC)
+)
+
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainFree
 func (d *Domain) Free() error {
 	var err C.virError
@@ -1052,12 +1061,18 @@ func (d *Domain) CreateWithFlags(flags DomainCreateFlags) error {
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainCreateWithFiles
 func (d *Domain) CreateWithFiles(files []os.File, flags DomainCreateFlags) error {
-	cfiles := make([]C.int, len(files))
-	for i := 0; i < len(files); i++ {
+	nfiles := len(files)
+	cfiles := make([]C.int, nfiles)
+	for i := 0; i < nfiles; i++ {
 		cfiles[i] = C.int(files[i].Fd())
 	}
+
 	var err C.virError
-	result := C.virDomainCreateWithFilesWrapper(d.ptr, C.uint(len(files)), &cfiles[0], C.uint(flags), &err)
+	var cfilesPtr *C.int = nil
+	if nfiles > 0 {
+		cfilesPtr = &cfiles[0]
+	}
+	result := C.virDomainCreateWithFilesWrapper(d.ptr, C.uint(nfiles), cfilesPtr, C.uint(flags), &err)
 	if result == -1 {
 		return makeError(&err)
 	}
@@ -1729,7 +1744,17 @@ func (d *Domain) Screenshot(stream *Stream, screen, flags uint32) (string, error
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainSendKey
 func (d *Domain) SendKey(codeset, holdtime uint, keycodes []uint, flags uint32) error {
 	var err C.virError
-	result := C.virDomainSendKeyWrapper(d.ptr, C.uint(codeset), C.uint(holdtime), (*C.uint)(unsafe.Pointer(&keycodes[0])), C.int(len(keycodes)), C.uint(flags), &err)
+	nkeycodes := len(keycodes)
+	ckeycodes := make([]C.uint, nkeycodes)
+	for i, keycode := range keycodes {
+		ckeycodes[i] = C.uint(keycode)
+	}
+
+	var ckeycodesPtr *C.uint = nil
+	if nkeycodes > 0 {
+		ckeycodesPtr = &ckeycodes[0]
+	}
+	result := C.virDomainSendKeyWrapper(d.ptr, C.uint(codeset), C.uint(holdtime), ckeycodesPtr, C.int(nkeycodes), C.uint(flags), &err)
 	if result == -1 {
 		return makeError(&err)
 	}
@@ -1914,12 +1939,14 @@ func (d *Domain) InterfaceStats(path string) (*DomainInterfaceStats, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainMemoryStats
 func (d *Domain) MemoryStats(nrStats uint32, flags uint32) ([]DomainMemoryStat, error) {
-	ptr := make([]C.virDomainMemoryStatStruct, nrStats)
+	cstats := make([]C.virDomainMemoryStatStruct, nrStats)
 
 	var err C.virError
-	result := C.virDomainMemoryStatsWrapper(
-		d.ptr, (C.virDomainMemoryStatPtr)(unsafe.Pointer(&ptr[0])),
-		C.uint(nrStats), C.uint(flags), &err)
+	var cstatsPtr *C.virDomainMemoryStatStruct = nil
+	if nrStats > 0 {
+		cstatsPtr = &cstats[0]
+	}
+	result := C.virDomainMemoryStatsWrapper(d.ptr, cstatsPtr, C.uint(nrStats), C.uint(flags), &err)
 
 	if result == -1 {
 		return []DomainMemoryStat{}, makeError(&err)
@@ -1928,8 +1955,8 @@ func (d *Domain) MemoryStats(nrStats uint32, flags uint32) ([]DomainMemoryStat, 
 	out := make([]DomainMemoryStat, 0)
 	for i := 0; i < int(result); i++ {
 		out = append(out, DomainMemoryStat{
-			Tag: int32(ptr[i].tag),
-			Val: uint64(ptr[i].val),
+			Tag: int32(cstats[i].tag),
+			Val: uint64(cstats[i].val),
 		})
 	}
 	return out, nil
@@ -2030,7 +2057,11 @@ func (d *Domain) PinVcpu(vcpu uint, cpuMap []bool) error {
 	}
 
 	var err C.virError
-	result := C.virDomainPinVcpuWrapper(d.ptr, C.uint(vcpu), &ccpumap[0], C.int(maplen), &err)
+	var ccpumapPtr *C.uchar = nil
+	if maplen > 0 {
+		ccpumapPtr = &ccpumap[0]
+	}
+	result := C.virDomainPinVcpuWrapper(d.ptr, C.uint(vcpu), ccpumapPtr, C.int(maplen), &err)
 
 	if result == -1 {
 		return makeError(&err)
@@ -2052,7 +2083,11 @@ func (d *Domain) PinVcpuFlags(vcpu uint, cpuMap []bool, flags DomainModification
 	}
 
 	var err C.virError
-	result := C.virDomainPinVcpuFlagsWrapper(d.ptr, C.uint(vcpu), &ccpumap[0], C.int(maplen), C.uint(flags), &err)
+	var ccpumapPtr *C.uchar = nil
+	if maplen > 0 {
+		ccpumapPtr = &ccpumap[0]
+	}
+	result := C.virDomainPinVcpuFlagsWrapper(d.ptr, C.uint(vcpu), ccpumapPtr, C.int(maplen), C.uint(flags), &err)
 
 	if result == -1 {
 		return makeError(&err)
@@ -2335,7 +2370,7 @@ func (d *Domain) BlockRebase(disk string, base string, bandwidth uint64, flags D
 	defer C.free(unsafe.Pointer(cdisk))
 	var cbase *C.char
 	if base != "" {
-		cbase := C.CString(base)
+		cbase = C.CString(base)
 		defer C.free(unsafe.Pointer(cbase))
 	}
 	var err C.virError
@@ -2364,8 +2399,12 @@ func (d *Domain) BlockPeek(disk string, offset uint64, size uint64, flags uint32
 	defer C.free(unsafe.Pointer(cdisk))
 	data := make([]byte, size)
 	var err C.virError
-	ret := C.virDomainBlockPeekWrapper(d.ptr, cdisk, C.ulonglong(offset), C.size_t(size),
-		unsafe.Pointer(&data[0]), C.uint(flags), &err)
+
+	var dataPtr unsafe.Pointer = nil
+	if size > 0 {
+		dataPtr = unsafe.Pointer(&data[0])
+	}
+	ret := C.virDomainBlockPeekWrapper(d.ptr, cdisk, C.ulonglong(offset), C.size_t(size), dataPtr, C.uint(flags), &err)
 	if ret == -1 {
 		return []byte{}, makeError(&err)
 	}
@@ -2377,8 +2416,12 @@ func (d *Domain) BlockPeek(disk string, offset uint64, size uint64, flags uint32
 func (d *Domain) MemoryPeek(start uint64, size uint64, flags DomainMemoryFlags) ([]byte, error) {
 	data := make([]byte, size)
 	var err C.virError
-	ret := C.virDomainMemoryPeekWrapper(d.ptr, C.ulonglong(start), C.size_t(size),
-		unsafe.Pointer(&data[0]), C.uint(flags), &err)
+
+	var dataPtr unsafe.Pointer = nil
+	if size > 0 {
+		dataPtr = unsafe.Pointer(&data[0])
+	}
+	ret := C.virDomainMemoryPeekWrapper(d.ptr, C.ulonglong(start), C.size_t(size), dataPtr, C.uint(flags), &err)
 	if ret == -1 {
 		return []byte{}, makeError(&err)
 	}
@@ -2440,44 +2483,51 @@ func (d *Domain) Migrate2(dconn *Connect, dxml string, flags DomainMigrateFlags,
 }
 
 type DomainMigrateParameters struct {
-	URISet                    bool
-	URI                       string
-	DestNameSet               bool
-	DestName                  string
-	DestXMLSet                bool
-	DestXML                   string
-	PersistXMLSet             bool
-	PersistXML                string
-	BandwidthSet              bool
-	Bandwidth                 uint64
-	GraphicsURISet            bool
-	GraphicsURI               string
-	ListenAddressSet          bool
-	ListenAddress             string
-	MigrateDisksSet           bool
-	MigrateDisks              []string
-	DisksPortSet              bool
-	DisksPort                 int
-	CompressionSet            bool
-	Compression               string
-	CompressionMTLevelSet     bool
-	CompressionMTLevel        int
-	CompressionMTThreadsSet   bool
-	CompressionMTThreads      int
-	CompressionMTDThreadsSet  bool
-	CompressionMTDThreads     int
-	CompressionXBZRLECacheSet bool
-	CompressionXBZRLECache    uint64
-	AutoConvergeInitialSet    bool
-	AutoConvergeInitial       int
-	AutoConvergeIncrementSet  bool
-	AutoConvergeIncrement     int
-	ParallelConnectionsSet    bool
-	ParallelConnections       int
-	TLSDestinationSet         bool
-	TLSDestination            string
-	DisksURISet               bool
-	DisksURI                  string
+	URISet                       bool
+	URI                          string
+	DestNameSet                  bool
+	DestName                     string
+	DestXMLSet                   bool
+	DestXML                      string
+	PersistXMLSet                bool
+	PersistXML                   string
+	BandwidthSet                 bool
+	Bandwidth                    uint64
+	GraphicsURISet               bool
+	GraphicsURI                  string
+	ListenAddressSet             bool
+	ListenAddress                string
+	MigrateDisksSet              bool
+	MigrateDisks                 []string
+	DisksPortSet                 bool
+	DisksPort                    int
+	CompressionSet               bool
+	Compression                  string
+	CompressionMTLevelSet        bool
+	CompressionMTLevel           int
+	CompressionMTThreadsSet      bool
+	CompressionMTThreads         int
+	CompressionMTDThreadsSet     bool
+	CompressionMTDThreads        int
+	CompressionXBZRLECacheSet    bool
+	CompressionXBZRLECache       uint64
+	AutoConvergeInitialSet       bool
+	AutoConvergeInitial          int
+	AutoConvergeIncrementSet     bool
+	AutoConvergeIncrement        int
+	ParallelConnectionsSet       bool
+	ParallelConnections          int
+	TLSDestinationSet            bool
+	TLSDestination               string
+	DisksURISet                  bool
+	DisksURI                     string
+	CompressionZlibLevelSet      bool
+	CompressionZlibLevel         int
+	CompressionZstdLevelSet      bool
+	CompressionZstdLevel         int
+	MigrateDisksDetectZeroesSet  bool
+	MigrateDisksDetectZeroes     bool // Deprecated: wrong type & unused. Delete in v2.nnn
+	MigrateDisksDetectZeroesList []string
 }
 
 func getMigrateParameterFieldInfo(params *DomainMigrateParameters) map[string]typedParamsFieldInfo {
@@ -2561,6 +2611,18 @@ func getMigrateParameterFieldInfo(params *DomainMigrateParameters) map[string]ty
 		C.VIR_MIGRATE_PARAM_DISKS_URI: typedParamsFieldInfo{
 			set: &params.DisksURISet,
 			s:   &params.DisksURI,
+		},
+		C.VIR_MIGRATE_PARAM_COMPRESSION_ZLIB_LEVEL: typedParamsFieldInfo{
+			set: &params.CompressionZlibLevelSet,
+			i:   &params.CompressionZlibLevel,
+		},
+		C.VIR_MIGRATE_PARAM_COMPRESSION_ZSTD_LEVEL: typedParamsFieldInfo{
+			set: &params.CompressionZstdLevelSet,
+			i:   &params.CompressionZstdLevel,
+		},
+		C.VIR_MIGRATE_PARAM_MIGRATE_DISKS_DETECT_ZEROES: typedParamsFieldInfo{
+			set: &params.MigrateDisksDetectZeroesSet,
+			sl:  &params.MigrateDisksDetectZeroesList,
 		},
 	}
 }
@@ -3086,8 +3148,12 @@ func (d *Domain) GetDiskErrors(flags uint32) ([]DomainDiskError, error) {
 
 	maxerrors := ret
 	cerrors := make([]C.virDomainDiskError, maxerrors)
+	var cerrorsPtr *C.virDomainDiskError = nil
+	if maxerrors > 0 {
+		cerrorsPtr = &cerrors[0]
+	}
 
-	ret = C.virDomainGetDiskErrorsWrapper(d.ptr, (*C.virDomainDiskError)(unsafe.Pointer(&cerrors[0])), C.uint(maxerrors), C.uint(flags), &err)
+	ret = C.virDomainGetDiskErrorsWrapper(d.ptr, cerrorsPtr, C.uint(maxerrors), C.uint(flags), &err)
 	if ret == -1 {
 		return []DomainDiskError{}, makeError(&err)
 	}
@@ -3190,6 +3256,8 @@ type DomainJobInfo struct {
 	DiskTempTotal             uint64
 	ErrorMessageSet           bool
 	ErrorMessage              string
+	VFIODataTransferredSet    bool
+	VFIODataTransferred       uint64
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainGetJobInfo
@@ -3370,6 +3438,10 @@ func getDomainJobInfoFieldInfo(params *DomainJobInfo) map[string]typedParamsFiel
 		C.VIR_DOMAIN_JOB_ERRMSG: typedParamsFieldInfo{
 			set: &params.ErrorMessageSet,
 			s:   &params.ErrorMessage,
+		},
+		C.VIR_DOMAIN_JOB_VFIO_DATA_TRANSFERRED: typedParamsFieldInfo{
+			set: &params.VFIODataTransferredSet,
+			ul:  &params.VFIODataTransferred,
 		},
 	}
 }
@@ -4176,19 +4248,20 @@ func (d *Domain) HasCurrentSnapshot(flags uint32) (bool, error) {
 func (d *Domain) FSFreeze(mounts []string, flags uint32) error {
 	var err C.virError
 	var ret C.int
-	if len(mounts) == 0 {
-		ret = C.virDomainFSFreezeWrapper(d.ptr, nil, 0, C.uint(flags), &err)
-	} else {
-		cmounts := make([](*C.char), len(mounts))
+	nmounts := len(mounts)
+	cmounts := make([](*C.char), nmounts)
 
-		for i := 0; i < len(mounts); i++ {
-			cmounts[i] = C.CString(mounts[i])
-			defer C.free(unsafe.Pointer(cmounts[i]))
-		}
-
-		nmounts := len(mounts)
-		ret = C.virDomainFSFreezeWrapper(d.ptr, (**C.char)(unsafe.Pointer(&cmounts[0])), C.uint(nmounts), C.uint(flags), &err)
+	for i := 0; i < nmounts; i++ {
+		cmounts[i] = C.CString(mounts[i])
+		defer C.free(unsafe.Pointer(cmounts[i]))
 	}
+
+	var cmountsPtr **C.char = nil
+	if nmounts > 0 {
+		cmountsPtr = &cmounts[0]
+	}
+
+	ret = C.virDomainFSFreezeWrapper(d.ptr, cmountsPtr, C.uint(nmounts), C.uint(flags), &err)
 	if ret == -1 {
 		return makeError(&err)
 	}
@@ -4200,19 +4273,21 @@ func (d *Domain) FSFreeze(mounts []string, flags uint32) error {
 func (d *Domain) FSThaw(mounts []string, flags uint32) error {
 	var err C.virError
 	var ret C.int
-	if len(mounts) == 0 {
-		ret = C.virDomainFSThawWrapper(d.ptr, nil, 0, C.uint(flags), &err)
-	} else {
-		cmounts := make([](*C.char), len(mounts))
+	nmounts := len(mounts)
 
-		for i := 0; i < len(mounts); i++ {
-			cmounts[i] = C.CString(mounts[i])
-			defer C.free(unsafe.Pointer(cmounts[i]))
-		}
+	cmounts := make([](*C.char), nmounts)
 
-		nmounts := len(mounts)
-		ret = C.virDomainFSThawWrapper(d.ptr, (**C.char)(unsafe.Pointer(&cmounts[0])), C.uint(nmounts), C.uint(flags), &err)
+	for i := 0; i < nmounts; i++ {
+		cmounts[i] = C.CString(mounts[i])
+		defer C.free(unsafe.Pointer(cmounts[i]))
 	}
+
+	var cmountsPtr **C.char = nil
+	if nmounts > 0 {
+		cmountsPtr = &cmounts[0]
+	}
+
+	ret = C.virDomainFSThawWrapper(d.ptr, cmountsPtr, C.uint(nmounts), C.uint(flags), &err)
 	if ret == -1 {
 		return makeError(&err)
 	}
@@ -4224,7 +4299,7 @@ func (d *Domain) FSThaw(mounts []string, flags uint32) error {
 func (d *Domain) FSTrim(mount string, minimum uint64, flags uint32) error {
 	var cmount *C.char
 	if mount != "" {
-		cmount := C.CString(mount)
+		cmount = C.CString(mount)
 		defer C.free(unsafe.Pointer(cmount))
 	}
 
@@ -4514,7 +4589,11 @@ func (d *Domain) PinEmulator(cpumap []bool, flags DomainModificationImpact) erro
 	}
 
 	var err C.virError
-	ret := C.virDomainPinEmulatorWrapper(d.ptr, &ccpumaps[0], C.int(maplen), C.uint(flags), &err)
+	var ccpumapPtr *C.uchar = nil
+	if maplen > 0 {
+		ccpumapPtr = &ccpumaps[0]
+	}
+	ret := C.virDomainPinEmulatorWrapper(d.ptr, ccpumapPtr, C.int(maplen), C.uint(flags), &err)
 	if ret == -1 {
 		return makeError(&err)
 	}
@@ -4536,7 +4615,11 @@ func (d *Domain) PinIOThread(iothreadid uint, cpumap []bool, flags DomainModific
 	}
 
 	var err C.virError
-	ret := C.virDomainPinIOThreadWrapper(d.ptr, C.uint(iothreadid), &ccpumaps[0], C.int(maplen), C.uint(flags), &err)
+	var ccpumapPtr *C.uchar = nil
+	if maplen > 0 {
+		ccpumapPtr = &ccpumaps[0]
+	}
+	ret := C.virDomainPinIOThreadWrapper(d.ptr, C.uint(iothreadid), ccpumapPtr, C.int(maplen), C.uint(flags), &err)
 	if ret == -1 {
 		return makeError(&err)
 	}
@@ -4636,8 +4719,11 @@ func (d *Domain) Save(destFile string) error {
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainSaveFlags
 func (d *Domain) SaveFlags(destFile string, destXml string, flags DomainSaveRestoreFlags) error {
 	cDestFile := C.CString(destFile)
-	cDestXml := C.CString(destXml)
-	defer C.free(unsafe.Pointer(cDestXml))
+	var cDestXml *C.char
+	if destXml != "" {
+		cDestXml = C.CString(destXml)
+		defer C.free(unsafe.Pointer(cDestXml))
+	}
 	defer C.free(unsafe.Pointer(cDestFile))
 	var err C.virError
 	result := C.virDomainSaveFlagsWrapper(d.ptr, cDestFile, cDestXml, C.uint(flags), &err)
@@ -4954,6 +5040,8 @@ type DomainLaunchSecurityParameters struct {
 	SEVBuildID        uint
 	SEVPolicySet      bool
 	SEVPolicy         uint
+	SEVSNPPolicySet   bool
+	SEVSNPPolicy      uint64
 }
 
 func getDomainLaunchSecurityFieldInfo(params *DomainLaunchSecurityParameters) map[string]typedParamsFieldInfo {
@@ -4977,6 +5065,10 @@ func getDomainLaunchSecurityFieldInfo(params *DomainLaunchSecurityParameters) ma
 		C.VIR_DOMAIN_LAUNCH_SECURITY_SEV_POLICY: typedParamsFieldInfo{
 			set: &params.SEVPolicySet,
 			ui:  &params.SEVPolicy,
+		},
+		C.VIR_DOMAIN_LAUNCH_SECURITY_SEV_SNP_POLICY: typedParamsFieldInfo{
+			set: &params.SEVSNPPolicySet,
+			ul:  &params.SEVSNPPolicy,
 		},
 	}
 }
@@ -5528,9 +5620,9 @@ func (d *Domain) GetGuestInfo(types DomainGuestInfoTypes, flags uint32) (*Domain
 			if diskLengths.DependencyCountSet && diskLengths.DependencyCount > 0 {
 				info.Disks[i].Dependencies = make([]DomainGuestInfoDiskDependency, diskLengths.DependencyCount)
 				for j := 0; j < int(diskLengths.DependencyCount); j++ {
-					diskInfo := getDomainGuestInfoDiskDependencyFieldInfo(i, j, &info.Disks[i].Dependencies[j])
+					diskInfoDep := getDomainGuestInfoDiskDependencyFieldInfo(i, j, &info.Disks[i].Dependencies[j])
 
-					_, gerr = typedParamsUnpack(cparams, cnparams, diskInfo)
+					_, gerr = typedParamsUnpack(cparams, cnparams, diskInfoDep)
 					if gerr != nil {
 						return nil, gerr
 					}
@@ -5651,8 +5743,13 @@ func (d *Domain) AuthorizedSSHKeysSet(user string, keys []string, flags DomainAu
 	}
 
 	nkeys := len(keys)
+	var cKeysPtr **C.char = nil
+	if nkeys > 0 {
+		cKeysPtr = (**C.char)(unsafe.Pointer(&ckeys[0]))
+	}
+
 	var err C.virError
-	ret := C.virDomainAuthorizedSSHKeysSetWrapper(d.ptr, cuser, (**C.char)(unsafe.Pointer(&ckeys[0])), C.uint(nkeys), C.uint(flags), &err)
+	ret := C.virDomainAuthorizedSSHKeysSetWrapper(d.ptr, cuser, cKeysPtr, C.uint(nkeys), C.uint(flags), &err)
 	if ret == -1 {
 		return makeError(&err)
 	}
@@ -5692,17 +5789,32 @@ func (d *Domain) StartDirtyRateCalc(secs int, flags DomainDirtyRateCalcFlags) er
 }
 
 func (d *Domain) FDAssociate(name string, files []os.File, flags DomainFDAssociateFlags) error {
-	cfiles := make([]C.int, len(files))
-	for i := 0; i < len(files); i++ {
+	nfiles := len(files)
+	cfiles := make([]C.int, nfiles)
+	for i := 0; i < nfiles; i++ {
 		cfiles[i] = C.int(files[i].Fd())
 	}
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 	var err C.virError
-	result := C.virDomainFDAssociateWrapper(d.ptr, cname, C.uint(len(files)), &cfiles[0], C.uint(flags), &err)
+	var cfilesPtr *C.int = nil
+	if nfiles > 0 {
+		cfilesPtr = &cfiles[0]
+	}
+	result := C.virDomainFDAssociateWrapper(d.ptr, cname, C.uint(nfiles), cfilesPtr, C.uint(flags), &err)
 	if result == -1 {
 		return makeError(&err)
 	}
 	return nil
 
+}
+
+func (d *Domain) GraphicsReload(typ DomainGraphicsReloadType, flags uint32) error {
+	var err C.virError
+	ret := C.virDomainGraphicsReloadWrapper(d.ptr, C.uint(typ), C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
+
+	return nil
 }

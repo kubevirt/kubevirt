@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// DaemonSetApplyConfiguration represents an declarative configuration of the DaemonSet type for use
+// DaemonSetApplyConfiguration represents a declarative configuration of the DaemonSet type for use
 // with apply.
 type DaemonSetApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -36,7 +36,7 @@ type DaemonSetApplyConfiguration struct {
 	Status                           *DaemonSetStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// DaemonSet constructs an declarative configuration of the DaemonSet type for use with
+// DaemonSet constructs a declarative configuration of the DaemonSet type for use with
 // apply.
 func DaemonSet(name, namespace string) *DaemonSetApplyConfiguration {
 	b := &DaemonSetApplyConfiguration{}
@@ -123,15 +123,6 @@ func (b *DaemonSetApplyConfiguration) WithGenerateName(value string) *DaemonSetA
 func (b *DaemonSetApplyConfiguration) WithNamespace(value string) *DaemonSetApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *DaemonSetApplyConfiguration) WithSelfLink(value string) *DaemonSetApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -244,15 +235,6 @@ func (b *DaemonSetApplyConfiguration) WithFinalizers(values ...string) *DaemonSe
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *DaemonSetApplyConfiguration) WithClusterName(value string) *DaemonSetApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *DaemonSetApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -273,4 +255,10 @@ func (b *DaemonSetApplyConfiguration) WithSpec(value *DaemonSetSpecApplyConfigur
 func (b *DaemonSetApplyConfiguration) WithStatus(value *DaemonSetStatusApplyConfiguration) *DaemonSetApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *DaemonSetApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

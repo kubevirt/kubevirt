@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "fake_alertmanager.go",
+        "fake_monitoring_client.go",
+        "fake_podmonitor.go",
+        "fake_probe.go",
+        "fake_prometheus.go",
+        "fake_prometheusrule.go",
+        "fake_servicemonitor.go",
+        "fake_thanosruler.go",
+    ],
+    importpath = "kubevirt.io/client-go/prometheusoperator/typed/monitoring/v1/fake",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/prometheusoperator/typed/monitoring/v1:go_default_library",
+        "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/client-go/testing:go_default_library",
+    ],
+)

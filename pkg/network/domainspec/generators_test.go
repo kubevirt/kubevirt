@@ -20,13 +20,10 @@
 package domainspec
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"runtime"
-	"strings"
-
-	"kubevirt.io/kubevirt/pkg/network/istio"
+	"strconv"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -34,7 +31,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/api/core/v1"
-	api2 "kubevirt.io/client-go/api"
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -46,7 +42,7 @@ var _ = Describe("Pod Network", func() {
 	var ctrl *gomock.Controller
 	var fakeMac net.HardwareAddr
 	var tmpDir string
-	var mtu int
+	const mtu = "1410"
 
 	BeforeEach(func() {
 		dutils.MockDefaultOwnershipManager()
@@ -56,7 +52,6 @@ var _ = Describe("Pod Network", func() {
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
-		mtu = 1410
 		fakeMac, _ = net.ParseMAC("12:34:56:78:9A:BC")
 	})
 
@@ -65,149 +60,71 @@ var _ = Describe("Pod Network", func() {
 	})
 
 	Context("on successful setup", func() {
-		Context("Slirp Plug", func() {
-			var (
-				domain *api.Domain
-				vmi    *v1.VirtualMachineInstance
-			)
-
-			BeforeEach(func() {
-				domain = NewDomainWithSlirpInterface()
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				vmi = newVMISlirpInterface("testnamespace", "testVmName")
-			})
-
-			It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
-				specGenerator := NewSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
-				Expect(specGenerator.Generate()).To(Succeed())
-
-				Expect(domain.Spec.Devices.Interfaces).To(BeEmpty())
-				Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: `{"driver":"e1000","netdev":"default","id":"default"}`}))
-			})
-
-			It("Should append MAC address to qemu arguments if set", func() {
-				mac := "de-ad-00-00-be-af"
-				device := fmt.Sprintf(`{"driver":"e1000","netdev":"default","id":"default","mac":%q}`, mac)
-
-				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = mac
-				specGenerator := NewSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
-				Expect(specGenerator.Generate()).To(Succeed())
-
-				Expect(domain.Spec.Devices.Interfaces).To(BeEmpty())
-				Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: device}))
-			})
-			It("Should create an interface in the qemu command line, remove it from the interfaces and leave the other interfaces inplace", func() {
-				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, api.Interface{
-					Model: &api.Model{
-						Type: v1.VirtIO,
-					},
-					Type: "bridge",
-					Source: api.InterfaceSource{
-						Bridge: api.DefaultBridgeName,
-					},
-					Alias: api.NewUserDefinedAlias("default"),
-				})
-				specGenerator := NewSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
-				Expect(specGenerator.Generate()).To(Succeed())
-
-				Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
-				Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: `{"driver":"e1000","netdev":"default","id":"default"}`}))
-			})
-		})
-		Context("Macvtap plug", func() {
+		Context("tap generator", func() {
 			const primaryPodIfaceName = "eth0"
+			const tapName = "tap0"
+			const specMAC = "11:22:33:44:55:66"
 
 			var (
 				domain        *api.Domain
-				specGenerator *MacvtapLibvirtSpecGenerator
+				specGenerator *TapLibvirtSpecGenerator
+				tapInterface  netlink.Link
+				vmi           *v1.VirtualMachineInstance
 			)
-
 			BeforeEach(func() {
-				domain = NewDomainWithMacvtapInterface("default")
+				domain = NewDomainInterface("default")
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				vmi := newVMIMacvtapInterface("testnamespace", "testVmName", "default")
-				macvtapInterface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodIfaceName, MTU: mtu, HardwareAddr: fakeMac}}
-				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(macvtapInterface, nil)
-				specGenerator = NewMacvtapLibvirtSpecGenerator(
-					&vmi.Spec.Domain.Devices.Interfaces[0], domain, primaryPodIfaceName, mockNetwork)
+				vmi = newVMIMasqueradeInterface("testnamespace", "testVmName")
+				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = specMAC
+				mtuVal, _ := strconv.Atoi(mtu)
+				iface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodIfaceName, MTU: mtuVal, HardwareAddr: fakeMac}}
+				tapInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: tapName}}
+				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(iface, nil)
+				specGenerator = NewTapLibvirtSpecGenerator(
+					&vmi.Spec.Domain.Devices.Interfaces[0],
+					vmi.Spec.Networks[0],
+					domain,
+					primaryPodIfaceName,
+					mockNetwork,
+				)
 			})
 
-			It("Should pass a non-privileged macvtap interface to qemu", func() {
+			It("Should use the tap device as the target", func() {
+				mockNetwork.EXPECT().LinkByName(tapName).Return(tapInterface, nil)
+
 				Expect(specGenerator.Generate()).To(Succeed())
 
-				Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1), "should have a single interface")
-				Expect(domain.Spec.Devices.Interfaces[0].Target).To(
-					Equal(
-						&api.InterfaceTarget{
-							Device:  primaryPodIfaceName,
-							Managed: "no",
-						}), "should have an unmanaged interface")
-				Expect(domain.Spec.Devices.Interfaces[0].MAC).To(Equal(&api.MAC{MAC: fakeMac.String()}), "should have the expected MAC address")
-				Expect(domain.Spec.Devices.Interfaces[0].MTU).To(Equal(&api.MTU{Size: "1410"}), "should have the expected MTU")
-			})
-		})
-		Context("Passt plug", func() {
-			var specGenerator *PasstLibvirtSpecGenerator
-
-			getPorts := func(specGenerator *PasstLibvirtSpecGenerator) string {
-				return strings.Join(specGenerator.generatePorts(), " ")
-			}
-
-			createPasstInterface := func() *v1.Interface {
-				return &v1.Interface{
-					Name: "passt_test",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						Passt: &v1.InterfacePasst{},
-					},
-				}
-			}
-
-			It("Should forward all ports if ports are not specified in spec.interfaces", func() {
-				specGenerator = NewPasstLibvirtSpecGenerator(
-					createPasstInterface(), nil, api2.NewMinimalVMI("passtVmi"))
-				Expect(getPorts(specGenerator)).To(Equal("-t all -u all"))
+				verifyTapDomain(domain.Spec.Devices.Interfaces, tapName, mtu, specMAC)
 			})
 
-			It("Should forward the specified tcp and udp ports", func() {
-				passtIface := createPasstInterface()
-				passtIface.Ports = []v1.Port{{Port: 1}, {Protocol: "UdP", Port: 2}, {Protocol: "UDP", Port: 3}, {Protocol: "tcp", Port: 4}}
-				specGenerator = NewPasstLibvirtSpecGenerator(
-					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
-				Expect(getPorts(specGenerator)).To(Equal("-t 1,4 -u 2,3"))
+			It("Should use the pod interface as the target", func() {
+				mockNetwork.EXPECT().LinkByName(tapName).Return(nil, netlink.LinkNotFoundError{})
+
+				Expect(specGenerator.Generate()).To(Succeed())
+
+				verifyTapDomain(domain.Spec.Devices.Interfaces, primaryPodIfaceName, mtu, specMAC)
 			})
 
-			It("Should forward the specified tcp ports", func() {
-				passtIface := createPasstInterface()
-				passtIface.Ports = []v1.Port{{Protocol: "TCP", Port: 1}, {Protocol: "TCP", Port: 4}}
-				specGenerator = NewPasstLibvirtSpecGenerator(
-					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
-				Expect(getPorts(specGenerator)).To(Equal("-t 1,4"))
-			})
+			It("Should use the pod interface MAC address", func() {
+				mockNetwork.EXPECT().LinkByName(tapName).Return(tapInterface, nil)
+				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = ""
 
-			It("Should forward the specified udp ports", func() {
-				passtIface := createPasstInterface()
-				passtIface.Ports = []v1.Port{{Protocol: "UDP", Port: 2}, {Protocol: "UDP", Port: 3}}
-				specGenerator = NewPasstLibvirtSpecGenerator(
-					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
-				Expect(getPorts(specGenerator)).To(Equal("-u 2,3"))
-			})
+				Expect(specGenerator.Generate()).To(Succeed())
 
-			It("Should exclude istio ports", func() {
-				passtIface := createPasstInterface()
-				istioVmi := api2.NewMinimalVMI("passtVmi")
-				istioVmi.Annotations = map[string]string{
-					istio.ISTIO_INJECT_ANNOTATION: "true",
-				}
-				specGenerator = NewPasstLibvirtSpecGenerator(
-					passtIface, nil, istioVmi)
-				Expect(getPorts(specGenerator)).To(Equal("-t ~15000,~15001,~15004,~15006,~15008,~15009,~15020,~15021,~15053,~15090 -u all"))
+				verifyTapDomain(domain.Spec.Devices.Interfaces, tapName, mtu, fakeMac.String())
 			})
 		})
 	})
 })
+
+func verifyTapDomain(domainIfaces []api.Interface, expectedTargetName, expectedMTU, expectedMAC string) {
+	ExpectWithOffset(1, domainIfaces).To(HaveLen(1), "should have a single interface")
+	ExpectWithOffset(1, domainIfaces[0].Target).To(
+		Equal(
+			&api.InterfaceTarget{
+				Device:  expectedTargetName,
+				Managed: "no",
+			}), "should have an unmanaged interface")
+	ExpectWithOffset(1, domainIfaces[0].MAC).To(Equal(&api.MAC{MAC: expectedMAC}), "should have the expected MAC address")
+	ExpectWithOffset(1, domainIfaces[0].MTU).To(Equal(&api.MTU{Size: expectedMTU}), "should have the expected MTU")
+}

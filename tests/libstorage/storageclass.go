@@ -31,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var wffc = storagev1.VolumeBindingWaitForFirstConsumer
@@ -51,9 +49,10 @@ func CreateStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
 		VolumeBindingMode: bindingMode,
 	}
 	_, err := virtClient.StorageV1().StorageClasses().Create(context.Background(), sc, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util.PanicOnError(err)
-	}
+	Expect(err).To(Or(
+		Not(HaveOccurred()),
+		MatchError(errors.IsAlreadyExists, "errors.IsAlreadyExists"),
+	))
 }
 
 func DeleteStorageClass(name string) {
@@ -63,17 +62,72 @@ func DeleteStorageClass(name string) {
 	if errors.IsNotFound(err) {
 		return
 	}
-	util.PanicOnError(err)
+	Expect(err).ToNot(HaveOccurred())
 
-	err = virtClient.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
-	util.PanicOnError(err)
+	Expect(virtClient.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})).To(Succeed())
 }
 
 func GetSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
-	if Config != nil && Config.StorageSnapshot != "" {
-		return Config.StorageSnapshot, nil
+	var snapshotStorageClass string
+
+	if Config == nil || Config.StorageSnapshot == "" {
+		return "", nil
+	}
+	snapshotStorageClass = Config.StorageSnapshot
+
+	sc, err := client.StorageV1().StorageClasses().Get(context.Background(), snapshotStorageClass, metav1.GetOptions{})
+	if err != nil {
+		return "", err
 	}
 
+	crd, err := client.
+		ExtensionsClient().
+		ApiextensionsV1().
+		CustomResourceDefinitions().
+		Get(context.Background(), "volumesnapshotclasses.snapshot.storage.k8s.io", metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+
+		return "", err
+	}
+
+	var hasV1 bool
+	for _, v := range crd.Spec.Versions {
+		if v.Name == "v1" && v.Served {
+			hasV1 = true
+		}
+	}
+
+	if !hasV1 {
+		return "", nil
+	}
+
+	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	if len(volumeSnapshotClasses.Items) == 0 {
+		return "", nil
+	}
+
+	var hasMatchingSnapClass bool
+	for _, snapClass := range volumeSnapshotClasses.Items {
+		if sc.Provisioner == snapClass.Driver {
+			hasMatchingSnapClass = true
+			break
+		}
+	}
+
+	if !hasMatchingSnapClass {
+		return "", nil
+	}
+
+	return snapshotStorageClass, nil
+}
+
+func GetSnapshotClass(scName string, client kubecli.KubevirtClient) (string, error) {
 	crd, err := client.
 		ExtensionsClient().
 		ApiextensionsV1().
@@ -105,32 +159,67 @@ func GetSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 	if len(volumeSnapshotClasses.Items) == 0 {
 		return "", nil
 	}
-	defaultSnapClass := volumeSnapshotClasses.Items[0]
+	sc, err := client.StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
 	for _, snapClass := range volumeSnapshotClasses.Items {
-		if snapClass.Annotations["snapshot.storage.kubernetes.io/is-default-class"] == "true" {
-			defaultSnapClass = snapClass
+		// Validate association between snapshot class and storage class
+		if snapClass.Driver == sc.Provisioner {
+			return snapClass.Name, nil
 		}
 	}
 
+	return "", nil
+}
+
+func GetWFFCStorageSnapshotClass(client kubecli.KubevirtClient) (string, error) {
+	crd, err := client.
+		ExtensionsClient().
+		ApiextensionsV1().
+		CustomResourceDefinitions().
+		Get(context.Background(), "volumesnapshotclasses.snapshot.storage.k8s.io", metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+
+		return "", err
+	}
+
+	hasV1 := false
+	for _, v := range crd.Spec.Versions {
+		if v.Name == "v1" && v.Served {
+			hasV1 = true
+		}
+	}
+
+	if !hasV1 {
+		return "", nil
+	}
+
+	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	if len(volumeSnapshotClasses.Items) == 0 {
+		return "", nil
+	}
 	storageClasses, err := client.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
-
-	var storageClass string
-
-	for _, sc := range storageClasses.Items {
-		if sc.Provisioner == defaultSnapClass.Driver {
-			storageClass = sc.Name
-			break
+	for _, storageClass := range storageClasses.Items {
+		if *storageClass.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
+			for _, volumeSnapshot := range volumeSnapshotClasses.Items {
+				if storageClass.Provisioner == volumeSnapshot.Driver {
+					return storageClass.Name, nil
+				}
+			}
 		}
 	}
 
-	if Config != nil {
-		Config.StorageSnapshot = storageClass
-	}
-
-	return storageClass, nil
+	return "", nil
 }
 
 func GetRWXFileSystemStorageClass() (string, bool) {
@@ -153,10 +242,28 @@ func GetRWXBlockStorageClass() (string, bool) {
 	return storageRWXBlock, storageRWXBlock != ""
 }
 
+func GetVMStateStorageClass() (string, bool) {
+	storageVMState := Config.StorageVMState
+	return storageVMState, storageVMState != ""
+}
+
 func GetBlockStorageClass(accessMode k8sv1.PersistentVolumeAccessMode) (string, bool) {
 	sc, foundSC := GetRWOBlockStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
 		sc, foundSC = GetRWXBlockStorageClass()
+	}
+
+	return sc, foundSC
+}
+
+// GetAvailableRWFileSystemStorageClass returns any RWX or RWO access mode filesystem storage class available, i.e,
+// If the available filesystem storage classes only support RWO access mode, it returns that SC or vice versa.
+// This method to get a filesystem storage class is recommended when the access mode is not relevant for the purpose of
+// the test.
+func GetAvailableRWFileSystemStorageClass() (string, bool) {
+	sc, foundSC := GetRWXFileSystemStorageClass()
+	if !foundSC {
+		sc, foundSC = GetRWOFileSystemStorageClass()
 	}
 
 	return sc, foundSC

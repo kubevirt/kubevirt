@@ -38,8 +38,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 const (
@@ -47,6 +45,86 @@ const (
 	// to avoid unintentional DoS
 	BurstReplicas uint = 250
 )
+
+// Reasons for vmi events
+const (
+	// FailedCreatePodReason is added in an event and in a vmi controller condition
+	// when a pod for a vmi controller failed to be created.
+	FailedCreatePodReason = "FailedCreate"
+	// SuccessfulCreatePodReason is added in an event when a pod for a vmi controller
+	// is successfully created.
+	SuccessfulCreatePodReason = "SuccessfulCreate"
+	// FailedDeletePodReason is added in an event and in a vmi controller condition
+	// when a pod for a vmi controller failed to be deleted.
+	FailedDeletePodReason = "FailedDelete"
+	// SuccessfulDeletePodReason is added in an event when a pod for a vmi controller
+	// is successfully deleted.
+	SuccessfulDeletePodReason = "SuccessfulDelete"
+	// FailedHandOverPodReason is added in an event and in a vmi controller condition
+	// when transferring the pod ownership from the controller to virt-hander fails.
+	FailedHandOverPodReason = "FailedHandOver"
+	// FailedBackendStorageCreateReason is added when the creation of the backend storage PVC fails.
+	FailedBackendStorageCreateReason = "FailedBackendStorageCreate"
+	// FailedBackendStorageProbeReason is added when probing the backend storage PVC fails.
+	FailedBackendStorageProbeReason = "FailedBackendStorageProbe"
+	// BackendStorageNotReadyReason is added when the backend storage PVC is pending.
+	BackendStorageNotReadyReason = "BackendStorageNotReady"
+	// SuccessfulHandOverPodReason is added in an event
+	// when the pod ownership transfer from the controller to virt-hander succeeds.
+	SuccessfulHandOverPodReason = "SuccessfulHandOver"
+	// FailedDataVolumeImportReason is added in an event when a dynamically generated
+	// dataVolume reaches the failed status phase.
+	FailedDataVolumeImportReason = "FailedDataVolumeImport"
+	// FailedGuaranteePodResourcesReason is added in an event and in a vmi controller condition
+	// when a pod has been created without a Guaranteed resources.
+	FailedGuaranteePodResourcesReason = "FailedGuaranteeResources"
+	// FailedGatherhingClusterTopologyHints is added if the cluster topology hints can't be collected for a VMI by virt-controller
+	FailedGatherhingClusterTopologyHints = "FailedGatherhingClusterTopologyHints"
+	// FailedPvcNotFoundReason is added in an event
+	// when a PVC for a volume was not found.
+	FailedPvcNotFoundReason = "FailedPvcNotFound"
+	// SuccessfulMigrationReason is added when a migration attempt completes successfully
+	SuccessfulMigrationReason = "SuccessfulMigration"
+	// FailedMigrationReason is added when a migration attempt fails
+	FailedMigrationReason = "FailedMigration"
+	// SuccessfulAbortMigrationReason is added when an attempt to abort migration completes successfully
+	SuccessfulAbortMigrationReason = "SuccessfulAbortMigration"
+	// MigrationTargetPodUnschedulable is added a migration target pod enters Unschedulable phase
+	MigrationTargetPodUnschedulable = "migrationTargetPodUnschedulable"
+	// FailedAbortMigrationReason is added when an attempt to abort migration fails
+	FailedAbortMigrationReason = "FailedAbortMigration"
+	// MissingAttachmentPodReason is set when we have a hotplugged volume, but the attachment pod is missing
+	MissingAttachmentPodReason = "MissingAttachmentPod"
+	// PVCNotReadyReason is set when the PVC is not ready to be hot plugged.
+	PVCNotReadyReason = "PVCNotReady"
+	// FailedHotplugSyncReason is set when a hotplug specific failure occurs during sync
+	FailedHotplugSyncReason = "FailedHotplugSync"
+	// ErrImagePullReason is set when an error has occured while pulling an image for a containerDisk VM volume.
+	ErrImagePullReason = "ErrImagePull"
+	// ImagePullBackOffReason is set when an error has occured while pulling an image for a containerDisk VM volume,
+	// and that kubelet is backing off before retrying.
+	ImagePullBackOffReason = "ImagePullBackOff"
+	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
+	// is suitable for migration (since CPU model / required features are not supported)
+	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
+	// FailedPodPatchReason is set when a pod patch error occurs during sync
+	FailedPodPatchReason = "FailedPodPatch"
+	// MigrationBackoffReason is set when an error has occured while migrating
+	// and virt-controller is backing off before retrying.
+	MigrationBackoffReason = "MigrationBackoff"
+)
+
+type PodCacheStore struct {
+	indexer cache.Indexer
+}
+
+func NewPodCacheStore(indexer cache.Indexer) *PodCacheStore {
+	return &PodCacheStore{indexer: indexer}
+}
+
+func (p *PodCacheStore) CurrentPod(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
+	return CurrentVMIPod(vmi, p.indexer)
+}
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, kubevirtNamespace and field selector.
 func NewListWatchFromClient(c cache.Getter, resource string, namespace string, fieldSelector fields.Selector, labelSelector labels.Selector) *cache.ListWatch {
@@ -248,13 +326,13 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 	return vmiSpec
 }
 
-func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podInformer cache.SharedIndexInformer) (*k8sv1.Pod, error) {
+func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k8sv1.Pod, error) {
 
 	// current pod is the most recent pod created on the current VMI node
 	// OR the most recent pod created if no VMI node is set.
 
 	// Get all pods from the namespace
-	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := podIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -286,9 +364,9 @@ func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podInformer cache.SharedIndex
 	return curPod, nil
 }
 
-func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodInformer cache.SharedIndexInformer) int {
+func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodIndexer cache.Indexer) int {
 
-	objs, err := vmiPodInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := vmiPodIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return 0
 	}
@@ -348,6 +426,23 @@ func SetVMIMigrationPhaseTransitionTimestamp(oldVMIMigration *v1.VirtualMachineI
 	}
 }
 
+func SetSourcePod(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) {
+	if migration.Status.Phase != v1.MigrationPending {
+		return
+	}
+	sourcePod, err := CurrentVMIPod(vmi, podIndexer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Warning("migration source pod not found")
+	}
+	if sourcePod != nil {
+		if migration.Status.MigrationState == nil {
+			migration.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{}
+		}
+		migration.Status.MigrationState.SourcePod = sourcePod.Name
+	}
+
+}
+
 func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume != nil {
@@ -365,8 +460,21 @@ func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) ([]*k8sv1.Pod, error) {
-	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ownerPod.Namespace)
+func vmiHasCondition(vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType) bool {
+	vmiConditionManager := NewVirtualMachineInstanceConditionManager()
+	return vmiConditionManager.HasCondition(vmi, conditionType)
+}
+
+func VMIHasHotplugCPU(vmi *v1.VirtualMachineInstance) bool {
+	return vmiHasCondition(vmi, v1.VirtualMachineInstanceVCPUChange)
+}
+
+func VMIHasHotplugMemory(vmi *v1.VirtualMachineInstance) bool {
+	return vmiHasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
+}
+
+func AttachmentPods(ownerPod *k8sv1.Pod, podIndexer cache.Indexer) ([]*k8sv1.Pod, error) {
+	objs, err := podIndexer.ByIndex(cache.NamespaceIndex, ownerPod.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -382,29 +490,88 @@ func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) 
 	return attachmentPods, nil
 }
 
-func ApplyNetworkInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
-	existingIface := vmispec.FilterInterfacesSpec(vmiSpec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.Name == request.AddInterfaceOptions.InterfaceName
-	})
-
-	if len(existingIface) == 0 {
-		newNetwork := v1.Network{
-			Name: request.AddInterfaceOptions.InterfaceName,
-			NetworkSource: v1.NetworkSource{
-				Multus: &v1.MultusNetwork{
-					NetworkName: request.AddInterfaceOptions.NetworkName,
-				},
-			},
-		}
-
-		newIface := v1.Interface{
-			Name:                   request.AddInterfaceOptions.InterfaceName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-		}
-
-		vmiSpec.Networks = append(vmiSpec.Networks, newNetwork)
-		vmiSpec.Domain.Devices.Interfaces = append(vmiSpec.Domain.Devices.Interfaces, newIface)
+// IsPodReady treats the pod as ready to be handed over to virt-handler, as soon as all pods except
+// the compute pod are ready.
+func IsPodReady(pod *k8sv1.Pod) bool {
+	if IsPodDownOrGoingDown(pod) {
+		return false
 	}
 
-	return vmiSpec
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		// The compute container potentially holds a readiness probe for the VMI. Therefore
+		// don't wait for the compute container to become ready (the VMI later on will trigger the change to ready)
+		// and only check that the container started
+		if containerStatus.Name == "compute" {
+			if containerStatus.State.Running == nil {
+				return false
+			}
+		} else if containerStatus.Name == "istio-proxy" {
+			// When using istio the istio-proxy container will not be ready
+			// until there is a service pointing to this pod.
+			// We need to start the VM anyway
+			if containerStatus.State.Running == nil {
+				return false
+			}
+
+		} else if containerStatus.Ready == false {
+			return false
+		}
+	}
+
+	return pod.Status.Phase == k8sv1.PodRunning
+}
+
+func IsPodDownOrGoingDown(pod *k8sv1.Pod) bool {
+	return PodIsDown(pod) || isComputeContainerDown(pod) || pod.DeletionTimestamp != nil
+}
+
+func IsPodFailedOrGoingDown(pod *k8sv1.Pod) bool {
+	return isPodFailed(pod) || isComputeContainerFailed(pod) || pod.DeletionTimestamp != nil
+}
+
+func isComputeContainerDown(pod *k8sv1.Pod) bool {
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == "compute" {
+			return containerStatus.State.Terminated != nil
+		}
+	}
+	return false
+}
+
+func isComputeContainerFailed(pod *k8sv1.Pod) bool {
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == "compute" {
+			return containerStatus.State.Terminated != nil && containerStatus.State.Terminated.ExitCode != 0
+		}
+	}
+	return false
+}
+
+func PodIsDown(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
+}
+
+func isPodFailed(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodFailed
+}
+
+func PodExists(pod *k8sv1.Pod) bool {
+	return pod != nil
+}
+
+func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) []*v1.Volume {
+	hotplugVolumes := make([]*v1.Volume, 0)
+	podVolumes := virtlauncherPod.Spec.Volumes
+	vmiVolumes := vmi.Spec.Volumes
+
+	podVolumeMap := make(map[string]k8sv1.Volume)
+	for _, podVolume := range podVolumes {
+		podVolumeMap[podVolume.Name] = podVolume
+	}
+	for _, vmiVolume := range vmiVolumes {
+		if _, ok := podVolumeMap[vmiVolume.Name]; !ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil || vmiVolume.MemoryDump != nil) {
+			hotplugVolumes = append(hotplugVolumes, vmiVolume.DeepCopy())
+		}
+	}
+	return hotplugVolumes
 }

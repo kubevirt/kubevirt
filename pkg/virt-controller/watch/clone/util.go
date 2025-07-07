@@ -5,17 +5,17 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"k8s.io/utils/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clone "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -56,56 +56,57 @@ func generateNameWithRandomSuffix(names ...string) string {
 	return generatedName
 }
 
-func generateSnapshotName(cloneName, vmName string) string {
-	return generateNameWithRandomSuffix("clone", cloneName, "snapshot", vmName)
+func generateSnapshotName(vmCloneUID types.UID) string {
+	return fmt.Sprintf("tmp-snapshot-%s", string(vmCloneUID))
 }
 
-func generateRestoreName(cloneName, vmName string) string {
-	return generateNameWithRandomSuffix("clone", cloneName, "restore", vmName)
-}
-
-func generateVolumeName(volumeName string) string {
-	return generateNameWithRandomSuffix("clone", "volume", volumeName)
+func generateRestoreName(vmCloneUID types.UID) string {
+	return fmt.Sprintf("tmp-restore-%s", string(vmCloneUID))
 }
 
 func generateVMName(oldVMName string) string {
 	return generateNameWithRandomSuffix(oldVMName, "clone")
 }
 
-func isInPhase(vmClone *clonev1alpha1.VirtualMachineClone, phase clonev1alpha1.VirtualMachineClonePhase) bool {
+func isInPhase(vmClone *clone.VirtualMachineClone, phase clone.VirtualMachineClonePhase) bool {
 	return vmClone.Status.Phase == phase
 }
 
-func generateSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, sourceVM *v1.VirtualMachine) *v1alpha1.VirtualMachineSnapshot {
-	return &v1alpha1.VirtualMachineSnapshot{
+func generateSnapshot(vmClone *clone.VirtualMachineClone, sourceVM *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
+	return &snapshotv1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateSnapshotName(vmClone.Name, sourceVM.Name),
+			Name:      generateSnapshotName(vmClone.UID),
 			Namespace: sourceVM.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				getCloneOwnerReference(vmClone.Name, vmClone.UID),
 			},
 		},
-		Spec: v1alpha1.VirtualMachineSnapshotSpec{
+		Spec: snapshotv1.VirtualMachineSnapshotSpec{
 			Source: corev1.TypedLocalObjectReference{
 				Kind:     vmKind,
 				Name:     sourceVM.Name,
-				APIGroup: pointer.String(kubevirtApiGroup),
+				APIGroup: pointer.P(kubevirtApiGroup),
 			},
 		},
 	}
 }
 
-func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName, namespace, cloneName, snapshotName string, cloneUID types.UID, patches []string) *v1alpha1.VirtualMachineRestore {
-	return &v1alpha1.VirtualMachineRestore{
+func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName, namespace, cloneName, snapshotName string, cloneUID types.UID, patches []string) *snapshotv1.VirtualMachineRestore {
+	targetInfo = targetInfo.DeepCopy()
+	if targetInfo.Name == "" {
+		targetInfo.Name = generateVMName(sourceVMName)
+	}
+
+	return &snapshotv1.VirtualMachineRestore{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateRestoreName(cloneName, sourceVMName),
+			Name:      generateRestoreName(cloneUID),
 			Namespace: namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				getCloneOwnerReference(cloneName, cloneUID),
 			},
 		},
-		Spec: v1alpha1.VirtualMachineRestoreSpec{
-			Target:                     *targetInfo.DeepCopy(),
+		Spec: snapshotv1.VirtualMachineRestoreSpec{
+			Target:                     *targetInfo,
 			VirtualMachineSnapshotName: snapshotName,
 			Patches:                    patches,
 		},
@@ -114,12 +115,12 @@ func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName,
 
 func getCloneOwnerReference(cloneName string, cloneUID types.UID) metav1.OwnerReference {
 	return metav1.OwnerReference{
-		APIVersion:         clonev1alpha1.VirtualMachineCloneKind.GroupVersion().String(),
-		Kind:               clonev1alpha1.VirtualMachineCloneKind.Kind,
+		APIVersion:         clone.VirtualMachineCloneKind.GroupVersion().String(),
+		Kind:               clone.VirtualMachineCloneKind.Kind,
 		Name:               cloneName,
 		UID:                cloneUID,
-		Controller:         pointer.Bool(true),
-		BlockOwnerDeletion: pointer.Bool(true),
+		Controller:         pointer.P(true),
+		BlockOwnerDeletion: pointer.P(true),
 	}
 }
 
@@ -127,8 +128,8 @@ func getCloneOwnerReference(cloneName string, cloneUID types.UID) metav1.OwnerRe
 // and the second one would be the key of the clone. Otherwise, the first return parameter would
 // be false and the second parameter is to be ignored.
 func isOwnedByClone(obj metav1.Object) (isOwned bool, key string) {
-	cloneKind := clonev1alpha1.VirtualMachineCloneKind.Kind
-	cloneApiVersion := clonev1alpha1.VirtualMachineCloneKind.GroupVersion().String()
+	cloneKind := clone.VirtualMachineCloneKind.Kind
+	cloneApiVersion := clone.VirtualMachineCloneKind.GroupVersion().String()
 
 	ownerRefs := obj.GetOwnerReferences()
 	for _, ownerRef := range ownerRefs {
@@ -144,7 +145,7 @@ func isOwnedByClone(obj metav1.Object) (isOwned bool, key string) {
 	// TODO: Unit test this?
 }
 
-func updateCondition(conditions []clonev1alpha1.Condition, c clonev1alpha1.Condition, includeReason bool) []clonev1alpha1.Condition {
+func updateCondition(conditions []clone.Condition, c clone.Condition, includeReason bool) []clone.Condition {
 	found := false
 	for i := range conditions {
 		if conditions[i].Type == c.Type {
@@ -163,24 +164,24 @@ func updateCondition(conditions []clonev1alpha1.Condition, c clonev1alpha1.Condi
 	return conditions
 }
 
-func updateCloneConditions(vmClone *clonev1alpha1.VirtualMachineClone, conditions ...clonev1alpha1.Condition) {
+func updateCloneConditions(vmClone *clone.VirtualMachineClone, conditions ...clone.Condition) {
 	for _, cond := range conditions {
-		vmClone.Status.Conditions = updateCondition(vmClone.Status.Conditions, cond, false)
+		vmClone.Status.Conditions = updateCondition(vmClone.Status.Conditions, cond, true)
 	}
 }
 
-func newReadyCondition(status corev1.ConditionStatus, reason string) clonev1alpha1.Condition {
-	return clonev1alpha1.Condition{
-		Type:               clonev1alpha1.ConditionReady,
+func newReadyCondition(status corev1.ConditionStatus, reason string) clone.Condition {
+	return clone.Condition{
+		Type:               clone.ConditionReady,
 		Status:             status,
 		Reason:             reason,
 		LastTransitionTime: *currentTime(),
 	}
 }
 
-func newProgressingCondition(status corev1.ConditionStatus, reason string) clonev1alpha1.Condition {
-	return clonev1alpha1.Condition{
-		Type:               clonev1alpha1.ConditionProgressing,
+func newProgressingCondition(status corev1.ConditionStatus, reason string) clone.Condition {
+	return clone.Condition{
+		Type:               clone.ConditionProgressing,
 		Status:             status,
 		Reason:             reason,
 		LastTransitionTime: *currentTime(),

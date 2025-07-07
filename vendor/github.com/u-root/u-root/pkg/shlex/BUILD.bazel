@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["shlex.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/u-root/u-root/pkg/shlex",
-    importpath = "github.com/u-root/u-root/pkg/shlex",
-    visibility = ["//visibility:public"],
-)

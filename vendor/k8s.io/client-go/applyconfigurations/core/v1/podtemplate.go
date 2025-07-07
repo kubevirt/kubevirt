@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// PodTemplateApplyConfiguration represents an declarative configuration of the PodTemplate type for use
+// PodTemplateApplyConfiguration represents a declarative configuration of the PodTemplate type for use
 // with apply.
 type PodTemplateApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -35,7 +35,7 @@ type PodTemplateApplyConfiguration struct {
 	Template                         *PodTemplateSpecApplyConfiguration `json:"template,omitempty"`
 }
 
-// PodTemplate constructs an declarative configuration of the PodTemplate type for use with
+// PodTemplate constructs a declarative configuration of the PodTemplate type for use with
 // apply.
 func PodTemplate(name, namespace string) *PodTemplateApplyConfiguration {
 	b := &PodTemplateApplyConfiguration{}
@@ -122,15 +122,6 @@ func (b *PodTemplateApplyConfiguration) WithGenerateName(value string) *PodTempl
 func (b *PodTemplateApplyConfiguration) WithNamespace(value string) *PodTemplateApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *PodTemplateApplyConfiguration) WithSelfLink(value string) *PodTemplateApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -243,15 +234,6 @@ func (b *PodTemplateApplyConfiguration) WithFinalizers(values ...string) *PodTem
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *PodTemplateApplyConfiguration) WithClusterName(value string) *PodTemplateApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *PodTemplateApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -264,4 +246,10 @@ func (b *PodTemplateApplyConfiguration) ensureObjectMetaApplyConfigurationExists
 func (b *PodTemplateApplyConfiguration) WithTemplate(value *PodTemplateSpecApplyConfiguration) *PodTemplateApplyConfiguration {
 	b.Template = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *PodTemplateApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

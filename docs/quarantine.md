@@ -37,7 +37,7 @@ would lead to a terrible 41.81% passing rate of the whole suite (0.95 ** 17 = 0.
 
 In order to remove as much as possible the influence of changes in PRs to
 determine the stability of the suite, we will take into account only results
-from the periodics that run e2e tests from main (hese jobs can be checked
+from the periodics that run e2e tests from main (hence jobs can be checked
 [on testgrid]) and presubmits that are executed on merged code (on tide merge
 batches as reported by flakefinder).
 
@@ -55,9 +55,10 @@ A test must be put in quarantine when any of these conditions is met:
 
 A PR will be proposed on Mondays every two weeks with a batch of the tests that
 met the first condition. A PR can be proposed at any time for the tests that meet
-the second condition. In both cases the PR will add the text `[QUARANTINE]` to
-each test's description in the code. An email will be sent to the owners of the
-suspected tests.
+the second condition. In both cases the PR will add the text `[QUARANTINE]` and
+the `decorators.Quarantine` [labelDecorator](https://github.com/kubevirt/kubevirt/blob/9a3799f7a0b97b70033e119c0b401778c51dee14/tests/decorators/decorators.go#L5)
+to each test's description in the code.
+An email will be sent to the owners of the suspected tests.
 
 After the PR with the quarantine candidates is proposed there is a grace period
 of 2 days to prepare and land a fix for a test in the batch. If at least 5
@@ -66,7 +67,8 @@ consecutive executions with the fix pass the test can be removed from the batch.
 #### Quarantined test owners
 
 Each quarantined test must have a team owner. The PR will add the text
-`[sig-{compute,network,storage,operator}]` to each test's description.
+`[sig-{compute,network,storage,operator}]` to each test's description and
+the proper label decorator.
 
 #### Quarantining release blockers
 
@@ -92,11 +94,40 @@ indicated by the team assigned to bring the test back to the stable suite.
 
 After two weeks with successful executions has passed, a quarantined tests will
 be ready to join the stable suite again. A member of the team assigned to each
-quarantined tests will propose a PR to remove the text `[QUARANTINE]` from the
-test description in the code. After merging this PR the test will be out of
-quarantine.
+quarantined tests will propose a PR to remove the text `[QUARANTINE]` and the
+label decorator from the test description in the code.
+After merging this PR the test will be out of quarantine.
 
 [1]: https://martinfowler.com/articles/nonDeterminism.html#Quarantine
-[2]: https://www.thoughtworks.com/es/insights/blog/no-more-flaky-tests-go-team
+[2]: https://www.thoughtworks.com/en-us/insights/blog/no-more-flaky-tests-go-team
 [3]: https://docs.gitlab.com/ee/development/testing_guide/flaky_tests.html#quarantined-tests
 [on testgrid]: https://testgrid.k8s.io/kubevirt-periodics
+
+# Test Lane Quarantine
+
+There can be cases where required test lanes are flaking in a clustered manner with a large
+number of tests failing each time. This can cause major delays to merging important pull
+requests and overload CI. Individual test case quarantining does not make sense in this case.
+
+A required test lane should be made optional if the following criteria are met:
+* The required test lane has a failure rate higher than 25% in the last 7 days
+* More than ten individual test cases are causing the required test lane to fail
+* The SIG responsible for the required test lane is unable to deliver a fix for the
+flake within 7 days
+
+The percentage impact of a flaky test lane can be measured by searching for a relevant
+error on the [CI search page](https://search.ci.kubevirt.io/).
+The failure rate of a test lane can be checked by going to the 
+[top failed lane list](https://github.com/kubevirt/ci-health?tab=readme-ov-file#failures-per-sig-against-last-code-push-for-merged-prs) in the ci-health repository.
+
+Following a required test lane being made optional a number of actions must happen:
+* Create github issue with a comment `/release-blocker main` to ensure that
+the issue is addressed before a new release is cut.
+* Ensure that the github issue is assigned to a member of the responsible SIG who
+will own bringing the blocker to completion within a quick time frame.
+* The SIG should stop all feature and refactoring work until a fix for the flake
+has been identified and a pull request has been created. If the quarantined test lane is 
+not receiving the required attention from the responsible SIG, SIG CI can take a 
+decision to hold merge queue PRs from the responsible SIG that are not related to a fix.
+* Once the fix is merged and the test lane returns to an acceptable failure
+rate, the test lane should be set back to required as soon as possible

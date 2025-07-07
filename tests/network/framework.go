@@ -13,22 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
 package network
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-
 	"kubevirt.io/kubevirt/tests/decorators"
 )
 
-func SIGDescribe(text string, args ...interface{}) bool {
-	return Describe("[sig-network] "+text, decorators.SigNetwork, args)
-}
-
-func FSIGDescribe(text string, args ...interface{}) bool {
-	return FDescribe("[sig-network] "+text, decorators.SigNetwork, args)
+func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	return decorators.SIG("[sig-network]", text, decorators.SigNetwork, args)
 }

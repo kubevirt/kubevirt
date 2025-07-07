@@ -15,33 +15,30 @@ type Defaulter struct {
 	Architecture string
 }
 
-func (d *Defaulter) IsPPC64() bool {
-	if d.Architecture == "ppc64le" {
-		return true
-	}
-	return false
+func (d *Defaulter) isPPC64() bool {
+	return d.Architecture == "ppc64le"
 }
 
-func (d *Defaulter) IsARM64() bool {
-	if d.Architecture == "arm64" {
-		return true
-	}
-	return false
+func (d *Defaulter) isARM64() bool {
+	return d.Architecture == "arm64"
 }
 
-func (d *Defaulter) SetDefaults_Devices(devices *Devices) {
-
+func (d *Defaulter) isS390X() bool {
+	return d.Architecture == "s390x"
 }
 
-func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {
+func (d *Defaulter) setDefaults_OSType(ostype *OSType) {
 	ostype.OS = "hvm"
 
 	if ostype.Arch == "" {
-		if d.IsPPC64() {
+		switch {
+		case d.isPPC64():
 			ostype.Arch = "ppc64le"
-		} else if d.IsARM64() {
+		case d.isARM64():
 			ostype.Arch = "aarch64"
-		} else {
+		case d.isS390X():
+			ostype.Arch = "s390x"
+		default:
 			ostype.Arch = "x86_64"
 		}
 	}
@@ -49,34 +46,43 @@ func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {
 	// q35 is an alias of the newest q35 machine type.
 	// TODO: we probably want to select concrete type in the future for "future-backwards" compatibility.
 	if ostype.Machine == "" {
-		if d.IsPPC64() {
+		switch {
+		case d.isPPC64():
 			ostype.Machine = "pseries"
-		} else if d.IsARM64() {
+		case d.isARM64():
 			ostype.Machine = "virt"
-		} else {
+		case d.isS390X():
+			ostype.Machine = "s390-ccw-virtio"
+		default:
 			ostype.Machine = "q35"
 		}
 	}
 }
 
-func (d *Defaulter) SetDefaults_DomainSpec(spec *DomainSpec) {
+func (d *Defaulter) setDefaults_DomainSpec(spec *DomainSpec) {
 	spec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
 	if spec.Type == "" {
 		spec.Type = "kvm"
 	}
 }
 
-func (d *Defaulter) SetDefaults_SysInfo(sysinfo *SysInfo) {
+func (d *Defaulter) setDefaults_SysInfo(sysinfo *SysInfo) {
 	if sysinfo.Type == "" {
 		sysinfo.Type = "smbios"
 	}
 }
 
-func (d *Defaulter) SetObjectDefaults_Domain(in *Domain) {
-	d.SetDefaults_DomainSpec(&in.Spec)
-	d.SetDefaults_OSType(&in.Spec.OS.Type)
-	if in.Spec.SysInfo != nil {
-		d.SetDefaults_SysInfo(in.Spec.SysInfo)
+func (d *Defaulter) setDefaults_Features(spec *DomainSpec) {
+	if spec.Features == nil {
+		spec.Features = &Features{}
 	}
-	d.SetDefaults_Devices(&in.Spec.Devices)
+}
+
+func (d *Defaulter) SetObjectDefaults_Domain(in *Domain) {
+	d.setDefaults_DomainSpec(&in.Spec)
+	d.setDefaults_OSType(&in.Spec.OS.Type)
+	if in.Spec.SysInfo != nil {
+		d.setDefaults_SysInfo(in.Spec.SysInfo)
+	}
+	d.setDefaults_Features(&in.Spec)
 }

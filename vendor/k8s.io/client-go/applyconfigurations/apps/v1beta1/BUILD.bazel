@@ -14,6 +14,7 @@ go_library(
         "rollingupdatestatefulsetstrategy.go",
         "statefulset.go",
         "statefulsetcondition.go",
+        "statefulsetordinals.go",
         "statefulsetpersistentvolumeclaimretentionpolicy.go",
         "statefulsetspec.go",
         "statefulsetstatus.go",

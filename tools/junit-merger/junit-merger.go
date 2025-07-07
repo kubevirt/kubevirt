@@ -51,6 +51,20 @@ func main() {
 	}
 }
 
+func xmlDecode(file string) (reporters.JUnitTestSuite, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return reporters.JUnitTestSuite{}, fmt.Errorf("failed to open file %s: %v", file, err)
+	}
+	defer f.Close()
+	suite := reporters.JUnitTestSuite{}
+	err = xml.NewDecoder(f).Decode(&suite)
+	if err != nil {
+		return reporters.JUnitTestSuite{}, fmt.Errorf("failed to decode suite %s: %v", file, err)
+	}
+	return suite, nil
+}
+
 func loadJUnitFiles(fileGlobs []string) (suites []reporters.JUnitTestSuite, err error) {
 	for _, fileglob := range fileGlobs {
 		files, err := filepath.Glob(fileglob)
@@ -58,14 +72,9 @@ func loadJUnitFiles(fileGlobs []string) (suites []reporters.JUnitTestSuite, err 
 			return nil, err
 		}
 		for _, file := range files {
-			f, err := os.Open(file)
+			suite, err := xmlDecode(file)
 			if err != nil {
-				return nil, fmt.Errorf("failed to open file %s: %v", file, err)
-			}
-			suite := reporters.JUnitTestSuite{}
-			err = xml.NewDecoder(f).Decode(&suite)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode suite %s: %v", file, err)
+				return nil, err
 			}
 			suites = append(suites, suite)
 		}

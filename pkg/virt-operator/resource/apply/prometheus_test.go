@@ -3,11 +3,12 @@ package apply
 import (
 	"encoding/json"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	jsonpatch "github.com/evanphx/json-patch"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
-	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
+	promclientfake "kubevirt.io/client-go/prometheusoperator/fake"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	"github.com/golang/mock/gomock"
@@ -34,8 +35,6 @@ var _ = Describe("Apply Prometheus", func() {
 	var kv *v1.KubeVirt
 	var stores util.Stores
 
-	config := getConfig("fake-registry", "v9.9.9")
-
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
@@ -59,6 +58,9 @@ var _ = Describe("Apply Prometheus", func() {
 
 		promClient = promclientfake.NewSimpleClientset()
 		clientset.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
+
+		err := rules.SetupRules(Namespace)
+		Expect(err).ToNot(HaveOccurred())
 
 		kv = &v1.KubeVirt{}
 	})
@@ -132,7 +134,8 @@ var _ = Describe("Apply Prometheus", func() {
 
 	It("should not patch PrometheusRules on sync when they are equal", func() {
 
-		pr := components.NewPrometheusRuleCR("namespace", config.WorkloadUpdatesEnabled())
+		pr, err := rules.BuildPrometheusRule("namespace")
+		Expect(err).ToNot(HaveOccurred())
 
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
 		injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
@@ -151,7 +154,8 @@ var _ = Describe("Apply Prometheus", func() {
 
 	It("should patch PrometheusRules on sync when they are equal", func() {
 
-		pr := components.NewPrometheusRuleCR("namespace", config.WorkloadUpdatesEnabled())
+		pr, err := rules.BuildPrometheusRule("namespace")
+		Expect(err).ToNot(HaveOccurred())
 
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
 		injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)

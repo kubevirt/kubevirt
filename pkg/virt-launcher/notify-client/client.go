@@ -1,6 +1,7 @@
 package eventsclient
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -8,7 +9,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime"
 	"libvirt.org/go/libvirt"
@@ -16,13 +16,13 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/reference"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
@@ -92,7 +92,8 @@ func init() {
 }
 
 func negotiateVersion(infoClient info.NotifyInfoClient) (uint32, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	info, err := infoClient.Info(ctx, &info.NotifyInfoRequest{})
 	if err != nil {
 		return 0, fmt.Errorf("could not check cmd server version: %v", err)
@@ -199,7 +200,7 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 	}
 
 	var response *notifyv1.Response
-	err = utilwait.PollImmediate(n.intervalTimeout, n.totalTimeout, func() (done bool, err error) {
+	err = virtwait.PollImmediately(n.intervalTimeout, n.totalTimeout, func(ctx context.Context) (done bool, err error) {
 		n.connLock.Lock()
 		defer n.connLock.Unlock()
 
@@ -209,10 +210,9 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 			return false, nil
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), n.sendTimeout)
+		ctx, cancel := context.WithTimeout(ctx, n.sendTimeout)
 		defer cancel()
 		response, err = n.v1client.HandleDomainEvent(ctx, &request)
-
 		if err != nil {
 			log.Log.Reason(err).Errorf("Failed to send domain notify event. closing connection.")
 			n._close()
@@ -238,9 +238,29 @@ func newWatchEventError(err error) watch.Event {
 	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 }
 
-func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
+type eventCaller struct {
+	domainStatus             api.LifeCycle
+	domainStatusChangeReason api.StateChangeReason
+}
+
+func (e *eventCaller) printStatus(status *api.DomainStatus) {
+	v := 2
+	if status.Status == e.domainStatus && status.Reason == e.domainStatusChangeReason {
+		// Status hasn't changed so log only in higher verbosity.
+		v = 3
+	}
+	log.Log.V(v).Infof("kubevirt domain status: %v(%v) reason: %v(%v)", status.Status, e.domainStatus, status.Reason, e.domainStatusChangeReason)
+}
+
+func (e *eventCaller) updateStatus(status *api.DomainStatus) {
+	e.domainStatus = status.Status
+	e.domainStatusChangeReason = status.Reason
+}
+
+func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
 	metadataCache *metadata.Cache) {
+
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -250,12 +270,6 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		domain.SetState(api.NoState, api.ReasonNonExistent)
 	} else {
 		defer d.Free()
-
-		// Remember current status before it will be changed.
-		var (
-			prevStatus = domain.Status.Status
-			prevReason = domain.Status.Reason
-		)
 
 		// No matter which event, try to fetch the domain xml
 		// and the state. If we get a IsNotFound error, that
@@ -288,12 +302,8 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 			domain.Spec = *spec
 		}
 
-		if domain.Status.Status == prevStatus && domain.Status.Reason == prevReason {
-			// Status hasn't changed so log only in higher verbosity.
-			log.Log.V(3).Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
-		} else {
-			log.Log.Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
-		}
+		e.printStatus(&domain.Status)
+		e.updateStatus(&domain.Status)
 	}
 
 	switch domain.Status.Reason {
@@ -413,12 +423,14 @@ func (n *Notifier) StartDomainNotifier(
 		var interfaceStatuses []api.InterfaceStatus
 		var guestOsInfo *api.GuestOSInfo
 		var fsFreezeStatus *api.FSFreeze
+		var eventCaller eventCaller
+
 		for {
 			select {
 			case event := <-eventChan:
 				metadataCache.ResetNotification()
 				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
-				eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
+				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 				if event.AgentEvent != nil {
 					if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
@@ -433,34 +445,39 @@ func (n *Notifier) StartDomainNotifier(
 				guestOsInfo = agentUpdate.DomainInfo.OSInfo
 				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
 
-				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
+				eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
 					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 
 			case <-metadataCache.Listen():
-				domainCache = util.NewDomainFromName(
-					util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
-					vmi.UID,
-				)
-				eventCallback(
-					domainConn,
-					domainCache,
-					libvirtEvent{},
-					n,
-					deleteNotificationSent,
-					interfaceStatuses,
-					guestOsInfo,
-					vmi,
-					fsFreezeStatus,
-					metadataCache,
-				)
+				// Metadata cache updates should be processed only *after* at least one
+				// libvirt event arrived (which creates the first domainCache).
+				if domainCache != nil {
+					domainCache = util.NewDomainFromName(
+						util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
+						vmi.UID,
+					)
+					eventCaller.eventCallback(
+						domainConn,
+						domainCache,
+						libvirtEvent{},
+						n,
+						deleteNotificationSent,
+						interfaceStatuses,
+						guestOsInfo,
+						vmi,
+						fsFreezeStatus,
+						metadataCache,
+					)
+				}
 			}
 		}
 	}()
 
 	domainEventLifecycleCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
-		log.Log.Infof("DomainLifecycle event %d with reason %d received", event.Event, event.Detail)
+
+		log.Log.Infof("DomainLifecycle event %s with event id %d reason %d received", event.String(), event.Event, event.Detail)
 		name, err := d.GetName()
 		if err != nil {
 			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
@@ -499,6 +516,20 @@ func (n *Notifier) StartDomainNotifier(
 		}
 	}
 
+	domainEventMemoryDeviceSizeChange := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventMemoryDeviceSizeChange) {
+		log.Log.Infof("Domain Memory Device size-change event received")
+		name, err := d.GetName()
+		if err != nil {
+			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
+		}
+
+		select {
+		case eventChan <- libvirtEvent{Domain: name}:
+		default:
+			log.Log.Infof(libvirtEventChannelFull)
+		}
+	}
+
 	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
@@ -513,6 +544,11 @@ func (n *Notifier) StartDomainNotifier(
 	err = domainConn.DomainEventDeviceRemovedRegister(domainEventDeviceRemovedCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register device removed event callback with libvirt")
+		return err
+	}
+	err = domainConn.DomainEventMemoryDeviceSizeChangeRegister(domainEventMemoryDeviceSizeChange)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to register memory device size change event callback with libvirt")
 		return err
 	}
 
@@ -561,7 +597,7 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 	}
 
 	var response *notifyv1.Response
-	err = utilwait.PollImmediate(n.intervalTimeout, n.totalTimeout, func() (done bool, err error) {
+	err = virtwait.PollImmediately(n.intervalTimeout, n.totalTimeout, func(ctx context.Context) (done bool, err error) {
 		n.connLock.Lock()
 		defer n.connLock.Unlock()
 
@@ -571,10 +607,9 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 			return false, nil
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), n.sendTimeout)
+		ctx, cancel := context.WithTimeout(ctx, n.sendTimeout)
 		defer cancel()
 		response, err = n.v1client.HandleK8SEvent(ctx, &request)
-
 		if err != nil {
 			log.Log.Reason(err).Errorf("Failed to send k8s notify event. closing connection.")
 			n._close()

@@ -20,57 +20,44 @@
 package converter
 
 import (
-	"bytes"
 	"fmt"
-	"net"
-	"os"
-	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-
-	"kubevirt.io/kubevirt/pkg/network/dns"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, ifacesToPlug ...v1.Interface) ([]api.Interface, error) {
-	isVirtioNetProhibited, err := c.IsVirtIONetProhibited()
-	if err != nil {
-		return nil, err
-	}
-
+func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext) ([]api.Interface, error) {
 	var domainInterfaces []api.Interface
 
-	networks := indexNetworksByName(vmi.Spec.Networks)
+	nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+	nonAbsentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
 
-	if len(ifacesToPlug) == 0 {
-		ifacesToPlug = vmi.Spec.Domain.Devices.Interfaces
-	}
-	for i, iface := range ifacesToPlug {
-		net, isExist := networks[iface.Name]
+	networks := indexNetworksByName(nonAbsentNets)
+
+	for i, iface := range nonAbsentIfaces {
+		_, isExist := networks[iface.Name]
 		if !isExist {
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
-		if iface.SRIOV != nil {
+		if (iface.Binding != nil && c.DomainAttachmentByInterfaceName[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil {
 			continue
 		}
 
-		ifaceType := GetInterfaceType(&vmi.Spec.Domain.Devices.Interfaces[i])
+		ifaceType := GetInterfaceType(&nonAbsentIfaces[i])
 		domainIface := api.Interface{
 			Model: &api.Model{
-				Type: translateModel(c, ifaceType),
+				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType, vmi.Spec.Architecture),
 			},
 			Alias: api.NewUserDefinedAlias(iface.Name),
-		}
-
-		// if AllowEmulation unset and at least one NIC model is virtio,
-		// /dev/vhost-net must be present as we should have asked for it.
-		if ifaceType == v1.VirtIO && isVirtioNetProhibited {
-			return nil, fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 		}
 
 		if queueCount := uint(CalculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
@@ -90,43 +77,16 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
 		}
 
-		if iface.Bridge != nil || iface.Masquerade != nil {
-			// TODO:(ihar) consider abstracting interface type conversion /
-			// detection into drivers
-
+		if c.DomainAttachmentByInterfaceName[iface.Name] == string(v1.Tap) {
 			// use "ethernet" interface type, since we're using pre-configured tap devices
 			// https://libvirt.org/formatdomain.html#elementsNICSEthernet
 			domainIface.Type = "ethernet"
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-			} else {
+			} else if arch.NewConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
+				// s390x does not support setting ROM tuning, as it is for PCI Devices only
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
-		} else if iface.Slirp != nil {
-			domainIface.Type = "user"
-
-			// Create network interface
-			initializeQEMUCmdAndQEMUArg(domain)
-
-			// TODO: (seba) Need to change this if multiple interface can be connected to the same network
-			// append the ports from all the interfaces connected to the same network
-			err := createSlirpNetwork(iface, *net, domain)
-			if err != nil {
-				return nil, err
-			}
-		} else if iface.Macvtap != nil {
-			if net.Multus == nil {
-				return nil, fmt.Errorf("macvtap interface %s requires Multus meta-cni", iface.Name)
-			}
-
-			domainIface.Type = "ethernet"
-			if iface.BootOrder != nil {
-				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-			} else {
-				domainIface.Rom = &api.Rom{Enabled: "no"}
-			}
-		} else if iface.Passt != nil {
-			domain.Spec.Devices.Emulator = "/usr/bin/qrap"
 		}
 
 		if c.UseLaunchSecurity {
@@ -140,6 +100,10 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 				}
 			}
 		}
+
+		if iface.State == v1.InterfaceStateLinkDown {
+			domainIface.LinkState = &api.LinkState{State: "down"}
+		}
 		domainInterfaces = append(domainInterfaces, domainIface)
 	}
 
@@ -147,14 +111,6 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 }
 
 func GetInterfaceType(iface *v1.Interface) string {
-	if iface.Slirp != nil {
-		// Slirp configuration works only with e1000 or rtl8139
-		if iface.Model != "e1000" && iface.Model != "rtl8139" {
-			log.Log.Infof("The network interface type of %s was changed to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
-			return "e1000"
-		}
-		return iface.Model
-	}
 	if iface.Model != "" {
 		return iface.Model
 	}
@@ -169,32 +125,15 @@ func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
 	return netsByName
 }
 
-func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Domain) error {
-	qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
-
-	err := configVMCIDR(&qemuArg, network)
-	if err != nil {
-		return err
+func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
+	if ifaceType != v1.VirtIO {
+		return 0
 	}
-
-	err = configDNSSearchName(&qemuArg)
-	if err != nil {
-		return err
-	}
-
-	err = configPortForward(&qemuArg, iface)
-	if err != nil {
-		return err
-	}
-
-	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-netdev"})
-	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, qemuArg)
-
-	return nil
+	return NetworkQueuesCapacity(vmi)
 }
 
-func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
-	if !isTrue(vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue) || ifaceType != v1.VirtIO {
+func NetworkQueuesCapacity(vmi *v1.VirtualMachineInstance) uint32 {
+	if !isTrue(vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue) {
 		return 0
 	}
 
@@ -212,83 +151,9 @@ func isTrue(networkInterfaceMultiQueue *bool) bool {
 	return (networkInterfaceMultiQueue != nil) && (*networkInterfaceMultiQueue)
 }
 
-func configPortForward(qemuArg *api.Arg, iface v1.Interface) error {
-	if iface.Ports == nil {
-		return nil
+func translateModel(useVirtioTransitional *bool, bus string, archString string) string {
+	if bus == v1.VirtIO {
+		return InterpretTransitionalModelType(useVirtioTransitional, archString)
 	}
-
-	// Can't be duplicated ports forward or the qemu process will crash
-	configuredPorts := make(map[string]struct{}, 0)
-	for _, forwardPort := range iface.Ports {
-
-		if forwardPort.Port == 0 {
-			return fmt.Errorf("Port must be configured")
-		}
-
-		if forwardPort.Protocol == "" {
-			forwardPort.Protocol = api.DefaultProtocol
-		}
-
-		portConfig := fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)
-		if _, ok := configuredPorts[portConfig]; !ok {
-			qemuArg.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(forwardPort.Protocol), forwardPort.Port, forwardPort.Port)
-			configuredPorts[portConfig] = struct{}{}
-		}
-	}
-
-	return nil
-}
-
-func configVMCIDR(qemuArg *api.Arg, network v1.Network) error {
-	vmNetworkCIDR := ""
-	if network.Pod.VMNetworkCIDR != "" {
-		_, _, err := net.ParseCIDR(network.Pod.VMNetworkCIDR)
-		if err != nil {
-			return fmt.Errorf("Failed parsing CIDR %s", network.Pod.VMNetworkCIDR)
-		}
-		vmNetworkCIDR = network.Pod.VMNetworkCIDR
-	} else {
-		vmNetworkCIDR = api.DefaultVMCIDR
-	}
-
-	// Insert configuration to qemu commandline
-	qemuArg.Value += fmt.Sprintf(",net=%s", vmNetworkCIDR)
-
-	return nil
-}
-
-func configDNSSearchName(qemuArg *api.Arg) error {
-	_, dnsDoms, err := GetResolvConfDetailsFromPod()
-	if err != nil {
-		return err
-	}
-
-	for _, dom := range dnsDoms {
-		qemuArg.Value += fmt.Sprintf(",dnssearch=%s", dom)
-	}
-	return nil
-}
-
-// returns nameservers [][]byte, searchdomains []string, error
-func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
-	// #nosec No risk for path injection. resolvConf is static "/etc/resolve.conf"
-	b, err := os.ReadFile(resolvConf)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	nameservers, err := dns.ParseNameservers(string(b))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	searchDomains, err := dns.ParseSearchDomains(string(b))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	log.Log.Reason(err).Infof("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
-	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
-
-	return nameservers, searchDomains, err
+	return bus
 }

@@ -3,8 +3,6 @@ package apply
 import (
 	"encoding/json"
 
-	"kubevirt.io/kubevirt/tests"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -33,11 +31,9 @@ var _ = Describe("Apply PDBs", func() {
 	var expectations *util.Expectations
 	var kv *v1.KubeVirt
 	var deployment *v12.Deployment
-	var mockPodDisruptionBudgetCacheStore *MockStore
 	var requiredPDB *policyv1.PodDisruptionBudget
 	var r *Reconciler
 	var mockGeneration int64
-	var err error
 
 	getCachedPDB := func() *policyv1.PodDisruptionBudget {
 		Expect(requiredPDB).ToNot(BeNil())
@@ -78,15 +74,23 @@ var _ = Describe("Apply PDBs", func() {
 			Registry:        Registry,
 			KubeVirtVersion: Version,
 		}
-		deployment, err = tests.GetDefaultVirtApiDeployment(Namespace, virtApiConfig)
-		Expect(err).ToNot(HaveOccurred())
+		deployment = components.NewApiServerDeployment(
+			Namespace,
+			virtApiConfig.GetImageRegistry(),
+			virtApiConfig.GetImagePrefix(),
+			virtApiConfig.GetApiVersion(),
+			"",
+			"",
+			"",
+			virtApiConfig.VirtApiImage,
+			virtApiConfig.GetImagePullPolicy(),
+			virtApiConfig.GetImagePullSecrets(),
+			virtApiConfig.GetVerbosity(),
+			virtApiConfig.GetExtraEnv())
 
 		kv.Status.TargetKubeVirtRegistry = Registry
 		kv.Status.TargetKubeVirtVersion = Version
 		kv.Status.TargetDeploymentID = Id
-
-		mockPodDisruptionBudgetCacheStore = &MockStore{}
-		err = stores.PodDisruptionBudgetCache.Add(mockPodDisruptionBudgetCacheStore)
 
 		mockGeneration = 123
 

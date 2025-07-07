@@ -2,12 +2,17 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["pciaddress.go"],
+    srcs = [
+        "pciaddress.go",
+        "usbaddress.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/util:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
     ],
 )
 

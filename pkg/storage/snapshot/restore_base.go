@@ -31,13 +31,13 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/util/status"
+	"kubevirt.io/kubevirt/pkg/storage/status"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -59,44 +59,62 @@ type VMRestoreController struct {
 
 	Recorder record.EventRecorder
 
-	vmRestoreQueue workqueue.RateLimitingInterface
+	vmRestoreQueue workqueue.TypedRateLimitingInterface[string]
 
-	vmStatusUpdater *status.VMStatusUpdater
+	VMRestoreStatusUpdater *status.VMRestoreStatusUpdater
 }
 
 // Init initializes the restore controller
-func (ctrl *VMRestoreController) Init() {
-	ctrl.vmRestoreQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-restore-vmrestore")
+func (ctrl *VMRestoreController) Init() error {
+	ctrl.vmRestoreQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-restore-vmrestore"},
+	)
 
-	ctrl.VMRestoreInformer.AddEventHandler(
+	_, err := ctrl.VMRestoreInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMRestore,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMRestore(newObj) },
+			DeleteFunc: ctrl.handleVMRestore,
 		},
 	)
 
-	ctrl.DataVolumeInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+
+	_, err = ctrl.DataVolumeInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleDataVolume,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleDataVolume(newObj) },
 		},
 	)
+	if err != nil {
+		return err
+	}
 
-	ctrl.PVCInformer.AddEventHandler(
+	_, err = ctrl.PVCInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
 		},
 	)
+	if err != nil {
+		return err
+	}
 
-	ctrl.VMInformer.AddEventHandler(
+	_, err = ctrl.VMInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
 		},
 	)
+	if err != nil {
+		return err
+	}
 
-	ctrl.vmStatusUpdater = status.NewVMStatusUpdater(ctrl.Client)
+	ctrl.VMRestoreStatusUpdater = status.NewVMRestoreStatusUpdater(ctrl.Client)
+	return nil
 }
 
 // Run the controller
@@ -174,8 +192,8 @@ func (ctrl *VMRestoreController) handleDataVolume(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if dv, ok := obj.(*v1beta1.DataVolume); ok {
-		restoreName, ok := dv.Annotations[restoreNameAnnotation]
+	if dv, ok := obj.(*cdiv1.DataVolume); ok {
+		restoreName, ok := dv.Annotations[RestoreNameAnnotation]
 		if !ok {
 			return
 		}
@@ -193,7 +211,7 @@ func (ctrl *VMRestoreController) handlePVC(obj interface{}) {
 	}
 
 	if pvc, ok := obj.(*corev1.PersistentVolumeClaim); ok {
-		restoreName, ok := pvc.Annotations[restoreNameAnnotation]
+		restoreName, ok := pvc.Annotations[RestoreNameAnnotation]
 		if !ok {
 			return
 		}

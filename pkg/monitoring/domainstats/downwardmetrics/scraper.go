@@ -7,8 +7,6 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/client-go/version"
-
 	k6sv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -16,53 +14,87 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 	metricspkg "kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/metrics"
-	vms "kubevirt.io/kubevirt/pkg/monitoring/domainstats"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/collector"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 const DownwardmetricsRefreshDuration = 5 * time.Second
-const DownwardmetricsCollectionTimeout = vms.CollectionTimeout
+const DownwardmetricsCollectionTimeout = collector.CollectionTimeout
+const qemuVersionUnknown = "qemu-unknown"
 
 type StaticHostMetrics struct {
 	HostName             string
 	HostSystemInfo       string
 	VirtualizationVendor string
-	VirtProductInfo      string
 }
 
 type Scraper struct {
-	isolation            isolation.PodIsolationDetector
-	staticHostInfo       *StaticHostMetrics
-	hostMetricsCollector *hostMetricsCollector
+	isolation isolation.PodIsolationDetector
+	reporter  *DownwardMetricsReporter
 }
+
+func (s *Scraper) Complete() {}
 
 func (s *Scraper) Scrape(socketFile string, vmi *k6sv1.VirtualMachineInstance) {
 	if !vmi.IsRunning() || !downwardmetrics.HasDownwardMetricDisk(vmi) {
 		return
 	}
 
+	metrics, err := s.reporter.Report(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Infof("failed to collect the metrics")
+		return
+	}
+
+	res, err := s.isolation.Detect(vmi)
+	if err != nil {
+		log.Log.Reason(err).Infof("failed to detect root directory of the vmi pod")
+		return
+	}
+
+	metricsUpdater := vhostmd.NewMetricsIODisk(downwardmetrics.FormatDownwardMetricPath(res.Pid()))
+	err = metricsUpdater.Write(metrics)
+	if err != nil {
+		log.Log.Reason(err).Infof("failed to write metrics to disk")
+		return
+	}
+}
+
+type DownwardMetricsReporter struct {
+	staticHostInfo       *StaticHostMetrics
+	hostMetricsCollector *hostMetricsCollector
+}
+
+func (r *DownwardMetricsReporter) Report(socketFile string) (*api.Metrics, error) {
 	ts := time.Now()
 	cli, err := cmdclient.NewClient(socketFile)
 	if err != nil {
-		log.Log.Reason(err).Error("failed to connect to cmd client socket")
 		// Ignore failure to connect to client.
 		// These are all local connections via unix socket.
 		// A failure to connect means there's nothing on the other
 		// end listening.
-		return
+		return nil, fmt.Errorf("failed to connect to cmd client socket: %s", err.Error())
 	}
 	defer cli.Close()
 
+	version, err := cli.GetQemuVersion()
+	if err != nil {
+		if cmdclient.IsUnimplemented(err) {
+			log.Log.Reason(err).Warning("getQemuVersion not implemented, consider to upgrade kubevirt")
+			version = qemuVersionUnknown
+		} else {
+			return nil, fmt.Errorf("failed to update qemu stats from socket %s: %s", socketFile, err.Error())
+		}
+	}
+
 	vmStats, exists, err := cli.GetDomainStats()
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to update stats from socket %s", socketFile)
-		return
+		return nil, fmt.Errorf("failed to update stats from socket %s: %s", socketFile, err.Error())
 	}
 	if !exists || vmStats.Name == "" {
-		log.Log.V(2).Infof("disappearing VM on %s, ignored", socketFile) // VM may be shutting down
-		return
+		return nil, fmt.Errorf("disappearing VM on %s, ignored", socketFile) // VM may be shutting down
 	}
 
 	// GetDomainStats() may hang for a long time.
@@ -70,35 +102,24 @@ func (s *Scraper) Scrape(socketFile string, vmi *k6sv1.VirtualMachineInstance) {
 	// In the best case the information is stale, in the worst case the information is stale *and*
 	// the reporting channel is already closed, leading to a possible panic - see below
 	elapsed := time.Now().Sub(ts)
-	if elapsed > vms.StatsMaxAge {
+	if elapsed > collector.StatsMaxAge {
 		log.Log.Infof("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
-		return
+		return nil, fmt.Errorf("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
 	}
-	s.Report(vmi, vmStats)
-}
-func (s *Scraper) Report(vmi *k6sv1.VirtualMachineInstance, vmStats *stats.DomainStats) {
-	res, err := s.isolation.Detect(vmi)
-	if err != nil {
-		log.Log.Reason(err).Infof("failed to detect root directory of the vmi pod")
-		return
-	}
-	metricsUpdater := vhostmd.NewMetricsIODisk(downwardmetrics.FormatDownwardMetricPath(res.Pid()))
+
 	metrics := &api.Metrics{
 		Metrics: []api.Metric{
-			metricspkg.MustToUnitlessHostMetric(s.staticHostInfo.HostName, "HostName"),
-			metricspkg.MustToUnitlessHostMetric(s.staticHostInfo.HostSystemInfo, "HostSystemInfo"),
-			metricspkg.MustToUnitlessHostMetric(s.staticHostInfo.VirtualizationVendor, "VirtualizationVendor"),
-			metricspkg.MustToUnitlessHostMetric(s.staticHostInfo.VirtProductInfo, "VirtProductInfo"),
+			metricspkg.MustToUnitlessHostMetric(r.staticHostInfo.HostName, "HostName"),
+			metricspkg.MustToUnitlessHostMetric(r.staticHostInfo.HostSystemInfo, "HostSystemInfo"),
+			metricspkg.MustToUnitlessHostMetric(r.staticHostInfo.VirtualizationVendor, "VirtualizationVendor"),
+			metricspkg.MustToUnitlessHostMetric(version, "VirtProductInfo"),
 		},
 	}
 	metrics.Metrics = append(metrics.Metrics, guestCPUMetrics(vmStats)...)
 	metrics.Metrics = append(metrics.Metrics, guestMemoryMetrics(vmStats)...)
-	metrics.Metrics = append(metrics.Metrics, s.hostMetricsCollector.Collect()...)
-	err = metricsUpdater.Write(metrics)
-	if err != nil {
-		log.Log.Reason(err).Infof("failed to write metrics to disk")
-		return
-	}
+	metrics.Metrics = append(metrics.Metrics, r.hostMetricsCollector.Collect()...)
+
+	return metrics, nil
 }
 
 func guestCPUMetrics(vmStats *stats.DomainStats) []api.Metric {
@@ -109,6 +130,7 @@ func guestCPUMetrics(vmStats *stats.DomainStats) []api.Metric {
 
 	return []api.Metric{
 		metricspkg.MustToVMMetric(float64(cpuTimeTotal)/float64(1000000000), "TotalCPUTime", "s"),
+		metricspkg.MustToVMMetric(vmStats.NrVirtCpu, "ResourceProcessorLimit", ""),
 	}
 }
 
@@ -122,29 +144,30 @@ func guestMemoryMetrics(vmStats *stats.DomainStats) []api.Metric {
 }
 
 type Collector struct {
-	concCollector *vms.ConcurrentCollector
+	concCollector *collector.ConcurrentCollector
 }
 
-func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiInformer cache.SharedIndexInformer, isolation isolation.PodIsolationDetector) error {
-
-	compactVersion, err := version.GetCompactJSON()
-	if err != nil {
-		return fmt.Errorf("failed to retrieve compaced version info: %v", err)
-	}
-	scraper := &Scraper{
-		isolation: isolation,
+func NewReporter(nodeName string) *DownwardMetricsReporter {
+	return &DownwardMetricsReporter{
 		staticHostInfo: &StaticHostMetrics{
 			HostName:             nodeName,
 			HostSystemInfo:       "linux",
 			VirtualizationVendor: "kubevirt.io",
-			VirtProductInfo:      compactVersion,
 		},
 		hostMetricsCollector: defaultHostMetricsCollector(),
 	}
-	collector := vms.NewConcurrentCollector(1)
+}
+
+func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiInformer cache.SharedIndexInformer, isolation isolation.PodIsolationDetector) error {
+	scraper := &Scraper{
+		isolation: isolation,
+		reporter:  NewReporter(nodeName),
+	}
+	collector := collector.NewConcurrentCollector(1)
 
 	go func() {
 		ticker := time.NewTicker(DownwardmetricsRefreshDuration)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:

@@ -20,18 +20,19 @@
 package device_manager
 
 import (
+	"context"
 	"math"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -110,7 +111,7 @@ func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
 
 	ret := make([]Device, 0, len(permanentDevicePluginPaths))
 	for name, path := range permanentDevicePluginPaths {
-		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, (name != "kvm")))
+		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, name != "kvm"))
 	}
 	return ret
 }
@@ -153,7 +154,7 @@ func NewDeviceController(
 		host:             host,
 		maxDevices:       maxDevices,
 		permissions:      permissions,
-		backoff:          []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
+		backoff:          defaultBackoffTime,
 		virtConfig:       clusterConfig,
 		mdevTypesManager: NewMDEVTypesManager(),
 		clientset:        clientset,
@@ -165,7 +166,7 @@ func NewDeviceController(
 func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 	_, err := os.Stat(devicePath)
 	// Since this is a boolean question, any error means "no"
-	return (err == nil)
+	return err == nil
 }
 
 // updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node
@@ -187,6 +188,10 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 				NewGenericDevicePlugin(dev.Name, dev.Path, c.maxDevices, c.permissions, true),
 			)
 		}
+	}
+
+	if c.virtConfig.PersistentReservationEnabled() {
+		permittedDevices = append(permittedDevices, NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices))
 	}
 
 	hostDevs := c.virtConfig.GetPermittedHostDevices()
@@ -230,6 +235,10 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 
 			permittedDevices = append(permittedDevices, NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName))
 		}
+	}
+
+	for resourceName, pluginDevices := range discoverAllowedUSBDevices(hostDevs.USB) {
+		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, pluginDevices))
 	}
 
 	return permittedDevices

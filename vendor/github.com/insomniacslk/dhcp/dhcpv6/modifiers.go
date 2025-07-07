@@ -16,12 +16,12 @@ func WithOption(o Option) Modifier {
 }
 
 // WithClientID adds a client ID option to a DHCPv6 packet
-func WithClientID(duid Duid) Modifier {
+func WithClientID(duid DUID) Modifier {
 	return WithOption(OptClientID(duid))
 }
 
 // WithServerID adds a client ID option to a DHCPv6 packet
-func WithServerID(duid Duid) Modifier {
+func WithServerID(duid DUID) Modifier {
 	return WithOption(OptServerID(duid))
 }
 
@@ -91,15 +91,17 @@ func WithIAID(iaid [4]byte) Modifier {
 	}
 }
 
-// WithIATA adds or updates an OptIANA option with the provided IAAddress
-// options
-func WithIATA(addrs ...OptIAAddress) Modifier {
+// WithIATA adds or updates an OptIATA option with the provided IAID,
+// and IAAddress options
+func WithIATA(iaid [4]byte, addrs ...OptIAAddress) Modifier {
 	return func(d DHCPv6) {
 		if msg, ok := d.(*Message); ok {
 			iata := msg.Options.OneIATA()
 			if iata == nil {
 				iata = &OptIATA{}
 			}
+			copy(iata.IaId[:], iaid[:])
+
 			for _, addr := range addrs {
 				iata.Options.Add(&addr)
 			}

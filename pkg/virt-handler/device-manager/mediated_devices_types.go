@@ -272,7 +272,11 @@ func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool
 func removeUndesiredMDEVs(desiredTypesMap map[string]struct{}) {
 	files, err := os.ReadDir(mdevBasePath)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to remove mdev types: failed to read the content of %s directory", mdevBasePath)
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Log.Reason(err).Errorf("failed to remove mdev types: failed to read the content of %s directory", mdevBasePath)
+		} else {
+			log.Log.Reason(err).V(4).Infof("failed to remove mdev types: failed to read the content of %s directory. This most likely means that no mdev cleanup is necessary", mdevBasePath)
+		}
 		return
 	}
 	for _, file := range files {

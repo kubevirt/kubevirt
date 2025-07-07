@@ -43,4 +43,4 @@ When creating a KubeVirt alert rule, please see the following :
      - Warning alerts - When an alert require user intervention. A more serious issue may develop if this is not resolved soon.
      - Info alerts - When a minor problem has been detected. It should be resolved relatively soon and not ignored.
 
-5. Alert `message` must be verbose, since it is being propagated to the [metrics.md](https://github.com/kubevirt/kubevirt/blob/main/docs/metrics.md) file, when running `make-generate`.
+5. Alert `message` must be verbose, since it is being propagated to the [observability/metrics.md](https://github.com/kubevirt/kubevirt/blob/main/docs/observability/metrics.md) file, when running `make-generate`.

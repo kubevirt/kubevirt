@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Existence matchers", func() {
@@ -33,4 +34,33 @@ var _ = Describe("Existence matchers", func() {
 		Entry("an object pointing to nil", toNilPointer, true),
 		Entry("a pod", &v1.Pod{}, false),
 	)
+
+	It("formating", func() {
+		obj := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "HI",
+				ManagedFields: []metav1.ManagedFieldsEntry{
+					{
+						Manager: "something",
+					},
+				},
+			},
+		}
+		Expect(BeGone().FailureMessage(obj.DeepCopy())).To(
+			SatisfyAll(
+				ContainSubstring("metadata"),
+				ContainSubstring("status"),
+				Not(ContainSubstring("something")),
+				Not(ContainSubstring("Spec")),
+			),
+		)
+		Expect(BeGone().NegatedFailureMessage(obj.DeepCopy())).To(
+			SatisfyAll(
+				ContainSubstring("metadata"),
+				ContainSubstring("status"),
+				Not(ContainSubstring("something")),
+				Not(ContainSubstring("Spec")),
+			),
+		)
+	})
 })

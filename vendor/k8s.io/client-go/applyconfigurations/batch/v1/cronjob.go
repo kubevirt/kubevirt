@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// CronJobApplyConfiguration represents an declarative configuration of the CronJob type for use
+// CronJobApplyConfiguration represents a declarative configuration of the CronJob type for use
 // with apply.
 type CronJobApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -36,7 +36,7 @@ type CronJobApplyConfiguration struct {
 	Status                           *CronJobStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// CronJob constructs an declarative configuration of the CronJob type for use with
+// CronJob constructs a declarative configuration of the CronJob type for use with
 // apply.
 func CronJob(name, namespace string) *CronJobApplyConfiguration {
 	b := &CronJobApplyConfiguration{}
@@ -123,15 +123,6 @@ func (b *CronJobApplyConfiguration) WithGenerateName(value string) *CronJobApply
 func (b *CronJobApplyConfiguration) WithNamespace(value string) *CronJobApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *CronJobApplyConfiguration) WithSelfLink(value string) *CronJobApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -244,15 +235,6 @@ func (b *CronJobApplyConfiguration) WithFinalizers(values ...string) *CronJobApp
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *CronJobApplyConfiguration) WithClusterName(value string) *CronJobApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *CronJobApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -273,4 +255,10 @@ func (b *CronJobApplyConfiguration) WithSpec(value *CronJobSpecApplyConfiguratio
 func (b *CronJobApplyConfiguration) WithStatus(value *CronJobStatusApplyConfiguration) *CronJobApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *CronJobApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

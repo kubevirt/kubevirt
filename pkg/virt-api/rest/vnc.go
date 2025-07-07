@@ -10,14 +10,15 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 
-	restful "github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful/v3"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
-	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/api"
+	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 
 	"github.com/mitchellh/go-vnc"
 )
@@ -25,6 +26,8 @@ import (
 func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, response *restful.Response) {
 	activeConnectionMetric := apimetrics.NewActiveVNCConnection(request.PathParameter("namespace"), request.PathParameter("name"))
 	defer activeConnectionMetric.Dec()
+
+	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
 
 	streamer := NewRawStreamer(
 		app.FetchVirtualMachineInstance,
@@ -44,6 +47,8 @@ func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Reque
 	activeConnectionMetric := apimetrics.NewActiveVNCConnection(request.PathParameter("namespace"), request.PathParameter("name"))
 	defer activeConnectionMetric.Dec()
 
+	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
+
 	dialer := NewDirectDialer(
 		app.FetchVirtualMachineInstance,
 		validateVMIForVNC,
@@ -62,7 +67,7 @@ func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Reque
 	}
 
 	done := make(chan struct{})
-	streamer := kubecli.NewWebsocketStreamer(nc, done)
+	streamer := kvcorev1.NewWebsocketStreamer(nc, done)
 	defer close(done)
 
 	ch := make(chan vnc.ServerMessage)
@@ -155,10 +160,13 @@ func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Reque
 
 func validateVMIForVNC(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 	// If there are no graphics devices present, we can't proceed
-	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == false {
+	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && !*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
 		err := fmt.Errorf("No graphics devices are present.")
 		log.Log.Object(vmi).Reason(err).Error("Can't establish VNC connection.")
 		return errors.NewBadRequest(err.Error())
+	}
+	if !vmi.IsRunning() {
+		return errors.NewBadRequest(vmiNotRunning)
 	}
 	return nil
 }

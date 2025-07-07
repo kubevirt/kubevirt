@@ -24,163 +24,208 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/testsuite"
+
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
-// WaitForVMIStartOrFailed blocks until the specified VirtualMachineInstance reached either Failed or Running states
-func WaitForVMIStartOrFailed(obj runtime.Object, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running, v1.Failed}, obj, seconds, wp, true)
+const defaultTimeout = 360
+
+// Option represents an action that enables an option.
+type Option func(waiting *Waiting)
+
+// Waiting represents the waiting struct.
+type Waiting struct {
+	ctx         context.Context
+	wp          *watcher.WarningsPolicy
+	timeout     int
+	waitForFail bool
+	phases      []v1.VirtualMachineInstancePhase
 }
 
-// Block until the specified VirtualMachineInstance started and return the target node name.
-func WaitForVMIStart(ctx context.Context, obj runtime.Object, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
-	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, wp, false)
+// WaitForVMIPhase blocks until the specified VirtualMachineInstance reaches any of the phases.
+// By default, the waiting will fail if a warning is captured and a default timeout will be used.
+// These properties can be customized using With* options.
+// If no context is provided, a new one will be created.
+func WaitForVMIPhase(vmi *v1.VirtualMachineInstance, phases []v1.VirtualMachineInstancePhase, opts ...Option) *v1.VirtualMachineInstance {
+	wp := watcher.WarningsPolicy{FailOnWarnings: true}
+	gomega.ExpectWithOffset(1, phases).ToNot(gomega.BeEmpty())
+	waiting := Waiting{timeout: defaultTimeout, wp: &wp, phases: phases}
+	for _, f := range opts {
+		f(&waiting)
+	}
+
+	if waiting.ctx == nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		waiting.ctx = ctx
+	}
+
+	WithWarningsIgnoreList(testsuite.TestRunConfiguration.WarningToIgnoreList)(&waiting)
+	return waiting.watchVMIForPhase(vmi)
 }
 
-// Block until the specified VirtualMachineInstance scheduled and return the target node name.
-func WaitForVMIScheduling(obj runtime.Object, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, wp, false)
+// WithContext adds a specific context to the waiting struct
+func WithContext(ctx context.Context) Option {
+	return func(waiting *Waiting) {
+		waiting.ctx = ctx
+	}
 }
 
-func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, wp watcher.WarningsPolicy, waitForFail bool) *v1.VirtualMachineInstance {
-	vmi, ok := obj.(*v1.VirtualMachineInstance)
-	gomega.ExpectWithOffset(1, ok).To(gomega.BeTrue(), "Object is not of type *v1.VMI")
+// WithTimeout adds a specific timeout to the waiting struct
+func WithTimeout(seconds int) Option {
+	return func(waiting *Waiting) {
+		waiting.timeout = seconds
+	}
+}
 
+// WithWarningsPolicy adds a specific warningPolicy to the waiting struct
+func WithWarningsPolicy(wp *watcher.WarningsPolicy) Option {
+	return func(waiting *Waiting) {
+		waiting.wp = wp
+	}
+}
+
+// WithFailOnWarnings sets if the waiting should fail on warning or not
+func WithFailOnWarnings(failOnWarnings bool) Option {
+	return func(waiting *Waiting) {
+		if waiting.wp == nil {
+			waiting.wp = &watcher.WarningsPolicy{}
+		}
+
+		waiting.wp.FailOnWarnings = failOnWarnings
+	}
+}
+
+// WithWarningsIgnoreList sets the warnings that will be ignored during the waiting for phase
+// This option will be ignored if a warning policy has been set before and the failOnWarnings is false
+// If no warning policy has been set before, a new one will be set implicitly with fail on warnings enabled and the ignore list added
+func WithWarningsIgnoreList(warningIgnoreList []string) Option {
+	return func(waiting *Waiting) {
+		if waiting.wp == nil {
+			waiting.wp = &watcher.WarningsPolicy{FailOnWarnings: true}
+		}
+
+		waiting.wp.WarningsIgnoreList = append(waiting.wp.WarningsIgnoreList, warningIgnoreList...)
+	}
+}
+
+// WithWaitForFail adds the specific waitForFail to the waiting struct
+func WithWaitForFail(waitForFail bool) Option {
+	return func(waiting *Waiting) {
+		waiting.waitForFail = waitForFail
+	}
+}
+
+// watchVMIForPhase looks at the vmi object and, after it is started, waits for it to satisfy the phases with the passed parameters
+func (w *Waiting) watchVMIForPhase(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	virtClient, err := kubecli.GetKubevirtClient()
 	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 
 	// Fetch the VirtualMachineInstance, to make sure we have a resourceVersion as a starting point for the watch
 	// FIXME: This may start watching too late and we may miss some warnings
 	if vmi.ResourceVersion == "" {
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	}
 
-	objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
-	if wp.FailOnWarnings == true {
+	const offset = 2
+	objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(w.timeout+offset) * time.Second)
+	if w.wp.FailOnWarnings {
 		// let's ignore PSA events as kubernetes internally uses a namespace informer
 		// that might not be up to date after virt-controller relabeled the namespace
 		// to use a 'privileged' policy
 		// TODO: remove this when KubeVirt will be able to run VMs under the 'restricted' level
-		wp.WarningsIgnoreList = append(wp.WarningsIgnoreList, "violates PodSecurity")
-		objectEventWatcher.SetWarningsPolicy(wp)
+		w.wp.WarningsIgnoreList = append(w.wp.WarningsIgnoreList, "violates PodSecurity")
+		objectEventWatcher.SetWarningsPolicy(*w.wp)
 	}
 
 	go func() {
 		defer ginkgo.GinkgoRecover()
-		objectEventWatcher.WaitFor(ctx, watcher.NormalEvent, v1.Started)
+		objectEventWatcher.WaitFor(w.ctx, watcher.NormalEvent, v1.Started)
 	}()
 
-	timeoutMsg := fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, phases)
+	var retrievedVMI *v1.VirtualMachineInstance
 	// FIXME the event order is wrong. First the document should be updated
 	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) v1.VirtualMachineInstancePhase {
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+		retrievedVMI, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		g.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 
-		g.Expect(vmi).ToNot(matcher.HaveSucceeded(), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
+		g.Expect(retrievedVMI).ToNot(matcher.HaveSucceeded(),
+			"VMI %s unexpectedly stopped. State: %s",
+			retrievedVMI.Name,
+			retrievedVMI.Status.Phase)
 		// May need to wait for Failed state
-		if !waitForFail {
-			g.Expect(vmi).ToNot(matcher.BeInPhase(v1.Failed), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
+		if !w.waitForFail {
+			g.Expect(retrievedVMI).ToNot(matcher.BeInPhase(v1.Failed),
+				"VMI %s unexpectedly stopped. State: %s",
+				retrievedVMI.Name,
+				retrievedVMI.Status.Phase)
 		}
-		return vmi.Status.Phase
-	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(gomega.BeElementOf(phases), timeoutMsg)
+		return retrievedVMI.Status.Phase
+	}, time.Duration(w.timeout)*time.Second, 1*time.Second).Should(gomega.BeElementOf(w.phases),
+		fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, w.phases))
+
+	return retrievedVMI
+}
+
+// WaitForSuccessfulVMIStart blocks until the specified VirtualMachineInstance reaches the Running state
+// using the passed options
+func WaitForSuccessfulVMIStart(vmi *v1.VirtualMachineInstance, opts ...Option) *v1.VirtualMachineInstance {
+	return WaitForVMIPhase(vmi,
+		[]v1.VirtualMachineInstancePhase{v1.Running},
+		opts...,
+	)
+}
+
+// WaitUntilVMIReady blocks until the specified VirtualMachineInstance reaches the Running state using the passed
+// options, and the login succeed
+func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction, opts ...Option) *v1.VirtualMachineInstance {
+	vmi = WaitForVMIPhase(vmi,
+		[]v1.VirtualMachineInstancePhase{v1.Running},
+		opts...,
+	)
+	gomega.Expect(loginTo(vmi)).To(gomega.Succeed())
+
+	var err error
+	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	return vmi
 }
 
-func WaitForSuccessfulVMIStartIgnoreWarnings(vmi runtime.Object) *v1.VirtualMachineInstance {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	wp := watcher.WarningsPolicy{FailOnWarnings: false}
-	return WaitForVMIStart(ctx, vmi, 180, wp)
-}
-
-func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) *v1.VirtualMachineInstance {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	wp := watcher.WarningsPolicy{FailOnWarnings: true}
-	return WaitForVMIStart(ctx, vmi, seconds, wp)
-}
-
-func WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi runtime.Object, seconds int) *v1.VirtualMachineInstance {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	wp := watcher.WarningsPolicy{FailOnWarnings: false}
-	return WaitForVMIStart(ctx, vmi, seconds, wp)
-}
-
+// WaitForVirtualMachineToDisappearWithTimeout blocks for the passed seconds until the specified VirtualMachineInstance disappears
 func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	gomega.EventuallyWithOffset(1, func() error {
-		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		return err
-	}, seconds, 1*time.Second).Should(gomega.SatisfyAll(gomega.HaveOccurred(), gomega.WithTransform(errors.IsNotFound, gomega.BeTrue())), "The VMI should be gone within the given timeout")
+	}, seconds, 1*time.Second).Should(gomega.SatisfyAll(
+		gomega.HaveOccurred(),
+		gomega.WithTransform(errors.IsNotFound, gomega.BeTrue())),
+		"The VMI should be gone within the given timeout")
 }
 
+// WaitForMigrationToDisappearWithTimeout blocks for the passed seconds until the specified VirtualMachineInstanceMigration disappears
 func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstanceMigration, seconds int) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
-	gomega.EventuallyWithOffset(1, func() bool {
-		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-		return errors.IsNotFound(err)
-	}, seconds, 1*time.Second).Should(gomega.BeTrue(), fmt.Sprintf("migration %s was expected to dissapear after %d seconds, but it did not", migration.Name, seconds))
-}
-
-func WaitForSuccessfulVMIStart(vmi runtime.Object) *v1.VirtualMachineInstance {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return WaitForSuccessfulVMIStartWithContext(ctx, vmi)
-}
-
-func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return WaitUntilVMIReadyWithContext(ctx, vmi, loginTo)
-}
-
-func WaitUntilVMIReadyIgnoreSelectedWarnings(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction, warningsIgnoreList []string) *v1.VirtualMachineInstance {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return WaitUntilVMIReadyWithContextIgnoreSelectedWarnings(ctx, vmi, loginTo, warningsIgnoreList)
-}
-
-func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
-	// Wait for VirtualMachineInstance start
-	vmi = WaitForSuccessfulVMIStartWithContext(ctx, vmi)
-	gomega.Expect(loginTo(vmi)).To(gomega.Succeed())
-	return vmi
-}
-
-func WaitUntilVMIReadyWithContextIgnoreSelectedWarnings(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction, warningsIgnoreList []string) *v1.VirtualMachineInstance {
-	// Wait for VirtualMachineInstance start
-	vmi = WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx, vmi, warningsIgnoreList)
-	gomega.Expect(loginTo(vmi)).To(gomega.Succeed())
-	return vmi
-}
-
-func WaitForSuccessfulVMIStartWithContext(ctx context.Context, vmi runtime.Object) *v1.VirtualMachineInstance {
-	wp := watcher.WarningsPolicy{FailOnWarnings: true}
-	return WaitForVMIStart(ctx, vmi, 360, wp)
-}
-
-func WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx context.Context, vmi runtime.Object, warningsIgnoreList []string) *v1.VirtualMachineInstance {
-	wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
-	return WaitForVMIStart(ctx, vmi, 360, wp)
+	gomega.EventuallyWithOffset(1, func() error {
+		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+		return err
+	}, seconds, 1*time.Second).Should(gomega.MatchError(errors.IsNotFound, "k8serrors.IsNotFound"),
+		fmt.Sprintf("migration %s was expected to disappear after %d seconds, but it did not",
+			migration.Name, seconds))
 }

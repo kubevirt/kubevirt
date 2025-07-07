@@ -47,13 +47,14 @@ const (
 type DisruptionBudgetController struct {
 	clientset                       kubecli.KubevirtClient
 	clusterConfig                   *virtconfig.ClusterConfig
-	Queue                           workqueue.RateLimitingInterface
-	vmiInformer                     cache.SharedIndexInformer
-	pdbInformer                     cache.SharedIndexInformer
-	podInformer                     cache.SharedIndexInformer
-	migrationInformer               cache.SharedIndexInformer
+	Queue                           workqueue.TypedRateLimitingInterface[string]
+	vmiStore                        cache.Store
+	pdbIndexer                      cache.Indexer
+	podIndexer                      cache.Indexer
+	migrationIndexer                cache.Indexer
 	recorder                        record.EventRecorder
 	podDisruptionBudgetExpectations *controller.UIDTrackingControllerExpectations
+	hasSynced                       func() bool
 }
 
 func NewDisruptionBudgetController(
@@ -64,41 +65,59 @@ func NewDisruptionBudgetController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
-) *DisruptionBudgetController {
+) (*DisruptionBudgetController, error) {
 
 	c := &DisruptionBudgetController{
-		Queue:                           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-disruption-budget"),
-		vmiInformer:                     vmiInformer,
-		pdbInformer:                     pdbInformer,
-		podInformer:                     podInformer,
-		migrationInformer:               migrationInformer,
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-disruption-budget"},
+		),
+		vmiStore:                        vmiInformer.GetStore(),
+		pdbIndexer:                      pdbInformer.GetIndexer(),
+		podIndexer:                      podInformer.GetIndexer(),
+		migrationIndexer:                migrationInformer.GetIndexer(),
 		recorder:                        recorder,
 		clientset:                       clientset,
 		clusterConfig:                   clusterConfig,
 		podDisruptionBudgetExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
-	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.hasSynced = func() bool {
+		return vmiInformer.HasSynced() && pdbInformer.HasSynced() && podInformer.HasSynced() && migrationInformer.HasSynced()
+	}
+
+	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPodDisruptionBudget,
 		DeleteFunc: c.deletePodDisruptionBudget,
 		UpdateFunc: c.updatePodDisruptionBudget,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePod,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateMigration,
 	})
-
-	return c
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (c *DisruptionBudgetController) updateMigration(_, curr interface{}) {
@@ -317,7 +336,7 @@ func (c *DisruptionBudgetController) Run(threadiness int, stopCh <-chan struct{}
 	log.Log.Info("Starting disruption budget controller.")
 
 	// Wait for cache sync before we start the node controller
-	cache.WaitForCacheSync(stopCh, c.pdbInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -339,7 +358,7 @@ func (c *DisruptionBudgetController) Execute() bool {
 		return false
 	}
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
@@ -358,7 +377,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	// Fetch the latest Vm state from cache
-	obj, vmiExists, err := c.vmiInformer.GetStore().GetByKey(key)
+	obj, vmiExists, err := c.vmiStore.GetByKey(key)
 
 	if err != nil {
 		return err
@@ -378,7 +397,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	// Only consider pdbs which belong to this vmi
-	pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer)
+	pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbIndexer)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to fetch pod disruption budgets for namespace from cache.")
 		// If the situation does not change there is no benefit in retrying
@@ -398,7 +417,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 }
 
 func (c *DisruptionBudgetController) isMigrationComplete(vmi *virtv1.VirtualMachineInstance, migrationName string) (bool, error) {
-	objs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return false, err
 	}
@@ -419,7 +438,7 @@ func (c *DisruptionBudgetController) isMigrationComplete(vmi *virtv1.VirtualMach
 		return false, nil
 	}
 
-	runningPods := controller.VMIActivePodsCount(vmi, c.podInformer)
+	runningPods := controller.VMIActivePodsCount(vmi, c.podIndexer)
 	return runningPods == 1, nil
 }
 
@@ -451,11 +470,16 @@ func (c *DisruptionBudgetController) deletePDB(key string, pdb *policyv1.PodDisr
 }
 
 func (c *DisruptionBudgetController) shrinkPDB(vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisruptionBudget) error {
-	if pdb != nil && pdb.DeletionTimestamp == nil && pdb.Spec.MinAvailable.IntValue() != 1 {
-		patchOps := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/minAvailable", "value": 1 }, { "op": "remove", "path": "/metadata/labels/%s" }]`,
-			patch.EscapeJSONPointer(virtv1.MigrationNameLabel)))
-
-		_, err := c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, patchOps, v1.PatchOptions{})
+	if pdb != nil && pdb.DeletionTimestamp == nil && pdb.Spec.MinAvailable != nil && pdb.Spec.MinAvailable.IntValue() != 1 {
+		patches := patch.New(
+			patch.WithReplace("/spec/minAvailable", 1),
+			patch.WithRemove(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.MigrationNameLabel))),
+		)
+		patchOps, err := patches.GeneratePayload()
+		if err != nil {
+			return err
+		}
+		_, err = c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, patchOps, v1.PatchOptions{})
 		if err != nil {
 			c.recorder.Eventf(vmi, corev1.EventTypeWarning, FailedUpdatePodDisruptionBudgetReason, "Error updating the PodDisruptionBudget %s: %v", pdb.Name, err)
 			return err
@@ -506,43 +530,51 @@ func isPDBFromOldVMI(vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisrup
 
 func (c *DisruptionBudgetController) sync(key string, vmiExists bool, vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisruptionBudget) error {
 	needsEvictionProtection := c.vmiNeedsEvictionPDB(vmiExists, vmi)
-
-	// check for deletions if pod exists
-	if pdb != nil {
-		if !vmiExists || vmi.DeletionTimestamp != nil {
-			// being deleted
-			log.Log.Infof("deleting pdb %s/%s due to VMI deletion", pdb.Namespace, pdb.Name)
-			return c.deletePDB(key, pdb, vmi)
-		} else if !needsEvictionProtection {
-			// vmi isn't set to prevent eviction, so delete the pdb
-			log.Log.Object(vmi).Infof("deleting pdb %s/%s due to not using evictionStrategy: LiveMigration|External", pdb.Namespace, pdb.Name)
-			return c.deletePDB(key, pdb, vmi)
-		} else if isPDBFromOldVMI(vmi, pdb) {
-			// pdb for non existent vmi
-			log.Log.Object(vmi).Infof("deleting pdb %s/%s due to VMI not existing anymore", pdb.Namespace, pdb.Name)
-			return c.deletePDB(key, pdb, vmi)
-		} else if pdbs.IsPDBFromOldMigrationController(pdb) {
-			// pdb coming from an old migration controller
-			log.Log.Object(vmi).Infof("deleting pdb %s/%s generated by an old migration controller", pdb.Namespace, pdb.Name)
-			return c.deletePDB(key, pdb, vmi)
-		} else {
-			vmimCompleted, err := c.isVMIMCompletedForPDB(pdb, vmi)
-			if err != nil {
-				return err
-			}
-			if vmimCompleted {
-				// pdb for completed migration
-				log.Log.Object(vmi).Infof("shrinking pdb %s/%s due to migration completion", pdb.Namespace, pdb.Name)
-				return c.shrinkPDB(vmi, pdb)
-			}
+	if pdb == nil {
+		if needsEvictionProtection {
+			// If no PDB exists and eviction protection is needed, create a new PDB
+			log.Log.Object(vmi).Infof("creating pdb for VMI %s/%s", vmi.Namespace, vmi.Name)
+			return c.createPDB(key, vmi)
 		}
-	} else if needsEvictionProtection {
-		// pdb doesn't exist, create if vmi's eviction strategy means it is protected during drain.
-		log.Log.Object(vmi).Infof("creating pdb for VMI %s/%s", vmi.Namespace, vmi.Name)
-		return c.createPDB(key, vmi)
+		return nil
+	}
+
+	if shouldDelete, reason := shouldDeletePDB(vmiExists, vmi, pdb, needsEvictionProtection); shouldDelete {
+		log.Log.Object(vmi).Infof("deleting pdb %s/%s due to %s", pdb.Namespace, pdb.Name, reason)
+		return c.deletePDB(key, pdb, vmi)
+	}
+
+	vmimCompleted, err := c.isVMIMCompletedForPDB(pdb, vmi)
+	if err != nil {
+		return err
+	}
+	if vmimCompleted {
+		log.Log.Object(vmi).Infof("shrinking pdb %s/%s due to migration completion", pdb.Namespace, pdb.Name)
+		return c.shrinkPDB(vmi, pdb)
 	}
 
 	return nil
+}
+
+func shouldDeletePDB(vmiExists bool, vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisruptionBudget, needsEvictionProtection bool) (shouldDelete bool, deletionReason string) {
+	if pdb == nil {
+		return false, ""
+	}
+
+	switch {
+	case !vmiExists || vmi.DeletionTimestamp != nil:
+		return true, "VMI deletion"
+	case !needsEvictionProtection:
+		return true, "VMI not using evictionStrategy: LiveMigration|External"
+	case vmi.IsFinal():
+		return true, "VMI has moved to a Final state and is no longer active"
+	case isPDBFromOldVMI(vmi, pdb):
+		return true, "VMI not existing anymore"
+	case pdbs.IsPDBFromOldMigrationController(pdb):
+		return true, "PDB generated by an old migration controller"
+	default:
+		return false, ""
+	}
 }
 
 func (c *DisruptionBudgetController) vmiNeedsEvictionPDB(vmiExists bool, vmi *virtv1.VirtualMachineInstance) bool {
@@ -558,6 +590,8 @@ func (c *DisruptionBudgetController) vmiNeedsEvictionPDB(vmiExists bool, vmi *vi
 	switch *evictionStrategy {
 	case virtv1.EvictionStrategyLiveMigrate, virtv1.EvictionStrategyExternal:
 		return true
+	case virtv1.EvictionStrategyLiveMigrateIfPossible:
+		return vmi.IsMigratable()
 	default:
 		return false
 	}

@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // Opt4RD represents a 4RD option. It is only a container for 4RD_*_RULE options
-type Opt4RD Options
+type Opt4RD struct {
+	FourRDOptions
+}
 
 // Code returns the Option Code for this option
 func (op *Opt4RD) Code() OptionCode {
@@ -17,32 +19,75 @@ func (op *Opt4RD) Code() OptionCode {
 
 // ToBytes serializes this option
 func (op *Opt4RD) ToBytes() []byte {
-	return (*Options)(op).ToBytes()
+	return op.Options.ToBytes()
 }
 
 // String returns a human-readable representation of the option
 func (op *Opt4RD) String() string {
-	return fmt.Sprintf("Opt4RD{%v}", (*Options)(op))
+	return fmt.Sprintf("%s: {Options=%v}", op.Code(), op.Options)
 }
 
-// ParseOpt4RD builds an Opt4RD structure from a sequence of bytes.
+// LongString returns a multi-line human-readable representation of the option
+func (op *Opt4RD) LongString(indentSpace int) string {
+	return fmt.Sprintf("%s: Options=%v", op.Code(), op.Options.LongString(indentSpace))
+}
+
+// FromBytes builds an Opt4RD structure from a sequence of bytes.
 // The input data does not include option code and length bytes
-func ParseOpt4RD(data []byte) (*Opt4RD, error) {
-	var opt Options
-	err := opt.FromBytes(data)
-	return (*Opt4RD)(&opt), err
+func (op *Opt4RD) FromBytes(data []byte) error {
+	return op.Options.FromBytes(data)
 }
 
-// Opt4RDMapRule represents a 4RD Mapping Rule option
-// The option is described in https://tools.ietf.org/html/rfc7600#section-4.9
-// The 4RD mapping rules are described in https://tools.ietf.org/html/rfc7600#section-4.2
+// FourRDOptions are options that can be encapsulated with the 4RD option.
+type FourRDOptions struct {
+	Options
+}
+
+// MapRules returns the map rules associated with the 4RD option.
+//
+//	"The OPTION_4RD DHCPv6 option contains at least one encapsulated
+//	OPTION_4RD_MAP_RULE option." (RFC 7600 Section 4.9)
+func (frdo FourRDOptions) MapRules() []*Opt4RDMapRule {
+	opts := frdo.Options.Get(Option4RDMapRule)
+	var mrs []*Opt4RDMapRule
+	for _, o := range opts {
+		if m, ok := o.(*Opt4RDMapRule); ok {
+			mrs = append(mrs, m)
+		}
+	}
+	return mrs
+}
+
+// NonMapRule returns the non-map-rule associated with this option.
+//
+//	"The OPTION_4RD DHCPv6 option contains ... a maximum of one
+//	encapsulated OPTION_4RD_NON_MAP_RULE option." (RFC 7600 Section 4.9)
+func (frdo FourRDOptions) NonMapRule() *Opt4RDNonMapRule {
+	opt := frdo.Options.GetOne(Option4RDNonMapRule)
+	if opt == nil {
+		return nil
+	}
+	nmr, ok := opt.(*Opt4RDNonMapRule)
+	if !ok {
+		return nil
+	}
+	return nmr
+}
+
+// Opt4RDMapRule represents a 4RD Mapping Rule option.
+//
+// The option is described in RFC 7600 Section 4.9. The 4RD mapping rules are
+// described in RFC 7600 Section 4.2.
 type Opt4RDMapRule struct {
 	// Prefix4 is the IPv4 prefix mapped by this rule
 	Prefix4 net.IPNet
+
 	// Prefix6 is the IPv6 prefix mapped by this rule
 	Prefix6 net.IPNet
+
 	// EABitsLength is the number of bits of an address used in constructing the mapped address
 	EABitsLength uint8
+
 	// WKPAuthorized determines if well-known ports are assigned to addresses in an A+P mapping
 	// It can only be set if the length of Prefix4 + EABits > 32
 	WKPAuthorized bool
@@ -94,30 +139,31 @@ func (op *Opt4RDMapRule) ToBytes() []byte {
 
 // String returns a human-readable description of this option
 func (op *Opt4RDMapRule) String() string {
-	return fmt.Sprintf("Opt4RDMapRule{Prefix4=%s, Prefix6=%s, EA-Bits=%d, WKPAuthorized=%t}",
-		op.Prefix4.String(), op.Prefix6.String(), op.EABitsLength, op.WKPAuthorized)
+	return fmt.Sprintf("%s: {Prefix4=%s, Prefix6=%s, EA-Bits=%d, WKPAuthorized=%t}",
+		op.Code(), op.Prefix4.String(), op.Prefix6.String(), op.EABitsLength, op.WKPAuthorized)
 }
 
-// ParseOpt4RDMapRule builds an Opt4RDMapRule structure from a sequence of bytes.
+// FromBytes builds an Opt4RDMapRule structure from a sequence of bytes.
 // The input data does not include option code and length bytes.
-func ParseOpt4RDMapRule(data []byte) (*Opt4RDMapRule, error) {
-	var opt Opt4RDMapRule
+func (op *Opt4RDMapRule) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
-	opt.Prefix4.Mask = net.CIDRMask(int(buf.Read8()), 32)
-	opt.Prefix6.Mask = net.CIDRMask(int(buf.Read8()), 128)
-	opt.EABitsLength = buf.Read8()
-	opt.WKPAuthorized = (buf.Read8() & opt4RDWKPAuthorizedMask) != 0
-	opt.Prefix4.IP = net.IP(buf.CopyN(net.IPv4len))
-	opt.Prefix6.IP = net.IP(buf.CopyN(net.IPv6len))
-	return &opt, buf.FinError()
+	op.Prefix4.Mask = net.CIDRMask(int(buf.Read8()), 32)
+	op.Prefix6.Mask = net.CIDRMask(int(buf.Read8()), 128)
+	op.EABitsLength = buf.Read8()
+	op.WKPAuthorized = (buf.Read8() & opt4RDWKPAuthorizedMask) != 0
+	op.Prefix4.IP = net.IP(buf.CopyN(net.IPv4len))
+	op.Prefix6.IP = net.IP(buf.CopyN(net.IPv6len))
+	return buf.FinError()
 }
 
 // Opt4RDNonMapRule represents 4RD parameters other than mapping rules
 type Opt4RDNonMapRule struct {
 	// HubAndSpoke is whether the network topology is hub-and-spoke or meshed
 	HubAndSpoke bool
+
 	// TrafficClass is an optional 8-bit tunnel traffic class identifier
 	TrafficClass *uint8
+
 	// DomainPMTU is the Path MTU for this 4RD domain
 	DomainPMTU uint16
 }
@@ -154,25 +200,23 @@ func (op *Opt4RDNonMapRule) String() string {
 		tClass = *op.TrafficClass
 	}
 
-	return fmt.Sprintf("Opt4RDNonMapRule{HubAndSpoke=%t, TrafficClass=%v, DomainPMTU=%d}",
-		op.HubAndSpoke, tClass, op.DomainPMTU)
+	return fmt.Sprintf("%s: {HubAndSpoke=%t, TrafficClass=%v, DomainPMTU=%d}", op.Code(), op.HubAndSpoke, tClass, op.DomainPMTU)
 }
 
-// ParseOpt4RDNonMapRule builds an Opt4RDNonMapRule structure from a sequence of bytes.
+// FromBytes builds an Opt4RDNonMapRule structure from a sequence of bytes.
 // The input data does not include option code and length bytes
-func ParseOpt4RDNonMapRule(data []byte) (*Opt4RDNonMapRule, error) {
-	var opt Opt4RDNonMapRule
+func (op *Opt4RDNonMapRule) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
 	flags := buf.Read8()
 
-	opt.HubAndSpoke = flags&opt4RDHubAndSpokeMask != 0
+	op.HubAndSpoke = flags&opt4RDHubAndSpokeMask != 0
 
 	tClass := buf.Read8()
 	if flags&opt4RDTrafficClassMask != 0 {
-		opt.TrafficClass = &tClass
+		op.TrafficClass = &tClass
 	}
 
-	opt.DomainPMTU = buf.Read16()
+	op.DomainPMTU = buf.Read16()
 
-	return &opt, buf.FinError()
+	return buf.FinError()
 }

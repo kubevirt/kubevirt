@@ -8,12 +8,12 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
-	"path/filepath"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"golang.org/x/crypto/ssh"
-	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/errorhandling"
 )
 
@@ -38,28 +38,16 @@ func DumpPrivateKey(privateKey *ecdsa.PrivateKey, file string) error {
 		Type:  "EC PRIVATE KEY",
 		Bytes: privateKeyBytes,
 	}
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, 0600)
+	const filePermissions = 0o600
+	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, filePermissions)
 	if err != nil {
 		return err
 	}
 	defer errorhandling.SafelyCloseFile(f)
 	if err = pem.Encode(f, privateKeyBlock); err != nil {
 		return fmt.Errorf("error when encode private pem: %s", err)
-
 	}
 	return nil
-}
-
-func GenerateKeyPair(tmpDir string) (privateKeyPath string, publicKey ssh.PublicKey, err error) {
-	priv, pub, err := NewKeyPair()
-	if err != nil {
-		return "", nil, err
-	}
-	path := filepath.Join(tmpDir, "private.key")
-	if err := DumpPrivateKey(priv, path); err != nil {
-		return "", nil, err
-	}
-	return path, pub, nil
 }
 
 func RenderUserDataWithKey(key ssh.PublicKey) string {
@@ -70,16 +58,14 @@ chown -R root:root /root/.ssh
 `, string(ssh.MarshalAuthorizedKey(key)))
 }
 
-func SCPToVMI(vmi *v1.VirtualMachineInstance, keyFile, srcFile, targetFile string) error {
-	args := []string{
-		"scp",
-		"--namespace", vmi.Namespace,
-		"--username", "root",
-		"--identity-file", keyFile,
-		"--known-hosts=",
+// DisableSSHAgent allows disabling the SSH agent to not influence test results
+func DisableSSHAgent() {
+	const sshAuthSock = "SSH_AUTH_SOCK"
+	val, present := os.LookupEnv(sshAuthSock)
+	if present {
+		Expect(os.Unsetenv(sshAuthSock)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.Setenv(sshAuthSock, val)).To(Succeed())
+		})
 	}
-
-	args = append(args, srcFile, fmt.Sprintf("%s:%s", vmi.Name, targetFile))
-
-	return clientcmd.NewRepeatableVirtctlCommand(args...)()
 }

@@ -9,7 +9,7 @@ var _ = ginkgo.Describe("ArchSpecificDefaults", func() {
 
 	ginkgo.DescribeTable("should set architecture", func(arch string, targetArch string) {
 		domain := &Domain{}
-		NewDefaulter(arch).SetDefaults_OSType(&domain.Spec.OS.Type)
+		NewDefaulter(arch).setDefaults_OSType(&domain.Spec.OS.Type)
 		Expect(domain.Spec.OS.Type.Arch).To(Equal(targetArch))
 	},
 		ginkgo.Entry("to ppc64le", "ppc64le", "ppc64le"),
@@ -19,7 +19,7 @@ var _ = ginkgo.Describe("ArchSpecificDefaults", func() {
 
 	ginkgo.DescribeTable("should set machine type and hvm domain type", func(arch string, machineType string) {
 		domain := &Domain{}
-		NewDefaulter(arch).SetDefaults_OSType(&domain.Spec.OS.Type)
+		NewDefaulter(arch).setDefaults_OSType(&domain.Spec.OS.Type)
 		Expect(domain.Spec.OS.Type.Machine).To(Equal(machineType))
 	},
 		ginkgo.Entry("to pseries", "ppc64le", "pseries"),
@@ -29,7 +29,7 @@ var _ = ginkgo.Describe("ArchSpecificDefaults", func() {
 
 	ginkgo.DescribeTable("should set libvirt namespace and use QEMU as emulator", func(arch string) {
 		domain := &Domain{}
-		NewDefaulter(arch).SetDefaults_DomainSpec(&domain.Spec)
+		NewDefaulter(arch).setDefaults_DomainSpec(&domain.Spec)
 		Expect(domain.Spec.XmlNS).To(Equal("http://libvirt.org/schemas/domain/qemu/1.0"))
 		Expect(domain.Spec.Type).To(Equal("kvm"))
 	},

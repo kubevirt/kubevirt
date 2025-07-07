@@ -28,7 +28,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// PriorityClassApplyConfiguration represents an declarative configuration of the PriorityClass type for use
+// PriorityClassApplyConfiguration represents a declarative configuration of the PriorityClass type for use
 // with apply.
 type PriorityClassApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -39,7 +39,7 @@ type PriorityClassApplyConfiguration struct {
 	PreemptionPolicy                 *corev1.PreemptionPolicy `json:"preemptionPolicy,omitempty"`
 }
 
-// PriorityClass constructs an declarative configuration of the PriorityClass type for use with
+// PriorityClass constructs a declarative configuration of the PriorityClass type for use with
 // apply.
 func PriorityClass(name string) *PriorityClassApplyConfiguration {
 	b := &PriorityClassApplyConfiguration{}
@@ -124,15 +124,6 @@ func (b *PriorityClassApplyConfiguration) WithGenerateName(value string) *Priori
 func (b *PriorityClassApplyConfiguration) WithNamespace(value string) *PriorityClassApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *PriorityClassApplyConfiguration) WithSelfLink(value string) *PriorityClassApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -245,15 +236,6 @@ func (b *PriorityClassApplyConfiguration) WithFinalizers(values ...string) *Prio
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *PriorityClassApplyConfiguration) WithClusterName(value string) *PriorityClassApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *PriorityClassApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -290,4 +272,10 @@ func (b *PriorityClassApplyConfiguration) WithDescription(value string) *Priorit
 func (b *PriorityClassApplyConfiguration) WithPreemptionPolicy(value corev1.PreemptionPolicy) *PriorityClassApplyConfiguration {
 	b.PreemptionPolicy = &value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *PriorityClassApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

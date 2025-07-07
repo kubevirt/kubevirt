@@ -3,7 +3,7 @@ package dhcpv4
 import (
 	"net"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // IPMask represents an option encapsulating the subnet mask.

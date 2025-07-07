@@ -31,14 +31,18 @@ import (
 	"syscall"
 	"time"
 
+	builderv3 "k8s.io/kube-openapi/pkg/builder3"
+	"k8s.io/kube-openapi/pkg/common/restfuladapter"
+	"k8s.io/kube-openapi/pkg/validation/spec"
+
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
-	restful "github.com/emicklei/go-restful"
-	"github.com/go-openapi/spec"
+	restful "github.com/emicklei/go-restful/v3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 	certificate2 "k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
@@ -52,10 +56,16 @@ import (
 	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
 
+	v12 "kubevirt.io/client-go/api"
+
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
+	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
+	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -130,6 +140,8 @@ type virtAPIApp struct {
 	hasCDIDataSource bool
 	// the channel used to trigger re-initialization.
 	reInitChan chan string
+
+	kubeVirtServiceAccounts map[string]struct{}
 }
 
 var (
@@ -147,9 +159,14 @@ func NewVirtApi() VirtApi {
 }
 
 func (app *virtAPIApp) Execute() {
+	if err := metrics.SetupMetrics(); err != nil {
+		panic(err)
+	}
+
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtAPIQPS, virtconfig.DefaultVirtAPIBurst))
 	app.reloadableWebhookRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtWebhookClientQPS, virtconfig.DefaultVirtWebhookClientBurst))
 
+	clientmetrics.RegisterRestConfigHooks()
 	clientConfig, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		panic(err)
@@ -177,6 +194,8 @@ func (app *virtAPIApp) Execute() {
 	if err != nil {
 		panic(err)
 	}
+
+	app.kubeVirtServiceAccounts = webhooks.KubeVirtServiceAccounts(app.namespace)
 
 	app.ConfigureOpenAPIService()
 	app.reInitChan = make(chan string, 10)
@@ -224,6 +243,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		restartRouteBuilder := subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.RestartOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Restart").
@@ -236,6 +256,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("migrate")).
 			To(subresourceApp.MigrateVMRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.MigrateOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Migrate").
@@ -246,6 +267,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("start")).
 			To(subresourceApp.StartVMRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.StartOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Start").
@@ -256,6 +278,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		stopRouteBuilder := subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("stop")).
 			To(subresourceApp.StopVMRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.StopOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Stop").
@@ -278,6 +301,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("freeze")).
 			To(subresourceApp.FreezeVMIRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.FreezeUnfreezeTimeout{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Freeze").
@@ -293,6 +317,14 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("reset")).
+			To(subresourceApp.ResetVMIRequestHandler).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"Reset").
+			Doc("Reset a VirtualMachineInstance object.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
+
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("softreboot")).
 			To(subresourceApp.SoftRebootVMIRequestHandler).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
@@ -303,6 +335,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("pause")).
 			To(subresourceApp.PauseVMIRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.PauseOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Pause").
@@ -313,6 +346,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("unpause")).
 			To(subresourceApp.UnpauseVMIRequestHandler). // handles VMIs as well
+			Consumes(mime.MIME_ANY).
 			Reads(v1.UnpauseOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Unpause").
@@ -381,6 +415,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourceBasePath(expandvmspecGVR)).
 			To(subresourceApp.ExpandSpecRequestHandler).
+			Param(definitions.NamespaceParam(subws)).
 			Operation(version.Version+"ExpandSpec").
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
@@ -388,13 +423,6 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
-
-		// An empty handler function would respond with HTTP OK by default
-		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("test")).
-			To(func(request *restful.Request, response *restful.Response) {}).
-			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
-			Operation(version.Version + "Test").
-			Doc("Test endpoint verifying apiserver connectivity."))
 
 		subws.Route(subws.GET(definitions.SubResourcePath("version")).Produces(restful.MIME_JSON).
 			To(func(request *restful.Request, response *restful.Response) {
@@ -440,6 +468,7 @@ func (app *virtAPIApp) composeSubresources() {
 			To(subresourceApp.UserList).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Userlist").
 			Doc("Get list of active users via guest agent").
 			Writes(v1.VirtualMachineInstanceGuestOSUserList{}).
@@ -449,6 +478,7 @@ func (app *virtAPIApp) composeSubresources() {
 			To(subresourceApp.FilesystemList).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Filesystemlist").
 			Doc("Get list of active filesystems on guest machine via guest agent").
 			Writes(v1.VirtualMachineInstanceFileSystemList{}).
@@ -456,6 +486,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("addvolume")).
 			To(subresourceApp.VMIAddVolumeRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.AddVolumeOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vmi-addvolume").
@@ -465,6 +496,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("removevolume")).
 			To(subresourceApp.VMIRemoveVolumeRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.RemoveVolumeOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vmi-removevolume").
@@ -474,6 +506,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("addvolume")).
 			To(subresourceApp.VMAddVolumeRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.AddVolumeOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vm-addvolume").
@@ -483,6 +516,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("removevolume")).
 			To(subresourceApp.VMRemoveVolumeRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.RemoveVolumeOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vm-removevolume").
@@ -492,6 +526,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("memorydump")).
 			To(subresourceApp.MemoryDumpVMRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.VirtualMachineMemoryDumpRequest{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"MemoryDump").
@@ -507,21 +542,44 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
-		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("addinterface")).
-			To(subresourceApp.VMIAddInterfaceRequestHandler).
-			Reads(v1.AddInterfaceOptions{}).
+		// AMD SEV endpoints
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("sev/fetchcertchain")).
+			To(subresourceApp.SEVFetchCertChainRequestHandler).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
-			Operation(version.Version+"vmi-addinterface").
-			Doc("Add a network interface to a running Virtual Machine Instance").
+			Consumes(restful.MIME_JSON).
+			Produces(restful.MIME_JSON).
+			Operation(version.Version+"SEVFetchCertChain").
+			Doc("Fetch SEV certificate chain from the node where Virtual Machine is scheduled").
+			Writes(v1.SEVPlatformInfo{}).
+			Returns(http.StatusOK, "OK", v1.SEVPlatformInfo{}))
+
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("sev/querylaunchmeasurement")).
+			To(subresourceApp.SEVQueryLaunchMeasurementHandler).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Consumes(restful.MIME_JSON).
+			Produces(restful.MIME_JSON).
+			Operation(version.Version+"SEVQueryLaunchMeasurement").
+			Doc("Query SEV launch measurement from a Virtual Machine").
+			Writes(v1.SEVMeasurementInfo{}).
+			Returns(http.StatusOK, "OK", v1.SEVMeasurementInfo{}))
+
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("sev/setupsession")).
+			To(subresourceApp.SEVSetupSessionHandler).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.SEVSessionOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"SEVSetupSession").
+			Doc("Setup SEV session parameters for a Virtual Machine").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("addinterface")).
-			To(subresourceApp.VMAddInterfaceRequestHandler).
-			Reads(v1.AddInterfaceOptions{}).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("sev/injectlaunchsecret")).
+			To(subresourceApp.SEVInjectLaunchSecretHandler).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.SEVSecretOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
-			Operation(version.Version+"vm-addinterface").
-			Doc("Add a network interface to a running Virtual Machine.").
+			Operation(version.Version+"SEVInjectLaunchSecret").
+			Doc("Inject SEV launch secret into a Virtual Machine").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
@@ -537,7 +595,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 				list.Kind = "APIResourceList"
 				list.GroupVersion = version.Group + "/" + version.Version
-				list.APIVersion = version.Version
+				list.APIVersion = "v1"
 				list.APIResources = []metav1.APIResource{
 					{
 						Name:       "expand-vm-spec",
@@ -572,6 +630,10 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
+						Name:       "virtualmachineinstances/reset",
+						Namespaced: true,
+					},
+					{
 						Name:       "virtualmachineinstances/softreboot",
 						Namespaced: true,
 					},
@@ -596,10 +658,6 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
-						Name:       "virtualmachines/addinterface",
-						Namespaced: true,
-					},
-					{
 						Name:       "virtualmachineinstances/guestosinfo",
 						Namespaced: true,
 					},
@@ -620,7 +678,19 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
-						Name:       "virtualmachineinstances/addinterface",
+						Name:       "virtualmachineinstances/sev/fetchcertchain",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/sev/querylaunchmeasurement",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/sev/setupsession",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/sev/injectlaunchsecret",
 						Namespaced: true,
 					},
 				}
@@ -642,8 +712,8 @@ func (app *virtAPIApp) composeSubresources() {
 	ws.Route(ws.GET("/").
 		Produces(restful.MIME_JSON).Writes(metav1.RootPaths{}).
 		To(func(request *restful.Request, response *restful.Response) {
-			paths := []string{"/apis",
-				"/apis/",
+			paths := []string{
+				"/apis",
 				"/openapi/v2",
 			}
 			for _, version := range v1.SubresourceGroupVersions {
@@ -666,18 +736,16 @@ func (app *virtAPIApp) composeSubresources() {
 	ws.Route(ws.GET("/stop-profiler").To(componentProfiler.HandleStopProfiler).Doc("stop profiler endpoint"))
 	ws.Route(ws.GET("/dump-profiler").To(componentProfiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
 
-	for _, version := range v1.SubresourceGroupVersions {
-		// K8s needs the ability to query info about a specific API group
-		ws.Route(ws.GET(definitions.GroupBasePath(version)).
-			Produces(restful.MIME_JSON).Writes(metav1.APIGroup{}).
-			To(func(request *restful.Request, response *restful.Response) {
-				response.WriteAsJson(subresourceAPIGroup())
-			}).
-			Operation(version.Version+"GetSubAPIGroup").
-			Doc("Get a KubeVirt API Group").
-			Returns(http.StatusOK, "OK", metav1.APIGroup{}).
-			Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
-	}
+	// K8s needs the ability to query info about a specific API group
+	ws.Route(ws.GET(definitions.GroupBasePath(v1.SubresourceGroupVersions[0])).
+		Produces(restful.MIME_JSON).Writes(metav1.APIGroup{}).
+		To(func(request *restful.Request, response *restful.Response) {
+			response.WriteAsJson(subresourceAPIGroup())
+		}).
+		Operation(v1.SubresourceGroupVersions[0].Version+"GetSubAPIGroup").
+		Doc("Get a KubeVirt API Group").
+		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
+		Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
 
 	// K8s needs the ability to query the list of API groups this endpoint supports
 	ws.Route(ws.GET("apis").
@@ -732,10 +800,15 @@ func (app *virtAPIApp) Compose() {
 }
 
 func (app *virtAPIApp) ConfigureOpenAPIService() {
-	spec := openapi.LoadOpenAPISpec(restful.RegisteredWebServices())
-	config := openapi.CreateOpenAPIConfig(restful.RegisteredWebServices())
+	config := openapi.CreateV3Config()
+	config.GetDefinitions = v12.GetOpenAPIDefinitions
+	spec, err := builderv3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(restful.RegisteredWebServices()), config)
+	if err != nil {
+		panic(err)
+	}
+
 	ws := new(restful.WebService)
-	ws.Path(config.APIPath)
+	ws.Path("/swaggerapi")
 	ws.Produces(restful.MIME_JSON)
 	f := func(req *restful.Request, resp *restful.Response) {
 		resp.WriteAsJson(spec)
@@ -808,27 +881,30 @@ func (app *virtAPIApp) prepareCertManager() {
 }
 
 func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers) {
-
 	http.HandleFunc(components.VMICreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
+		validating_webhook.ServeVMICreate(w, r, app.clusterConfig, app.kubeVirtServiceAccounts,
+			func(field *field.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
+				return netadmitter.Validate(field, vmiSpec, clusterCfg)
+			},
+		)
 	})
 	http.HandleFunc(components.VMIUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig)
+		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli, informers)
+		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli, informers, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.VMIRSValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMPoolValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMPool(w, r, app.clusterConfig)
+		validating_webhook.ServeVMPool(w, r, app.clusterConfig, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.VMIPresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIPreset(w, r)
 	})
 	http.HandleFunc(components.MigrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeMigrationCreate(w, r, app.virtCli)
 	})
 	http.HandleFunc(components.MigrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationUpdate(w, r)
@@ -843,25 +919,25 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVMExports(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMInstancetypeValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmInstancetypes(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVmInstancetypes(w, r)
 	})
 	http.HandleFunc(components.VMClusterInstancetypeValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmClusterInstancetypes(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVmClusterInstancetypes(w, r)
 	})
 	http.HandleFunc(components.VMPreferenceValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmPreferences(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVmPreferences(w, r)
 	})
 	http.HandleFunc(components.VMClusterPreferenceValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVmClusterPreferences(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVmClusterPreferences(w, r)
 	})
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers)
+		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.LauncherEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.MigrationPolicyCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationPolicies(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeMigrationPolicies(w, r)
 	})
 	http.HandleFunc(components.VMCloneCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVirtualMachineClones(w, r, app.clusterConfig, app.virtCli)
@@ -874,7 +950,7 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 		mutating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.VMIMutatePath, func(w http.ResponseWriter, r *http.Request) {
-		mutating_webhook.ServeVMIs(w, r, app.clusterConfig, informers)
+		mutating_webhook.ServeVMIs(w, r, app.clusterConfig, informers, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.MigrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeMigrationCreate(w, r)
@@ -930,6 +1006,9 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 	server := &http.Server{
 		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, app.Port),
 		TLSConfig: app.tlsConfig,
+		// Disable HTTP/2
+		// See CVE-2023-44487
+		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 	}
 
 	// start TLS server
@@ -1010,13 +1089,17 @@ func (app *virtAPIApp) Run() {
 	crdInformer := kubeInformerFactory.CRD()
 	vmiPresetInformer := kubeInformerFactory.VirtualMachinePreset()
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
+	namespaceInformer := kubeInformerFactory.Namespace()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
 	kubeInformerFactory.Start(stopChan)
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(crdInformer, kubeVirtInformer, app.namespace)
+	app.clusterConfig, err = virtconfig.NewClusterConfig(crdInformer, kubeVirtInformer, app.namespace)
+	if err != nil {
+		panic(err)
+	}
 	app.hasCDIDataSource = app.clusterConfig.HasDataSourceAPI()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
@@ -1044,6 +1127,7 @@ func (app *virtAPIApp) Run() {
 		VMIPresetInformer:  vmiPresetInformer,
 		VMRestoreInformer:  vmRestoreInformer,
 		DataSourceInformer: dataSourceInformer,
+		NamespaceInformer:  namespaceInformer,
 	}
 
 	// Build webhook subresources

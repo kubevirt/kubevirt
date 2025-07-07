@@ -18,6 +18,9 @@
 #
 
 set -e
+set -x
+
+source hack/config-kubevirtci.sh
 
 TEMP_FILE=$(mktemp -p /tmp -t kubevirt.deploy.XXXX)
 
@@ -27,8 +30,8 @@ function main() {
     ./hack/cluster-clean.sh >$TEMP_FILE 2>&1 &
     CLEAN_PID=$!
 
-    make cluster-build
-    make manifests
+    ./hack/cluster-build.sh
+    ./hack/manifests.sh
 
     echo "waiting for cluster-clean to finish"
     if ! wait $CLEAN_PID; then
@@ -37,6 +40,7 @@ function main() {
         exit 1
     fi
 
+    ./hack/deploy-to-nodes.sh
     ./hack/cluster-deploy.sh
 }
 

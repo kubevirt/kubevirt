@@ -26,9 +26,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
 var _ = Describe("Secret", func() {
@@ -52,18 +52,9 @@ var _ = Describe("Secret", func() {
 	})
 
 	It("Should create a new secret iso disk", func() {
-		vmi := api.NewMinimalVMI("fake-vmi")
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "secret-volume",
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: "test-secret",
-				},
-			},
-		})
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "secret-volume",
-		})
+		vmi := libvmi.New(
+			libvmi.WithSecretDisk("test-secret", "secret-volume"),
+		)
 
 		err := CreateSecretDisks(vmi, false)
 		Expect(err).NotTo(HaveOccurred())
@@ -72,7 +63,8 @@ var _ = Describe("Secret", func() {
 	})
 
 	It("Should not create a new secret iso disk without a Disk device", func() {
-		vmi := api.NewMinimalVMI("fake-vmi")
+		vmi := libvmi.New()
+
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "secret-volume",
 			VolumeSource: v1.VolumeSource{

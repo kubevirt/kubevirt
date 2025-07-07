@@ -1,0 +1,56 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "discover.go",
+        "discoverbridge.go",
+        "netpod.go",
+        "state.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/network/setup/netpod",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/network/cache:go_default_library",
+        "//pkg/network/driver/nmstate:go_default_library",
+        "//pkg/network/driver/procsys:go_default_library",
+        "//pkg/network/errors:go_default_library",
+        "//pkg/network/link:go_default_library",
+        "//pkg/network/namescheme:go_default_library",
+        "//pkg/network/netmachinery:go_default_library",
+        "//pkg/network/setup/netpod/masquerade:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
+        "//pkg/pointer:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/errors:go_default_library",
+        "//vendor/k8s.io/utils/net:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "netpod_suite_test.go",
+        "netpod_test.go",
+        "state_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/network/cache:go_default_library",
+        "//pkg/network/driver/nmstate:go_default_library",
+        "//pkg/network/driver/procsys:go_default_library",
+        "//pkg/network/errors:go_default_library",
+        "//pkg/os/fs:go_default_library",
+        "//pkg/pointer:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
+    ],
+)

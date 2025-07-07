@@ -176,14 +176,19 @@ func (s *Secret) GetValue(flags uint32) ([]byte, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-secret.html#virSecretSetValue
 func (s *Secret) SetValue(value []byte, flags uint32) error {
-	cvalue := make([]C.uchar, len(value))
+	nvalue := len(value)
+	cvalue := make([]C.uchar, nvalue)
 
-	for i := 0; i < len(value); i++ {
+	for i := 0; i < nvalue; i++ {
 		cvalue[i] = C.uchar(value[i])
 	}
 
 	var err C.virError
-	result := C.virSecretSetValueWrapper(s.ptr, &cvalue[0], C.size_t(len(value)), C.uint(flags), &err)
+	var cvaluePtr *C.uchar = nil
+	if nvalue > 0 {
+		cvaluePtr = &cvalue[0]
+	}
+	result := C.virSecretSetValueWrapper(s.ptr, cvaluePtr, C.size_t(nvalue), C.uint(flags), &err)
 
 	if result == -1 {
 		return makeError(&err)

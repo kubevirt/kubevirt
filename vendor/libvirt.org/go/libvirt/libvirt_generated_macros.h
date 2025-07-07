@@ -29,7 +29,7 @@
 #pragma once
 
 #if !LIBVIR_CHECK_VERSION(0, 0, 1)
-#  define LIBVIR_VERSION_NUMBER 9000000
+#  define LIBVIR_VERSION_NUMBER 10009000
 #endif
 
 #if !LIBVIR_CHECK_VERSION(5, 8, 0)
@@ -432,6 +432,10 @@
 #  define VIR_DOMAIN_JOB_TIME_REMAINING "time_remaining"
 #endif
 
+#if !LIBVIR_CHECK_VERSION(10, 6, 0)
+#  define VIR_DOMAIN_JOB_VFIO_DATA_TRANSFERRED "vfio_data_transferred"
+#endif
+
 #if !LIBVIR_CHECK_VERSION(8, 0, 0)
 #  define VIR_DOMAIN_LAUNCH_SECURITY_SEV_API_MAJOR "sev-api-major"
 #endif
@@ -462,6 +466,10 @@
 
 #if !LIBVIR_CHECK_VERSION(8, 0, 0)
 #  define VIR_DOMAIN_LAUNCH_SECURITY_SEV_SECRET_SET_ADDRESS "sev-secret-set-address"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(10, 5, 0)
+#  define VIR_DOMAIN_LAUNCH_SECURITY_SEV_SNP_POLICY "sev-snp-policy"
 #endif
 
 #if !LIBVIR_CHECK_VERSION(0, 8, 5)
@@ -740,6 +748,14 @@
 #  define VIR_MIGRATE_PARAM_COMPRESSION_XBZRLE_CACHE "compression.xbzrle.cache"
 #endif
 
+#if !LIBVIR_CHECK_VERSION(9, 4, 0)
+#  define VIR_MIGRATE_PARAM_COMPRESSION_ZLIB_LEVEL "compression.zlib.level"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(9, 4, 0)
+#  define VIR_MIGRATE_PARAM_COMPRESSION_ZSTD_LEVEL "compression.zstd.level"
+#endif
+
 #if !LIBVIR_CHECK_VERSION(1, 1, 0)
 #  define VIR_MIGRATE_PARAM_DEST_NAME "destination_name"
 #endif
@@ -766,6 +782,10 @@
 
 #if !LIBVIR_CHECK_VERSION(1, 2, 17)
 #  define VIR_MIGRATE_PARAM_MIGRATE_DISKS "migrate_disks"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(10, 9, 0)
+#  define VIR_MIGRATE_PARAM_MIGRATE_DISKS_DETECT_ZEROES "migrate_disks_detect_zeroes"
 #endif
 
 #if !LIBVIR_CHECK_VERSION(5, 2, 0)

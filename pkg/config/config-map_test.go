@@ -25,11 +25,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
-
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
 var _ = Describe("ConfigMap", func() {
@@ -53,20 +53,9 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should create a new config map iso disk", func() {
-		vmi := api.NewMinimalVMI("fake-vmi")
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "configmap-volume",
-			VolumeSource: v1.VolumeSource{
-				ConfigMap: &v1.ConfigMapVolumeSource{
-					LocalObjectReference: k8sv1.LocalObjectReference{
-						Name: "test-config",
-					},
-				},
-			},
-		})
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "configmap-volume",
-		})
+		vmi := libvmi.New(
+			libvmi.WithConfigMapDisk("test-config", "configmap-volume"),
+		)
 
 		err := CreateConfigMapDisks(vmi, false)
 		Expect(err).NotTo(HaveOccurred())
@@ -75,7 +64,8 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should not create a new config map iso disk without a Disk device", func() {
-		vmi := api.NewMinimalVMI("fake-vmi")
+		vmi := libvmi.New()
+
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "configmap-volume",
 			VolumeSource: v1.VolumeSource{

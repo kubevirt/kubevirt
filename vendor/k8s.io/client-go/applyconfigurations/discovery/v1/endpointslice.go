@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// EndpointSliceApplyConfiguration represents an declarative configuration of the EndpointSlice type for use
+// EndpointSliceApplyConfiguration represents a declarative configuration of the EndpointSlice type for use
 // with apply.
 type EndpointSliceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -37,7 +37,7 @@ type EndpointSliceApplyConfiguration struct {
 	Ports                            []EndpointPortApplyConfiguration `json:"ports,omitempty"`
 }
 
-// EndpointSlice constructs an declarative configuration of the EndpointSlice type for use with
+// EndpointSlice constructs a declarative configuration of the EndpointSlice type for use with
 // apply.
 func EndpointSlice(name, namespace string) *EndpointSliceApplyConfiguration {
 	b := &EndpointSliceApplyConfiguration{}
@@ -124,15 +124,6 @@ func (b *EndpointSliceApplyConfiguration) WithGenerateName(value string) *Endpoi
 func (b *EndpointSliceApplyConfiguration) WithNamespace(value string) *EndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *EndpointSliceApplyConfiguration) WithSelfLink(value string) *EndpointSliceApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -245,15 +236,6 @@ func (b *EndpointSliceApplyConfiguration) WithFinalizers(values ...string) *Endp
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *EndpointSliceApplyConfiguration) WithClusterName(value string) *EndpointSliceApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *EndpointSliceApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -292,4 +274,10 @@ func (b *EndpointSliceApplyConfiguration) WithPorts(values ...*EndpointPortApply
 		b.Ports = append(b.Ports, *values[i])
 	}
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *EndpointSliceApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

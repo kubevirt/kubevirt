@@ -25,12 +25,13 @@ import (
 	"net/http/httptest"
 	"os"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	k8sv1 "k8s.io/api/core/v1"
+	authclientv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
@@ -63,9 +64,12 @@ var _ = Describe("Virt-api", func() {
 
 		config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
-		app.authorizor, err = rest.NewAuthorizorFromConfig(config)
 		app.aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
+
+		authClient, err := authclientv1.NewForConfig(config)
 		Expect(err).ToNot(HaveOccurred())
+		app.authorizor = rest.NewAuthorizorFromClient(authClient.SubjectAccessReviews())
+
 		ctrl = gomock.NewController(GinkgoT())
 		authorizorMock = rest.NewMockVirtApiAuthorizor(ctrl)
 
@@ -158,18 +162,6 @@ var _ = Describe("Virt-api", func() {
 				AnyTimes()
 			app.Compose()
 			resp, err := http.Get(backend.URL)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-		})
-
-		It("should have a test endpoint", func() {
-			app.authorizor = authorizorMock
-			authorizorMock.EXPECT().
-				Authorize(gomock.Not(gomock.Nil())).
-				Return(true, "", nil).
-				AnyTimes()
-			app.Compose()
-			resp, err := http.Get(backend.URL + "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/vm1/test")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})

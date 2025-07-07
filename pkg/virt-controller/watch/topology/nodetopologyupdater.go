@@ -41,7 +41,9 @@ func (n *nodeTopologyUpdater) Run(interval time.Duration, stopChan <-chan struct
 			HasInvTSCFrequency,
 		)
 		stats := n.sync(nodes)
-		log.DefaultLogger().Infof("TSC Freqency node update status: %d updated, %d skipped, %d errors", stats.updated, stats.skipped, stats.error)
+		if stats.updated != 0 || stats.error != 0 {
+			log.DefaultLogger().Infof("TSC Frequency node update status: %d updated, %d skipped, %d errors", stats.updated, stats.skipped, stats.error)
+		}
 	}, interval, 1.2, true, stopChan)
 }
 
@@ -76,7 +78,7 @@ func (n *nodeTopologyUpdater) sync(nodes []*v1.Node) *updateStats {
 func calculateNodeLabelChanges(original *v1.Node, requiredFrequencies []int64) (modified *v1.Node, err error) {
 	nodeFreq, scalable, err := TSCFrequencyFromNode(original)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Object(original).Error("Can't determine TSC frequency of the original")
+		log.DefaultLogger().Reason(err).Object(original).Errorf("Can't determine original TSC frequency of node %s", original.Name)
 		return nil, err
 	}
 	freqsOnNode := TSCFrequenciesOnNode(original)

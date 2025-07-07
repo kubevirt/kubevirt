@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
+	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -59,7 +59,7 @@ var _ = Describe("DataVolume utils test", func() {
 				},
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(), vm.Namespace, dv)
+			cs, err := GetResolvedCloneSource(context.TODO(), createClient(), vm.Namespace, dv)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).To(BeNil())
 		})
@@ -75,11 +75,11 @@ var _ = Describe("DataVolume utils test", func() {
 				},
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(), vm.Namespace, dv)
+			cs, err := GetResolvedCloneSource(context.TODO(), createClient(), vm.Namespace, dv)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).ToNot(BeNil())
-			Expect(cs.Namespace).To(Equal(expectedNamespace))
-			Expect(cs.Name).To(Equal(sourceName))
+			Expect(cs.PVC.Namespace).To(Equal(expectedNamespace))
+			Expect(cs.PVC.Name).To(Equal(sourceName))
 		},
 			Entry("source namespace not specified", "", vm.Namespace),
 			Entry("source namespace is specified", "ns2", "ns2"),
@@ -95,7 +95,7 @@ var _ = Describe("DataVolume utils test", func() {
 				},
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(), vm.Namespace, dv)
+			cs, err := GetResolvedCloneSource(context.TODO(), createClient(), vm.Namespace, dv)
 			Expect(err).To(HaveOccurred())
 			Expect(cs).To(BeNil())
 		})
@@ -131,11 +131,11 @@ var _ = Describe("DataVolume utils test", func() {
 				dv.SourceRef.Namespace = &sourceRefNamespace
 			}
 
-			cs, err := GetCloneSource(context.TODO(), createClient(ref), vm.Namespace, dv)
+			cs, err := GetResolvedCloneSource(context.TODO(), createClient(ref), vm.Namespace, dv)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cs).ToNot(BeNil())
-			Expect(cs.Namespace).To(Equal(expectedNamespace))
-			Expect(cs.Name).To(Equal(sourceName))
+			Expect(cs.PVC.Namespace).To(Equal(expectedNamespace))
+			Expect(cs.PVC.Name).To(Equal(sourceName))
 		},
 			Entry("sourceRef namespace and source namespace not specified", "", "", vm.Namespace),
 			Entry("source namespace not specified", "foo", "", "foo"),

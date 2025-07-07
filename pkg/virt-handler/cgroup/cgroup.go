@@ -30,10 +30,12 @@ import (
 
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer/devices"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	virtutil "kubevirt.io/kubevirt/pkg/util"
+	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -89,27 +91,29 @@ func managerPath(taskPath string) string {
 	return retPath
 }
 
-// NewManagerFromPid initializes a new cgroup manager from VMI's pid.
+// newManagerFromPid initializes a new cgroup manager from VMI's pid.
 // The pid is expected to VMI's pid from the host's viewpoint.
-func NewManagerFromPid(pid int) (manager Manager, err error) {
+func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, err error) {
 	const isRootless = false
 	var version CgroupVersion
 
-	procCgroupBasePath := filepath.Join(procMountPoint, strconv.Itoa(pid), cgroupStr)
+	procCgroupBasePath := filepath.Join(cgroupconsts.ProcMountPoint, strconv.Itoa(pid), cgroupconsts.CgroupStr)
 	controllerPaths, err := runc_cgroups.ParseCgroupFile(procCgroupBasePath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
 	}
 
 	config := &configs.Cgroup{
-		Path:      HostCgroupBasePath,
-		Resources: &configs.Resources{},
-		Rootless:  isRootless,
+		Path: cgroupconsts.HostCgroupBasePath,
+		Resources: &configs.Resources{
+			Devices: deviceRules,
+		},
+		Rootless: isRootless,
 	}
 
 	if runc_cgroups.IsCgroup2UnifiedMode() {
 		version = V2
-		slicePath := filepath.Join(cgroupBasePath, controllerPaths[""])
+		slicePath := filepath.Join(cgroupconsts.CgroupBasePath, controllerPaths[""])
 		slicePath = managerPath(slicePath)
 		manager, err = newV2Manager(config, slicePath)
 	} else {
@@ -140,15 +144,20 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance) (Manager, error) {
 		return nil, err
 	}
 
-	return NewManagerFromPid(isolationRes.Pid())
+	vmiDeviceRules, err := generateDeviceRulesForVMI(vmi, isolationRes)
+	if err != nil {
+		return nil, err
+	}
+
+	return newManagerFromPid(isolationRes.Pid(), vmiDeviceRules)
 }
 
 // GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
 func GetGlobalCpuSetPath() string {
 	if runc_cgroups.IsCgroup2UnifiedMode() {
-		return filepath.Join(cgroupBasePath, "cpuset.cpus.effective")
+		return filepath.Join(cgroupconsts.CgroupBasePath, "cpuset.cpus.effective")
 	}
-	return filepath.Join(cgroupBasePath, "cpuset", "cpuset.cpus")
+	return filepath.Join(cgroupconsts.CgroupBasePath, "cpuset", "cpuset.cpus")
 }
 
 func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {

@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// CSIDriverApplyConfiguration represents an declarative configuration of the CSIDriver type for use
+// CSIDriverApplyConfiguration represents a declarative configuration of the CSIDriver type for use
 // with apply.
 type CSIDriverApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -35,7 +35,7 @@ type CSIDriverApplyConfiguration struct {
 	Spec                             *CSIDriverSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
-// CSIDriver constructs an declarative configuration of the CSIDriver type for use with
+// CSIDriver constructs a declarative configuration of the CSIDriver type for use with
 // apply.
 func CSIDriver(name string) *CSIDriverApplyConfiguration {
 	b := &CSIDriverApplyConfiguration{}
@@ -120,15 +120,6 @@ func (b *CSIDriverApplyConfiguration) WithGenerateName(value string) *CSIDriverA
 func (b *CSIDriverApplyConfiguration) WithNamespace(value string) *CSIDriverApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *CSIDriverApplyConfiguration) WithSelfLink(value string) *CSIDriverApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -241,15 +232,6 @@ func (b *CSIDriverApplyConfiguration) WithFinalizers(values ...string) *CSIDrive
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *CSIDriverApplyConfiguration) WithClusterName(value string) *CSIDriverApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *CSIDriverApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -262,4 +244,10 @@ func (b *CSIDriverApplyConfiguration) ensureObjectMetaApplyConfigurationExists()
 func (b *CSIDriverApplyConfiguration) WithSpec(value *CSIDriverSpecApplyConfiguration) *CSIDriverApplyConfiguration {
 	b.Spec = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *CSIDriverApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

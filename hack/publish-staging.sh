@@ -48,8 +48,8 @@ function commit_repo() {
     NAME=$1
     API_REF_DIR=/tmp/${NAME}
     pushd ${API_REF_DIR}
-    git config user.email "${GIT_AUTHOR_NAME:-kubevirt-bot}"
-    git config user.name "${GIT_AUTHOR_EMAIL:-rmohr+kubebot@redhat.com}"
+    git config user.email "${GIT_AUTHOR_EMAIL:-kubevirtbot@redhat.com}"
+    git config user.name "${GIT_AUTHOR_NAME:-kubevirt-bot}"
 
     git add -A
 

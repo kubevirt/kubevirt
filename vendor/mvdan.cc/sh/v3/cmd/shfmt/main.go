@@ -1,54 +1,65 @@
 // Copyright (c) 2016, Daniel Martí <mvdan@mvdan.cc>
 // See LICENSE for licensing information
 
+// shfmt formats shell programs.
 package main
 
 import (
 	"bytes"
-	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"runtime/debug"
+	"strings"
 
-	"github.com/google/renameio"
-	"github.com/pkg/diff"
+	maybeio "github.com/google/renameio/v2/maybe"
+	diffpkg "github.com/pkg/diff"
+	diffwrite "github.com/pkg/diff/write"
 	"golang.org/x/term"
 	"mvdan.cc/editorconfig"
 
 	"mvdan.cc/sh/v3/fileutil"
 	"mvdan.cc/sh/v3/syntax"
+	"mvdan.cc/sh/v3/syntax/typedjson"
 )
 
-var (
-	showVersion = flag.Bool("version", false, "")
+type multiFlag[T any] struct {
+	short, long string
+	val         T
+}
 
-	list    = flag.Bool("l", false, "")
-	write   = flag.Bool("w", false, "")
-	simple  = flag.Bool("s", false, "")
-	minify  = flag.Bool("mn", false, "")
-	find    = flag.Bool("f", false, "")
-	diffOut = flag.Bool("d", false, "")
+var (
+	versionFlag = &multiFlag[bool]{"", "version", false}
+	list        = &multiFlag[bool]{"l", "list", false}
+
+	write       = &multiFlag[bool]{"w", "write", false}
+	simplify    = &multiFlag[bool]{"s", "simplify", false}
+	minify      = &multiFlag[bool]{"mn", "minify", false}
+	find        = &multiFlag[bool]{"f", "find", false}
+	diff        = &multiFlag[bool]{"d", "diff", false}
+	applyIgnore = &multiFlag[bool]{"", "apply-ignore", false}
+
+	lang     = &multiFlag[syntax.LangVariant]{"ln", "language-dialect", syntax.LangAuto}
+	posix    = &multiFlag[bool]{"p", "posix", false}
+	filename = &multiFlag[string]{"", "filename", ""}
+
+	indent      = &multiFlag[uint]{"i", "indent", 0}
+	binNext     = &multiFlag[bool]{"bn", "binary-next-line", false}
+	caseIndent  = &multiFlag[bool]{"ci", "case-indent", false}
+	spaceRedirs = &multiFlag[bool]{"sr", "space-redirects", false}
+	keepPadding = &multiFlag[bool]{"kp", "keep-padding", false}
+	funcNext    = &multiFlag[bool]{"fn", "func-next-line", false}
+
+	toJSON   = &multiFlag[bool]{"tojson", "to-json", false} // TODO(v4): remove "tojson" for consistency
+	fromJSON = &multiFlag[bool]{"", "from-json", false}
 
 	// useEditorConfig will be false if any parser or printer flags were used.
 	useEditorConfig = true
-
-	langStr = flag.String("ln", "", "")
-	posix   = flag.Bool("p", false, "")
-
-	indent      = flag.Uint("i", 0, "")
-	binNext     = flag.Bool("bn", false, "")
-	caseIndent  = flag.Bool("ci", false, "")
-	spaceRedirs = flag.Bool("sr", false, "")
-	keepPadding = flag.Bool("kp", false, "")
-	funcNext    = flag.Bool("fn", false, "")
-
-	toJSON = flag.Bool("tojson", false, "")
 
 	parser            *syntax.Parser
 	printer           *syntax.Printer
@@ -61,7 +72,53 @@ var (
 	color bool
 
 	version = "(devel)" // to match the default from runtime/debug
+
+	allFlags = []any{
+		versionFlag, list, write, simplify, minify, find, diff, applyIgnore,
+		lang, posix, filename,
+		indent, binNext, caseIndent, spaceRedirs, keepPadding, funcNext, toJSON, fromJSON,
+	}
 )
+
+func init() {
+	// TODO: the flag package has constructors like newBoolValue;
+	// if we had access to something like that, we could use flag.Value everywhere,
+	// and avoid this monstrosity of a type switch.
+	for _, f := range allFlags {
+		switch f := f.(type) {
+		case *multiFlag[bool]:
+			if name := f.short; name != "" {
+				flag.BoolVar(&f.val, name, f.val, "")
+			}
+			if name := f.long; name != "" {
+				flag.BoolVar(&f.val, name, f.val, "")
+			}
+		case *multiFlag[string]:
+			if name := f.short; name != "" {
+				flag.StringVar(&f.val, name, f.val, "")
+			}
+			if name := f.long; name != "" {
+				flag.StringVar(&f.val, name, f.val, "")
+			}
+		case *multiFlag[uint]:
+			if name := f.short; name != "" {
+				flag.UintVar(&f.val, name, f.val, "")
+			}
+			if name := f.long; name != "" {
+				flag.UintVar(&f.val, name, f.val, "")
+			}
+		case *multiFlag[syntax.LangVariant]:
+			if name := f.short; name != "" {
+				flag.Var(&f.val, name, "")
+			}
+			if name := f.long; name != "" {
+				flag.Var(&f.val, name, "")
+			}
+		default:
+			panic(fmt.Sprintf("%T", f))
+		}
+	}
+}
 
 func main() {
 	os.Exit(main1())
@@ -71,41 +128,46 @@ func main1() int {
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, `usage: shfmt [flags] [path ...]
 
-If the only argument is a dash ('-') or no arguments are given, standard input
-will be used. If a given path is a directory, it will be recursively searched
-for shell files - both by filename extension and by shebang.
+shfmt formats shell programs. If the only argument is a dash ('-') or no
+arguments are given, standard input will be used. If a given path is a
+directory, all shell scripts found under that directory will be used.
 
-  -version  show version and exit
+  --version  show version and exit
 
-  -l        list files whose formatting differs from shfmt's
-  -w        write result to file instead of stdout
-  -d        error with a diff when the formatting differs
-  -s        simplify the code
-  -mn       minify the code to reduce its size (implies -s)
+  -l,  --list      list files whose formatting differs from shfmt's
+  -w,  --write     write result to file instead of stdout
+  -d,  --diff      error with a diff when the formatting differs
+  -s,  --simplify  simplify the code
+  -mn, --minify    minify the code to reduce its size (implies -s)
+  --apply-ignore   always apply EditorConfig ignore rules
 
 Parser options:
 
-  -ln str   language variant to parse (bash/posix/mksh, default "bash")
-  -p        shorthand for -ln=posix
+  -ln, --language-dialect str  bash/posix/mksh/bats, default "auto"
+  -p,  --posix                 shorthand for -ln=posix
+  --filename str               provide a name for the standard input file
 
 Printer options:
 
-  -i uint   indent: 0 for tabs (default), >0 for number of spaces
-  -bn       binary ops like && and | may start a line
-  -ci       switch cases will be indented
-  -sr       redirect operators will be followed by a space
-  -kp       keep column alignment paddings
-  -fn       function opening braces are placed on a separate line
+  -i,  --indent uint       0 for tabs (default), >0 for number of spaces
+  -bn, --binary-next-line  binary ops like && and | may start a line
+  -ci, --case-indent       switch cases will be indented
+  -sr, --space-redirects   redirect operators will be followed by a space
+  -kp, --keep-padding      keep column alignment paddings
+  -fn, --func-next-line    function opening braces are placed on a separate line
 
 Utilities:
 
-  -f        recursively find all shell files and print the paths
-  -tojson   print syntax tree to stdout as a typed JSON
+  -f, --find   recursively find all shell files and print the paths
+  --to-json    print syntax tree to stdout as a typed JSON
+  --from-json  read syntax tree from stdin as a typed JSON
+
+For more information, see 'man shfmt' and https://github.com/mvdan/sh.
 `)
 	}
 	flag.Parse()
 
-	if *showVersion {
+	if versionFlag.val {
 		// don't overwrite the version if it was set by -ldflags=-X
 		if info, ok := debug.ReadBuildInfo(); ok && version == "(devel)" {
 			mod := &info.Main
@@ -117,60 +179,64 @@ Utilities:
 		fmt.Println(version)
 		return 0
 	}
-	if *posix && *langStr != "" {
+	if posix.val && lang.val != syntax.LangAuto {
 		fmt.Fprintf(os.Stderr, "-p and -ln=lang cannot coexist\n")
 		return 1
 	}
-	if *minify {
-		*simple = true
+	if minify.val {
+		simplify.val = true
 	}
+	// TODO(mvdan): remove sometime in 2024.
 	if os.Getenv("SHFMT_NO_EDITORCONFIG") == "true" {
-		useEditorConfig = false
+		fmt.Fprintln(os.Stderr, "SHFMT_NO_EDITORCONFIG was always undocumented; use any parser or printer flag to disable editorconfig support")
 	}
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
-		case "ln", "p", "i", "bn", "ci", "sr", "kp", "fn":
+		case lang.short, lang.long,
+			posix.short, posix.long,
+			indent.short, indent.long,
+			binNext.short, binNext.long,
+			caseIndent.short, caseIndent.long,
+			spaceRedirs.short, spaceRedirs.long,
+			keepPadding.short, keepPadding.long,
+			funcNext.short, funcNext.long:
 			useEditorConfig = false
 		}
 	})
 	parser = syntax.NewParser(syntax.KeepComments(true))
-	printer = syntax.NewPrinter(syntax.Minify(*minify))
+	printer = syntax.NewPrinter(syntax.Minify(minify.val))
 
-	lang := syntax.LangBash
 	if !useEditorConfig {
-		switch *langStr {
-		case "bash", "":
-		case "posix":
-			lang = syntax.LangPOSIX
-		case "mksh":
-			lang = syntax.LangMirBSDKorn
-		default:
-			fmt.Fprintf(os.Stderr, "unknown shell language: %s\n", *langStr)
-			return 1
+		if posix.val {
+			// -p equals -ln=posix
+			lang.val = syntax.LangPOSIX
 		}
-		if *posix {
-			lang = syntax.LangPOSIX
-		}
-		syntax.Variant(lang)(parser)
 
-		syntax.Indent(*indent)(printer)
-		syntax.BinaryNextLine(*binNext)(printer)
-		syntax.SwitchCaseIndent(*caseIndent)(printer)
-		syntax.SpaceRedirects(*spaceRedirs)(printer)
-		syntax.KeepPadding(*keepPadding)(printer)
-		syntax.FunctionNextLine(*funcNext)(printer)
+		syntax.Indent(indent.val)(printer)
+		syntax.BinaryNextLine(binNext.val)(printer)
+		syntax.SwitchCaseIndent(caseIndent.val)(printer)
+		syntax.SpaceRedirects(spaceRedirs.val)(printer)
+		syntax.KeepPadding(keepPadding.val)(printer)
+		syntax.FunctionNextLine(funcNext.val)(printer)
 	}
 
-	if os.Getenv("FORCE_COLOR") == "true" {
-		// Undocumented way to force color; used in the tests.
+	// Decide whether or not to use color for the diff output,
+	// as described in shfmt.1.scd.
+	if os.Getenv("FORCE_COLOR") != "" {
 		color = true
-	} else if os.Getenv("TERM") == "dumb" {
-		// Equivalent to forcing color to be turned off.
+	} else if os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" {
 	} else if f, ok := out.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
 		color = true
 	}
 	if flag.NArg() == 0 || (flag.NArg() == 1 && flag.Arg(0) == "-") {
-		if err := formatStdin(); err != nil {
+		name := "<standard input>"
+		if toJSON.val {
+			name = "" // the default is not useful there
+		}
+		if filename.val != "" {
+			name = filename.val
+		}
+		if err := formatStdin(name); err != nil {
 			if err != errChangedWithDiff {
 				fmt.Fprintln(os.Stderr, err)
 			}
@@ -178,88 +244,122 @@ Utilities:
 		}
 		return 0
 	}
-	if *toJSON {
-		fmt.Fprintln(os.Stderr, "-tojson can only be used with stdin/out")
+	if filename.val != "" {
+		fmt.Fprintln(os.Stderr, "-filename can only be used with stdin")
+		return 1
+	}
+	if toJSON.val {
+		fmt.Fprintln(os.Stderr, "--to-json can only be used with stdin")
 		return 1
 	}
 	status := 0
 	for _, path := range flag.Args() {
-		walk(path, func(err error) {
-			if err != errChangedWithDiff {
-				fmt.Fprintln(os.Stderr, err)
+		if info, err := os.Stat(path); err == nil && !info.IsDir() && !applyIgnore.val && !find.val {
+			// When given paths to files directly, always format them,
+			// no matter their extension or shebang.
+			//
+			// One exception is --apply-ignore, which explicitly changes this behavior.
+			// Another is --find, whose logic depends on walkPath being called.
+			if err := formatPath(path, false); err != nil {
+				if err != errChangedWithDiff {
+					fmt.Fprintln(os.Stderr, err)
+				}
+				status = 1
 			}
+			continue
+		}
+		if err := filepath.WalkDir(path, func(path string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			switch err := walkPath(path, entry); err {
+			case nil:
+			case filepath.SkipDir:
+				return err
+			case errChangedWithDiff:
+				status = 1
+			default:
+				fmt.Fprintln(os.Stderr, err)
+				status = 1
+			}
+			return nil
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			status = 1
-		})
+		}
 	}
 	return status
 }
 
 var errChangedWithDiff = fmt.Errorf("")
 
-func formatStdin() error {
-	if *write {
+func formatStdin(name string) error {
+	if write.val {
 		return fmt.Errorf("-w cannot be used on standard input")
 	}
-	src, err := ioutil.ReadAll(in)
+	if applyIgnore.val {
+		// Mimic the logic from walkPath to apply the ignore rules.
+		props, err := ecQuery.Find(name, []string{"shell"})
+		if err != nil {
+			return err
+		}
+		if props.Get("ignore") == "true" {
+			return nil
+		}
+	}
+	src, err := io.ReadAll(in)
 	if err != nil {
 		return err
 	}
-	return formatBytes(src, "<standard input>")
+	fileLang := lang.val
+	if fileLang == syntax.LangAuto {
+		extensionLang := strings.TrimPrefix(filepath.Ext(name), ".")
+		if err := fileLang.Set(extensionLang); err != nil || fileLang == syntax.LangPOSIX {
+			shebangLang := fileutil.Shebang(src)
+			if err := fileLang.Set(shebangLang); err != nil {
+				// Fall back to bash.
+				fileLang = syntax.LangBash
+			}
+		}
+	}
+	return formatBytes(src, name, fileLang)
 }
 
 var vcsDir = regexp.MustCompile(`^\.(git|svn|hg)$`)
 
-func walk(path string, onError func(error)) {
-	info, err := os.Stat(path)
+func walkPath(path string, entry fs.DirEntry) error {
+	if entry.IsDir() && vcsDir.MatchString(entry.Name()) {
+		return filepath.SkipDir
+	}
+	// We don't know the language variant at this point yet, as we are walking directories
+	// and we first want to tell if we should skip a path entirely.
+	//
+	// TODO: Should the call to Find with the language name check "ignore" too, then?
+	// Otherwise a [[bash]] section with ignore=true is effectively never used.
+	//
+	// TODO: Should there be a way to explicitly turn off ignore rules when walking?
+	// Perhaps swapping the default to --apply-ignore=auto and allowing --apply-ignore=false?
+	// I don't imagine it's a particularly uesful scenario for now.
+	props, err := ecQuery.Find(path, []string{"shell"})
 	if err != nil {
-		onError(err)
-		return
+		return err
 	}
-	if !info.IsDir() {
-		checkShebang := false
-		if *find {
-			conf := fileutil.CouldBeScript(info)
-			if conf == fileutil.ConfNotScript {
-				return
-			}
-			checkShebang = conf == fileutil.ConfIfShebang
-		}
-		if err := formatPath(path, checkShebang); err != nil {
-			onError(err)
-		}
-		return
-	}
-	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			onError(err)
-			return nil
-		}
-		if info.IsDir() && vcsDir.MatchString(info.Name()) {
+	if props.Get("ignore") == "true" {
+		if entry.IsDir() {
 			return filepath.SkipDir
-		}
-		if useEditorConfig {
-			props, err := ecQuery.Find(path)
-			if err != nil {
-				return err
-			}
-			if props.Get("ignore") == "true" {
-				if info.IsDir() {
-					return filepath.SkipDir
-				} else {
-					return nil
-				}
-			}
-		}
-		conf := fileutil.CouldBeScript(info)
-		if conf == fileutil.ConfNotScript {
+		} else {
 			return nil
 		}
-		err = formatPath(path, conf == fileutil.ConfIfShebang)
-		if err != nil && !os.IsNotExist(err) {
-			onError(err)
-		}
+	}
+	conf := fileutil.CouldBeScript2(entry)
+	if conf == fileutil.ConfNotScript {
 		return nil
-	})
+	}
+	err = formatPath(path, conf == fileutil.ConfIfShebang)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 var ecQuery = editorconfig.Query{
@@ -267,14 +367,9 @@ var ecQuery = editorconfig.Query{
 	RegexpCache: make(map[string]*regexp.Regexp),
 }
 
-func propsOptions(props editorconfig.Section) {
-	lang := syntax.LangBash
-	switch props.Get("shell_variant") {
-	case "posix":
-		lang = syntax.LangPOSIX
-	case "mksh":
-		lang = syntax.LangMirBSDKorn
-	}
+func propsOptions(lang syntax.LangVariant, props editorconfig.Section) {
+	// if shell_variant is set to a valid string, it will take precedence
+	lang.Set(props.Get("shell_variant"))
 	syntax.Variant(lang)(parser)
 
 	size := uint(0)
@@ -287,9 +382,11 @@ func propsOptions(props editorconfig.Section) {
 	syntax.Indent(size)(printer)
 
 	syntax.BinaryNextLine(props.Get("binary_next_line") == "true")(printer)
+	// TODO(v4): rename to case_indent for consistency with flags
 	syntax.SwitchCaseIndent(props.Get("switch_case_indent") == "true")(printer)
 	syntax.SpaceRedirects(props.Get("space_redirects") == "true")(printer)
 	syntax.KeepPadding(props.Get("keep_padding") == "true")(printer)
+	// TODO(v4): rename to func_next_line for consistency with flags
 	syntax.FunctionNextLine(props.Get("function_next_line") == "true")(printer)
 }
 
@@ -299,18 +396,39 @@ func formatPath(path string, checkShebang bool) error {
 		return err
 	}
 	defer f.Close()
-	readBuf.Reset()
-	if checkShebang {
-		n, err := f.Read(copyBuf[:32])
-		if err != nil {
-			return err
+
+	fileLang := lang.val
+	shebangForAuto := false
+	if fileLang == syntax.LangAuto {
+		extensionLang := strings.TrimPrefix(filepath.Ext(path), ".")
+		if err := fileLang.Set(extensionLang); err != nil || fileLang == syntax.LangPOSIX {
+			shebangForAuto = true
 		}
-		if !fileutil.HasShebang(copyBuf[:n]) {
-			return nil
+	}
+	readBuf.Reset()
+	if checkShebang || shebangForAuto {
+		n, err := io.ReadAtLeast(f, copyBuf[:32], len("#!/bin/sh\n"))
+		switch {
+		case !checkShebang:
+			// only wanted the shebang for LangAuto
+		case err == io.EOF, errors.Is(err, io.ErrUnexpectedEOF):
+			return nil // too short to have a shebang
+		case err != nil:
+			return err // some other read error
+		}
+		shebangLang := fileutil.Shebang(copyBuf[:n])
+		if checkShebang && shebangLang == "" {
+			return nil // not a shell script
+		}
+		if shebangForAuto {
+			if err := fileLang.Set(shebangLang); err != nil {
+				// Fall back to bash.
+				fileLang = syntax.LangBash
+			}
 		}
 		readBuf.Write(copyBuf[:n])
 	}
-	if *find {
+	if find.val {
 		fmt.Fprintln(out, path)
 		return nil
 	}
@@ -318,79 +436,93 @@ func formatPath(path string, checkShebang bool) error {
 		return err
 	}
 	f.Close()
-	return formatBytes(readBuf.Bytes(), path)
+	return formatBytes(readBuf.Bytes(), path, fileLang)
 }
 
-func formatBytes(src []byte, path string) error {
+func editorConfigLangs(l syntax.LangVariant) []string {
+	// All known shells match [[shell]].
+	// As a special case, bash and the bash-like bats also match [[bash]]
+	// We can later consider others like [[mksh]] or [[posix-shell]],
+	// just consider what list of languages the EditorConfig spec might eventually use.
+	switch l {
+	case syntax.LangBash, syntax.LangBats:
+		return []string{"shell", "bash"}
+	case syntax.LangPOSIX, syntax.LangMirBSDKorn, syntax.LangAuto:
+		return []string{"shell"}
+	}
+	return nil
+}
+
+func formatBytes(src []byte, path string, fileLang syntax.LangVariant) error {
 	if useEditorConfig {
-		props, err := ecQuery.Find(path)
+		props, err := ecQuery.Find(path, editorConfigLangs(fileLang))
 		if err != nil {
 			return err
 		}
-		propsOptions(props)
+		propsOptions(fileLang, props)
+	} else {
+		syntax.Variant(fileLang)(parser)
 	}
-	prog, err := parser.Parse(bytes.NewReader(src), path)
-	if err != nil {
-		return err
+	var node syntax.Node
+	var err error
+	if fromJSON.val {
+		node, err = typedjson.Decode(bytes.NewReader(src))
+		if err != nil {
+			return err
+		}
+	} else {
+		node, err = parser.Parse(bytes.NewReader(src), path)
+		if err != nil {
+			if s, ok := err.(syntax.LangError); ok && lang.val == syntax.LangAuto {
+				return fmt.Errorf("%w (parsed as %s via -%s=%s)", s, fileLang, lang.short, lang.val)
+			}
+			return err
+		}
 	}
-	if *simple {
-		syntax.Simplify(prog)
+	if simplify.val {
+		syntax.Simplify(node)
 	}
-	if *toJSON {
+	if toJSON.val {
 		// must be standard input; fine to return
-		return writeJSON(out, prog, true)
+		// TODO: change the default behavior to be compact,
+		// and allow using --to-json=pretty or --to-json=indent.
+		return typedjson.EncodeOptions{Indent: "\t"}.Encode(out, node)
 	}
 	writeBuf.Reset()
-	printer.Print(&writeBuf, prog)
+	printer.Print(&writeBuf, node)
 	res := writeBuf.Bytes()
 	if !bytes.Equal(src, res) {
-		if *list {
+		if list.val {
 			if _, err := fmt.Fprintln(out, path); err != nil {
 				return err
 			}
 		}
-		if *write {
+		if write.val {
 			info, err := os.Lstat(path)
 			if err != nil {
 				return err
 			}
 			perm := info.Mode().Perm()
-			writeFile := renameio.WriteFile
-			// TODO: support atomic writes on Windows once renameio
-			// supports it
-			if runtime.GOOS == "windows" {
-				writeFile = ioutil.WriteFile
-			}
-			if err := writeFile(path, res, perm); err != nil {
+			// TODO: support atomic writes on Windows?
+			if err := maybeio.WriteFile(path, res, perm); err != nil {
 				return err
 			}
 		}
-		if *diffOut {
-			if err := diffBytes(src, res, path); err != nil {
+		if diff.val {
+			opts := []diffwrite.Option{}
+			if color {
+				opts = append(opts, diffwrite.TerminalColor())
+			}
+			if err := diffpkg.Text(path+".orig", path, src, res, out, opts...); err != nil {
 				return fmt.Errorf("computing diff: %s", err)
 			}
 			return errChangedWithDiff
 		}
 	}
-	if !*list && !*write && !*diffOut {
+	if !list.val && !write.val && !diff.val {
 		if _, err := out.Write(res); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func diffBytes(b1, b2 []byte, path string) error {
-	a := bytes.Split(b1, []byte("\n"))
-	b := bytes.Split(b2, []byte("\n"))
-	ab := diff.Bytes(a, b)
-	e := diff.Myers(context.Background(), ab)
-	opts := []diff.WriteOpt{diff.Names(path+".orig", path)}
-	if color {
-		opts = append(opts, diff.TerminalColor())
-	}
-	if _, err := e.WriteUnified(out, ab, opts...); err != nil {
-		return err
 	}
 	return nil
 }

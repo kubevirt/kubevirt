@@ -14,5 +14,8 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/onsi/gomega/gmeasure",
     importpath = "github.com/onsi/gomega/gmeasure",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/onsi/gomega/gmeasure/table:go_default_library"],
+    deps = [
+        "//vendor/github.com/onsi/gomega/gmeasure/table:go_default_library",
+        "//vendor/github.com/onsi/gomega/internal/gutil:go_default_library",
+    ],
 )

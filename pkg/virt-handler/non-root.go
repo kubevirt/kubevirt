@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -14,8 +12,10 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	virtutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -98,69 +98,14 @@ func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res i
 	return nil
 }
 
-func (d *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+func (c *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
 	if err := changeOwnershipOfBlockDevices(vmi, res); err != nil {
 		return err
 	}
 	return changeOwnershipOfHostDisks(vmi, res)
 }
 
-func getTapDevices(vmi *v1.VirtualMachineInstance) []string {
-	macvtap := map[string]bool{}
-	for _, inf := range vmi.Spec.Domain.Devices.Interfaces {
-		if inf.Macvtap != nil {
-			macvtap[inf.Name] = true
-		}
-	}
-
-	tapDevices := []string{}
-	for _, net := range vmi.Spec.Networks {
-		_, ok := macvtap[net.Name]
-		if ok {
-			tapDevices = append(tapDevices, net.Multus.NetworkName)
-		}
-	}
-	return tapDevices
-}
-
-func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	tapDevices := getTapDevices(vmi)
-	for _, tap := range tapDevices {
-		path, err := isolation.SafeJoin(res, "sys", "class", "net", tap, "ifindex")
-		if err != nil {
-			return err
-		}
-		index, err := func(path *safepath.Path) (int, error) {
-			df, err := safepath.OpenAtNoFollow(path)
-			if err != nil {
-				return 0, err
-			}
-			defer df.Close()
-			b, err := os.ReadFile(df.SafePath())
-			if err != nil {
-				return 0, fmt.Errorf("Failed to read if index, %v", err)
-			}
-
-			return strconv.Atoi(strings.TrimSpace(string(b)))
-		}(path)
-		if err != nil {
-			return err
-		}
-
-		pathToTap, err := isolation.SafeJoin(res, "dev", fmt.Sprintf("tap%d", index))
-		if err != nil {
-			return err
-		}
-
-		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(pathToTap); err != nil {
-			return err
-		}
-	}
-	return nil
-
-}
-
-func (*VirtualMachineController) prepareVFIO(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+func (*VirtualMachineController) prepareVFIO(res isolation.IsolationResult) error {
 	vfioBasePath, err := isolation.SafeJoin(res, "dev", "vfio")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -202,18 +147,39 @@ func (*VirtualMachineController) prepareVFIO(vmi *v1.VirtualMachineInstance, res
 	return nil
 }
 
-func (d *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineInstance) error {
-	res, err := d.podIsolationDetector.Detect(origVMI)
+func (c *VirtualMachineController) prepareNetwork(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+	rootMount, err := res.MountRoot()
 	if err != nil {
 		return err
 	}
-	if err := d.prepareStorage(origVMI, res); err != nil {
+
+	if virtutil.WantVirtioNetDevice(vmi) {
+		if err := c.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
+			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
+		}
+	}
+
+	if virtutil.NeedTunDevice(vmi) {
+		if err := c.claimDeviceOwnership(rootMount, "/net/tun"); err != nil {
+			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up tun device, %s", err))
+		}
+	}
+
+	return nil
+}
+
+func (c *VirtualMachineController) nonRootSetup(origVMI *v1.VirtualMachineInstance) error {
+	res, err := c.podIsolationDetector.Detect(origVMI)
+	if err != nil {
 		return err
 	}
-	if err := d.prepareTap(origVMI, res); err != nil {
+	if err := c.prepareStorage(origVMI, res); err != nil {
 		return err
 	}
-	if err := d.prepareVFIO(origVMI, res); err != nil {
+	if err := c.prepareVFIO(res); err != nil {
+		return err
+	}
+	if err := c.prepareNetwork(origVMI, res); err != nil {
 		return err
 	}
 	return nil

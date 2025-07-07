@@ -29,7 +29,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// StorageClassApplyConfiguration represents an declarative configuration of the StorageClass type for use
+// StorageClassApplyConfiguration represents a declarative configuration of the StorageClass type for use
 // with apply.
 type StorageClassApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -43,7 +43,7 @@ type StorageClassApplyConfiguration struct {
 	AllowedTopologies                []applyconfigurationscorev1.TopologySelectorTermApplyConfiguration `json:"allowedTopologies,omitempty"`
 }
 
-// StorageClass constructs an declarative configuration of the StorageClass type for use with
+// StorageClass constructs a declarative configuration of the StorageClass type for use with
 // apply.
 func StorageClass(name string) *StorageClassApplyConfiguration {
 	b := &StorageClassApplyConfiguration{}
@@ -128,15 +128,6 @@ func (b *StorageClassApplyConfiguration) WithGenerateName(value string) *Storage
 func (b *StorageClassApplyConfiguration) WithNamespace(value string) *StorageClassApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *StorageClassApplyConfiguration) WithSelfLink(value string) *StorageClassApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -249,15 +240,6 @@ func (b *StorageClassApplyConfiguration) WithFinalizers(values ...string) *Stora
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *StorageClassApplyConfiguration) WithClusterName(value string) *StorageClassApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *StorageClassApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -331,4 +313,10 @@ func (b *StorageClassApplyConfiguration) WithAllowedTopologies(values ...*applyc
 		b.AllowedTopologies = append(b.AllowedTopologies, *values[i])
 	}
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *StorageClassApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

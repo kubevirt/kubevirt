@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// FlowSchemaApplyConfiguration represents an declarative configuration of the FlowSchema type for use
+// FlowSchemaApplyConfiguration represents a declarative configuration of the FlowSchema type for use
 // with apply.
 type FlowSchemaApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -36,7 +36,7 @@ type FlowSchemaApplyConfiguration struct {
 	Status                           *FlowSchemaStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// FlowSchema constructs an declarative configuration of the FlowSchema type for use with
+// FlowSchema constructs a declarative configuration of the FlowSchema type for use with
 // apply.
 func FlowSchema(name string) *FlowSchemaApplyConfiguration {
 	b := &FlowSchemaApplyConfiguration{}
@@ -121,15 +121,6 @@ func (b *FlowSchemaApplyConfiguration) WithGenerateName(value string) *FlowSchem
 func (b *FlowSchemaApplyConfiguration) WithNamespace(value string) *FlowSchemaApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *FlowSchemaApplyConfiguration) WithSelfLink(value string) *FlowSchemaApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -242,15 +233,6 @@ func (b *FlowSchemaApplyConfiguration) WithFinalizers(values ...string) *FlowSch
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *FlowSchemaApplyConfiguration) WithClusterName(value string) *FlowSchemaApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *FlowSchemaApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -271,4 +253,10 @@ func (b *FlowSchemaApplyConfiguration) WithSpec(value *FlowSchemaSpecApplyConfig
 func (b *FlowSchemaApplyConfiguration) WithStatus(value *FlowSchemaStatusApplyConfiguration) *FlowSchemaApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *FlowSchemaApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

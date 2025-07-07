@@ -1,5 +1,5 @@
 ---
-apiVersion: instancetype.kubevirt.io/v1alpha2
+apiVersion: instancetype.kubevirt.io/v1beta1
 kind: VirtualMachinePreference
 metadata:
   name: windows
@@ -16,7 +16,7 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: preferSockets
+    preferredCPUTopology: sockets
   devices:
     preferredDiskBus: sata
     preferredInterfaceModel: e1000
@@ -31,5 +31,5 @@ spec:
       vapic: {}
     preferredSmm: {}
   firmware:
-    preferredUseEfi: true
-    preferredUseSecureBoot: true
+    preferredEfi:
+      secureBoot: true

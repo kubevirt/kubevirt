@@ -22,17 +22,18 @@ package cli
 //go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/go/libvirt" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"sync"
 	"time"
 
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/client-go/log"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -52,9 +53,9 @@ type Connection interface {
 	DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error
 	AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error
 	VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error)
+	DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error
 	DomainEventDeregister(registrationID int) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
-	NewStream(flags libvirt.StreamFlags) (Stream, error)
 	SetReconnectChan(reconnect chan bool)
 	QemuAgentCommand(command string, domainName string) (string, error)
 	GetAllDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]libvirt.DomainStats, error)
@@ -63,6 +64,8 @@ type Connection interface {
 	// 1. avoid to expose to the client code the libvirt-specific return type, see docs in stats/ subpackage
 	// 2. transparently handling the addition of the memory stats, currently (libvirt 4.9) not handled by the bulk stats API
 	GetDomainStats(statsTypes libvirt.DomainStatsTypes, l *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error)
+	GetQemuVersion() (string, error)
+	GetSEVInfo() (*api.SEVNodeParameters, error)
 }
 
 type Stream interface {
@@ -84,11 +87,12 @@ type LibvirtConnection struct {
 	reconnect     chan bool
 	reconnectLock *sync.Mutex
 
-	domainEventCallbacks                   []libvirt.DomainEventLifecycleCallback
-	domainDeviceAddedEventCallbacks        []libvirt.DomainEventDeviceAddedCallback
-	domainDeviceRemovedEventCallbacks      []libvirt.DomainEventDeviceRemovedCallback
-	domainEventMigrationIterationCallbacks []libvirt.DomainEventMigrationIterationCallback
-	agentEventCallbacks                    []libvirt.DomainEventAgentLifecycleCallback
+	domainEventCallbacks                        []libvirt.DomainEventLifecycleCallback
+	domainDeviceAddedEventCallbacks             []libvirt.DomainEventDeviceAddedCallback
+	domainDeviceRemovedEventCallbacks           []libvirt.DomainEventDeviceRemovedCallback
+	domainEventMigrationIterationCallbacks      []libvirt.DomainEventMigrationIterationCallback
+	agentEventCallbacks                         []libvirt.DomainEventAgentLifecycleCallback
+	domainDeviceMemoryDeviceSizeChangeCallbacks []libvirt.DomainEventMemoryDeviceSizeChangeCallback
 }
 
 func (s *VirStream) Write(p []byte) (n int, err error) {
@@ -118,19 +122,6 @@ func (s *VirStream) UnderlyingStream() *libvirt.Stream {
 
 func (l *LibvirtConnection) SetReconnectChan(reconnect chan bool) {
 	l.reconnect = reconnect
-}
-
-func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error) {
-	if err := l.reconnectIfNecessary(); err != nil {
-		return nil, err
-	}
-
-	s, err := l.Connect.NewStream(flags)
-	if err != nil {
-		l.checkConnectionLost(err)
-		return nil, err
-	}
-	return &VirStream{Stream: s}, nil
 }
 
 func (l *LibvirtConnection) Close() (int, error) {
@@ -192,6 +183,17 @@ func (l *LibvirtConnection) VolatileDomainEventDeviceRemovedRegister(domain VirD
 		dom = domain.(*libvirt.Domain)
 	}
 	return l.Connect.DomainEventDeviceRemovedRegister(dom, callback)
+}
+
+func (l *LibvirtConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) (err error) {
+	if err = l.reconnectIfNecessary(); err != nil {
+		return
+	}
+
+	l.domainDeviceMemoryDeviceSizeChangeCallbacks = append(l.domainDeviceMemoryDeviceSizeChangeCallbacks, callback)
+	_, err = l.Connect.DomainEventMemoryDeviceSizeChangeRegister(nil, callback)
+	l.checkConnectionLost(err)
+	return
 }
 
 func (l *LibvirtConnection) DomainEventDeregister(registrationID int) error {
@@ -265,6 +267,28 @@ func (l *LibvirtConnection) GetAllDomainStats(statsTypes libvirt.DomainStatsType
 	return domStats, nil
 }
 
+func (l *LibvirtConnection) GetQemuVersion() (string, error) {
+	version, err := l.Connect.GetVersion()
+	if err != nil {
+		return "", err
+	}
+	// The following code works because version it's an uint32 var. Therefore, the divisions will result in
+	// an integer number. For instance:
+	// version = 7002002
+	// major = 7002002 / 1000000 = 7 --> decimals are discard in this operation
+	// version = 7002002 - (7*1000000) = 2000
+	// minor = 2002 / 1000 = 2
+	// version = version - (2*1000) = 2
+	// release = 2
+	major := version / 1000000
+	version = version - (major * 1000000)
+	minor := version / 1000
+	version = version - (minor * 1000)
+	release := version
+
+	return fmt.Sprintf("QEMU %d.%d.%d", major, minor, release), err
+}
+
 func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, migrateJobInfo *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error) {
 	domStats, err := l.GetAllDomainStats(statsTypes, flags)
 	if err != nil {
@@ -319,6 +343,24 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 	return list, nil
 }
 
+func (l *LibvirtConnection) GetSEVInfo() (*api.SEVNodeParameters, error) {
+	const flags = uint32(0)
+	params, err := l.Connect.GetSEVInfo(flags)
+	if err != nil {
+		return nil, err
+	}
+
+	sevNodeParameters := &api.SEVNodeParameters{}
+	if params.PDHSet {
+		sevNodeParameters.PDH = params.PDH
+	}
+	if params.CertChainSet {
+		sevNodeParameters.CertChain = params.CertChain
+	}
+
+	return sevNodeParameters, nil
+}
+
 func (l *LibvirtConnection) GetDeviceAliasMap(domain *libvirt.Domain) (map[string]string, error) {
 	devAliasMap := make(map[string]string)
 
@@ -333,7 +375,9 @@ func (l *LibvirtConnection) GetDeviceAliasMap(domain *libvirt.Domain) (map[strin
 	}
 
 	for _, iface := range domSpec.Devices.Interfaces {
-		devAliasMap[iface.Target.Device] = iface.Alias.GetName()
+		if iface.Target != nil {
+			devAliasMap[iface.Target.Device] = iface.Alias.GetName()
+		}
 	}
 
 	for _, disk := range domSpec.Devices.Disks {
@@ -414,6 +458,10 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 			log.Log.Info("Re-registered domain device removed callback")
 			_, err = l.Connect.DomainEventDeviceRemovedRegister(nil, callback)
 		}
+		for _, callback := range l.domainDeviceMemoryDeviceSizeChangeCallbacks {
+			log.Log.Info("Re-registered domain memory device size change callback")
+			_, err = l.Connect.DomainEventMemoryDeviceSizeChangeRegister(nil, callback)
+		}
 
 		log.Log.Error("Re-registered domain and agent callbacks for new connection")
 
@@ -456,25 +504,22 @@ func (l *LibvirtConnection) checkConnectionLost(err error) {
 
 type VirDomain interface {
 	GetState() (libvirt.DomainState, int, error)
-	Create() error
 	CreateWithFlags(flags libvirt.DomainCreateFlags) error
 	Suspend() error
 	Resume() error
 	BlockResize(disk string, size uint64, flags libvirt.DomainBlockResizeFlags) error
 	GetBlockInfo(disk string, flags uint32) (*libvirt.DomainBlockInfo, error)
-	AttachDevice(xml string) error
 	AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
-	DetachDevice(xml string) error
+	UpdateDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DestroyFlags(flags libvirt.DomainDestroyFlags) error
 	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
 	Reboot(flags libvirt.DomainRebootFlagValues) error
+	Reset(flags uint32) error
 	UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error
 	GetName() (string, error)
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
-	GetMetadata(tipus libvirt.DomainMetadataType, uri string, flags libvirt.DomainModificationImpact) (string, error)
-	OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error
 	MigrateToURI3(string, *libvirt.DomainMigrateParameters, libvirt.DomainMigrateFlags) error
 	MigrateStartPostCopy(flags uint32) error
 	MemoryStats(nrStats uint32, flags uint32) ([]libvirt.DomainMemoryStat, error)
@@ -482,9 +527,15 @@ type VirDomain interface {
 	GetJobInfo() (*libvirt.DomainJobInfo, error)
 	GetDiskErrors(flags uint32) ([]libvirt.DomainDiskError, error)
 	SetTime(secs int64, nsecs uint, flags libvirt.DomainSetTimeFlags) error
+	AuthorizedSSHKeysSet(user string, keys []string, flags libvirt.DomainAuthorizedSSHKeysFlags) error
 	AbortJob() error
 	Free() error
 	CoreDumpWithFormat(to string, format libvirt.DomainCoreDumpFormat, flags libvirt.DomainCoreDumpFlags) error
+	PinVcpuFlags(vcpu uint, cpuMap []bool, flags libvirt.DomainModificationImpact) error
+	PinEmulator(cpumap []bool, flags libvirt.DomainModificationImpact) error
+	SetVcpusFlags(vcpu uint, flags libvirt.DomainVcpuFlags) error
+	GetLaunchSecurityInfo(flags uint32) (*libvirt.DomainLaunchSecurityParameters, error)
+	SetLaunchSecurityState(params *libvirt.DomainLaunchSecurityStateParameters, flags uint32) error
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {
@@ -498,7 +549,7 @@ func NewConnectionWithTimeout(uri string, user string, pass string, checkInterva
 	var err error
 	var virConn *libvirt.Connect
 
-	err = utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
+	err = virtwait.PollImmediately(connectionInterval, connectionTimeout, func(_ context.Context) (done bool, err error) {
 		virConn, err = newConnection(uri, user, pass)
 		if err != nil {
 			logger.V(1).Infof("Connecting to libvirt daemon failed: %v", err)

@@ -21,25 +21,13 @@ package storage
 
 import (
 	"context"
-	goerrors "errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
-	"kubevirt.io/client-go/log"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -48,39 +36,39 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
-	commandMemoryDump                = "memory-dump"
 	verifierPodName                  = "verifier"
 	noPreviousOutput                 = ""
 	noClaimName                      = ""
-	memoryDumpSmallPVCName           = "fs-pvc-small"
-	virtCtlClaimName                 = "--claim-name=%s"
-	virtCtlCreate                    = "--create-claim"
-	virtCtlOutputFile                = "--output=%s"
-	virtCtlStorageClass              = "--storage-class=%s"
 	waitMemoryDumpRequest            = "waiting on memory dump request in vm status"
 	waitMemoryDumpPvcVolume          = "waiting on memory dump pvc in vm"
 	waitMemoryDumpRequestRemove      = "waiting on memory dump request to be remove from vm status"
 	waitMemoryDumpPvcVolumeRemove    = "waiting on memory dump pvc to be remove from vm volumes"
 	waitMemoryDumpCompletion         = "waiting on memory dump completion in vm, phase: %s"
 	waitMemoryDumpInProgress         = "waiting on memory dump in progress in vm, phase: %s"
-	waitMemoryDumpAnnotation         = "waiting on memory dump annotation on pvc"
 	waitVMIMemoryDumpPvcVolume       = "waiting memory dump not to be in vmi volumes list"
 	waitVMIMemoryDumpPvcVolumeStatus = "waiting memory dump not to be in vmi volumeStatus list"
+	memoryDumpPVCSize                = "500Mi"
 )
 
 type memoryDumpFunction func(name, namespace, claimNames string)
 type removeMemoryDumpFunction func(name, namespace string)
 
-var _ = SIGDescribe("Memory dump", func() {
+var _ = Describe(SIG("Memory dump", func() {
 	var (
-		err                error
 		virtClient         kubecli.KubevirtClient
 		memoryDumpPVCName  string
 		memoryDumpPVCName2 string
@@ -92,24 +80,18 @@ var _ = SIGDescribe("Memory dump", func() {
 		memoryDumpPVCName2 = "fs-pvc2" + rand.String(5)
 	})
 
-	createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
-		By("Creating VirtualMachine")
-		vm := tests.NewRandomVirtualMachine(template, running)
-		newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
-		Expect(err).ToNot(HaveOccurred())
-		return newVM
-	}
-
 	createAndStartVM := func() *v1.VirtualMachine {
-		template := libvmi.NewCirros()
-		vm := createVirtualMachine(true, template)
+		By("Creating VirtualMachine")
+		vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return false
 			}
 			Expect(err).ToNot(HaveOccurred())
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return vm.Status.Ready && vmi.Status.Phase == v1.Running
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -118,19 +100,14 @@ var _ = SIGDescribe("Memory dump", func() {
 	}
 
 	waitDeleted := func(deleteFunc func() error) {
-		Eventually(func() bool {
-			err := deleteFunc()
-			if errors.IsNotFound(err) {
-				return true
-			}
-			Expect(err).ToNot(HaveOccurred())
-			return false
-		}, 180*time.Second, time.Second).Should(BeTrue())
+		Eventually(func() error {
+			return deleteFunc()
+		}, 180*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 	}
 
 	deleteVirtualMachine := func(vm *v1.VirtualMachine) {
 		waitDeleted(func() error {
-			return virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+			return virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 		})
 		vm = nil
 	}
@@ -151,7 +128,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	verifyMemoryDumpNotOnVMI := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
-			updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -184,7 +161,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	waitAndVerifyMemoryDumpCompletion := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
-			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -222,7 +199,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	waitAndVerifyMemoryDumpDissociation := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
-			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -248,9 +225,8 @@ var _ = SIGDescribe("Memory dump", func() {
 	}
 
 	verifyMemoryDumpOutput := func(memoryDumpPVC *k8sv1.PersistentVolumeClaim, previousOutput string, shouldEqual bool) string {
-		executorPod := tests.CreateExecutorPodWithPVC(verifierPodName, memoryDumpPVC)
+		executorPod := createExecutorPodWithPVC(verifierPodName, memoryDumpPVC)
 		lsOutput, err := exec.ExecuteCommandOnPod(
-			virtClient,
 			executorPod,
 			executorPod.Spec.Containers[0].Name,
 			[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s", libstorage.DefaultPvcMountPath)},
@@ -259,7 +235,6 @@ var _ = SIGDescribe("Memory dump", func() {
 		log.Log.Infof("%s", lsOutput)
 		Expect(err).ToNot(HaveOccurred())
 		wcOutput, err := exec.ExecuteCommandOnPod(
-			virtClient,
 			executorPod,
 			executorPod.Spec.Containers[0].Name,
 			[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s | wc -l", libstorage.DefaultPvcMountPath)},
@@ -295,75 +270,9 @@ var _ = SIGDescribe("Memory dump", func() {
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	memoryDumpVirtctl := func(name, namespace, claimName string) {
-		By("Invoking virtctl memory dump")
-		commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
-		if claimName != "" {
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
-		}
-		memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-		Eventually(func() error {
-			return memorydumpCommand()
-		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-	}
-
-	memoryDumpVirtctlCreatePVC := func(name, namespace, claimName string) {
-		By("Invoking virtctl memory dump with create flag")
-		commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
-		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
-		commandAndArgs = append(commandAndArgs, virtCtlCreate)
-		memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-		Eventually(func() error {
-			err := memorydumpCommand()
-			if err != nil {
-				_, getErr := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
-				if getErr == nil {
-					// already created the pvc can't call the memory dump command with
-					// create-claim flag again
-					By("Error memory dump command after claim created")
-					memoryDumpVirtctl(name, namespace, claimName)
-					return nil
-				}
-			}
-			return err
-		}, 20*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-	}
-
-	memoryDumpVirtctlCreatePVCWithStorgeClass := func(name, namespace, claimName, storageClass string) {
-		By("Invoking virtctl memory dump with create flag")
-		commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
-		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
-		commandAndArgs = append(commandAndArgs, virtCtlCreate)
-		commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlStorageClass, storageClass))
-		memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-		Eventually(func() error {
-			err := memorydumpCommand()
-			if err != nil {
-				_, getErr := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
-				if getErr == nil {
-					// already created the pvc can't call the memory dump command with
-					// create-claim flag again
-					By("Error memory dump command after claim created")
-					memoryDumpVirtctl(name, namespace, claimName)
-					return nil
-				}
-			}
-			return err
-		}, 20*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-	}
-
 	removeMemoryDumpVMSubresource := func(vmName, namespace string) {
 		Eventually(func() error {
 			return virtClient.VirtualMachine(namespace).RemoveMemoryDump(context.Background(), vmName)
-		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-	}
-
-	removeMemoryDumpVirtctl := func(name, namespace string) {
-		By("Invoking virtctl remove memory dump")
-		commandAndArgs := []string{commandMemoryDump, "remove", name, virtCtlNamespace, namespace}
-		removeMemorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-		Eventually(func() error {
-			return removeMemorydumpCommand()
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	}
 
@@ -373,7 +282,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 		waitAndVerifyMemoryDumpCompletion(vm, pvcName)
 		verifyMemoryDumpNotOnVMI(vm, pvcName)
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), pvcName, metav1.GetOptions{})
+		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Get(context.Background(), pvcName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		return verifyMemoryDumpOutput(pvc, previousOutput, false)
@@ -383,7 +292,7 @@ var _ = SIGDescribe("Memory dump", func() {
 		By("Running remove memory dump")
 		removeMemoryDumpFunc(vm.Name, vm.Namespace)
 		waitAndVerifyMemoryDumpDissociation(vm, pvcName)
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), pvcName, metav1.GetOptions{})
+		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Get(context.Background(), pvcName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		// Verify the content is still on the pvc
 		verifyMemoryDumpOutput(pvc, previousOutput, true)
@@ -391,11 +300,10 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	Context("Memory dump with existing PVC", func() {
 		var (
-			vm                 *v1.VirtualMachine
-			memoryDumpPVC      *k8sv1.PersistentVolumeClaim
-			memoryDumpPVC2     *k8sv1.PersistentVolumeClaim
-			memoryDumpSmallPVC *k8sv1.PersistentVolumeClaim
-			sc                 string
+			vm             *v1.VirtualMachine
+			memoryDumpPVC  *k8sv1.PersistentVolumeClaim
+			memoryDumpPVC2 *k8sv1.PersistentVolumeClaim
+			sc             string
 		)
 		const (
 			numPVs = 2
@@ -405,13 +313,13 @@ var _ = SIGDescribe("Memory dump", func() {
 			var exists bool
 			sc, exists = libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip no filesystem storage class available")
+				Fail("Fail no filesystem storage class available")
 			}
 			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 
 			vm = createAndStartVM()
 
-			memoryDumpPVC = libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(vm), "500Mi", nil)
+			memoryDumpPVC = libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(vm), memoryDumpPVCSize, nil)
 		})
 
 		AfterEach(func() {
@@ -424,81 +332,75 @@ var _ = SIGDescribe("Memory dump", func() {
 			if memoryDumpPVC2 != nil {
 				deletePVC(memoryDumpPVC2)
 			}
-			if memoryDumpSmallPVC != nil {
-				deletePVC(memoryDumpSmallPVC)
-			}
 		})
 
-		DescribeTable("Should be able to get and remove memory dump", func(memoryDumpFunc memoryDumpFunction, removeMemoryDumpFunc removeMemoryDumpFunction) {
-			previousOutput := createMemoryDumpAndVerify(vm, memoryDumpPVCName, noPreviousOutput, memoryDumpFunc)
-			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpFunc)
-		},
-			Entry("[test_id:8499]calling endpoint directly", memoryDumpVMSubresource, removeMemoryDumpVMSubresource),
-			Entry("[test_id:8500]using virtctl", memoryDumpVirtctl, removeMemoryDumpVirtctl),
-		)
+		It("[test_id:8499]Should be able to get and remove memory dump calling endpoint directly", func() {
+			previousOutput := createMemoryDumpAndVerify(vm, memoryDumpPVCName, noPreviousOutput, memoryDumpVMSubresource)
+			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVMSubresource)
+		})
 
-		It("[test_id:8502]Run multiple memory dumps", func() {
+		It("[test_id:8502]Run multiple memory dumps", decorators.StorageCritical, func() {
 			previousOutput := ""
 			for i := 0; i < 3; i++ {
 				By("Running memory dump number: " + strconv.Itoa(i))
 				if i > 0 {
 					// Running memory dump to the same pvc doesnt require claim name
-					memoryDumpVirtctl(vm.Name, vm.Namespace, noClaimName)
+					memoryDumpVMSubresource(vm.Name, vm.Namespace, noClaimName)
 				} else {
-					memoryDumpVirtctl(vm.Name, vm.Namespace, memoryDumpPVCName)
+					memoryDumpVMSubresource(vm.Name, vm.Namespace, memoryDumpPVCName)
 				}
 				waitAndVerifyMemoryDumpCompletion(vm, memoryDumpPVCName)
 				verifyMemoryDumpNotOnVMI(vm, memoryDumpPVCName)
 				previousOutput = verifyMemoryDumpOutput(memoryDumpPVC, previousOutput, false)
 			}
 
-			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVirtctl)
+			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVMSubresource)
 		})
 
 		It("[test_id:8503]Run memory dump to a pvc, remove and run memory dump to different pvc", func() {
 			By("Running memory dump to pvc: " + memoryDumpPVCName)
-			previousOutput := createMemoryDumpAndVerify(vm, memoryDumpPVCName, noPreviousOutput, memoryDumpVirtctl)
+			previousOutput := createMemoryDumpAndVerify(vm, memoryDumpPVCName, noPreviousOutput, memoryDumpVMSubresource)
 
 			By("Running remove memory dump to pvc: " + memoryDumpPVCName)
-			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVirtctl)
+			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVMSubresource)
 
-			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), "500Mi", nil)
+			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), memoryDumpPVCSize, nil)
 			By("Running memory dump to other pvc: " + memoryDumpPVCName2)
-			previousOutput = createMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, memoryDumpVirtctl)
+			previousOutput = createMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, memoryDumpVMSubresource)
 
 			By("Running remove memory dump to second pvc: " + memoryDumpPVCName2)
-			removeMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, removeMemoryDumpVirtctl)
+			removeMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, removeMemoryDumpVMSubresource)
 		})
 
 		It("[test_id:8506]Run memory dump, stop vm and remove memory dump", func() {
 			By("Running memory dump")
-			memoryDumpVirtctl(vm.Name, vm.Namespace, memoryDumpPVCName)
+			memoryDumpVMSubresource(vm.Name, vm.Namespace, memoryDumpPVCName)
 
 			waitAndVerifyMemoryDumpCompletion(vm, memoryDumpPVCName)
 			previousOutput := verifyMemoryDumpOutput(memoryDumpPVC, "", false)
 
 			By("Stopping VM")
-			vm = tests.StopVirtualMachine(vm)
+			vm = libvmops.StopVirtualMachine(vm)
 
 			// verify the output is still the same even when vm is stopped
 			waitAndVerifyMemoryDumpCompletion(vm, memoryDumpPVCName)
 			previousOutput = verifyMemoryDumpOutput(memoryDumpPVC, previousOutput, true)
 
 			By("Running remove memory dump")
-			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVirtctl)
+			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVMSubresource)
 		})
 
 		It("[test_id:8515]Run memory dump, stop vm start vm", func() {
 			By("Running memory dump")
-			memoryDumpVirtctl(vm.Name, vm.Namespace, memoryDumpPVCName)
+			memoryDumpVMSubresource(vm.Name, vm.Namespace, memoryDumpPVCName)
 
 			waitAndVerifyMemoryDumpCompletion(vm, memoryDumpPVCName)
 			previousOutput := verifyMemoryDumpOutput(memoryDumpPVC, "", false)
 
 			By("Stopping VM")
-			vm = tests.StopVirtualMachine(vm)
+			vm = libvmops.StopVirtualMachine(vm)
 			By("Starting VM")
-			vm = tests.StartVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
 
 			waitAndVerifyMemoryDumpCompletion(vm, memoryDumpPVCName)
 			// verify memory dump didnt reappeared in the VMI
@@ -508,96 +410,25 @@ var _ = SIGDescribe("Memory dump", func() {
 
 		It("[test_id:8501]Run memory dump with pvc too small should fail", func() {
 			By("Trying to get memory dump with small pvc")
-			memoryDumpSmallPVC = libstorage.CreateFSPVC(memoryDumpSmallPVCName, testsuite.GetTestNamespace(vm), "200Mi", nil)
-			commandAndArgs := []string{commandMemoryDump, "get", vm.Name, fmt.Sprintf(virtCtlClaimName, memoryDumpSmallPVCName), virtCtlNamespace, vm.Namespace}
-			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-			Eventually(func() string {
-				err := memorydumpCommand()
-				return err.Error()
-			}, 10*time.Second, 2*time.Second).Should(ContainSubstring("should be bigger then"))
-		})
-	})
-
-	Context("Memory dump with creating a PVC", func() {
-		var (
-			vm *v1.VirtualMachine
-			sc string
-		)
-		const (
-			numPVs = 1
-		)
-
-		BeforeEach(func() {
-			var exists bool
-			sc, exists = libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Skip("Skip no filesystem storage class available")
-			}
-			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
-
-			vm = createAndStartVM()
-		})
-
-		AfterEach(func() {
-			if vm != nil {
-				deleteVirtualMachine(vm)
-			}
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), memoryDumpPVCName, metav1.GetOptions{})
-			if err == nil && pvc != nil {
-				deletePVC(pvc)
-			}
-
-			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), memoryDumpPVCName2, metav1.GetOptions{})
-			if err == nil && pvc != nil {
-				deletePVC(pvc)
-			}
-		})
-
-		It("[test_id:9034]Should be able to get and remove memory dump", func() {
-			previousOutput := createMemoryDumpAndVerify(vm, memoryDumpPVCName, noPreviousOutput, memoryDumpVirtctlCreatePVC)
-			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVirtctl)
-		})
-
-		It("[test_id:9035]Run multiple memory dumps", func() {
-			previousOutput := ""
-			for i := 0; i < 3; i++ {
-				By("Running memory dump number: " + strconv.Itoa(i))
-				if i > 0 {
-					// Running memory dump to the same pvc doesnt require claim name
-					memoryDumpVirtctl(vm.Name, vm.Namespace, noClaimName)
-				} else {
-					memoryDumpVirtctlCreatePVC(vm.Name, vm.Namespace, memoryDumpPVCName)
-				}
-				waitAndVerifyMemoryDumpCompletion(vm, memoryDumpPVCName)
-				verifyMemoryDumpNotOnVMI(vm, memoryDumpPVCName)
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), memoryDumpPVCName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				previousOutput = verifyMemoryDumpOutput(pvc, previousOutput, false)
-			}
-
-			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVirtctl)
-		})
-
-		It("[test_id:9036]Run memory dump to creates a pvc, remove and run memory dump to create a different pvc", func() {
-			By("Running memory dump to pvc: " + memoryDumpPVCName)
-			previousOutput := createMemoryDumpAndVerify(vm, memoryDumpPVCName, noPreviousOutput, memoryDumpVirtctlCreatePVC)
-
-			By("Running remove memory dump to pvc: " + memoryDumpPVCName)
-			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVirtctl)
-
-			By("Running memory dump to other pvc: " + memoryDumpPVCName2)
-			previousOutput = createMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, memoryDumpVirtctlCreatePVC)
-
-			By("Running remove memory dump to second pvc: " + memoryDumpPVCName2)
-			removeMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, removeMemoryDumpVirtctl)
+			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), "200Mi", nil)
+			Eventually(func() error {
+				return virtClient.VirtualMachine(vm.Namespace).MemoryDump(context.Background(), vm.Name, &v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: memoryDumpPVC2.Name,
+				})
+			}, 10*time.Second, 2*time.Second).Should(MatchError(ContainSubstring("should be bigger then")))
 		})
 
 		It("[test_id:9341]Should be able to remove memory dump while memory dump is stuck", func() {
 			By("create pvc with a non-existing storage-class")
-			memoryDumpVirtctlCreatePVCWithStorgeClass(vm.Name, vm.Namespace, memoryDumpPVCName, "no-exist")
+			memoryDumpPVC2 = libstorage.NewPVC(memoryDumpPVCName2, memoryDumpPVCSize, "no-exist")
+			memoryDumpPVC2.Namespace = vm.Namespace
+			memoryDumpPVC2, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), memoryDumpPVC2, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			memoryDumpVMSubresource(vm.Name, vm.Namespace, memoryDumpPVC2.Name)
+
 			By("Wait memory dump in progress")
 			Eventually(func() error {
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -607,113 +438,29 @@ var _ = SIGDescribe("Memory dump", func() {
 
 				return nil
 			}, 90*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+
 			By("Running remove memory dump")
-			removeMemoryDumpVirtctl(vm.Name, vm.Namespace)
+			removeMemoryDumpVMSubresource(vm.Name, vm.Namespace)
 			waitAndVerifyMemoryDumpDissociation(vm, memoryDumpPVCName)
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), memoryDumpPVCName, metav1.GetOptions{})
+			memoryDumpPVC2, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), memoryDumpPVC2.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			if pvc.Annotations != nil {
-				Expect(pvc.Annotations[v1.PVCMemoryDumpAnnotation]).To(BeNil())
+			if memoryDumpPVC2.Annotations != nil {
+				Expect(memoryDumpPVC2.Annotations[v1.PVCMemoryDumpAnnotation]).To(BeNil())
 			}
 		})
 	})
+}))
 
-	Context("Memory dump with download", func() {
-		var (
-			vm         *v1.VirtualMachine
-			outputFile string
-		)
-		const (
-			numPVs        = 1
-			tlsSecretName = "test-tls"
-			defaultOutput = "/tmp/memorydump-%s.dump.gz"
-		)
-
-		memoryDumpVirtctlDownload := func(name, namespace, outputFile string) {
-			By("Invoking virtctl memory dump download")
-			commandAndArgs := []string{commandMemoryDump, "download", name, virtCtlNamespace, namespace}
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlOutputFile, outputFile))
-			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-			Eventually(func() error {
-				return memorydumpCommand()
-			}, 20*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		memoryDumpVirtctlGetWithDownload := func(name, namespace, claimName, outputFile string) {
-			By("Invoking virtctl memory dump")
-			commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlOutputFile, outputFile))
-			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-			Eventually(func() error {
-				return memorydumpCommand()
-			}, 20*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		memoryDumpVirtctlCreateWithDownload := func(name, namespace, claimName, outputFile string) {
-			By("Invoking virtctl memory dump with create flag")
-			commandAndArgs := []string{commandMemoryDump, "get", name, virtCtlNamespace, namespace}
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlClaimName, claimName))
-			commandAndArgs = append(commandAndArgs, virtCtlCreate)
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlOutputFile, outputFile))
-			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-			Eventually(func() error {
-				err := memorydumpCommand()
-				if err != nil {
-					_, getErr := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
-					if getErr == nil {
-						// already created the pvc can't call the memory dump command with
-						// create-claim flag again
-						By("Error memory dump command after claim created")
-						memoryDumpVirtctlGetWithDownload(name, namespace, claimName, outputFile)
-						return nil
-					}
-				}
-				return err
-			}, 20*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		BeforeEach(func() {
-			if !checks.IsOpenShift() {
-				Skip("Need ingress to run this test which we only have on openshift")
-			}
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Skip("Skip no filesystem storage class available")
-			}
-			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
-
-			vm = createAndStartVM()
-			outputFile = fmt.Sprintf(defaultOutput, rand.String(12))
-		})
-
-		AfterEach(func() {
-			if vm != nil {
-				deleteVirtualMachine(vm)
-			}
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Get(context.Background(), memoryDumpPVCName, metav1.GetOptions{})
-			if err == nil && pvc != nil {
-				deletePVC(pvc)
-			}
-			if err := os.Remove(outputFile); err != nil && !goerrors.Is(err, os.ErrNotExist) {
-				Fail(err.Error())
-			}
-		})
-
-		It("[test_id:9344]should create memory dump and download it", func() {
-			memoryDumpVirtctlCreateWithDownload(vm.Name, vm.Namespace, memoryDumpPVCName, outputFile)
-			//Check the outputFile was created
-			_, err = os.Stat(outputFile)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("[test_id:9343]should download existing memory dump", func() {
-			memoryDumpVirtctlCreatePVC(vm.Name, vm.Namespace, memoryDumpPVCName)
-			memoryDumpVirtctlDownload(vm.Name, vm.Namespace, outputFile)
-			//Check the outputFile was created
-			_, err = os.Stat(outputFile)
-			Expect(err).ToNot(HaveOccurred())
-		})
-	})
-
-})
+// createExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
+// run commands against the PVC through this Pod.
+func createExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
+	pod := libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"}, nil, pvc)
+	pod.Spec.Containers[0].ReadinessProbe = &k8sv1.Probe{
+		ProbeHandler: k8sv1.ProbeHandler{
+			Exec: &k8sv1.ExecAction{
+				Command: []string{"/bin/cat", "/tmp/startup"},
+			},
+		},
+	}
+	return runPodAndExpectPhase(pod, k8sv1.PodRunning)
+}

@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "api.go",
+        "nodes.go",
+        "operator.go",
+        "recordingrules.go",
+        "virt.go",
+        "vm.go",
+        "vmi.go",
+        "vmsnapshot.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/rules/recordingrules",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
+        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatorrules:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
+    ],
+)

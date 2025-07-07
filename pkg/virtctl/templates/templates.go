@@ -2,11 +2,9 @@ package templates
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -55,21 +53,9 @@ func OptionsUsageTemplate() string {
 `
 }
 
-// ExactArgs validate the number of input parameters
-func ExactArgs(nameOfCommand string, n int) cobra.PositionalArgs {
-	return func(cmd *cobra.Command, args []string) error {
-		if len(args) != n {
-			fmt.Fprintf(os.Stderr, "fatal: Number of input parameters is incorrect, %s accepts %d arg(s), received %d\n\n", nameOfCommand, n, len(args))
-			cmd.Help()
-			return errors.New("argument validation failed")
-		}
-		return nil
-	}
-}
-
 // PrintWarningForPausedVMI prints warning message if VMI is paused
 func PrintWarningForPausedVMI(virtCli kubecli.KubevirtClient, vmiName string, namespace string) {
-	vmi, err := virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmiName, &k8smetav1.GetOptions{})
+	vmi, err := virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmiName, k8smetav1.GetOptions{})
 	if err != nil {
 		return
 	}

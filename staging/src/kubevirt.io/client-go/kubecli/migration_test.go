@@ -20,6 +20,7 @@
 package kubecli
 
 import (
+	"context"
 	"net/http"
 	"path"
 
@@ -31,11 +32,12 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Kubevirt Migration Client", func() {
 	var server *ghttp.Server
-	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancemigrations"
+	basePath := "/apis/kubevirt.io/v1/namespaces/default/virtualmachineinstancemigrations"
 	migrationPath := path.Join(basePath, "testmigration")
 	proxyPath := "/proxy/path"
 
@@ -52,7 +54,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 		))
-		fetchedMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Get("testmigration", &k8smetav1.GetOptions{})
+		fetchedMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Get(context.Background(), "testmigration", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -70,7 +72,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testmigration")),
 		))
-		_, err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Get("testmigration", &k8smetav1.GetOptions{})
+		_, err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Get(context.Background(), "testmigration", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
@@ -89,11 +91,14 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewMigrationList(*migration)),
 		))
-		fetchedMigrationList, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
+		fetchedMigrationList, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).List(context.Background(), k8smetav1.ListOptions{})
+		apiVersion, kind := v1.VirtualMachineInstanceMigrationGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedMigrationList.Items).To(HaveLen(1))
+		Expect(fetchedMigrationList.Items[0].APIVersion).To(Equal(apiVersion))
+		Expect(fetchedMigrationList.Items[0].Kind).To(Equal(kind))
 		Expect(fetchedMigrationList.Items[0]).To(Equal(*migration))
 	},
 		Entry("with regular server URL", ""),
@@ -109,7 +114,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, migration),
 		))
-		createdMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Create(migration, &k8smetav1.CreateOptions{})
+		createdMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Create(context.Background(), migration, k8smetav1.CreateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -128,7 +133,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 		))
-		updatedMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Update(migration)
+		updatedMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Update(context.Background(), migration, k8smetav1.UpdateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -151,8 +156,8 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 		))
 
-		_, err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Patch(migration.Name, types.MergePatchType,
-			[]byte("{\"spec\":{\"vmiName\":something}}"))
+		_, err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Patch(context.Background(), migration.Name, types.MergePatchType,
+			[]byte("{\"spec\":{\"vmiName\":something}}"), k8smetav1.PatchOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -169,7 +174,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Delete("testmigration", &k8smetav1.DeleteOptions{})
+		err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Delete(context.Background(), "testmigration", k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

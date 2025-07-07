@@ -21,6 +21,7 @@ package main
 
 import (
 	"os"
+	"strings"
 
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +32,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+)
+
+const (
+	gaNotAvailableError = "Guest agent not available for now"
+	windowsOS           = "windows"
+	freezeLimitReached  = "fsfreeze is limited"
 )
 
 func getGrpcClient() (cmdclient.LauncherClient, error) {
@@ -59,7 +66,7 @@ func main() {
 	log.Log.Info("Starting...")
 
 	freeze := pflag.Bool("freeze", false, "Freeze VM")
-	unfreeze := pflag.Bool("unfreeze", false, "Freeze VM")
+	unfreeze := pflag.Bool("unfreeze", false, "Unfreeze VM")
 	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
 	unfreezeTimeoutSeconds := pflag.Int32("unfreezeTimeoutSeconds", 300, "Timeout in seconds to automatically unfreeze the VirtualMachineInstance")
@@ -109,13 +116,28 @@ func main() {
 	if *freeze {
 		err = client.FreezeVirtualMachine(vmi, *unfreezeTimeoutSeconds)
 		if err != nil {
-			log.Log.Reason(err).Error("Freezeing VMI failed")
+			if strings.Contains(err.Error(), gaNotAvailableError) {
+				// make best effort of make sure fsstatus is not stuck on frozen
+				// due to bug https://issues.redhat.com/browse/RHEL-24046
+				client.UnfreezeVirtualMachine(vmi)
+				if strings.Contains(strings.ToLower(info.OS.Name), windowsOS) {
+					log.Log.Reason(err).Error("Freezeing VMI failed, please make sure guest agent and VSS are runnning and try again")
+				} else {
+					log.Log.Reason(err).Error("Freezeing VMI failed, please make sure guest agent is runnning and try again")
+				}
+			} else {
+				log.Log.Reason(err).Error("Freezeing VMI failed")
+			}
 			os.Exit(1)
 		}
 	} else {
 		err = client.UnfreezeVirtualMachine(vmi)
 		if err != nil {
-			log.Log.Reason(err).Error("Unfreezeing VMI failed")
+			if strings.Contains(err.Error(), freezeLimitReached) {
+				log.Log.Reason(err).Error("Unfreezeing VMI failed, please try again. If problem continues, stop the vm and backup while down")
+			} else {
+				log.Log.Reason(err).Error("Unfreezeing VMI failed")
+			}
 			os.Exit(1)
 		}
 	}

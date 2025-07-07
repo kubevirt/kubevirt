@@ -15,7 +15,7 @@ order to execute a short script that software provisions on startup.
 The Cloud Init project supports multiple ways of supplying metadata and
 userdata to a VMI. These methods are called **data sources**.
 
-http://cloudinit.readthedocs.io/en/latest/topics/datasources.html
+https://cloudinit.readthedocs.io/en/latest/reference/datasources.html
 
 KubeVirt supports the different data source standards by taking the userdata
 and metadata associated with a VMI and formatting that data in a way that
@@ -23,7 +23,7 @@ adheres to the specific datasource standard in use.
 
 ## NoCloud Data Source
 
-http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
+https://cloudinit.readthedocs.io/en/latest/reference/datasources/nocloud.html
 
 The **NoCloud** data source involves generating an iso with userdata and
 metadata in it, and attaching that iso the VMI instance. The fedora-atomic

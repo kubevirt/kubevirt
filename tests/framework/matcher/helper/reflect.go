@@ -17,6 +17,11 @@ func IsSlice(actual interface{}) bool {
 	return val.Kind() == reflect.Array || val.Kind() == reflect.Slice
 }
 
+func IsStruct(actual interface{}) bool {
+	val := reflect.ValueOf(actual)
+	return val.Kind() == reflect.Struct
+}
+
 // ToPointer returns a new pointer to the provided interface{}, if the
 // provided value is not already a pointer. if the original value is already a pointer it gets
 // returned directly.
@@ -25,6 +30,14 @@ func ToPointer(actual interface{}) interface{} {
 		p := reflect.New(reflect.TypeOf(actual))
 		p.Elem().Set(reflect.ValueOf(actual))
 		actual = p.Interface()
+	}
+	return actual
+}
+
+func DeferPointer(actual interface{}) interface{} {
+	value := reflect.ValueOf(actual)
+	if value.Kind() == reflect.Ptr {
+		actual = value.Elem()
 	}
 	return actual
 }

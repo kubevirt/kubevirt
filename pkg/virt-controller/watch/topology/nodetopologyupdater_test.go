@@ -146,7 +146,7 @@ var _ = Describe("Nodetopologyupdater", func() {
 })
 
 func trackNodes(clientset *fake.Clientset, nodes ...*v1.Node) {
-	for i, _ := range nodes {
+	for i := range nodes {
 		g.ExpectWithOffset(1, clientset.Tracker().Add(nodes[i])).To(g.Succeed())
 	}
 }

@@ -74,17 +74,19 @@ func (h *Handle) AddrDel(link Link, addr *Addr) error {
 }
 
 func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error {
-	base := link.Attrs()
-	if addr.Label != "" && !strings.HasPrefix(addr.Label, base.Name) {
-		return fmt.Errorf("label must begin with interface name")
-	}
-	h.ensureIndex(base)
-
 	family := nl.GetIPFamily(addr.IP)
-
 	msg := nl.NewIfAddrmsg(family)
-	msg.Index = uint32(base.Index)
 	msg.Scope = uint8(addr.Scope)
+	if link == nil {
+		msg.Index = uint32(addr.LinkIndex)
+	} else {
+		base := link.Attrs()
+		if addr.Label != "" && !strings.HasPrefix(addr.Label, base.Name) {
+			return fmt.Errorf("label must begin with interface name")
+		}
+		h.ensureIndex(base)
+		msg.Index = uint32(base.Index)
+	}
 	mask := addr.Mask
 	if addr.Peer != nil {
 		mask = addr.Peer.Mask
@@ -176,7 +178,7 @@ func AddrList(link Link, family int) ([]Addr, error) {
 // The list can be filtered by link and ip family.
 func (h *Handle) AddrList(link Link, family int) ([]Addr, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETADDR, unix.NLM_F_DUMP)
-	msg := nl.NewIfInfomsg(family)
+	msg := nl.NewIfAddrmsg(family)
 	req.AddData(msg)
 
 	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWADDR)
@@ -268,7 +270,7 @@ func parseAddr(m []byte) (addr Addr, family int, err error) {
 	// But obviously, as there are IPv6 PtP addresses, too,
 	// IFA_LOCAL should also be handled for IPv6.
 	if local != nil {
-		if family == FAMILY_V4 && local.IP.Equal(dst.IP) {
+		if family == FAMILY_V4 && dst != nil && local.IP.Equal(dst.IP) {
 			addr.IPNet = dst
 		} else {
 			addr.IPNet = local
@@ -296,22 +298,24 @@ type AddrUpdate struct {
 // AddrSubscribe takes a chan down which notifications will be sent
 // when addresses change.  Close the 'done' chan to stop subscription.
 func AddrSubscribe(ch chan<- AddrUpdate, done <-chan struct{}) error {
-	return addrSubscribeAt(netns.None(), netns.None(), ch, done, nil, false, 0)
+	return addrSubscribeAt(netns.None(), netns.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // AddrSubscribeAt works like AddrSubscribe plus it allows the caller
 // to choose the network namespace in which to subscribe (ns).
 func AddrSubscribeAt(ns netns.NsHandle, ch chan<- AddrUpdate, done <-chan struct{}) error {
-	return addrSubscribeAt(ns, netns.None(), ch, done, nil, false, 0)
+	return addrSubscribeAt(ns, netns.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // AddrSubscribeOptions contains a set of options to use with
 // AddrSubscribeWithOptions.
 type AddrSubscribeOptions struct {
-	Namespace         *netns.NsHandle
-	ErrorCallback     func(error)
-	ListExisting      bool
-	ReceiveBufferSize int
+	Namespace              *netns.NsHandle
+	ErrorCallback          func(error)
+	ListExisting           bool
+	ReceiveBufferSize      int
+	ReceiveBufferForceSize bool
+	ReceiveTimeout         *unix.Timeval
 }
 
 // AddrSubscribeWithOptions work like AddrSubscribe but enable to
@@ -322,25 +326,32 @@ func AddrSubscribeWithOptions(ch chan<- AddrUpdate, done <-chan struct{}, option
 		none := netns.None()
 		options.Namespace = &none
 	}
-	return addrSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting, options.ReceiveBufferSize)
+	return addrSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting,
+		options.ReceiveBufferSize, options.ReceiveTimeout, options.ReceiveBufferForceSize)
 }
 
-func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-chan struct{}, cberr func(error), listExisting bool, rcvbuf int) error {
+func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
+	rcvbuf int, rcvTimeout *unix.Timeval, rcvBufForce bool) error {
 	s, err := nl.SubscribeAt(newNs, curNs, unix.NETLINK_ROUTE, unix.RTNLGRP_IPV4_IFADDR, unix.RTNLGRP_IPV6_IFADDR)
 	if err != nil {
 		return err
+	}
+	if rcvTimeout != nil {
+		if err := s.SetReceiveTimeout(rcvTimeout); err != nil {
+			return err
+		}
+	}
+	if rcvbuf != 0 {
+		err = s.SetReceiveBufferSize(rcvbuf, rcvBufForce)
+		if err != nil {
+			return err
+		}
 	}
 	if done != nil {
 		go func() {
 			<-done
 			s.Close()
 		}()
-	}
-	if rcvbuf != 0 {
-		err = pkgHandle.SetSocketReceiveBufferSize(rcvbuf, false)
-		if err != nil {
-			return err
-		}
 	}
 	if listExisting {
 		req := pkgHandle.newNetlinkRequest(unix.RTM_GETADDR,
@@ -357,7 +368,8 @@ func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-c
 			msgs, from, err := s.Receive()
 			if err != nil {
 				if cberr != nil {
-					cberr(err)
+					cberr(fmt.Errorf("Receive failed: %v",
+						err))
 				}
 				return
 			}
@@ -372,7 +384,6 @@ func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-c
 					continue
 				}
 				if m.Header.Type == unix.NLMSG_ERROR {
-					native := nl.NativeEndian()
 					error := int32(native.Uint32(m.Data[0:4]))
 					if error == 0 {
 						continue

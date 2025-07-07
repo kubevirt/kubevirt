@@ -99,6 +99,13 @@ func WithOption(opt Option) Modifier {
 	}
 }
 
+// WithoutOption removes the DHCPv4 option with the given code
+func WithoutOption(code OptionCode) Modifier {
+	return func(d *DHCPv4) {
+		d.DeleteOption(code)
+	}
+}
+
 // WithUserClass adds a user class option to the packet.
 // The rfc parameter allows you to specify if the userclass should be
 // rfc compliant or not. More details in issue #113

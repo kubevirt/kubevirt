@@ -35,97 +35,94 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+	"kubevirt.io/kubevirt/pkg/network/setup/netpod"
 )
 
 var _ = Describe("netconf", func() {
-	var netConf *netsetup.NetConf
-	var vmi *v1.VirtualMachineInstance
+	const (
+		testNetworkName = "default"
+	)
+	var (
+		netConf  *netsetup.NetConf
+		vmi      *v1.VirtualMachineInstance
+		stateMap map[string]*netpod.State
+
+		stateCache stateCacheStub
+		ns         nsExecutorStub
+	)
 
 	const launcherPid = 0
 
 	BeforeEach(func() {
-		netConf = netsetup.NewNetConfWithCustomFactory(nsNoopFactory, &tempCacheCreator{})
-		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
+		stateCache = newConfigStateCacheStub()
+		ns = nsExecutorStub{}
+		stateMap = map[string]*netpod.State{}
+		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, &tempCacheCreator{}, stateMap, cConfigStub{})
+		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123", Name: "vmi1"}}
 	})
 
-	It("runs setup successfully", func() {
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
-		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
+	It("runs setup successfully without networks", func() {
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
 	})
 
-	It("does not skip secondary setup run", func() {
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupFail)).NotTo(Succeed())
-		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
+	It("runs setup successfully with networks", func() {
+		stateMap[string(vmi.UID)] = netpod.NewState(stateCache, ns)
+		Expect(stateCache.Write(testNetworkName, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
+
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   testNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+		}}
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          testNetworkName,
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
+		Expect(stateCache.Read(testNetworkName)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 	})
 
-	It("fails the pre-setup run", func() {
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupFail)).NotTo(Succeed())
-	})
+	DescribeTable("setup ignores specific network bindings", func(binding v1.InterfaceBindingMethod) {
+		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, stateMap, cConfigStub{})
+
+		stateMap[string(vmi.UID)] = netpod.NewState(stateCache, ns)
+
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   testNetworkName,
+			InterfaceBindingMethod: binding,
+		}}
+		emptyBindingMethod := v1.InterfaceBindingMethod{}
+		if binding == emptyBindingMethod {
+			vmi.Spec.Domain.Devices.Interfaces[0].Binding = &v1.PluginBinding{}
+		}
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          testNetworkName,
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
+		Expect(stateCache.stateCache).To(BeEmpty())
+	},
+		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}),
+
+		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
+		Entry("macvtap", v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}}),
+	)
 
 	It("fails the setup run", func() {
-		netConf := netsetup.NewNetConfWithCustomFactory(nsFailureFactory, &tempCacheCreator{})
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
+		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, stateMap, cConfigStub{})
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   testNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+		}}
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          testNetworkName,
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).NotTo(Succeed())
 	})
 
 	It("fails the teardown run", func() {
-		netConf := netsetup.NewNetConfWithCustomFactory(nil, failingCacheCreator{})
+		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nil, failingCacheCreator{}, stateMap, cConfigStub{})
 		Expect(netConf.Teardown(vmi)).NotTo(Succeed())
-	})
-
-	Context("with completion cache", func() {
-		It("runs setup successfully", func() {
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)
-			})).To(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
-		})
-
-		It("runs teardown successfully", func() {
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)
-			})).To(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
-			Expect(netConf.Teardown(vmi)).To(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
-		})
-
-		It("fails first setup and succeeds second setup", func() {
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupFail)
-			})).NotTo(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)
-			})).To(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
-		})
-
-		It("skips secondary setup runs", func() {
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)
-			})).To(Succeed())
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupFail)
-			})).To(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
-		})
-
-		It("fails the teardown run", func() {
-			netConf := netsetup.NewNetConfWithCustomFactory(nil, failingCacheCreator{})
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return nil
-			})).To(Succeed())
-			Expect(netConf.Teardown(vmi)).NotTo(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
-		})
-
-		It("fails completion cache body", func() {
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return fmt.Errorf("fail")
-			})).NotTo(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
-		})
 	})
 })
 
@@ -141,10 +138,6 @@ func (n netnsStub) Do(func() error) error {
 }
 func nsNoopFactory(_ int) netsetup.NSExecutor    { return netnsStub{} }
 func nsFailureFactory(_ int) netsetup.NSExecutor { return netnsStub{shouldFail: true} }
-
-func netPreSetupDummyNoop() error { return nil }
-
-func netPreSetupFail() error { return fmt.Errorf("pre-setup failure") }
 
 type tempCacheCreator struct {
 	once   sync.Once
@@ -179,4 +172,41 @@ func (f stubFS) RemoveAll(path string) error {
 		return fmt.Errorf("remove failed")
 	}
 	return nil
+}
+
+type stateCacheStub struct {
+	stateCache map[string]cache.PodIfaceState
+}
+
+func newConfigStateCacheStub() stateCacheStub {
+	return stateCacheStub{map[string]cache.PodIfaceState{}}
+}
+
+func (c stateCacheStub) Read(key string) (cache.PodIfaceState, error) {
+	return c.stateCache[key], nil
+}
+
+func (c stateCacheStub) Write(key string, state cache.PodIfaceState) error {
+	c.stateCache[key] = state
+	return nil
+}
+
+func (c stateCacheStub) Delete(key string) error {
+	delete(c.stateCache, key)
+	return nil
+}
+
+type nsExecutorStub struct {
+	shouldNotBeExecuted bool
+}
+
+func (n nsExecutorStub) Do(f func() error) error {
+	Expect(n.shouldNotBeExecuted).To(BeFalse(), "The namespace executor shouldn't be invoked")
+	return f()
+}
+
+type cConfigStub struct{}
+
+func (c cConfigStub) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
+	return map[string]v1.InterfaceBindingPlugin{}
 }

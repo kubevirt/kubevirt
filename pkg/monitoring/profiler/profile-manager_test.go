@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	restful "github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -36,10 +36,10 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("profiler manager http handler callbacks", func() {
-	It("should deny request when ClusterProfiler feature gate is not enabled", func() {
+	It("should deny request when ClusterProfiler is not enabled", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: []string{"MadeUpGate"},
+				ClusterProfiler: false,
 			},
 		})
 

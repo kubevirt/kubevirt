@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// StatefulSetApplyConfiguration represents an declarative configuration of the StatefulSet type for use
+// StatefulSetApplyConfiguration represents a declarative configuration of the StatefulSet type for use
 // with apply.
 type StatefulSetApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -36,7 +36,7 @@ type StatefulSetApplyConfiguration struct {
 	Status                           *StatefulSetStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// StatefulSet constructs an declarative configuration of the StatefulSet type for use with
+// StatefulSet constructs a declarative configuration of the StatefulSet type for use with
 // apply.
 func StatefulSet(name, namespace string) *StatefulSetApplyConfiguration {
 	b := &StatefulSetApplyConfiguration{}
@@ -123,15 +123,6 @@ func (b *StatefulSetApplyConfiguration) WithGenerateName(value string) *Stateful
 func (b *StatefulSetApplyConfiguration) WithNamespace(value string) *StatefulSetApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *StatefulSetApplyConfiguration) WithSelfLink(value string) *StatefulSetApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -244,15 +235,6 @@ func (b *StatefulSetApplyConfiguration) WithFinalizers(values ...string) *Statef
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *StatefulSetApplyConfiguration) WithClusterName(value string) *StatefulSetApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *StatefulSetApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -273,4 +255,10 @@ func (b *StatefulSetApplyConfiguration) WithSpec(value *StatefulSetSpecApplyConf
 func (b *StatefulSetApplyConfiguration) WithStatus(value *StatefulSetStatusApplyConfiguration) *StatefulSetApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *StatefulSetApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

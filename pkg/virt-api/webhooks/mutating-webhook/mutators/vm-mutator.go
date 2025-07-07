@@ -19,29 +19,40 @@
 package mutators
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
-	apiinstancetype "kubevirt.io/api/instancetype"
-	"kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/defaults"
+	instancetypeVMWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+type instancetypeVMsMutator interface {
+	Mutate(vm, oldVM *v1.VirtualMachine, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
+	FindPreference(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
+}
+
 type VMsMutator struct {
 	ClusterConfig       *virtconfig.ClusterConfig
-	InstancetypeMethods instancetype.Methods
+	instancetypeMutator instancetypeVMsMutator
+}
+
+func NewVMsMutator(clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) *VMsMutator {
+	return &VMsMutator{
+		ClusterConfig:       clusterConfig,
+		instancetypeMutator: instancetypeVMWebhooks.NewMutator(virtCli),
+	}
 }
 
 func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -54,65 +65,32 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		return resp
 	}
 
-	raw := ar.Request.Object.Raw
-	vm := v1.VirtualMachine{}
-
-	err := json.Unmarshal(raw, &vm)
+	vm, oldVM, err := webhookutils.GetVMFromAdmissionReview(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	// Validate the InstancetypeMatcher before proceeding, the schema check above isn't enough
-	// as we need to ensure at least one of the optional Name or InferFromVolume attributes are present.
-	if causes := validateInstancetypeMatcher(&vm); len(causes) > 0 {
-		return webhookutils.ToAdmissionResponse(causes)
+	// If the VirtualMachine is being deleted return early and avoid racing any other in-flight resource deletions that might be happening
+	if vm.DeletionTimestamp != nil {
+		return &admissionv1.AdmissionResponse{
+			Allowed: true,
+		}
 	}
 
-	if causes := validatePreferenceMatcher(&vm); len(causes) > 0 {
-		return webhookutils.ToAdmissionResponse(causes)
+	if response := mutator.instancetypeMutator.Mutate(vm, oldVM, ar); response != nil {
+		return response
 	}
 
 	// Set VM defaults
-	log.Log.Object(&vm).V(4).Info("Apply defaults")
+	log.Log.Object(vm).V(4).Info("Apply defaults")
 
-	if err = mutator.inferDefaultInstancetype(&vm); err != nil {
-		log.Log.Reason(err).Error("admission failed, unable to set default instancetype")
-		return &admissionv1.AdmissionResponse{
-			Result: &metav1.Status{
-				Message: err.Error(),
-				Code:    http.StatusBadRequest,
-			},
-		}
-	}
+	preferenceSpec, _ := mutator.instancetypeMutator.FindPreference(vm)
+	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig, preferenceSpec)
 
-	if err = mutator.inferDefaultPreference(&vm); err != nil {
-		log.Log.Reason(err).Error("admission failed, unable to set default preference")
-		return &admissionv1.AdmissionResponse{
-			Result: &metav1.Status{
-				Message: err.Error(),
-				Code:    http.StatusBadRequest,
-			},
-		}
-	}
-
-	mutator.setDefaultInstancetypeKind(&vm)
-	mutator.setDefaultPreferenceKind(&vm)
-	preferenceSpec := mutator.getPreferenceSpec(&vm)
-	mutator.setDefaultMachineType(&vm, preferenceSpec)
-	mutator.setPreferenceStorageClassName(&vm, preferenceSpec)
-
-	patchBytes, err := patch.GeneratePatchPayload(
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/spec",
-			Value: vm.Spec,
-		},
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/metadata",
-			Value: vm.ObjectMeta,
-		},
-	)
+	patchBytes, err := patch.New(
+		patch.WithReplace("/spec", vm.Spec),
+		patch.WithReplace("/metadata", vm.ObjectMeta),
+	).GeneratePayload()
 
 	if err != nil {
 		log.Log.Reason(err).Error("admission failed to marshall patch to JSON")
@@ -130,161 +108,4 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
 	}
-}
-
-func (mutator *VMsMutator) getPreferenceSpec(vm *v1.VirtualMachine) *v1alpha2.VirtualMachinePreferenceSpec {
-	preferenceSpec, err := mutator.InstancetypeMethods.FindPreferenceSpec(vm)
-	if err != nil {
-		// Log but ultimately swallow any preference lookup errors here and let the validating webhook handle them
-		log.Log.Reason(err).Error("Ignoring error attempting to lookup PreferredMachineType.")
-		return nil
-	}
-
-	return preferenceSpec
-}
-
-func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine, preferenceSpec *v1alpha2.VirtualMachinePreferenceSpec) {
-	// Nothing to do, let's the validating webhook fail later
-	if vm.Spec.Template == nil {
-		return
-	}
-
-	if machine := vm.Spec.Template.Spec.Domain.Machine; machine != nil && machine.Type != "" {
-		return
-	}
-
-	if vm.Spec.Template.Spec.Domain.Machine == nil {
-		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{}
-	}
-
-	if preferenceSpec != nil && preferenceSpec.Machine != nil {
-		vm.Spec.Template.Spec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
-	}
-
-	// Only use the cluster default if the user hasn't provided a machine type or referenced a preference with PreferredMachineType
-	if vm.Spec.Template.Spec.Domain.Machine.Type == "" {
-		vm.Spec.Template.Spec.Domain.Machine.Type = mutator.ClusterConfig.GetMachineType()
-	}
-}
-
-func (mutator *VMsMutator) setPreferenceStorageClassName(vm *v1.VirtualMachine, preferenceSpec *v1alpha2.VirtualMachinePreferenceSpec) {
-	// Nothing to do, let's the validating webhook fail later
-	if vm.Spec.Template == nil {
-		return
-	}
-
-	if preferenceSpec != nil && preferenceSpec.Volumes != nil {
-		datavolumes := vm.Spec.DataVolumeTemplates
-		for _, dv := range datavolumes {
-			if dv.Spec.PVC.StorageClassName == nil {
-				dv.Spec.PVC.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
-			}
-		}
-	}
-}
-
-func (mutator *VMsMutator) inferDefaultInstancetype(vm *v1.VirtualMachine) error {
-	instancetypeMatcher, err := mutator.InstancetypeMethods.InferDefaultInstancetype(vm)
-	if err != nil {
-		return err
-	}
-	if instancetypeMatcher != nil {
-		vm.Spec.Instancetype = instancetypeMatcher
-	}
-	return nil
-}
-
-func (mutator *VMsMutator) inferDefaultPreference(vm *v1.VirtualMachine) error {
-	preferenceMatcher, err := mutator.InstancetypeMethods.InferDefaultPreference(vm)
-	if err != nil {
-		return err
-	}
-	if preferenceMatcher != nil {
-		vm.Spec.Preference = preferenceMatcher
-	}
-	return nil
-}
-
-func (mutator *VMsMutator) setDefaultInstancetypeKind(vm *v1.VirtualMachine) {
-	if vm.Spec.Instancetype == nil {
-		return
-	}
-
-	if vm.Spec.Instancetype.Kind == "" {
-		vm.Spec.Instancetype.Kind = apiinstancetype.ClusterSingularResourceName
-	}
-}
-
-func (mutator *VMsMutator) setDefaultPreferenceKind(vm *v1.VirtualMachine) {
-	if vm.Spec.Preference == nil {
-		return
-	}
-
-	if vm.Spec.Preference.Kind == "" {
-		vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
-	}
-}
-
-func validateInstancetypeMatcher(vm *v1.VirtualMachine) []metav1.StatusCause {
-	if vm.Spec.Instancetype == nil {
-		return nil
-	}
-	if vm.Spec.Instancetype.Name == "" && vm.Spec.Instancetype.InferFromVolume == "" {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Either Name or InferFromVolume should be provided within the InstancetypeMatcher"),
-			Field:   k8sfield.NewPath("spec", "instancetype").String(),
-		}}
-	}
-	if vm.Spec.Instancetype.InferFromVolume != "" {
-		var causes []metav1.StatusCause
-		if vm.Spec.Instancetype.Name != "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("Name should not be provided when InferFromVolume is used within the InstancetypeMatcher"),
-				Field:   k8sfield.NewPath("spec", "instancetype", "name").String(),
-			})
-		}
-		if vm.Spec.Instancetype.Kind != "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("Kind should not be provided when InferFromVolume is used within the InstancetypeMatcher"),
-				Field:   k8sfield.NewPath("spec", "instancetype", "kind").String(),
-			})
-		}
-		return causes
-	}
-	return nil
-}
-
-func validatePreferenceMatcher(vm *v1.VirtualMachine) []metav1.StatusCause {
-	if vm.Spec.Preference == nil {
-		return nil
-	}
-	if vm.Spec.Preference.Name == "" && vm.Spec.Preference.InferFromVolume == "" {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Either Name or InferFromVolume should be provided within the PreferenceMatcher"),
-			Field:   k8sfield.NewPath("spec", "preference").String(),
-		}}
-	}
-	if vm.Spec.Preference.InferFromVolume != "" {
-		var causes []metav1.StatusCause
-		if vm.Spec.Preference.Name != "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("Name should not be provided when InferFromVolume is used within the PreferenceMatcher"),
-				Field:   k8sfield.NewPath("spec", "preference", "name").String(),
-			})
-		}
-		if vm.Spec.Preference.Kind != "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("Kind should not be provided when InferFromVolume is used within the PreferenceMatcher"),
-				Field:   k8sfield.NewPath("spec", "preference", "kind").String(),
-			})
-		}
-		return causes
-	}
-	return nil
 }

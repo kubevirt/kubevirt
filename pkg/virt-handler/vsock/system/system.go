@@ -1,7 +1,7 @@
 package system
 
 import (
-	"golang.org/x/net/context"
+	"context"
 
 	"kubevirt.io/kubevirt/pkg/util/tls"
 	v1 "kubevirt.io/kubevirt/pkg/vsock/system/v1"

@@ -6,33 +6,76 @@ source $(dirname "$0")/common.sh
 source $(dirname "$0")/config.sh
 
 # generate clients
-CLIENT_GEN_BASE=kubevirt.io/client-go/generated
-rm -rf ${KUBEVIRT_DIR}/staging/src/${CLIENT_GEN_BASE}
+CLIENT_GEN_BASE=kubevirt.io/client-go
 
 # KubeVirt stuff
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/schema.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/snapshot/v1alpha1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/snapshot/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/instancetype/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/instancetype/v1alpha2/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/instancetype/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/pool/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/migrations/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1alpha1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1alpha1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1beta1/types.go
 
-deepcopy-gen --input-dirs kubevirt.io/api/snapshot/v1alpha1,kubevirt.io/api/export/v1alpha1,kubevirt.io/api/instancetype/v1alpha1,kubevirt.io/api/instancetype/v1alpha2,kubevirt.io/api/pool/v1alpha1,kubevirt.io/api/migrations/v1alpha1,kubevirt.io/api/clone/v1alpha1,kubevirt.io/api/core/v1 \
+deepcopy-gen \
     --bounding-dirs kubevirt.io/api \
-    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt \
+    --output-file deepcopy_generated.go \
+    kubevirt.io/api/snapshot/v1alpha1 \
+    kubevirt.io/api/snapshot/v1beta1 \
+    kubevirt.io/api/export/v1alpha1 \
+    kubevirt.io/api/export/v1beta1 \
+    kubevirt.io/api/instancetype/v1alpha1 \
+    kubevirt.io/api/instancetype/v1alpha2 \
+    kubevirt.io/api/instancetype/v1beta1 \
+    kubevirt.io/api/pool/v1alpha1 \
+    kubevirt.io/api/migrations/v1alpha1 \
+    kubevirt.io/api/clone/v1alpha1 \
+    kubevirt.io/api/clone/v1beta1 \
+    kubevirt.io/api/core/v1
 
-defaulter-gen --input-dirs kubevirt.io/api/core/v1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package kubevirt.io/api/core/v1 \
-    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+defaulter-gen \
+    --output-file zz_generated.defaults.go \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt \
+    kubevirt.io/api/core/v1
 
-openapi-gen --input-dirs kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,kubevirt.io/api/core/v1,kubevirt.io/api/export/v1alpha1,kubevirt.io/api/snapshot/v1alpha1,kubevirt.io/api/instancetype/v1alpha1,kubevirt.io/api/instancetype/v1alpha2,kubevirt.io/api/pool/v1alpha1,kubevirt.io/api/migrations/v1alpha1,kubevirt.io/api/clone/v1alpha1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package kubevirt.io/client-go/api/ \
-    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt >${KUBEVIRT_DIR}/api/api-rule-violations.list
+openapi-gen \
+    --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/api/ \
+    --output-pkg kubevirt.io/client-go/api/ \
+    --output-file openapi_generated.go \
+    --report-filename ${KUBEVIRT_DIR}/api/api-rule-violations.list \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt \
+    k8s.io/api/core/v1 \
+    k8s.io/apimachinery/pkg/api/resource \
+    k8s.io/apimachinery/pkg/apis/meta/v1 \
+    k8s.io/apimachinery/pkg/runtime \
+    k8s.io/apimachinery/pkg/util/intstr \
+    kubevirt.io/api/core/v1 \
+    kubevirt.io/api/clone/v1alpha1 \
+    kubevirt.io/api/clone/v1beta1 \
+    kubevirt.io/api/export/v1alpha1 \
+    kubevirt.io/api/export/v1beta1 \
+    kubevirt.io/api/instancetype/v1alpha1 \
+    kubevirt.io/api/instancetype/v1alpha2 \
+    kubevirt.io/api/instancetype/v1beta1 \
+    kubevirt.io/api/migrations/v1alpha1 \
+    kubevirt.io/api/pool/v1alpha1 \
+    kubevirt.io/api/snapshot/v1alpha1 \
+    kubevirt.io/api/snapshot/v1beta1 \
+    kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
+
+conversion-gen \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt \
+    --output-file conversion_generated.go \
+    kubevirt.io/api/instancetype/v1alpha1 \
+    kubevirt.io/api/instancetype/v1alpha2 \
+    kubevirt.io/api/instancetype/v1beta1
 
 if cmp ${KUBEVIRT_DIR}/api/api-rule-violations.list ${KUBEVIRT_DIR}/api/api-rule-violations-known.list; then
     echo "openapi generated"
@@ -43,63 +86,68 @@ else
     exit 2
 fi
 
-client-gen --clientset-name versioned \
+client-gen --clientset-name kubevirt \
     --input-base kubevirt.io/api \
-    --input export/v1alpha1,snapshot/v1alpha1,instancetype/v1alpha1,instancetype/v1alpha2,pool/v1alpha1,migrations/v1alpha1,clone/v1alpha1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package ${CLIENT_GEN_BASE}/kubevirt/clientset \
+    --input core/v1,export/v1alpha1,export/v1beta1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1alpha1,instancetype/v1alpha2,instancetype/v1beta1,pool/v1alpha1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1 \
+    --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
+    --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 # dependencies
-client-gen --clientset-name versioned \
+client-gen --clientset-name containerizeddataimporter \
     --input-base kubevirt.io/containerized-data-importer-api/pkg/apis \
     --input core/v1beta1,upload/v1beta1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package ${CLIENT_GEN_BASE}/containerized-data-importer/clientset \
+    --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
+    --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-client-gen --clientset-name versioned \
-    --input-base github.com/coreos/prometheus-operator/pkg/apis \
+client-gen --clientset-name prometheusoperator \
+    --input-base github.com/prometheus-operator/prometheus-operator/pkg/apis \
     --input monitoring/v1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package ${CLIENT_GEN_BASE}/prometheus-operator/clientset \
+    --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
+    --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-client-gen --clientset-name versioned \
+client-gen --clientset-name networkattachmentdefinitionclient \
     --input-base github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis \
     --input k8s.cni.cncf.io/v1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package ${CLIENT_GEN_BASE}/network-attachment-definition-client/clientset \
+    --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
+    --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-client-gen --clientset-name versioned \
+client-gen --clientset-name externalsnapshotter \
     --input-base github.com/kubernetes-csi/external-snapshotter/client/v4/apis \
     --input volumesnapshot/v1 \
-    --output-base ${KUBEVIRT_DIR}/staging/src \
-    --output-package ${CLIENT_GEN_BASE}/external-snapshotter/clientset \
+    --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
+    --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 find ${KUBEVIRT_DIR}/pkg/ -name "*generated*.go" -exec rm {} -f \;
 
 ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
 
-deepcopy-gen --input-dirs ./pkg/virt-launcher/virtwrap/api \
-    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+deepcopy-gen \
+    --output-file deepcopy_generated.go \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt \
+    ./pkg/virt-launcher/virtwrap/api
 
-# Genearte validation with controller-gen and create go file for them
+# Generate validation with controller-gen and create go file for them
 (
     cd ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go &&
-        # supress -mod=vendor
+        # suppress -mod=vendor
         GOFLAGS= controller-gen crd:allowDangerousTypes=true paths=../api/core/v1/
     #include snapshot
     GOFLAGS= controller-gen crd paths=../api/snapshot/v1alpha1/
+    GOFLAGS= controller-gen crd paths=../api/snapshot/v1beta1/
 
     #include export
     GOFLAGS= controller-gen crd paths=../api/export/v1alpha1/
+    GOFLAGS= controller-gen crd paths=../api/export/v1beta1/
 
     #include instancetype
     GOFLAGS= controller-gen crd paths=../api/instancetype/v1alpha1/
     GOFLAGS= controller-gen crd paths=../api/instancetype/v1alpha2/
+    GOFLAGS= controller-gen crd paths=../api/instancetype/v1beta1/
 
     #include pool
     GOFLAGS= controller-gen crd paths=../api/pool/v1alpha1/
@@ -109,6 +157,7 @@ deepcopy-gen --input-dirs ./pkg/virt-launcher/virtwrap/api \
 
     #include clone
     GOFLAGS= controller-gen crd paths=../api/clone/v1alpha1/
+    GOFLAGS= controller-gen crd paths=../api/clone/v1beta1/
 
     #remove some weird stuff from controller-gen
     cd config/crd
@@ -133,9 +182,8 @@ ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DI
 (cd ${KUBEVIRT_DIR}/tools/csv-generator/ && go_build)
 (cd ${KUBEVIRT_DIR}/tools/doc-generator/ && go_build)
 (
-    cd ${KUBEVIRT_DIR}/docs
-    ${KUBEVIRT_DIR}/tools/doc-generator/doc-generator
-    mv newmetrics.md metrics.md
+    cd ${KUBEVIRT_DIR}/docs/observability
+    ${KUBEVIRT_DIR}/tools/doc-generator/doc-generator >metrics.md
 )
 
 rm -f ${KUBEVIRT_DIR}/manifests/generated/*
@@ -176,6 +224,8 @@ virtlauncher_sha=$(getShasum ".VirtLauncherSha")
 virtexportproxy_sha=$(getShasum ".VirtExportProxySha")
 virtexportserver_sha=$(getShasum ".VirtExportServerSha")
 gs_sha=$(getShasum ".GsSha")
+pr_helper_sha=$(getShasum ".PrHelperSha")
+sidecar_shim_sha=$(getShasum ".SidecarShimSha")
 
 virtapi_rawsha=$(getRawShasum ".VirtApiSha")
 virtcontroller_rawsha=$(getRawShasum ".VirtControllerSha")
@@ -184,6 +234,8 @@ virtlauncher_rawsha=$(getRawShasum ".VirtLauncherSha")
 virtexportproxy_rawsha=$(getRawShasum ".VirtExportProxySha")
 virtexportserver_rawsha=$(getRawShasum ".VirtExportServerSha")
 gs_rawsha=$(getRawShasum ".GsSha")
+prhelper_rawsha=$(getRawShasum ".PrHelperSha")
+sidecar_shim_rawsha=$(getRawShasum ".SidecarShimSha")
 
 # The generation code for CSV requires a valid semver to be used.
 # But we're trying to generate a template for a CSV here from code
@@ -192,7 +244,28 @@ gs_rawsha=$(getRawShasum ".GsSha")
 # values after the file is generated.
 _fake_replaces_csv_version="1111.1111.1111"
 _fake_csv_version="2222.2222.2222"
-${KUBEVIRT_DIR}/tools/csv-generator/csv-generator --namespace={{.CSVNamespace}} --dockerPrefix={{.DockerPrefix}} --operatorImageVersion="$virtoperator_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} --apiSha="$virtapi_rawsha" --controllerSha="$virtcontroller_rawsha" --handlerSha="$virthandler_rawsha" --launcherSha="$virtlauncher_rawsha" --exportProxySha="$virtexportproxy_rawsha" --exportServerSha="$virtexportserver_rawsha" --gsSha="$gs_rawsha" --kubevirtLogo={{.KubeVirtLogo}} --csvVersion="$_fake_csv_version" --replacesCsvVersion="$_fake_replaces_csv_version" --csvCreatedAtTimestamp={{.CreatedAt}} --kubeVirtVersion={{.DockerTag}} >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
+${KUBEVIRT_DIR}/tools/csv-generator/csv-generator \
+    --apiSha="$virtapi_rawsha" \
+    --controllerSha="$virtcontroller_rawsha" \
+    --csvCreatedAtTimestamp={{.CreatedAt}} \
+    --csvVersion="$_fake_csv_version" \
+    --dockerPrefix={{.DockerPrefix}} \
+    --exportProxySha="$virtexportproxy_rawsha" \
+    --exportServerSha="$virtexportserver_rawsha" \
+    --gsSha="$gs_rawsha" \
+    --handlerSha="$virthandler_rawsha" \
+    --kubevirtLogo={{.KubeVirtLogo}} \
+    --kubeVirtVersion={{.DockerTag}} \
+    --launcherSha="$virtlauncher_rawsha" \
+    --namespace={{.CSVNamespace}} \
+    --operatorImageVersion="$virtoperator_version" \
+    --prHelperSha="$prhelper_rawsha" \
+    --pullPolicy={{.ImagePullPolicy}} \
+    --replacesCsvVersion="$_fake_replaces_csv_version" \
+    --sidecarShimSha="$sidecar_shim_rawsha" \
+    --verbosity={{.Verbosity}} \
+    >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
+
 sed -i "s/$_fake_csv_version/{{.CsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 sed -i "s/$_fake_replaces_csv_version/{{.ReplacesCsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 

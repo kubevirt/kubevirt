@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // OptionCodeList is a list of DHCP option codes.

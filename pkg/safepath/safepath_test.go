@@ -136,7 +136,7 @@ var _ = Describe("safepath", func() {
 		root := GinkgoT().TempDir()
 		relativeRoot := filepath.Join(root, "testroot")
 		path := "some/path/to/follow"
-		Expect(os.MkdirAll(filepath.Join(relativeRoot, path, "test3", "test4"), os.ModePerm))
+		Expect(os.MkdirAll(filepath.Join(relativeRoot, path, "test3", "test4"), os.ModePerm)).To(Succeed())
 		Expect(os.Symlink("test3", filepath.Join(relativeRoot, path, "test2"))).To(Succeed())
 		Expect(os.Symlink("test2", filepath.Join(relativeRoot, path, "test1"))).To(Succeed())
 		// try to reach the test4 directory over the test1 link
@@ -150,7 +150,7 @@ var _ = Describe("safepath", func() {
 		root := GinkgoT().TempDir()
 		relativeRoot := filepath.Join(root, "testroot")
 		path := "some/path/to/follow"
-		Expect(os.MkdirAll(filepath.Join(relativeRoot, path, "test3", "test4"), os.ModePerm))
+		Expect(os.MkdirAll(filepath.Join(relativeRoot, path, "test3", "test4"), os.ModePerm)).To(Succeed())
 		Expect(os.Symlink("test3", filepath.Join(relativeRoot, path, "test100"))).To(Succeed())
 		for i := 101; i < 401+50; i++ {
 			Expect(os.Symlink(fmt.Sprintf("test%d", i-1), filepath.Join(relativeRoot, path, fmt.Sprintf("test%d", i)))).To(Succeed())
@@ -166,7 +166,7 @@ var _ = Describe("safepath", func() {
 		root := GinkgoT().TempDir()
 		relativeRoot := filepath.Join(root, "testroot")
 		path := "some/path/to/follow"
-		Expect(os.MkdirAll(filepath.Join(relativeRoot, path, "test3", "test4"), os.ModePerm))
+		Expect(os.MkdirAll(filepath.Join(relativeRoot, path, "test3", "test4"), os.ModePerm)).To(Succeed())
 		Expect(os.Symlink("test3", filepath.Join(relativeRoot, path, "test2"))).To(Succeed())
 		Expect(os.Symlink("test2", filepath.Join(relativeRoot, path, "test1"))).To(Succeed())
 		// include the symlink in the root path

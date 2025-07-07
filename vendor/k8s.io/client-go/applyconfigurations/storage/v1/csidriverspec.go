@@ -22,7 +22,7 @@ import (
 	v1 "k8s.io/api/storage/v1"
 )
 
-// CSIDriverSpecApplyConfiguration represents an declarative configuration of the CSIDriverSpec type for use
+// CSIDriverSpecApplyConfiguration represents a declarative configuration of the CSIDriverSpec type for use
 // with apply.
 type CSIDriverSpecApplyConfiguration struct {
 	AttachRequired       *bool                            `json:"attachRequired,omitempty"`
@@ -32,9 +32,10 @@ type CSIDriverSpecApplyConfiguration struct {
 	FSGroupPolicy        *v1.FSGroupPolicy                `json:"fsGroupPolicy,omitempty"`
 	TokenRequests        []TokenRequestApplyConfiguration `json:"tokenRequests,omitempty"`
 	RequiresRepublish    *bool                            `json:"requiresRepublish,omitempty"`
+	SELinuxMount         *bool                            `json:"seLinuxMount,omitempty"`
 }
 
-// CSIDriverSpecApplyConfiguration constructs an declarative configuration of the CSIDriverSpec type for use with
+// CSIDriverSpecApplyConfiguration constructs a declarative configuration of the CSIDriverSpec type for use with
 // apply.
 func CSIDriverSpec() *CSIDriverSpecApplyConfiguration {
 	return &CSIDriverSpecApplyConfiguration{}
@@ -100,5 +101,13 @@ func (b *CSIDriverSpecApplyConfiguration) WithTokenRequests(values ...*TokenRequ
 // If called multiple times, the RequiresRepublish field is set to the value of the last call.
 func (b *CSIDriverSpecApplyConfiguration) WithRequiresRepublish(value bool) *CSIDriverSpecApplyConfiguration {
 	b.RequiresRepublish = &value
+	return b
+}
+
+// WithSELinuxMount sets the SELinuxMount field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SELinuxMount field is set to the value of the last call.
+func (b *CSIDriverSpecApplyConfiguration) WithSELinuxMount(value bool) *CSIDriverSpecApplyConfiguration {
+	b.SELinuxMount = &value
 	return b
 }

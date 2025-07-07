@@ -8,6 +8,7 @@ go_library(
         "csinode.go",
         "csinodedriver.go",
         "csinodespec.go",
+        "csistoragecapacity.go",
         "storageclass.go",
         "tokenrequest.go",
         "volumeattachment.go",
@@ -23,6 +24,7 @@ go_library(
     deps = [
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/storage/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/managedfields:go_default_library",

@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// PodDisruptionBudgetApplyConfiguration represents an declarative configuration of the PodDisruptionBudget type for use
+// PodDisruptionBudgetApplyConfiguration represents a declarative configuration of the PodDisruptionBudget type for use
 // with apply.
 type PodDisruptionBudgetApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -36,7 +36,7 @@ type PodDisruptionBudgetApplyConfiguration struct {
 	Status                           *PodDisruptionBudgetStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// PodDisruptionBudget constructs an declarative configuration of the PodDisruptionBudget type for use with
+// PodDisruptionBudget constructs a declarative configuration of the PodDisruptionBudget type for use with
 // apply.
 func PodDisruptionBudget(name, namespace string) *PodDisruptionBudgetApplyConfiguration {
 	b := &PodDisruptionBudgetApplyConfiguration{}
@@ -123,15 +123,6 @@ func (b *PodDisruptionBudgetApplyConfiguration) WithGenerateName(value string) *
 func (b *PodDisruptionBudgetApplyConfiguration) WithNamespace(value string) *PodDisruptionBudgetApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *PodDisruptionBudgetApplyConfiguration) WithSelfLink(value string) *PodDisruptionBudgetApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -244,15 +235,6 @@ func (b *PodDisruptionBudgetApplyConfiguration) WithFinalizers(values ...string)
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *PodDisruptionBudgetApplyConfiguration) WithClusterName(value string) *PodDisruptionBudgetApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *PodDisruptionBudgetApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -273,4 +255,10 @@ func (b *PodDisruptionBudgetApplyConfiguration) WithSpec(value *PodDisruptionBud
 func (b *PodDisruptionBudgetApplyConfiguration) WithStatus(value *PodDisruptionBudgetStatusApplyConfiguration) *PodDisruptionBudgetApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *PodDisruptionBudgetApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

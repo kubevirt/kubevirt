@@ -29,7 +29,7 @@ Enabling software emulation is a cluster-wide setting, and is activated by
 editing the `KubeVirt` CR as follows:
 
 ```bash
-cluster-up/kubectl.sh --namespace kubevirt edit kubevirt kubevirt
+kubevirtci/cluster-up/kubectl.sh --namespace kubevirt edit kubevirt kubevirt
 ```
 
 Add the following snippet to the spec:

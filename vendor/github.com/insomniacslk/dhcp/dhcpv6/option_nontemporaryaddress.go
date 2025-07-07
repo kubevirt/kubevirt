@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // Duration is a duration as embedded in IA messages (IAPD, IANA, IATA).
@@ -93,25 +93,29 @@ func (op *OptIANA) ToBytes() []byte {
 }
 
 func (op *OptIANA) String() string {
-	return fmt.Sprintf("IANA: {IAID=%v, t1=%v, t2=%v, options=%v}",
-		op.IaId, op.T1, op.T2, op.Options)
+	return fmt.Sprintf("%s: {IAID=%#x T1=%v T2=%v Options=%v}",
+		op.Code(), op.IaId, op.T1, op.T2, op.Options)
 }
 
-// ParseOptIANA builds an OptIANA structure from a sequence of bytes.  The
+// LongString returns a multi-line string representation of IANA data.
+func (op *OptIANA) LongString(indentSpace int) string {
+	return fmt.Sprintf("%s: IAID=%#x T1=%s T2=%s Options=%s", op.Code(), op.IaId, op.T1, op.T2, op.Options.LongString(indentSpace))
+}
+
+// FromBytes builds an OptIANA structure from a sequence of bytes.  The
 // input data does not include option code and length bytes.
-func ParseOptIANA(data []byte) (*OptIANA, error) {
-	var opt OptIANA
+func (op *OptIANA) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
-	buf.ReadBytes(opt.IaId[:])
+	buf.ReadBytes(op.IaId[:])
 
 	var t1, t2 Duration
 	t1.Unmarshal(buf)
 	t2.Unmarshal(buf)
-	opt.T1 = t1.Duration
-	opt.T2 = t2.Duration
+	op.T1 = t1.Duration
+	op.T2 = t2.Duration
 
-	if err := opt.Options.FromBytes(buf.ReadAll()); err != nil {
-		return nil, err
+	if err := op.Options.FromBytes(buf.ReadAll()); err != nil {
+		return err
 	}
-	return &opt, buf.FinError()
+	return buf.FinError()
 }

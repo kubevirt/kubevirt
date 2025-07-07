@@ -47,7 +47,7 @@ var _ = Describe("DHCPv6", func() {
 			Expect(optIana.Options.Addresses()).To(HaveLen(1))
 			Expect(optIana.Options.OneAddress().String()).To(Equal(expectedIaAddr.String()))
 
-			duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: serverInterfaceMac}
+			duid := &dhcpv6.DUIDLL{HWType: iana.HWTypeEthernet, LinkLayerAddr: serverInterfaceMac}
 			expectedServerId := dhcpv6.OptServerID(duid)
 			modifiers[1](msg)
 			Expect(msg.GetOneOption(dhcpv6.OptionServerID).String()).To(Equal(expectedServerId.String()))
@@ -111,12 +111,22 @@ var _ = Describe("DHCPv6", func() {
 			expectedLength := len(handler.modifiers) + 1
 			Expect(replyMessage.Options.Options).To(HaveLen(expectedLength))
 		})
+		It("handle request without iana option", func() {
+			clientMac, _ := net.ParseMAC("34:56:78:9A:BC:DE")
+			duid := &dhcpv6.DUIDLL{HWType: iana.HWTypeEthernet, LinkLayerAddr: clientMac}
+			clientMessage, err := dhcpv6.NewMessage(dhcpv6.WithClientID(duid))
+			Expect(err).ToNot(HaveOccurred())
+			clientMessage.MessageType = dhcpv6.MessageTypeInformationRequest
+
+			_, err = handler.buildResponse(clientMessage)
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 })
 
 func newMessage(messageType dhcpv6.MessageType) (*dhcpv6.Message, error) {
 	clientMac, _ := net.ParseMAC("34:56:78:9A:BC:DE")
-	duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: clientMac}
+	duid := &dhcpv6.DUIDLL{HWType: iana.HWTypeEthernet, LinkLayerAddr: clientMac}
 	clientMessage, err := dhcpv6.NewMessage(dhcpv6.WithIAID([4]byte{1, 2, 3, 4}), dhcpv6.WithClientID(duid))
 	clientMessage.MessageType = messageType
 	return clientMessage, err

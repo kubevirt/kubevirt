@@ -20,6 +20,7 @@
 package virtlauncher
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,6 +28,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
 
 	"kubevirt.io/client-go/log"
 
@@ -59,6 +62,27 @@ func InitializePrivateDirectories(baseDir string) error {
 		return err
 	}
 	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(baseDir); err != nil {
+		return err
+	}
+	return nil
+}
+
+func InitializeConsoleLogFile(baseDir string) error {
+	logPath := filepath.Join(baseDir, "virt-serial0-log")
+
+	_, err := os.Stat(logPath)
+	if errors.Is(err, os.ErrNotExist) {
+		file, err := os.Create(logPath)
+		if err != nil {
+			return err
+		}
+		if err = file.Close(); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	if err = diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(logPath); err != nil {
 		return err
 	}
 	return nil
@@ -109,6 +133,10 @@ func (mon *monitor) isGracePeriodExpired() bool {
 func (mon *monitor) refresh() {
 	if mon.isDone {
 		log.Log.Error("Called refresh after done!")
+		return
+	} else if cmdserver.ReceivedEarlyExitSignal() {
+		log.Log.Infof("received early exit signal - stop waiting for %s", mon.domainName)
+		mon.isDone = true
 		return
 	}
 
@@ -181,7 +209,7 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 	log.Log.Infof("Monitoring loop: rate %v start timeout %s", rate, timeoutRepr)
 
 	ticker := time.NewTicker(rate)
-
+	defer ticker.Stop()
 	mon.isDone = false
 	mon.timeout = startTimeout
 	mon.start = time.Now()
@@ -200,7 +228,6 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 		}
 	}
 
-	ticker.Stop()
 }
 
 func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan struct{}) {

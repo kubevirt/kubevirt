@@ -2,12 +2,17 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["smd.go"],
+    srcs = [
+        "openapi.go",
+        "proto_models.go",
+        "smd.go",
+    ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/kube-openapi/pkg/schemaconv",
     importpath = "k8s.io/kube-openapi/pkg/schemaconv",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/k8s.io/kube-openapi/pkg/util/proto:go_default_library",
+        "//vendor/k8s.io/kube-openapi/pkg/validation/spec:go_default_library",
         "//vendor/sigs.k8s.io/structured-merge-diff/v4/schema:go_default_library",
     ],
 )

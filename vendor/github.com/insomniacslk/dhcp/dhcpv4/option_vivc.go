@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/insomniacslk/dhcp/iana"
+	"github.com/u-root/uio/uio"
 )
 
 // VIVCIdentifier implements the vendor-identifying vendor class option
 // described by RFC 3925.
 type VIVCIdentifier struct {
 	// EntID is the enterprise ID.
-	EntID uint32
+	EntID iana.EnterpriseID
 	Data  []byte
 }
 
@@ -33,7 +34,7 @@ type VIVCIdentifiers []VIVCIdentifier
 func (ids *VIVCIdentifiers) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
 	for buf.Has(5) {
-		entID := buf.Read32()
+		entID := iana.EnterpriseID(buf.Read32())
 		idLen := int(buf.Read8())
 		*ids = append(*ids, VIVCIdentifier{EntID: entID, Data: buf.CopyN(idLen)})
 	}
@@ -44,7 +45,7 @@ func (ids *VIVCIdentifiers) FromBytes(data []byte) error {
 func (ids VIVCIdentifiers) ToBytes() []byte {
 	buf := uio.NewBigEndianBuffer(nil)
 	for _, id := range ids {
-		buf.Write32(id.EntID)
+		buf.Write32(uint32(id.EntID))
 		buf.Write8(uint8(len(id.Data)))
 		buf.WriteBytes(id.Data)
 	}

@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// RuntimeClassApplyConfiguration represents an declarative configuration of the RuntimeClass type for use
+// RuntimeClassApplyConfiguration represents a declarative configuration of the RuntimeClass type for use
 // with apply.
 type RuntimeClassApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -37,7 +37,7 @@ type RuntimeClassApplyConfiguration struct {
 	Scheduling                       *SchedulingApplyConfiguration `json:"scheduling,omitempty"`
 }
 
-// RuntimeClass constructs an declarative configuration of the RuntimeClass type for use with
+// RuntimeClass constructs a declarative configuration of the RuntimeClass type for use with
 // apply.
 func RuntimeClass(name string) *RuntimeClassApplyConfiguration {
 	b := &RuntimeClassApplyConfiguration{}
@@ -122,15 +122,6 @@ func (b *RuntimeClassApplyConfiguration) WithGenerateName(value string) *Runtime
 func (b *RuntimeClassApplyConfiguration) WithNamespace(value string) *RuntimeClassApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *RuntimeClassApplyConfiguration) WithSelfLink(value string) *RuntimeClassApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -243,15 +234,6 @@ func (b *RuntimeClassApplyConfiguration) WithFinalizers(values ...string) *Runti
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *RuntimeClassApplyConfiguration) WithClusterName(value string) *RuntimeClassApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *RuntimeClassApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -280,4 +262,10 @@ func (b *RuntimeClassApplyConfiguration) WithOverhead(value *OverheadApplyConfig
 func (b *RuntimeClassApplyConfiguration) WithScheduling(value *SchedulingApplyConfiguration) *RuntimeClassApplyConfiguration {
 	b.Scheduling = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *RuntimeClassApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

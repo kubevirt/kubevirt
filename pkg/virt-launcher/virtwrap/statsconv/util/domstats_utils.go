@@ -16,7 +16,9 @@ var Testdata = `[
             "State" : 1,
             "Time" : 23810000000,
             "WaitSet": false,
-            "Wait": 0
+            "Wait": 0,
+            "DelaySet": false,
+            "Delay": 0
             
          },
          {
@@ -25,7 +27,9 @@ var Testdata = `[
             "TimeSet" : true,
             "Time" : 17800000000,
             "WaitSet": false,
-            "Wait": 0
+            "Wait": 0,
+            "DelaySet": false,
+            "Delay": 0
          },
          {
             "State" : 1,
@@ -33,7 +37,9 @@ var Testdata = `[
             "TimeSet" : true,
             "Time" : 23310000000,
             "WaitSet": false,
-            "Wait": 0
+            "Wait": 0,
+            "DelaySet": false,
+            "Delay": 0
          },
          {
             "State" : 1,
@@ -41,7 +47,9 @@ var Testdata = `[
             "TimeSet" : true,
             "Time" : 17360000000,
             "WaitSet": true,
-            "Wait": 1500
+            "Wait": 1500,
+            "DelaySet": true,
+            "Delay": 100
          }
       ],
       "Perf" : null,
@@ -172,6 +180,8 @@ var Testdataexpected = `{
      "SwapOutSet": false,
      "Unused": 0, 
      "UnusedSet": false,
+     "Cached": 0, 
+     "CachedSet": false,
      "MajorFault": 0,
      "MajorFaultSet": false,
      "MinorFault": 0,
@@ -182,6 +192,8 @@ var Testdataexpected = `{
      "TotalSet": false
    }, 
    "MigrateDomainJobInfo": {
+	 "DataTotal": 0,
+	 "DataTotalSet": false,
      "DataProcessed": 0,
      "DataProcessedSet": false,
      "DataRemaining": 0,
@@ -189,9 +201,7 @@ var Testdataexpected = `{
      "MemDirtyRate": 0,
      "MemDirtyRateSet": false,
      "MemoryBpsSet": false,
-     "MemoryBps": 0,
-     "DiskBpsSet": false,
-     "DiskBps": 0
+     "MemoryBps": 0
    },
    "Name": "testName", 
    "Net": [
@@ -226,7 +236,9 @@ var Testdataexpected = `{
        "Time": 23810000000, 
        "TimeSet": true,
        "WaitSet": false,
-       "Wait": 0
+       "Wait": 0,
+       "DelaySet": false,
+       "Delay": 0
      }, 
      {
        "State": 1, 
@@ -234,7 +246,9 @@ var Testdataexpected = `{
        "Time": 17800000000, 
        "TimeSet": true,
        "WaitSet": false,
-       "Wait": 0
+       "Wait": 0,
+       "DelaySet": false,
+       "Delay": 0
        
      }, 
      {
@@ -243,7 +257,9 @@ var Testdataexpected = `{
        "Time": 23310000000, 
        "TimeSet": true,
        "WaitSet": false,
-       "Wait": 0
+       "Wait": 0,
+       "DelaySet": false,
+       "Delay": 0
      }, 
      {
        "State": 1, 
@@ -251,11 +267,14 @@ var Testdataexpected = `{
        "Time": 17360000000, 
        "TimeSet": true,
        "WaitSet": true,
-       "Wait": 1500
+       "Wait": 1500,
+       "DelaySet": true,
+       "Delay": 100
      }
    ],
    "CPUMapSet": false,
-   "CPUMap": null
+   "CPUMap": null,
+   "NrVirtCpu": 0
  }`
 
 func LoadStats() ([]libvirt.DomainStats, error) {

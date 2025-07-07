@@ -21,6 +21,11 @@ Then build the manifests and images:
 make && make push && make manifests
 ```
 
+**Note:** If you see failures related to fetching some modules, try increasing bazel's timeout with:
+ ```bash
+ export PULLER_TIMEOUT=10000
+ ```
+
 Finally, push the manifests to your cluster:
 
 ```bash
@@ -66,18 +71,6 @@ Now log in with `docker login`. You will get a warning message saying that no cr
 ### SELinux support
 
 SELinux-enabled nodes need to have [Container-selinux](https://github.com/containers/container-selinux) version 2.170.0 or newer installed.
-
-#### Disabling the custom SELinux policy
-
-By default, a custom SELinux policy gets installed by virt-handler on every node, and it gets used for VMIs that need it.
-Currently, the only VMIs using it are the ones that enable passt-based networking.  
-However, having KubeVirt install and use a custom SELinux policy is a security concern. It also increases virt-handler boot time 20/30 seconds.  
-Therefore, a feature gate was introduced to disable the installation and usage of that custom SELinux policy: `DisableCustomSELinuxPolicy`.  
-The side effect is that passt-enabled VMIs will fail to start, but only on nodes that use container-selinux version 2.192.0 or lower.  
-container-selinux releases 2.193.0 and newer include the necessary permissions for passt-enabled VMIs to run successfully.
-
-**Note:** adding the `DisableCustomSELinuxPolicy` feature gate to an existing cluster will disable the use of the custom policy for new VMIs,
-but will **not** automatically uninstall the policy from the nodes. That can be done manually if needed, by running `semodule -r virt_launcher` on every node.
 
 ## Building
 
@@ -133,13 +126,24 @@ export KUBEVIRT_MEMORY_SIZE=8192M # node has 8GB memory size
 make cluster-up
 ```
 
+You can use the `FEATURE_GATES` environment variable to enable one or more feature gates provided by KubeVirt. The 
+list of feature gates (which evolve in time) can be checked directly from the 
+[source code](https://github.com/kubevirt/kubevirt/blob/main/pkg/virt-config/feature-gates.go).
+
+```bash
+# export FEATURE_GATES=<feature-gate-1>,<feature-gate-2>
+# e.g. to enable Sidecar and HotplugNICs feature gates run below
+$ export FEATURE_GATES=Sidecar,HotplugNICs
+$ make cluster-sync
+```
+
 **Note:** If you see the error below, 
 check if the MTU of the container and the host are the same. 
 If not, try to adjust them to be the same. 
 See [issue 2667](https://github.com/kubevirt/kubevirt/issues/2667)
 for more detailed info.
 ```
-# ./cluster-up/kubectl.sh get pods --all-namespaces
+# ./kubevirtci/cluster-up/kubectl.sh get pods --all-namespaces
 NAMESPACE     NAME                                      READY   STATUS             RESTARTS   AGE
 cdi           cdi-operator-5db567b486-grtk9             0/1     ImagePullBackOff   0          42m
 
@@ -184,14 +188,14 @@ Based on the used cluster, node names might be different.
 You can get the names from following command:
 
 ```bash
-# cluster-up/kubectl.sh get nodes
+# kubevirtci/cluster-up/kubectl.sh get nodes
 NAME     STATUS   ROLES                   AGE   VERSION
 node01   Ready    control-plane,worker    13s   v1.18.3
 ```
 
 Then you can execute the following command to access the node:
 ```
-# ./cluster-up/ssh.sh node01
+# ./kubevirtci/cluster-up/ssh.sh node01
 [vagrant@node01 ~]$
 ```
 
@@ -237,15 +241,19 @@ If you would like to run specific functional tests only, you can leverage `ginkg
 command line options as follows (run a specified suite):
 
 ```
-    FUNC_TEST_ARGS='-focus=vmi_networking_test -regexScansFilePath' make functest
+    FUNC_TEST_ARGS='--focus-file=vmi_networking' make functest
 ```
+
+> [!NOTE]
+> Ginkgo's [Location-Based Filtering](https://onsi.github.io/ginkgo/#location-based-filtering) and [Description-Based Filtering](https://onsi.github.io/ginkgo/#description-based-filtering) documentation 
+> describe additional helpful options for focused execution that do not require recompilation.
 
 In addition, if you want to run a specific test or tests you can prepend any `Describe`,
 `Context` and `It` statements of your test with an `F` and Ginkgo will only run items
 that are marked with the prefix. Remember to remove the prefix before issuing
 your pull request.
 
-For additional information check out the [Ginkgo focused specs documentation](http://onsi.github.io/ginkgo/#focused-specs)
+For additional information check out the [Ginkgo focused specs documentation](https://onsi.github.io/ginkgo/#focused-specs)
 
 ## Use
 
@@ -261,20 +269,20 @@ Finally start a VMI called `vmi-ephemeral`:
     # This can be done from your GIT repo, no need to log into a VMI
 
     # Create a VMI
-    ./cluster-up/kubectl.sh create -f examples/vmi-ephemeral.yaml
+    ./kubevirtci/cluster-up/kubectl.sh create -f examples/vmi-ephemeral.yaml
 
     # Sure? Let's list all created VMIs
-    ./cluster-up/kubectl.sh get vmis
+    ./kubevirtci/cluster-up/kubectl.sh get vmis
 
     # Enough, let's get rid of it
-    ./cluster-up/kubectl.sh delete -f examples/vmi-ephemeral.yaml
+    ./kubevirtci/cluster-up/kubectl.sh delete -f examples/vmi-ephemeral.yaml
 
 
     # You can actually use kubelet.sh to introspect the cluster in general
-    ./cluster-up/kubectl.sh get pods
+    ./kubevirtci/cluster-up/kubectl.sh get pods
 
     # To check the running kubevirt services you need to introspect the `kubevirt` namespace:
-    ./cluster-up/kubectl.sh -n kubevirt get pods
+    ./kubevirtci/cluster-up/kubectl.sh -n kubevirt get pods
 ```
 
 This will start a VMI on control-plane or one of the running nodes with a macvtap and a
@@ -283,18 +291,18 @@ tap networking device attached.
 #### Example
 
 ```bash
-$ ./cluster-up/kubectl.sh create -f examples/vmi-ephemeral.yaml
+$ ./kubevirtci/cluster-up/kubectl.sh create -f examples/vmi-ephemeral.yaml
 vm "vmi-ephemeral" created
 
-$ ./cluster-up/kubectl.sh get pods
+$ ./kubevirtci/cluster-up/kubectl.sh get pods
 NAME                              READY     STATUS    RESTARTS   AGE
 virt-launcher-vmi-ephemeral9q7es  1/1       Running   0          10s
 
-$ ./cluster-up/kubectl.sh get vmis
+$ ./kubevirtci/cluster-up/kubectl.sh get vmis
 NAME            AGE   PHASE     IP              NODENAME
 vmi-ephemeral   11s   Running   10.244.140.77   node02
 
-$ ./cluster-up/kubectl.sh get vmis -o json
+$ ./kubevirtci/cluster-up/kubectl.sh get vmis -o json
 {
     "kind": "List",
     "apiVersion": "v1",
@@ -326,18 +334,18 @@ First make sure you have `remote-viewer` installed. On Fedora run:
 dnf install virt-viewer
 ```
 
-Windows users can [download remote-viewer from virt-manager.org](https://virt-manager.org/download/), and may need
+Windows users can [download remote-viewer from virt-manager.org](https://virt-manager.org/download.html), and may need
 to add virt-viewer installation folder to their `PATH`.
 
 Then, after you made sure that the VMI `vmi-ephemeral` is running, type:
 
 ```
-cluster-up/virtctl.sh vnc vmi-ephemeral
+hack/virtctl.sh vnc vmi-ephemeral
 ```
 
 This will start a remote session with `remote-viewer`.
 
-`cluster-up/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
+`hack/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
 virtual machine specific commands with it and is a supplement to `kubectl`.
 
 **Note:** If accessing your cluster through ssh, be sure to forward your X11 session in order to launch `virtctl vnc`.

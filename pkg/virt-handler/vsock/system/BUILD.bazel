@@ -8,6 +8,5 @@ go_library(
     deps = [
         "//pkg/util/tls:go_default_library",
         "//pkg/vsock/system/v1:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
     ],
 )

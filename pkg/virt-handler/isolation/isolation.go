@@ -26,9 +26,12 @@ package isolation
 */
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/unsafepath"
@@ -59,6 +62,8 @@ type IsolationResult interface {
 	Mounts(mount.FilterFunc) ([]*mount.Info, error)
 	// returns the QEMU process
 	GetQEMUProcess() (ps.Process, error)
+	// returns the KVM PIT pid
+	KvmPitPid() (int, error)
 }
 
 type RealIsolationResult struct {
@@ -98,21 +103,6 @@ func IsMounted(mountPoint *safepath.Path) (isMounted bool, err error) {
 		// TODO: Unsafe full path is required, and not a fd, since otherwise mount table lookups and such would not work.
 		return mount.Mounted(unsafepath.UnsafeAbsolute(mountPoint.Raw()))
 	}
-}
-
-// AreMounted checks if given paths are mounted by calling IsMounted.
-// If error occurs, the first error is returned.
-func (r *RealIsolationResult) AreMounted(mountPoints ...*safepath.Path) (isMounted bool, err error) {
-	for _, mountPoint := range mountPoints {
-		if mountPoint != nil {
-			isMounted, err = IsMounted(mountPoint)
-			if !isMounted || err != nil {
-				return
-			}
-		}
-	}
-
-	return true, nil
 }
 
 // IsBlockDevice checks if the given path is a block device or not.
@@ -160,6 +150,56 @@ func (r *RealIsolationResult) GetQEMUProcess() (ps.Process, error) {
 	return qemuProcess, nil
 }
 
+// Returns the pid of "vmpid" as seen from the first pid namespace the task
+// belongs to.
+func GetNspid(vmpid int) (int, error) {
+	fpath := filepath.Join("proc", strconv.Itoa(vmpid), "status")
+	file, err := os.Open(fpath)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) < 6 {
+			continue
+		}
+		if line[0:6] != "NSpid:" {
+			continue
+		}
+		s := strings.Fields(line)
+		if len(s) < 2 {
+			continue
+		}
+		val, err := strconv.Atoi(s[2])
+		return val, err
+	}
+
+	return -1, nil
+}
+
+func (r *RealIsolationResult) KvmPitPid() (int, error) {
+	qemuprocess, err := r.GetQEMUProcess()
+	if err != nil {
+		return -1, err
+	}
+	processes, _ := ps.Processes()
+	nspid, err := GetNspid(qemuprocess.Pid())
+	if err != nil || nspid == -1 {
+		return -1, err
+	}
+	pitstr := "kvm-pit/" + strconv.Itoa(nspid)
+
+	for _, process := range processes {
+		if process.Executable() == pitstr {
+			return process.Pid(), nil
+		}
+	}
+	return -1, nil
+}
+
 func NodeIsolationResult() *RealIsolationResult {
 	return &RealIsolationResult{
 		pid: 1,
@@ -192,12 +232,21 @@ func MountInfoRoot(r IsolationResult) (mountinfo *mount.Info, err error) {
 	return mountInfoFor(r, "/")
 }
 
+func mountsFilter(compare, m *mount.Info, source string) (bool, bool) {
+	nfsMatch := false
+	if strings.Contains(m.FSType, "nfs") && compare.FSType == m.FSType {
+		nfsMatch = m.Source != source
+	}
+
+	return m.Major != compare.Major || m.Minor != compare.Minor ||
+		!strings.HasPrefix(compare.Root, m.Root) || nfsMatch, false
+}
+
 // parentMountInfoFor takes the mountInfo record of a container (child) and
 // attempts to locate a mountpoint containing it on the parent.
-func parentMountInfoFor(parent IsolationResult, mountInfo *mount.Info) (*mount.Info, error) {
+func parentMountInfoFor(parent IsolationResult, mountInfo *mount.Info, source string) (*mount.Info, error) {
 	mounts, err := parent.Mounts(func(m *mount.Info) (bool, bool) {
-		return m.Major != mountInfo.Major || m.Minor != mountInfo.Minor ||
-			!strings.HasPrefix(mountInfo.Root, m.Root), false
+		return mountsFilter(mountInfo, m, source)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find mount for %v in the mount namespace of pid %d", mountInfo.Root, parent.Pid())
@@ -215,12 +264,12 @@ func parentMountInfoFor(parent IsolationResult, mountInfo *mount.Info) (*mount.I
 	return mounts[0], nil
 }
 
-func ParentPathForMount(parent IsolationResult, child IsolationResult, mountPoint string) (*safepath.Path, error) {
-	childMountInfo, err := mountInfoFor(child, mountPoint)
+func ParentPathForMount(parent IsolationResult, child IsolationResult, source, target string) (*safepath.Path, error) {
+	childMountInfo, err := mountInfoFor(child, target)
 	if err != nil {
 		return nil, err
 	}
-	parentMountInfo, err := parentMountInfoFor(parent, childMountInfo)
+	parentMountInfo, err := parentMountInfoFor(parent, childMountInfo, source)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +288,7 @@ func ParentPathForMount(parent IsolationResult, child IsolationResult, mountPoin
 // ParentPathForRootMount takes a container (child) and composes a path to
 // the root mount point in the context of the parent.
 func ParentPathForRootMount(parent IsolationResult, child IsolationResult) (*safepath.Path, error) {
-	return ParentPathForMount(parent, child, "/")
+	return ParentPathForMount(parent, child, "", "/")
 }
 
 func SafeJoin(res IsolationResult, elems ...string) (*safepath.Path, error) {

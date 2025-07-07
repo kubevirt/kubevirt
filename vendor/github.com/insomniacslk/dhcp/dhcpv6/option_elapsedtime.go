@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // OptElapsedTime returns an Elapsed Time option as defined by RFC 3315 Section
@@ -29,14 +29,13 @@ func (op *optElapsedTime) ToBytes() []byte {
 }
 
 func (op *optElapsedTime) String() string {
-	return fmt.Sprintf("ElapsedTime: %s", op.ElapsedTime)
+	return fmt.Sprintf("%s: %s", op.Code(), op.ElapsedTime)
 }
 
-// build an optElapsedTime structure from a sequence of bytes.
+// FromBytes builds an optElapsedTime structure from a sequence of bytes.
 // The input data does not include option code and length bytes.
-func parseOptElapsedTime(data []byte) (*optElapsedTime, error) {
-	var opt optElapsedTime
+func (op *optElapsedTime) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
-	opt.ElapsedTime = time.Duration(buf.Read16()) * 10 * time.Millisecond
-	return &opt, buf.FinError()
+	op.ElapsedTime = time.Duration(buf.Read16()) * 10 * time.Millisecond
+	return buf.FinError()
 }

@@ -52,12 +52,15 @@ $ docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' rp
 ```yaml
 repositories:
 - arch: x86_64
-  baseurl: http://172.17.0.4:80/x86_64/ # The IP corrisponds to the rpms-http-server container
+  baseurl: http://172.17.0.4:80/x86_64/ # The IP corresponding to the rpms-http-server container
   name: custom-build
   gpgcheck: 0
   repo_gpgcheck: 0
 ```
-  * Update the rpms in KubeVirt repository. If you only want to update a single architecture, set `SINGLE_ARCH="x86_64"`
+  * Update the rpms in KubeVirt repository.
+  * If you only want to update a single architecture, set `SINGLE_ARCH="x86_64"`.
+  * It is sometimes necessary to change `basesystem` when using custom rpms packages. This can be achieved by setting `BASESYSTEM=xyz` env variable.
+  * If you want to change version of some packages you can set env variables. See [`hack/rpm-deps.sh`](/hack/rpm-deps.sh) script for all variables that can be changed.
 ```bash
 $ make CUSTOM_REPO=custom-repo.yaml LIBVIRT_VERSION=0:7.2.0-1.el8 rpm-deps
 ```

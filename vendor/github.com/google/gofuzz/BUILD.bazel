@@ -9,4 +9,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/google/gofuzz",
     importpath = "github.com/google/gofuzz",
     visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/google/gofuzz/bytesource:go_default_library"],
 )

@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// CertificateSigningRequestApplyConfiguration represents an declarative configuration of the CertificateSigningRequest type for use
+// CertificateSigningRequestApplyConfiguration represents a declarative configuration of the CertificateSigningRequest type for use
 // with apply.
 type CertificateSigningRequestApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -36,7 +36,7 @@ type CertificateSigningRequestApplyConfiguration struct {
 	Status                           *CertificateSigningRequestStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// CertificateSigningRequest constructs an declarative configuration of the CertificateSigningRequest type for use with
+// CertificateSigningRequest constructs a declarative configuration of the CertificateSigningRequest type for use with
 // apply.
 func CertificateSigningRequest(name string) *CertificateSigningRequestApplyConfiguration {
 	b := &CertificateSigningRequestApplyConfiguration{}
@@ -121,15 +121,6 @@ func (b *CertificateSigningRequestApplyConfiguration) WithGenerateName(value str
 func (b *CertificateSigningRequestApplyConfiguration) WithNamespace(value string) *CertificateSigningRequestApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *CertificateSigningRequestApplyConfiguration) WithSelfLink(value string) *CertificateSigningRequestApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -242,15 +233,6 @@ func (b *CertificateSigningRequestApplyConfiguration) WithFinalizers(values ...s
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *CertificateSigningRequestApplyConfiguration) WithClusterName(value string) *CertificateSigningRequestApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *CertificateSigningRequestApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -271,4 +253,10 @@ func (b *CertificateSigningRequestApplyConfiguration) WithSpec(value *Certificat
 func (b *CertificateSigningRequestApplyConfiguration) WithStatus(value *CertificateSigningRequestStatusApplyConfiguration) *CertificateSigningRequestApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *CertificateSigningRequestApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

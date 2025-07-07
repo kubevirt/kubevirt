@@ -70,7 +70,7 @@ func defaultProfile() *seccomp.Seccomp {
 	}
 
 	profile.Syscalls = append(profile.Syscalls, &seccomp.Syscall{
-		Name:   "userfaultfd",
+		Names:  []string{"userfaultfd"},
 		Action: seccomp.ActAllow,
 		Args:   []*seccomp.Arg{},
 	})

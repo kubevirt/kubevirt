@@ -1,0 +1,42 @@
+
+stages:
+  - prebuild
+  - build
+
+# Check that all commits are signed-off for the DCO.
+# Skip on "libvirt" namespace, since we only need to run
+# this test on developer's personal forks from which
+# merge requests are submitted
+check-dco:
+  stage: prebuild
+  image: registry.gitlab.com/libvirt/libvirt-ci/check-dco:latest
+  script:
+    - /check-dco
+  except:
+    variables:
+      - $CI_PROJECT_NAMESPACE == 'libvirt'
+
+go-fmt:
+  stage: prebuild
+  image: registry.gitlab.com/libvirt/libvirt-ci/go-fmt:latest
+  script:
+    - /go-fmt
+  artifacts:
+    paths:
+      - go-fmt.patch
+    expire_in: 1 week
+    when: on_failure
+
+.go_build: &go_build
+  stage: build
+  script:
+    - go test -timeout 10m -tags xmlroundtrip -v
+
+
+go_1_11:
+  <<: *go_build
+  image: golang:1.11
+
+go_1_16:
+  <<: *go_build
+  image: golang:1.16

@@ -43,10 +43,10 @@ package libvirt
 
 
 typedef char *
-(*virConnectBaselineCPUType)(virConnectPtr conn,
-                             const char ** xmlCPUs,
-                             unsigned int ncpus,
-                             unsigned int flags);
+(*virConnectBaselineCPUFuncType)(virConnectPtr conn,
+                                 const char ** xmlCPUs,
+                                 unsigned int ncpus,
+                                 unsigned int flags);
 
 char *
 virConnectBaselineCPUWrapper(virConnectPtr conn,
@@ -56,7 +56,7 @@ virConnectBaselineCPUWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     char * ret = NULL;
-    static virConnectBaselineCPUType virConnectBaselineCPUSymbol;
+    static virConnectBaselineCPUFuncType virConnectBaselineCPUSymbol;
     static bool once;
     static bool success;
 
@@ -78,14 +78,14 @@ virConnectBaselineCPUWrapper(virConnectPtr conn,
 }
 
 typedef char *
-(*virConnectBaselineHypervisorCPUType)(virConnectPtr conn,
-                                       const char * emulator,
-                                       const char * arch,
-                                       const char * machine,
-                                       const char * virttype,
-                                       const char ** xmlCPUs,
-                                       unsigned int ncpus,
-                                       unsigned int flags);
+(*virConnectBaselineHypervisorCPUFuncType)(virConnectPtr conn,
+                                           const char * emulator,
+                                           const char * arch,
+                                           const char * machine,
+                                           const char * virttype,
+                                           const char ** xmlCPUs,
+                                           unsigned int ncpus,
+                                           unsigned int flags);
 
 char *
 virConnectBaselineHypervisorCPUWrapper(virConnectPtr conn,
@@ -99,7 +99,7 @@ virConnectBaselineHypervisorCPUWrapper(virConnectPtr conn,
                                        virErrorPtr err)
 {
     char * ret = NULL;
-    static virConnectBaselineHypervisorCPUType virConnectBaselineHypervisorCPUSymbol;
+    static virConnectBaselineHypervisorCPUFuncType virConnectBaselineHypervisorCPUSymbol;
     static bool once;
     static bool success;
 
@@ -125,14 +125,14 @@ virConnectBaselineHypervisorCPUWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectCloseType)(virConnectPtr conn);
+(*virConnectCloseFuncType)(virConnectPtr conn);
 
 int
 virConnectCloseWrapper(virConnectPtr conn,
                        virErrorPtr err)
 {
     int ret = -1;
-    static virConnectCloseType virConnectCloseSymbol;
+    static virConnectCloseFuncType virConnectCloseSymbol;
     static bool once;
     static bool success;
 
@@ -151,9 +151,9 @@ virConnectCloseWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectCompareCPUType)(virConnectPtr conn,
-                            const char * xmlDesc,
-                            unsigned int flags);
+(*virConnectCompareCPUFuncType)(virConnectPtr conn,
+                                const char * xmlDesc,
+                                unsigned int flags);
 
 int
 virConnectCompareCPUWrapper(virConnectPtr conn,
@@ -162,7 +162,7 @@ virConnectCompareCPUWrapper(virConnectPtr conn,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virConnectCompareCPUType virConnectCompareCPUSymbol;
+    static virConnectCompareCPUFuncType virConnectCompareCPUSymbol;
     static bool once;
     static bool success;
 
@@ -183,13 +183,13 @@ virConnectCompareCPUWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectCompareHypervisorCPUType)(virConnectPtr conn,
-                                      const char * emulator,
-                                      const char * arch,
-                                      const char * machine,
-                                      const char * virttype,
-                                      const char * xmlCPU,
-                                      unsigned int flags);
+(*virConnectCompareHypervisorCPUFuncType)(virConnectPtr conn,
+                                          const char * emulator,
+                                          const char * arch,
+                                          const char * machine,
+                                          const char * virttype,
+                                          const char * xmlCPU,
+                                          unsigned int flags);
 
 int
 virConnectCompareHypervisorCPUWrapper(virConnectPtr conn,
@@ -202,7 +202,7 @@ virConnectCompareHypervisorCPUWrapper(virConnectPtr conn,
                                       virErrorPtr err)
 {
     int ret = -1;
-    static virConnectCompareHypervisorCPUType virConnectCompareHypervisorCPUSymbol;
+    static virConnectCompareHypervisorCPUFuncType virConnectCompareHypervisorCPUSymbol;
     static bool once;
     static bool success;
 
@@ -227,10 +227,10 @@ virConnectCompareHypervisorCPUWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectGetCPUModelNamesType)(virConnectPtr conn,
-                                  const char * arch,
-                                  char *** models,
-                                  unsigned int flags);
+(*virConnectGetCPUModelNamesFuncType)(virConnectPtr conn,
+                                      const char * arch,
+                                      char *** models,
+                                      unsigned int flags);
 
 int
 virConnectGetCPUModelNamesWrapper(virConnectPtr conn,
@@ -240,7 +240,7 @@ virConnectGetCPUModelNamesWrapper(virConnectPtr conn,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virConnectGetCPUModelNamesType virConnectGetCPUModelNamesSymbol;
+    static virConnectGetCPUModelNamesFuncType virConnectGetCPUModelNamesSymbol;
     static bool once;
     static bool success;
 
@@ -262,14 +262,14 @@ virConnectGetCPUModelNamesWrapper(virConnectPtr conn,
 }
 
 typedef char *
-(*virConnectGetCapabilitiesType)(virConnectPtr conn);
+(*virConnectGetCapabilitiesFuncType)(virConnectPtr conn);
 
 char *
 virConnectGetCapabilitiesWrapper(virConnectPtr conn,
                                  virErrorPtr err)
 {
     char * ret = NULL;
-    static virConnectGetCapabilitiesType virConnectGetCapabilitiesSymbol;
+    static virConnectGetCapabilitiesFuncType virConnectGetCapabilitiesSymbol;
     static bool once;
     static bool success;
 
@@ -288,14 +288,14 @@ virConnectGetCapabilitiesWrapper(virConnectPtr conn,
 }
 
 typedef char *
-(*virConnectGetHostnameType)(virConnectPtr conn);
+(*virConnectGetHostnameFuncType)(virConnectPtr conn);
 
 char *
 virConnectGetHostnameWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     char * ret = NULL;
-    static virConnectGetHostnameType virConnectGetHostnameSymbol;
+    static virConnectGetHostnameFuncType virConnectGetHostnameSymbol;
     static bool once;
     static bool success;
 
@@ -314,8 +314,8 @@ virConnectGetHostnameWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectGetLibVersionType)(virConnectPtr conn,
-                               unsigned long * libVer);
+(*virConnectGetLibVersionFuncType)(virConnectPtr conn,
+                                   unsigned long * libVer);
 
 int
 virConnectGetLibVersionWrapper(virConnectPtr conn,
@@ -323,7 +323,7 @@ virConnectGetLibVersionWrapper(virConnectPtr conn,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virConnectGetLibVersionType virConnectGetLibVersionSymbol;
+    static virConnectGetLibVersionFuncType virConnectGetLibVersionSymbol;
     static bool once;
     static bool success;
 
@@ -343,8 +343,8 @@ virConnectGetLibVersionWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectGetMaxVcpusType)(virConnectPtr conn,
-                             const char * type);
+(*virConnectGetMaxVcpusFuncType)(virConnectPtr conn,
+                                 const char * type);
 
 int
 virConnectGetMaxVcpusWrapper(virConnectPtr conn,
@@ -352,7 +352,7 @@ virConnectGetMaxVcpusWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virConnectGetMaxVcpusType virConnectGetMaxVcpusSymbol;
+    static virConnectGetMaxVcpusFuncType virConnectGetMaxVcpusSymbol;
     static bool once;
     static bool success;
 
@@ -372,8 +372,8 @@ virConnectGetMaxVcpusWrapper(virConnectPtr conn,
 }
 
 typedef char *
-(*virConnectGetSysinfoType)(virConnectPtr conn,
-                            unsigned int flags);
+(*virConnectGetSysinfoFuncType)(virConnectPtr conn,
+                                unsigned int flags);
 
 char *
 virConnectGetSysinfoWrapper(virConnectPtr conn,
@@ -381,7 +381,7 @@ virConnectGetSysinfoWrapper(virConnectPtr conn,
                             virErrorPtr err)
 {
     char * ret = NULL;
-    static virConnectGetSysinfoType virConnectGetSysinfoSymbol;
+    static virConnectGetSysinfoFuncType virConnectGetSysinfoSymbol;
     static bool once;
     static bool success;
 
@@ -401,14 +401,14 @@ virConnectGetSysinfoWrapper(virConnectPtr conn,
 }
 
 typedef const char *
-(*virConnectGetTypeType)(virConnectPtr conn);
+(*virConnectGetTypeFuncType)(virConnectPtr conn);
 
 const char *
 virConnectGetTypeWrapper(virConnectPtr conn,
                          virErrorPtr err)
 {
     const char * ret = NULL;
-    static virConnectGetTypeType virConnectGetTypeSymbol;
+    static virConnectGetTypeFuncType virConnectGetTypeSymbol;
     static bool once;
     static bool success;
 
@@ -427,14 +427,14 @@ virConnectGetTypeWrapper(virConnectPtr conn,
 }
 
 typedef char *
-(*virConnectGetURIType)(virConnectPtr conn);
+(*virConnectGetURIFuncType)(virConnectPtr conn);
 
 char *
 virConnectGetURIWrapper(virConnectPtr conn,
                         virErrorPtr err)
 {
     char * ret = NULL;
-    static virConnectGetURIType virConnectGetURISymbol;
+    static virConnectGetURIFuncType virConnectGetURISymbol;
     static bool once;
     static bool success;
 
@@ -453,8 +453,8 @@ virConnectGetURIWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectGetVersionType)(virConnectPtr conn,
-                            unsigned long * hvVer);
+(*virConnectGetVersionFuncType)(virConnectPtr conn,
+                                unsigned long * hvVer);
 
 int
 virConnectGetVersionWrapper(virConnectPtr conn,
@@ -462,7 +462,7 @@ virConnectGetVersionWrapper(virConnectPtr conn,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virConnectGetVersionType virConnectGetVersionSymbol;
+    static virConnectGetVersionFuncType virConnectGetVersionSymbol;
     static bool once;
     static bool success;
 
@@ -482,14 +482,14 @@ virConnectGetVersionWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectIsAliveType)(virConnectPtr conn);
+(*virConnectIsAliveFuncType)(virConnectPtr conn);
 
 int
 virConnectIsAliveWrapper(virConnectPtr conn,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virConnectIsAliveType virConnectIsAliveSymbol;
+    static virConnectIsAliveFuncType virConnectIsAliveSymbol;
     static bool once;
     static bool success;
 
@@ -508,14 +508,14 @@ virConnectIsAliveWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectIsEncryptedType)(virConnectPtr conn);
+(*virConnectIsEncryptedFuncType)(virConnectPtr conn);
 
 int
 virConnectIsEncryptedWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virConnectIsEncryptedType virConnectIsEncryptedSymbol;
+    static virConnectIsEncryptedFuncType virConnectIsEncryptedSymbol;
     static bool once;
     static bool success;
 
@@ -534,14 +534,14 @@ virConnectIsEncryptedWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectIsSecureType)(virConnectPtr conn);
+(*virConnectIsSecureFuncType)(virConnectPtr conn);
 
 int
 virConnectIsSecureWrapper(virConnectPtr conn,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virConnectIsSecureType virConnectIsSecureSymbol;
+    static virConnectIsSecureFuncType virConnectIsSecureSymbol;
     static bool once;
     static bool success;
 
@@ -560,14 +560,14 @@ virConnectIsSecureWrapper(virConnectPtr conn,
 }
 
 typedef virConnectPtr
-(*virConnectOpenType)(const char * name);
+(*virConnectOpenFuncType)(const char * name);
 
 virConnectPtr
 virConnectOpenWrapper(const char * name,
                       virErrorPtr err)
 {
     virConnectPtr ret = NULL;
-    static virConnectOpenType virConnectOpenSymbol;
+    static virConnectOpenFuncType virConnectOpenSymbol;
     static bool once;
     static bool success;
 
@@ -586,9 +586,9 @@ virConnectOpenWrapper(const char * name,
 }
 
 typedef virConnectPtr
-(*virConnectOpenAuthType)(const char * name,
-                          virConnectAuthPtr auth,
-                          unsigned int flags);
+(*virConnectOpenAuthFuncType)(const char * name,
+                              virConnectAuthPtr auth,
+                              unsigned int flags);
 
 virConnectPtr
 virConnectOpenAuthWrapper(const char * name,
@@ -597,7 +597,7 @@ virConnectOpenAuthWrapper(const char * name,
                           virErrorPtr err)
 {
     virConnectPtr ret = NULL;
-    static virConnectOpenAuthType virConnectOpenAuthSymbol;
+    static virConnectOpenAuthFuncType virConnectOpenAuthSymbol;
     static bool once;
     static bool success;
 
@@ -618,14 +618,14 @@ virConnectOpenAuthWrapper(const char * name,
 }
 
 typedef virConnectPtr
-(*virConnectOpenReadOnlyType)(const char * name);
+(*virConnectOpenReadOnlyFuncType)(const char * name);
 
 virConnectPtr
 virConnectOpenReadOnlyWrapper(const char * name,
                               virErrorPtr err)
 {
     virConnectPtr ret = NULL;
-    static virConnectOpenReadOnlyType virConnectOpenReadOnlySymbol;
+    static virConnectOpenReadOnlyFuncType virConnectOpenReadOnlySymbol;
     static bool once;
     static bool success;
 
@@ -644,14 +644,14 @@ virConnectOpenReadOnlyWrapper(const char * name,
 }
 
 typedef int
-(*virConnectRefType)(virConnectPtr conn);
+(*virConnectRefFuncType)(virConnectPtr conn);
 
 int
 virConnectRefWrapper(virConnectPtr conn,
                      virErrorPtr err)
 {
     int ret = -1;
-    static virConnectRefType virConnectRefSymbol;
+    static virConnectRefFuncType virConnectRefSymbol;
     static bool once;
     static bool success;
 
@@ -670,10 +670,10 @@ virConnectRefWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectRegisterCloseCallbackType)(virConnectPtr conn,
-                                       virConnectCloseFunc cb,
-                                       void * opaque,
-                                       virFreeCallback freecb);
+(*virConnectRegisterCloseCallbackFuncType)(virConnectPtr conn,
+                                           virConnectCloseFunc cb,
+                                           void * opaque,
+                                           virFreeCallback freecb);
 
 int
 virConnectRegisterCloseCallbackWrapper(virConnectPtr conn,
@@ -683,7 +683,7 @@ virConnectRegisterCloseCallbackWrapper(virConnectPtr conn,
                                        virErrorPtr err)
 {
     int ret = -1;
-    static virConnectRegisterCloseCallbackType virConnectRegisterCloseCallbackSymbol;
+    static virConnectRegisterCloseCallbackFuncType virConnectRegisterCloseCallbackSymbol;
     static bool once;
     static bool success;
 
@@ -705,10 +705,10 @@ virConnectRegisterCloseCallbackWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectSetIdentityType)(virConnectPtr conn,
-                             virTypedParameterPtr params,
-                             int nparams,
-                             unsigned int flags);
+(*virConnectSetIdentityFuncType)(virConnectPtr conn,
+                                 virTypedParameterPtr params,
+                                 int nparams,
+                                 unsigned int flags);
 
 int
 virConnectSetIdentityWrapper(virConnectPtr conn,
@@ -718,7 +718,7 @@ virConnectSetIdentityWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virConnectSetIdentityType virConnectSetIdentitySymbol;
+    static virConnectSetIdentityFuncType virConnectSetIdentitySymbol;
     static bool once;
     static bool success;
 
@@ -740,9 +740,9 @@ virConnectSetIdentityWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectSetKeepAliveType)(virConnectPtr conn,
-                              int interval,
-                              unsigned int count);
+(*virConnectSetKeepAliveFuncType)(virConnectPtr conn,
+                                  int interval,
+                                  unsigned int count);
 
 int
 virConnectSetKeepAliveWrapper(virConnectPtr conn,
@@ -751,7 +751,7 @@ virConnectSetKeepAliveWrapper(virConnectPtr conn,
                               virErrorPtr err)
 {
     int ret = -1;
-    static virConnectSetKeepAliveType virConnectSetKeepAliveSymbol;
+    static virConnectSetKeepAliveFuncType virConnectSetKeepAliveSymbol;
     static bool once;
     static bool success;
 
@@ -772,8 +772,8 @@ virConnectSetKeepAliveWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virConnectUnregisterCloseCallbackType)(virConnectPtr conn,
-                                         virConnectCloseFunc cb);
+(*virConnectUnregisterCloseCallbackFuncType)(virConnectPtr conn,
+                                             virConnectCloseFunc cb);
 
 int
 virConnectUnregisterCloseCallbackWrapper(virConnectPtr conn,
@@ -781,7 +781,7 @@ virConnectUnregisterCloseCallbackWrapper(virConnectPtr conn,
                                          virErrorPtr err)
 {
     int ret = -1;
-    static virConnectUnregisterCloseCallbackType virConnectUnregisterCloseCallbackSymbol;
+    static virConnectUnregisterCloseCallbackFuncType virConnectUnregisterCloseCallbackSymbol;
     static bool once;
     static bool success;
 
@@ -801,9 +801,9 @@ virConnectUnregisterCloseCallbackWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virGetVersionType)(unsigned long * libVer,
-                     const char * type,
-                     unsigned long * typeVer);
+(*virGetVersionFuncType)(unsigned long * libVer,
+                         const char * type,
+                         unsigned long * typeVer);
 
 int
 virGetVersionWrapper(unsigned long * libVer,
@@ -812,7 +812,7 @@ virGetVersionWrapper(unsigned long * libVer,
                      virErrorPtr err)
 {
     int ret = -1;
-    static virGetVersionType virGetVersionSymbol;
+    static virGetVersionFuncType virGetVersionSymbol;
     static bool once;
     static bool success;
 
@@ -833,13 +833,13 @@ virGetVersionWrapper(unsigned long * libVer,
 }
 
 typedef int
-(*virInitializeType)(void);
+(*virInitializeFuncType)(void);
 
 int
 virInitializeWrapper(virErrorPtr err)
 {
     int ret = -1;
-    static virInitializeType virInitializeSymbol;
+    static virInitializeFuncType virInitializeSymbol;
     static bool once;
     static bool success;
 
@@ -858,13 +858,13 @@ virInitializeWrapper(virErrorPtr err)
 }
 
 typedef int
-(*virNodeAllocPagesType)(virConnectPtr conn,
-                         unsigned int npages,
-                         unsigned int * pageSizes,
-                         unsigned long long * pageCounts,
-                         int startCell,
-                         unsigned int cellCount,
-                         unsigned int flags);
+(*virNodeAllocPagesFuncType)(virConnectPtr conn,
+                             unsigned int npages,
+                             unsigned int * pageSizes,
+                             unsigned long long * pageCounts,
+                             int startCell,
+                             unsigned int cellCount,
+                             unsigned int flags);
 
 int
 virNodeAllocPagesWrapper(virConnectPtr conn,
@@ -877,7 +877,7 @@ virNodeAllocPagesWrapper(virConnectPtr conn,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virNodeAllocPagesType virNodeAllocPagesSymbol;
+    static virNodeAllocPagesFuncType virNodeAllocPagesSymbol;
     static bool once;
     static bool success;
 
@@ -902,10 +902,10 @@ virNodeAllocPagesWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeGetCPUMapType)(virConnectPtr conn,
-                        unsigned char ** cpumap,
-                        unsigned int * online,
-                        unsigned int flags);
+(*virNodeGetCPUMapFuncType)(virConnectPtr conn,
+                            unsigned char ** cpumap,
+                            unsigned int * online,
+                            unsigned int flags);
 
 int
 virNodeGetCPUMapWrapper(virConnectPtr conn,
@@ -915,7 +915,7 @@ virNodeGetCPUMapWrapper(virConnectPtr conn,
                         virErrorPtr err)
 {
     int ret = -1;
-    static virNodeGetCPUMapType virNodeGetCPUMapSymbol;
+    static virNodeGetCPUMapFuncType virNodeGetCPUMapSymbol;
     static bool once;
     static bool success;
 
@@ -937,11 +937,11 @@ virNodeGetCPUMapWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeGetCPUStatsType)(virConnectPtr conn,
-                          int cpuNum,
-                          virNodeCPUStatsPtr params,
-                          int * nparams,
-                          unsigned int flags);
+(*virNodeGetCPUStatsFuncType)(virConnectPtr conn,
+                              int cpuNum,
+                              virNodeCPUStatsPtr params,
+                              int * nparams,
+                              unsigned int flags);
 
 int
 virNodeGetCPUStatsWrapper(virConnectPtr conn,
@@ -952,7 +952,7 @@ virNodeGetCPUStatsWrapper(virConnectPtr conn,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virNodeGetCPUStatsType virNodeGetCPUStatsSymbol;
+    static virNodeGetCPUStatsFuncType virNodeGetCPUStatsSymbol;
     static bool once;
     static bool success;
 
@@ -975,10 +975,10 @@ virNodeGetCPUStatsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeGetCellsFreeMemoryType)(virConnectPtr conn,
-                                 unsigned long long * freeMems,
-                                 int startCell,
-                                 int maxCells);
+(*virNodeGetCellsFreeMemoryFuncType)(virConnectPtr conn,
+                                     unsigned long long * freeMems,
+                                     int startCell,
+                                     int maxCells);
 
 int
 virNodeGetCellsFreeMemoryWrapper(virConnectPtr conn,
@@ -988,7 +988,7 @@ virNodeGetCellsFreeMemoryWrapper(virConnectPtr conn,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virNodeGetCellsFreeMemoryType virNodeGetCellsFreeMemorySymbol;
+    static virNodeGetCellsFreeMemoryFuncType virNodeGetCellsFreeMemorySymbol;
     static bool once;
     static bool success;
 
@@ -1010,14 +1010,14 @@ virNodeGetCellsFreeMemoryWrapper(virConnectPtr conn,
 }
 
 typedef unsigned long long
-(*virNodeGetFreeMemoryType)(virConnectPtr conn);
+(*virNodeGetFreeMemoryFuncType)(virConnectPtr conn);
 
 unsigned long long
 virNodeGetFreeMemoryWrapper(virConnectPtr conn,
                             virErrorPtr err)
 {
     unsigned long long ret = 0;
-    static virNodeGetFreeMemoryType virNodeGetFreeMemorySymbol;
+    static virNodeGetFreeMemoryFuncType virNodeGetFreeMemorySymbol;
     static bool once;
     static bool success;
 
@@ -1036,13 +1036,13 @@ virNodeGetFreeMemoryWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeGetFreePagesType)(virConnectPtr conn,
-                           unsigned int npages,
-                           unsigned int * pages,
-                           int startCell,
-                           unsigned int cellCount,
-                           unsigned long long * counts,
-                           unsigned int flags);
+(*virNodeGetFreePagesFuncType)(virConnectPtr conn,
+                               unsigned int npages,
+                               unsigned int * pages,
+                               int startCell,
+                               unsigned int cellCount,
+                               unsigned long long * counts,
+                               unsigned int flags);
 
 int
 virNodeGetFreePagesWrapper(virConnectPtr conn,
@@ -1055,7 +1055,7 @@ virNodeGetFreePagesWrapper(virConnectPtr conn,
                            virErrorPtr err)
 {
     int ret = -1;
-    static virNodeGetFreePagesType virNodeGetFreePagesSymbol;
+    static virNodeGetFreePagesFuncType virNodeGetFreePagesSymbol;
     static bool once;
     static bool success;
 
@@ -1080,8 +1080,8 @@ virNodeGetFreePagesWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeGetInfoType)(virConnectPtr conn,
-                      virNodeInfoPtr info);
+(*virNodeGetInfoFuncType)(virConnectPtr conn,
+                          virNodeInfoPtr info);
 
 int
 virNodeGetInfoWrapper(virConnectPtr conn,
@@ -1089,7 +1089,7 @@ virNodeGetInfoWrapper(virConnectPtr conn,
                       virErrorPtr err)
 {
     int ret = -1;
-    static virNodeGetInfoType virNodeGetInfoSymbol;
+    static virNodeGetInfoFuncType virNodeGetInfoSymbol;
     static bool once;
     static bool success;
 
@@ -1109,10 +1109,10 @@ virNodeGetInfoWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeGetMemoryParametersType)(virConnectPtr conn,
-                                  virTypedParameterPtr params,
-                                  int * nparams,
-                                  unsigned int flags);
+(*virNodeGetMemoryParametersFuncType)(virConnectPtr conn,
+                                      virTypedParameterPtr params,
+                                      int * nparams,
+                                      unsigned int flags);
 
 int
 virNodeGetMemoryParametersWrapper(virConnectPtr conn,
@@ -1122,7 +1122,7 @@ virNodeGetMemoryParametersWrapper(virConnectPtr conn,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virNodeGetMemoryParametersType virNodeGetMemoryParametersSymbol;
+    static virNodeGetMemoryParametersFuncType virNodeGetMemoryParametersSymbol;
     static bool once;
     static bool success;
 
@@ -1144,11 +1144,11 @@ virNodeGetMemoryParametersWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeGetMemoryStatsType)(virConnectPtr conn,
-                             int cellNum,
-                             virNodeMemoryStatsPtr params,
-                             int * nparams,
-                             unsigned int flags);
+(*virNodeGetMemoryStatsFuncType)(virConnectPtr conn,
+                                 int cellNum,
+                                 virNodeMemoryStatsPtr params,
+                                 int * nparams,
+                                 unsigned int flags);
 
 int
 virNodeGetMemoryStatsWrapper(virConnectPtr conn,
@@ -1159,7 +1159,7 @@ virNodeGetMemoryStatsWrapper(virConnectPtr conn,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virNodeGetMemoryStatsType virNodeGetMemoryStatsSymbol;
+    static virNodeGetMemoryStatsFuncType virNodeGetMemoryStatsSymbol;
     static bool once;
     static bool success;
 
@@ -1182,10 +1182,10 @@ virNodeGetMemoryStatsWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeGetSEVInfoType)(virConnectPtr conn,
-                         virTypedParameterPtr * params,
-                         int * nparams,
-                         unsigned int flags);
+(*virNodeGetSEVInfoFuncType)(virConnectPtr conn,
+                             virTypedParameterPtr * params,
+                             int * nparams,
+                             unsigned int flags);
 
 int
 virNodeGetSEVInfoWrapper(virConnectPtr conn,
@@ -1195,7 +1195,7 @@ virNodeGetSEVInfoWrapper(virConnectPtr conn,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virNodeGetSEVInfoType virNodeGetSEVInfoSymbol;
+    static virNodeGetSEVInfoFuncType virNodeGetSEVInfoSymbol;
     static bool once;
     static bool success;
 
@@ -1217,8 +1217,8 @@ virNodeGetSEVInfoWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeGetSecurityModelType)(virConnectPtr conn,
-                               virSecurityModelPtr secmodel);
+(*virNodeGetSecurityModelFuncType)(virConnectPtr conn,
+                                   virSecurityModelPtr secmodel);
 
 int
 virNodeGetSecurityModelWrapper(virConnectPtr conn,
@@ -1226,7 +1226,7 @@ virNodeGetSecurityModelWrapper(virConnectPtr conn,
                                virErrorPtr err)
 {
     int ret = -1;
-    static virNodeGetSecurityModelType virNodeGetSecurityModelSymbol;
+    static virNodeGetSecurityModelFuncType virNodeGetSecurityModelSymbol;
     static bool once;
     static bool success;
 
@@ -1246,10 +1246,10 @@ virNodeGetSecurityModelWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeSetMemoryParametersType)(virConnectPtr conn,
-                                  virTypedParameterPtr params,
-                                  int nparams,
-                                  unsigned int flags);
+(*virNodeSetMemoryParametersFuncType)(virConnectPtr conn,
+                                      virTypedParameterPtr params,
+                                      int nparams,
+                                      unsigned int flags);
 
 int
 virNodeSetMemoryParametersWrapper(virConnectPtr conn,
@@ -1259,7 +1259,7 @@ virNodeSetMemoryParametersWrapper(virConnectPtr conn,
                                   virErrorPtr err)
 {
     int ret = -1;
-    static virNodeSetMemoryParametersType virNodeSetMemoryParametersSymbol;
+    static virNodeSetMemoryParametersFuncType virNodeSetMemoryParametersSymbol;
     static bool once;
     static bool success;
 
@@ -1281,10 +1281,10 @@ virNodeSetMemoryParametersWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virNodeSuspendForDurationType)(virConnectPtr conn,
-                                 unsigned int target,
-                                 unsigned long long duration,
-                                 unsigned int flags);
+(*virNodeSuspendForDurationFuncType)(virConnectPtr conn,
+                                     unsigned int target,
+                                     unsigned long long duration,
+                                     unsigned int flags);
 
 int
 virNodeSuspendForDurationWrapper(virConnectPtr conn,
@@ -1294,7 +1294,7 @@ virNodeSuspendForDurationWrapper(virConnectPtr conn,
                                  virErrorPtr err)
 {
     int ret = -1;
-    static virNodeSuspendForDurationType virNodeSuspendForDurationSymbol;
+    static virNodeSuspendForDurationFuncType virNodeSuspendForDurationSymbol;
     static bool once;
     static bool success;
 

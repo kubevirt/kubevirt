@@ -29,8 +29,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/reporter"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -41,16 +42,25 @@ import (
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	_ "kubevirt.io/kubevirt/tests/compute"
+	_ "kubevirt.io/kubevirt/tests/compute/subresources"
+	_ "kubevirt.io/kubevirt/tests/guestlog"
+	_ "kubevirt.io/kubevirt/tests/hotplug"
+	_ "kubevirt.io/kubevirt/tests/infrastructure"
+	_ "kubevirt.io/kubevirt/tests/instancetype"
 	_ "kubevirt.io/kubevirt/tests/launchsecurity"
+	_ "kubevirt.io/kubevirt/tests/migration"
 	_ "kubevirt.io/kubevirt/tests/monitoring"
 	_ "kubevirt.io/kubevirt/tests/network"
 	_ "kubevirt.io/kubevirt/tests/numa"
 	_ "kubevirt.io/kubevirt/tests/operator"
 	_ "kubevirt.io/kubevirt/tests/performance"
 	_ "kubevirt.io/kubevirt/tests/realtime"
-	_ "kubevirt.io/kubevirt/tests/scale"
 	_ "kubevirt.io/kubevirt/tests/storage"
+	_ "kubevirt.io/kubevirt/tests/usb"
+	_ "kubevirt.io/kubevirt/tests/validatingadmissionpolicy"
 	_ "kubevirt.io/kubevirt/tests/virtctl"
+	_ "kubevirt.io/kubevirt/tests/virtiofs"
 )
 
 var afterSuiteReporters = []Reporter{}
@@ -69,7 +79,6 @@ func TestTests(t *testing.T) {
 	suiteConfig, _ := GinkgoConfiguration()
 	if suiteConfig.ParallelTotal > 1 {
 		artifactsPath = filepath.Join(artifactsPath, strconv.Itoa(GinkgoParallelProcess()))
-		junitOutput = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.junit.functest.%d.xml", GinkgoParallelProcess()))
 	}
 
 	outputEnricherReporter := reporter.NewCapturedOutputEnricher(
@@ -78,9 +87,6 @@ func TestTests(t *testing.T) {
 	afterSuiteReporters = append(afterSuiteReporters, outputEnricherReporter)
 
 	if qe_reporters.Polarion.Run {
-		if suiteConfig.ParallelTotal > 1 {
-			qe_reporters.Polarion.Filename = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.polarion.functest.%d.xml", GinkgoParallelProcess()))
-		}
 		afterSuiteReporters = append(afterSuiteReporters, &qe_reporters.Polarion)
 	}
 
@@ -90,7 +96,7 @@ func TestTests(t *testing.T) {
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
 	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
 
-	RunSpecs(t, "Tests Suite")
+	RunSpecs(t, "KubeVirt Tests Suite")
 }
 
 var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite.BeforeTestSuiteSetup)
@@ -98,7 +104,7 @@ var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite
 var _ = SynchronizedAfterSuite(testsuite.AfterTestSuiteCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
 
 var _ = AfterEach(func() {
-	tests.TestCleanup()
+	testCleanup()
 })
 
 func getMaxFailsFromEnv() int {
@@ -116,16 +122,48 @@ func getMaxFailsFromEnv() int {
 	return maxFails
 }
 
+var _ = ReportAfterSuite("Collect cluster data", func(report Report) {
+	artifactPath := filepath.Join(flags.ArtifactsDir, "k8s-reporter", "suite")
+	kvReport := reporter.NewKubernetesReporter(artifactPath, 1)
+	kvReport.Cleanup()
+
+	kvReport.Report(report)
+})
+
 var _ = ReportAfterSuite("TestTests", func(report Report) {
 	for _, reporter := range afterSuiteReporters {
 		ginkgo_reporters.ReportViaDeprecatedReporter(reporter, report)
 	}
 })
 
-var _ = JustBeforeEach(func() {
-	k8sReporter.JustBeforeEach(CurrentSpecReport())
+var _ = ReportBeforeSuite(func(report Report) {
+	k8sReporter.ConfigurePerSpecReporting(report)
 })
 
 var _ = JustAfterEach(func() {
-	k8sReporter.JustAfterEach(CurrentSpecReport())
+	if flags.DeployFakeKWOKNodesFlag {
+		return
+	}
+	k8sReporter.ReportSpec(CurrentSpecReport())
 })
+
+func testCleanup() {
+	GinkgoWriter.Println("Global test cleanup started.")
+	testsuite.CleanNamespaces()
+	libnode.CleanNodes()
+	resetToDefaultConfig()
+	testsuite.EnsureKubevirtReady()
+	GinkgoWriter.Println("Global test cleanup ended.")
+}
+
+// resetToDefaultConfig resets the config to the state found when the test suite started. It will wait for the config to
+// be propagated to all components before it returns. It will only update the configuration and wait for it to be
+// propagated if the current config in use does not match the original one.
+func resetToDefaultConfig() {
+	if !CurrentSpecReport().IsSerial {
+		// Tests which alter the global kubevirt config must be run serial, therefor, if we run in parallel
+		// we can just skip the restore step.
+		return
+	}
+	config.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
+}

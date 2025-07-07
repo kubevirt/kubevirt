@@ -4,10 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "inspector.go",
+        "iter.go",
         "typeof.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/go/ast/inspector",
     importpath = "golang.org/x/tools/go/ast/inspector",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/golang.org/x/tools/internal/typeparams:go_default_library"],
 )

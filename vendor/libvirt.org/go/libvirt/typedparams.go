@@ -87,11 +87,11 @@ type typedParamsFieldInfo struct {
 
 func typedParamsUnpackRaw(prefix string, cparams *C.virTypedParameter, cnparams C.int) ([]TypedParamValue, error) {
 	ret := []TypedParamValue{}
-	for i := 0; i < int(cnparams); i++ {
+	for n := 0; n < int(cnparams); n++ {
 		var param TypedParamValue
 		var cparam *C.virTypedParameter
 		cparam = (*C.virTypedParameter)(unsafe.Pointer(uintptr(unsafe.Pointer(cparams)) +
-			(unsafe.Sizeof(*cparam) * uintptr(i))))
+			(unsafe.Sizeof(*cparam) * uintptr(n))))
 
 		name := C.GoString(&cparam.field[0])
 
@@ -274,7 +274,7 @@ func typedParamsPackNew(infomap map[string]typedParamsFieldInfo) (*C.virTypedPar
 				}
 				ret = C.virTypedParamsAddBooleanWrapper(&cparams, &nparams, &maxparams, cname, C.int(v), &err)
 			} else if value.d != nil {
-				ret = C.virTypedParamsAddDoubleWrapper(&cparams, &nparams, &maxparams, cname, C.double(*value.i), &err)
+				ret = C.virTypedParamsAddDoubleWrapper(&cparams, &nparams, &maxparams, cname, C.double(*value.d), &err)
 			} else if value.s != nil {
 				cvalue := C.CString(*value.s)
 				defer C.free(unsafe.Pointer(cvalue))

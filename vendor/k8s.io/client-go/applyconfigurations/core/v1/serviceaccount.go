@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// ServiceAccountApplyConfiguration represents an declarative configuration of the ServiceAccount type for use
+// ServiceAccountApplyConfiguration represents a declarative configuration of the ServiceAccount type for use
 // with apply.
 type ServiceAccountApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -37,7 +37,7 @@ type ServiceAccountApplyConfiguration struct {
 	AutomountServiceAccountToken     *bool                                    `json:"automountServiceAccountToken,omitempty"`
 }
 
-// ServiceAccount constructs an declarative configuration of the ServiceAccount type for use with
+// ServiceAccount constructs a declarative configuration of the ServiceAccount type for use with
 // apply.
 func ServiceAccount(name, namespace string) *ServiceAccountApplyConfiguration {
 	b := &ServiceAccountApplyConfiguration{}
@@ -124,15 +124,6 @@ func (b *ServiceAccountApplyConfiguration) WithGenerateName(value string) *Servi
 func (b *ServiceAccountApplyConfiguration) WithNamespace(value string) *ServiceAccountApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *ServiceAccountApplyConfiguration) WithSelfLink(value string) *ServiceAccountApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -245,15 +236,6 @@ func (b *ServiceAccountApplyConfiguration) WithFinalizers(values ...string) *Ser
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *ServiceAccountApplyConfiguration) WithClusterName(value string) *ServiceAccountApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *ServiceAccountApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -292,4 +274,10 @@ func (b *ServiceAccountApplyConfiguration) WithImagePullSecrets(values ...*Local
 func (b *ServiceAccountApplyConfiguration) WithAutomountServiceAccountToken(value bool) *ServiceAccountApplyConfiguration {
 	b.AutomountServiceAccountToken = &value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *ServiceAccountApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

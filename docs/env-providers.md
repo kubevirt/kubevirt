@@ -8,7 +8,7 @@ All following providers allow a common workflow:
  * `make cluster-deploy` to (re)deploy the code (no provider support needed)
  * `make cluster-sync` to build and (re)deploy the code
  * `make functests` to run the functional tests against KubeVirt
- * `cluster-up/kubectl.sh` to talk to the k8s installation
+ * `kubevirtci/cluster-up/kubectl.sh` to talk to the k8s installation
 
 It is recommended to export the `KUBEVIRT_PROVIDER` variable as part of your `.bashrc`
 file.

@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "csidriver.go",
         "csinode.go",
+        "csistoragecapacity.go",
         "expansion_generated.go",
         "storageclass.go",
         "volumeattachment.go",
@@ -14,8 +15,8 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/k8s.io/api/storage/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
+        "//vendor/k8s.io/client-go/listers:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
 )

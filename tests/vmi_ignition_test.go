@@ -25,14 +25,16 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]IgnitionData", decorators.SigCompute, func() {
@@ -48,8 +50,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Context("with injected data", func() {
 				It("[test_id:1616]should have injected data under firmware directory", func() {
 					ignitionData := "ignition injected"
-					vmi := tests.RunVMIAndExpectLaunch(
-						libvmi.NewFedora(libvmi.WithAnnotation(v1.IgnitionAnnotation, ignitionData)),
+					vmi := libvmops.RunVMIAndExpectLaunch(
+						libvmifact.NewFedora(libvmi.WithAnnotation(v1.IgnitionAnnotation, ignitionData)),
 						240)
 
 					Expect(console.LoginToFedora(vmi)).To(Succeed())

@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["register.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring",
-    importpath = "github.com/coreos/prometheus-operator/pkg/apis/monitoring",
-    visibility = ["//visibility:public"],
-)

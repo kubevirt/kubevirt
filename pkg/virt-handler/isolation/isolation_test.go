@@ -196,6 +196,84 @@ var _ = Describe("IsolationResult", func() {
 				Expect(rootMount).To(Equal(rootMountPoint))
 			})
 
+			It("Should find the correct nfs mount, based on source", func() {
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/match"), os.ModePerm)).To(Succeed())
+				initMountsMock(mockIsolationResultContainer, []*mount.Info{
+					{
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/target",
+						Root:       "/",
+						Source:     "somehost:/somepath",
+						FSType:     "nfs4",
+					},
+					rootMountPoint,
+				})
+				initMountsMock(mockIsolationResultNode, []*mount.Info{
+					{
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/nomatch1",
+						Root:       "/",
+						Source:     "somehost:/someotherpath",
+						FSType:     "nfs4",
+					}, {
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/nomatch2",
+						Root:       "/",
+						Source:     "somehost:/somestrangepath",
+						FSType:     "nfs4",
+					}, {
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/match",
+						Root:       "/",
+						Source:     "somehost:/somepath",
+						FSType:     "nfs4",
+					},
+					rootMountPoint,
+				})
+				path, err := ParentPathForMount(mockIsolationResultNode, mockIsolationResultContainer, "somehost:/somepath", "/target")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root", tmpDir, "/match")))
+			})
+
+			It("Should find the longest root, if major and minor match", func() {
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/match/something"), os.ModePerm)).To(Succeed())
+				initMountsMock(mockIsolationResultContainer, []*mount.Info{
+					{
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/target",
+						Root:       "/root/something",
+					},
+					rootMountPoint,
+				})
+				initMountsMock(mockIsolationResultNode, []*mount.Info{
+					{
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/nomatch1",
+						Root:       "/",
+					}, {
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/match",
+						Root:       "/root",
+					}, {
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/nomatch2",
+						Root:       "/",
+					},
+					rootMountPoint,
+				})
+				path, err := ParentPathForMount(mockIsolationResultNode, mockIsolationResultContainer, "", "/target")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root", tmpDir, "/match/something")))
+			})
+
 			It("Should match the correct device", func() {
 				Expect(os.MkdirAll(filepath.Join(tmpDir, "/12"), os.ModePerm)).To(Succeed())
 				Expect(os.MkdirAll(filepath.Join(tmpDir, "/21"), os.ModePerm)).To(Succeed())

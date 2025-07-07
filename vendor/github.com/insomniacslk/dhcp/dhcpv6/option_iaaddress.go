@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // AddressOptions are options valid for the IAAddress option field.
@@ -59,26 +59,30 @@ func (op *OptIAAddress) ToBytes() []byte {
 }
 
 func (op *OptIAAddress) String() string {
-	return fmt.Sprintf("IAAddress: IP=%v PreferredLifetime=%v ValidLifetime=%v Options=%v",
-		op.IPv6Addr, op.PreferredLifetime, op.ValidLifetime, op.Options)
+	return fmt.Sprintf("%s: {IP=%v PreferredLifetime=%v ValidLifetime=%v Options=%v}",
+		op.Code(), op.IPv6Addr, op.PreferredLifetime, op.ValidLifetime, op.Options)
 }
 
-// ParseOptIAAddress builds an OptIAAddress structure from a sequence
-// of bytes. The input data does not include option code and length
-// bytes.
-func ParseOptIAAddress(data []byte) (*OptIAAddress, error) {
-	var opt OptIAAddress
+// LongString returns a multi-line string representation of the OptIAAddress data.
+func (op *OptIAAddress) LongString(indent int) string {
+	return fmt.Sprintf("%s: {IP=%v PreferredLifetime=%v ValidLifetime=%v Options=%v}",
+		op.Code(), op.IPv6Addr, op.PreferredLifetime, op.ValidLifetime, op.Options.LongString(indent))
+}
+
+// FromBytes builds an OptIAAddress structure from a sequence of bytes. The
+// input data does not include option code and length bytes.
+func (op *OptIAAddress) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
-	opt.IPv6Addr = net.IP(buf.CopyN(net.IPv6len))
+	op.IPv6Addr = net.IP(buf.CopyN(net.IPv6len))
 
 	var t1, t2 Duration
 	t1.Unmarshal(buf)
 	t2.Unmarshal(buf)
-	opt.PreferredLifetime = t1.Duration
-	opt.ValidLifetime = t2.Duration
+	op.PreferredLifetime = t1.Duration
+	op.ValidLifetime = t2.Duration
 
-	if err := opt.Options.FromBytes(buf.ReadAll()); err != nil {
-		return nil, err
+	if err := op.Options.FromBytes(buf.ReadAll()); err != nil {
+		return err
 	}
-	return &opt, buf.FinError()
+	return buf.FinError()
 }

@@ -24,9 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -34,19 +31,25 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sres "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() {
@@ -60,26 +63,32 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 	})
 
 	Context("VirtualMachineInstances", func() {
-		var vmi *v1.VirtualMachineInstance
+		var (
+			vmi *v1.VirtualMachineInstance
+		)
 		resource := "virtualmachineinstances"
 
 		BeforeEach(func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi = libvmifact.NewAlpine(
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 		})
 
 		It("[test_id:7627]create a VirtualMachineInstance", func() {
 			By("Make a Dry-Run request to create a Virtual Machine")
-			err = tests.DryRunCreate(restClient, resource, vmi.Namespace, vmi, nil)
+			err = dryRunCreate(restClient, resource, vmi.Namespace, vmi, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually created")
-			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7628]delete a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a Virtual Machine")
@@ -88,83 +97,79 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &opts)
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually deleted")
-			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:7629]update a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a Virtual Machine")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				vmi.Labels = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, vmi.Name, vmi.Namespace, vmi, nil)
+				return dryRunUpdate(restClient, resource, vmi.Name, vmi.Namespace, vmi, nil)
 			})
 
 			By("Check that no update actually took place")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Labels["key"]).ToNot(Equal("42"))
 		})
 
 		It("[test_id:7630]patch a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a Virtual Machine")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, vmi.Name, vmi.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, vmi.Name, vmi.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Labels["key"]).ToNot(Equal("42"))
 		})
 	})
 
 	Context("VirtualMachines", func() {
-		var vm *v1.VirtualMachine
-		resource := "virtualmachines"
-
-		newVM := func() *v1.VirtualMachine {
-			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
-			vm := tests.NewRandomVirtualMachine(vmi, false)
-			return vm
-		}
+		var (
+			vm        *v1.VirtualMachine
+			namespace string
+		)
+		const resource = "virtualmachines"
 
 		BeforeEach(func() {
-			vm = newVM()
-
+			vm = libvmi.NewVirtualMachine(libvmifact.NewCirros())
+			namespace = testsuite.GetTestNamespace(vm)
 		})
 
 		It("[test_id:7631]create a VirtualMachine", func() {
 			By("Make a Dry-Run request to create a Virtual Machine")
-			err = tests.DryRunCreate(restClient, resource, vm.Namespace, vm, nil)
+			err = dryRunCreate(restClient, resource, namespace, vm, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually created")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			_, err = virtClient.VirtualMachine(namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7632]delete a VirtualMachine", func() {
 			By("Create a VirtualMachine")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a Virtual Machine")
@@ -173,50 +178,50 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &opts)
+			err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually deleted")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:7633]update a VirtualMachine", func() {
 			By("Create a VirtualMachine")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a Virtual Machine")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				vm.Labels = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, vm.Name, vm.Namespace, vm, nil)
+				return dryRunUpdate(restClient, resource, vm.Name, vm.Namespace, vm, nil)
 			})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Labels["key"]).ToNot(Equal("42"))
 		})
 
 		It("[test_id:7634]patch a VirtualMachine", func() {
 			By("Create a VirtualMachine")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a Virtual Machine")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, vm.Name, vm.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, vm.Name, vm.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Labels["key"]).ToNot(Equal("42"))
 		})
@@ -227,25 +232,28 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		resource := "virtualmachineinstancemigrations"
 
 		BeforeEach(func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmim = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			vmim = libmigration.New(vmi.Name, vmi.Namespace)
 		})
 
 		It("[test_id:7635]create a migration", func() {
 			By("Make a Dry-Run request to create a Migration")
-			err = tests.DryRunCreate(restClient, resource, vmim.Namespace, vmim, vmim)
+			err = dryRunCreate(restClient, resource, vmim.Namespace, vmim, vmim)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no migration was actually created")
-			_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(context.Background(), vmim.Name, metav1.GetOptions{})
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7636]delete a migration", func() {
 			By("Create a migration")
-			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &metav1.CreateOptions{})
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(context.Background(), vmim, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a Migration")
@@ -254,52 +262,52 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Delete(vmim.Name, &opts)
+			err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Delete(context.Background(), vmim.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no migration was actually deleted")
-			_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(context.Background(), vmim.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:7637]update a migration", func() {
 			By("Create a migration")
-			vmim, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &metav1.CreateOptions{})
+			vmim, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(context.Background(), vmim, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update the migration")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+				vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(context.Background(), vmim.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				vmim.Annotations = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, vmim.Name, vmim.Namespace, vmim, nil)
+				return dryRunUpdate(restClient, resource, vmim.Name, vmim.Namespace, vmim, nil)
 
 			})
 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(context.Background(), vmim.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmim.Annotations["key"]).ToNot(Equal("42"))
 		})
 
 		It("[test_id:7638]patch a migration", func() {
 			By("Create a migration")
-			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &metav1.CreateOptions{})
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(context.Background(), vmim, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch the migration")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, vmim.Name, vmim.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, vmim.Name, vmim.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(context.Background(), vmim.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmim.Labels["key"]).ToNot(Equal("42"))
 		})
@@ -317,17 +325,17 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7639]create a VMI preset", func() {
 			By("Make a Dry-Run request to create a VMI preset")
-			err = tests.DryRunCreate(restClient, resource, preset.Namespace, preset, nil)
+			err = dryRunCreate(restClient, resource, preset.Namespace, preset, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI preset was actually created")
-			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(context.Background(), preset.Name, metav1.GetOptions{})
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7640]delete a VMI preset", func() {
 			By("Create a VMI preset")
-			_, err := virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			_, err := virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a VMI preset")
@@ -336,22 +344,22 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Delete(preset.Name, &opts)
+			err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Delete(context.Background(), preset.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI preset was actually deleted")
-			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(context.Background(), preset.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:7641]update a VMI preset", func() {
 			By("Create a VMI preset")
-			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a VMI preset")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+				preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(context.Background(), preset.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -359,28 +367,28 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				preset.Labels = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, preset.Name, preset.Namespace, preset, nil)
+				return dryRunUpdate(restClient, resource, preset.Name, preset.Namespace, preset, nil)
 			})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(context.Background(), preset.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preset.Labels["key"]).ToNot(Equal("42"))
 		})
 
 		It("[test_id:7642]patch a VMI preset", func() {
 			By("Create a VMI preset")
-			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a VMI preset")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, preset.Name, preset.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, preset.Name, preset.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(context.Background(), preset.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preset.Labels["key"]).ToNot(Equal("42"))
 		})
@@ -396,17 +404,17 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7643]create a VMI replicaset", func() {
 			By("Make a Dry-Run request to create a VMI replicaset")
-			err = tests.DryRunCreate(restClient, resource, vmirs.Namespace, vmirs, nil)
+			err = dryRunCreate(restClient, resource, vmirs.Namespace, vmirs, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI replicaset was actually created")
-			_, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			_, err = virtClient.ReplicaSet(vmirs.Namespace).Get(context.Background(), vmirs.Name, metav1.GetOptions{})
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7644]delete a VMI replicaset", func() {
 			By("Create a VMI replicaset")
-			_, err := virtClient.ReplicaSet(vmirs.Namespace).Create(vmirs)
+			_, err := virtClient.ReplicaSet(vmirs.Namespace).Create(context.Background(), vmirs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a VMI replicaset")
@@ -415,22 +423,22 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.ReplicaSet(vmirs.Namespace).Delete(vmirs.Name, &opts)
+			err = virtClient.ReplicaSet(vmirs.Namespace).Delete(context.Background(), vmirs.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI replicaset was actually deleted")
-			_, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+			_, err = virtClient.ReplicaSet(vmirs.Namespace).Get(context.Background(), vmirs.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:7645]update a VMI replicaset", func() {
 			By("Create a VMI replicaset")
-			_, err = virtClient.ReplicaSet(vmirs.Namespace).Create(vmirs)
+			_, err = virtClient.ReplicaSet(vmirs.Namespace).Create(context.Background(), vmirs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a VMI replicaset")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+				vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(context.Background(), vmirs.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -438,28 +446,28 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				vmirs.Labels = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, vmirs.Name, vmirs.Namespace, vmirs, nil)
+				return dryRunUpdate(restClient, resource, vmirs.Name, vmirs.Namespace, vmirs, nil)
 			})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(context.Background(), vmirs.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmirs.Labels["key"]).ToNot(Equal("42"))
 		})
 
 		It("[test_id:7646]patch a VMI replicaset", func() {
 			By("Create a VMI replicaset")
-			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Create(vmirs)
+			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Create(context.Background(), vmirs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a VMI replicaset")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, vmirs.Name, vmirs.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, vmirs.Name, vmirs.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(context.Background(), vmirs.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmirs.Labels["key"]).ToNot(Equal("42"))
 		})
@@ -470,49 +478,28 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		resource := "kubevirts"
 
 		BeforeEach(func() {
-			kv = util.GetCurrentKv(virtClient)
+			kv = libkubevirt.GetCurrentKv(virtClient)
 		})
 
-		copyKV := func(kv *v1.KubeVirt) *v1.KubeVirt {
-			var kvCopy v1.KubeVirt
-
-			kvCopy.ObjectMeta = *kv.ObjectMeta.DeepCopy()
-			kvCopy.Spec = *kv.Spec.DeepCopy()
-			return &kvCopy
-		}
-
-		It("[test_id:7647]create a KubeVirt CR", func() {
-			kvCopy := copyKV(kv)
-			kvCopy.Name = "test-kubevirt-cr"
-
-			By("Make a Dry-Run request to create a KubeVirt CR")
-			err = tests.DryRunCreate(restClient, resource, kvCopy.Namespace, kvCopy, nil)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Check that no KubeVirt CR was actually created")
-			_, err = virtClient.KubeVirt(kvCopy.Namespace).Get(kvCopy.Name, &metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
-		})
-
-		It("[Serial][test_id:7648]delete a KubeVirt CR", Serial, func() {
+		It("[test_id:7648]delete a KubeVirt CR", Serial, func() {
 			By("Make a Dry-Run request to delete a KubeVirt CR")
 			deletePolicy := metav1.DeletePropagationForeground
 			opts := metav1.DeleteOptions{
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.KubeVirt(kv.Namespace).Delete(kv.Name, &opts)
+			err = virtClient.KubeVirt(kv.Namespace).Delete(context.Background(), kv.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no KubeVirt CR was actually deleted")
-			_, err = virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+			_, err = virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:7649]update a KubeVirt CR", func() {
 			By("Make a Dry-Run request to update a KubeVirt CR")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				kv, err = virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+				kv, err = virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -520,12 +507,12 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				kv.Labels = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, kv.Name, kv.Namespace, kv, nil)
+				return dryRunUpdate(restClient, resource, kv.Name, kv.Namespace, kv, nil)
 			})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			kv, err = virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+			kv, err = virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.Labels["key"]).ToNot(Equal("42"))
 		})
@@ -533,26 +520,23 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		It("[test_id:7650]patch a KubeVirt CR", func() {
 			By("Make a Dry-Run request to patch a KubeVirt CR")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, kv.Name, kv.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, kv.Name, kv.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			kv, err = virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+			kv, err = virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.Labels["key"]).ToNot(Equal("42"))
 		})
 	})
 
 	Context("VM Snapshots", func() {
-		var snap *v1alpha1.VirtualMachineSnapshot
+		var snap *snapshotv1.VirtualMachineSnapshot
 
 		BeforeEach(func() {
-			tests.EnableFeatureGate(virtconfig.SnapshotGate)
-
-			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
-			vm := tests.NewRandomVirtualMachine(vmi, false)
-			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			config.EnableFeatureGate(featuregate.SnapshotGate)
+			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			snap = newVMSnapshot(vm)
@@ -566,7 +550,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Check that no VM Snapshot was actually created")
 			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Get(context.Background(), snap.Name, metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7652]delete a VM Snapshot", func() {
@@ -594,20 +578,11 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a VM Snapshot")
-			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				snap, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Get(context.Background(), snap.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-
-				snap.Labels = map[string]string{
-					"key": "42",
-				}
-
-				opts := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
-				_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Update(context.Background(), snap, opts)
-				return err
-			})
+			snap, err := virtClient.VirtualMachineSnapshot(snap.Namespace).Get(context.Background(), snap.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			patch := []byte(`{"metadata":{"labels":{"key":"42"}}}`)
+			opts := metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}}
+			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Patch(context.Background(), snap.Name, types.MergePatchType, patch, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
@@ -635,15 +610,13 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 	})
 
 	Context("VM Restores", func() {
-		var restore *v1alpha1.VirtualMachineRestore
+		var restore *snapshotv1.VirtualMachineRestore
 
 		BeforeEach(func() {
-			tests.EnableFeatureGate(virtconfig.SnapshotGate)
+			config.EnableFeatureGate(featuregate.SnapshotGate)
 
-			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
-			vm := tests.NewRandomVirtualMachine(vmi, false)
-			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			snap := newVMSnapshot(vm)
@@ -662,7 +635,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Check that no VM Restore was actually created")
 			_, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7656]delete a VM Restore", func() {
@@ -690,20 +663,12 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a VM Restore")
-			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
+			restore, err := virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				restore.Labels = map[string]string{
-					"key": "42",
-				}
-
-				opts := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
-				_, err = virtClient.VirtualMachineRestore(restore.Namespace).Update(context.Background(), restore, opts)
-				return err
-			})
+			patch := []byte(`{"metadata":{"labels":{"key":"42"}}}`)
+			opts := metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}}
+			_, err = virtClient.VirtualMachineRestore(restore.Namespace).Patch(context.Background(), restore.Name, types.MergePatchType, patch, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
@@ -755,7 +720,10 @@ func newVMIPreset(name, labelKey, labelValue string) *v1.VirtualMachineInstanceP
 }
 
 func newVMIReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+	vmi := libvmifact.NewAlpine(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
 
 	return &v1.VirtualMachineInstanceReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -780,15 +748,15 @@ func newVMIReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
 	}
 }
 
-func newVMSnapshot(vm *v1.VirtualMachine) *v1alpha1.VirtualMachineSnapshot {
+func newVMSnapshot(vm *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
 	group := vm.GroupVersionKind().Group
 
-	return &v1alpha1.VirtualMachineSnapshot{
+	return &snapshotv1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vm.Name + "-snapshot",
 			Namespace: testsuite.GetTestNamespace(vm),
 		},
-		Spec: v1alpha1.VirtualMachineSnapshotSpec{
+		Spec: snapshotv1.VirtualMachineSnapshotSpec{
 			Source: corev1.TypedLocalObjectReference{
 				APIGroup: &group,
 				Kind:     vm.GroupVersionKind().Kind,
@@ -798,15 +766,15 @@ func newVMSnapshot(vm *v1.VirtualMachine) *v1alpha1.VirtualMachineSnapshot {
 	}
 }
 
-func newVMRestore(vm *v1.VirtualMachine, snapshot *v1alpha1.VirtualMachineSnapshot) *v1alpha1.VirtualMachineRestore {
+func newVMRestore(vm *v1.VirtualMachine, snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineRestore {
 	group := vm.GroupVersionKind().Group
 
-	return &v1alpha1.VirtualMachineRestore{
+	return &snapshotv1.VirtualMachineRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vm.Name + "-restore",
 			Namespace: testsuite.GetTestNamespace(vm),
 		},
-		Spec: v1alpha1.VirtualMachineRestoreSpec{
+		Spec: snapshotv1.VirtualMachineRestoreSpec{
 			Target: corev1.TypedLocalObjectReference{
 				APIGroup: &group,
 				Kind:     vm.GroupVersionKind().Kind,
@@ -817,11 +785,46 @@ func newVMRestore(vm *v1.VirtualMachine, snapshot *v1alpha1.VirtualMachineSnapsh
 	}
 }
 
-func waitForSnapshotToBeReady(virtClient kubecli.KubevirtClient, snapshot *v1alpha1.VirtualMachineSnapshot, timeoutSec int) {
+func waitForSnapshotToBeReady(virtClient kubecli.KubevirtClient, snapshot *snapshotv1.VirtualMachineSnapshot, timeoutSec int) {
 	By(fmt.Sprintf("Waiting for snapshot %s to be ready to use", snapshot.Name))
 	EventuallyWithOffset(1, func() bool {
 		updatedSnap, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return updatedSnap.Status != nil && updatedSnap.Status.ReadyToUse != nil && *updatedSnap.Status.ReadyToUse
 	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeTrue(), "Should be ready to use")
+}
+
+func dryRunCreate(client *rest.RESTClient, resource, namespace string, obj interface{}, result runtime.Object) error {
+	opts := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
+	return client.Post().
+		Namespace(namespace).
+		Resource(resource).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(obj).
+		Do(context.Background()).
+		Into(result)
+}
+
+func dryRunUpdate(client *rest.RESTClient, resource, name, namespace string, obj interface{}, result runtime.Object) error {
+	opts := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
+	return client.Put().
+		Name(name).
+		Namespace(namespace).
+		Resource(resource).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(obj).
+		Do(context.Background()).
+		Into(result)
+}
+
+func dryRunPatch(client *rest.RESTClient, resource, name, namespace string, pt types.PatchType, data []byte, result runtime.Object) error {
+	opts := metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}}
+	return client.Patch(pt).
+		Name(name).
+		Namespace(namespace).
+		Resource(resource).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(data).
+		Do(context.Background()).
+		Into(result)
 }

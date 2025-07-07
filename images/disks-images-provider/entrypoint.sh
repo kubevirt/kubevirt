@@ -28,20 +28,25 @@ mkdir -p /images/datavolume1 /images/datavolume2 /images/datavolume3
 echo "copy all images to host mount directory"
 cp -R /images/* /hostImages/
 echo "make the alpine image ready for parallel use"
-cp -r /hostImages/alpine hostImages/alpine1
-cp -r /hostImages/alpine hostImages/alpine2
-cp -r /hostImages/alpine hostImages/alpine3
+for ((n = 1; n <= $(($NUM_TEST_IMAGE_REPLICAS)); n++)); do
+    cp -r /hostImages/alpine hostImages/alpine${n}
+    cp -r /hostImages/alpine hostImages/alpine-nopriv${n}
+done
 rm -rf /hostImages/alpine
 mkdir -p /local-storage/hotplug-test
 cp -r /hostImages/custom/disk.img /local-storage/hotplug-test/disk.img
 chmod -R 777 /local-storage/hotplug-test
 
 echo "make the custom image ready for parallel use"
-cp -r /hostImages/custom hostImages/custom1
-cp -r /hostImages/custom hostImages/custom2
-cp -r /hostImages/custom hostImages/custom3
+for ((n = 1; n <= $(($NUM_TEST_IMAGE_REPLICAS)); n++)); do
+    cp -r /hostImages/custom hostImages/custom${n}
+done
 rm -rf /hostImages/custom
 chmod -R 777 /hostImages
+for ((n = 1; n <= $(($NUM_TEST_IMAGE_REPLICAS)); n++)); do
+    chmod 640 /hostImages/alpine-nopriv${n}/disk.img
+    chown root:root /hostImages/alpine-nopriv${n}/disk.img
+done
 
 # Create a 4Gi blank disk image
 dd if=/dev/zero of=/local-storage/hp_file.img bs=4k count=1024k

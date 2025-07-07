@@ -1,20 +1,6 @@
 load("@rules_proto//proto:defs.bzl", "proto_library")
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-
-proto_library(
-    name = "kubevirt_cmd_proto",
-    srcs = ["cmd.proto"],
-    visibility = ["//visibility:public"],
-)
-
-go_proto_library(
-    name = "kubevirt_cmd_go_proto",
-    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
-    importpath = "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1",
-    proto = ":v1_proto",
-    visibility = ["//visibility:public"],
-)
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -22,7 +8,7 @@ go_library(
         "generated_mock_cmd.go",
         "version.go",
     ],
-    embed = [":kubevirt_cmd_go_proto"],
+    embed = [":v1_go_proto"],
     importpath = "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1",
     visibility = ["//visibility:public"],
     deps = [
@@ -38,8 +24,10 @@ proto_library(
     visibility = ["//visibility:public"],
 )
 
-proto_library(
-    name = "kubevirt_cmd_v1_proto",
-    srcs = ["cmd.proto"],
+go_proto_library(
+    name = "v1_go_proto",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1",
+    proto = ":v1_proto",
     visibility = ["//visibility:public"],
 )

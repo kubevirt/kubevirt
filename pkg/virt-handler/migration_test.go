@@ -20,70 +20,20 @@
 package virthandler
 
 import (
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 const (
-	originalIP  = "1.1.1.1"
-	migrationIP = "2.2.2.2"
-
-	mainNetwork = `{
-    "name": "k8s-pod-network",
-    "ips": [
-        "` + originalIP + `"
-    ],
-    "default": true,
-    "dns": {}
-}`
-
-	migrationNetwork = `{
-    "name": "migration-bridge",
-    "interface": "migration0",
-    "ips": [
-        "` + migrationIP + `"
-    ],
-    "mac": "ae:33:70:a7:3a:8c",
-    "dns": {}
-}`
+	originalIP = "1.1.1.1"
 )
 
 var _ = Describe("virt-handler", func() {
 	Context("findMigrationIp", func() {
-		It("Should error on missing file", func() {
-			_, err := FindMigrationIP("/not-a-real-file", originalIP)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to read network status from downwards API"))
-		})
-		It("Should handle the empty file case", func() {
-			file, err := os.CreateTemp("", "test")
-			Expect(err).ToNot(HaveOccurred())
-			defer os.Remove(file.Name())
-			newIP, err := FindMigrationIP(file.Name(), originalIP)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(newIP).To(Equal(originalIP))
-		})
-		It("Should return the original IP if migration0 doesn't exist", func() {
-			file, err := os.CreateTemp("", "test")
-			Expect(err).ToNot(HaveOccurred())
-			defer os.Remove(file.Name())
-			err = os.WriteFile(file.Name(), []byte(`[`+mainNetwork+`]`), 0644)
-			Expect(err).ToNot(HaveOccurred())
-			newIP, err := FindMigrationIP(file.Name(), originalIP)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(newIP).To(Equal(originalIP))
-		})
-		It("Should return the migration IP if migration0 exists", func() {
-			file, err := os.CreateTemp("", "test")
-			Expect(err).ToNot(HaveOccurred())
-			defer os.Remove(file.Name())
-			err = os.WriteFile(file.Name(), []byte(`[`+mainNetwork+`,`+migrationNetwork+`]`), 0644)
-			Expect(err).ToNot(HaveOccurred())
-			newIP, err := FindMigrationIP(file.Name(), originalIP)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(newIP).To(Equal(migrationIP))
+		It("Should return the IP passed to it when no migration0 interface exists", func() {
+			newIp, err := FindMigrationIP(originalIP)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(newIp).To(Equal(originalIP))
 		})
 	})
 })

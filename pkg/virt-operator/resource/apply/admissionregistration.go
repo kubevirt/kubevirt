@@ -2,18 +2,20 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
 func (r *Reconciler) createOrUpdateValidatingWebhookConfigurations(caBundle []byte) error {
@@ -80,13 +82,13 @@ func convertV1beta1MutatingWebhookToV1(from *admissionregistrationv1beta1.Mutati
 	return webhookv1, nil
 }
 
-func (r *Reconciler) patchValidatingWebhookConfiguration(webhook *admissionregistrationv1.ValidatingWebhookConfiguration, ops []string) (patchedWebhook *admissionregistrationv1.ValidatingWebhookConfiguration, err error) {
+func (r *Reconciler) patchValidatingWebhookConfiguration(webhook *admissionregistrationv1.ValidatingWebhookConfiguration, patchBytes []byte) (patchedWebhook *admissionregistrationv1.ValidatingWebhookConfiguration, err error) {
 	switch webhook.APIVersion {
 	case admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1.SchemeGroupVersion.String():
-		patchedWebhook, err = r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+		patchedWebhook, err = r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	case admissionregistrationv1beta1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.String():
 		var out *admissionregistrationv1beta1.ValidatingWebhookConfiguration
-		out, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+		out, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			return
 		}
@@ -118,13 +120,13 @@ func (r *Reconciler) createValidatingWebhookConfiguration(webhook *admissionregi
 	return
 }
 
-func (r *Reconciler) patchMutatingWebhookConfiguration(webhook *admissionregistrationv1.MutatingWebhookConfiguration, ops []string) (patchedWebhook *admissionregistrationv1.MutatingWebhookConfiguration, err error) {
+func (r *Reconciler) patchMutatingWebhookConfiguration(webhook *admissionregistrationv1.MutatingWebhookConfiguration, patchBytes []byte) (patchedWebhook *admissionregistrationv1.MutatingWebhookConfiguration, err error) {
 	switch webhook.APIVersion {
 	case admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1.SchemeGroupVersion.String():
-		patchedWebhook, err = r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+		patchedWebhook, err = r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	case admissionregistrationv1beta1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.String():
 		var out *admissionregistrationv1beta1.MutatingWebhookConfiguration
-		out, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+		out, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			return
 		}
@@ -219,27 +221,11 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 	}
 
 	// Patch if old version
-	ops := []string{
-		fmt.Sprintf(testGenerationJSONPatchTemplate, cachedWebhook.ObjectMeta.Generation),
-	}
-
-	// Add Labels and Annotations Patches
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
+	patchBytes, err := generateWebhooksPatch(cachedWebhook.ObjectMeta.Generation, webhook.ObjectMeta, webhook.Webhooks)
 	if err != nil {
 		return err
 	}
-
-	ops = append(ops, labelAnnotationPatch...)
-
-	// Add Spec Patch
-	webhooks, err := json.Marshal(webhook.Webhooks)
-	if err != nil {
-		return err
-	}
-
-	ops = append(ops, fmt.Sprintf(replaceWebhooksValueTemplate, string(webhooks)))
-
-	webhook, err = r.patchValidatingWebhookConfiguration(webhook, ops)
+	webhook, err = r.patchValidatingWebhookConfiguration(webhook, patchBytes)
 	if err != nil {
 		return fmt.Errorf("unable to update validatingwebhookconfiguration %+v: %v", webhook, err)
 	}
@@ -259,6 +245,13 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfigurations(caBundle []byte
 	}
 
 	return nil
+}
+
+func generateWebhooksPatch(generation int64, metaData metav1.ObjectMeta, webhooks interface{}) ([]byte, error) {
+	patchSet := patch.New(patch.WithTest("/metadata/generation", generation))
+	patchSet.AddOption(createLabelsAndAnnotationsPatch(&metaData)...)
+	patchSet.AddOption(patch.WithReplace("/webhooks", webhooks))
+	return patchSet.GeneratePayload()
 }
 
 func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissionregistrationv1.MutatingWebhookConfiguration, caBundle []byte) error {
@@ -323,27 +316,11 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 		return nil
 	}
 
-	// Patch if old version
-	ops := []string{
-		fmt.Sprintf(testGenerationJSONPatchTemplate, cachedWebhook.ObjectMeta.Generation),
-	}
-
-	// Add Labels and Annotations Patches
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
+	patchBytes, err := generateWebhooksPatch(cachedWebhook.ObjectMeta.Generation, webhook.ObjectMeta, webhook.Webhooks)
 	if err != nil {
 		return err
 	}
-	ops = append(ops, labelAnnotationPatch...)
-
-	// Add Spec Patch
-	webhooks, err := json.Marshal(webhook.Webhooks)
-	if err != nil {
-		return err
-	}
-
-	ops = append(ops, fmt.Sprintf(replaceWebhooksValueTemplate, string(webhooks)))
-
-	webhook, err = r.patchMutatingWebhookConfiguration(webhook, ops)
+	webhook, err = r.patchMutatingWebhookConfiguration(webhook, patchBytes)
 	if err != nil {
 		return fmt.Errorf("unable to update mutatingwebhookconfiguration %+v: %v", webhook, err)
 	}
@@ -351,5 +328,129 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 	SetGeneration(&r.kv.Status.Generations, webhook)
 	log.Log.V(2).Infof("mutatingwebhoookconfiguration %v updated", webhook.Name)
 
+	return nil
+}
+
+func (r *Reconciler) createOrUpdateValidatingAdmissionPolicyBindings() error {
+	if !r.config.ValidatingAdmissionPolicyBindingEnabled {
+		return nil
+	}
+
+	for _, validatingAdmissionPolicyBinding := range r.targetStrategy.ValidatingAdmissionPolicyBindings() {
+		err := r.createOrUpdateValidatingAdmissionPolicyBinding(validatingAdmissionPolicyBinding.DeepCopy())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Reconciler) createOrUpdateValidatingAdmissionPolicyBinding(validatingAdmissionPolicyBinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding) error {
+	admissionRegistrationV1 := r.clientset.AdmissionregistrationV1()
+	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+
+	injectOperatorMetadata(r.kv, &validatingAdmissionPolicyBinding.ObjectMeta, version, imageRegistry, id, true)
+
+	obj, exists, _ := r.stores.ValidatingAdmissionPolicyBindingCache.Get(validatingAdmissionPolicyBinding)
+
+	if !exists {
+		r.expectations.ValidatingAdmissionPolicyBinding.RaiseExpectations(r.kvKey, 1, 0)
+		_, err := admissionRegistrationV1.ValidatingAdmissionPolicyBindings().Create(context.Background(), validatingAdmissionPolicyBinding, metav1.CreateOptions{})
+		if err != nil {
+			r.expectations.ValidatingAdmissionPolicyBinding.LowerExpectations(r.kvKey, 1, 0)
+			return fmt.Errorf("unable to create validatingAdmissionPolicyBinding %+v: %v", validatingAdmissionPolicyBinding, err)
+		}
+
+		return nil
+	}
+
+	cachedValidatingAdmissionPolicyBinding := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
+
+	patchSet := patch.New()
+	patchSet.AddOption(getObjectMetaPatch(validatingAdmissionPolicyBinding.ObjectMeta,
+		cachedValidatingAdmissionPolicyBinding.ObjectMeta)...)
+
+	if !equality.Semantic.DeepEqual(cachedValidatingAdmissionPolicyBinding.Spec, validatingAdmissionPolicyBinding.Spec) {
+		patchSet.AddOption(patch.WithReplace("/spec", validatingAdmissionPolicyBinding.Spec))
+	}
+	if patchSet.IsEmpty() {
+		log.Log.V(4).Infof("validatingAdmissionPolicyBinding %v is up-to-date", validatingAdmissionPolicyBinding.GetName())
+		return nil
+	}
+	p, err := patchSet.GeneratePayload()
+	if err != nil {
+		return fmt.Errorf("unable to generate validatingAdmissionPolicyBinding patch operations for %+v: %v", validatingAdmissionPolicyBinding, err)
+	}
+
+	_, err = admissionRegistrationV1.ValidatingAdmissionPolicyBindings().Patch(context.Background(),
+		validatingAdmissionPolicyBinding.Name,
+		types.JSONPatchType,
+		p,
+		metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch validatingAdmissionPolicyBinding %+v: %v", validatingAdmissionPolicyBinding, err)
+	}
+
+	log.Log.V(2).Infof("validatingAdmissionPolicyBinding %v patched", validatingAdmissionPolicyBinding.GetName())
+	return nil
+}
+
+func (r *Reconciler) createOrUpdateValidatingAdmissionPolicies() error {
+	if !r.config.ValidatingAdmissionPolicyEnabled {
+		return nil
+	}
+
+	for _, validatingAdmissionPolicy := range r.targetStrategy.ValidatingAdmissionPolicies() {
+		err := r.createOrUpdateValidatingAdmissionPolicy(validatingAdmissionPolicy.DeepCopy())
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *Reconciler) createOrUpdateValidatingAdmissionPolicy(validatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy) error {
+	admissionRegistrationV1 := r.clientset.AdmissionregistrationV1()
+	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+
+	injectOperatorMetadata(r.kv, &validatingAdmissionPolicy.ObjectMeta, version, imageRegistry, id, true)
+
+	obj, exists, _ := r.stores.ValidatingAdmissionPolicyCache.Get(validatingAdmissionPolicy)
+
+	if !exists {
+		r.expectations.ValidatingAdmissionPolicy.RaiseExpectations(r.kvKey, 1, 0)
+		_, err := admissionRegistrationV1.ValidatingAdmissionPolicies().Create(context.Background(), validatingAdmissionPolicy, metav1.CreateOptions{})
+		if err != nil {
+			r.expectations.ValidatingAdmissionPolicy.LowerExpectations(r.kvKey, 1, 0)
+			return fmt.Errorf("unable to create validatingAdmissionPolicy %+v: %v", validatingAdmissionPolicy, err)
+		}
+
+		return nil
+	}
+
+	cachedValidatingAdmissionPolicy := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy)
+
+	patchSet := patch.New()
+	patchSet.AddOption(getObjectMetaPatch(validatingAdmissionPolicy.ObjectMeta, cachedValidatingAdmissionPolicy.ObjectMeta)...)
+
+	if !equality.Semantic.DeepEqual(cachedValidatingAdmissionPolicy.Spec, validatingAdmissionPolicy.Spec) {
+		patchSet.AddOption(patch.WithReplace("/spec", validatingAdmissionPolicy.Spec))
+	}
+	if patchSet.IsEmpty() {
+		log.Log.V(4).Infof("validatingAdmissionPolicyBinding %v is up-to-date", validatingAdmissionPolicy.GetName())
+		return nil
+	}
+	p, err := patchSet.GeneratePayload()
+	if err != nil {
+		return fmt.Errorf("unable to generate validatingAdmissionPolicy patch operations for %+v: %v", validatingAdmissionPolicy, err)
+	}
+
+	_, err = admissionRegistrationV1.ValidatingAdmissionPolicies().Patch(context.Background(), validatingAdmissionPolicy.Name, types.JSONPatchType, p, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch validatingAdmissionPolicy %+v: %v", validatingAdmissionPolicy, err)
+	}
+
+	log.Log.V(2).Infof("validatingAdmissionPolicy %v patched", validatingAdmissionPolicy.GetName())
 	return nil
 }

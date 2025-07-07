@@ -128,6 +128,37 @@ var _ = Describe("Operator Config", func() {
 			true),
 	)
 
+	It("should be able to extract shasum from image names", func() {
+		envVarManager.Setenv(VirtOperatorImageEnvName,
+			"acme.com/kubevirt/virt-operator@sha256:virt-operator-sha")
+		envVarManager.Setenv(VirtApiImageEnvName,
+			"acme.com/kubevirt/virt-api@sha256:virt-api-sha")
+		envVarManager.Setenv(VirtControllerImageEnvName,
+			"acme.com/kubevirt/virt-controller@sha256:virt-controller-sha")
+		envVarManager.Setenv(VirtHandlerImageEnvName,
+			"acme.com/kubevirt/virt-handler@sha256:virt-handler-sha")
+		envVarManager.Setenv(VirtLauncherImageEnvName,
+			"acme.com/kubevirt/virt-launcher@sha256:virt-launcher-sha")
+		envVarManager.Setenv(VirtExportProxyImageEnvName,
+			"acme.com/kubevirt/virt-exportproxy@sha256:virt-exportproxy-sha")
+		envVarManager.Setenv(VirtExportServerImageEnvName,
+			"acme.com/kubevirt/virt-exportserver@sha256:virt-exportserver-sha")
+
+		err := VerifyEnv()
+		Expect(err).ToNot(HaveOccurred())
+
+		parsedConfig, err := GetConfigFromEnv()
+		Expect(err).ToNot(HaveOccurred())
+		Expect("virt-operator-sha").To(Equal(parsedConfig.GetOperatorVersion()))
+		Expect("virt-api-sha").To(Equal(parsedConfig.GetApiVersion()))
+		Expect("virt-controller-sha").To(Equal(parsedConfig.GetControllerVersion()))
+		Expect("virt-handler-sha").To(Equal(parsedConfig.GetHandlerVersion()))
+		Expect("virt-launcher-sha").To(Equal(parsedConfig.GetLauncherVersion()))
+		Expect("virt-exportproxy-sha").To(Equal(parsedConfig.GetExportProxyVersion()))
+		Expect("virt-exportserver-sha").To(Equal(parsedConfig.GetExportServerVersion()))
+
+	})
+
 	Describe("GetPassthroughEnv()", func() {
 		It("should eturn environment variables matching the passthrough prefix (and only those vars)", func() {
 			realKey := rand.String(10)
@@ -369,5 +400,70 @@ var _ = Describe("Operator Config", func() {
 			Entry(fmt.Sprintf("provided via old %s env variable - expected to pass", OldOperatorImageEnvName), OldOperatorImageEnvName, true),
 			Entry("not provided at all - expected to fail", "", false),
 		)
+	})
+
+	Context("kubevirt version", func() {
+		type testInput struct {
+			imageName         string
+			kubevirtVerEnvVar string
+			version           string
+		}
+
+		BeforeEach(func() {
+			ExpectWithOffset(1, envVarManager.Unsetenv(KubeVirtVersionEnvName)).To(Succeed())
+			ExpectWithOffset(1, envVarManager.Unsetenv(VirtOperatorImageEnvName)).To(Succeed())
+		})
+
+		DescribeTable("is read from", func(input *testInput) {
+			Expect(envVarManager.Setenv(VirtOperatorImageEnvName, input.imageName)).To(Succeed())
+
+			if input.kubevirtVerEnvVar != "" {
+				Expect(envVarManager.Setenv(KubeVirtVersionEnvName, input.kubevirtVerEnvVar)).To(Succeed())
+			}
+
+			err := VerifyEnv()
+			Expect(err).ToNot(HaveOccurred())
+
+			parsedConfig, err := GetConfigFromEnv()
+			Expect(err).ToNot(HaveOccurred())
+
+			kubevirtVersion := parsedConfig.GetKubeVirtVersion()
+			Expect(kubevirtVersion).To(Equal(input.version))
+
+		},
+			Entry("virt-operator image tag when both KUBEVIRT_VERSION is set and virt-operator provided with tag",
+				&testInput{
+					kubevirtVerEnvVar: "v3.0.0-env.var",
+					imageName:         "acme.com/kubevirt/my-virt-operator:v3.0.0",
+					version:           "v3.0.0",
+				}),
+
+			Entry("KUBEVIRT_VERSION variable when virt-operator provided with digest",
+				&testInput{
+					kubevirtVerEnvVar: "v3.0.0",
+					imageName:         "acme.com/kubevirt/my-virt-operator@sha256:trivebuk",
+					version:           "v3.0.0",
+				}),
+			Entry("operator tag when no KUBEVIRT_VERSION provided and operator image is with a tag",
+				&testInput{
+					imageName: "acme.com/kubevirt/my-virt-operator:v3.0.0",
+					version:   "v3.0.0",
+				}),
+			Entry("hardcoded \"latest\" string when no KUBEVIRT_VERSION provided and operator image is with a digest",
+				&testInput{
+					version:   "latest",
+					imageName: "acme.com/kubevirt/my-virt-operator@sha256:trivebuk",
+				}),
+			Entry("KUBEVIRT_VERSION variable when virt-operator image name is corrupted",
+				&testInput{
+					kubevirtVerEnvVar: "v3.0.0",
+					imageName:         "blablabla",
+					version:           "v3.0.0",
+				}),
+			Entry("hardcoded \"latest\" string when no KUBEVIRT_VERSION provided and operator image is corrupted",
+				&testInput{
+					imageName: "blablabla",
+					version:   "latest",
+				}))
 	})
 })

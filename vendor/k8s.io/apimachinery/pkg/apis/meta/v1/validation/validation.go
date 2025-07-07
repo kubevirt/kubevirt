@@ -28,19 +28,50 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-func ValidateLabelSelector(ps *metav1.LabelSelector, fldPath *field.Path) field.ErrorList {
+// LabelSelectorValidationOptions is a struct that can be passed to ValidateLabelSelector to record the validate options
+type LabelSelectorValidationOptions struct {
+	// Allow invalid label value in selector
+	AllowInvalidLabelValueInSelector bool
+
+	// Allows an operator that is not interpretable to pass validation.  This is useful for cases where a broader check
+	// can be performed, as in a *SubjectAccessReview
+	AllowUnknownOperatorInRequirement bool
+}
+
+// LabelSelectorHasInvalidLabelValue returns true if the given selector contains an invalid label value in a match expression.
+// This is useful for determining whether AllowInvalidLabelValueInSelector should be set to true when validating an update
+// based on existing persisted invalid values.
+func LabelSelectorHasInvalidLabelValue(ps *metav1.LabelSelector) bool {
+	if ps == nil {
+		return false
+	}
+	for _, e := range ps.MatchExpressions {
+		for _, v := range e.Values {
+			if len(validation.IsValidLabelValue(v)) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ValidateLabelSelector validate the LabelSelector according to the opts and returns any validation errors.
+// opts.AllowInvalidLabelValueInSelector is only expected to be set to true when required for backwards compatibility with existing invalid data.
+func ValidateLabelSelector(ps *metav1.LabelSelector, opts LabelSelectorValidationOptions, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	if ps == nil {
 		return allErrs
 	}
 	allErrs = append(allErrs, ValidateLabels(ps.MatchLabels, fldPath.Child("matchLabels"))...)
 	for i, expr := range ps.MatchExpressions {
-		allErrs = append(allErrs, ValidateLabelSelectorRequirement(expr, fldPath.Child("matchExpressions").Index(i))...)
+		allErrs = append(allErrs, ValidateLabelSelectorRequirement(expr, opts, fldPath.Child("matchExpressions").Index(i))...)
 	}
 	return allErrs
 }
 
-func ValidateLabelSelectorRequirement(sr metav1.LabelSelectorRequirement, fldPath *field.Path) field.ErrorList {
+// ValidateLabelSelectorRequirement validate the requirement according to the opts and returns any validation errors.
+// opts.AllowInvalidLabelValueInSelector is only expected to be set to true when required for backwards compatibility with existing invalid data.
+func ValidateLabelSelectorRequirement(sr metav1.LabelSelectorRequirement, opts LabelSelectorValidationOptions, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	switch sr.Operator {
 	case metav1.LabelSelectorOpIn, metav1.LabelSelectorOpNotIn:
@@ -52,9 +83,18 @@ func ValidateLabelSelectorRequirement(sr metav1.LabelSelectorRequirement, fldPat
 			allErrs = append(allErrs, field.Forbidden(fldPath.Child("values"), "may not be specified when `operator` is 'Exists' or 'DoesNotExist'"))
 		}
 	default:
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("operator"), sr.Operator, "not a valid selector operator"))
+		if !opts.AllowUnknownOperatorInRequirement {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("operator"), sr.Operator, "not a valid selector operator"))
+		}
 	}
 	allErrs = append(allErrs, ValidateLabelName(sr.Key, fldPath.Child("key"))...)
+	if !opts.AllowInvalidLabelValueInSelector {
+		for valueIndex, value := range sr.Values {
+			for _, msg := range validation.IsValidLabelValue(value) {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("values").Index(valueIndex), value, msg))
+			}
+		}
+	}
 	return allErrs
 }
 
@@ -76,6 +116,39 @@ func ValidateLabels(labels map[string]string, fldPath *field.Path) field.ErrorLi
 			allErrs = append(allErrs, field.Invalid(fldPath, v, msg))
 		}
 	}
+	return allErrs
+}
+
+// FieldSelectorValidationOptions is a struct that can be passed to ValidateFieldSelectorRequirement to record the validate options
+type FieldSelectorValidationOptions struct {
+	// Allows an operator that is not interpretable to pass validation.  This is useful for cases where a broader check
+	// can be performed, as in a *SubjectAccessReview
+	AllowUnknownOperatorInRequirement bool
+}
+
+// ValidateLabelSelectorRequirement validates the requirement according to the opts and returns any validation errors.
+func ValidateFieldSelectorRequirement(requirement metav1.FieldSelectorRequirement, opts FieldSelectorValidationOptions, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if len(requirement.Key) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath.Child("key"), "must be specified"))
+	}
+
+	switch requirement.Operator {
+	case metav1.FieldSelectorOpIn, metav1.FieldSelectorOpNotIn:
+		if len(requirement.Values) == 0 {
+			allErrs = append(allErrs, field.Required(fldPath.Child("values"), "must be specified when `operator` is 'In' or 'NotIn'"))
+		}
+	case metav1.FieldSelectorOpExists, metav1.FieldSelectorOpDoesNotExist:
+		if len(requirement.Values) > 0 {
+			allErrs = append(allErrs, field.Forbidden(fldPath.Child("values"), "may not be specified when `operator` is 'Exists' or 'DoesNotExist'"))
+		}
+	default:
+		if !opts.AllowUnknownOperatorInRequirement {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("operator"), requirement.Operator, "not a valid selector operator"))
+		}
+	}
+
 	return allErrs
 }
 

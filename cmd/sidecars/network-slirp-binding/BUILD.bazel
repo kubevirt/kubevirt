@@ -1,0 +1,48 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//cmd/sidecars/network-slirp-binding/dns:go_default_library",
+        "//cmd/sidecars/network-slirp-binding/server:go_default_library",
+        "//pkg/hooks:go_default_library",
+        "//pkg/hooks/info:go_default_library",
+        "//pkg/hooks/v1alpha2:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "network-slirp-binding",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+
+container_image(
+    name = "version-container",
+    base = "//:passwd-image",
+    directory = "/",
+    files = ["//:get-version"],
+)
+
+container_image(
+    name = "network-slirp-binding-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = ":version-container",
+    directory = "/",
+    entrypoint = ["/network-slirp-binding"],
+    files = [":network-slirp-binding"],
+    visibility = ["//visibility:public"],
+)

@@ -70,6 +70,7 @@ const (
 	VendorSpecificInformationSubOption     raiSubOptionCode = 9   // RFC 4243
 	RelayAgentFlagsSubOption               raiSubOptionCode = 10  // RFC 5010
 	ServerIdentifierOverrideSubOption      raiSubOptionCode = 11  // RFC 5107
+	RelaySourcePortSubOption               raiSubOptionCode = 19  // RFC 8357
 	VirtualSubnetSelectionSubOption        raiSubOptionCode = 151 // RFC 6607
 	VirtualSubnetSelectionControlSubOption raiSubOptionCode = 152 // RFC 6607
 )
@@ -85,6 +86,7 @@ var raiSubOptionCodeToString = map[raiSubOptionCode]string{
 	VendorSpecificInformationSubOption:     "Vendor Specific Sub-option",
 	RelayAgentFlagsSubOption:               "Relay Agent Flags Sub-option",
 	ServerIdentifierOverrideSubOption:      "Server Identifier Override Sub-option",
+	RelaySourcePortSubOption:               "Relay Source Port Sub-option",
 	VirtualSubnetSelectionSubOption:        "Virtual Subnet Selection Sub-option",
 	VirtualSubnetSelectionControlSubOption: "Virtual Subnet Selection Control Sub-option",
 }

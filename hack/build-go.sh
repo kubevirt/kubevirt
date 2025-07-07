@@ -47,8 +47,11 @@ x86_64* | i?86_64* | amd64*)
 aarch64* | arm64*)
     ARCH="arm64"
     ;;
+s390x)
+    ARCH="s390x"
+    ;;
 *)
-    echo "invalid Arch, only support x86_64 and aarch64"
+    echo "invalid Arch, only support x86_64, aarch64 and s390x"
     exit 1
     ;;
 esac
@@ -59,18 +62,19 @@ if [ $# -eq 0 ]; then
     if [ "${target}" = "test" ]; then
         (
             # Ignoring container-disk-v2alpha since it is written in C, not in go
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" --ignore=container-disk-v2alpha ./cmd/...
+            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" --ignore=container-disk-v2alpha ./cmd/...
         )
         (
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race ./pkg/...
+            # Skip fuzz tests, as they are not part of regular unit testing
+            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" -race -skip FuzzAdmitter -timeout 15m ./pkg/...
         )
     else
         (
-            go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" ./pkg/...
-            GO111MODULE=off go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" ./staging/src/kubevirt.io/...
+            go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./pkg/...
+            GO111MODULE=off go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./staging/src/kubevirt.io/...
         )
         (
-            go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" ./tests/...
+            go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./tests/...
         )
     fi
 fi
@@ -93,7 +97,7 @@ if [ "${target}" = "install" ]; then
         if [ -z "$BIN_NAME" ] || [[ $BIN_NAME == *"container-disk"* ]]; then
             mkdir -p ${CMD_OUT_DIR}/container-disk-v2alpha
             cd cmd/container-disk-v2alpha
-            # the containerdisk bianry needs to be static, as it runs in a scratch container
+            # The containerdisk binary needs to be static, as it runs in a scratch container
             echo "building static binary container-disk"
             gcc -static -o ${CMD_OUT_DIR}/container-disk-v2alpha/container-disk main.c
         fi
@@ -103,7 +107,8 @@ fi
 for arg in $args; do
     if [ "${target}" = "test" ]; then
         (
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" ./$arg/...
+            # Skip fuzz tests, as they are not part of regular unit testing
+            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" -race -skip FuzzAdmitter -timeout 15m ./$arg/...
         )
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"
@@ -126,13 +131,24 @@ for arg in $args; do
             kubevirt::version::get_version_vars
             echo "$KUBEVIRT_GIT_VERSION" >${CMD_OUT_DIR}/${BIN_NAME}/.version
 
-            # build virtctl also for darwin and windows on amd64
-            if [ "${BIN_NAME}" = "virtctl" -a "${ARCH}" = "amd64" -a -z "${LINUX_ONLY}" ]; then
-                GOOS=darwin GOARCH=amd64 go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64 -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir darwin amd64)
-                GOOS=windows GOARCH=amd64 go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir windows amd64)
-                # Create symlinks to the latest binary of each architecture
-                (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCH_BASENAME}-darwin-amd64 ${BIN_NAME}-darwin)
-                (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCH_BASENAME}-windows-amd64.exe ${BIN_NAME}-windows.exe)
+            # build virtctl for all architectures if requested
+            if [ "${BIN_NAME}" = "virtctl" -a "${KUBEVIRT_RELEASE}" = "true" ]; then
+                for arch in amd64 arm64 s390x; do
+                    for os in linux darwin windows; do
+                        if [ "${os}" = "windows" ]; then
+                            extension=".exe"
+                        else
+                            extension=""
+                        fi
+                        if [ "${arch}" = "s390x" ] && [ "${os}" != "linux" ]; then
+                            continue
+                        fi
+
+                        GOOS=${os} GOARCH=${arch} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-${os}-${arch}${extension} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir ${os} ${arch})
+                        # Create symlinks to the latest binary
+                        (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCH_BASENAME}-${os}-${arch}${extension} ${BIN_NAME}-${os}-${arch}${extension})
+                    done
+                done
             fi
         )
     else

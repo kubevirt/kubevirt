@@ -23,13 +23,12 @@ func (op *optInterfaceID) ToBytes() []byte {
 }
 
 func (op *optInterfaceID) String() string {
-	return fmt.Sprintf("InterfaceID: %v", op.ID)
+	return fmt.Sprintf("%s: %v", op.Code(), op.ID)
 }
 
-// build an optInterfaceID structure from a sequence of bytes.
-// The input data does not include option code and length bytes.
-func parseOptInterfaceID(data []byte) (*optInterfaceID, error) {
-	var opt optInterfaceID
-	opt.ID = append([]byte(nil), data...)
-	return &opt, nil
+// FromBytes builds an optInterfaceID structure from a sequence of bytes. The
+// input data does not include option code and length bytes.
+func (op *optInterfaceID) FromBytes(data []byte) error {
+	op.ID = append([]byte(nil), data...)
+	return nil
 }

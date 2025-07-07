@@ -22,7 +22,6 @@ go_library(
         "metricvaluestatus.go",
         "objectmetricsource.go",
         "objectmetricstatus.go",
-        "podresourcemetricsource.go",
         "podsmetricsource.go",
         "podsmetricstatus.go",
         "resourcemetricsource.go",

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/onsi/gomega/internal/gutil"
 )
 
 const CACHE_EXT = ".gmeasure-cache"
@@ -66,15 +68,15 @@ List returns a list of all Cached Experiments found in the cache.
 */
 func (cache ExperimentCache) List() ([]CachedExperimentHeader, error) {
 	var out []CachedExperimentHeader
-	entries, err := os.ReadDir(cache.Path)
+	names, err := gutil.ReadDir(cache.Path)
 	if err != nil {
 		return out, err
 	}
-	for _, entry := range entries {
-		if filepath.Ext(entry.Name()) != CACHE_EXT {
+	for _, name := range names {
+		if filepath.Ext(name) != CACHE_EXT {
 			continue
 		}
-		header, err := cache.readHeader(entry.Name())
+		header, err := cache.readHeader(name)
 		if err != nil {
 			return out, err
 		}
@@ -87,15 +89,15 @@ func (cache ExperimentCache) List() ([]CachedExperimentHeader, error) {
 Clear empties out the cache - this will delete any and all detected cache files in the cache directory.  Use with caution!
 */
 func (cache ExperimentCache) Clear() error {
-	entries, err := os.ReadDir(cache.Path)
+	names, err := gutil.ReadDir(cache.Path)
 	if err != nil {
 		return err
 	}
-	for _, entry := range entries {
-		if filepath.Ext(entry.Name()) != CACHE_EXT {
+	for _, name := range names {
+		if filepath.Ext(name) != CACHE_EXT {
 			continue
 		}
-		err := os.Remove(filepath.Join(cache.Path, entry.Name()))
+		err := os.Remove(filepath.Join(cache.Path, name))
 		if err != nil {
 			return err
 		}

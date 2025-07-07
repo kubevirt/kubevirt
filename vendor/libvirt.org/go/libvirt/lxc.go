@@ -68,13 +68,18 @@ func (d *Domain) LxcOpenNamespace(flags uint32) ([]os.File, error) {
 func (d *Domain) LxcEnterNamespace(fdlist []os.File, flags uint32) ([]os.File, error) {
 	var coldfdlist *C.int
 	var ncoldfdlist C.uint
-	cfdlist := make([]C.int, len(fdlist))
-	for i := 0; i < len(fdlist); i++ {
+	nfdlist := len(fdlist)
+	cfdlist := make([]C.int, nfdlist)
+	for i := 0; i < nfdlist; i++ {
 		cfdlist[i] = C.int(fdlist[i].Fd())
 	}
 
 	var err C.virError
-	ret := C.virDomainLxcEnterNamespaceWrapper(d.ptr, C.uint(len(fdlist)), &cfdlist[0], &ncoldfdlist, &coldfdlist, C.uint(flags), &err)
+	var cfdlistPtr *C.int = nil
+	if nfdlist > 0 {
+		cfdlistPtr = &cfdlist[0]
+	}
+	ret := C.virDomainLxcEnterNamespaceWrapper(d.ptr, C.uint(nfdlist), cfdlistPtr, &ncoldfdlist, &coldfdlist, C.uint(flags), &err)
 	if ret == -1 {
 		return []os.File{}, makeError(&err)
 	}

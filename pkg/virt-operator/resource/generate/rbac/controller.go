@@ -16,6 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
+
 package rbac
 
 import (
@@ -111,6 +112,17 @@ func newControllerRole(namespace string) *rbacv1.Role {
 					"list",
 					"get",
 					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"coordination.k8s.io",
+				},
+				Resources: []string{
+					"leases",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "delete", "update", "create", "patch",
 				},
 			},
 		},
@@ -303,10 +315,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"snapshot.kubevirt.io",
 				},
 				Resources: []string{
-					"*",
+					"virtualmachinesnapshots",
+					"virtualmachinesnapshots/status",
+					"virtualmachinesnapshots/finalizers",
+					"virtualmachinesnapshotcontents",
+					"virtualmachinesnapshotcontents/status",
+					"virtualmachinesnapshotcontents/finalizers",
+					"virtualmachinerestores",
+					"virtualmachinerestores/status",
 				},
 				Verbs: []string{
-					"*",
+					"get", "list", "watch", "create", "update", "delete", "patch",
 				},
 			},
 			{
@@ -314,10 +333,12 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"export.kubevirt.io",
 				},
 				Resources: []string{
-					"*",
+					"virtualmachineexports",
+					"virtualmachineexports/status",
+					"virtualmachineexports/finalizers",
 				},
 				Verbs: []string{
-					"*",
+					"get", "list", "watch", "create", "update", "delete", "patch",
 				},
 			},
 			{
@@ -352,17 +373,33 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"*",
 				},
 			},
+			// Implied by asterisk but prefer adding explicitly since it's crucial for OwnerReferencesPermissionEnforcement
+			{
+				APIGroups: []string{
+					"kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachines/finalizers",
+					"virtualmachineinstances/finalizers",
+				},
+				Verbs: []string{
+					"update",
+				},
+			},
 			{
 				APIGroups: []string{
 					"subresources.kubevirt.io",
 				},
 				Resources: []string{
+					"virtualmachines/stop",
 					"virtualmachineinstances/addvolume",
 					"virtualmachineinstances/removevolume",
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
+					"virtualmachineinstances/reset",
 					"virtualmachineinstances/softreboot",
-					"virtualmachineinstances/addinterface",
+					"virtualmachineinstances/sev/setupsession",
+					"virtualmachineinstances/sev/injectlaunchsecret",
 				},
 				Verbs: []string{
 					"update",
@@ -386,9 +423,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"network-attachment-definitions",
 				},
-				Verbs: []string{
-					"get", "list", "watch",
-				},
+				Verbs: []string{"get"},
 			},
 			{
 				APIGroups: []string{
@@ -503,6 +538,31 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"resourcequotas",
+				},
+				Verbs: []string{
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"batch",
+				},
+				Resources: []string{
+					"jobs",
+				},
+				Verbs: []string{
+					"create",
+					"get",
+					"delete",
 				},
 			},
 		},

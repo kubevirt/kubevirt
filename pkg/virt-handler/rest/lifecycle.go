@@ -23,7 +23,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -38,20 +38,21 @@ import (
 
 const (
 	failedRetrieveVMI      = "Failed to retrieve VMI"
+	failedFreezeVMI        = "Failed to freeze VMI"
 	failedDetectCmdClient  = "Failed to detect cmd client"
 	failedConnectCmdClient = "Failed to connect cmd client"
 )
 
 type LifecycleHandler struct {
 	recorder     record.EventRecorder
-	vmiInformer  cache.SharedIndexInformer
+	vmiStore     cache.Store
 	virtShareDir string
 }
 
-func NewLifecycleHandler(recorder record.EventRecorder, vmiInformer cache.SharedIndexInformer, virtShareDir string) *LifecycleHandler {
+func NewLifecycleHandler(recorder record.EventRecorder, vmiStore cache.Store, virtShareDir string) *LifecycleHandler {
 	return &LifecycleHandler{
 		recorder:     recorder,
-		vmiInformer:  vmiInformer,
+		vmiStore:     vmiStore,
 		virtShareDir: virtShareDir,
 	}
 }
@@ -121,8 +122,9 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 	unfreezeTimeoutSeconds := int32(unfreezeTimeout.UnfreezeTimeout.Seconds())
 	err = client.FreezeVirtualMachine(vmi, unfreezeTimeoutSeconds)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to freeze VMI")
+		log.Log.Object(vmi).Reason(err).Error(failedFreezeVMI)
 		response.WriteError(http.StatusBadRequest, err)
+		lh.recorder.Eventf(vmi, k8sv1.EventTypeWarning, "FreezeError", "%s: %s", failedFreezeVMI, err.Error())
 		return
 	}
 
@@ -142,6 +144,23 @@ func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *
 		return
 	}
 
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (lh *LifecycleHandler) ResetHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	err = client.ResetVirtualMachine(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to reset VMI")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	lh.recorder.Eventf(vmi, k8sv1.EventTypeNormal, "Reset", "VirtualMachineInstance reset")
 	response.WriteHeader(http.StatusAccepted)
 }
 
@@ -219,7 +238,7 @@ func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *r
 }
 
 func (lh *LifecycleHandler) getVMILauncherClient(request *restful.Request, response *restful.Response) (*v1.VirtualMachineInstance, cmdclient.LauncherClient, error) {
-	vmi, code, err := getVMI(request, lh.vmiInformer)
+	vmi, code, err := getVMI(request, lh.vmiStore)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
@@ -240,4 +259,74 @@ func (lh *LifecycleHandler) getVMILauncherClient(request *restful.Request, respo
 	}
 
 	return vmi, client, nil
+}
+
+func (lh *LifecycleHandler) SEVFetchCertChainHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	log.Log.Object(vmi).Infof("Retrieving SEV platform info")
+
+	sevPlatformInfo, err := client.GetSEVInfo()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to get SEV platform info")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteEntity(sevPlatformInfo)
+}
+
+func (lh *LifecycleHandler) SEVQueryLaunchMeasurementHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	log.Log.Object(vmi).Infof("Retreiving SEV launch measurement")
+
+	sevMeasurementInfo, err := client.GetLaunchMeasurement(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to get VMI launch measurement")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteEntity(sevMeasurementInfo)
+}
+
+func (lh *LifecycleHandler) SEVInjectLaunchSecretHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	if request.Request.Body == nil {
+		log.Log.Object(vmi).Reason(err).Error("Request with no body: SEV secret parameters are required")
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to retrieve SEV secret parameters from request"))
+		return
+	}
+
+	opts := &v1.SEVSecretOptions{}
+	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+	switch err {
+	case io.EOF, nil:
+		break
+	default:
+		log.Log.Object(vmi).Reason(err).Error("Failed to decode SEV secret parameters")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+
+	log.Log.Object(vmi).Infof("Injecting SEV launch secret")
+
+	if err := client.InjectLaunchSecret(vmi, opts); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to inject SEV launch secret")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
 }

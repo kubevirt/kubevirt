@@ -16,6 +16,8 @@ type Handler interface {
 	getDefFuncName(expr *ast.CallExpr) string
 
 	getFieldType(field *ast.Field) string
+
+	GetActualExpr(assertionFunc *ast.SelectorExpr) *ast.CallExpr
 }
 
 // GetGomegaHandler returns a gomegar handler according to the way gomega was imported in the specific file
@@ -51,6 +53,13 @@ func (h dotHandler) GetActualFuncName(expr *ast.CallExpr) (string, bool) {
 		if isGomegaVar(actualFunc.X, h) {
 			return actualFunc.Sel.Name, true
 		}
+
+		if x, ok := actualFunc.X.(*ast.CallExpr); ok {
+			return h.GetActualFuncName(x)
+		}
+
+	case *ast.CallExpr:
+		return h.GetActualFuncName(actualFunc)
 	}
 	return "", false
 }
@@ -93,18 +102,21 @@ func (g nameHandler) GetActualFuncName(expr *ast.CallExpr) (string, bool) {
 		return "", false
 	}
 
-	x, ok := selector.X.(*ast.Ident)
-	if !ok {
-		return "", false
-	}
-
-	if x.Name != string(g) {
-		if !isGomegaVar(x, g) {
-			return "", false
+	switch x := selector.X.(type) {
+	case *ast.Ident:
+		if x.Name != string(g) {
+			if !isGomegaVar(x, g) {
+				return "", false
+			}
 		}
+
+		return selector.Sel.Name, true
+
+	case *ast.CallExpr:
+		return g.GetActualFuncName(x)
 	}
 
-	return selector.Sel.Name, true
+	return "", false
 }
 
 // ReplaceFunction replaces the function with another one, for fix suggestions
@@ -163,5 +175,58 @@ func isGomegaVar(x ast.Expr, handler Handler) bool {
 			}
 		}
 	}
+	return false
+}
+
+func (h dotHandler) GetActualExpr(assertionFunc *ast.SelectorExpr) *ast.CallExpr {
+	actualExpr, ok := assertionFunc.X.(*ast.CallExpr)
+	if !ok {
+		return nil
+	}
+
+	switch fun := actualExpr.Fun.(type) {
+	case *ast.Ident:
+		return actualExpr
+	case *ast.SelectorExpr:
+		if isHelperMethods(fun.Sel.Name) {
+			return h.GetActualExpr(fun)
+		}
+		if isGomegaVar(fun.X, h) {
+			return actualExpr
+		}
+	}
+	return nil
+}
+
+func (g nameHandler) GetActualExpr(assertionFunc *ast.SelectorExpr) *ast.CallExpr {
+	actualExpr, ok := assertionFunc.X.(*ast.CallExpr)
+	if !ok {
+		return nil
+	}
+
+	switch fun := actualExpr.Fun.(type) {
+	case *ast.Ident:
+		return actualExpr
+	case *ast.SelectorExpr:
+		if x, ok := fun.X.(*ast.Ident); ok && x.Name == string(g) {
+			return actualExpr
+		}
+		if isHelperMethods(fun.Sel.Name) {
+			return g.GetActualExpr(fun)
+		}
+
+		if isGomegaVar(fun.X, g) {
+			return actualExpr
+		}
+	}
+	return nil
+}
+
+func isHelperMethods(funcName string) bool {
+	switch funcName {
+	case "WithOffset", "WithTimeout", "WithPolling", "Within", "ProbeEvery", "WithContext", "WithArguments", "MustPassRepeatedly":
+		return true
+	}
+
 	return false
 }

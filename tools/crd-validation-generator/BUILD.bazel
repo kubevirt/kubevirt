@@ -6,9 +6,9 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tools/crd-validation-generator",
     visibility = ["//visibility:private"],
     deps = [
-        "//vendor/github.com/ghodss/yaml:go_default_library",
         "//vendor/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
+        "//vendor/sigs.k8s.io/yaml:go_default_library",
     ],
 )
 

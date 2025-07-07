@@ -20,15 +20,23 @@
 package webhooks
 
 import (
+	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
@@ -54,7 +62,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
 				CustomProfile: &v1.CustomProfile{
 					RuntimeDefaultProfile: true,
-					LocalhostProfile:      pointer.String("somethingNotImportant"),
+					LocalhostProfile:      pointer.P("somethingNotImportant"),
 				},
 			},
 		}, []string{vmProfileField.Child("customProfile", "runtimeDefaultProfile").String(), vmProfileField.Child("customProfile", "localhostProfile").String()}),
@@ -155,31 +163,157 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("1.123", "1.123"),
 		)
 	})
-})
 
-type kubevirtSpecOption func(*v1.KubeVirtSpec)
+	Context("deprecations", func() {
+		var admitter *KubeVirtUpdateAdmitter
 
-func newKubeVirtSpec(opts ...kubevirtSpecOption) *v1.KubeVirtSpec {
-	kvSpec := &v1.KubeVirtSpec{
-		Configuration: v1.KubeVirtConfiguration{
-			DeveloperConfiguration: &v1.DeveloperConfiguration{},
+		BeforeEach(func() {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			admitter = NewKubeVirtUpdateAdmitter(nil, clusterConfig)
+		})
+
+		admit := func(ctx context.Context, kubevirt v1.KubeVirt) *admissionv1.AdmissionResponse {
+			kvBytes, err := json.Marshal(kubevirt)
+			Expect(err).ToNot(HaveOccurred())
+
+			request := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: KubeVirtGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+					OldObject: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+					Operation: admissionv1.Update,
+				},
+			}
+			return admitter.Admit(ctx, request)
+		}
+
+		const warn = true
+		const warnNotExpected = false
+
+		DescribeTable("usage of mediatedDevicesTypes", func(shouldWarn bool, conf *v1.MediatedDevicesConfiguration) {
+			kvObject := v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						MediatedDevicesConfiguration: conf,
+					},
+				},
+			}
+
+			response := admit(context.Background(), kvObject)
+			Expect(response).NotTo(BeNil())
+			if shouldWarn {
+				Expect(response.Warnings).NotTo(BeEmpty())
+				Expect(response.Warnings).To(ContainElement("spec.configuration.mediatedDevicesConfiguration.mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
+			} else {
+				Expect(response.Warnings).To(BeEmpty())
+			}
+
 		},
-	}
+			Entry("should warn if used", warn, &v1.MediatedDevicesConfiguration{
+				MediatedDevicesTypes: []string{"test1", "test2"},
+			}),
 
-	for _, kvOptFunc := range opts {
-		kvOptFunc(kvSpec)
-	}
-	return kvSpec
-}
+			Entry("should not warn if empty", warnNotExpected, &v1.MediatedDevicesConfiguration{
+				MediatedDevicesTypes: []string{},
+			}),
+			Entry("should not warn if nil", warnNotExpected, &v1.MediatedDevicesConfiguration{
+				MediatedDevicesTypes: nil,
+			}),
+			Entry("should not warn if configuration is nil", warnNotExpected, nil),
+		)
 
-func withFeatureGate(featureGate string) kubevirtSpecOption {
-	return func(kvSpec *v1.KubeVirtSpec) {
-		kvSpec.Configuration.DeveloperConfiguration.FeatureGates = append(kvSpec.Configuration.DeveloperConfiguration.FeatureGates, featureGate)
-	}
-}
+		DescribeTable("usage of nodeMediatedDeviceTypes.mediatedDevicesTypes", func(shouldWarn bool, conf *v1.MediatedDevicesConfiguration) {
+			kvObject := v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						MediatedDevicesConfiguration: conf,
+					},
+				},
+			}
 
-func withWorkloadUpdateMethod(method v1.WorkloadUpdateMethod) kubevirtSpecOption {
-	return func(kvSpec *v1.KubeVirtSpec) {
-		kvSpec.WorkloadUpdateStrategy.WorkloadUpdateMethods = append(kvSpec.WorkloadUpdateStrategy.WorkloadUpdateMethods, method)
-	}
-}
+			response := admit(context.Background(), kvObject)
+			Expect(response).NotTo(BeNil())
+			if shouldWarn {
+				Expect(response.Warnings).NotTo(BeEmpty())
+				Expect(response.Warnings).To(ContainElement("spec.configuration.mediatedDevicesConfiguration.nodeMediatedDeviceTypes[0].mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
+			} else {
+				Expect(response.Warnings).To(BeEmpty())
+			}
+		}, Entry("should warn if used", warn, &v1.MediatedDevicesConfiguration{
+			NodeMediatedDeviceTypes: []v1.NodeMediatedDeviceTypesConfig{
+				{
+					NodeSelector:         map[string]string{},
+					MediatedDevicesTypes: []string{"test1", "test2"},
+					MediatedDeviceTypes:  []string{},
+				},
+			},
+		}),
+			Entry("should not warn if empty", warnNotExpected, &v1.MediatedDevicesConfiguration{
+				NodeMediatedDeviceTypes: []v1.NodeMediatedDeviceTypesConfig{
+					{
+						NodeSelector:         map[string]string{},
+						MediatedDevicesTypes: []string{},
+						MediatedDeviceTypes:  []string{},
+					},
+				},
+			}),
+			Entry("should not warn if nil", warnNotExpected, &v1.MediatedDevicesConfiguration{
+				NodeMediatedDeviceTypes: []v1.NodeMediatedDeviceTypesConfig{
+					{
+						NodeSelector:         map[string]string{},
+						MediatedDevicesTypes: nil,
+						MediatedDeviceTypes:  []string{},
+					},
+				},
+			}),
+
+			Entry("should not warn if configuration nil", warnNotExpected, nil),
+		)
+
+		DescribeTable("should raise warning when a deprecated feature-gate is enabled", func(featureGate, expectedWarning string) {
+			kv := v1.KubeVirt{}
+			kvBytes, err := json.Marshal(kv)
+			Expect(err).ToNot(HaveOccurred())
+
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{FeatureGates: []string{featureGate}}
+			kvUpdatedBytes, err := json.Marshal(kv)
+			Expect(err).ToNot(HaveOccurred())
+
+			request := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource:  KubeVirtGroupVersionResource,
+					Operation: admissionv1.Update,
+					OldObject: runtime.RawExtension{Raw: kvBytes},
+					Object:    runtime.RawExtension{Raw: kvUpdatedBytes},
+				},
+			}
+
+			Expect(admitter.Admit(context.Background(), request)).To(Equal(&admissionv1.AdmissionResponse{
+				Allowed: true,
+				Warnings: []string{
+					expectedWarning,
+				},
+			}))
+		},
+			Entry("with LiveMigration", featuregate.LiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.LiveMigrationGate, featuregate.GA)),
+			Entry("with SRIOVLiveMigration", featuregate.SRIOVLiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.SRIOVLiveMigrationGate, featuregate.GA)),
+			Entry("with NonRoot", featuregate.NonRoot, fmt.Sprintf(featuregate.WarningPattern, featuregate.NonRoot, featuregate.GA)),
+			Entry("with PSA", featuregate.PSA, fmt.Sprintf(featuregate.WarningPattern, featuregate.PSA, featuregate.GA)),
+			Entry("with CPUNodeDiscoveryGate", featuregate.CPUNodeDiscoveryGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.CPUNodeDiscoveryGate, featuregate.GA)),
+			Entry("with HotplugNICs", featuregate.HotplugNetworkIfacesGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.HotplugNetworkIfacesGate, featuregate.GA)),
+			Entry("with Passt", featuregate.PasstGate, featuregate.PasstDiscontinueMessage),
+			Entry("with MacvtapGate", featuregate.MacvtapGate, featuregate.MacvtapDiscontinueMessage),
+			Entry("with ExperimentalVirtiofsSupport", featuregate.VirtIOFSGate, featuregate.VirtioFsFeatureGateDeprecationMessage),
+		)
+	})
+})

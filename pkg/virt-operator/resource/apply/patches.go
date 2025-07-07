@@ -119,7 +119,7 @@ func (c *Customizer) GenericApplyPatches(objects interface{}) error {
 	return nil
 }
 
-func (c *Customizer) Apply(targetStrategy *install.Strategy) error {
+func (c *Customizer) Apply(targetStrategy install.StrategyInterface) error {
 	err := c.GenericApplyPatches(targetStrategy.Deployments())
 	if err != nil {
 		return err

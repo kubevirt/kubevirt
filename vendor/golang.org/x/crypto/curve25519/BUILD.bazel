@@ -6,5 +6,4 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/crypto/curve25519",
     importpath = "golang.org/x/crypto/curve25519",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/golang.org/x/crypto/curve25519/internal/field:go_default_library"],
 )

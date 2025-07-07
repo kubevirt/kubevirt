@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// PersistentVolumeApplyConfiguration represents an declarative configuration of the PersistentVolume type for use
+// PersistentVolumeApplyConfiguration represents a declarative configuration of the PersistentVolume type for use
 // with apply.
 type PersistentVolumeApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -36,7 +36,7 @@ type PersistentVolumeApplyConfiguration struct {
 	Status                           *PersistentVolumeStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// PersistentVolume constructs an declarative configuration of the PersistentVolume type for use with
+// PersistentVolume constructs a declarative configuration of the PersistentVolume type for use with
 // apply.
 func PersistentVolume(name string) *PersistentVolumeApplyConfiguration {
 	b := &PersistentVolumeApplyConfiguration{}
@@ -121,15 +121,6 @@ func (b *PersistentVolumeApplyConfiguration) WithGenerateName(value string) *Per
 func (b *PersistentVolumeApplyConfiguration) WithNamespace(value string) *PersistentVolumeApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *PersistentVolumeApplyConfiguration) WithSelfLink(value string) *PersistentVolumeApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -242,15 +233,6 @@ func (b *PersistentVolumeApplyConfiguration) WithFinalizers(values ...string) *P
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *PersistentVolumeApplyConfiguration) WithClusterName(value string) *PersistentVolumeApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *PersistentVolumeApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -271,4 +253,10 @@ func (b *PersistentVolumeApplyConfiguration) WithSpec(value *PersistentVolumeSpe
 func (b *PersistentVolumeApplyConfiguration) WithStatus(value *PersistentVolumeStatusApplyConfiguration) *PersistentVolumeApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *PersistentVolumeApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

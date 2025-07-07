@@ -115,7 +115,16 @@ const (
 type NetworkEventID int
 
 const (
-	NETWORK_EVENT_ID_LIFECYCLE = NetworkEventID(C.VIR_NETWORK_EVENT_ID_LIFECYCLE)
+	NETWORK_EVENT_ID_LIFECYCLE       = NetworkEventID(C.VIR_NETWORK_EVENT_ID_LIFECYCLE)
+	NETWORK_EVENT_ID_METADATA_CHANGE = NetworkEventID(C.VIR_NETWORK_EVENT_ID_METADATA_CHANGE)
+)
+
+type NetworkMetadataType int
+
+const (
+	NETWORK_METADATA_DESCRIPTION = NetworkMetadataType(C.VIR_NETWORK_METADATA_DESCRIPTION)
+	NETWORK_METADATA_TITLE       = NetworkMetadataType(C.VIR_NETWORK_METADATA_TITLE)
+	NETWORK_METADATA_ELEMENT     = NetworkMetadataType(C.VIR_NETWORK_METADATA_ELEMENT)
 )
 
 type Network struct {
@@ -408,4 +417,49 @@ func (n *Network) ListAllPorts(flags uint32) ([]NetworkPort, error) {
 	}
 	C.free(unsafe.Pointer(cList))
 	return ports, nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkGetMetadata
+func (n *Network) GetMetadata(metadataType NetworkMetadataType, uri string, flags NetworkUpdateFlags) (string, error) {
+	var cUri *C.char
+	if uri != "" {
+		cUri = C.CString(uri)
+		defer C.free(unsafe.Pointer(cUri))
+	}
+
+	var err C.virError
+	result := C.virNetworkGetMetadataWrapper(n.ptr, C.int(metadataType), cUri, C.uint(flags), &err)
+	if result == nil {
+		return "", makeError(&err)
+
+	}
+	defer C.free(unsafe.Pointer(result))
+	return C.GoString(result), nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkSetMetadata
+func (n *Network) SetMetadata(metadataType NetworkMetadataType, metaDataCont, uriKey, uri string, flags NetworkUpdateFlags) error {
+	var cMetaDataCont *C.char
+	var cUriKey *C.char
+	var cUri *C.char
+
+	if metaDataCont != "" {
+		cMetaDataCont = C.CString(metaDataCont)
+		defer C.free(unsafe.Pointer(cMetaDataCont))
+	}
+
+	if metadataType == NETWORK_METADATA_ELEMENT {
+		if uriKey != "" {
+			cUriKey = C.CString(uriKey)
+			defer C.free(unsafe.Pointer(cUriKey))
+		}
+		cUri = C.CString(uri)
+		defer C.free(unsafe.Pointer(cUri))
+	}
+	var err C.virError
+	result := C.virNetworkSetMetadataWrapper(n.ptr, C.int(metadataType), cMetaDataCont, cUriKey, cUri, C.uint(flags), &err)
+	if result == -1 {
+		return makeError(&err)
+	}
+	return nil
 }

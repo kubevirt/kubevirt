@@ -29,7 +29,7 @@ export PROMETHEUS_URL=${PROMETHEUS_URL:-http://127.0.0.1}
 export PERFSCALE_WORKLOAD=${PERFSCALE_WORKLOAD:-${_perfscale_workload}}
 
 echo 'Preparing directory for artifacts'
-export ARTIFACTS=_out/artifacts/perfscale
+export ARTIFACTS=${ARTIFACTS}/performance-density
 export AUDIT_CONFIG=${ARTIFACTS}/perfscale-audit-cfg.json
 export AUDIT_RESULTS=${ARTIFACTS}/perfscale-audit-results.json
 rm -rf $ARTIFACTS
@@ -44,7 +44,7 @@ function get_timestamp() {
 
 function perftest() {
     _out/cmd/perfscale-load-generator/perfscale-load-generator \
-        -v 6 \
+        -verbose 6 \
         -delete \
         -workload ${PERFSCALE_WORKLOAD}
 }

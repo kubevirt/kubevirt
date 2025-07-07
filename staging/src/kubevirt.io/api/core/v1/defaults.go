@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"github.com/pborman/uuid"
+	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -106,7 +106,7 @@ func SetDefaults_I6300ESBWatchdog(obj *I6300ESBWatchdog) {
 
 func SetDefaults_Firmware(obj *Firmware) {
 	if obj.UUID == "" {
-		obj.UUID = types.UID(uuid.NewRandom().String())
+		obj.UUID = types.UID(uuid.NewString())
 	}
 }
 
@@ -168,19 +168,6 @@ func SetDefaults_Probe(probe *Probe) {
 	}
 }
 
-func SetDefaults_NetworkInterface(obj *VirtualMachineInstance) {
-	autoAttach := obj.Spec.Domain.Devices.AutoattachPodInterface
-	if autoAttach != nil && *autoAttach == false {
-		return
-	}
-
-	// Override only when nothing is specified
-	if len(obj.Spec.Networks) == 0 {
-		obj.Spec.Domain.Devices.Interfaces = []Interface{*DefaultBridgeNetworkInterface()}
-		obj.Spec.Networks = []Network{*DefaultPodNetwork()}
-	}
-}
-
 func DefaultBridgeNetworkInterface() *Interface {
 	iface := &Interface{
 		Name: "default",
@@ -191,31 +178,11 @@ func DefaultBridgeNetworkInterface() *Interface {
 	return iface
 }
 
-func DefaultSlirpNetworkInterface() *Interface {
-	iface := &Interface{
-		Name: "default",
-		InterfaceBindingMethod: InterfaceBindingMethod{
-			Slirp: &InterfaceSlirp{},
-		},
-	}
-	return iface
-}
-
 func DefaultMasqueradeNetworkInterface() *Interface {
 	iface := &Interface{
 		Name: "default",
 		InterfaceBindingMethod: InterfaceBindingMethod{
 			Masquerade: &InterfaceMasquerade{},
-		},
-	}
-	return iface
-}
-
-func DefaultMacvtapNetworkInterface(ifaceName string) *Interface {
-	iface := &Interface{
-		Name: ifaceName,
-		InterfaceBindingMethod: InterfaceBindingMethod{
-			Macvtap: &InterfaceMacvtap{},
 		},
 	}
 	return iface

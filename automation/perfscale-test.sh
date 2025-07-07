@@ -19,7 +19,7 @@
 
 set -ex
 
-kubectl() { KUBEVIRTCI_VERBOSE=false cluster-up/kubectl.sh "$@"; }
+kubectl() { KUBEVIRTCI_VERBOSE=false kubevirtci/cluster-up/kubectl.sh "$@"; }
 
 _prometheus_port_forward_pid=""
 trap "clean_up" EXIT SIGINT SIGTERM SIGQUIT

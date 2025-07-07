@@ -2,9 +2,13 @@ package dns
 
 import (
 	"bufio"
+	"bytes"
 	"net"
+	"os"
 	"regexp"
 	"strings"
+
+	"kubevirt.io/client-go/log"
 )
 
 const (
@@ -121,4 +125,30 @@ func DomainNameWithSubdomain(searchDomains []string, subdomain string) string {
 	}
 
 	return ""
+}
+
+// GetResolvConfDetailsFromPod reads and parses the DNS resolver's configuration file.
+func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
+	// #nosec No risk for path injection. resolvConf is static "/etc/resolve.conf"
+	const resolvConf = "/etc/resolv.conf"
+
+	b, err := os.ReadFile(resolvConf)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nameservers, err := ParseNameservers(string(b))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	searchDomains, err := ParseSearchDomains(string(b))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	log.Log.Reason(err).Infof("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
+	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
+
+	return nameservers, searchDomains, err
 }

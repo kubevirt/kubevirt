@@ -20,6 +20,7 @@
 package kubecli
 
 import (
+	"context"
 	"net/http"
 	"path"
 
@@ -30,11 +31,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 	var server *ghttp.Server
-	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancepresets"
+	basePath := "/apis/kubevirt.io/v1/namespaces/default/virtualmachineinstancepresets"
 	presetPath := path.Join(basePath, "testpreset")
 	proxyPath := "/proxy/path"
 
@@ -51,7 +53,7 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, presetPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, preset),
 		))
-		fetchedVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Get("testpreset", k8smetav1.GetOptions{})
+		fetchedVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Get(context.Background(), "testpreset", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -69,7 +71,7 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, presetPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testpreset")),
 		))
-		_, err = client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Get("testpreset", k8smetav1.GetOptions{})
+		_, err = client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Get(context.Background(), "testpreset", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
@@ -88,11 +90,14 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVirtualMachineInstancePresetList(*preset)),
 		))
-		fetchedVMIPresetList, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
+		fetchedVMIPresetList, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).List(context.Background(), k8smetav1.ListOptions{})
+		apiVersion, kind := v1.VirtualMachineInstancePresetGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(fetchedVMIPresetList.Items).To(HaveLen(1))
+		Expect(fetchedVMIPresetList.Items[0].APIVersion).To(Equal(apiVersion))
+		Expect(fetchedVMIPresetList.Items[0].Kind).To(Equal(kind))
 		Expect(fetchedVMIPresetList.Items[0]).To(Equal(*preset))
 	},
 		Entry("with regular server URL", ""),
@@ -108,7 +113,7 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, preset),
 		))
-		createdVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Create(preset)
+		createdVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Create(context.Background(), preset, k8smetav1.CreateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -127,7 +132,7 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, presetPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, preset),
 		))
-		updatedVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Update(preset)
+		updatedVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Update(context.Background(), preset, k8smetav1.UpdateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -145,7 +150,7 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, presetPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Delete("testpreset", &k8smetav1.DeleteOptions{})
+		err = client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Delete(context.Background(), "testpreset", k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

@@ -32,9 +32,16 @@ import (
 var _ = Describe("SRIOV PCI address pool with network-pci-map", func() {
 	var emptyFileBytes []byte
 	emptyNetworkPCIMapBytes := []byte("{}")
-	networkPCIMapWithThreeNetworks := []byte(
-		`{"network1":"0000:04:02.5","network2":"0000:04:02.7","network3":"0000:04:02.8"}`)
-
+	networkPCIMapWithThreeNetworks := []byte(`{
+		"interfaces": [
+			{"network":"network1", "deviceInfo":{
+				"type":"pci","version":"1.0.0","pci":{"pci-address":"0000:04:02.5"}}},
+			{"network":"network2", "deviceInfo":{
+				"type":"pci","version":"1.0.0","pci":{"pci-address":"0000:04:02.7"}}},
+			{"network":"network3", "deviceInfo":{
+				"type":"pci","version":"1.0.0","pci":{"pci-address":"0000:04:02.8"}}}
+		]
+	}`)
 	It("should fail to create the pool when network-pci-map file is empty", func() {
 		pool, err := sriovhostdev.NewPCIAddressPoolWithNetworkStatus(emptyFileBytes)
 
@@ -76,4 +83,21 @@ var _ = Describe("SRIOV PCI address pool with network-pci-map", func() {
 			Expect(err).To(HaveOccurred())
 		}
 	})
+
+	DescribeTable("should return empty pool given network-info annotation with",
+		func(netInfo string) {
+			pool, err := sriovhostdev.NewPCIAddressPoolWithNetworkStatus([]byte(netInfo))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pool.Len()).To(Equal(0))
+		},
+		Entry("element who has no device-info",
+			`{"interfaces":[{"network":"network1"}]}`,
+		),
+		Entry("element with device-info but no PCI info",
+			`{"interfaces":[{"network":"network1","deviceInfo":{"version":"1.0.0","type":"pci"}}]}`,
+		),
+		Entry("element with device-info PCI info but no PCI address",
+			`{"interfaces":[{"network":"network1","deviceInfo":{"version":"1.0.0","type":"pci","pci":{"pci-address":""}}}]}`,
+		),
+	)
 })

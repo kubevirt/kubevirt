@@ -1,11 +1,13 @@
 # Kubernetes Version Compatibility
 
 Kubernetes supports 3 minor release concurrently. This means if the latest
-Kubernetes release is v1.19, that v1.18 and v1.17 will remain supported for
-backport fixes but that v1.16 will lose support.
+Kubernetes release is v1.27, that v1.26 and v1.25 will remain supported for
+backport fixes but that v1.24 will lose support.
 
 Similarly, each KubeVirt release maintains compatibility with the latest 3
 Kubernetes releases that are out at the time the KubeVirt release is made.
+
+See the [KubeVirt to Kubernetes version support matrix](https://github.com/kubevirt/sig-release/blob/main/releases/k8s-support-matrix.md) to see the currently supported versions of KubeVirt and their associated Kubernetes versions.
 
 # Compatibility Matrix Examples.
 
@@ -14,14 +16,14 @@ illustrate the example)
 
 ## New KubeVirt Release
 
-KubeVirt release v0.1 is cut. At that point in time the latest Kubernetes
-version is v1.3. This means KubeVirt v0.1 will forever be compatible with
-Kubernetes v1.3, v1.2, and v1.1.
+KubeVirt release v1.0 is cut. At that point in time the latest Kubernetes
+version is v1.27. This means KubeVirt v1.0 will forever be compatible with
+Kubernetes v1.27, v1.26, and v1.25.
 
 ## KubeVirt Main
 
 KubeVirt main always follows the latest 3 Kubernetes releases. If a new
-Kubernetes v1.4 release is cut, that means support for v1.1 will be dropped
+Kubernetes v1.28 release is cut, that means support for v1.25 will be dropped
 for KubeVirt main.
 
 Note that this support for the latest Kubernetes releases doesn't happen
@@ -32,11 +34,11 @@ KubeVirt release is cut.
 
 ## Old KubeVirt Release
 
-KubeVirt main supports Kubernetes releases v1.4, v1.3, and v1.2. However, the
-KubeVirt v0.1 release was cut when the latest Kubernetes release was v1.3.
+KubeVirt main supports Kubernetes releases v1.28, v1.27, and v1.26. However, the
+KubeVirt v1.0 release was cut when the latest Kubernetes release was v1.27.
 
-This means that KubeVirt v0.1 supports Kubernetes v1.3, v1.2, v1.1 while
-KubeVirt main is tracking support for Kubernetes v1.4, v1.3, v1.2.
+This means that KubeVirt v1.0 supports Kubernetes v1.27, v1.26, v1.25 while
+KubeVirt main is tracking support for Kubernetes v1.28, v1.27, v1.26.
 
 # Support Exceptions
 

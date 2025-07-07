@@ -6,7 +6,6 @@ tools/csv-generator/csv-generator
 tools/doc-generator/doc-generator
 tools/crd-validation-generator/crd-validation-generator
 tools/resource-generator/resource-generator
-tools/marketplace/marketplace
 tools/manifest-templator/manifest-templator
 tools/vms-generator/vms-generator
 **/bin

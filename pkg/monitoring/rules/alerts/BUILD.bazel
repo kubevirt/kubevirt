@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "alerts.go",
+        "system.go",
+        "virt-api.go",
+        "virt-controller.go",
+        "virt-handler.go",
+        "virt-operator.go",
+        "vms.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/rules/alerts",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatorrules:go_default_library",
+        "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
+    ],
+)

@@ -1,27 +1,46 @@
+/*
+Copyright 2024 The KubeVirt Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package virthandler
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	"strconv"
+	"strings"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
+	v1 "kubevirt.io/api/core/v1"
+	"libvirt.org/go/libvirtxml"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 )
 
 func virtualMachineOptions(
 	smbios *v1.SMBiosConfiguration,
 	period uint32,
 	preallocatedVolumes []string,
-	capabilities *api.Capabilities,
-	disksInfo map[string]*containerdisk.DiskInfo,
-	expandDisksEnabled bool,
+	capabilities *libvirtxml.Caps,
+	clusterConfig *virtconfig.ClusterConfig,
 ) *cmdv1.VirtualMachineOptions {
 	options := &cmdv1.VirtualMachineOptions{
 		MemBalloonStatsPeriod: period,
 		PreallocatedVolumes:   preallocatedVolumes,
 		Topology:              capabilitiesToTopology(capabilities),
-		DisksInfo:             disksInfoToDisksInfo(disksInfo),
-		ExpandDisksEnabled:    expandDisksEnabled,
+		// New virt-launcher images no longer use this value, it's kept empty for backward compatibility.
+		DisksInfo: map[string]*cmdv1.DiskInfo{},
 	}
 	if smbios != nil {
 		options.VirtualMachineSMBios = &cmdv1.SMBios{
@@ -32,78 +51,91 @@ func virtualMachineOptions(
 			Version:      smbios.Version,
 		}
 	}
+
+	if clusterConfig != nil {
+		bochsDisplay := true
+		if clusterConfig.VGADisplayForEFIGuestsEnabled() {
+			bochsDisplay = false
+		}
+		options.ExpandDisksEnabled = clusterConfig.ExpandDisksEnabled()
+		options.ClusterConfig = &cmdv1.ClusterConfig{
+			ExpandDisksEnabled:        clusterConfig.ExpandDisksEnabled(),
+			FreePageReportingDisabled: clusterConfig.IsFreePageReportingDisabled(),
+			BochsDisplayForEFIGuests:  bochsDisplay,
+			SerialConsoleLogDisabled:  clusterConfig.IsSerialConsoleLogDisabled(),
+		}
+	}
+
 	return options
 }
 
-func capabilitiesToTopology(capabilities *api.Capabilities) *cmdv1.Topology {
+func capabilitiesToTopology(capabilities *libvirtxml.Caps) *cmdv1.Topology {
 	topology := &cmdv1.Topology{}
 	if capabilities == nil {
 		return topology
 	}
 
-	for _, cell := range capabilities.Host.Topology.Cells.Cell {
+	for _, cell := range capabilities.Host.NUMA.Cells.Cells {
 		topology.NumaCells = append(topology.NumaCells, cellToCell(cell))
 	}
 	return topology
 }
 
-func cellToCell(cell api.Cell) *cmdv1.Cell {
+func cellToCell(cell libvirtxml.CapsHostNUMACell) *cmdv1.Cell {
 	c := &cmdv1.Cell{
-		Id: cell.ID,
+		Id: uint32(cell.ID),
 		Memory: &cmdv1.Memory{
-			Amount: cell.Memory.Amount,
+			Amount: cell.Memory.Size,
 			Unit:   cell.Memory.Unit,
 		},
 	}
 
-	for _, page := range cell.Pages {
+	for _, page := range cell.PageInfo {
 		c.Pages = append(c.Pages, pageToPage(page))
 	}
 
-	for _, distance := range cell.Distances.Sibling {
+	for _, distance := range cell.Distances.Siblings {
 		c.Distances = append(c.Distances, distanceToDistance(distance))
 	}
 
-	for _, cpu := range cell.Cpus.CPU {
+	for _, cpu := range cell.CPUS.CPUs {
 		c.Cpus = append(c.Cpus, cpuToCPU(cpu))
 	}
 
 	return c
 }
 
-func pageToPage(pages api.Pages) *cmdv1.Pages {
+func pageToPage(pages libvirtxml.CapsHostNUMAPageInfo) *cmdv1.Pages {
 	return &cmdv1.Pages{
 		Count: pages.Count,
 		Unit:  pages.Unit,
-		Size:  pages.Size,
+		Size:  uint32(pages.Size),
 	}
 }
 
-func distanceToDistance(distance api.Sibling) *cmdv1.Sibling {
+func distanceToDistance(distance libvirtxml.CapsHostNUMASibling) *cmdv1.Sibling {
 	return &cmdv1.Sibling{
-		Id:    distance.ID,
-		Value: distance.Value,
+		Id:    uint32(distance.ID),
+		Value: uint64(distance.Value),
 	}
 }
 
-func cpuToCPU(cpu api.CPU) *cmdv1.CPU {
+func cpuToCPU(cpu libvirtxml.CapsHostNUMACPU) *cmdv1.CPU {
 	return &cmdv1.CPU{
-		Id:       cpu.ID,
-		Siblings: cpu.Siblings,
+		Id:       uint32(cpu.ID),
+		Siblings: convertListOfIntStringToSlice(cpu.Siblings),
 	}
 }
 
-func disksInfoToDisksInfo(disksInfo map[string]*containerdisk.DiskInfo) map[string]*cmdv1.DiskInfo {
-	info := map[string]*cmdv1.DiskInfo{}
-	for k, v := range disksInfo {
-		if v != nil {
-			info[k] = &cmdv1.DiskInfo{
-				Format:      v.Format,
-				BackingFile: v.BackingFile,
-				ActualSize:  uint64(v.ActualSize),
-				VirtualSize: uint64(v.VirtualSize),
-			}
+func convertListOfIntStringToSlice(siblings string) []uint32 {
+	var convertedSiblings []uint32
+	for _, sibling := range strings.Split(siblings, ",") {
+		num, err := strconv.ParseUint(sibling, 10, 32)
+		if err != nil {
+			// Sibling must be int, otherwise skip
+			continue
 		}
+		convertedSiblings = append(convertedSiblings, uint32(num))
 	}
-	return info
+	return convertedSiblings
 }

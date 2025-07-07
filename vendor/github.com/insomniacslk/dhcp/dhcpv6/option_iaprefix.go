@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // PrefixOptions are the options valid for use with IAPrefix option field.
@@ -70,35 +70,34 @@ func (op *OptIAPrefix) ToBytes() []byte {
 }
 
 func (op *OptIAPrefix) String() string {
-	return fmt.Sprintf("IAPrefix: {PreferredLifetime=%v, ValidLifetime=%v, Prefix=%s, Options=%v}",
-		op.PreferredLifetime, op.ValidLifetime, op.Prefix, op.Options)
+	return fmt.Sprintf("%s: {PreferredLifetime=%v, ValidLifetime=%v, Prefix=%s, Options=%v}",
+		op.Code(), op.PreferredLifetime, op.ValidLifetime, op.Prefix, op.Options)
 }
 
-// ParseOptIAPrefix an OptIAPrefix structure from a sequence of bytes. The
-// input data does not include option code and length bytes.
-func ParseOptIAPrefix(data []byte) (*OptIAPrefix, error) {
+// FromBytes an OptIAPrefix structure from a sequence of bytes. The input data
+// does not include option code and length bytes.
+func (op *OptIAPrefix) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
-	var opt OptIAPrefix
 
 	var t1, t2 Duration
 	t1.Unmarshal(buf)
 	t2.Unmarshal(buf)
-	opt.PreferredLifetime = t1.Duration
-	opt.ValidLifetime = t2.Duration
+	op.PreferredLifetime = t1.Duration
+	op.ValidLifetime = t2.Duration
 
 	length := buf.Read8()
 	ip := net.IP(buf.CopyN(net.IPv6len))
 
 	if length == 0 {
-		opt.Prefix = nil
+		op.Prefix = nil
 	} else {
-		opt.Prefix = &net.IPNet{
+		op.Prefix = &net.IPNet{
 			Mask: net.CIDRMask(int(length), 128),
 			IP:   ip,
 		}
 	}
-	if err := opt.Options.FromBytes(buf.ReadAll()); err != nil {
-		return nil, err
+	if err := op.Options.FromBytes(buf.ReadAll()); err != nil {
+		return err
 	}
-	return &opt, buf.FinError()
+	return buf.FinError()
 }

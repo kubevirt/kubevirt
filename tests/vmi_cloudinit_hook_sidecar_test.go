@@ -25,24 +25,25 @@ import (
 	"path/filepath"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/tests/util"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libregistry"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const cloudinitHookSidecarImage = "example-cloudinit-hook-sidecar"
@@ -56,12 +57,13 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 
 	GetCloudInitHookSidecarLogs := func(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 		namespace := vmi.GetObjectMeta().GetNamespace()
-		podName := tests.GetVmPodName(virtCli, vmi)
+		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		Expect(err).ToNot(HaveOccurred())
 
 		var tailLines int64 = 100
 		logsRaw, err := virtCli.CoreV1().
 			Pods(namespace).
-			GetLogs(podName, &k8sv1.PodLogOptions{
+			GetLogs(pod.Name, &k8sv1.PodLogOptions{
 				TailLines: &tailLines,
 				Container: "hook-sidecar-0",
 			}).
@@ -96,37 +98,38 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		vmi = libvmi.NewCirros(
+		vmi = libvmifact.NewCirros(
 			libvmi.WithAnnotation("hooks.kubevirt.io/hookSidecars",
-				fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, cloudinitHookSidecarImage, flags.KubeVirtUtilityVersionTag)))
+				fmt.Sprintf(`[{"args": ["--version", "v1alpha2"], "image": "%s", "imagePullPolicy": "IfNotPresent"}]`,
+					libregistry.GetUtilityImageFromRegistry(cloudinitHookSidecarImage))))
 	})
 
 	Describe("VMI definition", func() {
 		Context("with CloudInit hook sidecar", func() {
 			It("[test_id:3167]should successfully start with hook sidecar annotation", func() {
 				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("[test_id:3168]should call Collect and PreCloudInitIso on the hook sidecar", func() {
 				By("Getting hook-sidecar logs")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				logs := func() string { return GetCloudInitHookSidecarLogs(virtClient, vmi) }
 				libwait.WaitForSuccessfulVMIStart(vmi)
 				Eventually(logs,
 					11*time.Second,
 					500*time.Millisecond).
-					Should(ContainSubstring("Hook's Info method has been called"))
+					Should(ContainSubstring("Info method has been called"))
 				Eventually(logs,
 					11*time.Second,
 					500*time.Millisecond).
-					Should(ContainSubstring("Hook's PreCloudInitIso callback method has been called"))
+					Should(ContainSubstring("PreCloudInitIso method has been called"))
 			})
 
 			It("[test_id:3169]should have cloud-init user-data from sidecar", func() {
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				By("mouting cloudinit iso")

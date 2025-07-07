@@ -28,7 +28,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// EventApplyConfiguration represents an declarative configuration of the Event type for use
+// EventApplyConfiguration represents a declarative configuration of the Event type for use
 // with apply.
 type EventApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -49,7 +49,7 @@ type EventApplyConfiguration struct {
 	DeprecatedCount                  *int32                                    `json:"deprecatedCount,omitempty"`
 }
 
-// Event constructs an declarative configuration of the Event type for use with
+// Event constructs a declarative configuration of the Event type for use with
 // apply.
 func Event(name, namespace string) *EventApplyConfiguration {
 	b := &EventApplyConfiguration{}
@@ -136,15 +136,6 @@ func (b *EventApplyConfiguration) WithGenerateName(value string) *EventApplyConf
 func (b *EventApplyConfiguration) WithNamespace(value string) *EventApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *EventApplyConfiguration) WithSelfLink(value string) *EventApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -254,15 +245,6 @@ func (b *EventApplyConfiguration) WithFinalizers(values ...string) *EventApplyCo
 	for i := range values {
 		b.Finalizers = append(b.Finalizers, values[i])
 	}
-	return b
-}
-
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *EventApplyConfiguration) WithClusterName(value string) *EventApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
 	return b
 }
 
@@ -382,4 +364,10 @@ func (b *EventApplyConfiguration) WithDeprecatedLastTimestamp(value metav1.Time)
 func (b *EventApplyConfiguration) WithDeprecatedCount(value int32) *EventApplyConfiguration {
 	b.DeprecatedCount = &value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *EventApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

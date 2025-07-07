@@ -37,7 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
-	"kubevirt.io/kubevirt/tools/marketplace/helper"
 	"kubevirt.io/kubevirt/tools/util"
 )
 
@@ -72,9 +71,13 @@ type templateData struct {
 	VirtExportProxySha     string
 	VirtExportServerSha    string
 	GsSha                  string
+	PrHelperSha            string
+	SidecarShimSha         string
+	RunbookURLTemplate     string
 	PriorityClassSpec      string
 	FeatureGates           []string
 	InfraReplicas          uint8
+	TestImageReplicas      string
 	GeneratedManifests     map[string]string
 	VirtOperatorImage      string
 	VirtApiImage           string
@@ -84,6 +87,8 @@ type templateData struct {
 	VirtExportProxyImage   string
 	VirtExportServerImage  string
 	GsImage                string
+	PrHelperImage          string
+	SidecarShimImage       string
 }
 
 func main() {
@@ -102,7 +107,6 @@ func main() {
 	processVars := flag.Bool("process-vars", false, "")
 	kubeVirtLogoPath := flag.String("kubevirt-logo-path", "", "")
 	packageName := flag.String("package-name", "", "")
-	bundleOutDir := flag.String("bundle-out-dir", "", "")
 	quayRepository := flag.String("quay-repository", "", "")
 	virtOperatorSha := flag.String("virt-operator-sha", "", shaEnvDeprecationMsg)
 	virtApiSha := flag.String("virt-api-sha", "", shaEnvDeprecationMsg)
@@ -112,8 +116,12 @@ func main() {
 	virtExportProxySha := flag.String("virt-exportproxy-sha", "", shaEnvDeprecationMsg)
 	virtExportServerSha := flag.String("virt-exportserver-sha", "", shaEnvDeprecationMsg)
 	gsSha := flag.String("gs-sha", "", "")
+	prHelperSha := flag.String("pr-helper-sha", "", "")
+	sidecarShimSha := flag.String("sidecar-shim-sha", "", "")
+	runbookURLTemplate := flag.String("runbook-url-template", "", "")
 	featureGates := flag.String("feature-gates", "", "")
 	infraReplicas := flag.Uint("infra-replicas", 0, "")
+	testImageReplicas := flag.String("test-image-replicas", "0", "")
 	virtOperatorImage := flag.String("virt-operator-image", "", "custom image for virt-operator")
 	virtApiImage := flag.String("virt-api-image", "", "custom image for virt-api. "+customImageExample)
 	virtControllerImage := flag.String("virt-controller-image", "", "custom image for virt-controller. "+customImageExample)
@@ -122,6 +130,8 @@ func main() {
 	virtExportProxyImage := flag.String("virt-export-proxy-image", "", "custom image for virt-export-proxy. "+customImageExample)
 	virtExportServerImage := flag.String("virt-export-server-image", "", "custom image for virt-export-server. "+customImageExample)
 	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
+	prHelperImage := flag.String("pr-helper-image", "", "custom image for pr-helper. "+customImageExample)
+	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -141,11 +151,6 @@ func main() {
 		GeneratedManifests: make(map[string]string),
 	}
 
-	if featureGates != nil {
-
-		*featureGates = strings.Replace(*featureGates, "NonRootExperimental", "NonRoot", 1)
-	}
-
 	if *processVars {
 		data.Namespace = *namespace
 		data.CSVNamespace = *csvNamespace
@@ -155,6 +160,7 @@ func main() {
 		data.ImagePrefix = *imagePrefix
 		data.ImagePullPolicy = *imagePullPolicy
 		data.Verbosity = fmt.Sprintf("\"%s\"", *verbosity)
+		data.TestImageReplicas = fmt.Sprintf("\"%s\"", *testImageReplicas)
 		data.CsvVersion = *csvVersion
 		data.QuayRepository = *quayRepository
 		data.VirtOperatorSha = *virtOperatorSha
@@ -165,6 +171,9 @@ func main() {
 		data.VirtExportProxySha = *virtExportProxySha
 		data.VirtExportServerSha = *virtExportServerSha
 		data.GsSha = *gsSha
+		data.PrHelperSha = *prHelperSha
+		data.SidecarShimSha = *sidecarShimSha
+		data.RunbookURLTemplate = *runbookURLTemplate
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
 		data.PackageName = *packageName
@@ -180,32 +189,13 @@ func main() {
 		data.VirtExportProxyImage = *virtExportProxyImage
 		data.VirtExportServerImage = *virtExportServerImage
 		data.GsImage = *gsImage
+		data.PrHelperImage = *prHelperImage
+		data.SidecarShimImage = *sidecarShimImage
 		if *featureGates != "" {
 			data.FeatureGates = strings.Split(*featureGates, ",")
 		}
 		if *infraReplicas != 0 {
 			data.InfraReplicas = uint8(*infraReplicas)
-		}
-
-		// operator deployment differs a bit in normal manifest and CSV
-		if strings.Contains(*inputFile, ".clusterserviceversion.yaml") {
-			// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
-			if *bundleOutDir != "" && data.QuayRepository != "" {
-				bundleHelper, err := helper.NewBundleHelper(*quayRepository, *packageName)
-				if err != nil {
-					panic(err)
-				}
-				latestVersion := bundleHelper.GetLatestPublishedCSVVersion()
-				if latestVersion != "" {
-					// prevent generating the same version again
-					if strings.HasSuffix(latestVersion, *csvVersion) {
-						panic(fmt.Errorf("CSV version %s is already published!", *csvVersion))
-					}
-					data.ReplacesCsvVersion = latestVersion
-					// also copy old manifests to out dir
-					bundleHelper.AddOldManifests(*bundleOutDir, *csvVersion)
-				}
-			}
 		}
 
 	} else {
@@ -217,6 +207,7 @@ func main() {
 		data.ImagePrefix = "{{.ImagePrefix}}"
 		data.ImagePullPolicy = "{{.ImagePullPolicy}}"
 		data.Verbosity = "{{.Verbosity}}"
+		data.TestImageReplicas = "{{.TestImageReplicas}}"
 		data.CsvVersion = "{{.CsvVersion}}"
 		data.QuayRepository = "{{.QuayRepository}}"
 		data.VirtOperatorSha = "{{.VirtOperatorSha}}"
@@ -240,6 +231,8 @@ func main() {
 		data.VirtExportProxyImage = "{{.VirtExportProxyImage}}"
 		data.VirtExportServerImage = "{{.VirtExportServerImage}}"
 		data.GsImage = "{{.GsImage}}"
+		data.PrHelperImage = "{{.PrHelperImage}}"
+		data.SidecarShimImage = "{{.SidecarShimImage}}"
 	}
 
 	if *processFiles {
@@ -295,7 +288,7 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		version = data.VirtOperatorSha
 	}
 
-	deployment, err := components.NewOperatorDeployment(
+	deployment := components.NewOperatorDeployment(
 		data.Namespace,
 		data.DockerPrefix,
 		data.ImagePrefix,
@@ -309,6 +302,9 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.VirtExportProxySha,
 		data.VirtExportServerSha,
 		data.GsSha,
+		data.PrHelperSha,
+		data.SidecarShimSha,
+		data.RunbookURLTemplate,
 		data.VirtApiImage,
 		data.VirtControllerImage,
 		data.VirtHandlerImage,
@@ -316,14 +312,13 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.VirtExportProxyImage,
 		data.VirtExportServerImage,
 		data.GsImage,
+		data.PrHelperImage,
+		data.SidecarShimImage,
 		data.VirtOperatorImage,
 		v1.PullPolicy(data.ImagePullPolicy))
-	if err != nil {
-		panic(err)
-	}
 
 	writer := strings.Builder{}
-	err = util.MarshallObject(deployment.Spec, &writer)
+	err := util.MarshallObject(deployment.Spec, &writer)
 	if err != nil {
 		panic(err)
 	}

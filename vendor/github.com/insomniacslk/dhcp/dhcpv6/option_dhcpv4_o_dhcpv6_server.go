@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // OptDHCP4oDHCP6Server represents a OptionDHCP4oDHCP6Server option
@@ -30,17 +30,15 @@ func (op *OptDHCP4oDHCP6Server) ToBytes() []byte {
 }
 
 func (op *OptDHCP4oDHCP6Server) String() string {
-	return fmt.Sprintf("OptDHCP4oDHCP6Server{4o6-servers=%v}", op.DHCP4oDHCP6Servers)
+	return fmt.Sprintf("%s: %v", op.Code(), op.DHCP4oDHCP6Servers)
 }
 
-// ParseOptDHCP4oDHCP6Server builds an OptDHCP4oDHCP6Server structure
-// from a sequence of bytes. The input data does not include option code and length
-// bytes.
-func ParseOptDHCP4oDHCP6Server(data []byte) (*OptDHCP4oDHCP6Server, error) {
-	var opt OptDHCP4oDHCP6Server
+// FromBytes builds an OptDHCP4oDHCP6Server structure from a sequence of bytes.
+// The input data does not include option code and length bytes.
+func (op *OptDHCP4oDHCP6Server) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
 	for buf.Has(net.IPv6len) {
-		opt.DHCP4oDHCP6Servers = append(opt.DHCP4oDHCP6Servers, buf.CopyN(net.IPv6len))
+		op.DHCP4oDHCP6Servers = append(op.DHCP4oDHCP6Servers, buf.CopyN(net.IPv6len))
 	}
-	return &opt, buf.FinError()
+	return buf.FinError()
 }

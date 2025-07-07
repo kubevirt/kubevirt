@@ -22,8 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/utils/pointer"
-
 	"github.com/coreos/go-semver/semver"
 	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -33,6 +31,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 )
@@ -55,6 +54,9 @@ type NewClusterServiceVersionData struct {
 	VirtExportProxySha    string
 	VirtExportServerSha   string
 	GsSha                 string
+	PrHelperSha           string
+	SidecarShimSha        string
+	RunbookURLTemplate    string
 	Replicas              int
 	IconBase64            string
 	ReplacesCsvVersion    string
@@ -67,6 +69,8 @@ type NewClusterServiceVersionData struct {
 	VirtExportProxyImage  string
 	VirtExportServerImage string
 	GsImage               string
+	PrHelperImage         string
+	SidecarShimImage      string
 }
 
 type csvClusterPermissions struct {
@@ -122,8 +126,8 @@ As of today KubeVirt can be used to declaratively
 
 # Start using KubeVirt
 
-  * Try our quickstart at [kubevirt.io](http://kubevirt.io/get_kubevirt/).
-  * See our user documentation at [kubevirt.io/docs](http://kubevirt.io/user-guide).
+  * Try our quickstart at [kubevirt.io](https://kubevirt.io/get_kubevirt/).
+  * See our user documentation at [kubevirt.io/docs](https://kubevirt.io/user-guide).
 
 # Start developing KubeVirt
 
@@ -155,7 +159,7 @@ KubeVirt is distributed under the
 
 func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.ClusterServiceVersion, error) {
 
-	deployment, err := components.NewOperatorDeployment(
+	deployment := components.NewOperatorDeployment(
 		data.Namespace,
 		data.DockerPrefix,
 		data.ImagePrefix,
@@ -169,6 +173,9 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.VirtExportProxySha,
 		data.VirtExportServerSha,
 		data.GsSha,
+		data.PrHelperSha,
+		data.SidecarShimSha,
+		data.RunbookURLTemplate,
 		data.VirtApiImage,
 		data.VirtControllerImage,
 		data.VirtHandlerImage,
@@ -176,16 +183,15 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.VirtExportProxyImage,
 		data.VirtExportServerImage,
 		data.GsImage,
+		data.PrHelperImage,
+		data.SidecarShimImage,
 		data.VirtOperatorImage,
 		v1.PullPolicy(data.ImagePullPolicy))
-	if err != nil {
-		return nil, err
-	}
 
 	imageVersion := components.AddVersionSeparatorPrefix(data.OperatorImageVersion)
 
 	if data.Replicas > 0 && *deployment.Spec.Replicas != int32(data.Replicas) {
-		deployment.Spec.Replicas = pointer.Int32(int32(data.Replicas))
+		deployment.Spec.Replicas = pointer.P(int32(data.Replicas))
 	}
 
 	clusterRules := rbac.NewOperatorClusterRole().Rules

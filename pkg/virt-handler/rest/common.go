@@ -23,16 +23,16 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func getVMI(request *restful.Request, vmiInformer cache.SharedIndexInformer) (*v1.VirtualMachineInstance, int, error) {
+func getVMI(request *restful.Request, vmiStore cache.Store) (*v1.VirtualMachineInstance, int, error) {
 	key := fmt.Sprintf("%s/%s", request.PathParameter("namespace"), request.PathParameter("name"))
-	vmiObj, vmiExists, err := vmiInformer.GetStore().GetByKey(key)
+	vmiObj, vmiExists, err := vmiStore.GetByKey(key)
 	if err != nil {
 		return nil, http.StatusInternalServerError, err
 	}

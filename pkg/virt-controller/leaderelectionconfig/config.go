@@ -24,14 +24,14 @@ import (
 
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	rl "k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 )
 
 const (
 	DefaultLeaseDuration = 15 * time.Second
 	DefaultRenewDeadline = 10 * time.Second
 	DefaultRetryPeriod   = 2 * time.Second
-	DefaultEndpointName  = "virt-controller"
+	DefaultLeaseName     = "virt-controller"
 )
 
 func DefaultLeaderElectionConfiguration() Configuration {
@@ -39,7 +39,7 @@ func DefaultLeaderElectionConfiguration() Configuration {
 		LeaseDuration: metav1.Duration{Duration: DefaultLeaseDuration},
 		RenewDeadline: metav1.Duration{Duration: DefaultRenewDeadline},
 		RetryPeriod:   metav1.Duration{Duration: DefaultRetryPeriod},
-		ResourceLock:  rl.EndpointsResourceLock,
+		ResourceLock:  resourcelock.LeasesResourceLock,
 	}
 }
 

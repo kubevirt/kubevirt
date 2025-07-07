@@ -24,11 +24,7 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	expect "github.com/google/goexpect"
-
-	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,45 +35,54 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]", func() {
+var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", decorators.WgArm64, func() {
 	var virtClient kubecli.KubevirtClient
-	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		vmi = libvmi.NewAlpine()
 	})
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
 		Context("when virt-handler is responsive", func() {
-			It("[Serial]VMIs with Bridge Networking shouldn't fail after the kubelet restarts", Serial, decorators.Networking, func() {
-				libnet.SkipWhenClusterNotSupportIpv4()
-				bridgeVMI := vmi
-				// Remove the masquerade interface to use the default bridge one
-				bridgeVMI.Spec.Domain.Devices.Interfaces = nil
-				bridgeVMI.Spec.Networks = nil
-				v1.SetDefaults_NetworkInterface(bridgeVMI)
-				Expect(bridgeVMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+			DescribeTable("VMIs shouldn't fail after the kubelet restarts", func(bridgeNetworking bool) {
+				var vmiOptions []libvmi.Option
 
-				By("starting a VMI with bridged network on a node")
-				bridgeVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(bridgeVMI)).Create(context.Background(), bridgeVMI)
+				if bridgeNetworking {
+					libnet.SkipWhenClusterNotSupportIpv4()
+
+					vmiOptions = []libvmi.Option{
+						libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					}
+				}
+
+				vmi := libvmifact.NewAlpine(vmiOptions...)
+
+				By("starting a VMI on a node")
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should submit VMI successfully")
 
-				// Start a VirtualMachineInstance with bridged networking
-				nodeName := libwait.WaitForSuccessfulVMIStart(bridgeVMI).Status.NodeName
+				// Start a VirtualMachineInstance
+				nodeName := libwait.WaitForSuccessfulVMIStart(vmi).Status.NodeName
 
-				verifyDummyNicForBridgeNetwork(bridgeVMI)
+				if bridgeNetworking {
+					verifyDummyNicForBridgeNetwork(vmi)
+				}
 
 				By("restarting kubelet")
-				pod := renderPkillAllPod("kubelet")
+				pod := libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", "kubelet"})
 				pod.Spec.NodeName = nodeName
 				pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -88,31 +93,33 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				}, 50, 5).Should(Equal(k8sv1.PodSucceeded))
 
 				By("starting another VMI on the same node, to verify kubelet is running again")
-				newVMI := libvmi.NewCirros()
-				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				newVMI := libvmifact.NewCirros()
+				newVMI.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: nodeName}
 				Eventually(func() error {
-					newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newVMI)).Create(context.Background(), newVMI)
+					newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newVMI)).Create(context.Background(), newVMI, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return nil
 				}, 100, 10).Should(Succeed(), "Should be able to start a new VM")
+				libwait.WaitForSuccessfulVMIStart(newVMI)
 
 				By("checking if the VMI with bridged networking is still running, it will verify the CNI didn't cause the pod to be killed")
-				bridgeVMI = libwait.WaitForSuccessfulVMIStart(bridgeVMI)
-			})
+				libwait.WaitForSuccessfulVMIStart(vmi)
+			},
+				Entry("[sig-network]with bridge networking", Serial, decorators.SigNetwork, true),
+				Entry("[sig-compute]with default networking", Serial, decorators.SigCompute, false),
+			)
 
 			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", decorators.Networking, func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
-				bridgeVMI := libvmi.NewCirros()
-				// Remove the masquerade interface to use the default bridge one
-				bridgeVMI.Spec.Domain.Devices.Interfaces = nil
-				bridgeVMI.Spec.Networks = nil
-				v1.SetDefaults_NetworkInterface(bridgeVMI)
-				Expect(bridgeVMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+				bridgeVMI := libvmifact.NewCirros(
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 
-				By("starting a VMI with bridged network on a node")
-				bridgeVMI = tests.RunVMI(bridgeVMI, 40)
+				By("creating a VMI with bridged network on a node")
+				bridgeVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(bridgeVMI)).Create(context.Background(), bridgeVMI, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-				// Start a VirtualMachineInstance with bridged networking
 				By("Waiting the VirtualMachineInstance start")
 				bridgeVMI = libwait.WaitUntilVMIReady(bridgeVMI, console.LoginToCirros)
 				verifyDummyNicForBridgeNetwork(bridgeVMI)
@@ -130,16 +137,12 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 			})
 		})
 	})
-})
-
-func renderPkillAllPod(processName string) *k8sv1.Pod {
-	return tests.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
-}
+}))
 
 func verifyDummyNicForBridgeNetwork(vmi *v1.VirtualMachineInstance) {
-	output := tests.RunCommandOnVmiPod(vmi, []string{tests.BinBash, "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})
+	output := libpod.RunCommandOnVmiPod(vmi, []string{"/bin/bash", "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})
 	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
 
-	output = tests.RunCommandOnVmiPod(vmi, []string{tests.BinBash, "-c", "/usr/sbin/ip link show|grep UP|grep -c eth0-nic"})
+	output = libpod.RunCommandOnVmiPod(vmi, []string{"/bin/bash", "-c", "/usr/sbin/ip link show|grep UP|grep -c eth0-nic"})
 	ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("1"))
 }

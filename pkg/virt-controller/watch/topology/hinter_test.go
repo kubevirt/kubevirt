@@ -9,7 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -55,7 +56,7 @@ var _ = Describe("Hinter", func() {
 		g.Expect(GetTscFrequencyRequirement(vmi).Type).ToNot(g.Equal(NotRequired))
 		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.Equal(
 			&virtv1.TopologyHints{
-				TSCFrequency: pointer.Int64Ptr(12),
+				TSCFrequency: pointer.P(int64(12)),
 			},
 		))
 	})
@@ -76,7 +77,6 @@ var _ = Describe("Hinter", func() {
 			NodeWithInvalidTSC("node0"),
 			NodeWithTSC("node1", 1234, true),
 		)
-		hinter.arch = arch
 		vmi := vmiWithoutTSCFrequency("myvmi")
 		g.Expect(hinter.IsTscFrequencyRequired(vmi)).To(g.BeFalse())
 
@@ -93,7 +93,6 @@ func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
 
 	return &topologyHinter{
 		clusterConfig: clusterConfigWithoutTSCFrequency(),
-		arch:          "amd64",
 		nodeStore: &cache.FakeCustomStore{
 			ListFunc: func() []interface{} {
 				return NodesToObjects(nodes...)
@@ -104,7 +103,6 @@ func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
 
 func hinterWithVMIs(vmis ...*virtv1.VirtualMachineInstance) *topologyHinter {
 	return &topologyHinter{
-		arch: "amd64",
 		vmiStore: &cache.FakeCustomStore{
 			ListFunc: func() []interface{} {
 				return VMIsToObjects(vmis...)
@@ -193,6 +191,7 @@ func vmiWithTSCFrequencyOnNode(vmiName string, frequency int64, nodename string)
 					},
 				},
 			},
+			Architecture: "amd64",
 		},
 		Status: virtv1.VirtualMachineInstanceStatus{
 			NodeName:      nodename,

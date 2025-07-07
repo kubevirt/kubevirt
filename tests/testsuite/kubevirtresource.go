@@ -23,9 +23,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"time"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,15 +34,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/utils/pointer"
-
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libstorage"
 )
 
 var (
@@ -53,7 +53,7 @@ var (
 func AdjustKubeVirtResource() {
 	virtClient := kubevirt.Client()
 
-	kv := util.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	originalKV = kv.DeepCopy()
 
 	KubeVirtDefaultConfig = originalKV.Spec.Configuration
@@ -86,64 +86,65 @@ func AdjustKubeVirtResource() {
 	kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
 		VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
 			CustomProfile: &v1.CustomProfile{
-				LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
+				LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
 			},
 		},
 	}
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-		virtconfig.CPUManager,
-		virtconfig.IgnitionGate,
-		virtconfig.SidecarGate,
-		virtconfig.SnapshotGate,
-		virtconfig.HostDiskGate,
-		virtconfig.VirtIOFSGate,
-		virtconfig.HotplugVolumesGate,
-		virtconfig.DownwardMetricsFeatureGate,
-		virtconfig.NUMAFeatureGate,
-		virtconfig.MacvtapGate,
-		virtconfig.PasstGate,
-		virtconfig.ExpandDisksGate,
-		virtconfig.WorkloadEncryptionSEV,
-		virtconfig.VMExportGate,
-		virtconfig.VSOCKGate,
-		virtconfig.KubevirtSeccompProfile,
-		virtconfig.HotplugNetworkIfacesGate,
-	)
-	if flags.DisableCustomSELinuxPolicy {
+	// Disable CPUManager Featuregate for s390x as it is not supported.
+	if translateBuildArch() != "s390x" {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-			virtconfig.DisableCustomSELinuxPolicy,
+			featuregate.CPUManager,
 		)
 	}
+	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+		featuregate.IgnitionGate,
+		featuregate.SidecarGate,
+		featuregate.SnapshotGate,
+		featuregate.HostDiskGate,
+		featuregate.VirtIOFSConfigVolumesGate,
+		featuregate.VirtIOFSStorageVolumeGate,
+		featuregate.HotplugVolumesGate,
+		featuregate.DownwardMetricsFeatureGate,
+		featuregate.ExpandDisksGate,
+		featuregate.WorkloadEncryptionSEV,
+		featuregate.VMExportGate,
+		featuregate.KubevirtSeccompProfile,
+		featuregate.VMPersistentState,
+	)
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {
 		testDefaultPermitSlirpInterface := true
 
 		kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-			PermitSlirpInterface: &testDefaultPermitSlirpInterface,
+			DeprecatedPermitSlirpInterface: &testDefaultPermitSlirpInterface,
 		}
+	}
+
+	storageClass, exists := libstorage.GetVMStateStorageClass()
+	if exists {
+		kv.Spec.Configuration.VMStateStorageClass = storageClass
 	}
 
 	data, err := json.Marshal(kv.Spec)
 	Expect(err).ToNot(HaveOccurred())
 	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData), &metav1.PatchOptions{})
-	util.PanicOnError(err)
+	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
-	if checks.HasFeature(virtconfig.CPUManager) && len(nodes.Items) > 1 {
-		// CPUManager is not enabled in the control-plane node
-		waitForSchedulableNodeWithCPUManager()
+	if checks.HasFeature(featuregate.CPUManager) {
+		// CPUManager is not enabled in the control-plane node(s)
+		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
+		Expect(err).NotTo(HaveOccurred())
+		waitForSchedulableNodesWithCPUManager(len(nodes.Items))
 	}
 }
 
-func waitForSchedulableNodeWithCPUManager() {
-
+func waitForSchedulableNodesWithCPUManager(n int) {
 	virtClient := kubevirt.Client()
 	Eventually(func() bool {
 		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true," + v1.CPUManager + "=true"})
 		Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
-		return len(nodes.Items) != 0
+		return len(nodes.Items) == n
 	}, 360, 1*time.Second).Should(BeTrue())
 }
 
@@ -153,20 +154,9 @@ func RestoreKubeVirtResource() {
 		data, err := json.Marshal(originalKV.Spec)
 		Expect(err).ToNot(HaveOccurred())
 		patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(originalKV.Name, types.JSONPatchType, []byte(patchData), &metav1.PatchOptions{})
-		util.PanicOnError(err)
+		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(context.Background(), originalKV.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	}
-}
-
-func ShouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
-	allowEmulation := false
-
-	kv := util.GetCurrentKv(virtClient)
-	if kv.Spec.Configuration.DeveloperConfiguration != nil {
-		allowEmulation = kv.Spec.Configuration.DeveloperConfiguration.UseEmulation
-	}
-
-	return allowEmulation
 }
 
 // UpdateKubeVirtConfigValue updates the given configuration in the kubevirt custom resource
@@ -174,7 +164,7 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 
 	virtClient := kubevirt.Client()
 
-	kv := util.GetCurrentKv(virtClient)
+	kv := libkubevirt.GetCurrentKv(virtClient)
 	old, err := json.Marshal(kv)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -192,8 +182,29 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, kv)
 	Expect(err).ToNot(HaveOccurred())
 
-	kv, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.GetName(), types.MergePatchType, patch, &metav1.PatchOptions{})
+	kv, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.GetName(), types.MergePatchType, patch, metav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	return kv
+}
+
+/*
+translateBuildArch translates the build_arch to arch
+
+	case1:
+	  build_arch is crossbuild-s390x, which will be translated to s390x arch
+	case2:
+	  build_arch is s390x, which will be translated to s390x arch
+*/
+func translateBuildArch() string {
+	buildArch := os.Getenv("BUILD_ARCH")
+
+	if buildArch == "" {
+		return ""
+	}
+	archElements := strings.Split(buildArch, "-")
+	if len(archElements) == 2 {
+		return archElements[1]
+	}
+	return archElements[0]
 }

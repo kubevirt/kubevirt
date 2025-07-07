@@ -133,7 +133,7 @@ Let's refer to the image below to get a better understanding of how this
 
 Bridge binding mechanism diagram
 
-![alt text](https://github.com/kubevirt/kubevirt.github.io/blob/source/assets/images/diagram.png)
+![alt text](https://raw.githubusercontent.com/kubevirt/kubevirt.github.io/main/assets/images/diagram.png)
 
 As can be seen in the diagram above, there are three actors at play: CNI,
 libvirt, and DHCP. For completeness sake, let's add one more actor that is
@@ -309,9 +309,7 @@ chain postrouting {
 
 In the `KUBEVIRT_POSTINBOUND` chain, in case the source address is localhost, SNAT is
 performed: the source IP address of the outbound packet is modified to the IP address of
-the gateway -
--
-`10.11.12.1`.
+the gateway - `10.11.12.1`.
 
 ```
 chain KUBEVIRT_POSTINBOUND {

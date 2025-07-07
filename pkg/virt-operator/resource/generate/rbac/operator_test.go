@@ -67,6 +67,11 @@ var _ = Describe("RBAC", func() {
 			Expect(clusterRoleBinding.Subjects[0].Namespace).To(BeEquivalentTo(expectedNamespace))
 		})
 
+		It("doesn't have critical cluster-wide permissions", func() {
+			clusterRole := getFirstItemOfType(forOperator, reflect.TypeOf(&rbacv1.ClusterRole{})).(*rbacv1.ClusterRole)
+			Expect(clusterRole).ToNot(BeNil())
+			expectExactRuleDoesntExists(clusterRole.Rules, "", "secrets", "get", "list", "watch")
+		})
 	})
 
 	Context("GetKubevirtComponentsServiceAccounts", func() {
@@ -95,4 +100,17 @@ func getFirstItemOfType(items []interface{}, tp reflect.Type) interface{} {
 		}
 	}
 	return nil
+}
+
+func expectExactRuleDoesntExists(rules []rbacv1.PolicyRule, apiGroup, resource string, verbs ...string) {
+	for _, rule := range rules {
+		if contains(rule.APIGroups, apiGroup) &&
+			contains(rule.Resources, resource) {
+			for _, verb := range verbs {
+				if contains(rule.Verbs, verb) {
+					Fail(fmt.Sprintf("Found rule (apiGroup: %s, resource: %s, verbs: %v)", apiGroup, resource, rule.Verbs))
+				}
+			}
+		}
+	}
 }

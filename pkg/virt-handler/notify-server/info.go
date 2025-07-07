@@ -19,7 +19,8 @@
 package eventsserver
 
 import (
-	"golang.org/x/net/context"
+	"context"
+
 	"google.golang.org/grpc"
 
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"

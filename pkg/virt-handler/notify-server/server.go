@@ -20,12 +20,12 @@
 package eventsserver
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	k8sv1 "k8s.io/api/core/v1"

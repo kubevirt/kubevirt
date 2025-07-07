@@ -50,10 +50,6 @@ type PodIsolationDetector interface {
 
 	DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error)
 
-	// Allowlist allows specifying cgroup controller which should be considered to detect the cgroup slice
-	// It returns a PodIsolationDetector to allow configuring the PodIsolationDetector via the builder pattern.
-	Allowlist(controller []string) PodIsolationDetector
-
 	// Adjust system resources to run the passed VM
 	AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error
 }
@@ -61,16 +57,14 @@ type PodIsolationDetector interface {
 const isolationDialTimeout = 5
 
 type socketBasedIsolationDetector struct {
-	socketDir  string
-	controller []string
+	socketDir string
 }
 
 // NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
 func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
 	return &socketBasedIsolationDetector{
-		socketDir:  socketDir,
-		controller: []string{"devices"},
+		socketDir: socketDir,
 	}
 }
 
@@ -85,26 +79,19 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 }
 
 func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
-	var pid int
-	var ppid int
-	var err error
-
-	if pid, err = s.getPid(socket); err != nil {
+	pid, err := s.getPid(socket)
+	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
 		return nil, err
 	}
 
-	if ppid, err = getPPid(pid); err != nil {
+	ppid, err := getPPid(pid)
+	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner PPid of socket %s", socket)
 		return nil, err
 	}
 
 	return NewIsolationResult(pid, ppid), nil
-}
-
-func (s *socketBasedIsolationDetector) Allowlist(controller []string) PodIsolationDetector {
-	s.controller = controller
-	return s
 }
 
 func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
@@ -185,13 +172,13 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	return nil
 }
 
-var qemuProcessExecutables = []string{"qemu-system", "qemu-kvm"}
+var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
 
 // findIsolatedQemuProcess Returns the first occurrence of the QEMU process whose parent is PID"
 func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error) {
 	processes = childProcesses(processes, pid)
-	for _, exec := range qemuProcessExecutables {
-		if qemuProcess := lookupProcessByExecutable(processes, exec); qemuProcess != nil {
+	for _, execPrefix := range qemuProcessExecutablePrefixes {
+		if qemuProcess := lookupProcessByExecutablePrefix(processes, execPrefix); qemuProcess != nil {
 			return qemuProcess, nil
 		}
 	}
@@ -231,6 +218,8 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 	if err != nil {
 		return -1, err
 	}
+	defer ufile.Close()
+
 	// This is the tricky part, which will give us the PID of the owning socket
 	ucreds, err := syscall.GetsockoptUcred(int(ufile.Fd()), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
 	if err != nil {
@@ -249,6 +238,8 @@ func getPPid(pid int) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-
+	if process == nil {
+		return -1, fmt.Errorf("failed to find process with pid: %d", pid)
+	}
 	return process.PPid(), nil
 }

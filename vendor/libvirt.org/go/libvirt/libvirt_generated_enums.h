@@ -371,6 +371,12 @@
 #  if !LIBVIR_CHECK_VERSION(7, 9, 0)
 #    define VIR_CONNECT_LIST_NODE_DEVICES_CAP_VPD (1 << 21)
 #  endif
+#  if !LIBVIR_CHECK_VERSION(10, 1, 0)
+#    define VIR_CONNECT_LIST_NODE_DEVICES_PERSISTENT (1 << 28)
+#  endif
+#  if !LIBVIR_CHECK_VERSION(10, 1, 0)
+#    define VIR_CONNECT_LIST_NODE_DEVICES_TRANSIENT (1 << 29)
+#  endif
 #  if !LIBVIR_CHECK_VERSION(7, 3, 0)
 #    define VIR_CONNECT_LIST_NODE_DEVICES_INACTIVE (1 << 30)
 #  endif
@@ -586,6 +592,9 @@
 /* enum virDomainBlockResizeFlags */
 #  if !LIBVIR_CHECK_VERSION(0, 9, 11)
 #    define VIR_DOMAIN_BLOCK_RESIZE_BYTES (1 << 0)
+#  endif
+#  if !LIBVIR_CHECK_VERSION(10, 0, 0)
+#    define VIR_DOMAIN_BLOCK_RESIZE_CAPACITY (1 << 1)
 #  endif
 
 /* enum virDomainBlockedReason */
@@ -1216,6 +1225,17 @@
 #    define VIR_DOMAIN_JOB_STATS_KEEP_COMPLETED (1 << 1)
 #  endif
 
+/* enum virDomainGraphicsReloadType */
+#  if !LIBVIR_CHECK_VERSION(10, 2, 0)
+#    define VIR_DOMAIN_GRAPHICS_RELOAD_TYPE_ANY 0
+#  endif
+#  if !LIBVIR_CHECK_VERSION(10, 2, 0)
+#    define VIR_DOMAIN_GRAPHICS_RELOAD_TYPE_VNC 1
+#  endif
+#  if !LIBVIR_CHECK_VERSION(10, 2, 0)
+#    define VIR_DOMAIN_GRAPHICS_RELOAD_TYPE_LAST 2
+#  endif
+
 /* enum virDomainGuestInfoTypes */
 #  if !LIBVIR_CHECK_VERSION(5, 7, 0)
 #    define VIR_DOMAIN_GUEST_INFO_USERS (1 << 0)
@@ -1648,8 +1668,11 @@
 #  if !LIBVIR_CHECK_VERSION(1, 3, 3)
 #    define VIR_DOMAIN_PAUSED_POSTCOPY_FAILED 13
 #  endif
+#  if !LIBVIR_CHECK_VERSION(9, 2, 0)
+#    define VIR_DOMAIN_PAUSED_API_ERROR 14
+#  endif
 #  if !LIBVIR_CHECK_VERSION(0, 9, 10)
-#    define VIR_DOMAIN_PAUSED_LAST 14
+#    define VIR_DOMAIN_PAUSED_LAST 15
 #  endif
 
 /* enum virDomainProcessSignal */
@@ -2795,8 +2818,11 @@
 #  if !LIBVIR_CHECK_VERSION(7, 1, 0)
 #    define VIR_ERR_MULTIPLE_DOMAINS 110
 #  endif
+#  if !LIBVIR_CHECK_VERSION(9, 7, 0)
+#    define VIR_ERR_NO_NETWORK_METADATA 111
+#  endif
 #  if !LIBVIR_CHECK_VERSION(5, 0, 0)
-#    define VIR_ERR_NUMBER_LAST 111
+#    define VIR_ERR_NUMBER_LAST 112
 #  endif
 
 /* enum virEventHandleType */
@@ -2913,8 +2939,11 @@
 #  if !LIBVIR_CHECK_VERSION(1, 2, 1)
 #    define VIR_NETWORK_EVENT_ID_LIFECYCLE 0
 #  endif
+#  if !LIBVIR_CHECK_VERSION(9, 8, 0)
+#    define VIR_NETWORK_EVENT_ID_METADATA_CHANGE 1
+#  endif
 #  if !LIBVIR_CHECK_VERSION(1, 2, 1)
-#    define VIR_NETWORK_EVENT_ID_LAST 1
+#    define VIR_NETWORK_EVENT_ID_LAST 2
 #  endif
 
 /* enum virNetworkEventLifecycleType */
@@ -2932,6 +2961,20 @@
 #  endif
 #  if !LIBVIR_CHECK_VERSION(1, 2, 1)
 #    define VIR_NETWORK_EVENT_LAST 4
+#  endif
+
+/* enum virNetworkMetadataType */
+#  if !LIBVIR_CHECK_VERSION(9, 7, 0)
+#    define VIR_NETWORK_METADATA_DESCRIPTION 0
+#  endif
+#  if !LIBVIR_CHECK_VERSION(9, 7, 0)
+#    define VIR_NETWORK_METADATA_TITLE 1
+#  endif
+#  if !LIBVIR_CHECK_VERSION(9, 7, 0)
+#    define VIR_NETWORK_METADATA_ELEMENT 2
+#  endif
+#  if !LIBVIR_CHECK_VERSION(9, 7, 0)
+#    define VIR_NETWORK_METADATA_LAST 3
 #  endif
 
 /* enum virNetworkPortCreateFlags */
@@ -3066,6 +3109,22 @@
 #  endif
 #  if !LIBVIR_CHECK_VERSION(2, 2, 0)
 #    define VIR_NODE_DEVICE_EVENT_LAST 4
+#  endif
+
+/* enum virNodeDeviceUpdateFlags */
+#  if !LIBVIR_CHECK_VERSION(10, 1, 0)
+#    define VIR_NODE_DEVICE_UPDATE_AFFECT_CURRENT 0
+#  endif
+#  if !LIBVIR_CHECK_VERSION(10, 1, 0)
+#    define VIR_NODE_DEVICE_UPDATE_AFFECT_LIVE (1 << 0)
+#  endif
+#  if !LIBVIR_CHECK_VERSION(10, 1, 0)
+#    define VIR_NODE_DEVICE_UPDATE_AFFECT_CONFIG (1 << 1)
+#  endif
+
+/* enum virNodeDeviceXMLFlags */
+#  if !LIBVIR_CHECK_VERSION(10, 1, 0)
+#    define VIR_NODE_DEVICE_XML_INACTIVE (1 << 0)
 #  endif
 
 /* enum virNodeGetCPUStatsAllCPUs */

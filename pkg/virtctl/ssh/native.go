@@ -8,25 +8,20 @@ import (
 	"net"
 	"os"
 
-	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/term"
 
-	"k8s.io/client-go/tools/clientcmd"
-
 	"kubevirt.io/client-go/kubecli"
-)
-
-const (
-	wrapLocalSSHDefault = false
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	"kubevirt.io/client-go/log"
 )
 
 func additionalUsage() string {
 	return fmt.Sprintf(`
 	# Connect to 'testvmi' using the local ssh binary found in $PATH:
-	{{ProgramName}} ssh --%s=true jdoe@testvmi`,
+	{{ProgramName}} ssh --%s=true jdoe@vmi/testvmi`,
 		wrapLocalSSHFlag,
 	)
 }
@@ -39,20 +34,20 @@ func addAdditionalCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 }
 
 type NativeSSHConnection struct {
-	ClientConfig clientcmd.ClientConfig
-	Options      SSHOptions
+	Client  kubecli.KubevirtClient
+	Options SSHOptions
 }
 
-func (o *SSH) nativeSSH(kind, namespace, name string) error {
+func (o *SSH) nativeSSH(kind, namespace, name string, client kubecli.KubevirtClient) error {
 	conn := NativeSSHConnection{
-		ClientConfig: o.clientConfig,
-		Options:      o.options,
+		Client:  client,
+		Options: o.options,
 	}
-	client, err := conn.PrepareSSHClient(kind, namespace, name)
+	sshClient, err := conn.PrepareSSHClient(kind, namespace, name)
 	if err != nil {
 		return err
 	}
-	return conn.StartSession(client, o.command)
+	return conn.StartSession(sshClient, o.command)
 }
 
 func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*ssh.Client, error) {
@@ -112,7 +107,7 @@ func (o *NativeSSHConnection) trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMe
 	}
 	conn, err := net.Dial("unix", socket)
 	if err != nil {
-		glog.Error("no connection to ssh agent, skipping agent authentication:", err)
+		log.Log.Errorf("no connection to ssh agent, skipping agent authentication: %v", err)
 		return methods
 	}
 	agentClient := agent.NewClient(conn)
@@ -125,7 +120,7 @@ func (o *NativeSSHConnection) tryPrivateKey(methods []ssh.AuthMethod) []ssh.Auth
 	// not explicitly provided, don't add the authentication mechanism.
 	if !o.Options.IdentityFilePathProvided {
 		if _, err := os.Stat(o.Options.IdentityFilePath); errors.Is(err, os.ErrNotExist) {
-			glog.V(3).Infof("No ssh key at the default location %q found, skipping RSA authentication.", o.Options.IdentityFilePath)
+			log.Log.V(3).Infof("No ssh key at the default location %q found, skipping RSA authentication.", o.Options.IdentityFilePath)
 			return methods
 		}
 	}
@@ -203,20 +198,18 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client, command string) e
 	return nil
 }
 
-func (o *NativeSSHConnection) prepareSSHTunnel(kind, namespace, name string) (kubecli.StreamInterface, error) {
-	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.ClientConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	var stream kubecli.StreamInterface
+func (o *NativeSSHConnection) prepareSSHTunnel(kind, namespace, name string) (kvcorev1.StreamInterface, error) {
+	var (
+		stream kvcorev1.StreamInterface
+		err    error
+	)
 	if kind == "vmi" {
-		stream, err = virtCli.VirtualMachineInstance(namespace).PortForward(name, o.Options.SSHPort, "tcp")
+		stream, err = o.Client.VirtualMachineInstance(namespace).PortForward(name, o.Options.SSHPort, "tcp")
 		if err != nil {
 			return nil, fmt.Errorf("can't access VMI %s: %w", name, err)
 		}
 	} else if kind == "vm" {
-		stream, err = virtCli.VirtualMachine(namespace).PortForward(name, o.Options.SSHPort, "tcp")
+		stream, err = o.Client.VirtualMachine(namespace).PortForward(name, o.Options.SSHPort, "tcp")
 		if err != nil {
 			return nil, fmt.Errorf("can't access VM %s: %w", name, err)
 		}

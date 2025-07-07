@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 
@@ -33,7 +34,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
+	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 )
@@ -60,10 +61,37 @@ var _ = Describe("SRIOV HostDevice", func() {
 			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
 		})
 
+		It("creates no device given SRIOV interface that has no status", func() {
+			iface := newSRIOVInterface("test")
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+
+			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+		})
+
+		It("creates no device given SRIOV interface without multus info source", func() {
+			iface := newSRIOVInterface("test")
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+			vmi.Status = v1.VirtualMachineInstanceStatus{
+				Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
+					Name: "test",
+				}},
+			}
+
+			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+		})
+
 		It("fails to create device given no available host PCI", func() {
 			iface := newSRIOVInterface("test")
 			vmi := &v1.VirtualMachineInstance{}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+			vmi.Status = v1.VirtualMachineInstanceStatus{
+				Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
+					Name:       "test",
+					InfoSource: vmispec.InfoSourceMultusStatus,
+				}},
+			}
 
 			_, err := sriov.CreateHostDevices(vmi)
 
@@ -294,7 +322,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 	})
 
 	Context("safe detachment", func() {
-		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.AliasPrefix + "net1")}
+		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.SRIOVAliasPrefix + "net1")}
 
 		It("ignores an empty list of devices", func() {
 			domainSpec := newDomainSpec()
@@ -355,7 +383,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 		})
 
 		It("succeeds detaching 2 sriov devices", func() {
-			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.AliasPrefix + "net2")}
+			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.SRIOVAliasPrefix + "net2")}
 			domainSpec := newDomainSpec(hostDevice, hostDevice2)
 
 			c := newCallbackerStub(false, false)
@@ -374,7 +402,7 @@ func newDomainSpec(hostDevices ...api.HostDevice) *api.DomainSpec {
 }
 
 func newSRIOVAlias(netName string) *api.Alias {
-	return api.NewUserDefinedAlias(netsriov.AliasPrefix + netName)
+	return api.NewUserDefinedAlias(netsriov.SRIOVAliasPrefix + netName)
 }
 
 func newSRIOVInterfaceWithPCIAddress(name, customPCIAddress string) v1.Interface {

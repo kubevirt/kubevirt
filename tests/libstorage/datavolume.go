@@ -25,47 +25,24 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	v13 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
-func AddDataVolumeDisk(vmi *v13.VirtualMachineInstance, diskName, dataVolumeName string) *v13.VirtualMachineInstance {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v13.Disk{
-		Name: diskName,
-		DiskDevice: v13.DiskDevice{
-			Disk: &v13.DiskTarget{
-				Bus: v13.DiskBusVirtio,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v13.Volume{
-		Name: diskName,
-		VolumeSource: v13.VolumeSource{
-			DataVolume: &v13.DataVolumeSource{
-				Name: dataVolumeName,
-			},
-		},
-	})
-
-	return vmi
-}
-
-func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolume) {
-	dvt := &v13.DataVolumeTemplateSpec{}
+func AddDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *v1beta1.DataVolume) {
+	dvt := &v1.DataVolumeTemplateSpec{}
 
 	dvt.Spec = *dataVolume.Spec.DeepCopy()
 	dvt.ObjectMeta = *dataVolume.ObjectMeta.DeepCopy()
@@ -73,19 +50,19 @@ func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolum
 	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
 }
 
-func AddDataVolume(vm *v13.VirtualMachine, diskName string, dataVolume *v1beta1.DataVolume) {
-	vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v13.Disk{
+func AddDataVolume(vm *v1.VirtualMachine, diskName string, dataVolume *v1beta1.DataVolume) {
+	vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: diskName,
-		DiskDevice: v13.DiskDevice{
-			Disk: &v13.DiskTarget{
-				Bus: v13.DiskBusVirtio,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: v1.DiskBusVirtio,
 			},
 		},
 	})
-	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v13.Volume{
+	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 		Name: diskName,
-		VolumeSource: v13.VolumeSource{
-			DataVolume: &v13.DataVolumeSource{
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{
 				Name: dataVolume.Name,
 			},
 		},
@@ -98,81 +75,7 @@ func EventuallyDV(dv *v1beta1.DataVolume, timeoutSec int, matcher gomegatypes.Go
 }
 
 func EventuallyDVWith(namespace, name string, timeoutSec int, matcher gomegatypes.GomegaMatcher) {
-	virtCli := kubevirt.Client()
-
-	if !IsDataVolumeGC(virtCli) {
-		Eventually(ThisDVWith(namespace, name), timeoutSec, time.Second).Should(matcher)
-		return
-	}
-
-	ginkgo.By("Verifying DataVolume garbage collection")
-	var dv *v1beta1.DataVolume
-	Eventually(func() *v1beta1.DataVolume {
-		var err error
-		dv, err = ThisDVWith(namespace, name)()
-		Expect(err).ToNot(HaveOccurred())
-		return dv
-	}, timeoutSec, time.Second).Should(Or(BeNil(), matcher))
-
-	if dv != nil {
-		if dv.Status.Phase != v1beta1.Succeeded {
-			return
-		}
-		if dv.Annotations["cdi.kubevirt.io/storage.deleteAfterCompletion"] == "true" {
-			Eventually(ThisDV(dv), timeoutSec).Should(BeNil())
-		}
-	}
-
-	Eventually(func() bool {
-		pvc, err := ThisPVCWith(namespace, name)()
-		Expect(err).ToNot(HaveOccurred())
-		return pvc != nil && pvc.Spec.VolumeName != ""
-	}, timeoutSec, time.Second).Should(BeTrue())
-}
-
-func DeleteDataVolume(dv **v1beta1.DataVolume) {
-	Expect(dv).ToNot(BeNil())
-	if *dv == nil {
-		return
-	}
-	ginkgo.By("Deleting DataVolume")
-	virtCli := kubevirt.Client()
-
-	err := virtCli.CdiClient().CdiV1beta1().DataVolumes((*dv).Namespace).Delete(context.Background(), (*dv).Name, v12.DeleteOptions{})
-	if !IsDataVolumeGC(virtCli) {
-		Expect(err).ToNot(HaveOccurred())
-		*dv = nil
-		return
-	}
-	if err != nil {
-		Expect(errors.IsNotFound(err)).To(BeTrue())
-	}
-	if err = virtCli.CoreV1().PersistentVolumeClaims((*dv).Namespace).Delete(context.Background(), (*dv).Name, v12.DeleteOptions{}); err != nil {
-		Expect(errors.IsNotFound(err)).To(BeTrue())
-	}
-	*dv = nil
-}
-
-func SetDataVolumeGC(virtCli kubecli.KubevirtClient, ttlSec *int32) {
-	cdi := GetCDI(virtCli)
-	if cdi.Spec.Config.DataVolumeTTLSeconds == ttlSec {
-		return
-	}
-	cdi.Spec.Config.DataVolumeTTLSeconds = ttlSec
-	_, err := virtCli.CdiClient().CdiV1beta1().CDIs().Update(context.TODO(), cdi, v12.UpdateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	Eventually(func() *int32 {
-		config, err := virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.TODO(), "config", v12.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return config.Spec.DataVolumeTTLSeconds
-	}, 10, time.Second).Should(Equal(ttlSec))
-}
-
-func IsDataVolumeGC(virtCli kubecli.KubevirtClient) bool {
-	config, err := virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.TODO(), "config", v12.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	return config.Spec.DataVolumeTTLSeconds == nil || *config.Spec.DataVolumeTTLSeconds >= 0
+	Eventually(ThisDVWith(namespace, name), timeoutSec, time.Second).Should(matcher)
 }
 
 func GetCDI(virtCli kubecli.KubevirtClient) *v1beta1.CDI {
@@ -186,22 +89,14 @@ func GetCDI(virtCli kubecli.KubevirtClient) *v1beta1.CDI {
 	return cdi
 }
 
-func HasDataVolumeCRD() bool {
+func HasCDI() bool {
 	virtClient := kubevirt.Client()
 
 	ext, err := clientset.NewForConfig(virtClient.Config())
-	util.PanicOnError(err)
+	Expect(err).ToNot(HaveOccurred())
 
 	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "datavolumes.cdi.kubevirt.io", v12.GetOptions{})
-
-	if err != nil {
-		return false
-	}
-	return true
-}
-
-func HasCDI() bool {
-	return HasDataVolumeCRD()
+	return err == nil
 }
 
 func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
@@ -244,4 +139,24 @@ func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
 		},
 	}
 	return role, roleBinding
+}
+
+func RenderVMIWithDataVolume(dvName, ns string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	defaultOptions := []libvmi.Option{
+		libvmi.WithDataVolume("disk0", dvName),
+		// This default can be optimized further to 128Mi on certain setups
+		libvmi.WithResourceMemory("256Mi"),
+		libvmi.WithNamespace(ns),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	}
+	return libvmi.New(append(defaultOptions, opts...)...)
+}
+
+func RenderVMWithDataVolumeTemplate(dv *v1beta1.DataVolume, opts ...libvmi.VMOption) *v1.VirtualMachine {
+	defaultOptions := []libvmi.VMOption{libvmi.WithDataVolumeTemplate(dv)}
+	return libvmi.NewVirtualMachine(
+		RenderVMIWithDataVolume(dv.Name, dv.Namespace),
+		append(defaultOptions, opts...)...,
+	)
 }

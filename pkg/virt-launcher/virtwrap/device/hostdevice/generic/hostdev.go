@@ -35,12 +35,14 @@ const (
 )
 
 func CreateHostDevices(vmiHostDevices []v1.HostDevice) ([]api.HostDevice, error) {
-	return CreateHostDevicesFromPools(vmiHostDevices, NewPCIAddressPool(vmiHostDevices), NewMDEVAddressPool(vmiHostDevices))
+	return CreateHostDevicesFromPools(vmiHostDevices,
+		NewPCIAddressPool(vmiHostDevices), NewMDEVAddressPool(vmiHostDevices), NewUSBAddressPool(vmiHostDevices))
 }
 
-func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, mdevAddressPool hostdevice.AddressPooler) ([]api.HostDevice, error) {
+func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, mdevAddressPool, usbAddressPool hostdevice.AddressPooler) ([]api.HostDevice, error) {
 	pciPool := hostdevice.NewBestEffortAddressPool(pciAddressPool)
 	mdevPool := hostdevice.NewBestEffortAddressPool(mdevAddressPool)
+	usbPool := hostdevice.NewBestEffortAddressPool(usbAddressPool)
 
 	hostDevicesMetaData := createHostDevicesMetadata(vmiHostDevices)
 	pciHostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pciPool)
@@ -53,6 +55,13 @@ func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, 
 	}
 
 	hostDevices := append(pciHostDevices, mdevHostDevices...)
+
+	usbHostDevices, err := hostdevice.CreateUSBHostDevices(hostDevicesMetaData, usbPool)
+	if err != nil {
+		return nil, err
+	}
+
+	hostDevices = append(hostDevices, usbHostDevices...)
 
 	if err := validateCreationOfAllDevices(vmiHostDevices, hostDevices); err != nil {
 		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)

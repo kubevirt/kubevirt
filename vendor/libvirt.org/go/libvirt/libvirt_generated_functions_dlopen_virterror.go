@@ -43,8 +43,8 @@ package libvirt
 
 
 typedef int
-(*virConnCopyLastErrorType)(virConnectPtr conn,
-                            virErrorPtr to);
+(*virConnCopyLastErrorFuncType)(virConnectPtr conn,
+                                virErrorPtr to);
 
 int
 virConnCopyLastErrorWrapper(virConnectPtr conn,
@@ -52,7 +52,7 @@ virConnCopyLastErrorWrapper(virConnectPtr conn,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virConnCopyLastErrorType virConnCopyLastErrorSymbol;
+    static virConnCopyLastErrorFuncType virConnCopyLastErrorSymbol;
     static bool once;
     static bool success;
 
@@ -72,14 +72,14 @@ virConnCopyLastErrorWrapper(virConnectPtr conn,
 }
 
 typedef virErrorPtr
-(*virConnGetLastErrorType)(virConnectPtr conn);
+(*virConnGetLastErrorFuncType)(virConnectPtr conn);
 
 virErrorPtr
 virConnGetLastErrorWrapper(virConnectPtr conn,
                            virErrorPtr err)
 {
     virErrorPtr ret = NULL;
-    static virConnGetLastErrorType virConnGetLastErrorSymbol;
+    static virConnGetLastErrorFuncType virConnGetLastErrorSymbol;
     static bool once;
     static bool success;
 
@@ -98,13 +98,13 @@ virConnGetLastErrorWrapper(virConnectPtr conn,
 }
 
 typedef void
-(*virConnResetLastErrorType)(virConnectPtr conn);
+(*virConnResetLastErrorFuncType)(virConnectPtr conn);
 
 void
 virConnResetLastErrorWrapper(virConnectPtr conn)
 {
 
-    static virConnResetLastErrorType virConnResetLastErrorSymbol;
+    static virConnResetLastErrorFuncType virConnResetLastErrorSymbol;
     static bool once;
     static bool success;
 
@@ -119,9 +119,9 @@ virConnResetLastErrorWrapper(virConnectPtr conn)
 }
 
 typedef void
-(*virConnSetErrorFuncType)(virConnectPtr conn,
-                           void * userData,
-                           virErrorFunc handler);
+(*virConnSetErrorFuncFuncType)(virConnectPtr conn,
+                               void * userData,
+                               virErrorFunc handler);
 
 void
 virConnSetErrorFuncWrapper(virConnectPtr conn,
@@ -129,7 +129,7 @@ virConnSetErrorFuncWrapper(virConnectPtr conn,
                            virErrorFunc handler)
 {
 
-    static virConnSetErrorFuncType virConnSetErrorFuncSymbol;
+    static virConnSetErrorFuncFuncType virConnSetErrorFuncSymbol;
     static bool once;
     static bool success;
 
@@ -146,13 +146,13 @@ virConnSetErrorFuncWrapper(virConnectPtr conn,
 }
 
 typedef int
-(*virCopyLastErrorType)(virErrorPtr to);
+(*virCopyLastErrorFuncType)(virErrorPtr to);
 
 int
 virCopyLastErrorWrapper(virErrorPtr to)
 {
     int ret = -1;
-    static virCopyLastErrorType virCopyLastErrorSymbol;
+    static virCopyLastErrorFuncType virCopyLastErrorSymbol;
     static bool once;
     static bool success;
 
@@ -171,13 +171,13 @@ virCopyLastErrorWrapper(virErrorPtr to)
 }
 
 typedef void
-(*virDefaultErrorFuncType)(virErrorPtr err);
+(*virDefaultErrorFuncFuncType)(virErrorPtr err);
 
 void
 virDefaultErrorFuncWrapper(virErrorPtr err)
 {
 
-    static virDefaultErrorFuncType virDefaultErrorFuncSymbol;
+    static virDefaultErrorFuncFuncType virDefaultErrorFuncSymbol;
     static bool once;
     static bool success;
 
@@ -192,13 +192,13 @@ virDefaultErrorFuncWrapper(virErrorPtr err)
 }
 
 typedef void
-(*virFreeErrorType)(virErrorPtr err);
+(*virFreeErrorFuncType)(virErrorPtr err);
 
 void
 virFreeErrorWrapper(virErrorPtr err)
 {
 
-    static virFreeErrorType virFreeErrorSymbol;
+    static virFreeErrorFuncType virFreeErrorSymbol;
     static bool once;
     static bool success;
 
@@ -213,13 +213,13 @@ virFreeErrorWrapper(virErrorPtr err)
 }
 
 typedef virErrorPtr
-(*virGetLastErrorType)(void);
+(*virGetLastErrorFuncType)(void);
 
 virErrorPtr
 virGetLastErrorWrapper(virErrorPtr err)
 {
     virErrorPtr ret = NULL;
-    static virGetLastErrorType virGetLastErrorSymbol;
+    static virGetLastErrorFuncType virGetLastErrorSymbol;
     static bool once;
     static bool success;
 
@@ -238,13 +238,13 @@ virGetLastErrorWrapper(virErrorPtr err)
 }
 
 typedef int
-(*virGetLastErrorCodeType)(void);
+(*virGetLastErrorCodeFuncType)(void);
 
 int
 virGetLastErrorCodeWrapper(virErrorPtr err)
 {
     int ret = -1;
-    static virGetLastErrorCodeType virGetLastErrorCodeSymbol;
+    static virGetLastErrorCodeFuncType virGetLastErrorCodeSymbol;
     static bool once;
     static bool success;
 
@@ -263,13 +263,13 @@ virGetLastErrorCodeWrapper(virErrorPtr err)
 }
 
 typedef int
-(*virGetLastErrorDomainType)(void);
+(*virGetLastErrorDomainFuncType)(void);
 
 int
 virGetLastErrorDomainWrapper(virErrorPtr err)
 {
     int ret = -1;
-    static virGetLastErrorDomainType virGetLastErrorDomainSymbol;
+    static virGetLastErrorDomainFuncType virGetLastErrorDomainSymbol;
     static bool once;
     static bool success;
 
@@ -288,13 +288,13 @@ virGetLastErrorDomainWrapper(virErrorPtr err)
 }
 
 typedef const char *
-(*virGetLastErrorMessageType)(void);
+(*virGetLastErrorMessageFuncType)(void);
 
 const char *
 virGetLastErrorMessageWrapper(virErrorPtr err)
 {
     const char * ret = NULL;
-    static virGetLastErrorMessageType virGetLastErrorMessageSymbol;
+    static virGetLastErrorMessageFuncType virGetLastErrorMessageSymbol;
     static bool once;
     static bool success;
 
@@ -313,13 +313,13 @@ virGetLastErrorMessageWrapper(virErrorPtr err)
 }
 
 typedef void
-(*virResetErrorType)(virErrorPtr err);
+(*virResetErrorFuncType)(virErrorPtr err);
 
 void
 virResetErrorWrapper(virErrorPtr err)
 {
 
-    static virResetErrorType virResetErrorSymbol;
+    static virResetErrorFuncType virResetErrorSymbol;
     static bool once;
     static bool success;
 
@@ -334,13 +334,13 @@ virResetErrorWrapper(virErrorPtr err)
 }
 
 typedef void
-(*virResetLastErrorType)(void);
+(*virResetLastErrorFuncType)(void);
 
 void
 virResetLastErrorWrapper(void)
 {
 
-    static virResetLastErrorType virResetLastErrorSymbol;
+    static virResetLastErrorFuncType virResetLastErrorSymbol;
     static bool once;
     static bool success;
 
@@ -355,13 +355,13 @@ virResetLastErrorWrapper(void)
 }
 
 typedef virErrorPtr
-(*virSaveLastErrorType)(void);
+(*virSaveLastErrorFuncType)(void);
 
 virErrorPtr
 virSaveLastErrorWrapper(virErrorPtr err)
 {
     virErrorPtr ret = NULL;
-    static virSaveLastErrorType virSaveLastErrorSymbol;
+    static virSaveLastErrorFuncType virSaveLastErrorSymbol;
     static bool once;
     static bool success;
 
@@ -380,15 +380,15 @@ virSaveLastErrorWrapper(virErrorPtr err)
 }
 
 typedef void
-(*virSetErrorFuncType)(void * userData,
-                       virErrorFunc handler);
+(*virSetErrorFuncFuncType)(void * userData,
+                           virErrorFunc handler);
 
 void
 virSetErrorFuncWrapper(void * userData,
                        virErrorFunc handler)
 {
 
-    static virSetErrorFuncType virSetErrorFuncSymbol;
+    static virSetErrorFuncFuncType virSetErrorFuncSymbol;
     static bool once;
     static bool success;
 

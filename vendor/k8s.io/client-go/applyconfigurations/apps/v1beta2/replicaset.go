@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// ReplicaSetApplyConfiguration represents an declarative configuration of the ReplicaSet type for use
+// ReplicaSetApplyConfiguration represents a declarative configuration of the ReplicaSet type for use
 // with apply.
 type ReplicaSetApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -36,7 +36,7 @@ type ReplicaSetApplyConfiguration struct {
 	Status                           *ReplicaSetStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// ReplicaSet constructs an declarative configuration of the ReplicaSet type for use with
+// ReplicaSet constructs a declarative configuration of the ReplicaSet type for use with
 // apply.
 func ReplicaSet(name, namespace string) *ReplicaSetApplyConfiguration {
 	b := &ReplicaSetApplyConfiguration{}
@@ -123,15 +123,6 @@ func (b *ReplicaSetApplyConfiguration) WithGenerateName(value string) *ReplicaSe
 func (b *ReplicaSetApplyConfiguration) WithNamespace(value string) *ReplicaSetApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *ReplicaSetApplyConfiguration) WithSelfLink(value string) *ReplicaSetApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -244,15 +235,6 @@ func (b *ReplicaSetApplyConfiguration) WithFinalizers(values ...string) *Replica
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *ReplicaSetApplyConfiguration) WithClusterName(value string) *ReplicaSetApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *ReplicaSetApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -273,4 +255,10 @@ func (b *ReplicaSetApplyConfiguration) WithSpec(value *ReplicaSetSpecApplyConfig
 func (b *ReplicaSetApplyConfiguration) WithStatus(value *ReplicaSetStatusApplyConfiguration) *ReplicaSetApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *ReplicaSetApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

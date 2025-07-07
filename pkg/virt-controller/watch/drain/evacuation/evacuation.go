@@ -1,6 +1,7 @@
 package evacuation
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sync"
@@ -39,14 +40,15 @@ const (
 
 type EvacuationController struct {
 	clientset             kubecli.KubevirtClient
-	Queue                 workqueue.RateLimitingInterface
-	vmiInformer           cache.SharedIndexInformer
-	vmiPodInformer        cache.SharedIndexInformer
-	migrationInformer     cache.SharedIndexInformer
+	Queue                 workqueue.TypedRateLimitingInterface[string]
+	vmiIndexer            cache.Indexer
+	vmiPodIndexer         cache.Indexer
+	migrationStore        cache.Store
 	recorder              record.EventRecorder
 	migrationExpectations *controller.UIDTrackingControllerExpectations
-	nodeInformer          cache.SharedIndexInformer
+	nodeStore             cache.Store
 	clusterConfig         *virtconfig.ClusterConfig
+	hasSynced             func() bool
 }
 
 func NewEvacuationController(
@@ -57,39 +59,56 @@ func NewEvacuationController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
-) *EvacuationController {
+) (*EvacuationController, error) {
 
 	c := &EvacuationController{
-		Queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-evacuation"),
-		vmiInformer:           vmiInformer,
-		migrationInformer:     migrationInformer,
-		nodeInformer:          nodeInformer,
-		vmiPodInformer:        vmiPodInformer,
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-evacuation"},
+		),
+		vmiIndexer:            vmiInformer.GetIndexer(),
+		migrationStore:        migrationInformer.GetStore(),
+		nodeStore:             nodeInformer.GetStore(),
+		vmiPodIndexer:         vmiPodInformer.GetIndexer(),
 		recorder:              recorder,
 		clientset:             clientset,
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		clusterConfig:         clusterConfig,
 	}
 
-	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.hasSynced = func() bool {
+		return vmiInformer.HasSynced() && vmiPodInformer.HasSynced() && migrationInformer.HasSynced() && nodeInformer.HasSynced()
+	}
+
+	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
 	})
 
-	c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addMigration,
 		DeleteFunc: c.deleteMigration,
 		UpdateFunc: c.updateMigration,
 	})
 
-	c.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if err != nil {
+		return nil, err
+	}
+	_, err = nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addNode,
 		DeleteFunc: c.deleteNode,
 		UpdateFunc: c.updateNode,
 	})
 
-	return c
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (c *EvacuationController) addNode(obj interface{}) {
@@ -185,7 +204,7 @@ func (c *EvacuationController) addMigration(obj interface{}) {
 		c.migrationExpectations.CreationObserved(key)
 		node = key
 	} else {
-		o, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		o, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName))
 		if err != nil {
 			return
 		}
@@ -226,7 +245,7 @@ func (c *EvacuationController) enqueueMigration(obj interface{}) {
 			return
 		}
 	}
-	o, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+	o, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName))
 	if err != nil {
 		return
 	}
@@ -255,7 +274,7 @@ func (c *EvacuationController) resolveControllerRef(namespace string, controller
 	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
 		return nil
 	}
-	vmi, exists, err := c.vmiInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	vmi, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}
@@ -273,7 +292,7 @@ func (c *EvacuationController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting evacuation controller.")
 
 	// Wait for cache sync before we start the node controller
-	cache.WaitForCacheSync(stopCh, c.migrationInformer.HasSynced, c.vmiInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -295,7 +314,7 @@ func (c *EvacuationController) Execute() bool {
 		return false
 	}
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
@@ -310,7 +329,7 @@ func (c *EvacuationController) Execute() bool {
 func (c *EvacuationController) execute(key string) error {
 
 	// Fetch the latest node state from cache
-	obj, exists, err := c.nodeInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.nodeStore.GetByKey(key)
 
 	if err != nil {
 		return err
@@ -332,7 +351,7 @@ func (c *EvacuationController) execute(key string) error {
 		return fmt.Errorf("failed to list VMIs on node: %v", err)
 	}
 
-	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer)
+	migrations := migrationutils.ListUnfinishedMigrations(c.migrationStore)
 
 	return c.sync(node, vmis, migrations)
 }
@@ -381,11 +400,12 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 		return nil
 	}
 
-	activeMigrationsFromThisSourceNode := c.numOfVMIMForThisSourceNode(vmisOnNode, activeMigrations)
+	runningMigrations := migrationutils.FilterRunningMigrations(activeMigrations)
+	activeMigrationsFromThisSourceNode := c.numOfVMIMForThisSourceNode(vmisOnNode, runningMigrations)
 	maxParallelMigrationsPerOutboundNode :=
 		int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
 	maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
-	freeSpotsPerCluster := maxParallelMigrations - len(activeMigrations)
+	freeSpotsPerCluster := maxParallelMigrations - len(runningMigrations)
 	freeSpotsPerThisSourceNode := maxParallelMigrationsPerOutboundNode - activeMigrationsFromThisSourceNode
 	freeSpots := int(math.Min(float64(freeSpotsPerCluster), float64(freeSpotsPerThisSourceNode)))
 	if freeSpots <= 0 {
@@ -429,7 +449,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(GenerateNewMigration(vmi.Name, node.Name), &v1.CreateOptions{})
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi.Name, node.Name), v1.CreateOptions{})
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)
@@ -466,7 +486,7 @@ func vmisToMigrate(node *k8sv1.Node, vmisOnNode []*virtv1.VirtualMachineInstance
 }
 
 func (c *EvacuationController) listVMIsOnNode(nodeName string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiInformer.GetIndexer().ByIndex("node", nodeName)
+	objs, err := c.vmiIndexer.ByIndex("node", nodeName)
 	if err != nil {
 		return nil, err
 	}
@@ -505,7 +525,7 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 			continue
 		}
 
-		if controller.VMIActivePodsCount(vmi, c.vmiPodInformer) > 1 {
+		if controller.VMIActivePodsCount(vmi, c.vmiPodIndexer) > 1 {
 			// waiting on target/source pods from a previous migration to terminate
 			//
 			// We only want to create a migration when num pods == 1 or else we run the

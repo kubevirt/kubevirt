@@ -20,6 +20,8 @@
 package admitters
 
 import (
+	"context"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
+	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
 
 type MigrationUpdateAdmitter struct {
@@ -60,7 +63,7 @@ func ensureSelectorLabelSafe(newMigration *v1.VirtualMachineInstanceMigration, o
 	return []metav1.StatusCause{}
 }
 
-func (admitter *MigrationUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+func (admitter *MigrationUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	// Get new migration from admission response
 	newMigration, oldMigration, err := getAdmissionReviewMigration(ar)
 	if err != nil {
@@ -87,7 +90,5 @@ func (admitter *MigrationUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := admissionv1.AdmissionResponse{}
-	reviewResponse.Allowed = true
-	return &reviewResponse
+	return validating_webhooks.NewPassingAdmissionResponse()
 }

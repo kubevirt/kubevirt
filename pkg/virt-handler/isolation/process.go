@@ -19,7 +19,11 @@
 
 package isolation
 
-import "github.com/mitchellh/go-ps"
+import (
+	"strings"
+
+	"github.com/mitchellh/go-ps"
+)
 
 // childProcesses given a list of processes, it returns the ones that are children
 // of the given PID.
@@ -34,11 +38,14 @@ func childProcesses(processes []ps.Process, pid int) []ps.Process {
 	return childProcesses
 }
 
-// lookupProcessByExecutable given list of processes, it return the first occurrence
-// of a process that runs the given executable.
-func lookupProcessByExecutable(processes []ps.Process, exectutable string) ps.Process {
+// lookupProcessByExecutablePrefix given list of processes, it return the first occurrence
+// of a process with the given executable prefix.
+func lookupProcessByExecutablePrefix(processes []ps.Process, execPrefix string) ps.Process {
+	if execPrefix == "" {
+		return nil
+	}
 	for _, process := range processes {
-		if process.Executable() == exectutable {
+		if strings.HasPrefix(process.Executable(), execPrefix) {
 			return process
 		}
 	}

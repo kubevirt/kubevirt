@@ -26,17 +26,17 @@ package cmdclient
 */
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/rpc"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -60,7 +60,7 @@ var (
 	// add older version when supported
 	// don't use the variable in pkg/handler-launcher-com/cmd/v1/version.go in order to detect version mismatches early
 	supportedCmdVersions = []uint32{1}
-	legacyBaseDir        = "/var/run/kubevirt"
+	baseDir              = "/var/run/kubevirt"
 	podsBaseDir          = "/pods"
 )
 
@@ -69,12 +69,14 @@ const StandardInitLauncherSocketFileName = "launcher-init-sock"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
 type MigrationOptions struct {
-	Bandwidth               resource.Quantity
-	ProgressTimeout         int64
-	CompletionTimeoutPerGiB int64
-	UnsafeMigration         bool
-	AllowAutoConverge       bool
-	AllowPostCopy           bool
+	Bandwidth                resource.Quantity
+	ProgressTimeout          int64
+	CompletionTimeoutPerGiB  int64
+	UnsafeMigration          bool
+	AllowAutoConverge        bool
+	AllowPostCopy            bool
+	ParallelMigrationThreads *uint
+	AllowWorkloadDisruption  bool
 }
 
 type LauncherClient interface {
@@ -84,13 +86,14 @@ type LauncherClient interface {
 	FreezeVirtualMachine(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error
 	UnfreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
+	ResetVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	SoftRebootVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error
 	CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error
-	FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error
+	FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	HotplugHostDevices(vmi *v1.VirtualMachineInstance) error
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
@@ -103,6 +106,12 @@ type LauncherClient interface {
 	GuestPing(string, int32) error
 	Close()
 	VirtualMachineMemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
+	GetQemuVersion() (string, error)
+	SyncVirtualMachineCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
+	GetSEVInfo() (*v1.SEVPlatformInfo, error)
+	GetLaunchMeasurement(*v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error)
+	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
+	SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 }
 
 type VirtLauncherClient struct {
@@ -115,8 +124,8 @@ const (
 	longTimeout  time.Duration = 20 * time.Second
 )
 
-func SetLegacyBaseDir(baseDir string) {
-	legacyBaseDir = baseDir
+func SetBaseDir(dir string) {
+	baseDir = dir
 }
 
 func SetPodsBaseDir(baseDir string) {
@@ -126,34 +135,7 @@ func SetPodsBaseDir(baseDir string) {
 func ListAllSockets() ([]string, error) {
 	var socketFiles []string
 
-	socketsDir := filepath.Join(legacyBaseDir, "sockets")
-	exists, err := diskutils.FileExists(socketsDir)
-	if err != nil {
-		return nil, err
-	}
-
-	if exists == false {
-		return socketFiles, nil
-	}
-
-	files, err := os.ReadDir(socketsDir)
-	if err != nil {
-		return nil, err
-	}
-	for _, file := range files {
-		if file.IsDir() || !strings.Contains(file.Name(), "_sock") {
-			continue
-		}
-		// legacy support.
-		// The old way of handling launcher sockets was to
-		// dump them all in the same directory. So if we encounter
-		// a legacy socket, still process it. This is necessary
-		// for update support.
-		socketFiles = append(socketFiles, filepath.Join(socketsDir, file.Name()))
-	}
-
-	podsDir := podsBaseDir
-	dirs, err := os.ReadDir(podsDir)
+	dirs, err := os.ReadDir(podsBaseDir)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +145,7 @@ func ListAllSockets() ([]string, error) {
 		}
 
 		socketPath := SocketFilePathOnHost(dir.Name())
-		exists, err = diskutils.FileExists(socketPath)
+		exists, err := diskutils.FileExists(socketPath)
 		if err != nil {
 			return socketFiles, err
 		}
@@ -176,23 +158,8 @@ func ListAllSockets() ([]string, error) {
 	return socketFiles, nil
 }
 
-func LegacySocketsDirectory() string {
-	return filepath.Join(legacyBaseDir, "sockets")
-}
-
-func IsLegacySocket(socket string) bool {
-	if filepath.Base(socket) == StandardLauncherSocketFileName {
-		return false
-	}
-
-	return true
-}
-
-func SocketMonitoringEnabled(socket string) bool {
-	if filepath.Base(socket) == StandardLauncherSocketFileName {
-		return true
-	}
-	return false
+func SocketsDirectory() string {
+	return filepath.Join(baseDir, "sockets")
 }
 
 func IsSocketUnresponsive(socket string) bool {
@@ -206,11 +173,7 @@ func IsSocketUnresponsive(socket string) bool {
 
 	exists, _ = diskutils.FileExists(socket)
 	// if the socket file doesn't exist, it's definitely unresponsive as well
-	if !exists {
-		return true
-	}
-
-	return false
+	return !exists
 }
 
 func MarkSocketUnresponsive(socket string) error {
@@ -224,7 +187,7 @@ func MarkSocketUnresponsive(socket string) error {
 }
 
 func SocketDirectoryOnHost(podUID string) string {
-	return fmt.Sprintf("/%s/%s/volumes/kubernetes.io~empty-dir/sockets", podsBaseDir, string(podUID))
+	return fmt.Sprintf("/%s/%s/volumes/kubernetes.io~empty-dir/sockets", podsBaseDir, podUID)
 }
 
 func SocketFilePathOnHost(podUID string) string {
@@ -252,15 +215,6 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 
 // gets the cmd socket for a VMI
 func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
-	if string(vmi.UID) != "" {
-		legacySockFile := string(vmi.UID) + "_sock"
-		legacySock := filepath.Join(LegacySocketsDirectory(), legacySockFile)
-		exists, _ := diskutils.FileExists(legacySock)
-		if exists {
-			return legacySock, nil
-		}
-	}
-
 	socketsFound := 0
 	foundSocket := ""
 	// It is possible for multiple pods to be active on a single VMI
@@ -288,12 +242,12 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 
 func SocketOnGuest() string {
 	sockFile := StandardLauncherSocketFileName
-	return filepath.Join(LegacySocketsDirectory(), sockFile)
+	return filepath.Join(SocketsDirectory(), sockFile)
 }
 
 func UninitializedSocketOnGuest() string {
 	sockFile := StandardInitLauncherSocketFileName
-	return filepath.Join(LegacySocketsDirectory(), sockFile)
+	return filepath.Join(SocketsDirectory(), sockFile)
 }
 
 func NewClient(socketPath string) (LauncherClient, error) {
@@ -310,7 +264,8 @@ func NewClient(socketPath string) (LauncherClient, error) {
 }
 
 func NewClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
-	ctx, _ := context.WithTimeout(context.Background(), shortTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
 	info, err := infoClient.Info(ctx, &info.CmdInfoRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("could not check cmd server version: %v", err)
@@ -364,14 +319,23 @@ func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,
 	err = handleError(err, cmdName, response)
 	return err
 }
-
+func IsUnimplemented(err error) bool {
+	if grpcStatus, ok := status.FromError(err); ok {
+		if grpcStatus.Code() == codes.Unimplemented {
+			return true
+		}
+	}
+	return false
+}
 func handleError(err error, cmdName string, response *cmdv1.Response) error {
 	if IsDisconnected(err) {
+		return err
+	} else if IsUnimplemented(err) {
 		return err
 	} else if err != nil {
 		msg := fmt.Sprintf("unknown error encountered sending command %s: %s", cmdName, err.Error())
 		return fmt.Errorf(msg)
-	} else if response != nil && response.Success != true {
+	} else if response != nil && !response.Success {
 		return fmt.Errorf("server error. command %s failed: %q", cmdName, response.Message)
 	}
 	return nil
@@ -398,7 +362,6 @@ func IsDisconnected(err error) bool {
 	if grpcStatus, ok := status.FromError(err); ok {
 
 		// see https://github.com/grpc/grpc-go/blob/master/codes/codes.go
-		// TODO which other codes might be related to disconnection...?
 		switch grpcStatus.Code() {
 		case codes.Canceled:
 			// e.g. v1client connection closing
@@ -471,6 +434,10 @@ func (c *VirtLauncherClient) SoftRebootVirtualMachine(vmi *v1.VirtualMachineInst
 	return c.genericSendVMICmd("SoftReboot", c.v1client.SoftRebootVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
+func (c *VirtLauncherClient) ResetVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("Reset", c.v1client.ResetVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
+}
+
 func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	return c.genericSendVMICmd("Shutdown", c.v1client.ShutdownVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
 }
@@ -519,12 +486,16 @@ func (c *VirtLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance,
 	return c.genericSendVMICmd("SyncMigrationTarget", c.v1client.SyncMigrationTarget, vmi, options)
 }
 
+func (c *VirtLauncherClient) SyncVirtualMachineCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	return c.genericSendVMICmd("SyncVirtualMachineCPUs", c.v1client.SyncVirtualMachineCPUs, vmi, options)
+}
+
 func (c *VirtLauncherClient) SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error {
 	return c.genericSendVMICmd("SignalTargetPodCleanup", c.v1client.SignalTargetPodCleanup, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
-func (c *VirtLauncherClient) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("FinalizeVirtualMachineMigration", c.v1client.FinalizeVirtualMachineMigration, vmi, &cmdv1.VirtualMachineOptions{})
+func (c *VirtLauncherClient) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	return c.genericSendVMICmd("FinalizeVirtualMachineMigration", c.v1client.FinalizeVirtualMachineMigration, vmi, options)
 }
 
 func (c *VirtLauncherClient) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {
@@ -558,6 +529,28 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 		exists = true
 	}
 	return domain, exists, nil
+}
+
+func (c *VirtLauncherClient) GetQemuVersion() (string, error) {
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	versionResponse, err := c.v1client.GetQemuVersion(ctx, request)
+	var response *cmdv1.Response
+	if versionResponse != nil {
+		response = versionResponse.Response
+	}
+	if err = handleError(err, "GetQemuVersion", response); err != nil {
+		return "", err
+	}
+
+	if versionResponse != nil && versionResponse.Version != "" {
+		return versionResponse.Version, nil
+	}
+
+	log.Log.Reason(err).Error("error getting the qemu version")
+	return "", errors.New("error getting the qemu version")
 }
 
 func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) {
@@ -695,7 +688,7 @@ func (c *VirtLauncherClient) Exec(domainName, command string, args []string, tim
 		DomainName:     domainName,
 		Command:        command,
 		Args:           args,
-		TimeoutSeconds: int32(timeoutSeconds),
+		TimeoutSeconds: timeoutSeconds,
 	}
 	exitCode := -1
 	stdOut := ""
@@ -734,4 +727,82 @@ func (c *VirtLauncherClient) GuestPing(domainName string, timeoutSeconds int32) 
 
 	_, err := c.v1client.GuestPing(ctx, request)
 	return err
+}
+
+func (c *VirtLauncherClient) GetSEVInfo() (*v1.SEVPlatformInfo, error) {
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	sevInfoResponse, err := c.v1client.GetSEVInfo(ctx, request)
+	if err = handleError(err, "GetSEVInfo", sevInfoResponse.GetResponse()); err != nil {
+		return nil, err
+	}
+
+	sevPlatformInfo := &v1.SEVPlatformInfo{}
+	if err := json.Unmarshal(sevInfoResponse.GetSevInfo(), sevPlatformInfo); err != nil {
+		log.Log.Reason(err).Error("error unmarshalling SEV info response")
+		return nil, err
+	}
+
+	return sevPlatformInfo, nil
+}
+
+func (c *VirtLauncherClient) GetLaunchMeasurement(vmi *v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error) {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	request := &cmdv1.VMIRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	launchMeasurementRespose, err := c.v1client.GetLaunchMeasurement(ctx, request)
+	if err = handleError(err, "GetLaunchMeasurement", launchMeasurementRespose.GetResponse()); err != nil {
+		return nil, err
+	}
+
+	sevMeasurementInfo := &v1.SEVMeasurementInfo{}
+	if err := json.Unmarshal(launchMeasurementRespose.GetLaunchMeasurement(), sevMeasurementInfo); err != nil {
+		log.Log.Reason(err).Error("error unmarshalling launch measurement response")
+		return nil, err
+	}
+
+	return sevMeasurementInfo, nil
+}
+
+func (c *VirtLauncherClient) InjectLaunchSecret(vmi *v1.VirtualMachineInstance, sevSecretOptions *v1.SEVSecretOptions) error {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	optionsJson, err := json.Marshal(sevSecretOptions)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.InjectLaunchSecretRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		Options: optionsJson,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+
+	response, err := c.v1client.InjectLaunchSecret(ctx, request)
+
+	return handleError(err, "InjectLaunchSecret", response)
+}
+
+func (c *VirtLauncherClient) SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	return c.genericSendVMICmd("SyncVirtualMachineMemory", c.v1client.SyncVirtualMachineMemory, vmi, options)
 }

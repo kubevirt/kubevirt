@@ -8,7 +8,7 @@ states. If specific changes are needed, first manipulate our main
 [staging/client-go](../staging/src/kubevirt.io/client-go) are located in a
 separate [go.mod](../staging/src/kubevirt.io/client-go/go.mod). Changing in the
 staging area will be inherited by the main go.mod when running `make
-deps-update`.  
+deps-update`.
 To update k8s dependencies please follow [update-k8s-dependencies](update-k8s-dependencies.md)
 
 ## Updating RPM test dependencies
@@ -52,7 +52,7 @@ COPR repo:
   name: kubevirt/libvirt-copr-x86_64
 ```
 
-More information can be found at [bazeldnf](https://github.com/rmohr/bazeldnf). 
+More information can be found at [bazeldnf](https://github.com/rmohr/bazeldnf).
 
 ## Updating libvirt and libvirt-devel RPM dependencies
 
@@ -77,6 +77,17 @@ executing the `make verify-rpm-deps` command.
 * Adjust the select clauses on all container entries to choose the right
   target architecture and the right base image.
 * Add architecture specific entries to [.bazelrc](../.bazelrc)
+* Running `make rpm-deps` requires a sandbox enviroment, which is also updated from the previous command. You need to either run the command on an already onboarded architecture or updating the sandbox manually, by sourcing the variables from `hack/rpm-deps.sh` and running the bazeldnf command.
+```
+bazeldnf rpmtree \
+        --public --nobest \
+        --name sandboxroot_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sandboxroot_main
+```
 
 For x86_64 libvirt-devel dependencies exist for linking and unit-testing.
 Updating or adding such targets for other architectures is only necessary if

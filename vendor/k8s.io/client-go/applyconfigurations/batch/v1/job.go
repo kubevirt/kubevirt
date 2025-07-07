@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// JobApplyConfiguration represents an declarative configuration of the Job type for use
+// JobApplyConfiguration represents a declarative configuration of the Job type for use
 // with apply.
 type JobApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -36,7 +36,7 @@ type JobApplyConfiguration struct {
 	Status                           *JobStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// Job constructs an declarative configuration of the Job type for use with
+// Job constructs a declarative configuration of the Job type for use with
 // apply.
 func Job(name, namespace string) *JobApplyConfiguration {
 	b := &JobApplyConfiguration{}
@@ -123,15 +123,6 @@ func (b *JobApplyConfiguration) WithGenerateName(value string) *JobApplyConfigur
 func (b *JobApplyConfiguration) WithNamespace(value string) *JobApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *JobApplyConfiguration) WithSelfLink(value string) *JobApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -244,15 +235,6 @@ func (b *JobApplyConfiguration) WithFinalizers(values ...string) *JobApplyConfig
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *JobApplyConfiguration) WithClusterName(value string) *JobApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *JobApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -273,4 +255,10 @@ func (b *JobApplyConfiguration) WithSpec(value *JobSpecApplyConfiguration) *JobA
 func (b *JobApplyConfiguration) WithStatus(value *JobStatusApplyConfiguration) *JobApplyConfiguration {
 	b.Status = value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *JobApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

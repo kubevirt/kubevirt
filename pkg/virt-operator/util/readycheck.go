@@ -71,11 +71,13 @@ func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Store
 	}
 
 	if podsReady == 0 {
-		log.Log.Infof("DaemonSet %v not ready yet. Waiting on at least one ready pod", daemonset.Name)
+		log.Log.Infof("DaemonSet %v not ready yet. Waiting for all pods to be ready", daemonset.Name)
 		return false
 	}
 
-	return podsReady == daemonset.Status.DesiredNumberScheduled
+	// Misscheduled but up to date daemonset pods will not be evicted unless manually deleted or the daemonset gets updated.
+	// Don't force the Available condition to false or block the upgrade on up-to-date misscheduled pods.
+	return podsReady >= daemonset.Status.DesiredNumberScheduled
 }
 
 func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores Stores) bool {
@@ -138,10 +140,7 @@ func podIsRunning(pod *k8sv1.Pod) bool {
 }
 
 func podHasNamePrefix(pod *k8sv1.Pod, namePrefix string) bool {
-	if strings.Contains(pod.Name, namePrefix) {
-		return true
-	}
-	return false
+	return strings.Contains(pod.Name, namePrefix)
 }
 
 func PodIsUpToDate(pod *k8sv1.Pod, kv *v1.KubeVirt) bool {

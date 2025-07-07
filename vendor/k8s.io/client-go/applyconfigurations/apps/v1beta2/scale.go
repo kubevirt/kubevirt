@@ -25,7 +25,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// ScaleApplyConfiguration represents an declarative configuration of the Scale type for use
+// ScaleApplyConfiguration represents a declarative configuration of the Scale type for use
 // with apply.
 type ScaleApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -34,10 +34,13 @@ type ScaleApplyConfiguration struct {
 	Status                           *v1beta2.ScaleStatus `json:"status,omitempty"`
 }
 
-// ScaleApplyConfiguration constructs an declarative configuration of the Scale type for use with
+// ScaleApplyConfiguration constructs a declarative configuration of the Scale type for use with
 // apply.
 func Scale() *ScaleApplyConfiguration {
-	return &ScaleApplyConfiguration{}
+	b := &ScaleApplyConfiguration{}
+	b.WithKind("Scale")
+	b.WithAPIVersion("apps/v1beta2")
+	return b
 }
 
 // WithKind sets the Kind field in the declarative configuration to the given value
@@ -80,15 +83,6 @@ func (b *ScaleApplyConfiguration) WithGenerateName(value string) *ScaleApplyConf
 func (b *ScaleApplyConfiguration) WithNamespace(value string) *ScaleApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.Namespace = &value
-	return b
-}
-
-// WithSelfLink sets the SelfLink field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the SelfLink field is set to the value of the last call.
-func (b *ScaleApplyConfiguration) WithSelfLink(value string) *ScaleApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.SelfLink = &value
 	return b
 }
 
@@ -201,15 +195,6 @@ func (b *ScaleApplyConfiguration) WithFinalizers(values ...string) *ScaleApplyCo
 	return b
 }
 
-// WithClusterName sets the ClusterName field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ClusterName field is set to the value of the last call.
-func (b *ScaleApplyConfiguration) WithClusterName(value string) *ScaleApplyConfiguration {
-	b.ensureObjectMetaApplyConfigurationExists()
-	b.ClusterName = &value
-	return b
-}
-
 func (b *ScaleApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
@@ -230,4 +215,10 @@ func (b *ScaleApplyConfiguration) WithSpec(value v1beta2.ScaleSpec) *ScaleApplyC
 func (b *ScaleApplyConfiguration) WithStatus(value v1beta2.ScaleStatus) *ScaleApplyConfiguration {
 	b.Status = &value
 	return b
+}
+
+// GetName retrieves the value of the Name field in the declarative configuration.
+func (b *ScaleApplyConfiguration) GetName() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.Name
 }

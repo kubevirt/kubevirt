@@ -21,7 +21,7 @@ package libstorage
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"kubevirt.io/kubevirt/tests/errorhandling"
@@ -44,6 +44,8 @@ type KubeVirtTestsConfiguration struct {
 	StorageRWOBlock string `json:"storageRWOBlock"`
 	// StorageClass supporting snapshot
 	StorageSnapshot string `json:"storageSnapshot"`
+	// StorageVMState is the storage class for backend PVCs (TPM/EFI)
+	StorageVMState string `json:"storageVMState"`
 }
 
 const kubevirtIoTest = "kubevirt.io/test"
@@ -60,7 +62,7 @@ func LoadConfig() (*KubeVirtTestsConfiguration, error) {
 	defer errorhandling.SafelyCloseFile(jsonFile)
 
 	// read the configuration file as a byte array
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 
 	// convert the byte array to a KubeVirtTestsConfiguration struct
 	config := &KubeVirtTestsConfiguration{}

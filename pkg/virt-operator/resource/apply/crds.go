@@ -2,7 +2,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -13,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
 func getSubresourcesForVersion(crd *extv1.CustomResourceDefinition, version string) *extv1.CustomResourceSubresources {
@@ -44,16 +45,14 @@ func needsSubresourceStatusDisable(crdTargetVersion *extv1.CustomResourceDefinit
 		(crdTargetVersion.Subresources != nil && crdTargetVersion.Subresources.Status != nil)
 }
 
-func patchCRD(client clientset.Interface, crd *extv1.CustomResourceDefinition, ops []string) (*extv1.CustomResourceDefinition, error) {
+func patchCRD(client clientset.Interface, crd *extv1.CustomResourceDefinition, ops []patch.PatchOption) (*extv1.CustomResourceDefinition, error) {
 	name := crd.GetName()
-	newSpec, err := json.Marshal(crd.Spec)
+	ops = append(ops, patch.WithReplace("/spec", crd.Spec))
+	patchBytes, err := patch.New(ops...).GeneratePayload()
 	if err != nil {
 		return nil, err
 	}
-
-	ops = append(ops, fmt.Sprintf(replaceSpecPatchTemplate, string(newSpec)))
-
-	crd, err = client.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	crd, err = client.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to patch crd %+v: %v", crd, err)
 	}
@@ -80,13 +79,13 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 
 	crd = crd.DeepCopy()
 	injectOperatorMetadata(r.kv, &crd.ObjectMeta, version, imageRegistry, id, true)
-	obj, exists, _ := r.stores.CrdCache.Get(crd)
+	obj, exists, _ := r.stores.OperatorCrdCache.Get(crd)
 	if !exists {
 		// Create non existent
-		r.expectations.Crd.RaiseExpectations(r.kvKey, 1, 0)
+		r.expectations.OperatorCrd.RaiseExpectations(r.kvKey, 1, 0)
 		createdCRD, err := client.ApiextensionsV1().CustomResourceDefinitions().Create(context.Background(), crd, metav1.CreateOptions{})
 		if err != nil {
-			r.expectations.Crd.LowerExpectations(r.kvKey, 1, 0)
+			r.expectations.OperatorCrd.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create crd %+v: %v", crd, err)
 		}
 
@@ -113,13 +112,8 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 		}
 	}
 	// Add Labels and Annotations Patches
-	var ops []string
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&crd.ObjectMeta)
+	crd, err := patchCRD(client, crd, createLabelsAndAnnotationsPatch(&crd.ObjectMeta))
 	if err != nil {
-		return err
-	}
-	ops = append(ops, labelAnnotationPatch...)
-	if crd, err = patchCRD(client, crd, ops); err != nil {
 		return err
 	}
 
@@ -145,7 +139,7 @@ func (r *Reconciler) rolloutNonCompatibleCRDChange(crd *extv1.CustomResourceDefi
 	var cachedCrd *extv1.CustomResourceDefinition
 
 	crd = crd.DeepCopy()
-	obj, exists, err := r.stores.CrdCache.Get(crd)
+	obj, exists, err := r.stores.OperatorCrdCache.Get(crd)
 	if !exists {
 		return err
 	}
@@ -158,7 +152,7 @@ func (r *Reconciler) rolloutNonCompatibleCRDChange(crd *extv1.CustomResourceDefi
 			return nil
 		}
 		// enable the status subresources now, in case that they were disabled before
-		if _, err := patchCRD(client, crd, []string{}); err != nil {
+		if _, err := patchCRD(client, crd, []patch.PatchOption{}); err != nil {
 			return err
 		}
 

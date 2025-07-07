@@ -15,12 +15,14 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var onceIPv4 sync.Once
-var clusterSupportsIpv4 bool
-var errIPv4 error
-var onceIPv6 sync.Once
-var clusterSupportsIpv6 bool
-var errIPv6 error
+var (
+	onceIPv4            sync.Once
+	clusterSupportsIpv4 bool
+	errIPv4             error
+	onceIPv6            sync.Once
+	clusterSupportsIpv6 bool
+	errIPv6             error
+)
 
 func DualStack() (bool, error) {
 	supportsIpv4, err := SupportsIpv4()

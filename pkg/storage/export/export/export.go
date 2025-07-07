@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/openshift/library-go/pkg/build/naming"
@@ -37,15 +38,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	validation "k8s.io/apimachinery/pkg/util/validation"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/utils/pointer"
-
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -54,15 +52,20 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetypeexpand "kubevirt.io/kubevirt/pkg/instancetype/expand"
+	instancetypefind "kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
+	"kubevirt.io/kubevirt/pkg/storage/status"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	optutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
@@ -109,8 +112,6 @@ const (
 
 	kvm = 107
 
-	// secretTokenLength is the lenght of the randomly generated token
-	secretTokenLength = 20
 	// secretTokenKey is the entry used to store the token in the virtualMachineExport secret
 	secretTokenKey = "token"
 
@@ -125,6 +126,9 @@ const (
 	internalHostKey        = "internal_host"
 	externalCaConfigMapKey = "external_ca_cm"
 	internalCaConfigMapKey = "internal_ca_cm"
+
+	// ReadinessPath is the endpoint used to check the readiness probe
+	ReadinessPath = "/exportready"
 )
 
 // variable so can be overridden in tests
@@ -172,11 +176,19 @@ func (sv *sourceVolumes) isSourceAvailable() bool {
 	return !sv.inUse && sv.isPopulated
 }
 
+type manifestRenderer interface {
+	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *corev1.Pod
+}
+
+type instancetypeVMHandler interface {
+	Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error)
+}
+
 // VMExportController is resonsible for exporting VMs
 type VMExportController struct {
 	Client kubecli.KubevirtClient
 
-	TemplateService services.TemplateService
+	ManifestRenderer manifestRenderer
 
 	VMExportInformer            cache.SharedIndexInformer
 	PVCInformer                 cache.SharedIndexInformer
@@ -205,13 +217,15 @@ type VMExportController struct {
 
 	KubevirtNamespace string
 
-	vmExportQueue workqueue.RateLimitingInterface
+	vmExportQueue workqueue.TypedRateLimitingInterface[string]
 
 	caCertManager *bootstrap.FileCertificateManager
 
 	clusterConfig *virtconfig.ClusterConfig
 
-	instancetypeMethods instancetype.Methods
+	instancetypeHandler instancetypeVMHandler
+
+	statusUpdater *status.VMExportStatusUpdater
 }
 
 type CertParams struct {
@@ -248,73 +262,115 @@ var initCert = func(ctrl *VMExportController) {
 }
 
 // Init initializes the export controller
-func (ctrl *VMExportController) Init() {
-	ctrl.clusterConfig = virtconfig.NewClusterConfig(ctrl.CRDInformer, ctrl.KubeVirtInformer, ctrl.KubevirtNamespace)
-	ctrl.vmExportQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-export-vmexport")
+func (ctrl *VMExportController) Init() error {
+	var err error
+	ctrl.clusterConfig, err = virtconfig.NewClusterConfig(ctrl.CRDInformer, ctrl.KubeVirtInformer, ctrl.KubevirtNamespace)
+	if err != nil {
+		return err
+	}
+	ctrl.vmExportQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-export-vmexport"},
+	)
 
-	ctrl.VMExportInformer.AddEventHandler(
+	_, err = ctrl.VMExportInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMExport,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMExport(newObj) },
 		},
 	)
-	ctrl.PodInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+
+	_, err = ctrl.PodInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePod,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePod(newObj) },
 			DeleteFunc: ctrl.handlePod,
 		},
 	)
-	ctrl.ServiceInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.ServiceInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleService,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleService(newObj) },
 			DeleteFunc: ctrl.handleService,
 		},
 	)
-	ctrl.PVCInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.PVCInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
 			DeleteFunc: ctrl.handlePVC,
 		},
 	)
-	ctrl.VMSnapshotInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.VMSnapshotInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMSnapshot(newObj) },
 			DeleteFunc: ctrl.handleVMSnapshot,
 		},
 	)
-	ctrl.VMIInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.VMIInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMI,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMI(newObj) },
 			DeleteFunc: ctrl.handleVMI,
 		},
 	)
-	ctrl.VMInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.VMInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
 			DeleteFunc: ctrl.handleVM,
 		},
 	)
-	ctrl.KubeVirtInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.KubeVirtInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			UpdateFunc: ctrl.handleKubeVirt,
 		},
 	)
-	ctrl.instancetypeMethods = &instancetype.InstancetypeMethods{
-		InstancetypeStore:        ctrl.InstancetypeInformer.GetStore(),
-		ClusterInstancetypeStore: ctrl.ClusterInstancetypeInformer.GetStore(),
-		PreferenceStore:          ctrl.PreferenceInformer.GetStore(),
-		ClusterPreferenceStore:   ctrl.ClusterPreferenceInformer.GetStore(),
-		ControllerRevisionStore:  ctrl.ControllerRevisionInformer.GetStore(),
-		Clientset:                ctrl.Client,
+	if err != nil {
+		return err
 	}
+	ctrl.instancetypeHandler = instancetypeexpand.New(
+		ctrl.clusterConfig,
+		instancetypefind.NewSpecFinder(
+			ctrl.InstancetypeInformer.GetStore(),
+			ctrl.ClusterInstancetypeInformer.GetStore(),
+			ctrl.ControllerRevisionInformer.GetStore(),
+			ctrl.Client,
+		),
+		preferencefind.NewSpecFinder(
+			ctrl.PreferenceInformer.GetStore(),
+			ctrl.ClusterPreferenceInformer.GetStore(),
+			ctrl.ControllerRevisionInformer.GetStore(),
+			ctrl.Client,
+		),
+	)
+
+	ctrl.statusUpdater = status.NewVMExportStatusUpdater(ctrl.Client)
 
 	initCert(ctrl)
+	return nil
 }
 
 // Run the controller
@@ -460,6 +516,12 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 	if vmExport.DeletionTimestamp != nil {
 		return 0, nil
 	}
+	if vmExport.Labels == nil {
+		vmExport.Labels = make(map[string]string)
+	}
+	if vmExport.Annotations == nil {
+		vmExport.Annotations = make(map[string]string)
+	}
 
 	service, err := ctrl.getOrCreateExportService(vmExport)
 	if err != nil {
@@ -468,10 +530,6 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 
 	if vmExport.Status == nil {
 		populateInitialVMExportStatus(vmExport)
-	}
-
-	if err := ctrl.handleVMExportToken(vmExport); err != nil {
-		return 0, err
 	}
 
 	if ctrl.isSourcePvc(&vmExport.Spec) {
@@ -490,11 +548,14 @@ type pvcFromSourceFunc func(*exportv1.VirtualMachineExport) (*sourceVolumes, err
 type updateVMExportStatusFunc func(*exportv1.VirtualMachineExport, *corev1.Pod, *corev1.Service, *sourceVolumes) (time.Duration, error)
 
 func (ctrl *VMExportController) handleSource(vmExport *exportv1.VirtualMachineExport, service *corev1.Service, getPVCFromSource pvcFromSourceFunc, updateStatus updateVMExportStatusFunc) (time.Duration, error) {
+	if err := ctrl.handleVMExportToken(vmExport, getPVCFromSource); err != nil {
+		return 0, err
+	}
 	sourceVolumes, err := getPVCFromSource(vmExport)
 	if err != nil {
 		return 0, err
 	}
-	log.Log.V(4).Infof("Source volumes %v", sourceVolumes)
+	log.Log.V(4).Infof("Source volumes %#v", sourceVolumes)
 
 	pod, err := ctrl.manageExporterPod(vmExport, service, sourceVolumes)
 	if err != nil {
@@ -606,7 +667,7 @@ func (ctrl *VMExportController) createCertSecret(vmExport *exportv1.VirtualMachi
 	_, err = ctrl.Client.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
-	} else {
+	} else if err == nil {
 		log.Log.V(3).Infof("Created new exporter pod secret")
 		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, secretCreatedEvent, "Created exporter pod secret")
 	}
@@ -661,11 +722,18 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 }
 
 // handleVMExportToken checks if a secret has been specified for the current export object and, if not, creates one specific to it
-func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMachineExport) error {
+func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMachineExport, getPVCFromSource pvcFromSourceFunc) error {
 	// If a tokenSecretRef has been specified, we assume that the corresponding
 	// secret has already been created and managed appropiately by the user
 	if vmExport.Spec.TokenSecretRef != nil {
 		vmExport.Status.TokenSecretRef = vmExport.Spec.TokenSecretRef
+		return nil
+	}
+	sourceVolumes, err := getPVCFromSource(vmExport)
+	if err != nil {
+		return err
+	}
+	if !sourceVolumes.isSourceAvailable() || len(sourceVolumes.volumes) == 0 {
 		return nil
 	}
 
@@ -675,7 +743,7 @@ func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMa
 		vmExport.Status.TokenSecretRef = &generatedSecretName
 	}
 
-	token, err := kutil.GenerateSecureRandomString(secretTokenLength)
+	token, err := kutil.GenerateVMExportToken()
 	if err != nil {
 		return err
 	}
@@ -732,6 +800,17 @@ func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachi
 	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
 }
 
+// getExportLabelValue will return the virtual machine's name if it is under the
+// DNS1035-specified max length, or a normalized name otherwise.
+func (ctrl *VMExportController) getExportLabelValue(vmExport *exportv1.VirtualMachineExport) string {
+	// Maintain backwards compatibility by using the export's name if it's under
+	// the max length.
+	if len(vmExport.Name) <= validation.DNS1035LabelMaxLength {
+		return vmExport.Name
+	}
+	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
+}
+
 func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.VirtualMachineExport) (*corev1.Service, error) {
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportServiceName(vmExport))
 	if service, exists, err := ctrl.ServiceInformer.GetStore().GetByKey(key); err != nil {
@@ -750,6 +829,11 @@ func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.Virt
 }
 
 func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.VirtualMachineExport) *corev1.Service {
+	labels := map[string]string{virtv1.AppLabel: exportv1.App}
+	for key, value := range vmExport.Labels {
+		labels[key] = value
+	}
+
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ctrl.getExportServiceName(vmExport),
@@ -761,9 +845,8 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 					Kind:    exportGVK.Kind,
 				}),
 			},
-			Labels: map[string]string{
-				virtv1.AppLabel: exportv1.App,
-			},
+			Labels:      labels,
+			Annotations: vmExport.Annotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -777,7 +860,7 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 				},
 			},
 			Selector: map[string]string{
-				exportServiceLabel: vmExport.Name,
+				exportServiceLabel: ctrl.getExportLabelValue(vmExport),
 			},
 		},
 	}
@@ -787,7 +870,7 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 func (ctrl *VMExportController) getExporterPod(vmExport *exportv1.VirtualMachineExport) (*corev1.Pod, bool, error) {
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	if obj, exists, err := ctrl.PodInformer.GetStore().GetByKey(key); err != nil {
-		log.Log.V(3).Errorf("error %v", err)
+		log.Log.Errorf("error %v", err)
 		return nil, false, err
 	} else if !exists {
 		return nil, exists, nil
@@ -801,7 +884,7 @@ func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMach
 	log.Log.V(3).Infof("Checking if pod exists: %s/%s", vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	if obj, exists, err := ctrl.PodInformer.GetStore().GetByKey(key); err != nil {
-		log.Log.V(3).Errorf("error %v", err)
+		log.Log.Errorf("error %v", err)
 		return nil, err
 	} else if !exists {
 		manifest, err := ctrl.createExporterPodManifest(vmExport, service, pvcs)
@@ -834,32 +917,39 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	}
 
 	deadline := certParams.Duration - certParams.RenewBefore
-	podManifest := ctrl.TemplateService.RenderExporterManifest(vmExport, exportPrefix)
-	podManifest.Labels = map[string]string{exportServiceLabel: vmExport.Name}
+	podManifest := ctrl.ManifestRenderer.RenderExporterManifest(vmExport, exportPrefix)
+	podManifest.Labels = map[string]string{exportServiceLabel: ctrl.getExportLabelValue(vmExport)}
+	for key, value := range vmExport.Labels {
+		podManifest.Labels[key] = value
+	}
 	podManifest.Annotations = map[string]string{annCertParams: scp}
+	for key, value := range vmExport.Annotations {
+		podManifest.Annotations[key] = value
+	}
 	podManifest.Spec.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:   pointer.Bool(true),
-		FSGroup:        pointer.Int64Ptr(kvm),
+		RunAsNonRoot:   pointer.P(true),
+		FSGroup:        pointer.P(int64(kvm)),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 	for i, pvc := range pvcs {
 		var mountPoint string
+		volumeName := strings.ReplaceAll(pvc.Name, ".", "-")
 		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
-			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, pvc.Name)
+			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
 			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
-				Name:       pvc.Name,
+				Name:       volumeName,
 				DevicePath: mountPoint,
 			})
 		} else {
-			mountPoint = fmt.Sprintf("%s/%s", fileSystemMountPath, pvc.Name)
+			mountPoint = fmt.Sprintf("%s/%s", fileSystemMountPath, volumeName)
 			podManifest.Spec.Containers[0].VolumeMounts = append(podManifest.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-				Name:      pvc.Name,
+				Name:      volumeName,
 				ReadOnly:  true,
 				MountPath: mountPoint,
 			})
 		}
 		podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
-			Name: pvc.Name,
+			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: pvc.Name,
@@ -919,6 +1009,21 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Name:      tokenSecretRef,
 		MountPath: "/token",
 	})
+
+	podManifest.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Path:   ReadinessPath,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+			},
+		},
+		InitialDelaySeconds: 5,
+		PeriodSeconds:       5,
+	}
 
 	if vm, err := ctrl.getVmFromExport(vmExport); err != nil {
 		return nil, err
@@ -995,7 +1100,10 @@ func (ctrl *VMExportController) createDataManifestConfigMap(vmExport *exportv1.V
 	}
 	data[vmManifest] = string(vmBytes)
 
-	datavolumes := ctrl.generateDataVolumesFromVm(vm)
+	datavolumes, err := ctrl.generateDataVolumesFromVm(vm)
+	if err != nil {
+		return nil, err
+	}
 	for _, datavolume := range datavolumes {
 		if datavolume != nil {
 			dvBytes, err := json.Marshal(datavolume)
@@ -1050,7 +1158,7 @@ func (ctrl *VMExportController) getVmFromExport(vmExport *exportv1.VirtualMachin
 		return nil, err
 	}
 	if exists {
-		return ctrl.expandVirtualMachine(vm)
+		return ctrl.instancetypeHandler.Expand(vm)
 	}
 	return nil, nil
 }
@@ -1125,7 +1233,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, inUseReason, sourceVolumes.availableMessage))
 		vmExportCopy.Status.Phase = exportv1.Pending
 	} else {
-		if exporterPod.Status.Phase == corev1.PodRunning {
+		if optutil.PodIsReady(exporterPod) {
 			vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionTrue, podReadyReason, ""))
 			vmExportCopy.Status.Phase = exportv1.Ready
 			vmExportCopy.Status.Links.Internal, err = ctrl.getInteralLinks(sourceVolumes.volumes, exporterPod, service, getVolumeName, vmExport)
@@ -1153,7 +1261,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 
 func (ctrl *VMExportController) updateVMExportStatus(vmExport, vmExportCopy *exportv1.VirtualMachineExport) error {
 	if !equality.Semantic.DeepEqual(vmExport.Status, vmExportCopy.Status) {
-		if _, err := ctrl.Client.VirtualMachineExport(vmExportCopy.Namespace).Update(context.Background(), vmExportCopy, metav1.UpdateOptions{}); err != nil {
+		if err := ctrl.statusUpdater.UpdateStatus(vmExportCopy); err != nil {
 			return err
 		}
 	}
@@ -1284,34 +1392,13 @@ func (ctrl *VMExportController) pvcConditionFromPVC(pvcs []*corev1.PersistentVol
 	return cond
 }
 
-func (ctrl *VMExportController) expandVirtualMachine(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
-	instancetypeSpec, err := ctrl.instancetypeMethods.FindInstancetypeSpec(vm)
-	if err != nil {
-		return nil, err
-	}
-	preferenceSpec, err := ctrl.instancetypeMethods.FindPreferenceSpec(vm)
+func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+	volumes, err := storageutils.GetVolumes(vm, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if instancetypeSpec == nil && preferenceSpec == nil {
-		return vm, nil
-	}
-
-	conflicts := ctrl.instancetypeMethods.ApplyToVmi(field.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec)
-	if len(conflicts) > 0 {
-		return nil, fmt.Errorf("cannot expand instancetype to VM, due to %d conflicts", len(conflicts))
-	}
-
-	// Remove InstancetypeMatcher and PreferenceMatcher, so the returned VM object can be used and not cause a conflict
-	vm.Spec.Instancetype = nil
-	vm.Spec.Preference = nil
-
-	return vm, nil
-}
-
-func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
+	for _, volume := range volumes {
 		volumeName := ""
 		if volume.DataVolume != nil {
 			volumeName = volume.DataVolume.Name
@@ -1320,13 +1407,13 @@ func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.Vi
 			volumeName = volume.PersistentVolumeClaim.ClaimName
 		}
 		if volumeName != "" {
-			vm.Spec.DataVolumeTemplates = ctrl.replaceUrlDVTemplate(volumeName, vm.Namespace, vm.Spec.DataVolumeTemplates)
+			vm.Spec.DataVolumeTemplates = ctrl.replaceUrlDVTemplate(volumeName, vm.Spec.DataVolumeTemplates)
 		}
 	}
-	return vm
+	return vm, nil
 }
 
-func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName, namespace string, templates []virtv1.DataVolumeTemplateSpec) []virtv1.DataVolumeTemplateSpec {
+func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName string, templates []virtv1.DataVolumeTemplateSpec) []virtv1.DataVolumeTemplateSpec {
 	res := make([]virtv1.DataVolumeTemplateSpec, 0)
 	for _, template := range templates {
 		if template.ObjectMeta.Name == volumeName {
@@ -1337,6 +1424,7 @@ func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName, namespace strin
 					URL: "",
 				},
 			}
+			replacement.Spec.SourceRef = nil
 			res = append(res, *replacement)
 		} else {
 			res = append(res, template)
@@ -1346,7 +1434,7 @@ func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName, namespace strin
 }
 
 func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMachine) ([]byte, error) {
-	expandedVm, err := ctrl.expandVirtualMachine(vm)
+	expandedVm, err := ctrl.instancetypeHandler.Expand(vm)
 	if err != nil {
 		return nil, err
 	}
@@ -1361,7 +1449,10 @@ func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMac
 	expandedVm.ObjectMeta = cleanedObjectMeta
 
 	// Update dvTemplates if exists
-	expandedVm = ctrl.updateHttpSourceDataVolumeTemplate(vm)
+	expandedVm, err = ctrl.updateHttpSourceDataVolumeTemplate(expandedVm)
+	if err != nil {
+		return nil, err
+	}
 	vmBytes, err := json.Marshal(expandedVm)
 	if err != nil {
 		return nil, err
@@ -1369,9 +1460,13 @@ func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMac
 	return vmBytes, nil
 }
 
-func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMachine) []*cdiv1.DataVolume {
+func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
 	res := make([]*cdiv1.DataVolume, 0)
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
+	volumes, err := storageutils.GetVolumes(vm, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, volume := range volumes {
 		volumeName := ""
 		if volume.DataVolume != nil {
 			volumeName = volume.DataVolume.Name
@@ -1391,28 +1486,31 @@ func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMach
 			}
 		}
 	}
-	return res
+	return res, nil
 }
 
 func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string) *cdiv1.DataVolume {
 	pvc := ctrl.getPVCsFromName(namespace, name)
-	if pvc != nil {
-		pvc.Spec.VolumeName = ""
-		pvc.Spec.StorageClassName = nil
-		return &cdiv1.DataVolume{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-			},
-			Spec: cdiv1.DataVolumeSpec{
-				Source: &cdiv1.DataVolumeSource{
-					HTTP: &cdiv1.DataVolumeSourceHTTP{
-						URL: "",
-					},
-				},
-				PVC: &pvc.Spec,
-			},
-		}
+	if pvc == nil {
+		return nil
 	}
-	return nil
+
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: &cdiv1.DataVolumeSource{
+				HTTP: &cdiv1.DataVolumeSourceHTTP{
+					URL: "",
+				},
+			},
+			Storage: &cdiv1.StorageSpec{
+				AccessModes: pvc.Spec.AccessModes,
+				VolumeMode:  pvc.Spec.VolumeMode,
+				Resources:   pvc.Spec.Resources,
+			},
+		},
+	}
 }

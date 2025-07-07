@@ -25,6 +25,8 @@ import (
 // see https://github.com/kubernetes/code-generator/issues/59
 // +genclient:nonNamespaced
 
+// Deprecated for removal in v1.
+//
 // ObjectTransfer is the cluster scoped object transfer resource
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

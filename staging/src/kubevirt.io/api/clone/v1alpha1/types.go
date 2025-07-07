@@ -37,21 +37,48 @@ type VirtualMachineClone struct {
 	Status VirtualMachineCloneStatus `json:"status,omitempty"`
 }
 
-type VirtualMachineCloneSpec struct {
-	Source *corev1.TypedLocalObjectReference `json:"source"`
-
-	// If the target is not provided, a random name would be generated for the target.
-	// The target's name can be viewed by inspecting status "TargetName" field below.
-	// +optional
-	Target *corev1.TypedLocalObjectReference `json:"target,omitempty"`
-
+type VirtualMachineCloneTemplateFilters struct {
+	// Example use: "!some/key*".
+	// For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
 	// +optional
 	// +listType=atomic
 	AnnotationFilters []string `json:"annotationFilters,omitempty"`
+	// Example use: "!some/key*".
+	// For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
 	// +optional
 	// +listType=atomic
 	LabelFilters []string `json:"labelFilters,omitempty"`
+}
 
+type VirtualMachineCloneSpec struct {
+	// Source is the object that would be cloned. Currently supported source types are:
+	// VirtualMachine of kubevirt.io API group,
+	// VirtualMachineSnapshot of snapshot.kubevirt.io API group
+	Source *corev1.TypedLocalObjectReference `json:"source"`
+
+	// Target is the outcome of the cloning process.
+	// Currently supported source types are:
+	// - VirtualMachine of kubevirt.io API group
+	// - Empty (nil).
+	// If the target is not provided, the target type would default to VirtualMachine and a random
+	// name would be generated for the target. The target's name can be viewed by
+	// inspecting status "TargetName" field below.
+	// +optional
+	Target *corev1.TypedLocalObjectReference `json:"target,omitempty"`
+
+	// Example use: "!some/key*".
+	// For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
+	// +optional
+	// +listType=atomic
+	AnnotationFilters []string `json:"annotationFilters,omitempty"`
+	// Example use: "!some/key*".
+	// For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
+	// +optional
+	// +listType=atomic
+	LabelFilters []string `json:"labelFilters,omitempty"`
+	// For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
+	// +optional
+	Template VirtualMachineCloneTemplateFilters `json:"template,omitempty"`
 	// NewMacAddresses manually sets that target interfaces' mac addresses. The key is the interface name and the
 	// value is the new mac address. If this field is not specified, a new MAC address will
 	// be generated automatically, as for any interface that is not included in this map.

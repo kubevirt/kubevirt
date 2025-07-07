@@ -353,7 +353,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 					Phase: v1.KubeVirtPhaseDeploying,
 				},
 			}
-			fakeClusterConfig, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+			fakeClusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
@@ -391,7 +391,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 					},
 				},
 			}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			node := &kubev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testNode",
@@ -449,7 +449,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 
 			By("removing all created mdevs")
 			kvConfig.Spec.Configuration.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			deviceController.refreshMediatedDeviceTypes()
 			files, err := os.ReadDir(fakeMdevDevicesPath)
 			Expect(err).ToNot(HaveOccurred())

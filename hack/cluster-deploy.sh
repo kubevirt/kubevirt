@@ -21,11 +21,10 @@ set -ex pipefail
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 KUBEVIRT_DEPLOY_CDI=${KUBEVIRT_DEPLOY_CDI:-true}
-CDI_DV_GC=${CDI_DV_GC:-0}
 
 source hack/common.sh
 # shellcheck disable=SC1090
-source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
+source kubevirtci/cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
 function dump_kubevirt() {
@@ -46,21 +45,13 @@ function _deploy_infra_for_tests() {
 }
 
 function _ensure_cdi_deployment() {
-    # enable featuregate
-    _kubectl patch cdi ${cdi_namespace:?} --type merge -p '{"spec": {"config": {"featureGates": [ "HonorWaitForFirstConsumer" ]}}}'
-
     # add insecure registries
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"insecureRegistries": [ "registry:5000", "fakeregistry:5000" ]}}}'
 
     # Configure uploadproxy override for virtctl imageupload
-    host_port=$(${KUBEVIRT_PATH}cluster-up/cli.sh ports uploadproxy | xargs)
+    host_port=$(${KUBEVIRT_PATH}kubevirtci/cluster-up/cli.sh ports uploadproxy | xargs)
     override="https://127.0.0.1:$host_port"
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
-
-    # Enable succeeded DataVolume garbage collection
-    if [[ $CDI_DV_GC != "0" ]]; then
-        _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
-    fi
 }
 
 function configure_prometheus() {
@@ -120,7 +111,7 @@ _kubectl create -n ${namespace} -f ${MANIFESTS_OUT_DIR}/release/kubevirt-cr.yaml
 
 # Ensure the KubeVirt CR is created
 count=0
-until _kubectl -n kubevirt get kv kubevirt; do
+until _kubectl -n ${namespace} get kv kubevirt; do
     ((count++)) && ((count == 30)) && echo "KubeVirt CR not found" && exit 1
     echo "waiting for KubeVirt CR"
     sleep 1
@@ -128,7 +119,7 @@ done
 
 # Wait until KubeVirt is ready
 count=0
-until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 5m; do
+until _kubectl wait -n ${namespace} kv kubevirt --for condition=Available --timeout 5m; do
     ((count++)) && ((count == 5)) && echo "KubeVirt not ready in time" && exit 1
     echo "Error waiting for KubeVirt to be Available, sleeping 1m and retrying"
     sleep 1m

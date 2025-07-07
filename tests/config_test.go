@@ -19,40 +19,45 @@
 package tests_test
 
 import (
+	"context"
+	cryptorand "crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
-	k8sv1 "k8s.io/api/core/v1"
-
 	expect "github.com/google/goexpect"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pborman/uuid"
-
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
+	"golang.org/x/crypto/ssh"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/kubecli"
-
 	"kubevirt.io/kubevirt/pkg/config"
-	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", decorators.SigCompute, func() {
 
-	var virtClient kubecli.KubevirtClient
-
 	var CheckIsoVolumeSizes = func(vmi *v1.VirtualMachineInstance) {
-		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		Expect(err).NotTo(HaveOccurred())
 
 		for _, volume := range vmi.Spec.Volumes {
 			var path = ""
@@ -66,7 +71,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 			if len(path) > 0 {
 				cmdCheck := []string{"stat", "--printf='%s'", path}
-				out, err := exec.ExecuteCommandOnPod(virtClient, pod, "compute", cmdCheck)
+				out, err := exec.ExecuteCommandOnPod(pod, "compute", cmdCheck)
 				Expect(err).NotTo(HaveOccurred())
 				size, err := strconv.Atoi(strings.Trim(out, "'"))
 				Expect(err).NotTo(HaveOccurred())
@@ -74,10 +79,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 		}
 	}
-
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
 
 	Context("With a ConfigMap defined", func() {
 
@@ -88,7 +89,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			)
 
 			BeforeEach(func() {
-				configMapName = "configmap-" + uuid.NewRandom().String()
+				configMapName = "configmap-" + uuid.NewString()
 				configMapPath = config.GetConfigMapSourcePath(configMapName)
 
 				data := map[string]string{
@@ -96,27 +97,32 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"option2": "value2",
 					"option3": "value3",
 				}
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), data)
+				cm := libconfigmap.New(configMapName, data)
+				cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			AfterEach(func() {
-				tests.DeleteConfigMap(configMapName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:782]Should be the fs layout the same for a pod and vmi", func() {
 				expectedOutput := "value1value2value3"
 
 				By("Running VMI")
-				vmi := libvmi.NewAlpine(withConfigMap(configMapName, configMapName))
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi := libvmifact.NewAlpine(libvmi.WithConfigMapDisk(configMapName, configMapName))
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if ConfigMap has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
 				podOutput, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -149,26 +155,30 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			BeforeEach(func() {
 				for i := 0; i < configMapsCnt; i++ {
-					name := "configmap-" + uuid.NewRandom().String()
-					tests.CreateConfigMap(name, testsuite.GetTestNamespace(nil), map[string]string{"option": "value"})
+					name := "configmap-" + uuid.NewString()
+					cm := libconfigmap.New(name, map[string]string{"option": "value"})
+					cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 					configMaps = append(configMaps, name)
 				}
 			})
 
 			AfterEach(func() {
-				for _, configMap := range configMaps {
-					tests.DeleteConfigMap(configMap, testsuite.GetTestNamespace(nil))
+				for _, configMapIface := range configMaps {
+					if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapIface, metav1.DeleteOptions{}); err != nil {
+						Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+					}
 				}
 				configMaps = nil
 			})
 
 			It("[test_id:783]Should start VMI with multiple ConfigMaps", func() {
-				vmi := libvmi.NewAlpine(
-					withConfigMap(configMaps[0], configMaps[0]),
-					withConfigMap(configMaps[1], configMaps[1]),
-					withConfigMap(configMaps[2], configMaps[2]))
+				vmi := libvmifact.NewAlpine(
+					libvmi.WithConfigMapDisk(configMaps[0], configMaps[0]),
+					libvmi.WithConfigMapDisk(configMaps[1], configMaps[1]),
+					libvmi.WithConfigMapDisk(configMaps[2], configMaps[2]))
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 				CheckIsoVolumeSizes(vmi)
 			})
 		})
@@ -183,34 +193,36 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			)
 
 			BeforeEach(func() {
-				secretName = "secret-" + uuid.NewRandom().String()
+				secretName = "secret-" + uuid.NewString()
 				secretPath = config.GetSecretSourcePath(secretName)
 
-				data := map[string]string{
-					"user":     "admin",
-					"password": "redhat",
+				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "redhat"})
+				_, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
 				}
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), data)
 			})
 
 			AfterEach(func() {
-				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:779]Should be the fs layout the same for a pod and vmi", func() {
 				expectedOutput := "adminredhat"
 
 				By("Running VMI")
-				vmi := libvmi.NewAlpine(withSecret(secretName, secretName))
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if Secret has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(nil))
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 				podOutput, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -242,26 +254,33 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			BeforeEach(func() {
 				for i := 0; i < secretsCnt; i++ {
-					name := "secret-" + uuid.NewRandom().String()
-					tests.CreateSecret(name, testsuite.GetTestNamespace(nil), map[string]string{"option": "value"})
+					name := "secret-" + uuid.NewString()
+					secret := libsecret.New(name, libsecret.DataString{"option": "value"})
+					_, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+					if !errors.IsAlreadyExists(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+
 					secrets = append(secrets, name)
 				}
 			})
 
 			AfterEach(func() {
 				for _, secret := range secrets {
-					tests.DeleteSecret(secret, testsuite.GetTestNamespace(nil))
+					if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secret, metav1.DeleteOptions{}); err != nil {
+						Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+					}
 				}
 				secrets = nil
 			})
 
 			It("[test_id:780]Should start VMI with multiple Secrets", func() {
-				vmi := libvmi.NewAlpine(
-					withSecret(secrets[0], secrets[0]),
-					withSecret(secrets[1], secrets[1]),
-					withSecret(secrets[2], secrets[2]))
+				vmi := libvmifact.NewAlpine(
+					libvmi.WithSecretDisk(secrets[0], secrets[0]),
+					libvmi.WithSecretDisk(secrets[1], secrets[1]),
+					libvmi.WithSecretDisk(secrets[2], secrets[2]))
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 				CheckIsoVolumeSizes(vmi)
 			})
 		})
@@ -274,16 +293,17 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
 			By("Running VMI")
-			vmi := libvmi.NewAlpine(withServiceAccount("default"))
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi := libvmifact.NewAlpine(libvmi.WithServiceAccountDisk("default"))
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			CheckIsoVolumeSizes(vmi)
 
 			By("Checking if ServiceAccount has been attached to the pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
 			namespace, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"cat",
@@ -295,7 +315,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(namespace).To(Equal(testsuite.GetTestNamespace(vmi)))
 
 			token, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"tail", "-c", "20",
@@ -332,9 +351,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			)
 
 			BeforeEach(func() {
-				configMapName = "configmap-" + uuid.NewRandom().String()
+				configMapName = "configmap-" + uuid.NewString()
 				configMapPath = config.GetConfigMapSourcePath(configMapName)
-				secretName = "secret-" + uuid.NewRandom().String()
+				secretName = "secret-" + uuid.NewString()
 				secretPath = config.GetSecretSourcePath(secretName)
 
 				configData := map[string]string{
@@ -343,19 +362,24 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"config3": "value3",
 				}
 
-				secretData := map[string]string{
-					"user":     "admin",
-					"password": "redhat",
+				cm := libconfigmap.New(configMapName, configData)
+				cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "redhat"})
+				_, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
 				}
-
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), configData)
-
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secretData)
 			})
 
 			AfterEach(func() {
-				tests.DeleteConfigMap(configMapName, testsuite.GetTestNamespace(nil))
-				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
+				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:786]Should be that cfgMap and secret fs layout same for the pod and vmi", func() {
@@ -363,10 +387,10 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedOutputSecret := "adminredhat"
 
 				By("Running VMI")
-				vmi := libvmi.NewFedora(withConfigMap(configMapName, configMapName),
-					withSecret(secretName, secretName),
-					withLabelledConfigMap(configMapName, "random1", "configlabel"),
-					withLabelledSecret(secretName, "random2", "secretlabel"))
+				vmi := libvmifact.NewFedora(libvmi.WithConfigMapDisk(configMapName, configMapName),
+					libvmi.WithSecretDisk(secretName, secretName),
+					libvmi.WithLabelledConfigMapDisk(configMapName, "random1", "configlabel"),
+					libvmi.WithLabelledSecretDisk(secretName, "random2", "secretlabel"))
 
 				// Ensure virtio for consistent order
 				for i := range vmi.Spec.Domain.Devices.Disks {
@@ -377,15 +401,16 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					}
 				}
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if ConfigMap has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
 				podOutputCfgMap, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -412,7 +437,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Checking if Secret has also been attached to the same pod")
 				podOutputSecret, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -459,23 +483,25 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			)
 
 			var bitSize int = 2048
-			privateKey, _ := tests.GeneratePrivateKey(bitSize)
-			publicKeyBytes, _ := tests.GeneratePublicKey(&privateKey.PublicKey)
-			privateKeyBytes := tests.EncodePrivateKeyToPEM(privateKey)
+			privateKey, _ := generatePrivateKey(bitSize)
+			publicKeyBytes, _ := generatePublicKey(&privateKey.PublicKey)
+			privateKeyBytes := encodePrivateKeyToPEM(privateKey)
 
 			BeforeEach(func() {
-				secretName = "secret-" + uuid.NewRandom().String()
+				secretName = "secret-" + uuid.NewString()
 				secretPath = config.GetSecretSourcePath(secretName)
 
-				data := map[string]string{
-					"ssh-privatekey": string(privateKeyBytes),
-					"ssh-publickey":  string(publicKeyBytes),
+				secret := libsecret.New(secretName, libsecret.DataBytes{"ssh-privatekey": privateKeyBytes, "ssh-publickey": publicKeyBytes})
+				_, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
 				}
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), data)
 			})
 
 			AfterEach(func() {
-				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:778]Should be the fs layout the same for a pod and vmi", func() {
@@ -483,16 +509,17 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedPublicKey := string(publicKeyBytes)
 
 				By("Running VMI")
-				vmi := libvmi.NewAlpine(withSecret(secretName, secretName))
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if Secret has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(nil))
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
 				podOutput1, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -503,7 +530,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(podOutput1).To(Equal(expectedPrivateKey), "Expected pod output of private key to match genereated one.")
 
 				podOutput2, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -533,7 +559,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Context("With a DownwardAPI defined", func() {
 
-		downwardAPIName := "downwardapi-" + uuid.NewRandom().String()
+		downwardAPIName := "downwardapi-" + uuid.NewString()
 		downwardAPIPath := config.GetDownwardAPISourcePath(downwardAPIName)
 
 		testLabelKey := "kubevirt.io.testdownwardapi"
@@ -542,18 +568,19 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:790]Should be the namespace and token the same for a pod and vmi", func() {
 			By("Running VMI")
-			vmi := libvmi.NewAlpine(
+			vmi := libvmifact.NewAlpine(
 				libvmi.WithLabel(testLabelKey, testLabelVal),
-				withDownwardAPI(downwardAPIName))
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				libvmi.WithDownwardAPIDisk(downwardAPIName))
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			CheckIsoVolumeSizes(vmi)
 
 			By("Checking if DownwardAPI has been attached to the pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(nil))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
 			podOutput, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"grep", testLabelKey,
@@ -576,90 +603,46 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 })
 
-func withSecret(secretName, volumeName string) libvmi.Option {
-	return withLabelledSecret(secretName, volumeName, "")
-}
-
-func withLabelledSecret(secretName, volumeName, label string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: volumeName,
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName:  secretName,
-					VolumeLabel: label,
-				},
-			},
-		})
-
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: volumeName,
-		})
+// generatePrivateKey creates a RSA Private Key of specified byte size
+func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
+	privateKey, err := rsa.GenerateKey(cryptorand.Reader, bitSize)
+	if err != nil {
+		return nil, err
 	}
-}
 
-func withConfigMap(configMapName, volumeName string) libvmi.Option {
-	return withLabelledConfigMap(configMapName, volumeName, "")
-}
-
-func withLabelledConfigMap(configMapName, volumeName, label string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: volumeName,
-			VolumeSource: v1.VolumeSource{
-				ConfigMap: &v1.ConfigMapVolumeSource{
-					LocalObjectReference: k8sv1.LocalObjectReference{
-						Name: configMapName,
-					},
-					VolumeLabel: label,
-				},
-			},
-		})
-
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: volumeName,
-		})
+	err = privateKey.Validate()
+	if err != nil {
+		return nil, err
 	}
+
+	return privateKey, nil
 }
 
-func withServiceAccount(name string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: name + "-disk",
-			VolumeSource: v1.VolumeSource{
-				ServiceAccount: &v1.ServiceAccountVolumeSource{
-					ServiceAccountName: name,
-				},
-			},
-		})
-
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: name + "-disk",
-		})
+// generatePublicKey will return in the format "ssh-rsa ..."
+func generatePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
+	publicRsaKey, err := ssh.NewPublicKey(privatekey)
+	if err != nil {
+		return nil, err
 	}
+
+	publicKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
+
+	return publicKeyBytes, nil
 }
 
-func withDownwardAPI(name string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: name,
-			VolumeSource: v1.VolumeSource{
-				DownwardAPI: &v1.DownwardAPIVolumeSource{
-					Fields: []k8sv1.DownwardAPIVolumeFile{
-						{
-							Path: "labels",
-							FieldRef: &k8sv1.ObjectFieldSelector{
-								FieldPath: "metadata.labels",
-							},
-						},
-					},
-					VolumeLabel: "",
-				},
-			},
-		})
+// encodePrivateKeyToPEM encodes Private Key from RSA to PEM format
+func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
+	// Get ASN.1 DER format
+	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
 
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: name,
-		})
+	privateBlock := pem.Block{
+		Type:    "RSA PRIVATE KEY",
+		Headers: nil,
+		Bytes:   privDER,
 	}
+
+	// Private key in PEM format
+	privatePEM := pem.EncodeToMemory(&privateBlock)
+
+	return privatePEM
 }

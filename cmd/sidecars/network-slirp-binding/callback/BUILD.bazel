@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["callback.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding/callback",
+    visibility = ["//visibility:public"],
+    deps = ["//pkg/virt-launcher/virtwrap/api:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "callback_suite_test.go",
+        "callback_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

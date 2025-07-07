@@ -43,11 +43,11 @@ package libvirt
 
 
 typedef int
-(*virEventAddHandleType)(int fd,
-                         int events,
-                         virEventHandleCallback cb,
-                         void * opaque,
-                         virFreeCallback ff);
+(*virEventAddHandleFuncType)(int fd,
+                             int events,
+                             virEventHandleCallback cb,
+                             void * opaque,
+                             virFreeCallback ff);
 
 int
 virEventAddHandleWrapper(int fd,
@@ -58,7 +58,7 @@ virEventAddHandleWrapper(int fd,
                          virErrorPtr err)
 {
     int ret = -1;
-    static virEventAddHandleType virEventAddHandleSymbol;
+    static virEventAddHandleFuncType virEventAddHandleSymbol;
     static bool once;
     static bool success;
 
@@ -81,10 +81,10 @@ virEventAddHandleWrapper(int fd,
 }
 
 typedef int
-(*virEventAddTimeoutType)(int timeout,
-                          virEventTimeoutCallback cb,
-                          void * opaque,
-                          virFreeCallback ff);
+(*virEventAddTimeoutFuncType)(int timeout,
+                              virEventTimeoutCallback cb,
+                              void * opaque,
+                              virFreeCallback ff);
 
 int
 virEventAddTimeoutWrapper(int timeout,
@@ -94,7 +94,7 @@ virEventAddTimeoutWrapper(int timeout,
                           virErrorPtr err)
 {
     int ret = -1;
-    static virEventAddTimeoutType virEventAddTimeoutSymbol;
+    static virEventAddTimeoutFuncType virEventAddTimeoutSymbol;
     static bool once;
     static bool success;
 
@@ -116,13 +116,13 @@ virEventAddTimeoutWrapper(int timeout,
 }
 
 typedef int
-(*virEventRegisterDefaultImplType)(void);
+(*virEventRegisterDefaultImplFuncType)(void);
 
 int
 virEventRegisterDefaultImplWrapper(virErrorPtr err)
 {
     int ret = -1;
-    static virEventRegisterDefaultImplType virEventRegisterDefaultImplSymbol;
+    static virEventRegisterDefaultImplFuncType virEventRegisterDefaultImplSymbol;
     static bool once;
     static bool success;
 
@@ -141,12 +141,12 @@ virEventRegisterDefaultImplWrapper(virErrorPtr err)
 }
 
 typedef void
-(*virEventRegisterImplType)(virEventAddHandleFunc addHandle,
-                            virEventUpdateHandleFunc updateHandle,
-                            virEventRemoveHandleFunc removeHandle,
-                            virEventAddTimeoutFunc addTimeout,
-                            virEventUpdateTimeoutFunc updateTimeout,
-                            virEventRemoveTimeoutFunc removeTimeout);
+(*virEventRegisterImplFuncType)(virEventAddHandleFunc addHandle,
+                                virEventUpdateHandleFunc updateHandle,
+                                virEventRemoveHandleFunc removeHandle,
+                                virEventAddTimeoutFunc addTimeout,
+                                virEventUpdateTimeoutFunc updateTimeout,
+                                virEventRemoveTimeoutFunc removeTimeout);
 
 void
 virEventRegisterImplWrapper(virEventAddHandleFunc addHandle,
@@ -157,7 +157,7 @@ virEventRegisterImplWrapper(virEventAddHandleFunc addHandle,
                             virEventRemoveTimeoutFunc removeTimeout)
 {
 
-    static virEventRegisterImplType virEventRegisterImplSymbol;
+    static virEventRegisterImplFuncType virEventRegisterImplSymbol;
     static bool once;
     static bool success;
 
@@ -177,14 +177,14 @@ virEventRegisterImplWrapper(virEventAddHandleFunc addHandle,
 }
 
 typedef int
-(*virEventRemoveHandleType)(int watch);
+(*virEventRemoveHandleFuncType)(int watch);
 
 int
 virEventRemoveHandleWrapper(int watch,
                             virErrorPtr err)
 {
     int ret = -1;
-    static virEventRemoveHandleType virEventRemoveHandleSymbol;
+    static virEventRemoveHandleFuncType virEventRemoveHandleSymbol;
     static bool once;
     static bool success;
 
@@ -203,14 +203,14 @@ virEventRemoveHandleWrapper(int watch,
 }
 
 typedef int
-(*virEventRemoveTimeoutType)(int timer);
+(*virEventRemoveTimeoutFuncType)(int timer);
 
 int
 virEventRemoveTimeoutWrapper(int timer,
                              virErrorPtr err)
 {
     int ret = -1;
-    static virEventRemoveTimeoutType virEventRemoveTimeoutSymbol;
+    static virEventRemoveTimeoutFuncType virEventRemoveTimeoutSymbol;
     static bool once;
     static bool success;
 
@@ -229,13 +229,13 @@ virEventRemoveTimeoutWrapper(int timer,
 }
 
 typedef int
-(*virEventRunDefaultImplType)(void);
+(*virEventRunDefaultImplFuncType)(void);
 
 int
 virEventRunDefaultImplWrapper(virErrorPtr err)
 {
     int ret = -1;
-    static virEventRunDefaultImplType virEventRunDefaultImplSymbol;
+    static virEventRunDefaultImplFuncType virEventRunDefaultImplSymbol;
     static bool once;
     static bool success;
 
@@ -254,15 +254,15 @@ virEventRunDefaultImplWrapper(virErrorPtr err)
 }
 
 typedef void
-(*virEventUpdateHandleType)(int watch,
-                            int events);
+(*virEventUpdateHandleFuncType)(int watch,
+                                int events);
 
 void
 virEventUpdateHandleWrapper(int watch,
                             int events)
 {
 
-    static virEventUpdateHandleType virEventUpdateHandleSymbol;
+    static virEventUpdateHandleFuncType virEventUpdateHandleSymbol;
     static bool once;
     static bool success;
 
@@ -278,15 +278,15 @@ virEventUpdateHandleWrapper(int watch,
 }
 
 typedef void
-(*virEventUpdateTimeoutType)(int timer,
-                             int timeout);
+(*virEventUpdateTimeoutFuncType)(int timer,
+                                 int timeout);
 
 void
 virEventUpdateTimeoutWrapper(int timer,
                              int timeout)
 {
 
-    static virEventUpdateTimeoutType virEventUpdateTimeoutSymbol;
+    static virEventUpdateTimeoutFuncType virEventUpdateTimeoutSymbol;
     static bool once;
     static bool success;
 

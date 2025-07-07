@@ -40,14 +40,10 @@ var _ = Describe("Webhooks", func() {
 		}
 	})
 
-	It("should make all virt-api validating webhook required, except for the eviction validator", func() {
+	It("should make all virt-api validating webhook required", func() {
 		configuration := NewVirtAPIValidatingWebhookConfiguration("testnamespace")
 		for _, webhook := range configuration.Webhooks {
-			if webhook.Name == "virt-launcher-eviction-interceptor.kubevirt.io" {
-				Expect(*webhook.FailurePolicy).To(Equal(v1.Ignore))
-			} else {
-				Expect(*webhook.FailurePolicy).To(Equal(v1.Fail))
-			}
+			Expect(*webhook.FailurePolicy).To(Equal(v1.Fail))
 		}
 	})
 })

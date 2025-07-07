@@ -10,7 +10,7 @@ import (
 
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/insomniacslk/dhcp/rfc1035label"
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 var (
@@ -79,6 +79,11 @@ func (o Options) Get(code OptionCode) []byte {
 func (o Options) Has(opcode OptionCode) bool {
 	_, ok := o[opcode.Code()]
 	return ok
+}
+
+// Del deletes the option matching the option code.
+func (o Options) Del(opcode OptionCode) {
+	delete(o, opcode.Code())
 }
 
 // Update updates the existing options with the passed option, adding it

@@ -6,15 +6,25 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libvmops"
+
+	"kubevirt.io/kubevirt/tests/libnet"
+
+	"kubevirt.io/kubevirt/tests/libmigration"
+
+	"kubevirt.io/kubevirt/tests/libinfra"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -23,7 +33,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -31,12 +40,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, func() {
 
 	var (
 		virtClient kubecli.KubevirtClient
@@ -48,60 +57,47 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 	Context("VMI with HyperV re-enlightenment enabled", func() {
 		var reEnlightenmentVMI *v1.VirtualMachineInstance
 
-		withReEnlightenment := func(vmi *v1.VirtualMachineInstance) {
-			if vmi.Spec.Domain.Features == nil {
-				vmi.Spec.Domain.Features = &v1.Features{}
-			}
-			if vmi.Spec.Domain.Features.Hyperv == nil {
-				vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
-			}
-
-			vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
-		}
-
 		vmiWithReEnlightenment := func() *v1.VirtualMachineInstance {
-			options := libvmi.WithMasqueradeNetworking()
-			options = append(options, withReEnlightenment)
-			return libvmi.NewAlpine(options...)
+			return libvmifact.NewAlpine(libnet.WithMasqueradeNetworking(), withReEnlightenment())
 		}
 
 		BeforeEach(func() {
 			reEnlightenmentVMI = vmiWithReEnlightenment()
 		})
 
-		When("TSC frequency is exposed on the cluster", func() {
+		When("TSC frequency is exposed on the cluster", decorators.Invtsc, func() {
 			BeforeEach(func() {
 				if !isTSCFrequencyExposed(virtClient) {
-					Skip("TSC frequency is not exposed on the cluster")
+					Fail("TSC frequency is not exposed on the cluster")
 				}
 			})
 
 			It("should be able to migrate", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
 				By("Migrating the VM")
-				migration := tests.NewRandomMigration(reEnlightenmentVMI.Name, reEnlightenmentVMI.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration := libmigration.New(reEnlightenmentVMI.Name, reEnlightenmentVMI.Namespace)
+				migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				By("Checking VMI, confirm migration state")
-				tests.ConfirmVMIPostMigration(virtClient, reEnlightenmentVMI, migrationUID)
+				libmigration.ConfirmVMIPostMigration(virtClient, reEnlightenmentVMI, migrationUID)
 			})
 
 			It("should have TSC frequency set up in label and domain", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
-				virtLauncherPod := tests.GetPodByVirtualMachineInstance(reEnlightenmentVMI)
-
+				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(reEnlightenmentVMI, reEnlightenmentVMI.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 				foundNodeSelector := false
-				for key, _ := range virtLauncherPod.Spec.NodeSelector {
+				for key := range virtLauncherPod.Spec.NodeSelector {
 					if strings.HasPrefix(key, topology.TSCFrequencySchedulingLabel+"-") {
 						foundNodeSelector = true
 						break
@@ -123,12 +119,12 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			})
 		})
 
-		When("TSC frequency is not exposed on the cluster", decorators.Reenlightenment, decorators.TscFrequencies, func() {
+		When(" TSC frequency is not exposed on the cluster", Serial, decorators.Reenlightenment, decorators.TscFrequencies, func() {
 
 			BeforeEach(func() {
 				if isTSCFrequencyExposed(virtClient) {
 					for _, node := range libnode.GetAllSchedulableNodes(virtClient).Items {
-						stopNodeLabeller(node.Name, virtClient)
+						libinfra.ExpectStoppingNodeLabellerToSucceed(node.Name, virtClient)
 						removeTSCFrequencyFromNode(node)
 					}
 				}
@@ -136,29 +132,29 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 
 			AfterEach(func() {
 				for _, node := range libnode.GetAllSchedulableNodes(virtClient).Items {
-					_ = resumeNodeLabeller(node.Name, virtClient)
+					_ = libinfra.ExpectResumingNodeLabellerToSucceed(node.Name, virtClient)
 				}
 			})
 
 			It("should be able to start successfully", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 				Expect(console.LoginToAlpine(reEnlightenmentVMI)).To(Succeed())
 			})
 
 			It("should be marked as non-migratable", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
 				conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 				isNonMigratable := func() error {
-					reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), reEnlightenmentVMI.Name, &metav1.GetOptions{})
+					reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), reEnlightenmentVMI.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					cond := conditionManager.GetCondition(reEnlightenmentVMI, v1.VirtualMachineInstanceIsMigratable)
@@ -215,54 +211,53 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				return features
 			}
 			var supportedKVMInfoFeature []string
-			checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
 			nodes := libnode.GetAllSchedulableNodes(virtClient)
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 			node := &nodes.Items[0]
-			supportedCPUs := tests.GetSupportedCPUModels(*nodes)
+			supportedCPUs := libnode.GetSupportedCPUModels(*nodes)
 			Expect(supportedCPUs).ToNot(BeEmpty(), "There should be some supported cpu models")
 
 			for key := range node.Labels {
-				if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
+				if strings.Contains(key, v1.HypervLabel) &&
 					!strings.Contains(key, "tlbflush") &&
 					!strings.Contains(key, "ipi") &&
 					!strings.Contains(key, "synictimer") {
-					supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, services.NFD_KVM_INFO_PREFIX))
+					supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, v1.HypervLabel))
 				}
 			}
 
 			for _, label := range supportedKVMInfoFeature {
-				vmi := libvmi.NewCirros()
+				vmi := libvmifact.NewCirros()
 				features := enableHyperVInVMI(label)
 				vmi.Spec.Domain.Features = &v1.Features{
 					Hyperv: &features,
 				}
 
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI when using %v", label)
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI when using %v", label)
 			}
 		})
 
-		DescribeTable("the vmi with EVMCS HyperV feature should have correct HyperV and cpu features auto filled", func(featureState *v1.FeatureState) {
-			tests.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
-			vmi := libvmi.NewCirros()
+		DescribeTable(" the vmi with EVMCS HyperV feature should have correct HyperV and cpu features auto filled", Serial, func(featureState *v1.FeatureState) {
+			config.EnableFeatureGate(featuregate.HypervStrictCheckGate)
+			vmi := libvmifact.NewCirros()
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{
 					EVMCS: featureState,
 				},
 			}
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 
 			var err error
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 			Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS).ToNot(BeNil(), "evmcs should not be nil")
 			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil(), "cpu topology can't be nil")
-			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			if featureState.Enabled == nil || *featureState.Enabled == true {
@@ -277,9 +272,47 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			}
 
 		},
-			Entry("hyperv and cpu features should be auto filled when EVMCS is enabled", decorators.VMX, &v1.FeatureState{Enabled: pointer.BoolPtr(true)}),
+			Entry("hyperv and cpu features should be auto filled when EVMCS is enabled", decorators.VMX, &v1.FeatureState{Enabled: virtpointer.P(true)}),
 			Entry("EVMCS should be enabled when vmi.Spec.Domain.Features.Hyperv.EVMCS is set but the EVMCS.Enabled field is nil ", decorators.VMX, &v1.FeatureState{Enabled: nil}),
-			Entry("Verify that features aren't applied when enabled is false", &v1.FeatureState{Enabled: pointer.BoolPtr(false)}),
+			Entry("Verify that features aren't applied when enabled is false", &v1.FeatureState{Enabled: virtpointer.P(false)}),
 		)
 	})
+
+	Context("VMI with HyperV passthrough", func() {
+		It("should be usable and non-migratable", func() {
+			vmi := libvmifact.NewCirros(withHypervPassthrough())
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domSpec.Features.Hyperv.Mode).To(Equal(api.HypervModePassthrough))
+
+			Eventually(matcher.ThisVMI(vmi), 60*time.Second, 1*time.Second).Should(matcher.HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
+		})
+	})
 })
+
+func withReEnlightenment() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		if vmi.Spec.Domain.Features.Hyperv == nil {
+			vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
+		}
+
+		vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: virtpointer.P(true)}
+	}
+}
+
+func withHypervPassthrough() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		if vmi.Spec.Domain.Features.HypervPassthrough == nil {
+			vmi.Spec.Domain.Features.HypervPassthrough = &v1.HyperVPassthrough{}
+		}
+		vmi.Spec.Domain.Features.HypervPassthrough.Enabled = virtpointer.P(true)
+	}
+}

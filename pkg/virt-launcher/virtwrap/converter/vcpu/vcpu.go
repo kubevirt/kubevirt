@@ -14,6 +14,7 @@ import (
 	v12 "kubevirt.io/api/core/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -358,11 +359,11 @@ func isNumaPassthrough(vmi *v12.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.CPU.NUMA != nil && vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough != nil
 }
 
-func appendDomainEmulatorThreadPin(domain *api.Domain, allocatedCpu uint32) {
-	emulatorThread := api.CPUEmulatorPin{
-		CPUSet: strconv.Itoa(int(allocatedCpu)),
+func appendDomainEmulatorThreadPin(domain *api.Domain, cpuSet string) {
+	emulatorThreads := api.CPUEmulatorPin{
+		CPUSet: cpuSet,
 	}
-	domain.Spec.CPUTune.EmulatorPin = &emulatorThread
+	domain.Spec.CPUTune.EmulatorPin = &emulatorThreads
 }
 
 func appendDomainIOThreadPin(domain *api.Domain, thread uint32, cpuset string) {
@@ -372,21 +373,31 @@ func appendDomainIOThreadPin(domain *api.Domain, thread uint32, cpuset string) {
 	domain.Spec.CPUTune.IOThreadPin = append(domain.Spec.CPUTune.IOThreadPin, iothreadPin)
 }
 
-func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain, emulatorThread uint32, cpuset []int) error {
+func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain, emulatorThreadsCPUSet string, cpuset []int) error {
 	iothreads := int(domain.Spec.IOThreads.IOThreads)
 	vcpus := int(CalculateRequestedVCPUs(domain.Spec.CPU.Topology))
 
-	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+	switch {
+	case vmi.Spec.Domain.IOThreads != nil && *vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount > 0:
+		indexEmulatorThread := 0
+		if emulatorThreadsCPUSet != "" {
+			indexEmulatorThread++
+		}
+		for i := 1; i <= int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount); i++ {
+			// The cpus for the iothreads are additionally allocated and aren't part of the cpu set dedicated to the vcpus threads
+			cpu := vcpus + i + indexEmulatorThread
+			appendDomainIOThreadPin(domain, uint32(i), fmt.Sprintf("%d", cpu))
+		}
+	case vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread:
 		// pin the IOThread on the same pCPU as the emulator thread
-		cpuset := strconv.Itoa(int(emulatorThread))
-		appendDomainIOThreadPin(domain, uint32(1), cpuset)
-	} else if iothreads >= vcpus {
+		appendDomainIOThreadPin(domain, uint32(1), emulatorThreadsCPUSet)
+	case iothreads >= vcpus:
 		// pin an IOThread on a CPU
 		for thread := 1; thread <= iothreads; thread++ {
 			cpuset := fmt.Sprintf("%d", cpuset[thread%vcpus])
 			appendDomainIOThreadPin(domain, uint32(thread), cpuset)
 		}
-	} else {
+	default:
 		// the following will pin IOThreads to a set of cpus of a balanced size
 		// for example, for 3 threads and 8 cpus the output will look like:
 		// thread cpus
@@ -409,12 +420,55 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 	return nil
 }
 
+func FormatEmulatorThreadPin(cpuPool VCPUPool, vmiAnnotations map[string]string, vCPUs int64) (string, error) {
+	var emulatorThreads []uint32
+
+	availableThread, err := cpuPool.FitThread()
+	if err != nil {
+		e := fmt.Errorf("no CPU allocated for the emulation thread: %v", err)
+		log.Log.Reason(e).Error("failed to format emulation thread pin")
+		return "", e
+	}
+	emulatorThreads = append(emulatorThreads, availableThread)
+
+	_, emulatorThreadCompleteToEvenParityEnabled := vmiAnnotations[v12.EmulatorThreadCompleteToEvenParity]
+	if emulatorThreadCompleteToEvenParityEnabled &&
+		vCPUs%2 == 0 {
+		availableThread, err = cpuPool.FitThread()
+		if err != nil {
+			e := fmt.Errorf("no second CPU allocated for the emulation thread: %v", err)
+			log.Log.Reason(e).Error("failed to format emulation thread pin")
+			return "", e
+		}
+		emulatorThreads = append(emulatorThreads, availableThread)
+	}
+
+	return convertCPUListToCPUSet(emulatorThreads), nil
+}
+
 func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachineInstance, topology *v1.Topology, cpuset []int, useIOThreads bool) error {
 	var cpuPool VCPUPool
+	requestedToplogy := &api.CPUTopology{
+		Sockets: domain.Spec.CPU.Topology.Sockets,
+		Cores:   domain.Spec.CPU.Topology.Cores,
+		Threads: domain.Spec.CPU.Topology.Threads,
+	}
+
+	if vmi.Spec.Domain.CPU.MaxSockets != 0 {
+		disabledVCPUs := 0
+		for _, vcpu := range domain.Spec.VCPUs.VCPU {
+			if vcpu.Enabled != "yes" {
+				disabledVCPUs += 1
+			}
+		}
+		disabledSockets := uint32(disabledVCPUs) / (requestedToplogy.Cores * requestedToplogy.Threads)
+		requestedToplogy.Sockets -= uint32(disabledSockets)
+	}
+
 	if isNumaPassthrough(vmi) {
-		cpuPool = NewStrictCPUPool(domain.Spec.CPU.Topology, topology, cpuset)
+		cpuPool = NewStrictCPUPool(requestedToplogy, topology, cpuset)
 	} else {
-		cpuPool = NewRelaxedCPUPool(domain.Spec.CPU.Topology, topology, cpuset)
+		cpuPool = NewRelaxedCPUPool(requestedToplogy, topology, cpuset)
 	}
 	cpuTune, err := cpuPool.FitCores()
 	if err != nil {
@@ -423,29 +477,30 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 	}
 	domain.Spec.CPUTune = cpuTune
 
-	// always add the hint-dedicated feature when dedicatedCPUs are requested.
-	if domain.Spec.Features == nil {
-		domain.Spec.Features = &api.Features{}
-	}
-	if domain.Spec.Features.KVM == nil {
-		domain.Spec.Features.KVM = &api.FeatureKVM{}
-	}
-	domain.Spec.Features.KVM.HintDedicated = &api.FeatureState{
-		State: "on",
+	// Add the hint-dedicated feature when dedicatedCPUs are requested for AMD64 architecture.
+	if isAMD64VMI(vmi) {
+		if domain.Spec.Features == nil {
+			domain.Spec.Features = &api.Features{}
+		}
+		if domain.Spec.Features.KVM == nil {
+			domain.Spec.Features.KVM = &api.FeatureKVM{}
+		}
+		domain.Spec.Features.KVM.HintDedicated = &api.FeatureState{
+			State: "on",
+		}
 	}
 
-	var emulatorThread uint32
+	var emulatorThreadsCPUSet string
 	if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		emulatorThread, err = cpuPool.FitThread()
-		if err != nil {
-			e := fmt.Errorf("no CPU allocated for the emulation thread: %v", err)
-			log.Log.Reason(e).Error("failed to format emulation thread pin")
-			return e
+		vCPUs := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+		if emulatorThreadsCPUSet, err = FormatEmulatorThreadPin(cpuPool, vmi.Annotations, vCPUs); err != nil {
+			log.Log.Reason(err).Error("failed to format emulation thread pin")
+			return err
 		}
-		appendDomainEmulatorThreadPin(domain, emulatorThread)
+		appendDomainEmulatorThreadPin(domain, emulatorThreadsCPUSet)
 	}
 	if useIOThreads {
-		if err := FormatDomainIOThreadPin(vmi, domain, emulatorThread, cpuset); err != nil {
+		if err := FormatDomainIOThreadPin(vmi, domain, emulatorThreadsCPUSet, cpuset); err != nil {
 			log.Log.Reason(err).Error("failed to format domain iothread pinning.")
 			return err
 		}
@@ -472,6 +527,15 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 	}
 
 	return nil
+}
+
+func convertCPUListToCPUSet(allocatedCPUs []uint32) string {
+	const delimiter = ","
+	var allocatedCPUsString []string
+	for _, cpu := range allocatedCPUs {
+		allocatedCPUsString = append(allocatedCPUsString, strconv.Itoa(int(cpu)))
+	}
+	return strings.Join(allocatedCPUsString, delimiter)
 }
 
 func cpuToCell(topology *v1.Topology) map[uint32]*v1.Cell {
@@ -566,7 +630,7 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 	} else if memoryBytes%hugepagesSize != 0 {
 		return fmt.Errorf("requested memory can't be divided through the numa page size: %v mod %v != 0", memory, hugepagesSize)
 	}
-	mod = (memoryBytes % (hugepagesSize * cellCount) / hugepagesSize)
+	mod = memoryBytes % (hugepagesSize * cellCount) / hugepagesSize
 	if mod != 0 {
 		memoryBytes = memoryBytes - mod*hugepagesSize
 	}
@@ -599,7 +663,7 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 		}
 	}
 
-	if hugepagesEnabled && mod > 0 {
+	if mod > 0 {
 		for i := range domain.CPU.NUMA.Cells[:mod] {
 			domain.CPU.NUMA.Cells[i].Memory += hugepagesSize
 		}
@@ -626,4 +690,8 @@ func hugePagesInfo(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec) (siz
 		}
 	}
 	return 0, "b", false, nil
+}
+
+func isAMD64VMI(vmi *v12.VirtualMachineInstance) bool {
+	return vmi.Spec.Architecture == "amd64"
 }

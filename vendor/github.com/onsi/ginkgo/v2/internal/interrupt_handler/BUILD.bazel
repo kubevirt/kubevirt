@@ -10,8 +10,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/onsi/ginkgo/v2/internal/interrupt_handler",
     importpath = "github.com/onsi/ginkgo/v2/internal/interrupt_handler",
     visibility = ["//vendor/github.com/onsi/ginkgo/v2:__subpackages__"],
-    deps = [
-        "//vendor/github.com/onsi/ginkgo/v2/formatter:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/v2/internal/parallel_support:go_default_library",
-    ],
+    deps = ["//vendor/github.com/onsi/ginkgo/v2/internal/parallel_support:go_default_library"],
 )

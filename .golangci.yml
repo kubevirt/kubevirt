@@ -6,8 +6,6 @@ linters-settings:
   funlen:
     lines: 100
     statements: 50
-  gci:
-    local-prefixes: github.com/kubevirt/kubevirt
   goconst:
     min-len: 2
     min-occurrences: 2
@@ -34,13 +32,18 @@ linters-settings:
     min-complexity: 15
   goimports:
     local-prefixes: kubevirt.io/kubevirt
-  gomnd:
-    settings:
-      mnd:
-        # don't include the "operation" and "assign"
-        checks: argument,case,condition,return
+  mnd:
+    # don't include the "operation" and "assign"
+    checks: argument,case,condition,return
+    ignored-functions:
+      - '^Eventually$'
+      - '^EventuallyWithOffset$'
+      - '^ExpectWithOffset$'
+      - '^console\.ExpectBatch$'
+      - '^console\.RunCommand$'
   govet:
-    check-shadowing: true
+    enable:
+      - shadow
   lll:
     line-length: 140
   maligned:
@@ -56,13 +59,13 @@ linters-settings:
     dot-import-whitelist:
       - "github.com/onsi/ginkgo/v2"
       - "github.com/onsi/gomega"
+  gofumpt:
+    extra-rules: true
 
 linters:
   disable-all: true
   enable:
     - bodyclose
-    - deadcode
-    - depguard
     - dogsled
     - dupl
     - errcheck
@@ -74,9 +77,10 @@ linters:
     - gocritic
     - gocyclo
     - gofmt
+    - gofumpt
     - goheader
     - goimports
-    - gomnd
+    - mnd
     - goprintffuncname
     - gosec
     - gosimple
@@ -89,13 +93,10 @@ linters:
     - nolintlint
     - rowserrcheck
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unconvert
-    - unparam
     - unused
-    - varcheck
     - whitespace
 
   # don't enable:
@@ -113,3 +114,9 @@ linters:
   # - testpackage
   # - revive
   # - wsl
+
+issues:
+  exclude-rules:
+    - text: 'SA1019: checks.SkipTestIfNoCPUManager'
+      linters:
+        - staticcheck

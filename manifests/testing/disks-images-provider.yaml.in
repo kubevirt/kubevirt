@@ -24,6 +24,9 @@ spec:
         - name: target
           image: {{.DockerPrefix}}/disks-images-provider:{{.DockerTag}}
           imagePullPolicy: Always
+          env:
+          - name: NUM_TEST_IMAGE_REPLICAS
+            value: {{.TestImageReplicas}}
           lifecycle:
             preStop:
               exec:

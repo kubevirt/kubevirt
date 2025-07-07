@@ -25,45 +25,37 @@ import (
 	"io"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
-	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/util"
+	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
 var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
 
-	var (
-		LaunchVMI func(*v1.VirtualMachineInstance) *v1.VirtualMachineInstance
-	)
-
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
 	})
 
-	It("should successfully open connection to guest", func() {
-		vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-		vmi.Namespace = util.NamespaceTestDefault
-
-		LaunchVMI(vmi)
+	It("should successfully open connection to guest", decorators.Conformance, func() {
+		vmi := libvmifact.NewFedora(
+			libnet.WithMasqueradeNetworking(),
+		)
+		vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 		By("Opening PortForward Tunnel to SSH port")
-		var (
-			tunnel kubecli.StreamInterface
-			err    error
-		)
+		var tunnel kvcorev1.StreamInterface
 		Eventually(func() error {
+			var err error
 			tunnel, err = virtClient.VirtualMachineInstance(vmi.Namespace).PortForward(vmi.Name, 22, "tcp")
 			if err != nil {
 				return err
@@ -77,7 +69,7 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 
 		By("Sending data on tunnel")
 		go func() {
-			err := tunnel.Stream(kubecli.StreamOptions{
+			err := tunnel.Stream(kvcorev1.StreamOptions{
 				In:  inReader,
 				Out: &out,
 			})
@@ -86,7 +78,7 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 			}
 			close(streamClosed)
 		}()
-		_, err = in.Write([]byte("test\n"))
+		_, err := in.Write([]byte("test\n"))
 		Expect(err).NotTo(HaveOccurred())
 		<-streamClosed
 		Expect(out.String()).To(ContainSubstring("OpenSSH"))

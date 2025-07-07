@@ -45,7 +45,7 @@ metadata:
     kubevirt.io/vm: readiness-probe-vm
   name: readiness-probe
 spec:
-  running: true 
+  runStrategy: Always 
   template:
     metadata:
       labels:

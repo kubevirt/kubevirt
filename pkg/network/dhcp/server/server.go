@@ -234,9 +234,7 @@ func sortRoutes(routes []netlink.Route) []netlink.Route {
 		}
 		sortedRoutes = append(sortedRoutes, route)
 	}
-	for _, defaultRoute := range defaultRoutes {
-		sortedRoutes = append(sortedRoutes, defaultRoute)
-	}
+	sortedRoutes = append(sortedRoutes, defaultRoutes...)
 
 	return sortedRoutes
 }

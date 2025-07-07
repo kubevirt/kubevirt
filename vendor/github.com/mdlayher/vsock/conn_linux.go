@@ -4,6 +4,8 @@
 package vsock
 
 import (
+	"context"
+
 	"github.com/mdlayher/socket"
 	"golang.org/x/sys/unix"
 )
@@ -24,7 +26,7 @@ func dial(cid, port uint32, _ *Config) (*Conn, error) {
 	}
 
 	sa := &unix.SockaddrVM{CID: cid, Port: port}
-	rsa, err := c.Connect(sa)
+	rsa, err := c.Connect(context.Background(), sa)
 	if err != nil {
 		_ = c.Close()
 		return nil, err

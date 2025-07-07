@@ -6,16 +6,17 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:9.0.0-3.el9}
-QEMU_VERSION=${QEMU_VERSION:-17:7.2.0-6.el9}
-SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.1-1.el9}
-EDK2_VERSION=${EDK2_VERSION:-0:20221207gitfff6d81270b5-5.el9}
-LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.48.4-4.el9}
-GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.48.2-8.el9}
-PASST_VERSION=${PASST_VERSION:-0:0^20221110.g4129764-1.el9}
-VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.5.0-1.el9}
-SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-1.el9}
+LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:10.10.0-4.el9}
+QEMU_VERSION=${QEMU_VERSION:-17:9.1.0-12.el9}
+SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-4.el9}
+EDK2_VERSION=${EDK2_VERSION:-0:20241117-2.el9}
+LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.54.0-3.el9}
+GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.52.2-2.el9}
+PASST_VERSION=${PASST_VERSION:-0:0^20250121.g4f2c8e7-3.el9}
+VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.13.0-1.el9}
+SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-2.el9}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
+BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
 
 bazeldnf_repos="--repofile rpm/repo.yaml"
 if [ "${CUSTOM_REPO}" ]; then
@@ -56,7 +57,9 @@ testimage_main="
   nmap-ncat
   procps-ng
   qemu-img-${QEMU_VERSION}
+  sevctl
   tar
+  targetcli
   util-linux
   which
 "
@@ -88,17 +91,25 @@ launcherbase_main="
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
   passt-${PASST_VERSION}
   qemu-kvm-core-${QEMU_VERSION}
+  qemu-kvm-device-usb-host-${QEMU_VERSION}
   swtpm-tools-${SWTPM_VERSION}
 "
 launcherbase_x86_64="
   edk2-ovmf-${EDK2_VERSION}
+  qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
+  qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   seabios-${SEABIOS_VERSION}
 "
 launcherbase_aarch64="
   edk2-aarch64-${EDK2_VERSION}
+  qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
+"
+launcherbase_s390x="
+  qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
+  qemu-kvm-device-display-virtio-gpu-ccw-${QEMU_VERSION}
 "
 launcherbase_extra="
   ethtool
@@ -147,6 +158,14 @@ exportserverbase_main="
   tar
 "
 
+pr_helper="
+  qemu-pr-helper
+"
+
+sidecar_shim="
+    python3
+"
+
 # get latest repo data from repo.yaml
 bazel run \
     --config=${ARCHITECTURE} \
@@ -160,7 +179,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name testimage_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -171,7 +190,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name libvirt-devel_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -183,7 +202,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name sandboxroot_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -194,7 +213,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name launcherbase_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies '^mozjs60' \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
@@ -210,7 +229,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name handlerbase_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
         $centos_main \
@@ -222,7 +241,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name libguestfs-tools \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         $centos_main \
         $centos_extra \
         $libguestfstools_main \
@@ -241,11 +260,33 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name exportserverbase_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
         $exportserverbase_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name pr-helper_x86_64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $pr_helper
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sidecar-shim_x86_64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sidecar_shim
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
@@ -270,7 +311,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name testimage_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -281,7 +322,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name libvirt-devel_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -293,7 +334,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name sandboxroot_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -304,7 +345,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name launcherbase_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies '^mozjs60' \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
@@ -320,7 +361,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name handlerbase_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
         $centos_main \
@@ -333,11 +374,33 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name exportserverbase_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
         $exportserverbase_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name pr-helper_aarch64 --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $pr_helper
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sidecar-shim_aarch64 --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sidecar_shim
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
@@ -353,4 +416,107 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     # regenerate sandboxes
     rm ${SANDBOX_DIR} -rf
     kubevirt::bootstrap::regenerate aarch64
+fi
+
+if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name testimage_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $testimage_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libvirt-devel_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libvirtdevel_main \
+        $libvirtdevel_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sandboxroot_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sandboxroot_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name launcherbase_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies '^mozjs60' \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $launcherbase_main \
+        $launcherbase_s390x \
+        $launcherbase_extra
+
+    # create a rpmtree for virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name handlerbase_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $handlerbase_main \
+        $handlerbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name exportserverbase_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $exportserverbase_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sidecar-shim_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sidecar_shim
+
+    # remove all RPMs which are no longer referenced by a rpmtree
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- prune
+
+    # update tar2files targets which act as an adapter between rpms
+    # and cc_library which we need for virt-launcher and virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //rpm:ldd_s390x
+
+    # regenerate sandboxes
+    rm ${SANDBOX_DIR} -rf
+    kubevirt::bootstrap::regenerate s390x
 fi

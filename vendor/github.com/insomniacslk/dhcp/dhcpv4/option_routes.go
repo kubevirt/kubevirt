@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // Route is a classless static route as per RFC 3442.

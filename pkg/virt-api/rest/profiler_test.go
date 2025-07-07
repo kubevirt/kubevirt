@@ -31,13 +31,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
-	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-
-	"kubevirt.io/kubevirt/pkg/util/status"
+	"github.com/onsi/gomega/types"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Cluster Profiler Subresources", func() {
@@ -74,7 +73,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		},
 	}
 
-	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {
@@ -87,7 +86,6 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		flag.Set("kubeconfig", "")
 		flag.Set("master", server.URL())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
-		app.statusUpdater = status.NewVMStatusUpdater(app.virtCli)
 		app.credentialsLock = &sync.Mutex{}
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 		app.clusterConfig = config
@@ -97,13 +95,14 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		recorder = httptest.NewRecorder()
 		response = restful.NewResponse(recorder)
 	})
-	enableFeatureGate := func(featureGate string) {
+
+	enableClusterProfiler := func() {
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+		kvConfig.Spec.Configuration.DeveloperConfiguration.ClusterProfiler = true
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
-	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+	disableClusterProfiler := func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 
 	expectPodList := func() {
@@ -156,7 +155,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 				),
 			)
 
-			enableFeatureGate(virtconfig.ClusterProfiler)
+			enableClusterProfiler()
 			expectPodList()
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusOK))
@@ -182,7 +181,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 				),
 			)
 
-			enableFeatureGate(virtconfig.ClusterProfiler)
+			enableClusterProfiler()
 			expectPodList()
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusOK))
@@ -191,9 +190,44 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		)
 	})
 
+	DescribeTable(", podIsReadyComponent function should return", func(name string, deletionTimestamp *k8smetav1.Time, phase k8sv1.PodPhase, isReady k8sv1.ConditionStatus, matcher types.GomegaMatcher) {
+		pod := &k8sv1.Pod{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:              name,
+				DeletionTimestamp: deletionTimestamp,
+			},
+			Status: k8sv1.PodStatus{
+				Phase: phase,
+				Conditions: []k8sv1.PodCondition{
+					{
+						Type:   k8sv1.PodReady,
+						Status: isReady,
+					},
+				},
+			},
+		}
+		isReadyComponentPod := podIsReadyComponent(pod)
+		Expect(isReadyComponentPod).To(matcher)
+	},
+		Entry("true with running and ready virt-handler", "virt-handler-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
+		Entry("true with running and ready virt-controller", "virt-controller-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
+		Entry("true with running and ready virt-operator", "virt-operator-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
+		Entry("true with running and ready virt-api", "virt-api-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
+		Entry("false with non running virt-handler", "virt-handler-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
+		Entry("false with non running virt-controller", "virt-controller-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
+		Entry("false with non running virt-operator", "virt-operator-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
+		Entry("false with non running virt-api", "virt-api-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
+		Entry("false with running but non-ready virt-handler", "virt-handler-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
+		Entry("false with running but non-ready virt-controller", "virt-controller-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
+		Entry("false with running but non-ready virt-operator", "virt-operator-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
+		Entry("false with running but non-ready virt-api", "virt-api-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
+		Entry("false with deletionTimestamp valued", "virt-handler-8xxfgt", &k8smetav1.Time{Time: time.Now()}, k8sv1.PodRunning, k8sv1.ConditionTrue, BeFalse()),
+		Entry("false with other component", "kubevirt-apiproxy-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeFalse()),
+	)
+
 	AfterEach(func() {
 		server.Close()
-		disableFeatureGates()
+		disableClusterProfiler()
 		backend.Close()
 	})
 })

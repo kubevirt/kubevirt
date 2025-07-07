@@ -5,71 +5,28 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/emicklei/go-restful"
-	restfulspec "github.com/emicklei/go-restful-openapi"
-	"github.com/go-openapi/errors"
-	"github.com/go-openapi/spec"
+	"github.com/emicklei/go-restful/v3"
+	openapi_spec "github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/validate"
+	openapi_validate "github.com/go-openapi/validate"
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/builder"
 	"k8s.io/kube-openapi/pkg/common"
-
+	"k8s.io/kube-openapi/pkg/common/restfuladapter"
+	"k8s.io/kube-openapi/pkg/spec3"
+	"k8s.io/kube-openapi/pkg/validation/errors"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 	"kubevirt.io/client-go/api"
 )
 
 type Validator struct {
-	specSchemes   *spec.Schema
-	statusSchemes *spec.Schema
+	specSchemes   *openapi_spec.Schema
+	statusSchemes *openapi_spec.Schema
 	topLevelKeys  map[string]interface{}
 }
 
-func CreateOpenAPIConfig(webServices []*restful.WebService) restfulspec.Config {
-	return restfulspec.Config{
-		WebServices:                   webServices,
-		WebServicesURL:                "",
-		APIPath:                       "/swaggerapi",
-		PostBuildSwaggerObjectHandler: addInfoToSwaggerObject,
-	}
-}
-
-func addInfoToSwaggerObject(swo *spec.Swagger) {
-	swo.Info = &spec.Info{
-		InfoProps: spec.InfoProps{
-			Title:       "KubeVirt API",
-			Description: "This is KubeVirt API an add-on for Kubernetes.",
-			Contact: &spec.ContactInfo{
-				ContactInfoProps: spec.ContactInfoProps{
-					Name:  "kubevirt-dev",
-					Email: "kubevirt-dev@googlegroups.com",
-					URL:   "https://github.com/kubevirt/kubevirt",
-				},
-			},
-			License: &spec.License{
-				LicenseProps: spec.LicenseProps{
-					Name: "Apache 2.0",
-					URL:  "https://www.apache.org/licenses/LICENSE-2.0",
-				},
-			},
-		},
-	}
-	swo.SecurityDefinitions = spec.SecurityDefinitions{
-		"BearerToken": &spec.SecurityScheme{
-			SecuritySchemeProps: spec.SecuritySchemeProps{
-				Type:        "apiKey",
-				Name:        "authorization",
-				In:          "header",
-				Description: "Bearer Token authentication",
-			},
-		},
-	}
-	swo.Swagger = "2.0"
-	swo.Security = make([]map[string][]string, 1)
-	swo.Security[0] = map[string][]string{"BearerToken": {}}
-}
-
-func createConfig() *common.Config {
+func CreateConfig() *common.Config {
 	return &common.Config{
 		CommonResponses: map[int]spec.Response{
 			401: {
@@ -83,17 +40,13 @@ func createConfig() *common.Config {
 				Title:       "KubeVirt API",
 				Description: "This is KubeVirt API an add-on for Kubernetes.",
 				Contact: &spec.ContactInfo{
-					ContactInfoProps: spec.ContactInfoProps{
-						Name:  "kubevirt-dev",
-						Email: "kubevirt-dev@googlegroups.com",
-						URL:   "https://github.com/kubevirt/kubevirt",
-					},
+					Name:  "kubevirt-dev",
+					Email: "kubevirt-dev@googlegroups.com",
+					URL:   "https://github.com/kubevirt/kubevirt",
 				},
 				License: &spec.License{
-					LicenseProps: spec.LicenseProps{
-						Name: "Apache 2.0",
-						URL:  "https://www.apache.org/licenses/LICENSE-2.0",
-					},
+					Name: "Apache 2.0",
+					URL:  "https://www.apache.org/licenses/LICENSE-2.0",
 				},
 			},
 		},
@@ -128,9 +81,64 @@ func createConfig() *common.Config {
 	}
 }
 
+func CreateV3Config() *common.OpenAPIV3Config {
+	return &common.OpenAPIV3Config{
+		CommonResponses: map[int]*spec3.Response{
+			401: {
+				ResponseProps: spec3.ResponseProps{
+					Description: "Unauthorized",
+				},
+			},
+		},
+		Info: &spec.Info{
+			InfoProps: spec.InfoProps{
+				Title:       "KubeVirt API",
+				Description: "This is KubeVirt API an add-on for Kubernetes.",
+				Contact: &spec.ContactInfo{
+					Name:  "kubevirt-dev",
+					Email: "kubevirt-dev@googlegroups.com",
+					URL:   "https://github.com/kubevirt/kubevirt",
+				},
+				License: &spec.License{
+					Name: "Apache 2.0",
+					URL:  "https://www.apache.org/licenses/LICENSE-2.0",
+				},
+			},
+		},
+		SecuritySchemes: spec3.SecuritySchemes{
+			"BearerToken": &spec3.SecurityScheme{
+				SecuritySchemeProps: spec3.SecuritySchemeProps{
+					Type:        "apiKey",
+					Name:        "authorization",
+					In:          "header",
+					Description: "Bearer Token authentication",
+				},
+			},
+		},
+		GetDefinitions: func(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
+			m := api.GetOpenAPIDefinitions(ref)
+			for k, v := range m {
+				if _, ok := m[k]; !ok {
+					m[k] = v
+				}
+			}
+			return m
+		},
+
+		GetDefinitionName: func(name string) (string, spec.Extensions) {
+			if strings.Contains(name, "kubevirt.io") {
+				// keeping for validation
+				return name[strings.LastIndex(name, "/")+1:], nil
+			}
+			//adpting k8s style
+			return strings.ReplaceAll(name, "/", "."), nil
+		},
+	}
+}
+
 func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
-	config := createConfig()
-	openapispec, err := builder.BuildOpenAPISpec(webServices, config)
+	config := CreateConfig()
+	openapispec, err := builder.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(webServices), config)
 	if err != nil {
 		panic(fmt.Errorf("Failed to build swagger: %s", err))
 	}
@@ -148,19 +156,13 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 			break
 		}
 	}
-	resourceRequirements, exists := openapispec.Definitions["v1.ResourceRequirements"]
-	if exists {
-		limits, exists := resourceRequirements.Properties["limits"]
-		if exists {
-			limits.AdditionalProperties = nil
-			resourceRequirements.Properties["limits"] = limits
-		}
-		requests, exists := resourceRequirements.Properties["requests"]
-		if exists {
-			requests.AdditionalProperties = nil
-			resourceRequirements.Properties["requests"] = requests
-		}
 
+	const resourceQuantityDefinition = "k8s.io.apimachinery.pkg.api.resource.Quantity"
+
+	quantity, exists := openapispec.Definitions[resourceQuantityDefinition]
+	if exists {
+		quantity.Type = spec.StringOrArray{"string", "integer", "number"}
+		openapispec.Definitions[resourceQuantityDefinition] = quantity
 	}
 
 	objectMeta, exists := openapispec.Definitions[objectmeta]
@@ -229,7 +231,7 @@ func CreateOpenAPIValidator(webServices []*restful.WebService) *Validator {
 		glog.Fatal(err)
 	}
 
-	specSchema := &spec.Schema{}
+	specSchema := &openapi_spec.Schema{}
 	err = json.Unmarshal(data, specSchema)
 	if err != nil {
 		panic(err)
@@ -237,25 +239,26 @@ func CreateOpenAPIValidator(webServices []*restful.WebService) *Validator {
 
 	// Make sure that no unknown fields are allowed in specs
 	for k, v := range specSchema.Definitions {
-		v.AdditionalProperties = &spec.SchemaOrBool{Allows: false}
-		v.AdditionalItems = &spec.SchemaOrBool{Allows: false}
+		v.AdditionalProperties = &openapi_spec.SchemaOrBool{Allows: false}
+		v.AdditionalItems = &openapi_spec.SchemaOrBool{Allows: false}
 		specSchema.Definitions[k] = v
 	}
 
 	// Expand the specSchemes
-	err = spec.ExpandSchema(specSchema, specSchema, nil)
+	err = openapi_spec.ExpandSchema(specSchema, specSchema, nil)
 	if err != nil {
 		glog.Fatal(err)
 	}
 
 	// Load spec once again for status. The status should accept unknown fields
-	statusSchema := &spec.Schema{}
+	statusSchema := &openapi_spec.Schema{}
 	err = json.Unmarshal(data, statusSchema)
 	if err != nil {
 		panic(err)
 	}
+
 	// Expand the statusSchemes
-	err = spec.ExpandSchema(statusSchema, statusSchema, nil)
+	err = openapi_spec.ExpandSchema(statusSchema, statusSchema, nil)
 	if err != nil {
 		glog.Fatal(err)
 	}
@@ -281,8 +284,8 @@ func (v *Validator) Validate(gvk schema.GroupVersionKind, obj map[string]interfa
 		}
 	}
 
-	if value, exists := obj["spec"]; !exists {
-		errs = append(errs, errors.Required("spec", "body", value))
+	if _, exists := obj["spec"]; !exists {
+		errs = append(errs, errors.Required("spec", "body"))
 	}
 
 	errs = append(errs, v.ValidateSpec(gvk, obj)...)
@@ -292,12 +295,12 @@ func (v *Validator) Validate(gvk schema.GroupVersionKind, obj map[string]interfa
 
 func (v *Validator) ValidateSpec(gvk schema.GroupVersionKind, obj map[string]interface{}) []error {
 	schema := v.specSchemes.Definitions["v1."+gvk.Kind+"Spec"]
-	result := validate.NewSchemaValidator(&schema, nil, "spec", strfmt.Default).Validate(obj["spec"])
+	result := openapi_validate.NewSchemaValidator(&schema, nil, "spec", strfmt.Default).Validate(obj["spec"])
 	return result.Errors
 }
 
 func (v *Validator) ValidateStatus(gvk schema.GroupVersionKind, obj map[string]interface{}) []error {
 	schema := v.statusSchemes.Definitions["v1."+gvk.Kind+"Status"]
-	result := validate.NewSchemaValidator(&schema, nil, "status", strfmt.Default).Validate(obj["status"])
+	result := openapi_validate.NewSchemaValidator(&schema, nil, "status", strfmt.Default).Validate(obj["status"])
 	return result.Errors
 }

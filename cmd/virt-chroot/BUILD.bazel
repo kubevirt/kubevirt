@@ -12,15 +12,16 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-chroot",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/apimachinery/wait:go_default_library",
         "//pkg/safepath:go_default_library",
-        "//pkg/virt-handler/cgroup:go_default_library",
+        "//pkg/virt-handler/cgroup/constants:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs2:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
+        "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
     ],
 )
 

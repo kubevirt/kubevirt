@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v12 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
@@ -53,13 +54,25 @@ func ToAdmissionResponseError(err error) *admissionv1.AdmissionResponse {
 func ToAdmissionResponse(causes []v1.StatusCause) *admissionv1.AdmissionResponse {
 	log.Log.Infof("rejected vmi admission")
 
+	causeLen := len(causes)
+
+	lenDiff := 0
+	if causeLen > 10 {
+		causeLen = 10
+		lenDiff = len(causes) - 10
+	}
+
 	globalMessage := ""
-	for _, cause := range causes {
+	for _, cause := range causes[:causeLen] {
 		if globalMessage == "" {
 			globalMessage = cause.Message
 		} else {
 			globalMessage = fmt.Sprintf("%s, %s", globalMessage, cause.Message)
 		}
+	}
+
+	if lenDiff > 0 {
+		globalMessage = fmt.Sprintf("%s, and %v more validation errors", globalMessage, lenDiff)
 	}
 
 	return &admissionv1.AdmissionResponse{
@@ -68,7 +81,7 @@ func ToAdmissionResponse(causes []v1.StatusCause) *admissionv1.AdmissionResponse
 			Reason:  v1.StatusReasonInvalid,
 			Code:    http.StatusUnprocessableEntity,
 			Details: &v1.StatusDetails{
-				Causes: causes,
+				Causes: causes[:causeLen],
 			},
 		},
 	}
@@ -184,4 +197,51 @@ func GetVMFromAdmissionReview(ar *admissionv1.AdmissionReview) (new *v12.Virtual
 	}
 
 	return &newVM, nil, nil
+}
+
+func GetInstanceTypeSpecFromAdmissionRequest(request *admissionv1.AdmissionRequest) (new *instancetypev1beta1.VirtualMachineInstancetypeSpec, old *instancetypev1beta1.VirtualMachineInstancetypeSpec, err error) {
+
+	raw := request.Object.Raw
+	instancetypeObj := instancetypev1beta1.VirtualMachineInstancetype{}
+
+	err = json.Unmarshal(raw, &instancetypeObj)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if request.Operation == admissionv1.Update {
+		raw := request.OldObject.Raw
+		oldInstancetypeObj := instancetypev1beta1.VirtualMachineInstancetype{}
+
+		err = json.Unmarshal(raw, &oldInstancetypeObj)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &instancetypeObj.Spec, &oldInstancetypeObj.Spec, nil
+	}
+
+	return &instancetypeObj.Spec, nil, nil
+}
+
+func GetPreferenceSpecFromAdmissionRequest(request *admissionv1.AdmissionRequest) (new *instancetypev1beta1.VirtualMachinePreferenceSpec, old *instancetypev1beta1.VirtualMachinePreferenceSpec, err error) {
+	raw := request.Object.Raw
+	preferenceObj := instancetypev1beta1.VirtualMachinePreference{}
+
+	err = json.Unmarshal(raw, &preferenceObj)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if request.Operation == admissionv1.Update {
+		raw := request.OldObject.Raw
+		oldPreferenceObj := instancetypev1beta1.VirtualMachinePreference{}
+
+		err = json.Unmarshal(raw, &oldPreferenceObj)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &preferenceObj.Spec, &oldPreferenceObj.Spec, nil
+	}
+
+	return &preferenceObj.Spec, nil, nil
 }

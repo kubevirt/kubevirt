@@ -3,15 +3,14 @@ package topology_test
 import (
 	"fmt"
 
-	"k8s.io/utils/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/tests/libvmi"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
 
@@ -42,8 +41,8 @@ var _ = Describe("TSC", func() {
 
 	DescribeTable("should calculate the node label diff", func(frequenciesInUse []int64, frequenciesOnNode []int64, nodeFrequency int64, scalable bool, expectedToAdd []int64, expectedToRemove []int64) {
 		toAdd, toRemove := topology.CalculateTSCLabelDiff(frequenciesInUse, frequenciesOnNode, nodeFrequency, scalable)
-		Expect(toAdd).To(Equal(expectedToAdd))
-		Expect(toRemove).To(Equal(expectedToRemove))
+		Expect(toAdd).To(ConsistOf(expectedToAdd))
+		Expect(toRemove).To(ConsistOf(expectedToRemove))
 	},
 		Entry(
 			"on a scalable node",
@@ -56,20 +55,29 @@ var _ = Describe("TSC", func() {
 		),
 		Entry(
 			"on a scalable node where not all required frequencies are compatible",
-			[]int64{1, 2, 3, 200},
+			[]int64{1, 2, 3, 123130, 200000}, // 123130 is above but within 250 PPM
 			[]int64{2, 4},
-			int64(123),
+			int64(123123),
 			true,
-			[]int64{1, 2, 3, 123},
+			[]int64{1, 2, 3, 123123, 123130},
 			[]int64{4},
 		),
 		Entry(
-			"on a not scalable node where only the node frequency can be set",
+			"on a non-scalable node where only the node frequency can be set",
 			[]int64{1, 2, 3},
 			[]int64{2, 4},
 			int64(123),
 			false,
 			[]int64{123},
+			[]int64{2, 4},
+		),
+		Entry(
+			"on a non-scalable node where other node frequencies are close-enough",
+			[]int64{1, 2, 123120, 123130}, // 250 PPM of 123123 is 30
+			[]int64{2, 4},
+			int64(123123),
+			false,
+			[]int64{123123, 123120, 123130},
 			[]int64{2, 4},
 		),
 	)
@@ -78,7 +86,7 @@ var _ = Describe("TSC", func() {
 
 		newVmi := func(options ...libvmi.Option) *v1.VirtualMachineInstance {
 			vmi := libvmi.New(options...)
-			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.Int64(12345)}
+			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.P(int64(12345))}
 
 			return vmi
 		}
@@ -95,7 +103,7 @@ var _ = Describe("TSC", func() {
 			vmi := newVmi()
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{
-					Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
+					Reenlightenment: &v1.FeatureState{Enabled: pointer.P(true)},
 				},
 			}
 

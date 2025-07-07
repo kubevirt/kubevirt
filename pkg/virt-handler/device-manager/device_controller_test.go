@@ -1,6 +1,7 @@
 package device_manager
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -16,6 +17,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
 type FakePlugin struct {
@@ -30,16 +32,24 @@ func (fp *FakePlugin) Start(_ <-chan struct{}) (err error) {
 	return fp.Error
 }
 
-func (fp *FakePlugin) GetDevicePath() string {
-	return fp.devicePath
-}
-
 func (fp *FakePlugin) GetDeviceName() string {
 	return fp.deviceName
 }
 
 func (fp *FakePlugin) GetInitialized() bool {
 	return true
+}
+
+func (fp *FakePlugin) PreStartContainer(context.Context, *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
+	return &pluginapi.PreStartContainerResponse{}, nil
+}
+
+func (fp *FakePlugin) ListAndWatch(*pluginapi.Empty, pluginapi.DevicePlugin_ListAndWatchServer) error {
+	return nil
+}
+
+func (fp *FakePlugin) Allocate(context.Context, *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+	return &pluginapi.AllocateResponse{}, nil
 }
 
 func NewFakePlugin(name string, path string) *FakePlugin {
@@ -92,11 +102,13 @@ var _ = Describe("Device Controller", func() {
 		host = "master"
 		maxDevices = 100
 		permissions = "rw"
-		stop = make(chan struct{})
+		stop = make(chan struct{}, 1)
 	})
 
 	AfterEach(func() {
 		defer os.RemoveAll(workDir)
+		// Ensure the deviceController is stopped after each test to avoid leaking resources
+		stop <- struct{}{}
 	})
 
 	Context("Basic Tests", func() {
@@ -182,12 +194,14 @@ var _ = Describe("Device Controller", func() {
 			}, 5*time.Second).Should(BeNumerically(">=", 1))
 		})
 
-		It("should remove all device plugins if permittedHostDevices is removed from the CR", func() {
+		It("Should remove device plugins if permittedHostDevices is removed from the CR", func() {
 			emptyConfigMap, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 			Expect(emptyConfigMap.GetPermittedHostDevices()).To(BeNil())
 
-			initialDevices := []Device{plugin1, plugin2}
-			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, emptyConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, []Device{}, emptyConfigMap, clientTest.CoreV1())
+
+			deviceController.startDevice(deviceName1, plugin1)
+			deviceController.startDevice(deviceName2, plugin2)
 
 			go deviceController.Run(stop)
 
@@ -198,6 +212,24 @@ var _ = Describe("Device Controller", func() {
 				_, exists2 := deviceController.startedPlugins[deviceName2]
 				return exists1 || exists2
 			}, 5*time.Second).Should(BeFalse())
+		})
+
+		It("Should not remove permanent device plugins if permittedHostDevices is removed from the CR", func() {
+			emptyConfigMap, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			Expect(emptyConfigMap.GetPermittedHostDevices()).To(BeNil())
+
+			permanentPlugins := []Device{plugin1, plugin2}
+			deviceController := NewDeviceController(host, maxDevices, permissions, permanentPlugins, emptyConfigMap, clientTest.CoreV1())
+
+			go deviceController.Run(stop)
+
+			Eventually(func() bool {
+				deviceController.startedPluginsMutex.Lock()
+				defer deviceController.startedPluginsMutex.Unlock()
+				_, exists1 := deviceController.startedPlugins[deviceName1]
+				_, exists2 := deviceController.startedPlugins[deviceName2]
+				return exists1 && exists2
+			}, 5*time.Second).Should(BeTrue())
 		})
 	})
 })

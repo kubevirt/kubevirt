@@ -110,6 +110,22 @@ func (_mr *_MockCmdClientRecorder) UnfreezeVirtualMachine(arg0, arg1 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnfreezeVirtualMachine", _s...)
 }
 
+func (_m *MockCmdClient) ResetVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "ResetVirtualMachine", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) ResetVirtualMachine(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResetVirtualMachine", _s...)
+}
+
 func (_m *MockCmdClient) SoftRebootVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
 	_s := []interface{}{ctx, in}
 	for _, _x := range opts {
@@ -414,6 +430,102 @@ func (_mr *_MockCmdClientRecorder) VirtualMachineMemoryDump(arg0, arg1 interface
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineMemoryDump", _s...)
 }
 
+func (_m *MockCmdClient) GetQemuVersion(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*QemuVersionResponse, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "GetQemuVersion", _s...)
+	ret0, _ := ret[0].(*QemuVersionResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) GetQemuVersion(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetQemuVersion", _s...)
+}
+
+func (_m *MockCmdClient) SyncVirtualMachineCPUs(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachineCPUs", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) SyncVirtualMachineCPUs(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineCPUs", _s...)
+}
+
+func (_m *MockCmdClient) SyncVirtualMachineMemory(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachineMemory", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) SyncVirtualMachineMemory(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineMemory", _s...)
+}
+
+func (_m *MockCmdClient) GetSEVInfo(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*SEVInfoResponse, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "GetSEVInfo", _s...)
+	ret0, _ := ret[0].(*SEVInfoResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) GetSEVInfo(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetSEVInfo", _s...)
+}
+
+func (_m *MockCmdClient) GetLaunchMeasurement(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*LaunchMeasurementResponse, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "GetLaunchMeasurement", _s...)
+	ret0, _ := ret[0].(*LaunchMeasurementResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) GetLaunchMeasurement(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLaunchMeasurement", _s...)
+}
+
+func (_m *MockCmdClient) InjectLaunchSecret(ctx context.Context, in *InjectLaunchSecretRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "InjectLaunchSecret", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) InjectLaunchSecret(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "InjectLaunchSecret", _s...)
+}
+
 // Mock of CmdServer interface
 type MockCmdServer struct {
 	ctrl     *gomock.Controller
@@ -488,6 +600,17 @@ func (_m *MockCmdServer) UnfreezeVirtualMachine(_param0 context.Context, _param1
 
 func (_mr *_MockCmdServerRecorder) UnfreezeVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnfreezeVirtualMachine", arg0, arg1)
+}
+
+func (_m *MockCmdServer) ResetVirtualMachine(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "ResetVirtualMachine", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) ResetVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResetVirtualMachine", arg0, arg1)
 }
 
 func (_m *MockCmdServer) SoftRebootVirtualMachine(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
@@ -697,4 +820,70 @@ func (_m *MockCmdServer) VirtualMachineMemoryDump(_param0 context.Context, _para
 
 func (_mr *_MockCmdServerRecorder) VirtualMachineMemoryDump(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineMemoryDump", arg0, arg1)
+}
+
+func (_m *MockCmdServer) GetQemuVersion(_param0 context.Context, _param1 *EmptyRequest) (*QemuVersionResponse, error) {
+	ret := _m.ctrl.Call(_m, "GetQemuVersion", _param0, _param1)
+	ret0, _ := ret[0].(*QemuVersionResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) GetQemuVersion(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetQemuVersion", arg0, arg1)
+}
+
+func (_m *MockCmdServer) SyncVirtualMachineCPUs(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachineCPUs", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) SyncVirtualMachineCPUs(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineCPUs", arg0, arg1)
+}
+
+func (_m *MockCmdServer) SyncVirtualMachineMemory(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachineMemory", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) SyncVirtualMachineMemory(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineMemory", arg0, arg1)
+}
+
+func (_m *MockCmdServer) GetSEVInfo(_param0 context.Context, _param1 *EmptyRequest) (*SEVInfoResponse, error) {
+	ret := _m.ctrl.Call(_m, "GetSEVInfo", _param0, _param1)
+	ret0, _ := ret[0].(*SEVInfoResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) GetSEVInfo(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetSEVInfo", arg0, arg1)
+}
+
+func (_m *MockCmdServer) GetLaunchMeasurement(_param0 context.Context, _param1 *VMIRequest) (*LaunchMeasurementResponse, error) {
+	ret := _m.ctrl.Call(_m, "GetLaunchMeasurement", _param0, _param1)
+	ret0, _ := ret[0].(*LaunchMeasurementResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) GetLaunchMeasurement(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLaunchMeasurement", arg0, arg1)
+}
+
+func (_m *MockCmdServer) InjectLaunchSecret(_param0 context.Context, _param1 *InjectLaunchSecretRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "InjectLaunchSecret", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) InjectLaunchSecret(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "InjectLaunchSecret", arg0, arg1)
 }

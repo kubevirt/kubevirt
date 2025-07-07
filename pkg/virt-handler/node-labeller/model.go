@@ -30,12 +30,6 @@ type hostCPUModel struct {
 	requiredFeatures cpuFeatures
 }
 
-// hostCapabilities holds informations which provides libvirt,
-// so we don't have to call libvirt at every request
-type cpuInfo struct {
-	usableModels map[string]cpuFeatures
-}
-
 // HostDomCapabilities represents structure for parsing output of virsh capabilities
 type HostDomCapabilities struct {
 	CPU CPU              `xml:"cpu"`
@@ -92,6 +86,9 @@ type Feature struct {
 
 type SEVConfiguration struct {
 	Supported       string `xml:"supported,attr"`
-	Cbitpos         string `xml:"cbitpos"`
-	ReducedPhysBits string `xml:"reducedPhysBits"`
+	CBitPos         uint   `xml:"cbitpos"`
+	ReducedPhysBits uint   `xml:"reducedPhysBits"`
+	MaxGuests       uint   `xml:"maxGuests"`
+	MaxESGuests     uint   `xml:"maxESGuests"`
+	SupportedES     string `xml:"-"`
 }

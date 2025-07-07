@@ -26,11 +26,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"regexp"
 	"sync"
 	"time"
 
-	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +54,7 @@ func (app *SubresourceAPIApp) getAllComponentPods() ([]k8sv1.Pod, error) {
 		return nil, err
 	}
 
-	podList, err := app.virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+	podList, err := app.virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
 	if err != nil {
 		return nil, err
 	}
@@ -117,31 +117,24 @@ func (app *SubresourceAPIApp) getPodsNextPage(cpRequest *v1.ClusterProfilerReque
 }
 
 func podIsReadyComponent(pod *k8sv1.Pod) bool {
-	componentPrefixes := []string{"virt-controller", "virt-handler", "virt-api", "virt-operator"}
-
-	found := false
-	// filter out any kubevirt related pod that doesn't have profiling capabilities
-	for _, prefix := range componentPrefixes {
-		if strings.Contains(pod.Name, prefix) {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return false
-	}
-
 	if pod == nil {
 		return false
-	} else if pod.Status.Phase != k8sv1.PodRunning {
+	}
+
+	re, _ := regexp.Compile("^(virt-api-|virt-operator-|virt-handler-|virt-controller-).*")
+	isComponentPod := re.MatchString(pod.Name)
+	// filter out any kubevirt related pod that doesn't have profiling capabilities
+	if !isComponentPod {
 		return false
-	} else if pod.DeletionTimestamp != nil {
+	}
+
+	if pod.Status.Phase != k8sv1.PodRunning || pod.DeletionTimestamp != nil {
 		return false
-	} else {
-		for _, cond := range pod.Status.Conditions {
-			if cond.Type == k8sv1.PodReady && cond.Status == k8sv1.ConditionTrue {
-				return true
-			}
+	}
+
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == k8sv1.PodReady && cond.Status == k8sv1.ConditionTrue {
+			return true
 		}
 	}
 

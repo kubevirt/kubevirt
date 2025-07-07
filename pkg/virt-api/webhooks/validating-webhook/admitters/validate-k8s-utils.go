@@ -137,8 +137,8 @@ func validateWeightedPodAffinityTerms(weightedPodAffinityTerms []core.WeightedPo
 func validatePodAffinityTerm(podAffinityTerm core.PodAffinityTerm, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(podAffinityTerm.LabelSelector, fldPath.Child("labelSelector"))...)
-	allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(podAffinityTerm.NamespaceSelector, fldPath.Child("namespaceSelector"))...)
+	allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(podAffinityTerm.LabelSelector, unversionedvalidation.LabelSelectorValidationOptions{}, fldPath.Child("labelSelector"))...)
+	allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(podAffinityTerm.NamespaceSelector, unversionedvalidation.LabelSelectorValidationOptions{}, fldPath.Child("namespaceSelector"))...)
 
 	for _, name := range podAffinityTerm.Namespaces {
 		for _, msg := range ValidateNamespaceName(name, false) {
@@ -285,7 +285,7 @@ func validateTopologySpreadConstraints(constraints []core.TopologySpreadConstrai
 
 		// this is missing in upstream codebase https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L6571-L6600
 		// issue captured here https://github.com/kubernetes/kubernetes/issues/111791#issuecomment-1211184962
-		allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(constraint.LabelSelector, fldPath.Child("labelSelector"))...)
+		allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(constraint.LabelSelector, unversionedvalidation.LabelSelectorValidationOptions{}, fldPath.Child("labelSelector"))...)
 
 		// tuple {topologyKey, whenUnsatisfiable} denotes one kind of spread constraint
 		if err := ValidateSpreadConstraintNotRepeat(subFldPath.Child("{topologyKey, whenUnsatisfiable}"), constraint, constraints[i+1:]); err != nil {

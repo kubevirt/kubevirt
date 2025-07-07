@@ -7,14 +7,17 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-launcher",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/apimachinery/wait:go_default_library",
         "//pkg/cloud-init:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/container-disk:go_default_library",
+        "//pkg/downwardmetrics:go_default_library",
         "//pkg/ephemeral-disk:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/hotplug-disk:go_default_library",
         "//pkg/ignition:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-launcher:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
@@ -29,7 +32,6 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
         "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
@@ -61,6 +63,7 @@ pkg_tar(
         "//cmd/virt-freezer",
         "//cmd/virt-launcher-monitor",
         "//cmd/virt-probe",
+        "//cmd/virt-tail",
     ],
     package_dir = "/usr/bin",
 )
@@ -68,9 +71,6 @@ pkg_tar(
 xattrs(
     name = "setcaps",
     capabilities = {
-        "/usr/bin/virt-launcher": [
-            "cap_net_bind_service",
-        ],
         "/usr/bin/virt-launcher-monitor": [
             "cap_net_bind_service",
         ],
@@ -154,6 +154,15 @@ pkg_tar(
     package_dir = "/etc",
 )
 
+pkg_tar(
+    name = "qemu-hook-tar",
+    srcs = [
+        ":qemu",
+    ],
+    mode = "0755",
+    package_dir = "/etc/libvirt/hooks",
+)
+
 # Workaround for https://github.com/moby/moby/issues/44106
 # Need to create the directory upfront, otherwise it gets assigned wrong
 # permissions when unpacked.
@@ -178,10 +187,18 @@ container_image(
             ":qemu-kvm-modules-dir-tar",
             "//rpm:launcherbase_aarch64",
         ],
+        "@io_bazel_rules_go//go/platform:linux_s390x": [
+            ":libvirt-config",
+            ":passwd-tar",
+            ":nsswitch-tar",
+            ":qemu-kvm-modules-dir-tar",
+            "//rpm:launcherbase_s390x",
+        ],
         "//conditions:default": [
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
+            ":qemu-hook-tar",
             ":qemu-kvm-modules-dir-tar",
             "//rpm:launcherbase_x86_64",
         ],
@@ -192,6 +209,7 @@ container_image(
     name = "virt-launcher-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
     base = ":version-container",

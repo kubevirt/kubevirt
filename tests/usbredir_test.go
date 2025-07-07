@@ -1,3 +1,5 @@
+//go:build !s390x
+
 /*
  * This file is part of the KubeVirt project
  *
@@ -20,20 +22,28 @@
 package tests_test
 
 import (
-	"io"
+	"context"
+	"errors"
+	"net"
+	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/usbredir"
+
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libvmops"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 // Capabilities from client side
@@ -56,7 +66,6 @@ var helloMessageRemote = []byte{
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] USB Redirection", decorators.SigCompute, func() {
 
-	var err error
 	var virtClient kubecli.KubevirtClient
 	const enoughMemForSafeBiosEmulation = "32Mi"
 	BeforeEach(func() {
@@ -68,7 +77,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
 			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 		})
 
 		It("should fail to connect to VMI's usbredir socket", func() {
@@ -81,99 +90,175 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with usbredir support", func() {
 
 		var vmi *v1.VirtualMachineInstance
+		var name, namespace string
+
 		BeforeEach(func() {
+			// A VMI for each test to have fresh stack on server side
 			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation), withClientPassthrough())
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+			name = vmi.ObjectMeta.Name
+			namespace = vmi.ObjectMeta.Namespace
 		})
 
-		Context("with an usbredir connection", func() {
+		It("Should fail when limit is reached", func() {
+			type session struct {
+				cancel  context.CancelFunc
+				connect chan struct{}
+				err     chan error
+			}
 
-			usbredirConnect := func(connStop chan struct{}) {
-				pipeInReader, pipeInWriter := io.Pipe()
-				pipeOutReader, pipeOutWriter := io.Pipe()
-				defer pipeInReader.Close()
-				defer pipeOutReader.Close()
+			var tests []session
+			for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
+			retry_loop:
+				for try := 0; try < 3; try++ {
+					ctx, cancelFn := context.WithCancel(context.Background())
+					test := session{
+						cancel:  cancelFn,
+						connect: make(chan struct{}),
+						err:     make(chan error),
+					}
+					ctx = context.WithValue(ctx, "connected", test.connect)
+					go runConnectGoroutine(virtClient, name, namespace, ctx, test.err)
 
-				k8ResChan := make(chan error)
-				readStop := make(chan []byte)
-
-				By("Stablishing communication with usbredir socket from VMI")
-				go func() {
-					defer GinkgoRecover()
-					usbredirVMI, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).USBRedir(vmi.ObjectMeta.Name)
-					if err != nil {
-						k8ResChan <- err
-						return
+					if i == v1.UsbClientPassthroughMaxNumberOf {
+						// Last test is meant to fail.
+						tests = append(tests, test)
+						break
 					}
 
-					k8ResChan <- usbredirVMI.Stream(kubecli.StreamOptions{
-						In:  pipeInReader,
-						Out: pipeOutWriter,
-					})
-				}()
-
-				By("Exchanging hello message between client and QEMU's usbredir")
-				go func() {
-					defer GinkgoRecover()
-					buf := make([]byte, 1024, 1024)
-
-					// write hello message to remote (VMI)
-					nw, err := pipeInWriter.Write(helloMessageLocal)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(nw).To(Equal(len(helloMessageLocal)))
-
-					// reading hello message from remote (VMI)
-					nr, err := pipeOutReader.Read(buf)
-					if err != nil && err != io.EOF {
-						Expect(err).ToNot(HaveOccurred())
-						return
+					// Till the last test, all sockets must be connected
+					select {
+					case <-test.connect:
+						tests = append(tests, test)
+						break retry_loop
+					case err := <-test.err:
+						if !errors.Is(err, syscall.ECONNRESET) {
+							log.Log.Reason(err).Info("Failed early. Unexpected error.")
+							Fail("Improve error handling or fix underlying issue")
+						}
+						log.Log.Reason(err).Infof("Failed early. Try again (%d)", try)
+					case <-time.After(time.Second):
+						log.Log.Infof("Took too long. Try again (%d)", try)
+						test.cancel()
 					}
-					if nr == 0 && err == io.EOF {
-						readStop <- []byte("")
-						return
-					}
-					readStop <- buf[0:nr]
-				}()
 
-				select {
-				case response := <-readStop:
-					By("Checking the response from QEMU's usbredir")
-					// Comparing the actual messages could be error prone due the fact that:
-					// 1. Part of the return value is a qemu release version, e.g: 5.2.0 (test would break with different release!)
-					// 2. Capabilities can change over time which means the message would be different then the one hardcoded, correct nonetheless.
-					// I'm keeping the helloMessageRemote to have a proof of working example that could also be used if needed.
-					Expect(response).ToNot(BeEmpty(), "response should not be empty")
-					Expect(response).To(HaveLen(len(helloMessageRemote)))
-				case err = <-k8ResChan:
-					Expect(err).ToNot(HaveOccurred())
-				case <-time.After(45 * time.Second):
-					Fail("Timout reached while waiting for valid response")
-				case <-connStop:
-					return
 				}
 			}
 
-			It("Should work several times", func() {
-				for i := 0; i < 10; i++ {
-					usbredirConnect(nil)
+			numOfErrors := 0
+			for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
+				select {
+				case err := <-tests[i].err:
+					Expect(err).To(MatchError(ContainSubstring("websocket: bad handshake")))
+					numOfErrors++
+				case <-time.After(time.Second):
+					tests[i].cancel()
 				}
-			})
+			}
+			Expect(numOfErrors).To(Equal(1), "Only one connection should fail")
+		})
 
-			It("Should work in parallel", func() {
-				connStop := make(chan struct{})
-				defer close(connStop)
-				for i := 0; i < v1.UsbClientPassthroughMaxNumberOf; i++ {
-					go func() {
-						defer GinkgoRecover()
-						usbredirConnect(connStop)
-					}()
+		It("Should work several times", func() {
+			for i := 0; i < 4*v1.UsbClientPassthroughMaxNumberOf; i++ {
+			retry_loop:
+				for try := 0; try < 3; try++ {
+					ctx, cancelFn := context.WithCancel(context.Background())
+					errch := make(chan error)
+					go runConnectGoroutine(virtClient, name, namespace, ctx, errch)
+
+					select {
+					case err := <-errch:
+						cancelFn()
+						time.Sleep(100 * time.Millisecond)
+						if try < 3 {
+							log.Log.Reason(err).Infof("Failed. Try again (%d)", try)
+						} else {
+							Fail("Tried 3 times. Something is wrong")
+						}
+					case <-time.After(time.Second):
+						cancelFn()
+						time.Sleep(100 * time.Millisecond)
+						break retry_loop
+					}
 				}
-				// Wait for connection, write and read of all above.
-				time.Sleep(5 * time.Second)
-			})
+			}
 		})
 	})
 })
+
+func runConnectGoroutine(
+	virtClient kubecli.KubevirtClient,
+	name string,
+	namespace string,
+	ctx context.Context,
+	errch chan error,
+) {
+	defer GinkgoRecover()
+
+	usbredirStream, err := virtClient.VirtualMachineInstance(namespace).USBRedir(name)
+	if err != nil {
+		errch <- err
+		return
+	}
+	usbredirConnect(usbredirStream, ctx)
+}
+
+func usbredirConnect(
+	stream kvcorev1.StreamInterface,
+	ctx context.Context,
+) {
+
+	usbredirClient, err := usbredir.NewUSBRedirClient(ctx, "localhost:0", stream)
+	Expect(err).ToNot(HaveOccurred())
+
+	usbredirClient.ClientConnect = func(inCtx context.Context, device, address string) error {
+		defer GinkgoRecover()
+		conn, err := net.Dial("tcp", address)
+		Expect(err).ToNot(HaveOccurred())
+		defer conn.Close()
+
+		buf := make([]byte, 1024, 1024)
+
+		// write hello message to remote (VMI)
+		if nw, err := conn.Write([]byte(helloMessageLocal)); err != nil {
+			return err
+		} else {
+			Expect(nw).To(Equal(len(helloMessageLocal)))
+		}
+
+		// reading hello message from remote (VMI)
+		if nr, err := conn.Read(buf); err != nil {
+			return err
+		} else {
+			Expect(buf[0:nr]).ToNot(BeEmpty(), "response should not be empty")
+			Expect(buf[0:nr]).To(HaveLen(len(helloMessageRemote)))
+		}
+
+		// Signal connected after read/write to be sure no TCP operation failed too
+		if connected, ok := inCtx.Value("connected").(chan struct{}); ok {
+			connected <- struct{}{}
+		}
+
+		select {
+		case <-inCtx.Done():
+			return inCtx.Err()
+		}
+	}
+
+	run := make(chan error)
+	go func() {
+		defer GinkgoRecover()
+		run <- usbredirClient.Redirect("dead:beef")
+	}()
+
+	select {
+	case err = <-run:
+		Expect(err).ToNot(HaveOccurred())
+	case <-ctx.Done():
+		err = <-run
+		Expect(err).To(MatchError(ContainSubstring("context canceled")))
+	}
+}
 
 func withClientPassthrough() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {

@@ -1,6 +1,10 @@
 package topology
 
 import (
+	"math"
+
+	"k8s.io/client-go/tools/cache"
+
 	v1 "k8s.io/api/core/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -10,6 +14,7 @@ import (
 const TSCFrequencyLabel = virtv1.CPUTimerLabel + "tsc-frequency"
 const TSCFrequencySchedulingLabel = "scheduling.node.kubevirt.io/tsc-frequency"
 const TSCScalableLabel = virtv1.CPUTimerLabel + "tsc-scalable"
+const TSCTolerancePPM float64 = 250
 
 type FilterPredicateFunc func(node *v1.Node) bool
 
@@ -72,6 +77,17 @@ func Not(f FilterPredicateFunc) FilterPredicateFunc {
 	}
 }
 
+func Or(predicates ...FilterPredicateFunc) FilterPredicateFunc {
+	return func(node *v1.Node) bool {
+		for _, p := range predicates {
+			if p(node) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
 func FilterNodesFromCache(objs []interface{}, predicates ...FilterPredicateFunc) []*v1.Node {
 	match := []*v1.Node{}
 	for _, obj := range objs {
@@ -88,4 +104,25 @@ func FilterNodesFromCache(objs []interface{}, predicates ...FilterPredicateFunc)
 		}
 	}
 	return match
+}
+
+func IsNodeRunningVmis(vmiStore cache.Store) FilterPredicateFunc {
+	return func(node *v1.Node) bool {
+		if node == nil {
+			return false
+		}
+
+		for _, vmi := range vmiStore.List() {
+			vmi := vmi.(*virtv1.VirtualMachineInstance)
+			if vmi.Status.NodeName == node.Name {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// ToleranceForFrequency returns TSCTolerancePPM parts per million of freq, rounded down to the nearest Hz
+func ToleranceForFrequency(freq int64) int64 {
+	return int64(math.Floor(float64(freq) * (TSCTolerancePPM / 1000000)))
 }
