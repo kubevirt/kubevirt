@@ -21,11 +21,17 @@ set -e
 
 paths=""
 while IFS= read -r line; do
-    # read directory from the file and append a wildcard
-    paths+="${line}/... "
+  # read directory from the file and append a wildcard
+  paths+="${line}/... "
 done <hack/linter/lint-paths.txt
 
 golangci-lint run --timeout 20m --verbose ${paths}
 golangci-lint run --disable-all -E ginkgolinter --timeout 10m --verbose --no-config \
-    ./pkg/... \
-    ./tests/...
+  ./pkg/... \
+  ./tests/...
+
+paths_since_1_6=""
+while IFS= read -r line; do
+  paths_since_1_6+="${line}/... "
+done <hack/linter/lint-paths-since-v1.6.txt
+golangci-lint run --timeout 20m --verbose --new-from-rev 1a89c8123d83a638574ec86b83fb705dd27ac107 ${paths_since_1_6}
