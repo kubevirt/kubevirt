@@ -24,7 +24,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	rt "runtime"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -58,7 +57,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 )
 
 var _ = Describe("Validating VM Admitter", func() {
@@ -1682,10 +1680,12 @@ var _ = Describe("Validating VM Admitter", func() {
 			disableFeatureGates()
 		})
 
-		Context("CPU", func() {
+		DescribeTableSubtree("CPU on supported arch", func(arch string) {
 			const maximumSockets uint32 = 24
 
 			BeforeEach(func() {
+				enableFeatureGate(featuregate.MultiArchitecture)
+				vm.Spec.Template.Spec.Architecture = arch
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					MaxSockets: maximumSockets,
 				}
@@ -1704,13 +1704,15 @@ var _ = Describe("Validating VM Admitter", func() {
 					vm.Status.Ready = true
 				})
 			})
-		})
+		},
+			Entry("amd64", "amd64"),
+			Entry("s390x", "s390x"),
+		)
 
-		Context("Memory", func() {
+		DescribeTableSubtree("Memory on supported arch", func(arch string) {
 			var maxGuest resource.Quantity
 
 			BeforeEach(func() {
-				checks.SkipIfS390X(rt.GOARCH, "Memory hotplug is not supported for s390x")
 				guest := resource.MustParse("1Gi")
 				maxGuest = resource.MustParse("4Gi")
 
@@ -1718,7 +1720,8 @@ var _ = Describe("Validating VM Admitter", func() {
 					Guest:    &guest,
 					MaxGuest: &maxGuest,
 				}
-				vm.Spec.Template.Spec.Architecture = rt.GOARCH
+				enableFeatureGate(featuregate.MultiArchitecture)
+				vm.Spec.Template.Spec.Architecture = arch
 				vm.Spec.Template.Spec.Domain.Resources.Limits = nil
 				vm.Spec.Template.Spec.Domain.Resources.Requests = nil
 				vm.Status.Ready = true
@@ -1828,7 +1831,9 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is only available for VMs with at least 1Gi of guest memory",
 				}),
 			)
-		})
+		},
+			Entry("amd64", "amd64"),
+		)
 
 	})
 
