@@ -82,9 +82,13 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 			func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
 		)
 
-		updatedVMI, err := v.syncVMIInterfaces(vm, vmi, vmiIfaceStatusesByName)
-		if err != nil {
-			return vm, err
+		updatedVMI := syncVMIInterfaces(vm, vmi, vmiIfaceStatusesByName)
+
+		if err := v.vmiInterfacesPatch(&updatedVMI.Spec, vmi); err != nil {
+			return vm, &syncError{
+				fmt.Errorf("error encountered when trying to patch vmi: %v", err),
+				hotPlugNetworkInterfaceErrorReason,
+			}
 		}
 
 		vmiIfacesByName = vmispec.IndexInterfaceSpecByName(updatedVMI.Spec.Domain.Devices.Interfaces)
@@ -103,11 +107,11 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	return vmCopy, nil
 }
 
-func (v *VMController) syncVMIInterfaces(
+func syncVMIInterfaces(
 	vm *v1.VirtualMachine,
 	vmi *v1.VirtualMachineInstance,
 	indexedStatusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface,
-) (*v1.VirtualMachineInstance, error) {
+) *v1.VirtualMachineInstance {
 	vmiCopy := vmi.DeepCopy()
 	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
 	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmiCopy, hasOrdinalIfaces)
@@ -117,13 +121,7 @@ func (v *VMController) syncVMIInterfaces(
 	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 	vmiCopy.Spec.Networks = networks
 
-	if err := v.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
-		return nil, &syncError{
-			fmt.Errorf("error encountered when trying to patch vmi: %v", err),
-			hotPlugNetworkInterfaceErrorReason,
-		}
-	}
-	return vmiCopy, nil
+	return vmiCopy
 }
 
 func (v *VMController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceSpec, vmi *v1.VirtualMachineInstance) error {
