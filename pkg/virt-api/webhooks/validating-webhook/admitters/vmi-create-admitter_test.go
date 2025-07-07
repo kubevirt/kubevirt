@@ -2033,7 +2033,19 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 
-		DescribeTable("should reject cd-roms using", func(bus string, matcher types.GomegaMatcher) {
+		virtioUnsupportedMatcher := gstruct.MatchFields(
+			gstruct.IgnoreExtras,
+			gstruct.Fields{"Message": Equal("Bus type virtio is invalid for CD-ROM device")},
+		)
+
+		ideUnsupportedMatcher := gstruct.MatchFields(
+			gstruct.IgnoreExtras,
+			gstruct.Fields{"Message": Equal("IDE bus is not supported")},
+		)
+
+		DescribeTable("should reject cd-roms using", func(bus, arch string, matcher types.GomegaMatcher) {
+			enableFeatureGate(featuregate.MultiArchitecture)
+			vmi.Spec.Architecture = arch
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testcdrom",
 				DiskDevice: v1.DiskDevice{
@@ -2058,15 +2070,24 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].cdrom.bus"))
 
 		},
-			Entry("virtio bus", "virtio", gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"Message": Equal("Bus type virtio is invalid for CD-ROM device"),
-			})),
-			Entry("ide bus", "ide", gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"Message": Equal("IDE bus is not supported"),
-			})),
+			Entry("virtio bus on amd64", "virtio", "amd64", virtioUnsupportedMatcher),
+			Entry("ide bus on amd64", "ide", "amd64", ideUnsupportedMatcher),
+			Entry("virtio bus on s390x", "virtio", "s390x", virtioUnsupportedMatcher),
+			Entry("ide bus on s390x", "ide", "s390x", ideUnsupportedMatcher),
+			Entry("virtio bus on arm64", "virtio", "arm64", virtioUnsupportedMatcher),
+			Entry("ide bus on arm64", "ide", "arm64", ideUnsupportedMatcher),
+			// FIXME(lyarwood): Align with the above errors
+			Entry("sata bus on arm64", "sata", "arm64",
+				gstruct.MatchFields(
+					gstruct.IgnoreExtras,
+					gstruct.Fields{"Message": Equal("Arm64 not support this disk bus type, please use virtio or scsi")},
+				),
+			),
 		)
 
-		DescribeTable("should accept cd-roms using", func(bus string) {
+		DescribeTable("should accept cd-roms using", func(bus, arch string) {
+			enableFeatureGate(featuregate.MultiArchitecture)
+			vmi.Spec.Architecture = arch
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testcdrom",
 				DiskDevice: v1.DiskDevice{
@@ -2088,8 +2109,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue(), "The VMI should be allowed")
 		},
-			Entry("sata bus", "sata"),
-			Entry("scsi bus", "scsi"),
+			Entry("sata bus on amd64", "sata", "amd64"),
+			Entry("scsi bus on amd64", "scsi", "amd64"),
+			Entry("sata bus on s390x", "sata", "s390x"),
+			Entry("scsi bus on s390x", "scsi", "s390x"),
+			Entry("scsi bus on arm64", "scsi", "arm64"),
 		)
 
 		It("should accept a boot order greater than '0'", func() {
