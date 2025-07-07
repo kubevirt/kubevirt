@@ -742,7 +742,7 @@ var _ = Describe("Export controller", func() {
 			Expect(ok).To(BeTrue())
 			service.Status.Conditions = make([]metav1.Condition, 1)
 			service.Status.Conditions[0].Type = "test"
-			Expect(service.GetName()).To(Equal(controller.getExportServiceName(testVMExport)))
+			Expect(service.GetName()).To(Equal("virt-export-test"))
 			Expect(service.GetNamespace()).To(Equal(testNamespace))
 			return true, service, nil
 		})
@@ -991,6 +991,37 @@ var _ = Describe("Export controller", func() {
 		Entry("PVC name within limit", "pvc-name-within-limit"),
 		Entry("PVC name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
 		Entry("PVC name with same length as limit", strings.Repeat("a", validation.DNS1035LabelMaxLength)),
+	)
+
+	DescribeTable("service name should be sanitized", func(exportName, expectedServiceName string) {
+		var service *k8sv1.Service
+		testVMExport := createPVCVMExport()
+		testVMExport.Name = exportName
+		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			service, ok = create.GetObject().(*k8sv1.Service)
+			Expect(ok).To(BeTrue())
+			service.Status.Conditions = make([]metav1.Condition, 1)
+			service.Status.Conditions[0].Type = "test"
+			Expect(service.GetName()).To(Equal(expectedServiceName))
+			Expect(service.GetName()).ToNot(ContainSubstring("."))
+			Expect(service.GetName()).ToNot(HavePrefix("-"))
+			Expect(service.GetNamespace()).To(Equal(testNamespace))
+			Expect(service.Labels).To(And(
+				HaveKeyWithValue(virtv1.AppLabel, "virt-exporter"),
+				HaveKeyWithValue(labelKey, labelValue)))
+			Expect(service.Annotations).To(HaveKeyWithValue(annotationKey, annotationValue))
+			return true, service, nil
+		})
+
+		service, err := controller.getOrCreateExportService(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(service).ToNot(BeNil())
+		Expect(service.Status.Conditions[0].Type).To(Equal("test"))
+	},
+		Entry("with dots", fmt.Sprintf("%s.com", vmExportName), "virt-export-test-com"),
+		Entry("special case with - prefix", strings.Repeat("a", validation.DNS1035LabelMaxLength-10), "v-efa2f187-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
 	)
 
 	It("Should create a secret based on the vm export", func() {
