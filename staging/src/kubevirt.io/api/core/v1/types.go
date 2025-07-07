@@ -1191,7 +1191,8 @@ const (
 	VirtOperatorComponentFinalizer string = "kubevirt.io/virtOperatorFinalizer"
 
 	// Set by VMI controller to ensure VMIs are processed during deletion
-	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
+	VirtualMachineInstanceFinalizer           string = "kubevirt.io/foregroundDeleteVirtualMachine"
+	DeprecatedVirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 	// Set By VM controller on VMIs to ensure VMIs are processed by VM controller during deletion
 	VirtualMachineControllerFinalizer        string = "kubevirt.io/virtualMachineControllerFinalize"
 	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
