@@ -1575,7 +1575,36 @@ var _ = Describe("Template", func() {
 					}
 				}
 				Expect(found).To(BeTrue(), "Expected compute container to be granted SYS_NICE capability")
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUManager, "true"))
+				Expect(pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(ContainElements(
+					k8sv1.NodeSelectorTerm{
+						MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{
+								Key:      "node-labeller.kubevirt.io/obsolete-host-model",
+								Operator: "DoesNotExist",
+								Values:   nil,
+							},
+							{
+								Key:      v1.DeprecatedCPUManager,
+								Operator: k8sv1.NodeSelectorOpIn,
+								Values:   []string{"true"},
+							},
+						},
+					},
+					k8sv1.NodeSelectorTerm{
+						MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{
+								Key:      "node-labeller.kubevirt.io/obsolete-host-model",
+								Operator: "DoesNotExist",
+								Values:   nil,
+							},
+							{
+								Key:      v1.CPUManager,
+								Operator: k8sv1.NodeSelectorOpIn,
+								Values:   []string{"true"},
+							},
+						},
+					},
+				))
 			})
 
 			DescribeTable("should add defined cpu/memory resources for sidecar if specified in config", func(req, lim, expectedReq, expectedLim k8sv1.ResourceList, dedicatedCpu bool) {
