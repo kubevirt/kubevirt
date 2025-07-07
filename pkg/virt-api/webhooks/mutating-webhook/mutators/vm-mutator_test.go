@@ -48,6 +48,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	instancetypeVMWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -858,4 +860,42 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Entry("PreferenceMatcher provides invalid value to InferFromVolumeFailurePolicy", nil, &v1.PreferenceMatcher{InferFromVolume: "bar", InferFromVolumeFailurePolicy: &invalidInferFromVolumeFailurePolicy}, k8sfield.NewPath("spec", "preference", "inferFromVolumeFailurePolicy").String(), "Invalid value 'not-valid' for InferFromVolumeFailurePolicy"),
 		)
 	})
+
+	DescribeTable("should apply istio label if istio deprecated annotation exists",
+		func(annotations, existingLabels map[string]string, expectKey, expectVal string) {
+			vmi := libvmi.New()
+			vm = libvmi.NewVirtualMachine(vmi)
+			vm.Annotations = annotations
+			vm.Labels = existingLabels
+			_, meta := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+			Expect(meta.Labels).To(HaveKeyWithValue(expectKey, expectVal))
+		},
+		Entry("deprecated annotation only",
+			map[string]string{istio.InjectSidecarDeprecatedAnnotation: "x"},
+			map[string]string{"x": "y"},
+			istio.InjectSidecarLabel, "x"),
+		Entry("deprecated annotation and no labels",
+			map[string]string{istio.InjectSidecarDeprecatedAnnotation: "x"},
+			nil,
+			istio.InjectSidecarLabel, "x"),
+		Entry("deprecated annotation and conflicting label",
+			map[string]string{istio.InjectSidecarDeprecatedAnnotation: "y"},
+			map[string]string{"x": "y", istio.InjectSidecarLabel: "x"},
+			istio.InjectSidecarLabel, "x"),
+	)
+
+	DescribeTable("should not apply istio label when",
+		func(annotations, existingLabels map[string]string) {
+			vmi := libvmi.New()
+			vm = libvmi.NewVirtualMachine(vmi)
+			vm.Annotations = annotations
+			vm.Labels = existingLabels
+			_, meta := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+			Expect(meta.Labels).ToNot(HaveKey(istio.InjectSidecarLabel))
+		},
+		Entry("no annotations or labels", nil, nil),
+		Entry("irrelevant annotations no labels", map[string]string{"a": "b"}, nil),
+		Entry("irrelevant labels no annotations", nil, map[string]string{"a": "b"}),
+		Entry("all relevant", map[string]string{"a": "b"}, map[string]string{"x": "y"}),
+	)
 })

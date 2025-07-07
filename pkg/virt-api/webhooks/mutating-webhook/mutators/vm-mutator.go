@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/defaults"
 	instancetypeVMWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -95,6 +96,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 
 	preferenceSpec, _ := mutator.instancetypeMutator.FindPreference(vm)
 	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig, preferenceSpec)
+	upgradeDeprecatedIstioAnnotation(vm)
 
 	patchBytes, err := patch.New(
 		patch.WithReplace("/spec", vm.Spec),
@@ -126,4 +128,24 @@ func setFirmwareUUIDIfEmpty(vm *v1.VirtualMachine) {
 	if vm.Spec.Template.Spec.Domain.Firmware.UUID == "" {
 		vm.Spec.Template.Spec.Domain.Firmware.UUID = types.UID(uuid.New().String())
 	}
+}
+
+func upgradeDeprecatedIstioAnnotation(vm *v1.VirtualMachine) {
+
+	val, annotationExists := vm.Annotations[istio.InjectSidecarDeprecatedAnnotation]
+	if !annotationExists {
+		return
+	}
+
+	if vm.Labels == nil {
+		vm.Labels = map[string]string{istio.InjectSidecarLabel: val}
+		return
+	}
+
+	if _, labelExists := vm.Labels[istio.InjectSidecarLabel]; labelExists {
+		return
+	}
+	vm.Labels[istio.InjectSidecarLabel] = val
+
+	return
 }
