@@ -27,9 +27,12 @@ pkg/storage/reservation
 pkg/storage/velero
 pkg/virtctl/adm
 pkg/virtctl/clientconfig
+pkg/virtctl/configuration
 pkg/virtctl/create/params
 pkg/virtctl/create/vm
 pkg/virtctl/credentials
+pkg/virtctl/testing
+pkg/virtctl/version
 pkg/virt-launcher/virtwrap/agent-poller
 tests/conformance
 tests/console
