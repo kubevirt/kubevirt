@@ -187,7 +187,7 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 		)
 
 		It("[QUARANTINE] should live migrate a container disk vm, several times", decorators.Quarantine, func() {
-			sourceVMI = libvmifact.NewCirros(
+			sourceVMI = libvmifact.NewAlpine(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -222,7 +222,7 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 				err = deleteMigration(targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToCirros(expectedVMI)).To(Succeed())
+				Expect(console.LoginToAlpine(expectedVMI)).To(Succeed())
 
 				By(fmt.Sprintf("deleting source VM %s/%s", sourceVM.Namespace, sourceVM.Name))
 				deleteVM(sourceVM)
@@ -236,7 +236,7 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 				libdv.WithStorage(),
 			)
 
-			sourceVMI = libvmifact.NewCirros(
+			sourceVMI = libvmifact.NewAlpine(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -270,7 +270,7 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 				}
 			}
 			By("Writing data to extra disk")
-			Expect(console.LoginToCirros(sourceVMI)).To(Succeed())
+			Expect(console.LoginToAlpine(sourceVMI)).To(Succeed())
 			Expect(console.RunCommand(sourceVMI, fmt.Sprintf("sudo mkfs.ext4 /dev/%s", deviceName), 30*time.Second)).To(Succeed())
 			Expect(console.RunCommand(sourceVMI, "mkdir test", 30*time.Second)).To(Succeed())
 			Expect(console.RunCommand(sourceVMI, fmt.Sprintf("sudo mount -t ext4 /dev/%s /home/cirros/test", deviceName), 30*time.Second)).To(Succeed())
@@ -299,7 +299,7 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 				}
 				return ""
 			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).ShouldNot(BeEmpty())
-			Expect(console.LoginToCirros(targetVMI)).To(Succeed())
+			Expect(console.LoginToAlpine(targetVMI)).To(Succeed())
 			Expect(console.RunCommand(targetVMI, "cat /home/cirros/test/data.txt", 30*time.Second)).To(Succeed())
 		})
 	})

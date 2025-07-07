@@ -98,7 +98,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		vmi = libvmifact.NewCirros(
+		vmi = libvmifact.NewAlpine(
 			libvmi.WithAnnotation("hooks.kubevirt.io/hookSidecars",
 				fmt.Sprintf(`[{"args": ["--version", "v1alpha2"], "image": "%s", "imagePullPolicy": "IfNotPresent"}]`,
 					libregistry.GetUtilityImageFromRegistry(cloudinitHookSidecarImage))))
@@ -131,7 +131,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 			It("[test_id:3169]should have cloud-init user-data from sidecar", func() {
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 				By("mouting cloudinit iso")
 				MountCloudInit(vmi)
 				By("checking cloudinit user-data")
