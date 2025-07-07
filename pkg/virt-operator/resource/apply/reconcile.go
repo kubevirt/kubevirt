@@ -672,10 +672,11 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 		}
 	}
 
-	err = r.syncKubevirtNamespaceLabels()
-	if err != nil {
-		return false, err
-	}
+	// Disable sync kubevirt namespace labels
+	// err = r.syncKubevirtNamespaceLabels()
+	// if err != nil {
+	//	 return false, err
+	// }
 
 	if !infrastructureRolledOver {
 		// still waiting on roll out before cleaning up.
