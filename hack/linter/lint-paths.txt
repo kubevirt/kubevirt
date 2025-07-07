@@ -23,6 +23,8 @@ pkg/network/pod/annotations
 pkg/network/vmispec
 pkg/network/vmliveupdate
 pkg/storage/pod/annotations
+pkg/storage/reservation
+pkg/storage/velero
 pkg/virtctl/adm
 pkg/virtctl/clientconfig
 pkg/virtctl/create/params
