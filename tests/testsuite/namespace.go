@@ -140,7 +140,7 @@ func CleanNamespaces() {
 		vmis, err := virtCli.VirtualMachineInstance(namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		for _, vmi := range vmis.Items {
-			if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
+			if controller.HasFinalizer(&vmi, v1.DeprecatedVirtualMachineInstanceFinalizer) || controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
 				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
 				Expect(err).To(Or(
 					Not(HaveOccurred()),
