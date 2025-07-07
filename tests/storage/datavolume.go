@@ -700,7 +700,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] DataVolume clone permission checking", func() {
 		Context("using Alpine import/clone", decorators.RequiresSnapshotStorageClass, func() {
-			var dataVolume *cdiv1.DataVolume
+			var sourceDV *cdiv1.DataVolume
 			var cloneRole *rbacv1.Role
 			var cloneRoleBinding *rbacv1.RoleBinding
 			var storageClass string
@@ -713,18 +713,18 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					Fail("Failing test, no VolumeSnapshot support")
 				}
 
-				dataVolume = libdv.NewDataVolume(
+				sourceDV = libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 					libdv.WithStorage(libdv.StorageWithStorageClass(storageClass)),
 					libdv.WithForceBindAnnotation(),
 				)
-				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				sourceDV, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Create(context.Background(), sourceDV, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libstorage.EventuallyDV(dataVolume, 90, HaveSucceeded())
+				libstorage.EventuallyDV(sourceDV, 90, HaveSucceeded())
 
 				dv := libdv.NewDataVolume(
 					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
-					libdv.WithPVCSource(testsuite.NamespaceTestAlternative, dataVolume.Name),
+					libdv.WithPVCSource(testsuite.NamespaceTestAlternative, sourceDV.Name),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(storageClass),
 						libdv.StorageWithoutVolumeSize(),
@@ -913,12 +913,12 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				)
 
 				// We first delete the source PVC and DataVolume to force a clone without source
-				err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
+				err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Delete(context.Background(), sourceDV.Name, metav1.DeleteOptions{})
 				Expect(err).To(Or(
 					Not(HaveOccurred()),
 					Satisfy(errors.IsNotFound),
 				))
-				Eventually(ThisPVCWith(testsuite.NamespaceTestAlternative, dataVolume.Name), 10*time.Second, 1*time.Second).Should(BeGone())
+				Eventually(ThisPVCWith(testsuite.NamespaceTestAlternative, sourceDV.Name), 10*time.Second, 1*time.Second).Should(BeGone())
 
 				// We check if the VM is successfully created
 				By("Creating VM")

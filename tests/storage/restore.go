@@ -1885,19 +1885,17 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			It("should restore with volume restore policy InPlace and PVC as disk", func() {
 				pvcName := "standalone-pvc"
+				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass)
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				vm = libvmi.NewVirtualMachine(
 					libvmi.New(
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithResourceMemory("1Mi"),
-						libvmi.WithPersistentVolumeClaim("disk0", pvcName),
+						libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
 					),
 				)
-
-				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass)
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
 				vm, _ = createAndStartVM(vm)
 
 				By(creatingSnapshot)
@@ -2071,17 +2069,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					sc, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), hostAssistedSc, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					forcedHostAssistedScName = sc.Name
-
-					// Patch the new StorageProfile annotations with the original ones. Needed for the minimumSupportedPvcSize annotation.
-					originalSp, err := virtClient.CdiClient().CdiV1beta1().StorageProfiles().Get(context.Background(), snapshotStorageClass, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					if originalSp.Annotations != nil {
-						p, err := patch.New(patch.WithAdd("/metadata/annotations", originalSp.Annotations)).GeneratePayload()
-						Eventually(func() error {
-							_, err = virtClient.CdiClient().CdiV1beta1().StorageProfiles().Patch(context.Background(), sc.Name, types.JSONPatchType, p, metav1.PatchOptions{})
-							return err
-						}, 60*time.Second, time.Second).Should(Succeed())
-					}
 
 					source := libdv.NewDataVolume(
 						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
