@@ -202,6 +202,7 @@ build_other_images_default = {
     "$(container_prefix)/$(image_prefix)libguestfs-tools:$(container_tag)": "//cmd/libguestfs:libguestfs-tools-image",
     # container-disk images
     "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//containerimages:alpine-container-disk-image",
+    "$(container_prefix)/$(image_prefix)alpine-custom-container-disk-demo:$(container_tag)": "//containerimages:alpine-custom-container-disk-image",
     # Kernel boot container
     # -
     # Customized container-disk images
@@ -436,6 +437,15 @@ container_push(
     image = "//containerimages:alpine-container-disk-image",
     registry = "$(container_prefix)",
     repository = "$(image_prefix)alpine-container-disk-demo",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-alpine-custom-container-disk-demo",
+    format = "Docker",
+    image = "//containerimages:alpine-custom-container-disk-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)alpine-custom-container-disk-demo",
     tag = "$(container_tag)",
 )
 

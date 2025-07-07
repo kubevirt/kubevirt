@@ -114,7 +114,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			By("Specifying a VMI with a livenessProbe probe")
 
 			livenessProbe := createTCPProbe(period, initialSeconds, port)
-			vmi = libvmifact.NewCirros(withLivenessProbe(livenessProbe))
+			vmi = libvmifact.NewAlpine(withLivenessProbe(livenessProbe))
 			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Checking that the VMI is in a final state after a while")

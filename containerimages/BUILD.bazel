@@ -25,6 +25,29 @@ container_image(
 )
 
 pkg_tar(
+    name = "alpine-custom-image-tar",
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["@alpine_image_aarch64//file"],
+        "@io_bazel_rules_go//go/platform:linux_s390x": ["@alpine_image_s390x//file"],
+        "//conditions:default": ["@alpine_image//file"],
+    }),
+    mode = "440",
+    owner = "107.107",
+    package_dir = "/custom-disk",
+)
+
+container_image(
+    name = "alpine-custom-container-disk-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
+        "//conditions:default": "amd64",
+    }),
+    tars = [":alpine-custom-image-tar"],
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
     name = "cirros-image-tar",
     srcs = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": ["@cirros_image_aarch64//file"],

@@ -53,14 +53,14 @@ var _ = Describe("[sig-compute]VM Hotplug PCI Port Allocation", decorators.SigCo
 					libvmi.WithEmptyDisk(fmt.Sprintf("emptydisk%d", i), v1.VirtIO, resource.MustParse("10Mi")),
 				)
 			}
-			vmi := libvmifact.NewCirros(options...)
+			vmi := libvmifact.NewAlpine(options...)
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			totalPorts := cirrosDefaultPortsUsed + additionalDevs + expectedFreePorts
 			By(fmt.Sprintf("Expecting VM to have %d total ports", totalPorts))
 
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			err = console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: fmt.Sprintf("lspci | grep %s | wc -l\n", pciRootPortID)},

@@ -71,7 +71,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:1463] should success multiple times", decorators.Conformance, func() {
 				By("Creating the VirtualMachine")
-				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for range 5 {
@@ -85,7 +85,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					By("Expecting to be able to login")
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(console.LoginToCirros(vmi)).To(Succeed())
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 					By("Stopping the VirtualMachine")
 					err = virtClient.VirtualMachine(vm.Namespace).Stop(context.TODO(), vm.Name, &v1.StopOptions{})
@@ -109,7 +109,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Starting the VirtualMachineInstance")
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewAlpine()
 				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VMI failed")
@@ -131,10 +131,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Context("with disk at /custom-disk/downloaded", func() {
 			It("[test_id:1466]should boot normally", func() {
 				By("Starting the VirtualMachineInstance")
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(overrideCustomLocation), 60)
+				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(overrideCustomLocation), 60)
 
 				By("Verify VMI is booted")
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			})
 		})
 
@@ -257,35 +257,35 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(targetPod.Spec.InitContainers).To(BeEmpty(), "with ImageVolume should not include container-disk-binary init container")
 
 			By("Expecting to be able to login")
-			Expect(console.LoginToCirros(vmi)).To(Succeed())
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 		},
-			Entry("using simple Cirros vmi",
-				libvmifact.NewCirros(
+			Entry("using simple Alpine vmi",
+				libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				),
 			),
-			Entry("using  Cirros vmi with custom location", decorators.Periodic,
-				libvmifact.NewCirros(
+			Entry("using  Alpine vmi with custom location", decorators.Periodic,
+				libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					overrideCustomLocation,
 				),
 			),
-			Entry("using  Cirros vmi with kernel boot", decorators.Periodic,
-				newCirrosWithKernelBoot(),
+			Entry("using  Alpine vmi with kernel boot", decorators.Periodic,
+				newAlpineWithKernelBoot(),
 			),
 		)
 	})
 })
 
 func overrideCustomLocation(vmi *v1.VirtualMachineInstance) {
-	vmi.Spec.Volumes[0].ContainerDisk.Image = cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation)
+	vmi.Spec.Volumes[0].ContainerDisk.Image = cd.ContainerDiskFor(cd.ContainerDiskAlpineCustomLocation)
 	vmi.Spec.Volumes[0].ContainerDisk.Path = "/custom-disk/downloaded"
 }
 
-func newCirrosWithKernelBoot() *v1.VirtualMachineInstance {
-	vmi := libvmifact.NewCirros(
+func newAlpineWithKernelBoot() *v1.VirtualMachineInstance {
+	vmi := libvmifact.NewAlpine(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)

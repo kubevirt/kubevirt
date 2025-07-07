@@ -305,13 +305,13 @@ var _ = Describe(SIG("Storage", func() {
 			It("[test_id:3134]should create a writeable emptyDisk with the right capacity", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi = libvmifact.NewCirros(
+				vmi = libvmifact.NewAlpine(
 					libvmi.WithMemoryRequest("512M"),
 					libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusVirtio, resource.MustParse("1G")),
 				)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				var emptyDiskDevice string
 				Eventually(func() string {
@@ -906,7 +906,7 @@ var _ = Describe(SIG("Storage", func() {
 				}
 
 				dataVolume = libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithBlockVolumeMode()),
 				)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -926,7 +926,7 @@ var _ = Describe(SIG("Storage", func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
 
 				By(checkingVMInstanceConsoleOut)
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			})
 		})
 
@@ -1066,7 +1066,7 @@ var _ = Describe(SIG("Storage", func() {
 				}
 
 				dataVolume = libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithBlockVolumeMode()),
 				)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -1104,7 +1104,7 @@ var _ = Describe(SIG("Storage", func() {
 				}
 
 				dv = libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 				)
 
@@ -1326,7 +1326,7 @@ var _ = Describe(SIG("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VMI with LUN disk")
-				vmi := libvmifact.NewCirros(libvmi.WithMemoryRequest("512M"))
+				vmi := libvmifact.NewAlpine(libvmi.WithMemoryRequest("512M"))
 				addDataVolumeLunDisk(vmi, "lun0", dv.Name)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
@@ -1335,7 +1335,7 @@ var _ = Describe(SIG("Storage", func() {
 					libwait.WithFailOnWarnings(false),
 					libwait.WithTimeout(240),
 				)
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				var lunDisk string
 				Eventually(func() string {

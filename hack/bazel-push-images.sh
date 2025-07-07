@@ -34,6 +34,7 @@ default_targets="
     virt-exportproxy
     virt-synchronization-controller
     alpine-container-disk-demo
+    alpine-custom-container-disk-demo
     fedora-with-test-tooling-container-disk
     vm-killer
     sidecar-shim

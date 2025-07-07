@@ -18,8 +18,8 @@ var _ = Describe("VSOCK", func() {
 	newRandomVMIsWithORWithoutVSOCK := func(totalVMINum, vsockVMINum int) []*virtv1.VirtualMachineInstance {
 		var vmis []*virtv1.VirtualMachineInstance
 		for i := 0; i < totalVMINum; i++ {
-			vmi := libvmifact.NewCirros()
-			// NewCirros isn't guaranteed to have a unique name.
+			vmi := libvmifact.NewAlpine()
+			// NewAlpine isn't guaranteed to have a unique name.
 			vmi.Name = fmt.Sprintf("%s-%d", vmi.Name, i)
 			vmi.Namespace = "vsock"
 			if i < vsockVMINum {
@@ -91,12 +91,12 @@ var _ = Describe("VSOCK", func() {
 	Context("CIDs iteration", func() {
 		It("should wrap arround if reaches the maximum", func() {
 			m.randCID = func() uint32 { return math.MaxUint32 }
-			vmi := libvmifact.NewCirros()
+			vmi := libvmifact.NewAlpine()
 			Expect(m.Allocate(vmi)).To(Succeed())
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 			Expect(*vmi.Status.VSOCKCID).To(BeNumerically("==", math.MaxUint32))
 
-			vmi2 := libvmifact.NewCirros()
+			vmi2 := libvmifact.NewAlpine()
 			Expect(m.Allocate(vmi2)).To(Succeed())
 			Expect(vmi2.Status.VSOCKCID).NotTo(BeNil())
 			Expect(*vmi2.Status.VSOCKCID).To(BeNumerically("==", 3))
@@ -118,7 +118,7 @@ var _ = Describe("VSOCK", func() {
 			Expect(m.reverse).To(HaveLen(len(vmis)))
 
 			// The next one will fail
-			vmi := libvmifact.NewCirros()
+			vmi := libvmifact.NewAlpine()
 			Expect(m.Allocate(vmi)).NotTo(Succeed())
 		})
 	})

@@ -175,7 +175,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			const labelKey = "subdomain"
 			const labelValue = "mysub"
 
-			vmi := libvmifact.NewCirros(
+			vmi := libvmifact.NewAlpine(
 				libvmi.WithHostname(hostname),
 				withSubdomain(subdomain),
 				libvmi.WithLabel(labelKey, labelValue),
@@ -185,7 +185,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Starting hello world in the VM")
-			vmnetserver.StartTCPServer(vmi, port, console.LoginToCirros)
+			vmnetserver.StartTCPServer(vmi, port, console.LoginToAlpine)
 
 			By("Exposing headless service matching subdomain")
 			service := service.BuildHeadlessSpec(subdomain, port, port, labelKey, labelValue)
@@ -993,14 +993,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskCirros, k8sv1.ReadWriteMany, sc,
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc,
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
-					libvmi.WithHostname(fmt.Sprintf("%s", cd.ContainerDiskCirros)),
+					libvmi.WithHostname(fmt.Sprintf("%s", cd.ContainerDiskAlpine)),
 				)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking that MigrationMethod is set to BlockMigration")
 				Expect(vmi.Status.MigrationMethod).To(Equal(v1.BlockMigration))
@@ -2716,7 +2716,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 	Context("ResourceQuota rejection", func() {
 		It("Should contain condition when migrating with quota that doesn't have resources for both source and target", decorators.Conformance, func() {
 			vmiRequest := resource.MustParse("200Mi")
-			vmi := libvmifact.NewCirros(
+			vmi := libvmifact.NewAlpine(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithMemoryRequest(vmiRequest.String()),
