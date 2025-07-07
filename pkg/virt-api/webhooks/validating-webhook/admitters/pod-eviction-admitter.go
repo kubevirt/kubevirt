@@ -55,6 +55,12 @@ func (admitter *PodEvictionAdmitter) Admit(ctx context.Context, ar *admissionv1.
 	if err != nil {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
+	if isHotplugPod(pod) {
+		pod, err = admitter.kubeClient.CoreV1().Pods(ar.Request.Namespace).Get(ctx, pod.OwnerReferences[0].Name, metav1.GetOptions{})
+		if err != nil {
+			return validating_webhooks.NewPassingAdmissionResponse()
+		}
+	}
 
 	if !isVirtLauncher(pod) || isCompleted(pod) {
 		return validating_webhooks.NewPassingAdmissionResponse()
@@ -149,6 +155,10 @@ func denied(message string) *admissionv1.AdmissionResponse {
 
 func isVirtLauncher(pod *k8scorev1.Pod) bool {
 	return pod.Labels[virtv1.AppLabel] == "virt-launcher"
+}
+
+func isHotplugPod(pod *k8scorev1.Pod) bool {
+	return pod.Labels[virtv1.AppLabel] == "hotplug-disk" && len(pod.OwnerReferences) == 1
 }
 
 func isCompleted(pod *k8scorev1.Pod) bool {
