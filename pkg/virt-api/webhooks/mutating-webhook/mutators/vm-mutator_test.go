@@ -66,8 +66,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	ignoreInferFromVolumeFailure := v1.IgnoreInferFromVolumeFailure
 	rejectInferFromVolumeFailure := v1.RejectInferFromVolumeFailure
 
-	admitVM := func(arch string, op admissionv1.Operation) *admissionv1.AdmissionResponse {
-		vm.Spec.Template.Spec.Architecture = arch
+	admitVM := func(op admissionv1.Operation) *admissionv1.AdmissionResponse {
 		vmBytes, err := json.Marshal(vm)
 		Expect(err).ToNot(HaveOccurred())
 		By("Creating the test admissions review from the VM")
@@ -84,10 +83,12 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		return mutator.Mutate(ar)
 	}
 
-	getVMSpecMetaFromResponseCreate := func(arch string) (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
-		resp := admitVM(arch, admissionv1.Create)
-		Expect(resp.Allowed).To(BeTrue())
+	admitVMWithArch := func(arch string, op admissionv1.Operation) *admissionv1.AdmissionResponse {
+		vm.Spec.Template.Spec.Architecture = arch
+		return admitVM(op)
+	}
 
+	getVMSpecMetaFromResponse := func(resp *admissionv1.AdmissionResponse) (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
 		By("Getting the VM spec from the response")
 		vmSpec := &v1.VirtualMachineSpec{}
 		vmMeta := &k8smetav1.ObjectMeta{}
@@ -100,6 +101,18 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Expect(patchOps).NotTo(BeEmpty())
 
 		return vmSpec, vmMeta
+	}
+
+	getVMSpecMetaFromResponseCreate := func() (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
+		resp := admitVM(admissionv1.Create)
+		Expect(resp.Allowed).To(BeTrue())
+		return getVMSpecMetaFromResponse(resp)
+	}
+
+	getVMSpecMetaFromResponseCreateWithArch := func(arch string) (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
+		resp := admitVMWithArch(arch, admissionv1.Create)
+		Expect(resp.Allowed).To(BeTrue())
+		return getVMSpecMetaFromResponse(resp)
 	}
 
 	getResponseFromVMUpdate := func(oldVM *v1.VirtualMachine, newVM *v1.VirtualMachine) *admissionv1.AdmissionResponse {
@@ -156,13 +169,13 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	It("should allow VM being deleted without applying mutations", func() {
 		now := k8smetav1.Now()
 		vm.ObjectMeta.DeletionTimestamp = &now
-		resp := admitVM(rt.GOARCH, admissionv1.Delete)
+		resp := admitVM(admissionv1.Delete)
 		Expect(resp.Allowed).To(BeTrue())
 		Expect(resp.Patch).To(BeEmpty())
 	})
 
 	DescribeTable("should apply defaults on VM create", func(arch string, result string) {
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(arch)
+		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
 	},
 		Entry("ppc64le", "ppc64le", "pseries"),
@@ -184,7 +197,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(arch)
+		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
 		Expect(vmSpec.Template.Spec.Domain.Firmware.Serial).ToNot(BeNil())
 	},
@@ -201,12 +214,11 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponseCreate("amd64")
+		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch("amd64")
 		Expect(vmSpec.Template.Spec.Architecture).To(Equal("amd64"))
-
 	})
 
-	It("should not override specified properties with defaults on VM create", func() {
+	DescribeTable("should not override specified properties with defaults on VM create", func(arch string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
@@ -217,11 +229,15 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "pc-q35-2.0"}
 
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))
-	})
+	},
+		Entry("amd64", "amd64"),
+		Entry("s390x", "s390x"),
+		Entry("arm64", "arm64"),
+	)
 
-	It("should not override user specified MachineType with PreferredMachineType or cluster config on VM create", func() {
+	DescribeTable("should not override user specified MachineType with PreferredMachineType or cluster config on VM create", func(arch string) {
 		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "pc-q35-2.0"}
 		preference := &instancetypev1beta1.VirtualMachinePreference{
 			ObjectMeta: k8smetav1.ObjectMeta{
@@ -253,11 +269,15 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))
-	})
+	},
+		Entry("amd64", "amd64"),
+		Entry("s390x", "s390x"),
+		Entry("arm64", "arm64"),
+	)
 
-	It("should use PreferredMachineType over cluster config on VM create", func() {
+	DescribeTable("should use PreferredMachineType over cluster config on VM create", func(arch string) {
 		preference := &instancetypev1beta1.VirtualMachinePreference{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Name: "machineTypePreference",
@@ -288,11 +308,15 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
-	})
+	},
+		Entry("amd64", "amd64"),
+		Entry("s390x", "s390x"),
+		Entry("arm64", "arm64"),
+	)
 
-	It("should ignore error looking up preference and apply cluster config on VM create", func() {
+	DescribeTable("should ignore error looking up preference and apply cluster config on VM create", func(arch string) {
 		vm.Spec.Preference = &v1.PreferenceMatcher{
 			Name: "foobar",
 			Kind: apiinstancetype.SingularPreferenceResourceName,
@@ -310,20 +334,18 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
-		if rt.GOARCH == "s390x" {
-			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("s390-ccw-virtio"))
-		} else {
-			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
-		}
-
-	})
+		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch(arch)
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
+	},
+		Entry("amd64", "amd64"),
+		Entry("arm64", "arm64"),
+	)
 
 	It("should default instancetype kind to ClusterSingularResourceName when not provided", func() {
 		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 			Name: "foobar",
 		}
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreate()
 		Expect(vmSpec.Instancetype.Kind).To(Equal(apiinstancetype.ClusterSingularResourceName))
 	})
 
@@ -331,11 +353,11 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		vm.Spec.Preference = &v1.PreferenceMatcher{
 			Name: "foobar",
 		}
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreate()
 		Expect(vmSpec.Preference.Kind).To(Equal(apiinstancetype.ClusterSingularPreferenceResourceName))
 	})
 
-	It("should use PreferredMachineType from ClusterSingularPreferenceResourceName when no preference kind is provided", func() {
+	DescribeTable("should use PreferredMachineType from ClusterSingularPreferenceResourceName when no preference kind is provided", func(arch string) {
 		preference := &instancetypev1beta1.VirtualMachineClusterPreference{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Name: "machineTypeClusterPreference",
@@ -357,14 +379,18 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Name: preference.Name,
 		}
 
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
-	})
+	},
+		Entry("amd64", "amd64"),
+		Entry("s390x", "s390x"),
+		Entry("arm64", "arm64"),
+	)
 
 	DescribeTable("should admit valid values to InferFromVolumePolicy", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher) {
 		vm.Spec.Instancetype = instancetypeMatcher
 		vm.Spec.Preference = preferenceMatcher
-		resp := admitVM(rt.GOARCH, admissionv1.Create)
+		resp := admitVM(admissionv1.Create)
 		Expect(resp.Allowed).To(BeTrue())
 	},
 		Entry("InstancetypeMatcher with IgnoreInferFromVolumeFailure", &v1.InstancetypeMatcher{Name: "bar", InferFromVolumeFailurePolicy: &ignoreInferFromVolumeFailure}, nil),
@@ -416,13 +442,13 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		It("should apply PreferredStorageClassName to PVC", func() {
 			vm.Spec.DataVolumeTemplates[0].Spec.PVC = &k8sv1.PersistentVolumeClaimSpec{}
-			vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+			vmSpec, _ := getVMSpecMetaFromResponseCreate()
 			assertPVCStorageClassName(vmSpec.DataVolumeTemplates, preference.Spec.Volumes.PreferredStorageClassName)
 		})
 
 		It("should apply PreferredStorageClassName to Storage", func() {
 			vm.Spec.DataVolumeTemplates[0].Spec.Storage = &cdiv1.StorageSpec{}
-			vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+			vmSpec, _ := getVMSpecMetaFromResponseCreate()
 			assertStorageStorageClassName(vmSpec.DataVolumeTemplates, preference.Spec.Volumes.PreferredStorageClassName)
 		})
 
@@ -430,7 +456,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
 				Spec: cdiv1.DataVolumeSpec{},
 			}}
-			resp := admitVM(rt.GOARCH, admissionv1.Create)
+			resp := admitVM(admissionv1.Create)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -443,7 +469,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					},
 				},
 			}}
-			vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+			vmSpec, _ := getVMSpecMetaFromResponseCreate()
 			assertPVCStorageClassName(vmSpec.DataVolumeTemplates, storageClass)
 		})
 
@@ -456,7 +482,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					},
 				},
 			}}
-			vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+			vmSpec, _ := getVMSpecMetaFromResponseCreate()
 			assertStorageStorageClassName(vmSpec.DataVolumeTemplates, storageClass)
 		})
 	})
@@ -701,7 +727,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	It("should default architecture to compiled architecture when not provided", func() {
 		// provide empty string for architecture so that default will apply
-		vmSpec, _ := getVMSpecMetaFromResponseCreate("")
+		vmSpec, _ := getVMSpecMetaFromResponseCreate()
 		Expect(vmSpec.Template.Spec.Architecture).To(Equal(rt.GOARCH))
 	})
 
@@ -819,7 +845,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		DescribeTable("should fail if", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, expectedField, expectedMessage string) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
-			resp := admitVM(rt.GOARCH, admissionv1.Create)
+			resp := admitVM(admissionv1.Create)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring(expectedMessage))
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
