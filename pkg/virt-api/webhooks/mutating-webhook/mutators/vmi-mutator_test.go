@@ -1266,7 +1266,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			kvCR.Spec.Configuration.VMRolloutStrategy = &rolloutStrategy
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
 		})
-		Context("configure CPU hotplug", func() {
+		DescribeTableSubtree("configure CPU hotplug on supported arch", func(arch string) {
 			It("to use maximum sockets configured in cluster config when its not set in VMI spec", func() {
 				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 				maxSockets := uint32(10)
@@ -1274,7 +1274,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					MaxCpuSockets: &maxSockets,
 				}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(maxSockets)))
 			})
 			It("to prefer and use MaxCpuSockets from KV over MaxHotplugRatio", func() {
@@ -1288,7 +1288,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					MaxHotplugRatio: 2,
 				}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
 				Expect(spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(maxSockets))
 			})
@@ -1297,7 +1297,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					Sockets:    2,
 					MaxSockets: 16,
 				}
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
 				Expect(spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(16)))
 			})
@@ -1307,14 +1307,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					MaxHotplugRatio: 2,
 				}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(2)))
 			})
 			It("to calculate max sockets to be 4x times the configured sockets when no max sockets defined", func() {
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets: 2,
 				}
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(8)))
 			})
 
@@ -1324,12 +1324,12 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					Cores:   2,
 					Threads: 3,
 				}
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(85)))
 			})
 
 			It("to calculate max sockets to be 4x times the default sockets when default CPU topology used", func() {
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(4)))
 			})
 
@@ -1344,11 +1344,15 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					Sockets: 3,
 				}
 
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(3)))
 			})
-		})
-		Context("configure Memory hotplug", func() {
+		},
+			Entry("amd64", "amd64"),
+			Entry("s390x", "s390x"),
+		)
+
+		DescribeTableSubtree("configure Memory hotplug on supported arch", func(arch string) {
 			It("to keep VMI values of max guest when provided", func() {
 				guest := resource.MustParse("2Gi")
 				maxGuest := resource.MustParse("6Gi")
@@ -1357,7 +1361,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					MaxGuest: &maxGuest,
 				}
 
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
 				Expect(spec.Domain.Memory.Guest.Value()).To(Equal(guest.Value()))
 				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
 			})
@@ -1373,12 +1377,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					Guest: &guest,
 				}
 
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-				if rt.GOARCH != "s390x" {
-					Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
-				} else {
-					Expect(spec.Domain.Memory.MaxGuest).To(BeNil())
-				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
+				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
 			})
 			It("to prefer maxGuest from KV over MaxHotplugRatio", func() {
 				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
@@ -1393,13 +1393,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					Guest: &guest,
 				}
 
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-				if rt.GOARCH != "s390x" {
-					Expect(spec.Domain.Memory.Guest.Value()).To(Equal(guest.Value()))
-					Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
-				} else {
-					Expect(spec.Domain.Memory.MaxGuest).To(BeNil())
-				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
+				Expect(spec.Domain.Memory.Guest.Value()).To(Equal(guest.Value()))
+				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(maxGuest.Value()))
 			})
 			It("to calculate maxGuest to be `MaxHotplugRatio` times the configured guest memory when no maxGuest is defined", func() {
 				guest := resource.MustParse("1Gi")
@@ -1408,12 +1404,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					Guest: &guest,
 				}
 
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-				if rt.GOARCH != "s390x" {
-					Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
-				} else {
-					Expect(spec.Domain.Memory.MaxGuest).To(BeNil())
-				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
+				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
 			})
 			It("to use hot plug ratio configured in cluster config when max guest isn't provided in the VMI", func() {
 				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
@@ -1427,12 +1419,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					Guest: &guest,
 				}
 
-				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-				if rt.GOARCH != "s390x" {
-					Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
-				} else {
-					Expect(spec.Domain.Memory.MaxGuest).To(BeNil())
-				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(arch)
+				Expect(spec.Domain.Memory.MaxGuest.Value()).To(Equal(expectedMaxGuest.Value()))
 			})
 
 			DescribeTable("should leave MaxGuest empty when memory hotplug is incompatible", func(vmiSetup func(*v1.VirtualMachineInstanceSpec)) {
@@ -1440,7 +1428,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				vmi.Spec.Domain.Memory = &v1.Memory{Guest: pointer.P(resource.MustParse("128Mi"))}
 				vmiSetup(&vmi.Spec)
 
-				_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				_, vmiSpec, _ := getMetaSpecStatusFromAdmit(arch)
 				Expect(vmiSpec.Domain.Memory.MaxGuest).To(BeNil())
 			},
 				Entry("realtime is configured", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
@@ -1476,13 +1464,37 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					unAlignedMemory := resource.MustParse("123")
 					vmiSpec.Domain.Memory.Guest = &unAlignedMemory
 				}),
-				Entry("architecture is not amd64 or arm64", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-					vmiSpec.Architecture = "risc-v"
-				}),
 				Entry("guest memory is less than 1Gi", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
 					vmiSpec.Domain.Memory.Guest = pointer.P(resource.MustParse("512Mi"))
 				}),
 			)
-		})
+		},
+			Entry("amd64", "amd64"),
+		)
+
+		DescribeTable("should leave MaxSockets unset on unsupported arch", func(arch string) {
+			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
+			kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
+				MaxCpuSockets: pointer.P(uint32(10)),
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
+			_, spec, _ := getMetaSpecStatusFromAdmit(arch)
+			Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(0)))
+		},
+			Entry("arm64", "arm64"),
+		)
+
+		DescribeTable("should leave MaxGuest unset on unsupported arch", func(arch string) {
+			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
+			kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
+				MaxGuest: pointer.P(resource.MustParse("512Mi")),
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
+			_, spec, _ := getMetaSpecStatusFromAdmit(arch)
+			Expect(spec.Domain.Memory.MaxGuest).To(BeNil())
+		},
+			Entry("arm64", "arm64"),
+			Entry("s390x", "s390x"),
+		)
 	})
 })
