@@ -42,7 +42,8 @@ if [[ ! -z "$SKIP_OUTSIDE_CONN_TESTS" ]]; then
 fi
 
 if [[ ! -z "$RUN_ON_ARM64_INFRA" ]]; then
-    add_to_label_filter "(!(RequiresOutsideConnectivity && IPv6))" "&&"
+    add_to_label_filter "(!RequiresOutsideConnectivity)&&(!RequiresBlockStorage)&&(!RequiresSnapshotStorageClass)&&(!storage-req)&&(!ACPI)&&(!WgArm64Invalid)" "&&"
+    sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.E2E_SKIP=Alpine"
 fi
 
 if [[ ! -z "$SKIP_BLOCK_STORAGE_TESTS" ]]; then
