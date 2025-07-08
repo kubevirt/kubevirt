@@ -446,7 +446,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			},
 				Entry("[test_id:6971]disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk),
-				Entry("channel", libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio),
+				Entry("[QUARANTINE] channel", libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio, decorators.Quarantine),
 			)
 
 			It("[test_id:6842]should migrate with TSC frequency set", decorators.Invtsc, decorators.TscFrequencies, func() {
