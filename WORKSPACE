@@ -2382,20 +2382,18 @@ rpm(
 )
 
 rpm(
-    name = "guestfs-tools-0__1.52.2-4.el9.s390x",
-    sha256 = "abef582559a169317cf30f1aef4141ff0f7db7f2195b418196b74709b390f170",
+    name = "guestfs-tools-0__1.52.2-5.el9.s390x",
+    sha256 = "09f07a0309459e9aeaa0d4004496a4bbbd10dc1ebf2ea0b97187a8a27020c08e",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/guestfs-tools-1.52.2-4.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/abef582559a169317cf30f1aef4141ff0f7db7f2195b418196b74709b390f170",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/guestfs-tools-1.52.2-5.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "guestfs-tools-0__1.52.2-4.el9.x86_64",
-    sha256 = "f3e8f86026ecc65fc0d67a984244712b7cfa77c8a63f741ad0153fec74d87ef7",
+    name = "guestfs-tools-0__1.52.2-5.el9.x86_64",
+    sha256 = "0d4ff23abb20c16245b8452201cd693aa864ba609f4fea36ba23612011c2a9bf",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/guestfs-tools-1.52.2-4.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/f3e8f86026ecc65fc0d67a984244712b7cfa77c8a63f741ad0153fec74d87ef7",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/guestfs-tools-1.52.2-5.el9.x86_64.rpm",
     ],
 )
 
@@ -3531,20 +3529,18 @@ rpm(
 )
 
 rpm(
-    name = "libguestfs-1__1.54.0-7.el9.s390x",
-    sha256 = "e25816c151c471bb857120c9f061c2e5066bd3add40ac92c4b3a25bf0026eed0",
+    name = "libguestfs-1__1.54.0-9.el9.s390x",
+    sha256 = "612deb549f07c32689421856afa195f003ec9fb2ac9161dfa8b4f631348cdaef",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libguestfs-1.54.0-7.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/e25816c151c471bb857120c9f061c2e5066bd3add40ac92c4b3a25bf0026eed0",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libguestfs-1.54.0-9.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "libguestfs-1__1.54.0-7.el9.x86_64",
-    sha256 = "1ae784f510b7cc73f45a4fa6d2fca87a80e4034fa588c47d2a13c642b20176a1",
+    name = "libguestfs-1__1.54.0-9.el9.x86_64",
+    sha256 = "262f8449b469e08285e008ac903a02da4587560e3c3c11f695f0abc4870ee627",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libguestfs-1.54.0-7.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/1ae784f510b7cc73f45a4fa6d2fca87a80e4034fa588c47d2a13c642b20176a1",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libguestfs-1.54.0-9.el9.x86_64.rpm",
     ],
 )
 
@@ -4809,56 +4805,50 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-client-0__10.10.0-10.el9.aarch64",
-    sha256 = "ed512a607e89dec00b18ed30b4e33f66034944c9bebbda9625c65e3c3ebd7638",
+    name = "libvirt-client-0__10.10.0-13.el9.aarch64",
+    sha256 = "40ef751232331f32f16dd2905767ff0b32cca0ebfb47813ea0371a3c1ddf2699",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-client-10.10.0-10.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/ed512a607e89dec00b18ed30b4e33f66034944c9bebbda9625c65e3c3ebd7638",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-client-10.10.0-13.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-client-0__10.10.0-10.el9.s390x",
-    sha256 = "a83a26f8b78bc4d11c5f6d8eef5eca5bd14ca70aee80b3ceca22ed41bac83cf0",
+    name = "libvirt-client-0__10.10.0-13.el9.s390x",
+    sha256 = "04d94d28abda653680b8fdc608212dabd3e1b4c68d11796515ebb185c5e990d6",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-client-10.10.0-10.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/a83a26f8b78bc4d11c5f6d8eef5eca5bd14ca70aee80b3ceca22ed41bac83cf0",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-client-10.10.0-13.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-client-0__10.10.0-10.el9.x86_64",
-    sha256 = "8ea87d82194ba75289234f2a284801a5cd9f0a28c47365c790479ad7deeba5a7",
+    name = "libvirt-client-0__10.10.0-13.el9.x86_64",
+    sha256 = "56b926345002ba7b51c5217e00a144f0fe768675f7dc93a5d98814a529d0f949",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-client-10.10.0-10.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/8ea87d82194ba75289234f2a284801a5cd9f0a28c47365c790479ad7deeba5a7",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-client-10.10.0-13.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-common-0__10.10.0-10.el9.aarch64",
-    sha256 = "1dc59d3cb037f12e4cb0eb584b41b5845ba78c97b3872630a6953adc6c20b71a",
+    name = "libvirt-daemon-common-0__10.10.0-13.el9.aarch64",
+    sha256 = "6e131f3c777a0c1bf89e687cb549249a1b8243eee3739ad425b6d33dd9302622",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-common-10.10.0-10.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/1dc59d3cb037f12e4cb0eb584b41b5845ba78c97b3872630a6953adc6c20b71a",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-common-10.10.0-13.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-common-0__10.10.0-10.el9.s390x",
-    sha256 = "947479f210c7832388b3e60e0852abc8182455dac4b56f362325d4a768a7f10c",
+    name = "libvirt-daemon-common-0__10.10.0-13.el9.s390x",
+    sha256 = "8a364e6ffef1cba91da795fa38761eebb7b8d56ea5ce8ba84a28cd0aec686197",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-common-10.10.0-10.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/947479f210c7832388b3e60e0852abc8182455dac4b56f362325d4a768a7f10c",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-common-10.10.0-13.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-common-0__10.10.0-10.el9.x86_64",
-    sha256 = "9349a9c051c22934dafcc64cd1049dec5e12b580ee54fb7af34805b4af7f3270",
+    name = "libvirt-daemon-common-0__10.10.0-13.el9.x86_64",
+    sha256 = "70c6ba85fca29812dcae142efa5ee2007cadcc72d9d065bba0f8b25c0d4b9227",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-common-10.10.0-10.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9349a9c051c22934dafcc64cd1049dec5e12b580ee54fb7af34805b4af7f3270",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-common-10.10.0-13.el9.x86_64.rpm",
     ],
 )
 
@@ -4869,29 +4859,26 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-driver-qemu-0__10.10.0-10.el9.aarch64",
-    sha256 = "90480599df663700c02e8ab474b9fc2a1dd12c3d2d3ddd13ca500af09cdc7a88",
+    name = "libvirt-daemon-driver-qemu-0__10.10.0-13.el9.aarch64",
+    sha256 = "7b12ad04be34565a2d01763b8d8101c7b7cce81b0a74dbb5359e4f74f3defddb",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-driver-qemu-10.10.0-10.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/90480599df663700c02e8ab474b9fc2a1dd12c3d2d3ddd13ca500af09cdc7a88",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-driver-qemu-10.10.0-13.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-driver-qemu-0__10.10.0-10.el9.s390x",
-    sha256 = "5428c7dd9243da2da309a7c5bad8241616e8f9163fa047f12db998984a132b6f",
+    name = "libvirt-daemon-driver-qemu-0__10.10.0-13.el9.s390x",
+    sha256 = "8b0a0da052c3ca3d17b9f9ab05fa91746719789ef188c4dbf13887780aa426cf",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-qemu-10.10.0-10.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/5428c7dd9243da2da309a7c5bad8241616e8f9163fa047f12db998984a132b6f",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-qemu-10.10.0-13.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-driver-qemu-0__10.10.0-10.el9.x86_64",
-    sha256 = "48278fa9d78a68c4c4ff7a333b7415c6af6ce02b2ef52d01547db143ee9b0b7a",
+    name = "libvirt-daemon-driver-qemu-0__10.10.0-13.el9.x86_64",
+    sha256 = "576df107c4f55d316d857333147937cbcfe26c402bca415947be36fc1dc2cdf6",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-qemu-10.10.0-10.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/48278fa9d78a68c4c4ff7a333b7415c6af6ce02b2ef52d01547db143ee9b0b7a",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-qemu-10.10.0-13.el9.x86_64.rpm",
     ],
 )
 
@@ -4902,20 +4889,18 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-driver-secret-0__10.10.0-10.el9.s390x",
-    sha256 = "1a0f7bcd03c92340d70b7f0c7290374e0121c07467e06383a5170946fe29d7fe",
+    name = "libvirt-daemon-driver-secret-0__10.10.0-13.el9.s390x",
+    sha256 = "8dd19607375a4b92aacbf05fe03f6fdc4443ed58b1d2b7c6e47c8da47ebe5741",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-secret-10.10.0-10.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/1a0f7bcd03c92340d70b7f0c7290374e0121c07467e06383a5170946fe29d7fe",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-secret-10.10.0-13.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-driver-secret-0__10.10.0-10.el9.x86_64",
-    sha256 = "a210ef686903931779070fed42b288e562f7c4e6ef7611d5bebff740baa9798f",
+    name = "libvirt-daemon-driver-secret-0__10.10.0-13.el9.x86_64",
+    sha256 = "675391f529e4552d77ad0fca655ab84bb622d2935ae53552a0db055e2d06f6a1",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-secret-10.10.0-10.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/a210ef686903931779070fed42b288e562f7c4e6ef7611d5bebff740baa9798f",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-secret-10.10.0-13.el9.x86_64.rpm",
     ],
 )
 
@@ -4926,20 +4911,18 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-driver-storage-core-0__10.10.0-10.el9.s390x",
-    sha256 = "2ebe7647080420597cd34ff953a45d99cc2191ed8e2ce3fc44b048e836f0a3e7",
+    name = "libvirt-daemon-driver-storage-core-0__10.10.0-13.el9.s390x",
+    sha256 = "bd2f997a9832a9979631a949914a81f69d9e76ce2a596be1bcaf8b9a8b513b30",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-storage-core-10.10.0-10.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/2ebe7647080420597cd34ff953a45d99cc2191ed8e2ce3fc44b048e836f0a3e7",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-storage-core-10.10.0-13.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-driver-storage-core-0__10.10.0-10.el9.x86_64",
-    sha256 = "86eb3790dca4bf39d30f7ce2507dcd80517c2cf72d0a8c79889471ab072e3ecb",
+    name = "libvirt-daemon-driver-storage-core-0__10.10.0-13.el9.x86_64",
+    sha256 = "dd93b98f8f66eeab93d7cd5527b0f253471174db51f74106099187b85514fbf0",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-storage-core-10.10.0-10.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/86eb3790dca4bf39d30f7ce2507dcd80517c2cf72d0a8c79889471ab072e3ecb",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-storage-core-10.10.0-13.el9.x86_64.rpm",
     ],
 )
 
@@ -4950,29 +4933,26 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-log-0__10.10.0-10.el9.aarch64",
-    sha256 = "c37ae9fe180c9236a9b1686e4b47dd8d36123efca6e5dfb377c531f342b36ab8",
+    name = "libvirt-daemon-log-0__10.10.0-13.el9.aarch64",
+    sha256 = "95bb112d12bdb61fc1693610c4148699c154b2601f5dda61491a1f242f749ba2",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-log-10.10.0-10.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/c37ae9fe180c9236a9b1686e4b47dd8d36123efca6e5dfb377c531f342b36ab8",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-log-10.10.0-13.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-log-0__10.10.0-10.el9.s390x",
-    sha256 = "d0977e52c7229ed92c8f4802eebb09d8657be1c884f1e66cd740914252335321",
+    name = "libvirt-daemon-log-0__10.10.0-13.el9.s390x",
+    sha256 = "8096e3a5998474b4082f668a9858fbf8193d4638d8fc5137bbfe1bceace7e0a7",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-log-10.10.0-10.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/d0977e52c7229ed92c8f4802eebb09d8657be1c884f1e66cd740914252335321",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-log-10.10.0-13.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-log-0__10.10.0-10.el9.x86_64",
-    sha256 = "46df3e500fac0d5f6d5778c59602c66160813ebeb422dfba4262fc976226a814",
+    name = "libvirt-daemon-log-0__10.10.0-13.el9.x86_64",
+    sha256 = "641753baa06e7894b58e95f6a6036e2f243edf4c8c25cf67fbfc43013b2bea3c",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-log-10.10.0-10.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/46df3e500fac0d5f6d5778c59602c66160813ebeb422dfba4262fc976226a814",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-log-10.10.0-13.el9.x86_64.rpm",
     ],
 )
 
@@ -4983,56 +4963,50 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-devel-0__10.10.0-10.el9.aarch64",
-    sha256 = "cb314a072a4f25a511bb4372483b8f7d7690a0fba3e0668577b5992b0e2619a9",
+    name = "libvirt-devel-0__10.10.0-13.el9.aarch64",
+    sha256 = "eacbe6b2bf1642fe798f6916fd1cbd1c371b09bf229d59e68fc1fe8806117e12",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/aarch64/os/Packages/libvirt-devel-10.10.0-10.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/cb314a072a4f25a511bb4372483b8f7d7690a0fba3e0668577b5992b0e2619a9",
+        "http://mirror.stream.centos.org/9-stream/CRB/aarch64/os/Packages/libvirt-devel-10.10.0-13.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-devel-0__10.10.0-10.el9.s390x",
-    sha256 = "6addfefd8004e9cc8d49add384f52374f223b46673b058a6bf40a615146d483d",
+    name = "libvirt-devel-0__10.10.0-13.el9.s390x",
+    sha256 = "c2ee97220ea918c34ada85dfddc7535cb296fc3e2697c649cc764d593d281fb4",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/s390x/os/Packages/libvirt-devel-10.10.0-10.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/6addfefd8004e9cc8d49add384f52374f223b46673b058a6bf40a615146d483d",
+        "http://mirror.stream.centos.org/9-stream/CRB/s390x/os/Packages/libvirt-devel-10.10.0-13.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-devel-0__10.10.0-10.el9.x86_64",
-    sha256 = "e1dff44741b08189211f31827afa14db535e96e32430957cb1f668cbc1c5abc8",
+    name = "libvirt-devel-0__10.10.0-13.el9.x86_64",
+    sha256 = "6d29b2fa42d3f07704c0556b3f0ed72253ddb273e183b7e8778d640e66e89f55",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/libvirt-devel-10.10.0-10.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/e1dff44741b08189211f31827afa14db535e96e32430957cb1f668cbc1c5abc8",
+        "http://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/libvirt-devel-10.10.0-13.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-libs-0__10.10.0-10.el9.aarch64",
-    sha256 = "adfd77bb23c199e8790db9df4fc73d666dd16cc75a910dcb9f29646d9998d1d3",
+    name = "libvirt-libs-0__10.10.0-13.el9.aarch64",
+    sha256 = "ab827dbe53e0cb0ae5bad881cd8164f2d95aa23bdd8498760d3c1d08cb912144",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-libs-10.10.0-10.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/adfd77bb23c199e8790db9df4fc73d666dd16cc75a910dcb9f29646d9998d1d3",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-libs-10.10.0-13.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-libs-0__10.10.0-10.el9.s390x",
-    sha256 = "0407a81d2f0213f4f03818b9d0740b4633e301fd2fdc0320c91eb0231cbf3932",
+    name = "libvirt-libs-0__10.10.0-13.el9.s390x",
+    sha256 = "7d169dbc46a99050ea85bb68133e37dc2aad07e8bfd4018f666a4477b8ecacf1",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-libs-10.10.0-10.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/0407a81d2f0213f4f03818b9d0740b4633e301fd2fdc0320c91eb0231cbf3932",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-libs-10.10.0-13.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-libs-0__10.10.0-10.el9.x86_64",
-    sha256 = "671dfb0b9f53556ec10f33c7d0f7088e00731fcdfa55aba3daa816e819bddf34",
+    name = "libvirt-libs-0__10.10.0-13.el9.x86_64",
+    sha256 = "16bfc41c7df521e374cdf140aec9e0a6b3fdb49b085c8c71f5333e6427f968cd",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-libs-10.10.0-10.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/671dfb0b9f53556ec10f33c7d0f7088e00731fcdfa55aba3daa816e819bddf34",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-libs-10.10.0-13.el9.x86_64.rpm",
     ],
 )
 
