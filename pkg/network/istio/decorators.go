@@ -20,8 +20,10 @@
 package istio
 
 const (
-	// InjectSidecarAnnotation Specifies whether an Envoy sidecar should be automatically injected into the workload
-	// https://istio.io/latest/docs/reference/config/annotations/#SidecarInject
+	// InjectSidecarLabel Specifies whether an Envoy sidecar should be automatically injected into the workload
+	// https://istio.io/latest/docs/reference/config/labels/#SidecarInject
+	InjectSidecarLabel = "sidecar.istio.io/inject"
+	// InjectSidecarAnnotation in VM/VMI API, propagates sidecar.istio.io/inject label to the virt-launcher pod
 	InjectSidecarAnnotation = "sidecar.istio.io/inject"
 
 	// KubeVirtTrafficAnnotation Specifies a comma separated list of virtual interfaces
