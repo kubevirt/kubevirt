@@ -27,3 +27,23 @@
  ****************************************************************************/
 
 #pragma once
+
+/* enum virAdmConnectDaemonShutdownFlags */
+#  if !LIBVIR_CHECK_VERSION(11, 2, 0)
+#    define VIR_DAEMON_SHUTDOWN_PRESERVE (1 << 0)
+#  endif
+
+/* enum virClientTransport */
+#  if !LIBVIR_CHECK_VERSION(2, 0, 0)
+#    define VIR_CLIENT_TRANS_UNIX 0
+#  endif
+#  if !LIBVIR_CHECK_VERSION(2, 0, 0)
+#    define VIR_CLIENT_TRANS_TCP 1
+#  endif
+#  if !LIBVIR_CHECK_VERSION(2, 0, 0)
+#    define VIR_CLIENT_TRANS_TLS 2
+#  endif
+#  if !LIBVIR_CHECK_VERSION(2, 0, 0)
+#    define VIR_CLIENT_TRANS_LAST 3
+#  endif
+
