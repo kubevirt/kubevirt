@@ -526,6 +526,7 @@ func (c *MigrationTargetController) execute(key string) error {
 
 	if !vmiExists {
 		c.logger.V(4).Infof("vmi for key %v does not exists", key)
+		c.vmiExpectations.DeleteExpectations(key)
 		return nil
 	}
 
@@ -794,6 +795,7 @@ func (c *MigrationTargetController) addFunc(obj interface{}) {
 func (c *MigrationTargetController) deleteFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
+		c.vmiExpectations.SetExpectations(key, 0, 0)
 		c.queue.Add(key)
 	}
 }
