@@ -1,4 +1,6 @@
 cmd/cniplugins
+cmd/sidecars/network-passt-binding/callback
+cmd/sidecars/network-slirp-binding/callback
 cmd/virtctl
 pkg/instancetype
 pkg/libvmi
@@ -7,6 +9,7 @@ pkg/network/controllers
 pkg/network/deviceinfo
 pkg/network/domainspec
 pkg/network/downwardapi
+pkg/network/driver/netlink
 pkg/network/errors
 pkg/network/istio
 pkg/network/migration
@@ -20,12 +23,17 @@ pkg/network/pod/annotations
 pkg/network/vmispec
 pkg/network/vmliveupdate
 pkg/storage/pod/annotations
-pkg/virt-launcher/virtwrap/agent-poller
+pkg/storage/reservation
+pkg/storage/velero
 pkg/virtctl/adm
 pkg/virtctl/clientconfig
+pkg/virtctl/configuration
 pkg/virtctl/create/params
 pkg/virtctl/create/vm
 pkg/virtctl/credentials
+pkg/virtctl/testing
+pkg/virtctl/version
+pkg/virt-launcher/virtwrap/agent-poller
 tests/conformance
 tests/console
 tests/decorators
