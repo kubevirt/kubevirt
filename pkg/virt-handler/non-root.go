@@ -13,9 +13,9 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/types"
-	virtutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -153,13 +153,13 @@ func (c *BaseController) prepareNetwork(vmi *v1.VirtualMachineInstance, res isol
 		return err
 	}
 
-	if virtutil.NeedVirtioNetDevice(vmi, c.clusterConfig.AllowEmulation()) {
+	if netvmispec.RequiresVirtioNetDevice(vmi, c.clusterConfig.AllowEmulation()) {
 		if err := c.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
 			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
 		}
 	}
 
-	if virtutil.NeedTunDevice(vmi) {
+	if netvmispec.RequiresTunDevice(vmi) {
 		if err := c.claimDeviceOwnership(rootMount, "/net/tun"); err != nil {
 			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up tun device, %s", err))
 		}
