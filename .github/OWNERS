@@ -1,0 +1,6 @@
+reviewers:
+- sig-buildsystem-reviewers
+approvers:
+- sig-buildsystem-approvers
+labels:
+- sig/buildsystem
