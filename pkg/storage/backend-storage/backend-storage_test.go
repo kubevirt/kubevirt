@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -290,7 +291,7 @@ var _ = Describe("Backend Storage", func() {
 			pvc, err := backendStorage.createPVC(vmi, map[string]string{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pvc).NotTo(BeNil())
-			Expect(pvc.Labels).To(HaveKeyWithValue(LabelApplyStorageProfile, "true"))
+			Expect(pvc.Labels).To(HaveKeyWithValue(storagetypes.LabelApplyStorageProfile, "true"))
 		})
 	})
 
