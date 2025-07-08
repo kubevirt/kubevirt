@@ -348,10 +348,8 @@ EOF
 
 function _setup_ipfamily() {
     if [ "$IPFAMILY" != "" ]; then
-        cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
-networking:
-  ipFamily: $IPFAMILY
-EOF
+        IPFAMILY_REPLACE="networking:\n  ipFamily: $IPFAMILY"
+        sed -i "s/networking:/$IPFAMILY_REPLACE/" ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
         echo "KIND cluster ip family has been set to $IPFAMILY"
     fi
 }
