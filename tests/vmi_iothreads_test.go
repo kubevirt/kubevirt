@@ -83,7 +83,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:864][ref_id:2065] Should honor a mix of shared and dedicated ioThreadsPolicy", func() {
-			containerDiskCirros := cd.ContainerDiskFor(cd.ContainerDiskCirros)
+			containerDiskCirros := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyShared),
 				withSetDiskAsDedicatedIOThread("disk0"),
@@ -134,7 +134,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
 
-			containerDiskCirros := cd.ContainerDiskFor(cd.ContainerDiskCirros)
+			containerDiskCirros := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
 				withSetDiskAsDedicatedIOThread("disk0"),
@@ -214,7 +214,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 		// IOThread with Emulator Thread
 
 		It("[test_id:4025]Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
-			containerDiskCirros := cd.ContainerDiskFor(cd.ContainerDiskCirros)
+			containerDiskCirros := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
 				libvmi.WithContainerDisk("disk1", containerDiskCirros),
