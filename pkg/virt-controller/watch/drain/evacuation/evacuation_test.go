@@ -71,6 +71,7 @@ var _ = Describe("Evacuation", func() {
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		ExpectWithOffset(1, migrationList.Items).To(HaveLen(1))
 	}
+	updateKV := func(func(kv *v1.KubeVirt)) { panic("Implement me") }
 
 	BeforeEach(func() {
 		stop := make(chan struct{})
@@ -89,7 +90,13 @@ var _ = Describe("Evacuation", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
-		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+
+		updateKV = func(f func(kv *v1.KubeVirt)) {
+			kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
+			f(kv)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+		}
 
 		controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -310,25 +317,16 @@ var _ = Describe("Evacuation", func() {
 			const maxParallelMigrationsPerCluster uint32 = 2
 			const maxParallelMigrationsPerSourceNode uint32 = 1
 			const activeMigrations = 10
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{
+
+			updateKV(func(kv *v1.KubeVirt) {
+				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
 					ParallelMigrationsPerCluster:      pointer.P(maxParallelMigrationsPerCluster),
 					ParallelOutboundMigrationsPerNode: pointer.P(maxParallelMigrationsPerSourceNode),
-				},
+				}
 			})
 
 			nodeName := "node01"
 			addNode(newNode(nodeName))
-
-			controller, _ =
-				NewEvacuationController(
-					vmiInformer,
-					migrationInformer,
-					nodeInformer,
-					podInformer,
-					recorder,
-					virtClient,
-					config)
 
 			for i := 1; i <= activeMigrations; i++ {
 				vmiName := fmt.Sprintf("testvmi-migrating-%d", i)
@@ -410,10 +408,9 @@ var _ = Describe("Evacuation", func() {
 		})
 
 		It("should migrate the VMI if EvictionStrategy is set in the cluster config", func() {
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-				EvictionStrategy: newEvictionStrategyLiveMigrate(),
+			updateKV(func(kv *v1.KubeVirt) {
+				kv.Spec.Configuration.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			})
-			controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 
 			node := newNode("testnode")
 			node1 := newNode("anothernode")
@@ -430,10 +427,9 @@ var _ = Describe("Evacuation", func() {
 		})
 
 		It("should do nothing if EvictionStrategy is set in the cluster config but VMI opted-out", func() {
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-				EvictionStrategy: newEvictionStrategyLiveMigrate(),
+			updateKV(func(kv *v1.KubeVirt) {
+				kv.Spec.Configuration.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			})
-			controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 
 			node := newNode("testnode")
 			node1 := newNode("anothernode")
@@ -453,22 +449,13 @@ var _ = Describe("Evacuation", func() {
 			var maxParallelMigrationsPerOutboundNode uint32 = 5
 			var activeMigrationsFromThisSourceNode = 4
 			var migrationCandidatesFromThisSourceNode = 4
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{
+
+			updateKV(func(kv *v1.KubeVirt) {
+				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
 					ParallelMigrationsPerCluster:      &maxParallelMigrationsPerCluster,
 					ParallelOutboundMigrationsPerNode: &maxParallelMigrationsPerOutboundNode,
-				},
+				}
 			})
-
-			controller, _ =
-				NewEvacuationController(
-					vmiInformer,
-					migrationInformer,
-					nodeInformer,
-					podInformer,
-					recorder,
-					virtClient,
-					config)
 
 			nodeName := "node01"
 			addNode(newNode(nodeName))
@@ -499,22 +486,12 @@ var _ = Describe("Evacuation", func() {
 			const maxParallelMigrationsPerSourceNode uint32 = 10
 			const pendingMigrations = 10
 
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{
+			updateKV(func(kv *v1.KubeVirt) {
+				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
 					ParallelMigrationsPerCluster:      pointer.P(maxParallelMigrationsPerCluster),
 					ParallelOutboundMigrationsPerNode: pointer.P(maxParallelMigrationsPerSourceNode),
-				},
+				}
 			})
-
-			controller, _ =
-				NewEvacuationController(
-					vmiInformer,
-					migrationInformer,
-					nodeInformer,
-					podInformer,
-					recorder,
-					virtClient,
-					config)
 
 			nodeName := "node01"
 			addNode(newNode(nodeName))
