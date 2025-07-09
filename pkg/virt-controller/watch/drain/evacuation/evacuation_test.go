@@ -35,8 +35,6 @@ var _ = Describe("Evacuation", func() {
 	var vmiInformer cache.SharedIndexInformer
 	var migrationInformer cache.SharedIndexInformer
 	var migrationSource *framework.FakeControllerSource
-	var podInformer cache.SharedIndexInformer
-	var podSource *framework.FakeControllerSource
 	var recorder *record.FakeRecorder
 	var migrationFeeder *testutils.MigrationFeeder[string]
 	var vmiFeeder *testutils.VirtualMachineFeeder[string]
@@ -46,12 +44,10 @@ var _ = Describe("Evacuation", func() {
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go migrationInformer.Run(stop)
-		go podInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			migrationInformer.HasSynced,
-			podInformer.HasSynced,
 		)).To(BeTrue())
 	}
 
@@ -83,7 +79,7 @@ var _ = Describe("Evacuation", func() {
 		})
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		nodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
-		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
@@ -376,10 +372,10 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 
-			podSource.Add(newPod(vmi, "runningPod", k8sv1.PodRunning, true))
-			podSource.Add(newPod(vmi, "succededPod", k8sv1.PodSucceeded, true))
-			podSource.Add(newPod(vmi, "failedPod", k8sv1.PodFailed, true))
-			podSource.Add(newPod(vmi, "notOwnedRunningPod", k8sv1.PodRunning, false))
+			controller.vmiPodIndexer.Add(newPod(vmi, "runningPod", k8sv1.PodRunning, true))
+			controller.vmiPodIndexer.Add(newPod(vmi, "succededPod", k8sv1.PodSucceeded, true))
+			controller.vmiPodIndexer.Add(newPod(vmi, "failedPod", k8sv1.PodFailed, true))
+			controller.vmiPodIndexer.Add(newPod(vmi, "notOwnedRunningPod", k8sv1.PodRunning, false))
 			// pods do not cause the queue to get added to
 			// we just use them for caching purposes
 			// so wait for cache to catch up with a brief sleep
@@ -402,8 +398,8 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 
-			podSource.Add(newPod(vmi, "runningPod", k8sv1.PodRunning, true))
-			podSource.Add(newPod(vmi, "pendingPod", k8sv1.PodPending, true))
+			controller.vmiPodIndexer.Add(newPod(vmi, "runningPod", k8sv1.PodRunning, true))
+			controller.vmiPodIndexer.Add(newPod(vmi, "pendingPod", k8sv1.PodPending, true))
 			// pods do not cause the queue to get added to
 			// we just use them for caching purposes
 			// so wait for cache to catch up with a brief sleep
