@@ -271,12 +271,6 @@ func Execute() {
 		panic(err)
 	}
 
-	image := util.GetOperatorImage()
-	if image == "" {
-		golog.Fatalf("Error getting operator's image: %v", err)
-	}
-	log.Log.Infof("Operator image: %s", image)
-
 	app.clusterConfig, err = virtconfig.NewClusterConfig(
 		app.informerFactory.CRD(),
 		app.informerFactory.KubeVirt(),
