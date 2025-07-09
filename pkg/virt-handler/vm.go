@@ -3007,7 +3007,12 @@ func (c *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 	return nil
 }
 
-func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineInstance, domainExists bool) error {
+func (c *VirtualMachineController) vmUpdateHelperDefault(vmiOrig *v1.VirtualMachineInstance, domainExists bool) error {
+	// This function calls ReplacePVCByHostDisk, which makes undesirable changes to the VMI.
+	// Working on a copy will ensure changes aren't persisted.
+	// However, meaningful changes to the VMI will be discarded and must be avoided.
+	vmi := vmiOrig.DeepCopy()
+
 	client, err := c.getLauncherClient(vmi)
 	if err != nil {
 		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
