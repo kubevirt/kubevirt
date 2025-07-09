@@ -595,11 +595,14 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 
 	for _, findmnt := range findmounts {
 		if filepath.Base(findmnt.Target) == volume {
-			source := findmnt.GetSourcePath()
 			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt)
-			exists := !errors.Is(err, os.ErrNotExist)
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				return nil, err
+
+			exists := true
+			if err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					return nil, err
+				}
+				exists = false
 			}
 
 			isBlock := false
@@ -609,23 +612,17 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 
 			if !exists || isBlock {
 				// file not found, or block device, or directory check if we can find the mount.
-				deviceFindMnt, err := LookupFindmntInfoByDevice(source)
+				deviceFindMnt, err := LookupFindmntInfoByDevice(findmnt.GetSourcePath())
 				if err != nil {
-					// Try the device found from the source
-					deviceFindMnt, err = LookupFindmntInfoByDevice(findmnt.GetSourceDevice())
-					if err != nil {
-						return nil, err
-					}
-					// Check if the path was relative to the device.
-					if !exists {
-						return mountRoot.AppendAndResolveWithRelativeRoot(deviceFindMnt[0].Target, source)
-					}
 					return nil, err
 				}
+				if len(deviceFindMnt) == 0 {
+					return nil, fmt.Errorf("no mount information found for device %s", findmnt.GetSourcePath())
+				}
 				return mountRoot.AppendAndResolveWithRelativeRoot(deviceFindMnt[0].Target)
-			} else {
-				return path, nil
 			}
+
+			return path, nil
 		}
 	}
 	// Did not find the disk image file, return error

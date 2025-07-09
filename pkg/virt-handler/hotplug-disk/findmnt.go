@@ -19,12 +19,12 @@
 package hotplug_volume
 
 import (
-	"encoding/json"
 	"fmt"
-	"os/exec"
-	"regexp"
-	"strconv"
+	"os"
+	"path"
 	"strings"
+
+	mount "github.com/moby/sys/mountinfo"
 )
 
 const (
@@ -32,17 +32,24 @@ const (
 )
 
 var (
-	sourceRgx = regexp.MustCompile(`\[(.+)\]`)
-	deviceRgx = regexp.MustCompile(`([^\[]+)\[.+\]`)
-
-	findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-		return exec.Command("/usr/bin/findmnt", "-T", fmt.Sprintf("/%s", volumeName), "-N", strconv.Itoa(pid), "-J").CombinedOutput()
+	findMntByPID = func(pid int) ([]*mount.Info, error) {
+		return getMountInfo(pid)
 	}
 
-	findMntByDevice = func(deviceName string) ([]byte, error) {
-		return exec.Command("/usr/bin/findmnt", "-S", deviceName, "-N", "1", "-J").CombinedOutput()
+	findMntByOne = func() ([]*mount.Info, error) {
+		return getMountInfo(1)
 	}
 )
+
+func getMountInfo(pid int) ([]*mount.Info, error) {
+	procMountInfo := fmt.Sprintf("/proc/%d/mountinfo", pid)
+	f, err := os.Open(procMountInfo)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return mount.GetMountsFromReader(f, nil)
+}
 
 type FindmntInfo struct {
 	Target  string `json:"target"`
@@ -51,50 +58,49 @@ type FindmntInfo struct {
 	Options string `json:"options"`
 }
 
-type FileSystems struct {
-	Filesystems []FindmntInfo `json:"filesystems"`
-}
-
 func LookupFindmntInfoByVolume(volumeName string, pid int) ([]FindmntInfo, error) {
-	mntInfoJson, err := findMntByVolume(volumeName, pid)
+	mounts, err := findMntByPID(pid)
 	if err != nil {
-		return make([]FindmntInfo, 0), fmt.Errorf("Error running findmnt for volume %s: %w", volumeName, err)
+		return nil, err
 	}
-	return parseMntInfoJson(mntInfoJson)
+
+	var result []FindmntInfo
+
+	mountPoint := path.Join("/", volumeName)
+	for _, mountInfo := range mounts {
+		if mountInfo.Mountpoint == mountPoint {
+			result = append(result, FindmntInfo{
+				Target:  mountInfo.Mountpoint,
+				Source:  mountInfo.Source,
+				Fstype:  mountInfo.FSType,
+				Options: mountInfo.Options,
+			})
+		}
+	}
+	return result, nil
 }
 
 func LookupFindmntInfoByDevice(deviceName string) ([]FindmntInfo, error) {
-	mntInfoJson, err := findMntByDevice(deviceName)
+	mounts, err := findMntByOne()
 	if err != nil {
-		return make([]FindmntInfo, 0), fmt.Errorf("Error running findmnt for device %s: %w", deviceName, err)
+		return nil, err
 	}
-	return parseMntInfoJson(mntInfoJson)
-}
 
-func parseMntInfoJson(mntInfoJson []byte) ([]FindmntInfo, error) {
-	mntinfo := FileSystems{}
-	if err := json.Unmarshal(mntInfoJson, &mntinfo); err != nil {
-		return mntinfo.Filesystems, fmt.Errorf("unable to unmarshal [%v]: %w", mntInfoJson, err)
+	var result []FindmntInfo
+
+	for _, mountInfo := range mounts {
+		if mountInfo.Source == deviceName {
+			result = append(result, FindmntInfo{
+				Target:  mountInfo.Mountpoint,
+				Source:  mountInfo.Source,
+				Fstype:  mountInfo.FSType,
+				Options: mountInfo.Options,
+			})
+		}
 	}
-	return mntinfo.Filesystems, nil
+	return result, nil
 }
 
 func (f *FindmntInfo) GetSourcePath() string {
-	match := sourceRgx.FindStringSubmatch(f.Source)
-	if len(match) != 2 {
-		return strings.TrimPrefix(f.Source, rhcosPrefix)
-	}
-	return strings.TrimPrefix(match[1], rhcosPrefix)
-}
-
-func (f *FindmntInfo) GetSourceDevice() string {
-	match := deviceRgx.FindStringSubmatch(f.Source)
-	if len(match) == 2 {
-		return match[1]
-	}
-	return ""
-}
-
-func (f *FindmntInfo) GetOptions() []string {
-	return strings.Split(f.Options, ",")
+	return strings.TrimPrefix(f.Source, rhcosPrefix)
 }

@@ -25,11 +25,13 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
+	mount "github.com/moby/sys/mountinfo"
 	"golang.org/x/sys/unix"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
@@ -58,9 +60,27 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
-const (
-	findmntByVolumeRes = "{\"filesystems\": [{\"target\":\"/%s\", \"source\":\"/dev/testvolume[%s]\", \"fstype\":\"xfs\", \"options\":\"rw,relatime,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota\"}]}"
-)
+func findmntByVolume(volume string) []*mount.Info {
+	return []*mount.Info{
+		{
+			Mountpoint: path.Join("/", volume),
+			Source:     "/dev/testvolume",
+			FSType:     "xfs",
+			Options:    "rw,relatime,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota",
+		},
+	}
+}
+
+func findmntByDevice(mountPoint string) []*mount.Info {
+	return []*mount.Info{
+		{
+			Mountpoint: mountPoint,
+			Source:     "/dev/testvolume",
+			FSType:     "xfs",
+			Options:    "rw,relatime,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota",
+		},
+	}
+}
 
 var (
 	tempDir                string
@@ -74,8 +94,8 @@ var (
 	orgUnMountCommand      = unmountCommand
 	orgIsMounted           = isMounted
 	orgIsBlockDevice       = isBlockDevice
-	orgFindMntByVolume     = findMntByVolume
-	orgFindMntByDevice     = findMntByDevice
+	orgFindMntByPID        = findMntByPID
+	orgFindMntByOne        = findMntByOne
 	orgNodeIsolationResult = nodeIsolationResult
 	orgParentPathForMount  = parentPathForMount
 )
@@ -554,7 +574,8 @@ var _ = Describe("HotplugVolume", func() {
 		})
 
 		AfterEach(func() {
-			findMntByVolume = orgFindMntByVolume
+			findMntByPID = orgFindMntByPID
+			findMntByOne = orgFindMntByOne
 			deviceBasePath = orgDeviceBasePath
 			mountCommand = orgMountCommand
 			unmountCommand = orgUnMountCommand
@@ -565,9 +586,13 @@ var _ = Describe("HotplugVolume", func() {
 		It("getSourcePodFile should find the disk.img file, if it exists", func() {
 			path, err := newDir(tempDir, "ghfjk", "volumes")
 			Expect(err).ToNot(HaveOccurred())
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "pvc", unsafepath.UnsafeAbsolute(path.Raw()))), nil
+			findMntByPID = func(pid int) ([]*mount.Info, error) {
+				return findmntByVolume("pvc"), nil
 			}
+			findMntByOne = func() ([]*mount.Info, error) {
+				return findmntByDevice(unsafepath.UnsafeAbsolute(path.Raw())), nil
+			}
+
 			_, err = newFile(unsafepath.UnsafeAbsolute(path.Raw()), "disk.img")
 			Expect(err).ToNot(HaveOccurred())
 			file, err := m.getSourcePodFilePath("ghfjk", vmi, "pvc")
@@ -603,8 +628,8 @@ var _ = Describe("HotplugVolume", func() {
 		It("getSourcePodFile should return error if find mounts returns error", func() {
 			_, err := newDir(tempDir, "ghfjk", "volumes")
 			Expect(err).ToNot(HaveOccurred())
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(""), fmt.Errorf("findmnt error")
+			findMntByPID = func(pid int) ([]*mount.Info, error) {
+				return nil, fmt.Errorf("findmnt error")
 			}
 			_, err = m.getSourcePodFilePath("ghfjk", vmi, "")
 			Expect(err).To(HaveOccurred())
@@ -614,8 +639,11 @@ var _ = Describe("HotplugVolume", func() {
 		It("getSourcePodFile should return the findmnt value", func() {
 			expectedPath, err := newDir(tempDir, "ghfjk", "volumes")
 			Expect(err).ToNot(HaveOccurred())
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "pvc", unsafepath.UnsafeAbsolute(expectedPath.Raw()))), nil
+			findMntByPID = func(pid int) ([]*mount.Info, error) {
+				return findmntByVolume("pvc"), nil
+			}
+			findMntByOne = func() ([]*mount.Info, error) {
+				return findmntByDevice(unsafepath.UnsafeAbsolute(expectedPath.Raw())), nil
 			}
 			res, err := m.getSourcePodFilePath("ghfjk", vmi, "pvc")
 			Expect(err).ToNot(HaveOccurred())
@@ -628,8 +656,11 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			diskFile, err := newFile(unsafepath.UnsafeAbsolute(path.Raw()), "disk.img")
 			Expect(err).ToNot(HaveOccurred())
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", unsafepath.UnsafeAbsolute(path.Raw()))), nil
+			findMntByPID = func(pid int) ([]*mount.Info, error) {
+				return findmntByVolume("testvolume"), nil
+			}
+			findMntByOne = func() ([]*mount.Info, error) {
+				return findmntByDevice(unsafepath.UnsafeAbsolute(path.Raw())), nil
 			}
 			targetFilePath, err := newFile(unsafepath.UnsafeAbsolute(targetPodPath.Raw()), "testvolume.img")
 			Expect(err).ToNot(HaveOccurred())
@@ -756,7 +787,8 @@ var _ = Describe("HotplugVolume", func() {
 			statDevice = orgStatCommand
 			mknodCommand = orgMknodCommand
 			isBlockDevice = orgIsBlockDevice
-			findMntByVolume = orgFindMntByVolume
+			findMntByPID = orgFindMntByPID
+			findMntByOne = orgFindMntByOne
 		})
 
 		verifyMountRecords := func(isMount bool, expectedPaths ...string) {
@@ -843,8 +875,11 @@ var _ = Describe("HotplugVolume", func() {
 			err = os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "filesystemvolume", unsafepath.UnsafeAbsolute(fileSystemPath.Raw()))), nil
+			findMntByPID = func(pid int) ([]*mount.Info, error) {
+				return findmntByVolume("filesystemvolume"), nil
+			}
+			findMntByOne = func() ([]*mount.Info, error) {
+				return findmntByDevice(unsafepath.UnsafeAbsolute(fileSystemPath.Raw())), nil
 			}
 
 			diskFile, err := newFile(unsafepath.UnsafeAbsolute(fileSystemPath.Raw()), "disk.img")
@@ -951,8 +986,11 @@ var _ = Describe("HotplugVolume", func() {
 			err = os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "filesystemvolume", unsafepath.UnsafeAbsolute(fileSystemPath.Raw()))), nil
+			findMntByPID = func(pid int) ([]*mount.Info, error) {
+				return findmntByVolume("filesystemvolume"), nil
+			}
+			findMntByOne = func() ([]*mount.Info, error) {
+				return findmntByDevice(unsafepath.UnsafeAbsolute(fileSystemPath.Raw())), nil
 			}
 
 			diskFile, err := newFile(unsafepath.UnsafeAbsolute(fileSystemPath.Raw()), "disk.img")
