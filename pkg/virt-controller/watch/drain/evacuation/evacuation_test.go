@@ -30,10 +30,7 @@ import (
 )
 
 var _ = Describe("Evacuation", func() {
-	var ctrl *gomock.Controller
-	var stop chan struct{}
 	var virtClient *kubecli.MockKubevirtClient
-	var fakeVirtClient *kubevirtfake.Clientset
 	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var nodeSource *framework.FakeControllerSource
@@ -44,7 +41,6 @@ var _ = Describe("Evacuation", func() {
 	var podSource *framework.FakeControllerSource
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue[string]
-	var kubeClient *fake.Clientset
 	var migrationFeeder *testutils.MigrationFeeder[string]
 	var vmiFeeder *testutils.VirtualMachineFeeder[string]
 
@@ -71,16 +67,16 @@ var _ = Describe("Evacuation", func() {
 	}
 
 	expectMigrationCreation := func() {
-		migrationList, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{})
+		migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		ExpectWithOffset(1, migrationList.Items).To(HaveLen(1))
 	}
 
 	BeforeEach(func() {
-		stop = make(chan struct{})
-		ctrl = gomock.NewController(GinkgoT())
+		stop := make(chan struct{})
+		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		fakeVirtClient = kubevirtfake.NewSimpleClientset()
+		fakeVirtClient := kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, cache.Indexers{
 			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
@@ -103,7 +99,7 @@ var _ = Describe("Evacuation", func() {
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
-		kubeClient = fake.NewSimpleClientset()
+		kubeClient := fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
 
@@ -113,6 +109,9 @@ var _ = Describe("Evacuation", func() {
 			return true, nil, nil
 		})
 		syncCaches(stop)
+		DeferCleanup(func() {
+			close(stop)
+		})
 	})
 
 	sanityExecute := func() {
@@ -540,7 +539,6 @@ var _ = Describe("Evacuation", func() {
 	})
 
 	AfterEach(func() {
-		close(stop)
 		// Ensure that we add checks for expected events to every test
 		Expect(recorder.Events).To(BeEmpty())
 	})
