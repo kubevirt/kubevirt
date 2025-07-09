@@ -477,7 +477,7 @@ func (m *hotplugMounter) Umount(vmi *v1.VirtualMachineInstance) error {
 			entriesTargetForDelete[r.TargetFile] = struct{}{}
 		}
 	}
-	newEntries := make([]vmiMountTargetEntry, 0, len(recordMountTargetEntries)-len(entriesTargetForDelete))
+	var newEntries []vmiMountTargetEntry
 	for _, entry := range recordMountTargetEntries {
 		if _, found := entriesTargetForDelete[entry.TargetFile]; found {
 			continue
