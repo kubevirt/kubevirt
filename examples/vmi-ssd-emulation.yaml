@@ -1,0 +1,32 @@
+# This example demonstrates how to configure disk rotation rate for SSD and HDD emulation.
+# The rotationRate field is supported for SCSI and SATA bus types only.
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-ssd-emulation
+  name: vmi-ssd-emulation
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: scsi
+          rotationRate: 1  # SSD emulation (no rotation)
+        name: ssd-disk
+      - disk:
+          bus: scsi
+          rotationRate: 7200  # HDD emulation at 7200 RPM
+        name: hdd-disk
+    memory:
+      guest: 1Gi
+    resources: {}
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: ssd-disk
+    persistentVolumeClaim:
+      claimName: ssd-pvc
+  - name: hdd-disk
+    persistentVolumeClaim:
+      claimName: hdd-pvc 

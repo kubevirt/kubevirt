@@ -2274,7 +2274,38 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		// name can become a container name which will fail to schedule if invalid
 		causes = append(causes, validateDiskNameAsContainerName(field, idx, disk)...)
 		causes = append(causes, validateBlockSize(field, idx, disk)...)
+		causes = append(causes, validateRotationRate(field, idx, disk)...)
 	}
+	return causes
+}
+
+func validateRotationRate(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if disk.RotationRate == nil {
+		return causes
+	}
+
+	// Check if bus type supports rotation rate
+	bus := getDiskBus(disk)
+	if bus != v1.DiskBusSCSI && bus != v1.DiskBusSATA {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("RotationRate is only supported for SCSI and SATA bus types, got %s", bus),
+			Field:   field.Index(idx).Child("rotationRate").String(),
+		})
+		return causes
+	}
+
+	rotationRate := *disk.RotationRate
+	// Valid values are: 1 (SSD) or values in range 1025-65534 (HDD)
+	if rotationRate != 1 && (rotationRate < 1025 || rotationRate > 65534) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("RotationRate must be either 1 (SSD) or between 1025 and 65534 (HDD), got %d", rotationRate),
+			Field:   field.Index(idx).Child("rotationRate").String(),
+		})
+	}
+
 	return causes
 }
 
