@@ -3,7 +3,6 @@ package evacuation
 import (
 	"context"
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -218,10 +217,12 @@ var _ = Describe("Evacuation", func() {
 
 			enqueue(node)
 			sanityExecute()
+			Expect(recorder.Events).To(BeEmpty())
 
 			migration2.Status.Phase = v1.MigrationSucceeded
 			controller.migrationStore.Update(migration2)
 
+			enqueue(node)
 			sanityExecute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
@@ -352,10 +353,6 @@ var _ = Describe("Evacuation", func() {
 			controller.vmiPodIndexer.Add(newPod(vmi, "succededPod", k8sv1.PodSucceeded, true))
 			controller.vmiPodIndexer.Add(newPod(vmi, "failedPod", k8sv1.PodFailed, true))
 			controller.vmiPodIndexer.Add(newPod(vmi, "notOwnedRunningPod", k8sv1.PodRunning, false))
-			// pods do not cause the queue to get added to
-			// we just use them for caching purposes
-			// so wait for cache to catch up with a brief sleep
-			time.Sleep(1 * time.Second)
 
 			controller.vmiIndexer.Add(vmi)
 
@@ -376,10 +373,6 @@ var _ = Describe("Evacuation", func() {
 
 			controller.vmiPodIndexer.Add(newPod(vmi, "runningPod", k8sv1.PodRunning, true))
 			controller.vmiPodIndexer.Add(newPod(vmi, "pendingPod", k8sv1.PodPending, true))
-			// pods do not cause the queue to get added to
-			// we just use them for caching purposes
-			// so wait for cache to catch up with a brief sleep
-			time.Sleep(1 * time.Second)
 
 			controller.vmiIndexer.Add(vmi)
 
