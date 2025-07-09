@@ -8,23 +8,20 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	pkgUtil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -47,15 +44,6 @@ var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.S
 
 		nodeName := libnode.GetNodeNameWithHandler()
 		Expect(nodeName).ToNot(BeEmpty())
-
-		// Emulated USB devices only on c9s providers. Remove this when sig-compute 1.26 is the
-		// oldest sig-compute with test with.
-		// See: https://github.com/kubevirt/project-infra/pull/2922
-		stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"dmesg"})
-		Expect(err).ToNot(HaveOccurred())
-		if strings.Count(stdout, "idVendor=46f4") == 0 {
-			Fail("No emulated USB devices present for functional test.")
-		}
 
 		vmi = libvmifact.NewCirros()
 	})
@@ -106,8 +94,7 @@ var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.S
 			vmi.Spec.Domain.Devices.HostDevices = hostDevs
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
-			Expect(console.LoginToCirros(vmi)).To(Succeed())
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 			By("Making sure the usb is present inside the VMI")
 			const expectTimeout = 15
@@ -117,17 +104,39 @@ var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.S
 			}, expectTimeout)).To(Succeed(), "Device not found")
 
 			By("Verifying ownership is properly set in the host")
-			domainXML, err := libdomain.GetRunningVMIDomainSpec(vmi)
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			usbBusesRaw, err := exec.ExecuteCommandOnPod(
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"ls", "-1", "/dev/bus/usb/"},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
-			for _, hostDevice := range domainXML.Devices.HostDevices {
-				if hostDevice.Type != api.HostDeviceUSB {
-					continue
-				}
-				addr := hostDevice.Source.Address
-				path := fmt.Sprintf("%sdev/bus/usb/00%s/00%s", pkgUtil.HostRootMount, addr.Bus, addr.Device)
-				cmd := []string{"stat", "--printf", `"%u %g"`, path}
-				stdout, err := libnode.ExecuteCommandInVirtHandlerPod(vmi.Status.NodeName, cmd)
+			usbBuses := strings.Split(strings.TrimSpace(usbBusesRaw), "\n")
+			Expect(len(usbBuses)).To(HaveLen(1), "Expected exactly one USB bus directory, found: %v", usbBuses)
+
+			usbBus := usbBuses[0]
+
+			// List devices in that bus
+			usbDevicesRaw, err := exec.ExecuteCommandOnPod(
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"ls", "-1", fmt.Sprintf("/dev/bus/usb/%s", usbBus)},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			usbDevices := strings.Split(strings.TrimSpace(usbDevicesRaw), "\n")
+
+			for _, dev := range usbDevices {
+				fullPath := fmt.Sprintf("/dev/bus/usb/%s/%s", usbBus, dev)
+				cmd := []string{"stat", "--printf", `"%u %g"`, fullPath}
+				stdout, err := exec.ExecuteCommandOnPod(
+					vmiPod,
+					vmiPod.Spec.Containers[0].Name,
+					cmd,
+				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(stdout).Should(Equal(`"107 107"`))
 			}
