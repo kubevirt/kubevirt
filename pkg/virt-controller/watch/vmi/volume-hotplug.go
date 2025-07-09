@@ -73,6 +73,20 @@ func getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAtta
 // pod that is closest to the desired state.
 func (c *Controller) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8sv1.Pod, vmi *v1.VirtualMachineInstance, numReadyVolumes int) common.SyncError {
 	foundRunning := false
+
+	var statusMap = make(map[string]v1.VolumeStatus)
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.HotplugVolume != nil {
+			statusMap[vs.Name] = vs
+		}
+	}
+
+	for _, vmiVolume := range vmi.Spec.Volumes {
+		if storagetypes.IsHotplugVolume(&vmiVolume) {
+			delete(statusMap, vmiVolume.Name)
+		}
+	}
+
 	currentPodIsNotRunning := currentPod == nil || currentPod.Status.Phase != k8sv1.PodRunning
 	for _, attachmentPod := range oldPods {
 		if !foundRunning &&
@@ -82,11 +96,37 @@ func (c *Controller) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8s
 			foundRunning = true
 			continue
 		}
+		volumesNotReadyForDelete := 0
+
+		for _, podVolume := range attachmentPod.Spec.Volumes {
+			volumeStatus, ok := statusMap[podVolume.Name]
+			if ok && !volumeReadyForPodDelete(volumeStatus.Phase) {
+				volumesNotReadyForDelete++
+			}
+		}
+
+		if volumesNotReadyForDelete > 0 {
+			log.Log.Object(vmi).V(3).Infof("Not deleting attachment pod %s, because there are still %d volumes to be unmounted", attachmentPod.Name, volumesNotReadyForDelete)
+			continue
+		}
+
 		if err := c.deleteAttachmentPod(vmi, attachmentPod); err != nil {
 			return common.NewSyncError(fmt.Errorf("Error deleting attachment pod %v", err), controller.FailedDeletePodReason)
 		}
+
+		log.Log.Object(vmi).V(3).Infof("Deleted attachment pod %s", attachmentPod.Name)
 	}
 	return nil
+}
+
+func volumeReadyForPodDelete(phase v1.VolumePhase) bool {
+	switch phase {
+	case v1.VolumeReady:
+		return false
+	case v1.HotplugVolumeMounted:
+		return false
+	}
+	return true
 }
 
 func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) common.SyncError {
