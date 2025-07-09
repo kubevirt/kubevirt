@@ -33,21 +33,16 @@ var _ = Describe("Evacuation", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
-	var migrationInformer cache.SharedIndexInformer
-	var migrationSource *framework.FakeControllerSource
 	var recorder *record.FakeRecorder
-	var migrationFeeder *testutils.MigrationFeeder[string]
 	var vmiFeeder *testutils.VirtualMachineFeeder[string]
 
 	var controller *EvacuationController
 
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
-		go migrationInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
-			migrationInformer.HasSynced,
 		)).To(BeTrue())
 	}
 
@@ -77,7 +72,7 @@ var _ = Describe("Evacuation", func() {
 				return []string{obj.(*v1.VirtualMachineInstance).Status.NodeName}, nil
 			},
 		})
-		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		migrationInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		nodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
@@ -93,7 +88,6 @@ var _ = Describe("Evacuation", func() {
 		controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		mockQueue := testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
-		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 
 		// Set up mock client
@@ -211,11 +205,11 @@ var _ = Describe("Evacuation", func() {
 			vmiFeeder.Add(vmi)
 			vmiFeeder.Add(vmi1)
 
-			migrationFeeder.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
-			migrationFeeder.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
-			migrationFeeder.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
-			migrationFeeder.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
-			migrationFeeder.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
 
 			sanityExecute()
 
@@ -230,12 +224,12 @@ var _ = Describe("Evacuation", func() {
 			vmi1 := newVirtualMachineMarkedForEviction("testvmi1", node.Name)
 			migration1 := newMigration("mig1", vmi1.Name, v1.MigrationRunning)
 			vmiFeeder.Add(vmi1)
-			migrationFeeder.Add(migration1)
+			controller.migrationStore.Add(migration1)
 
 			vmi2 := newVirtualMachineMarkedForEviction("testvmi2", node.Name)
 			migration2 := newMigration("mig2", vmi1.Name, v1.MigrationRunning)
 			vmiFeeder.Add(vmi2)
-			migrationFeeder.Add(migration2)
+			controller.migrationStore.Add(migration2)
 
 			vmi3 := newVirtualMachineMarkedForEviction("testvmi3", node.Name)
 			vmiFeeder.Add(vmi3)
@@ -244,7 +238,7 @@ var _ = Describe("Evacuation", func() {
 			sanityExecute()
 
 			migration2.Status.Phase = v1.MigrationSucceeded
-			migrationFeeder.Modify(migration2)
+			controller.migrationStore.Update(migration2)
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -305,11 +299,11 @@ var _ = Describe("Evacuation", func() {
 			}
 			vmi.Status.EvacuationNodeName = node.Name
 			vmiFeeder.Add(vmi)
-			migrationFeeder.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
-			migrationFeeder.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
-			migrationFeeder.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
-			migrationFeeder.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
-			migrationFeeder.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
+			controller.migrationStore.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
 			sanityExecute()
 		})
 
@@ -333,7 +327,7 @@ var _ = Describe("Evacuation", func() {
 			for i := 1; i <= activeMigrations; i++ {
 				vmiName := fmt.Sprintf("testvmi-migrating-%d", i)
 				vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
-				migrationFeeder.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
+				controller.migrationStore.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
 			}
 
 			sanityExecute()
@@ -357,7 +351,7 @@ var _ = Describe("Evacuation", func() {
 			migration := newMigration("mig1", vmi.Name, v1.MigrationRunning)
 			migration.Status.Phase = v1.MigrationRunning
 
-			migrationFeeder.Add(migration)
+			controller.migrationStore.Add(migration)
 
 			sanityExecute()
 		})
@@ -469,7 +463,7 @@ var _ = Describe("Evacuation", func() {
 			for i := 1; i <= activeMigrationsFromThisSourceNode; i++ {
 				vmiName := fmt.Sprintf("testvmi%d", i)
 				vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
-				migrationFeeder.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
+				controller.migrationStore.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
 			}
 
 			By(fmt.Sprintf("Creating %d migration candidates from source node %s", migrationCandidatesFromThisSourceNode, nodeName))
@@ -507,7 +501,7 @@ var _ = Describe("Evacuation", func() {
 			for i := 1; i <= pendingMigrations; i++ {
 				vmiName := fmt.Sprintf("testvmi%d", i)
 				vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
-				migrationFeeder.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationPending))
+				controller.migrationStore.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationPending))
 			}
 
 			By(fmt.Sprintf("Creating a migration candidate from source node %s", nodeName))
