@@ -44,6 +44,10 @@ import (
 const (
 	DefaultPvcMountPath                = "/pvc"
 	StorageClassHostPathSeparateDevice = "host-path-sd"
+
+	// LabelApplyStorageProfile is a label used by the CDI mutating webhook
+	// to modify the PVC according to the storage profile.
+	LabelApplyStorageProfile = "cdi.kubevirt.io/applyStorageProfile"
 )
 
 func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
@@ -132,7 +136,12 @@ func addVolumeMounts(volumeName string) []k8sv1.VolumeMount {
 
 func NewPVC(name, size, storageClass string) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				LabelApplyStorageProfile: "true",
+			},
+		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 			Resources: k8sv1.VolumeResourceRequirements{
