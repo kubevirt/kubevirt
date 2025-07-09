@@ -15,7 +15,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -31,20 +30,9 @@ import (
 
 var _ = Describe("Evacuation", func() {
 	var virtClient *kubecli.MockKubevirtClient
-	var vmiSource *framework.FakeControllerSource
-	var vmiInformer cache.SharedIndexInformer
 	var recorder *record.FakeRecorder
-	var vmiFeeder *testutils.VirtualMachineFeeder[string]
 
 	var controller *EvacuationController
-
-	syncCaches := func(stop chan struct{}) {
-		go vmiInformer.Run(stop)
-
-		Expect(cache.WaitForCacheSync(stop,
-			vmiInformer.HasSynced,
-		)).To(BeTrue())
-	}
 
 	addNode := func(node *k8sv1.Node) {
 		controller.nodeStore.Add(node)
@@ -61,12 +49,11 @@ var _ = Describe("Evacuation", func() {
 	updateKV := func(func(kv *v1.KubeVirt)) { panic("Implement me") }
 
 	BeforeEach(func() {
-		stop := make(chan struct{})
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		fakeVirtClient := kubevirtfake.NewSimpleClientset()
 
-		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, cache.Indexers{
+		vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, cache.Indexers{
 			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 			"node": func(obj interface{}) (strings []string, e error) {
 				return []string{obj.(*v1.VirtualMachineInstance).Status.NodeName}, nil
@@ -88,7 +75,6 @@ var _ = Describe("Evacuation", func() {
 		controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		mockQueue := testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
-		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
@@ -100,10 +86,6 @@ var _ = Describe("Evacuation", func() {
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			Expect(action).To(BeNil())
 			return true, nil, nil
-		})
-		syncCaches(stop)
-		DeferCleanup(func() {
-			close(stop)
 		})
 	})
 
@@ -130,7 +112,7 @@ var _ = Describe("Evacuation", func() {
 			addNode(node)
 			enqueue(node)
 			vmi := newVirtualMachine("testvm", node.Name)
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute()
 		})
@@ -144,7 +126,7 @@ var _ = Describe("Evacuation", func() {
 			enqueue(node1)
 			vmi := newVirtualMachine("testvm", node1.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute()
 		})
@@ -161,7 +143,7 @@ var _ = Describe("Evacuation", func() {
 
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -178,12 +160,12 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionFalse}}
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			vmi1 := newVirtualMachine("testvm1", node.Name)
 			vmi1.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi1.Status.Conditions = nil
-			vmiFeeder.Add(vmi1)
+			controller.vmiIndexer.Add(vmi1)
 
 			sanityExecute()
 			testutils.ExpectEvents(recorder,
@@ -202,8 +184,8 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi1 := newVirtualMachine("testvm1", node.Name)
 			vmi1.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
-			vmiFeeder.Add(vmi)
-			vmiFeeder.Add(vmi1)
+			controller.vmiIndexer.Add(vmi)
+			controller.vmiIndexer.Add(vmi1)
 
 			controller.migrationStore.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
 			controller.migrationStore.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
@@ -223,16 +205,16 @@ var _ = Describe("Evacuation", func() {
 
 			vmi1 := newVirtualMachineMarkedForEviction("testvmi1", node.Name)
 			migration1 := newMigration("mig1", vmi1.Name, v1.MigrationRunning)
-			vmiFeeder.Add(vmi1)
+			controller.vmiIndexer.Add(vmi1)
 			controller.migrationStore.Add(migration1)
 
 			vmi2 := newVirtualMachineMarkedForEviction("testvmi2", node.Name)
 			migration2 := newMigration("mig2", vmi1.Name, v1.MigrationRunning)
-			vmiFeeder.Add(vmi2)
+			controller.vmiIndexer.Add(vmi2)
 			controller.migrationStore.Add(migration2)
 
 			vmi3 := newVirtualMachineMarkedForEviction("testvmi3", node.Name)
-			vmiFeeder.Add(vmi3)
+			controller.vmiIndexer.Add(vmi3)
 
 			enqueue(node)
 			sanityExecute()
@@ -255,7 +237,7 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi.Status.EvacuationNodeName = node.Name
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 			sanityExecute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
@@ -280,7 +262,7 @@ var _ = Describe("Evacuation", func() {
 				},
 			}
 			vmi.Status.EvacuationNodeName = vmi.Status.NodeName
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 			sanityExecute()
 			testutils.ExpectEvent(recorder, FailedCreateVirtualMachineInstanceMigrationReason)
 		})
@@ -298,7 +280,7 @@ var _ = Describe("Evacuation", func() {
 				},
 			}
 			vmi.Status.EvacuationNodeName = node.Name
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 			controller.migrationStore.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
 			controller.migrationStore.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
 			controller.migrationStore.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
@@ -326,7 +308,7 @@ var _ = Describe("Evacuation", func() {
 
 			for i := 1; i <= activeMigrations; i++ {
 				vmiName := fmt.Sprintf("testvmi-migrating-%d", i)
-				vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
+				controller.vmiIndexer.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
 				controller.migrationStore.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
 			}
 
@@ -346,7 +328,7 @@ var _ = Describe("Evacuation", func() {
 			}
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi.Status.EvacuationNodeName = node.Name
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			migration := newMigration("mig1", vmi.Name, v1.MigrationRunning)
 			migration.Status.Phase = v1.MigrationRunning
@@ -375,7 +357,7 @@ var _ = Describe("Evacuation", func() {
 			// so wait for cache to catch up with a brief sleep
 			time.Sleep(1 * time.Second)
 
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -399,7 +381,7 @@ var _ = Describe("Evacuation", func() {
 			// so wait for cache to catch up with a brief sleep
 			time.Sleep(1 * time.Second)
 
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute()
 		})
@@ -416,7 +398,7 @@ var _ = Describe("Evacuation", func() {
 			enqueue(node)
 
 			vmi := newVirtualMachine("testvm", node.Name)
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -436,7 +418,7 @@ var _ = Describe("Evacuation", func() {
 
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyNone()
-			vmiFeeder.Add(vmi)
+			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute()
 		})
@@ -462,14 +444,14 @@ var _ = Describe("Evacuation", func() {
 			By(fmt.Sprintf("Creating %d active migrations from source node %s", activeMigrationsFromThisSourceNode, nodeName))
 			for i := 1; i <= activeMigrationsFromThisSourceNode; i++ {
 				vmiName := fmt.Sprintf("testvmi%d", i)
-				vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
+				controller.vmiIndexer.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
 				controller.migrationStore.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
 			}
 
 			By(fmt.Sprintf("Creating %d migration candidates from source node %s", migrationCandidatesFromThisSourceNode, nodeName))
 			for i := 1; i <= migrationCandidatesFromThisSourceNode; i++ {
 				vmiName := fmt.Sprintf("testvmi%d", i+activeMigrationsFromThisSourceNode)
-				vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
+				controller.vmiIndexer.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
 			}
 
 			By(fmt.Sprintf("Expect only one new migration from node %s although cluster capacity allows more candidates", nodeName))
@@ -500,13 +482,13 @@ var _ = Describe("Evacuation", func() {
 			By(fmt.Sprintf("Creating %d pending migrations from source node %s", pendingMigrations, nodeName))
 			for i := 1; i <= pendingMigrations; i++ {
 				vmiName := fmt.Sprintf("testvmi%d", i)
-				vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
+				controller.vmiIndexer.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
 				controller.migrationStore.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationPending))
 			}
 
 			By(fmt.Sprintf("Creating a migration candidate from source node %s", nodeName))
 			vmiName := fmt.Sprintf("testvmi%d", pendingMigrations+1)
-			vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
+			controller.vmiIndexer.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
 
 			sanityExecute()
 
