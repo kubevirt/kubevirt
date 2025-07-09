@@ -33,14 +33,11 @@ var _ = Describe("Evacuation", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
-	var nodeSource *framework.FakeControllerSource
-	var nodeInformer cache.SharedIndexInformer
 	var migrationInformer cache.SharedIndexInformer
 	var migrationSource *framework.FakeControllerSource
 	var podInformer cache.SharedIndexInformer
 	var podSource *framework.FakeControllerSource
 	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue[string]
 	var migrationFeeder *testutils.MigrationFeeder[string]
 	var vmiFeeder *testutils.VirtualMachineFeeder[string]
 
@@ -49,21 +46,20 @@ var _ = Describe("Evacuation", func() {
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go migrationInformer.Run(stop)
-		go nodeInformer.Run(stop)
 		go podInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			migrationInformer.HasSynced,
-			nodeInformer.HasSynced,
 			podInformer.HasSynced,
 		)).To(BeTrue())
 	}
 
 	addNode := func(node *k8sv1.Node) {
-		mockQueue.ExpectAdds(1)
-		nodeSource.Add(node)
-		mockQueue.Wait()
+		controller.nodeStore.Add(node)
+	}
+	enqueue := func(node *k8sv1.Node) {
+		controller.Queue.Add(node.Name)
 	}
 
 	expectMigrationCreation := func() {
@@ -86,7 +82,7 @@ var _ = Describe("Evacuation", func() {
 			},
 		})
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
-		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&k8sv1.Node{})
+		nodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
@@ -99,7 +95,7 @@ var _ = Describe("Evacuation", func() {
 		}
 
 		controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
+		mockQueue := testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
@@ -142,6 +138,7 @@ var _ = Describe("Evacuation", func() {
 		It("should do nothing with VMIs", func() {
 			node := newNode("testnode")
 			addNode(node)
+			enqueue(node)
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmiFeeder.Add(vmi)
 
@@ -154,6 +151,7 @@ var _ = Describe("Evacuation", func() {
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
 			addNode(node1)
+			enqueue(node1)
 			vmi := newVirtualMachine("testvm", node1.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmiFeeder.Add(vmi)
@@ -166,10 +164,10 @@ var _ = Describe("Evacuation", func() {
 
 		It("should evict the VMI", func() {
 			node := newNode("testnode")
-			node1 := newNode("anothernode")
+			addNode(newNode("anothernode"))
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
-			addNode(node1)
+			enqueue(node)
 
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
@@ -182,10 +180,10 @@ var _ = Describe("Evacuation", func() {
 
 		It("should ignore VMIs which are not migratable", func() {
 			node := newNode("testnode")
-			node1 := newNode("anothernode")
+			addNode(newNode("anothernode"))
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
-			addNode(node1)
+			enqueue(node)
 
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
@@ -208,6 +206,7 @@ var _ = Describe("Evacuation", func() {
 			node := newNode("testnode")
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
+			enqueue(node)
 
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
@@ -230,6 +229,7 @@ var _ = Describe("Evacuation", func() {
 			node := newNode("testnode")
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
+			enqueue(node)
 
 			vmi1 := newVirtualMachineMarkedForEviction("testvmi1", node.Name)
 			migration1 := newMigration("mig1", vmi1.Name, v1.MigrationRunning)
@@ -244,6 +244,7 @@ var _ = Describe("Evacuation", func() {
 			vmi3 := newVirtualMachineMarkedForEviction("testvmi3", node.Name)
 			vmiFeeder.Add(vmi3)
 
+			enqueue(node)
 			sanityExecute()
 
 			migration2.Status.Phase = v1.MigrationSucceeded
@@ -260,6 +261,7 @@ var _ = Describe("Evacuation", func() {
 		It("Should evict the VMI", func() {
 			node := newNode("foo")
 			addNode(node)
+			enqueue(node)
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi.Status.EvacuationNodeName = node.Name
@@ -272,6 +274,7 @@ var _ = Describe("Evacuation", func() {
 		It("Should record a warning on a not migratable VMI", func() {
 			node := newNode("foo")
 			addNode(node)
+			enqueue(node)
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
@@ -295,6 +298,7 @@ var _ = Describe("Evacuation", func() {
 		It("Should not evict VMI if max migrations are in progress", func() {
 			node := newNode("foo")
 			addNode(node)
+			enqueue(node)
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
@@ -326,7 +330,9 @@ var _ = Describe("Evacuation", func() {
 			})
 
 			nodeName := "node01"
-			addNode(newNode(nodeName))
+			node := newNode(nodeName)
+			addNode(node)
+			enqueue(node)
 
 			for i := 1; i <= activeMigrations; i++ {
 				vmiName := fmt.Sprintf("testvmi-migrating-%d", i)
@@ -340,6 +346,7 @@ var _ = Describe("Evacuation", func() {
 		It("Should not create a migration if one is already in progress", func() {
 			node := newNode("foo")
 			addNode(node)
+			enqueue(node)
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
@@ -361,10 +368,10 @@ var _ = Describe("Evacuation", func() {
 
 		It("should evict the VMI if only one pod is running", func() {
 			node := newNode("testnode")
-			node1 := newNode("anothernode")
+			addNode(newNode("anothernode"))
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
-			addNode(node1)
+			enqueue(node)
 
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
@@ -387,10 +394,10 @@ var _ = Describe("Evacuation", func() {
 
 		It("should not evict the VMI with multiple pods active", func() {
 			node := newNode("testnode")
-			node1 := newNode("anothernode")
+			addNode(newNode("anothernode"))
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
-			addNode(node1)
+			enqueue(node)
 
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
@@ -413,10 +420,10 @@ var _ = Describe("Evacuation", func() {
 			})
 
 			node := newNode("testnode")
-			node1 := newNode("anothernode")
+			addNode(newNode("anothernode"))
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
-			addNode(node1)
+			enqueue(node)
 
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmiFeeder.Add(vmi)
@@ -432,10 +439,10 @@ var _ = Describe("Evacuation", func() {
 			})
 
 			node := newNode("testnode")
-			node1 := newNode("anothernode")
+			addNode(newNode("anothernode"))
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
-			addNode(node1)
+			enqueue(node)
 
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyNone()
@@ -458,7 +465,9 @@ var _ = Describe("Evacuation", func() {
 			})
 
 			nodeName := "node01"
-			addNode(newNode(nodeName))
+			node := newNode(nodeName)
+			addNode(node)
+			enqueue(node)
 
 			By(fmt.Sprintf("Creating %d active migrations from source node %s", activeMigrationsFromThisSourceNode, nodeName))
 			for i := 1; i <= activeMigrationsFromThisSourceNode; i++ {
@@ -494,7 +503,9 @@ var _ = Describe("Evacuation", func() {
 			})
 
 			nodeName := "node01"
-			addNode(newNode(nodeName))
+			node := newNode(nodeName)
+			addNode(node)
+			enqueue(node)
 
 			By(fmt.Sprintf("Creating %d pending migrations from source node %s", pendingMigrations, nodeName))
 			for i := 1; i <= pendingMigrations; i++ {
