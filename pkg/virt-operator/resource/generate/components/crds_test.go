@@ -333,6 +333,34 @@ var _ = Describe("CRDs", func() {
 			"RestoreInProgress", "test-source", "test-target",
 		),
 	)
+
+	It("should have enum validation for hugepages pageSize", func() {
+		vmiCrd, err := NewVirtualMachineInstanceCrd()
+		Expect(err).ToNot(HaveOccurred())
+
+		pageSizeSchema := vmiCrd.Spec.Versions[0].Schema.OpenAPIV3Schema.
+			Properties["spec"].
+			Properties["domain"].
+			Properties["memory"].
+			Properties["hugepages"].
+			Properties["pageSize"]
+
+		Expect(pageSizeSchema.Enum).ToNot(BeEmpty())
+
+		var enumStrings []string
+		unmarshal := func(raw []byte) string {
+			var s string
+			err := json.Unmarshal(raw, &s)
+			Expect(err).ToNot(HaveOccurred())
+			return s
+		}
+
+		for _, enumVal := range pageSizeSchema.Enum {
+			enumStrings = append(enumStrings, unmarshal(enumVal.Raw))
+		}
+
+		Expect(enumStrings).To(ConsistOf("2Mi", "1Gi"))
+	})
 })
 
 func createTime() metav1.Time {
