@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
@@ -170,6 +171,13 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 	}
 
 	It("should successfully upgrade virt-handler", decorators.RequiresTwoSchedulableNodes, func() {
+		// This test requires two computes and thus virt-handler daemonsets to be
+		// active from the start of the test to invoke the expected canary rollout
+		// logic so ensure that's the case before starting
+		Eventually(
+			checks.HasAtLeastTwoNodes,
+			canaryTestNodeTimeout*time.Second, 1*time.Second).Should(BeTrue(), "Only <=1 active node available in the environment")
+
 		var expectedEventsLock sync.Mutex
 		expectedEvents := []string{
 			"maxUnavailable=1",
