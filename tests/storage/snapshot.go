@@ -1154,7 +1154,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithDataVolume("disk0", dv.Name),
 					libvmi.WithDataVolume("disk1", dv2.Name),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 				),
 				libvmi.WithDataVolumeTemplate(dv2),
 				libvmi.WithRunStrategy(v1.RunStrategyHalted),
@@ -1270,7 +1270,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				vmi := libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory(memory),
+					libvmi.WithMemoryRequest(memory),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					storageOptFun("disk0", dataVolume.Name),
 				)
@@ -1335,7 +1335,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				vmi := libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithPersistentVolumeClaim("snapshotablevolume", includedDataVolume.Name),
 					libvmi.WithPersistentVolumeClaim("notsnapshotablevolume", excludedDataVolume.Name),
@@ -1384,7 +1384,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				vmi := libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithPersistentVolumeClaim("snapshotablevolume", includedDataVolume.Name),
 				)

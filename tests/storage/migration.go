@@ -202,7 +202,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				libvmi.WithNamespace(ns),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithDataVolume(volName, dv.Name),
 				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 			)
@@ -313,7 +313,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					libvmi.WithNamespace(ns),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithDataVolume(volName, dv.Name),
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
@@ -577,7 +577,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				libvmi.WithNamespace(ns),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithPersistentVolumeClaim(volName, srcPVC),
 			)
 			vm := libvmi.NewVirtualMachine(vmi,
@@ -675,7 +675,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				libvmi.WithNamespace(ns),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithDataVolume(volName, dv1.Name),
 				libvmi.WithDataVolume("vol1", dv2.Name),
 				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
@@ -815,7 +815,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					libvmi.WithNamespace(ns),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithDataVolume(volName, dv.Name),
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
@@ -1138,8 +1138,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					// For testing purposes, we're okay with using guaranteed QoS, which ensures CPU set gets set on boot
 					// But really this is a bug in the way that our allowed device list could get overriden
 					// https://github.com/kubevirt/kubevirt/issues/14825
-					libvmi.WithResourceCPU("1"), libvmi.WithResourceMemory("128Mi"),
-					libvmi.WithLimitCPU("1"), libvmi.WithLimitMemory("128Mi"),
+					libvmi.WithCPURequest("1"), libvmi.WithMemoryRequest("128Mi"),
+					libvmi.WithCPULimit("1"), libvmi.WithMemoryLimit("128Mi"),
 					libvmi.WithDataVolume(rootVolName, rootDV.Name),
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)

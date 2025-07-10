@@ -101,7 +101,7 @@ var _ = Describe("MemoryDump", func() {
 
 		vmi = libvmi.New(
 			libvmi.WithName(vmName),
-			libvmi.WithResourceMemory(vmiMemory),
+			libvmi.WithMemoryRequest(vmiMemory),
 		)
 		vmi, err = virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())

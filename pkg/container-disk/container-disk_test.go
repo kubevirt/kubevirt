@@ -165,10 +165,10 @@ var _ = Describe("ContainerDisk", func() {
 
 				vmi := libvmi.New(
 					libvmi.WithContainerDisk("r0", someImage),
-					libvmi.WithResourceCPU("1"),
-					libvmi.WithResourceMemory("64M"),
-					libvmi.WithLimitCPU("1"),
-					libvmi.WithLimitMemory("64M"),
+					libvmi.WithCPURequest("1"),
+					libvmi.WithMemoryRequest("64M"),
+					libvmi.WithCPULimit("1"),
+					libvmi.WithMemoryLimit("64M"),
 				)
 
 				containers := GenerateContainers(vmi, clusterConfig, nil, "libvirt-runtime", "/var/run/libvirt")

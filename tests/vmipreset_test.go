@@ -373,7 +373,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			By("Creating VMI with 128M")
 			vmi = libvmi.New(
 				libvmi.WithLabel(overrideKey, overrideFlavor),
-				libvmi.WithResourceMemory("128M"),
+				libvmi.WithMemoryRequest("128M"),
 			)
 
 			newVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -523,8 +523,8 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 
 			// The actual type of machine is unimportant here. This test is about the label
-			vmiWin7 = libvmi.New(libvmi.WithLabel(labelKey, labelValue), libvmi.WithResourceMemory("1Mi"))
-			vmiWin10 = libvmi.New(libvmi.WithLabel(labelKey, labelValue), libvmi.WithResourceMemory("1Mi"))
+			vmiWin7 = libvmi.New(libvmi.WithLabel(labelKey, labelValue), libvmi.WithMemoryRequest("1Mi"))
+			vmiWin10 = libvmi.New(libvmi.WithLabel(labelKey, labelValue), libvmi.WithMemoryRequest("1Mi"))
 
 			annotationVal = v1.GroupVersion.String()
 		})

@@ -601,7 +601,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			checkVirtComponents(nil)
 
 			By("Starting a VMI")
-			vmi := libvmi.New(libvmi.WithResourceMemory("1Mi"))
+			vmi := libvmi.New(libvmi.WithMemoryRequest("1Mi"))
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -650,7 +650,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			checkVirtComponents(imagePullSecrets)
 
 			By("Starting a VMI")
-			vmi := libvmi.New(libvmi.WithResourceMemory("1Mi"))
+			vmi := libvmi.New(libvmi.WithMemoryRequest("1Mi"))
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)

@@ -231,13 +231,13 @@ var _ = Describe(SIG("Storage", func() {
 			newRandomVMIWithPVC := func(claimName string) *v1.VirtualMachineInstance {
 				return libvmi.New(
 					libvmi.WithPersistentVolumeClaim("disk0", claimName),
-					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithMemoryRequest("256Mi"),
 					libvmi.WithRng())
 			}
 			newRandomVMIWithCDRom := func(claimName string) *v1.VirtualMachineInstance {
 				return libvmi.New(
 					libvmi.WithCDRom("disk0", v1.DiskBusSATA, claimName),
-					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithMemoryRequest("256Mi"),
 					libvmi.WithRng())
 			}
 
@@ -306,7 +306,7 @@ var _ = Describe(SIG("Storage", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi = libvmifact.NewCirros(
-					libvmi.WithResourceMemory("512M"),
+					libvmi.WithMemoryRequest("512M"),
 					libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusVirtio, resource.MustParse("1G")),
 				)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
@@ -409,7 +409,7 @@ var _ = Describe(SIG("Storage", func() {
 					pvName = diskAlpineHostPath
 
 					vmi = libvmi.New(
-						libvmi.WithResourceMemory("256Mi"),
+						libvmi.WithMemoryRequest("256Mi"),
 						libvmi.WithEphemeralPersistentVolumeClaim("disk0", pvName),
 					)
 
@@ -424,7 +424,7 @@ var _ = Describe(SIG("Storage", func() {
 			It("[test_id:3137]should not persist data", func() {
 				vmi = libvmi.New(
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithMemoryRequest("256Mi"),
 					libvmi.WithEphemeralPersistentVolumeClaim("disk0", diskAlpineHostPath),
 				)
 
@@ -493,7 +493,7 @@ var _ = Describe(SIG("Storage", func() {
 				vmi = libvmi.New(
 					libvmi.WithPersistentVolumeClaim("disk0", diskAlpineHostPath),
 					libvmi.WithPersistentVolumeClaim("disk1", diskCustomHostPath),
-					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithMemoryRequest("256Mi"),
 					libvmi.WithRng())
 
 				num := 3
@@ -526,7 +526,7 @@ var _ = Describe(SIG("Storage", func() {
 				vmi = libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithHostDisk("host-disk", "somepath", v1.HostDiskExistsOrCreate),
 					// hostdisk needs a privileged namespace
 					libvmi.WithNamespace(testsuite.NamespacePrivileged),
@@ -582,7 +582,7 @@ var _ = Describe(SIG("Storage", func() {
 						vmi = libvmi.New(
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
-							libvmi.WithResourceMemory("128Mi"),
+							libvmi.WithMemoryRequest("128Mi"),
 							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
 							// hostdisk needs a privileged namespace
 							libvmi.WithNamespace(testsuite.NamespacePrivileged),
@@ -613,7 +613,7 @@ var _ = Describe(SIG("Storage", func() {
 						vmi = libvmi.New(
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
-							libvmi.WithResourceMemory("128Mi"),
+							libvmi.WithMemoryRequest("128Mi"),
 							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
 							libvmi.WithHostDisk("anotherdisk", filepath.Join(hostDiskDir, "another.img"), v1.HostDiskExistsOrCreate),
 							// hostdisk needs a privileged namespace
@@ -668,7 +668,7 @@ var _ = Describe(SIG("Storage", func() {
 						vmi = libvmi.New(
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
-							libvmi.WithResourceMemory("128Mi"),
+							libvmi.WithMemoryRequest("128Mi"),
 							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExists),
 							libvmi.WithNodeAffinityFor(nodeName),
 							// hostdisk needs a privileged namespace
@@ -694,7 +694,7 @@ var _ = Describe(SIG("Storage", func() {
 						vmi = libvmi.New(
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
-							libvmi.WithResourceMemory("128Mi"),
+							libvmi.WithMemoryRequest("128Mi"),
 							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExists),
 							libvmi.WithNodeAffinityFor(nodeName),
 							// hostdisk needs a privileged namespace
@@ -717,7 +717,7 @@ var _ = Describe(SIG("Storage", func() {
 						vmi = libvmi.New(
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
-							libvmi.WithResourceMemory("128Mi"),
+							libvmi.WithMemoryRequest("128Mi"),
 							libvmi.WithHostDisk("host-disk", "/data/unknown.img", "unknown"),
 							// hostdisk needs a privileged namespace
 							libvmi.WithNamespace(testsuite.NamespacePrivileged),
@@ -757,7 +757,7 @@ var _ = Describe(SIG("Storage", func() {
 						By(startingVMInstance)
 						vmi = libvmi.New(
 							libvmi.WithPersistentVolumeClaim("disk0", fmt.Sprintf("disk-%s", pvc)),
-							libvmi.WithResourceMemory("256Mi"),
+							libvmi.WithMemoryRequest("256Mi"),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 							libvmi.WithNodeSelectorFor(node))
@@ -847,7 +847,7 @@ var _ = Describe(SIG("Storage", func() {
 					vmi = libvmi.New(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithMemoryRequest("128Mi"),
 						libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
 						libvmi.WithNodeAffinityFor(pod.Spec.NodeName),
 						// hostdisk needs a privileged namespace
@@ -874,7 +874,7 @@ var _ = Describe(SIG("Storage", func() {
 					vmi = libvmi.New(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithMemoryRequest("128Mi"),
 						libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
 						libvmi.WithNodeAffinityFor(pod.Spec.NodeName),
 						// hostdisk needs a privileged namespace
@@ -919,7 +919,7 @@ var _ = Describe(SIG("Storage", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				// Without userdata the hostname isn't set correctly and the login expecter fails...
 				vmi = libvmi.New(
-					libvmi.WithResourceMemory("256Mi"),
+					libvmi.WithMemoryRequest("256Mi"),
 					libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
@@ -966,7 +966,7 @@ var _ = Describe(SIG("Storage", func() {
 				// Start the VirtualMachineInstance
 				pvcName := "nonExistingPVC"
 				vmi = libvmi.New(
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithPersistentVolumeClaim("disk0", pvcName),
 				)
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -1137,14 +1137,14 @@ var _ = Describe(SIG("Storage", func() {
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dv.Name),
-					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithMemoryRequest("1Gi"),
 					libvmi.WithLabel(labelKey, ""),
 				)
 				vmi2 = libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dv.Name),
-					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithMemoryRequest("1Gi"),
 					libvmi.WithLabel(labelKey, ""),
 				)
 
@@ -1326,7 +1326,7 @@ var _ = Describe(SIG("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VMI with LUN disk")
-				vmi := libvmifact.NewCirros(libvmi.WithResourceMemory("512M"))
+				vmi := libvmifact.NewCirros(libvmi.WithMemoryRequest("512M"))
 				addDataVolumeLunDisk(vmi, "lun0", dv.Name)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)

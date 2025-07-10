@@ -161,10 +161,10 @@ func newFakeVMISpecWithResources() *v1.VirtualMachineInstance {
 	return libvmifact.NewCirros(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithResourceMemory("90Mi"),
-		libvmi.WithLimitMemory("90Mi"),
-		libvmi.WithResourceCPU("100m"),
-		libvmi.WithLimitCPU("100m"),
+		libvmi.WithMemoryRequest("90Mi"),
+		libvmi.WithMemoryLimit("90Mi"),
+		libvmi.WithCPURequest("100m"),
+		libvmi.WithCPULimit("100m"),
 		libvmi.WithNodeSelector("type", "kwok"),
 		libvmi.WithToleration(k8sv1.Toleration{
 			Key:      "CriticalAddonsOnly",

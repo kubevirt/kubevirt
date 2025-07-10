@@ -579,7 +579,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 	return libvmifact.NewFedora(libnet.WithMasqueradeNetworking(),
-		libvmi.WithResourceMemory(fedoraVMSize),
+		libvmi.WithMemoryRequest(fedoraVMSize),
 		libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
 }
