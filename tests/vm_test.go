@@ -1329,6 +1329,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeTrue())
 				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
+				g.Expect(vm.Status.InstancetypeRef).ToNot(BeNil())
+				g.Expect(vm.Status.InstancetypeRef.ControllerRevisionRef).ToNot(BeNil())
 				g.Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(BeEmpty())
 			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 
