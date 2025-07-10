@@ -779,28 +779,45 @@ var _ = Describe("Migration watcher", func() {
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
 		})
 
-		It("should not overload the node and only run 2 outbound migrations in parallel", func() {
-			// It should create a pod for this one if we would not limit migrations
-			vmi := newVirtualMachine("testvmi", virtv1.Running)
-			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-
-			addMigration(migration)
-			addVirtualMachineInstance(vmi)
-			addPod(newSourcePodForVirtualMachine(vmi))
-
-			// Ensure that 5 migrations are there which are in non-final state
-			for i := 0; i < 2; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvmi%v", i), virtv1.Running)
-				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, virtv1.MigrationScheduling)
+		DescribeTable("should not overload the node and only run 2 outbound migrations in parallel",
+			func(generateVMIandMigration func(int)) {
+				// It should create a pod for this one if we would not limit migrations
+				vmi := newVirtualMachine("testvmi", virtv1.Running)
+				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
 
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
-			}
+				addPod(newSourcePodForVirtualMachine(vmi))
 
-			sanityExecute()
+				const defaultMaxOutboundMigrationsPerNode = 2
+				for i := 0; i < defaultMaxOutboundMigrationsPerNode; i++ {
+					generateVMIandMigration(i)
+				}
+				sanityExecute()
 
-			expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("testvmi"), "testmigration")
-		})
+				expectPodDoesNotExist(vmi.Namespace, "testvmi", "testmigration")
+			},
+			Entry("with 2 active migrations scheduling",
+				func(count int) {
+					migratingVMI := newVirtualMachine(fmt.Sprintf("testvmi%v", count), virtv1.Running)
+					activeMigration := newMigration(fmt.Sprintf("testmigration%v", count), migratingVMI.Name, virtv1.MigrationScheduling)
+					addMigration(activeMigration)
+					addVirtualMachineInstance(migratingVMI)
+				},
+			),
+			Entry("with 2 active migrations running but virt-handler having ACKed the VMI on the target - bug #14979",
+				func(count int) {
+					migratingVMI := newVirtualMachine(fmt.Sprintf("testvmi%v", count), virtv1.Running)
+					migratingVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+						SourceNode: migratingVMI.Status.NodeName,
+					}
+					migratingVMI.Status.NodeName = "target"
+					activeMigration := newMigration(fmt.Sprintf("testmigration%v", count), migratingVMI.Name, virtv1.MigrationRunning)
+					addMigration(activeMigration)
+					addVirtualMachineInstance(migratingVMI)
+				},
+			),
+		)
 
 		It("should create target pod and not override existing affinity rules", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
