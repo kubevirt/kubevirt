@@ -194,20 +194,10 @@ var _ = Describe("Container spec renderer", func() {
 						MountPath: "/var/run/kubevirt-private/secret/pepitos-drive/userdata",
 						SubPath:   "userdata",
 					}, k8sv1.VolumeMount{
-						Name:      "pepitos-drive-udata",
-						ReadOnly:  true,
-						MountPath: "/var/run/kubevirt-private/secret/pepitos-drive/userData",
-						SubPath:   "userData",
-					}, k8sv1.VolumeMount{
 						Name:      "pepitos-drive-ndata",
 						ReadOnly:  true,
 						MountPath: "/var/run/kubevirt-private/secret/pepitos-drive/networkdata",
 						SubPath:   "networkdata",
-					}, k8sv1.VolumeMount{
-						Name:      "pepitos-drive-ndata",
-						ReadOnly:  true,
-						MountPath: "/var/run/kubevirt-private/secret/pepitos-drive/networkData",
-						SubPath:   "networkData",
 					})))
 		})
 

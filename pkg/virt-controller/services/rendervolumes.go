@@ -263,12 +263,6 @@ func (vr *VolumeRenderer) handleCloudInitConfigDrive(volume v1.Volume) {
 				SubPath:   "userdata",
 				ReadOnly:  true,
 			})
-			vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
-				Name:      volumeName,
-				MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userData"),
-				SubPath:   "userData",
-				ReadOnly:  true,
-			})
 		}
 		if volume.CloudInitConfigDrive.NetworkDataSecretRef != nil {
 			// attach a secret referenced by the networkdata
@@ -285,12 +279,6 @@ func (vr *VolumeRenderer) handleCloudInitConfigDrive(volume v1.Volume) {
 				Name:      volumeName,
 				MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
 				SubPath:   "networkdata",
-				ReadOnly:  true,
-			})
-			vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
-				Name:      volumeName,
-				MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkData"),
-				SubPath:   "networkData",
 				ReadOnly:  true,
 			})
 		}
@@ -780,12 +768,6 @@ func (vr *VolumeRenderer) handleCloudInitNoCloud(volume v1.Volume) {
 			SubPath:   "userdata",
 			ReadOnly:  true,
 		})
-		vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
-			Name:      volumeName,
-			MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userData"),
-			SubPath:   "userData",
-			ReadOnly:  true,
-		})
 	}
 	if volume.CloudInitNoCloud.NetworkDataSecretRef != nil {
 		// attach a secret referenced by the networkdata
@@ -802,12 +784,6 @@ func (vr *VolumeRenderer) handleCloudInitNoCloud(volume v1.Volume) {
 			Name:      volumeName,
 			MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
 			SubPath:   "networkdata",
-			ReadOnly:  true,
-		})
-		vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
-			Name:      volumeName,
-			MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkData"),
-			SubPath:   "networkData",
 			ReadOnly:  true,
 		})
 	}
