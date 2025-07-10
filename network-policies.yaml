@@ -92,3 +92,19 @@ spec:
   - ports:
     - protocol: TCP
       port: webhooks
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-virt-exportproxy-server
+  namespace: kubevirt
+spec:
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-exportproxy
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: exportproxy
