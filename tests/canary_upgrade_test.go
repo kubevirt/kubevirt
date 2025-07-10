@@ -169,7 +169,7 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 		return eventsQueue
 	}
 
-	It("[QUARANTINE]should successfully upgrade virt-handler", decorators.RequiresTwoSchedulableNodes, decorators.Quarantine, func() {
+	It("should successfully upgrade virt-handler", decorators.RequiresTwoSchedulableNodes, func() {
 		var expectedEventsLock sync.Mutex
 		expectedEvents := []string{
 			"maxUnavailable=1",
