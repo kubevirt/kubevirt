@@ -1506,6 +1506,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 	domain.Spec.LaunchSecurity = c.Architecture.LaunchSecurity(vmi)
+	if c.UseLaunchSecurityTDX {
+		domain.Spec.LaunchSecurity.QGS = &api.QGS{}
+		domain.Spec.LaunchSecurity.QGS.SockAddr.Type = "unix"
+		domain.Spec.LaunchSecurity.QGS.SockAddr.Path = "/var/run/tdx-qgs/qgs.socket"
+	}
 
 	if c.SMBios != nil {
 		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,

@@ -1067,6 +1067,14 @@ type LaunchSecurity struct {
 	MrConfigId    string `xml:"mrConfigId,omitempty"`
 	MrOwner       string `xml:"mrOwner,omitempty"`
 	MrOwnerConfig string `xml:"mrOwnerConfig,omitempty"`
+	QGS           *QGS   `xml:"quoteGenerationService,omitempty"`
+}
+
+type QGS struct {
+       SockAddr struct {
+               Type string `xml:"type,attr"`
+               Path string `xml:"path,attr"`
+       } `xml:"SocketAddress,omitempty"`
 }
 
 //END LaunchSecurity --------------------

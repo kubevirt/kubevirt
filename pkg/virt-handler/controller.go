@@ -202,6 +202,34 @@ func (c *BaseController) configureSEVDeviceOwnership(vmi *v1.VirtualMachineInsta
 	return nil
 }
 
+func (c *BaseController) configureTDXDeviceOwnership(vmi *v1.VirtualMachineInstance, virtLauncherRootMount *safepath.Path) error {
+	tdxDevice, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", "sgx_provision"))
+	if err != nil {
+		return fmt.Errorf("holaaa %v", err)
+	}
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(tdxDevice); err != nil {
+		return fmt.Errorf("failed to set TDX device owner: %v", err)
+	}
+
+	tdx2Device, err1 := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", "sgx_enclave"))
+	if err != nil {
+		return fmt.Errorf("holaaa %v", err1)
+	}
+	if err1 := diskutils.DefaultOwnershipManager.SetFileOwnership(tdx2Device); err1 != nil {
+		return fmt.Errorf("failed to set TDX device owner: %v", err1)
+	}
+
+	tdx3Device, err2 := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", "sgx_vepc"))
+	if err2 != nil {
+		return fmt.Errorf("holaaa %v", err2)
+	}
+	if err2 := diskutils.DefaultOwnershipManager.SetFileOwnership(tdx3Device); err2 != nil {
+		return fmt.Errorf("failed to set TDX device owner: %v", err2)
+	}
+
+	return nil
+}
+
 func (c *BaseController) configureVirtioFS(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) error {
 	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
 		socketPath, err := isolation.SafeJoin(isolationRes, virtiofs.VirtioFSSocketPath(fs.Name))
@@ -242,6 +270,10 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 	}
 
 	if err := c.configureSEVDeviceOwnership(vmi, virtLauncherRootMount); err != nil {
+		return err
+	}
+
+	if err := c.configureTDXDeviceOwnership(vmi, virtLauncherRootMount); err != nil {
 		return err
 	}
 

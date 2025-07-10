@@ -852,7 +852,30 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// expand disk image files if they're too small
 	expandDiskImagesOffline(vmi, domain)
 
+	if err := ensureTDXQuoteGenerationSocket(domain); err != nil {
+		return domain, err
+	}
+
 	return domain, err
+}
+
+func ensureTDXQuoteGenerationSocket(domain *api.Domain) error {
+	if domain.Spec.LaunchSecurity.QGS.SockAddr.Path == "" {
+		return nil
+	}
+
+	qgs_bin, err := exec.LookPath("qgs")
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command(qgs_bin, "-m=0666")
+	_, err = cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {

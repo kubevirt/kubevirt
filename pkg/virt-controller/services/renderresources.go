@@ -492,6 +492,9 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k
 	if util.IsAutoAttachVSOCK(vmi) {
 		res[VhostVsockDevice] = resource.MustParse("1")
 	}
+	res[TdxProvisionDevice] = resource.MustParse("1")
+	res[TdxEnclaveDevice] = resource.MustParse("1")
+	res[TdxVepcDevice] = resource.MustParse("1")
 	return res
 }
 
