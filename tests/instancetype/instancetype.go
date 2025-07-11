@@ -1011,7 +1011,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating the VirtualMachine")
 			_, err := virtClient.VirtualMachine(namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(MatchError("admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: VM field(s) spec.template.spec.domain.memory conflicts with selected instance type"))
+			Expect(err).To(MatchError("admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: VM field(s) spec.template.spec.domain.memory.guest conflicts with selected instance type"))
 		},
 			Entry("with explicitly setting RejectInferFromVolumeFailure", true),
 			Entry("with implicitly setting RejectInferFromVolumeFailure (default)", false),
