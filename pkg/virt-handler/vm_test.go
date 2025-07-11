@@ -371,6 +371,37 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
 		})
 
+		It("should attempt graceful shutdown and take the VMI grace period over the cached Domain grace", func() {
+			vmi := libvmi.New(libvmi.WithName("testvmi"),
+				libvmi.WithNamespace(k8sv1.NamespaceDefault),
+				libvmi.WithTerminationGracePeriod(0))
+
+			initialGrace := int64(30)
+			domain := api.NewMinimalDomainWithNS(vmi.Namespace, vmi.Name)
+			domain.Spec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{DeletionGracePeriodSeconds: initialGrace}
+
+			hasExpired, timeLeft := controller.hasGracePeriodExpired(vmi.Spec.TerminationGracePeriodSeconds, domain)
+			Expect(timeLeft).To(BeEquivalentTo(0))
+			Expect(hasExpired).To(BeTrue())
+		})
+
+		It("should attempt graceful shutdown and and fall back to cached Domain grace period when VMI grace is unset", func() {
+			vmi := libvmi.New(libvmi.WithName("testvmi"),
+				libvmi.WithNamespace(k8sv1.NamespaceDefault))
+
+			initialGrace := int64(30)
+			now := metav1.Time{Time: time.Now()}
+			domain := api.NewMinimalDomainWithNS(vmi.Namespace, vmi.Name)
+			domain.Spec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{
+				DeletionGracePeriodSeconds: initialGrace,
+				DeletionTimestamp:          &now,
+			}
+
+			hasExpired, timeLeft := controller.hasGracePeriodExpired(vmi.Spec.TerminationGracePeriodSeconds, domain)
+			Expect(timeLeft).To(BeEquivalentTo(initialGrace))
+			Expect(hasExpired).To(BeFalse())
+		})
+
 		It("should do nothing if vmi and domain do not match", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = "other uuid"
