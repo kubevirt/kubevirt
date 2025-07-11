@@ -37,6 +37,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 	migrationsv1alpha1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	poolv1alpha1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
+	poolv1beta1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
 	snapshotv1alpha1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1alpha1"
 	snapshotv1beta1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
 )
@@ -53,6 +54,7 @@ type Interface interface {
 	InstancetypeV1beta1() instancetypev1beta1.InstancetypeV1beta1Interface
 	MigrationsV1alpha1() migrationsv1alpha1.MigrationsV1alpha1Interface
 	PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface
+	PoolV1beta1() poolv1beta1.PoolV1beta1Interface
 	SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface
 	SnapshotV1beta1() snapshotv1beta1.SnapshotV1beta1Interface
 }
@@ -70,6 +72,7 @@ type Clientset struct {
 	instancetypeV1beta1  *instancetypev1beta1.InstancetypeV1beta1Client
 	migrationsV1alpha1   *migrationsv1alpha1.MigrationsV1alpha1Client
 	poolV1alpha1         *poolv1alpha1.PoolV1alpha1Client
+	poolV1beta1          *poolv1beta1.PoolV1beta1Client
 	snapshotV1alpha1     *snapshotv1alpha1.SnapshotV1alpha1Client
 	snapshotV1beta1      *snapshotv1beta1.SnapshotV1beta1Client
 }
@@ -122,6 +125,11 @@ func (c *Clientset) MigrationsV1alpha1() migrationsv1alpha1.MigrationsV1alpha1In
 // PoolV1alpha1 retrieves the PoolV1alpha1Client
 func (c *Clientset) PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface {
 	return c.poolV1alpha1
+}
+
+// PoolV1beta1 retrieves the PoolV1beta1Client
+func (c *Clientset) PoolV1beta1() poolv1beta1.PoolV1beta1Interface {
+	return c.poolV1beta1
 }
 
 // SnapshotV1alpha1 retrieves the SnapshotV1alpha1Client
@@ -218,6 +226,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.poolV1beta1, err = poolv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.snapshotV1alpha1, err = snapshotv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -257,6 +269,7 @@ func New(c rest.Interface) *Clientset {
 	cs.instancetypeV1beta1 = instancetypev1beta1.New(c)
 	cs.migrationsV1alpha1 = migrationsv1alpha1.New(c)
 	cs.poolV1alpha1 = poolv1alpha1.New(c)
+	cs.poolV1beta1 = poolv1beta1.New(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.New(c)
 	cs.snapshotV1beta1 = snapshotv1beta1.New(c)
 
