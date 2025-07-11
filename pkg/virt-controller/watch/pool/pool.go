@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 

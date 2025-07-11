@@ -72,7 +72,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 
 	exportv1 "kubevirt.io/api/export/v1beta1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
