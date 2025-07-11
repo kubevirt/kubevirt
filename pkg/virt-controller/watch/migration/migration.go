@@ -117,6 +117,7 @@ type Controller struct {
 	podExpectations      *controller.UIDTrackingControllerExpectations
 	pvcExpectations      *controller.UIDTrackingControllerExpectations
 	migrationStartLock   *sync.Mutex
+	migrationLimiter     *NodeMigrationLimiter
 	clusterConfig        *virtconfig.ClusterConfig
 	hasSynced            func() bool
 
@@ -125,10 +126,6 @@ type Controller struct {
 	handOffLock sync.Mutex
 	handOffMap  map[string]struct{}
 
-	// This is a map with semaphores to limit the number of migrations per node
-	// This is simply a bicket of permits per node.
-	// It maps a nodeName to a bucket with number of permits equal to the ParallelOutboundMigrationsPerNode
-	migrationPermitsBucket             sync.Map
 	unschedulablePendingTimeoutSeconds int64
 	catchAllPendingTimeoutSeconds      int64
 }
@@ -175,6 +172,9 @@ func NewController(templateService services.TemplateService,
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
 	}
+
+	parallelOutboundMigrationsPerNode := c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode
+	c.migrationLimiter = NewNodeMigrationLimiter(int64(*parallelOutboundMigrationsPerNode))
 
 	c.hasSynced = func() bool {
 		return vmiInformer.HasSynced() &&
@@ -495,7 +495,7 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 			nodeToRelease = vmi.Status.NodeName
 		}
 		if nodeToRelease != "" {
-			c.releaseMigrationPermit(nodeToRelease)
+			c.migrationLimiter.Release(nodeToRelease)
 		}
 	} else if vmi == nil {
 		err := c.failMigration(migrationCopy)
@@ -1200,36 +1200,6 @@ func (c *Controller) markMigrationAbortInVmiStatus(migration *virtv1.VirtualMach
 	return nil
 }
 
-// try to get a migration permi for a node
-func (c *Controller) acquireMigrationPermit(nodeName string) bool {
-	parallelOutbound := int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
-	bucket, _ := c.migrationPermitsBucket.LoadOrStore(nodeName, make(chan struct{}, parallelOutbound))
-	select {
-	//try to get a permit; it fills the channel, if there is room it means that we got a permit.
-	case bucket.(chan struct{}) <- struct{}{}:
-		log.Log.V(4).Infof("Acquired migration permit for node %s", nodeName)
-		return true
-	default:
-		// no available permits
-		log.Log.V(4).Infof("Failed to get a migration permit for a node %s", nodeName)
-		return false
-	}
-}
-
-// release a permit for the given node - put it back into a bucket.
-func (c *Controller) releaseMigrationPermit(nodeName string) {
-	if bucket, ok := c.migrationPermitsBucket.Load(nodeName); ok {
-		select {
-		// reading removes frees a slot/permit.
-		case <-bucket.(chan struct{}):
-			log.Log.V(4).Infof("Released migration permit for node %s", nodeName)
-		default:
-			// all permits are free already.
-			log.Log.V(4).Infof("No permits to release for node %s", nodeName)
-		}
-	}
-}
-
 func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
 	c.migrationStartLock.Lock()
 	defer c.migrationStartLock.Unlock()
@@ -1262,7 +1232,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	// Let's ensure that we only have two outbound migrations per node
 	// Check the semaphore before checking outbound migrations
 	// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
-	if !c.acquireMigrationPermit(vmi.Status.NodeName) {
+	if !c.migrationLimiter.Acquire(vmi.Status.NodeName) {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because node %s has reached its outbound migration limit.", vmi.Namespace, vmi.Name, vmi.Status.NodeName)
 		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: lowPriority, After: 5 * time.Second}, key)
 		return nil
@@ -1273,19 +1243,19 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	if vmi.IsRunning() || migration.IsDecentralizedTarget() {
 		err = c.handleBackendStorage(migration, vmi)
 		if err != nil {
-			c.releaseMigrationPermit(vmi.Status.NodeName)
+			c.migrationLimiter.Release(vmi.Status.NodeName)
 			return err
 		}
 		err = c.createTargetPod(migration, vmi, sourcePod)
 		if err != nil {
-			c.releaseMigrationPermit(vmi.Status.NodeName)
+			c.migrationLimiter.Release(vmi.Status.NodeName)
 			return err
 		}
 		return nil
 	}
 	log.Log.Object(vmi).V(5).Info("target pod not created because vmi is not running and migration is not decentralized target migration")
 	// release the permit since no pod was created
-	c.releaseMigrationPermit(vmi.Status.NodeName)
+	c.migrationLimiter.Release(vmi.Status.NodeName)
 	return nil
 }
 
