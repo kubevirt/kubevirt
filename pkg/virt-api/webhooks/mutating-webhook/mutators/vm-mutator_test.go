@@ -181,6 +181,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 						Amd64:   &v1.ArchSpecificConfiguration{MachineType: amd64MachineType},
 						Arm64:   &v1.ArchSpecificConfiguration{MachineType: arm64MachineType},
 						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: ppc64leMachineType},
+						S390x:   &v1.ArchSpecificConfiguration{MachineType: s390xMachineType},
 					},
 				},
 			},
@@ -193,7 +194,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Entry("when override is for amd64 architecture", "amd64", machineTypeFromConfig, "", "", "", machineTypeFromConfig),
 		Entry("when override is for arm64 architecture", "arm64", "", machineTypeFromConfig, "", "", machineTypeFromConfig),
 		Entry("when override is for ppc64le architecture", "ppc64le", "", "", machineTypeFromConfig, "", machineTypeFromConfig),
-		Entry("when override is for s390x architecture, no override", "s390x", "", "", "", machineTypeFromConfig, "s390-ccw-virtio"),
+		Entry("when override is for s390x architecture", "s390x", "", "", "", machineTypeFromConfig, machineTypeFromConfig),
 	)
 
 	It("should not override default architecture with defaults on VM create", func() {
@@ -307,17 +308,15 @@ var _ = Describe("VirtualMachine Mutator", func() {
 						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						S390x:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 					},
 				},
 			},
 		})
 
 		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
-		if rt.GOARCH == "s390x" {
-			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("s390-ccw-virtio"))
-		} else {
-			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
-		}
+
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 
 	})
 
