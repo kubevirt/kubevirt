@@ -44,7 +44,7 @@ import (
 	cdiv1fake "kubevirt.io/client-go/containerizeddataimporter/fake"
 
 	v1 "kubevirt.io/api/core/v1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	"kubevirt.io/client-go/testing"
@@ -174,7 +174,7 @@ var _ = Describe("Pool", func() {
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
-			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(fakeVirtClient.PoolV1alpha1().VirtualMachinePools(testNamespace)).AnyTimes()
+			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(fakeVirtClient.PoolV1beta1().VirtualMachinePools(testNamespace)).AnyTimes()
 
 			k8sClient = k8sfake.NewSimpleClientset()
 			cdiClient = cdiv1fake.NewSimpleClientset()
@@ -184,7 +184,7 @@ var _ = Describe("Pool", func() {
 		})
 
 		addPool := func(pool *poolv1.VirtualMachinePool) {
-			_, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Create(context.TODO(), pool, metav1.CreateOptions{})
+			_, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Create(context.TODO(), pool, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			controller.poolIndexer.Add(pool)
@@ -381,7 +381,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			vmpool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmpool.Status.Replicas).To(Equal(int32(0)))
 			Expect(vmpool.Status.Conditions).To(HaveLen(1))
@@ -403,7 +403,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			vmpool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmpool.Status.Replicas).To(Equal(int32(0)))
 			Expect(vmpool.Status.Conditions).To(HaveLen(1))
@@ -430,7 +430,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			vmpool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmpool.Status.Replicas).To(Equal(int32(0)))
 			Expect(vmpool.Status.Conditions).To(Not(ContainElement(
@@ -454,7 +454,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			vmpool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmpool.Status.Conditions).To(Not(ContainElement(
 				HaveField("Type", Equal(poolv1.VirtualMachinePoolReplicaPaused)),
@@ -492,7 +492,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			vmpool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmpool.Status.Replicas).To(Equal(int32(15)))
 
@@ -525,7 +525,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			vmpool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmpool.Status.Replicas).To(Equal(int32(10)))
 
@@ -581,7 +581,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			vmpool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmpool.Status.Replicas).To(Equal(int32(0)))
 		})
@@ -725,7 +725,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			pool, err = fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			pool, err = fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pool.Status.Replicas).To(Equal(int32(5)))
 
@@ -772,7 +772,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			pool, err = fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			pool, err = fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pool.Status.Replicas).To(Equal(int32(5)))
 
@@ -830,7 +830,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			pool, err = fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			pool, err = fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pool.Status.Replicas).To(Equal(int32(5)))
 
@@ -910,7 +910,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			vmpool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmpool.Status.Replicas).To(Equal(int32(5)))
 
@@ -978,7 +978,7 @@ var _ = Describe("Pool", func() {
 				Expect(dv.OwnerReferences[0].UID).To(Equal(vm2.UID))
 			}
 
-			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			vmpool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmpool.Status.Replicas).To(Equal(int32(2)))
 		})
@@ -1009,7 +1009,7 @@ var _ = Describe("Pool", func() {
 
 			pool.Spec.Replicas = pointer.P(int32(2))
 
-			_, err = fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Update(context.TODO(), pool, metav1.UpdateOptions{})
+			_, err = fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Update(context.TODO(), pool, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			sanityExecute()
@@ -1104,7 +1104,7 @@ var _ = Describe("Pool", func() {
 			pool.DeletionTimestamp = pointer.P(metav1.Now())
 			pool.ObjectMeta.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
 
-			_, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Update(context.TODO(), pool, metav1.UpdateOptions{})
+			_, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Update(context.TODO(), pool, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			sanityExecute()
@@ -1213,7 +1213,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			vmpool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmpool.Status.Conditions).To(HaveLen(1))
 			Expect(vmpool.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaFailure))
@@ -1268,7 +1268,7 @@ var _ = Describe("Pool", func() {
 
 			sanityExecute()
 
-			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			vmpool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmpool.Status.Replicas).To(Equal(int32(2)))
 
