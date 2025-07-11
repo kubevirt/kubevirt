@@ -258,6 +258,15 @@ func StorageWithVolumeSize(size string) storageOption {
 	}
 }
 
+// StorageWithoutVolumeSize removes the default volume size, useful for clones
+func StorageWithoutVolumeSize() storageOption {
+	return func(storage *v1beta1.StorageSpec) {
+		if storage != nil {
+			storage.Resources.Requests = nil
+		}
+	}
+}
+
 // StorageWithVolumeMode adds the volume mode to the DV
 func StorageWithVolumeMode(volumeMode corev1.PersistentVolumeMode) storageOption {
 	return func(storage *v1beta1.StorageSpec) {
