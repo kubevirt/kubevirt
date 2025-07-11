@@ -61,7 +61,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/api/migrations"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	"kubevirt.io/api/snapshot"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -516,7 +516,7 @@ func (f *kubeInformerFactory) VMIReplicaSet() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) VMPool() cache.SharedIndexInformer {
 	return f.getInformer("vmpool", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().PoolV1alpha1().RESTClient(), "virtualmachinepools", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().PoolV1beta1().RESTClient(), "virtualmachinepools", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &poolv1.VirtualMachinePool{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }

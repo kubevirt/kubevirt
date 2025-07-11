@@ -1,5 +1,5 @@
 ---
-apiVersion: pool.kubevirt.io/v1alpha1
+apiVersion: pool.kubevirt.io/v1beta1
 kind: VirtualMachinePool
 metadata:
   name: vm-pool-cirros
