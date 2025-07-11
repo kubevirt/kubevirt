@@ -661,6 +661,23 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolUnmanagedStrategy":                               schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolUnmanagedStrategy(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolUpdateStrategy":                                  schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolUpdateStrategy(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachineTemplateSpec":                                        schema_kubevirtio_api_pool_v1alpha1_VirtualMachineTemplateSpec(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachineOpportunisticUpdateStrategy":                          schema_kubevirtio_api_pool_v1beta1_VirtualMachineOpportunisticUpdateStrategy(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePool":                                                 schema_kubevirtio_api_pool_v1beta1_VirtualMachinePool(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolAutohealingStrategy":                              schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolAutohealingStrategy(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolCondition":                                        schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolCondition(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolList":                                             schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolList(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolNameGeneration":                                   schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolNameGeneration(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolOpportunisticScaleInStrategy":                     schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolOpportunisticScaleInStrategy(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolProactiveScaleInStrategy":                         schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolProactiveScaleInStrategy(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolProactiveUpdateStrategy":                          schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolProactiveUpdateStrategy(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolScaleInStrategy":                                  schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolScaleInStrategy(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolSelectionPolicy":                                  schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolSelectionPolicy(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolSelectors":                                        schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolSelectors(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolSpec":                                             schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolSpec(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolStatus":                                           schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolStatus(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolUnmanagedStrategy":                                schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolUnmanagedStrategy(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolUpdateStrategy":                                   schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolUpdateStrategy(ref),
+		"kubevirt.io/api/pool/v1beta1.VirtualMachineTemplateSpec":                                         schema_kubevirtio_api_pool_v1beta1_VirtualMachineTemplateSpec(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.Condition":                                                     schema_kubevirtio_api_snapshot_v1alpha1_Condition(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.Error":                                                         schema_kubevirtio_api_snapshot_v1alpha1_Error(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.PersistentVolumeClaim":                                         schema_kubevirtio_api_snapshot_v1alpha1_PersistentVolumeClaim(ref),
@@ -31880,6 +31897,572 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolUpdateStrategy(ref co
 }
 
 func schema_kubevirtio_api_pool_v1alpha1_VirtualMachineTemplateSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineSpec contains the VirtualMachine specification.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineSpec"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/core/v1.VirtualMachineSpec"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachineOpportunisticUpdateStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePool(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePool resource contains a VirtualMachine configuration that can be used to replicate multiple VirtualMachine resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/pool/v1beta1.VirtualMachinePoolSpec", "kubevirt.io/api/pool/v1beta1.VirtualMachinePoolStatus"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolAutohealingStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"startUpFailureThreshold": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartUpFailureThreshold is the number of consecutive VMI start failures (it tracks the value of Status.StartFailure.ConsecutiveFailCount field) before replacing the VM. Defaults to 3",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"minFailingToStartDuration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MinFailingToStartDuration is the minimum time a VM must be in a failing status (applies to status conditions like CrashLoopBackOff, Unschedulable) before being replaced. It measures the duration since the VM's Ready condition transitioned to False. Defaults to 5 minutes",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"lastProbeTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePoolList is a list of VirtualMachinePool resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePool"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/pool/v1beta1.VirtualMachinePool"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolNameGeneration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"appendIndexToConfigMapRefs": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"appendIndexToSecretRefs": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolOpportunisticScaleInStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePoolOpportunisticScaleInStrategy represents opportunistic scale-in strategy",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"statePreservation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies if and how to preserve the state of the VMs selected during scale-in. Disabled - (Default) all state for VMs selected for scale-in will be deleted. Offline - PVCs for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning time during scale out). Online - PVCs and memory for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning and boot time during scale out).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolProactiveScaleInStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePoolProactiveScaleInStrategy represents proactive scale-in strategy",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"selectionPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in Defaults to \"Random\" base policy when no SelectionPolicy is configured",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolSelectionPolicy"),
+						},
+					},
+					"statePreservation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies if and how to preserve the state of the VMs selected during scale-in. Disabled - (Default) all state for VMs selected for scale-in will be deleted. Offline - PVCs for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning time during scale out). Online - PVCs and memory for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning and boot time during scale out).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolSelectionPolicy"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolProactiveUpdateStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePoolProactiveUpdateStrategy represents proactive update strategy",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"selectionPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SelectionPolicy defines the priority in which VM instances are selected for proactive update Defaults to \"Random\" base policy when no SelectionPolicy is configured",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolSelectionPolicy"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolSelectionPolicy"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolScaleInStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePoolScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"unmanaged": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The VM is never touched after creation. Users are responsible for scaling in the pool manually.",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolUnmanagedStrategy"),
+						},
+					},
+					"opportunistic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Opportunistic scale-in is a strategy when vms are deleted by some other means than the scale-in action. For example, when the VM is deleted by the user or when the VM is deleted by the node that is hosting the VM.",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolOpportunisticScaleInStrategy"),
+						},
+					},
+					"proactive": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Proactive scale-in by forcing VMs to shutdown during scale-in (Default)",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolProactiveScaleInStrategy"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolOpportunisticScaleInStrategy", "kubevirt.io/api/pool/v1beta1.VirtualMachinePoolProactiveScaleInStrategy", "kubevirt.io/api/pool/v1beta1.VirtualMachinePoolUnmanagedStrategy"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolSelectionPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for proactive scale-in or update",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"sortPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SortPolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"selectors": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Selectors is a list of selection policies.",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolSelectors"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolSelectors"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolSelectors(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePoolSelectors specifies filtering criteria for VM selection. If both are specified, both must match for a VM to be selected. If only one is specified, only that one must match for a VM to be selected.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"labelSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LabelSelector is a list of label selector for VMs.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+					"nodeSelectorRequirementMatcher": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeSelectorRequirementMatcher is a list of node selector requirement for VMs.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.NodeSelectorRequirement"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.NodeSelectorRequirement", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"replicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"selector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Label selector for pods. Existing Poolss whose pods are selected by this will be the ones affected by this deployment.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+					"virtualMachineTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Template describes the VM that will be created.",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachineTemplateSpec"),
+						},
+					},
+					"paused": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indicates that the pool is paused.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"nameGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Options for the name generation in a pool.",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolNameGeneration"),
+						},
+					},
+					"maxUnavailable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.",
+							Ref:         ref("k8s.io/apimachinery/pkg/util/intstr.IntOrString"),
+						},
+					},
+					"scaleInStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolScaleInStrategy"),
+						},
+					},
+					"updateStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolUpdateStrategy"),
+						},
+					},
+					"autohealing": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolAutohealingStrategy"),
+						},
+					},
+				},
+				Required: []string{"selector", "virtualMachineTemplate"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "k8s.io/apimachinery/pkg/util/intstr.IntOrString", "kubevirt.io/api/pool/v1beta1.VirtualMachinePoolAutohealingStrategy", "kubevirt.io/api/pool/v1beta1.VirtualMachinePoolNameGeneration", "kubevirt.io/api/pool/v1beta1.VirtualMachinePoolScaleInStrategy", "kubevirt.io/api/pool/v1beta1.VirtualMachinePoolUpdateStrategy", "kubevirt.io/api/pool/v1beta1.VirtualMachineTemplateSpec"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"replicas": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"readyReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolCondition"),
+									},
+								},
+							},
+						},
+					},
+					"labelSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Canonical form of the label selector for HPA which consumes it through the scale subresource.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/pool/v1beta1.VirtualMachinePoolCondition"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolUnmanagedStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolUpdateStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePoolUpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool, by default it is proactive update.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"unmanaged": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Unmanaged indicates that no automatic update of VMs within a VMPool is performed. When this is set, the VMPool controller will not update the VMs within the pool.",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolUnmanagedStrategy"),
+						},
+					},
+					"opportunistic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Opportunistic update only gets applied to the VM, VMI is updated naturally upon the restart. Whereas proactive it applies both the VM and VMI right away.",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachineOpportunisticUpdateStrategy"),
+						},
+					},
+					"proactive": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Proactive update by forcing the VMs to restart during update",
+							Ref:         ref("kubevirt.io/api/pool/v1beta1.VirtualMachinePoolProactiveUpdateStrategy"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/pool/v1beta1.VirtualMachineOpportunisticUpdateStrategy", "kubevirt.io/api/pool/v1beta1.VirtualMachinePoolProactiveUpdateStrategy", "kubevirt.io/api/pool/v1beta1.VirtualMachinePoolUnmanagedStrategy"},
+	}
+}
+
+func schema_kubevirtio_api_pool_v1beta1_VirtualMachineTemplateSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
