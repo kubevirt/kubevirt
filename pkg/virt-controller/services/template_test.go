@@ -1026,8 +1026,10 @@ var _ = Describe("Template", func() {
 				pod, err = svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 			})
-			It("should mount default serviceAccountToken", func() {
+			It("should mount default serviceAccountToken, propagate label and annotation", func() {
 				Expect(*pod.Spec.AutomountServiceAccountToken).To(BeTrue())
+				Expect(pod.Labels).To(HaveKeyWithValue(istio.InjectSidecarLabel, "true"))
+				Expect(pod.Annotations).To(HaveKeyWithValue(istio.InjectSidecarAnnotation, "true"))
 			})
 		})
 		Context("with node selectors", func() {

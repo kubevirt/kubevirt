@@ -1570,6 +1570,9 @@ func podLabels(vmi *v1.VirtualMachineInstance, hostName string) map[string]strin
 	labels[v1.AppLabel] = "virt-launcher"
 	labels[v1.CreatedByLabel] = string(vmi.UID)
 	labels[v1.VirtualMachineNameLabel] = hostName
+	if val, exists := vmi.Annotations[istio.InjectSidecarAnnotation]; exists {
+		labels[istio.InjectSidecarLabel] = val
+	}
 	return labels
 }
 
