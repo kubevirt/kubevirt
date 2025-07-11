@@ -41,7 +41,8 @@ import (
 	exportv1alpha1 "kubevirt.io/api/export/v1alpha1"
 	exportv1beta1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1beta1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 
@@ -61,7 +62,7 @@ var (
 	VIRTUALMACHINEINSTANCEREPLICASET = "virtualmachineinstancereplicasets." + virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
 	VIRTUALMACHINEINSTANCEMIGRATION  = "virtualmachineinstancemigrations." + virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group
 	KUBEVIRT                         = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
-	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1.SchemeGroupVersion.Group
+	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1beta1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1beta1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1beta1.SchemeGroupVersion.Group
 	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1beta1.SchemeGroupVersion.Group
@@ -395,10 +396,15 @@ func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEPOOL
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: poolv1.SchemeGroupVersion.Group,
+		Group: poolv1beta1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
-				Name:    poolv1.SchemeGroupVersion.Version,
+				Name:    poolv1alpha1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+			{
+				Name:    poolv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
 			},
