@@ -167,6 +167,7 @@ func NewController(
 	virtShareDir string,
 	virtPrivateDir string,
 	kubeletPodsDir string,
+	vmiInformer cache.SharedIndexInformer,
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -204,6 +205,7 @@ func NewController(
 		host:                             host,
 		migrationIpAddress:               migrationIpAddress,
 		virtShareDir:                     virtShareDir,
+		vmiStore:                         vmiInformer.GetStore(),
 		vmiSourceStore:                   vmiSourceInformer.GetStore(),
 		vmiTargetStore:                   vmiTargetInformer.GetStore(),
 		domainStore:                      domainInformer.GetStore(),
@@ -226,7 +228,7 @@ func NewController(
 	}
 
 	c.hasSynced = func() bool {
-		return domainInformer.HasSynced() && vmiSourceInformer.HasSynced() && vmiTargetInformer.HasSynced()
+		return domainInformer.HasSynced() && vmiSourceInformer.HasSynced() && vmiTargetInformer.HasSynced() && vmiInformer.HasSynced()
 	}
 
 	_, err := vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -298,6 +300,7 @@ type VirtualMachineController struct {
 	virtShareDir             string
 	virtPrivateDir           string
 	queue                    workqueue.TypedRateLimitingInterface[string]
+	vmiStore                 cache.Store
 	vmiSourceStore           cache.Store
 	vmiTargetStore           cache.Store
 	domainStore              cache.Store
@@ -1726,17 +1729,12 @@ func (c *VirtualMachineController) Execute() bool {
 
 func (c *VirtualMachineController) getVMIFromCache(key string) (vmi *v1.VirtualMachineInstance, exists bool, err error) {
 
-	// Fetch the latest Vm state from cache
-	obj, exists, err := c.vmiSourceStore.GetByKey(key)
+	// Get it from the global store as during a migration
+	// the VMI could disappear momentarily from both the source store
+	// and the target store
+	obj, exists, err := c.vmiStore.GetByKey(key)
 	if err != nil {
 		return nil, false, err
-	}
-
-	if !exists {
-		obj, exists, err = c.vmiTargetStore.GetByKey(key)
-		if err != nil {
-			return nil, false, err
-		}
 	}
 
 	// Retrieve the VirtualMachineInstance
@@ -2044,6 +2042,7 @@ func (c *VirtualMachineController) defaultExecute(key string,
 		syncErr = c.processVmCleanup(vmi)
 	case shouldUpdate:
 		log.Log.Object(vmi).V(3).Info("Processing vmi update")
+		log.Log.Object(vmi).Error("Processing vmi update")
 		syncErr = c.processVmUpdate(vmi, domain)
 	default:
 		log.Log.Object(vmi).V(3).Info("No update processing required")
