@@ -189,6 +189,17 @@ func NewController(templateService services.TemplateService,
 			nodeInformer.HasSynced()
 	}
 
+	// register a callback that would resize the migration limiter with a new
+	// ParallelOutboundMigrationsPerNode
+	clusterConfig.SetConfigModifiedCallback(func() {
+            // refresh to get latest config
+            clusterConfig.GetConfig()
+
+            newParallelOutbound := int64(*clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
+            c.migrationLimiter.UpdateMaxPermits(newParallelOutbound)
+    })
+
+	
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVMI,
 		DeleteFunc: c.deleteVMI,
@@ -231,6 +242,23 @@ func NewController(templateService services.TemplateService,
 	_, err = kubevirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateKubeVirt,
 	})
+
+	// cleanup the migration permits of a deleted node
+    _, err = nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+            DeleteFunc: func(obj interface{}) {
+                    node, ok := obj.(*k8sv1.Node)
+                    if !ok {
+                            tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+                            if ok {
+                                    node, _ = tombstone.Obj.(*k8sv1.Node)
+                            }
+                    }
+                    if node != nil {
+                            c.migrationLimiter.Delete(node.Name)
+                            log.Log.V(4).Infof("Cleaned up migration permits for deleted node %s", node.Name)
+                    }
+			},
+    })
 	if err != nil {
 		return nil, err
 	}
