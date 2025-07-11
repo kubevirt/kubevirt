@@ -401,7 +401,7 @@ func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
 			{
 				Name:    poolv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
-				Storage: true,
+				Storage: false,
 			},
 			{
 				Name:    poolv1beta1.SchemeGroupVersion.Version,
