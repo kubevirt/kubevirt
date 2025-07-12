@@ -2441,10 +2441,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BExp{R: "2"},
 				}, 15)).To(Succeed())
 
-				By("Check values in domain XML")
-				domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, cpuVmi)
-				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
-				Expect(domXML).To(ContainSubstring("<hint-dedicated state='on'/>"), "should container the hint-dedicated feature")
+				if checks.IsAMD64(testsuite.Arch) {
+					By("Check hint-detected state value in domain XML on amd64")
+					domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, cpuVmi)
+					Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
+					Expect(domXML).To(ContainSubstring("<hint-dedicated state='on'/>"), "should container the hint-dedicated feature")
+				}
 			})
 			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
 				Skip("Skip test till issue https://github.com/kubevirt/kubevirt/issues/3910 is fixed")
