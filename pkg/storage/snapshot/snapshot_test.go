@@ -929,7 +929,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*createCalls).To(Equal(1))
 			})
 
-			It("create VirtualMachineSnapshotContent online snapshot", func() {
+			DescribeTable("create VirtualMachineSnapshotContent for online snapshot", func(withVMExtraDisk, withVMIExtraDisk bool) {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createLockedVM()
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
@@ -941,26 +941,46 @@ var _ = Describe("Snapshot controlleer", func() {
 				crSource.Add(vmRevision)
 				vmi := createVMI(vm)
 				vmi.Status.VirtualMachineRevisionName = vmRevisionName
-				vmiSource.Add(vmi)
+				vm.Annotations = map[string]string{}
+				vm.Generation = 2
 
-				vm.ObjectMeta.Annotations = map[string]string{}
-				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				extraVolume := v1.Volume{
 					Name: "disk2",
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "test-pvc",
 						}},
 					},
-				})
-				// the content source will have the a combination of the vm revision, the vmi and the vm volumes
-				vm.ObjectMeta.Generation = 2
-				pvcs := createPersistentVolumeClaims()
+				}
+				extraDisk := v1.Disk{Name: "disk2"}
 
-				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
+				vmCopy := vm.DeepCopy()
+				if withVMExtraDisk {
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, extraVolume)
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, extraDisk)
+				}
+				if withVMIExtraDisk {
+					vmi.Spec.Volumes = append(vmi.Spec.Volumes, extraVolume)
+					vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, extraDisk)
+				}
+				if withVMExtraDisk && withVMIExtraDisk {
+					vmCopy.Spec.Template.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+					vmCopy.Spec.Template.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
+				}
+
+				// the content source will have the a combination of the vm revision, the vmi and the vm volumes
+				pvcs := createPVCsForVM(vmCopy)
+				for i := range pvcs {
+					pvcSource.Add(&pvcs[i])
+				}
+				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vmCopy, pvcs)
+
 				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("64Mi"),
 				}
 				vmSource.Add(vm)
+				vmiSource.Add(vmi)
+
 				storageClass := createStorageClass()
 				storageClassSource.Add(storageClass)
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
@@ -989,19 +1009,33 @@ var _ = Describe("Snapshot controlleer", func() {
 				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
 				Expect(*updateStatusCalls).To(Equal(1))
 				Expect(*createCalls).To(Equal(1))
-			})
+			},
+				Entry("no live-updates from initial revision", false, false),
+				Entry("persistent hotplug (extra disk in VM and extra disk in VMI)", true, true),
+				Entry("with pending VM disk (extra disk in VM, no extra disk in VMI)", true, false),
+				Entry("with transient hotplug (extra disk in VMI, no extra disk in VM)", false, true),
+			)
 
-			It("should create VirtualMachineSnapshotContent with memory dump", func() {
+			DescribeTable("should create VirtualMachineSnapshotContent with memory dump", func(online bool) {
 				storageClass := createStorageClass()
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
 
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createLockedVM()
+				if online {
+					vmRevision := createVMRevision(vm)
+					crSource.Add(vmRevision)
+
+					vmi := createVMI(vm)
+					vmi.Status.VirtualMachineRevisionName = vmRevisionName
+					vmiSource.Add(vmi)
+				}
+
 				vm = updateVMWithMemoryDump(vm)
-				pvcs := createPersistentVolumeClaims()
-				md := memoryDumpPVC()
-				pvcSource.Add(&md)
-				pvcs = append(pvcs, md)
+				pvcs := createPVCsForVM(vm)
+				for i := range pvcs {
+					pvcSource.Add(&pvcs[i])
+				}
 				vmSnapshotContent := createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
 
 				vmSource.Add(vm)
@@ -1021,13 +1055,22 @@ var _ = Describe("Snapshot controlleer", func() {
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
+				if online {
+					updatedSnapshot.Status.Indications = []snapshotv1.Indication{
+						snapshotv1.VMSnapshotNoGuestAgentIndication,
+						snapshotv1.VMSnapshotOnlineSnapshotIndication,
+					}
+				}
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				controller.processVMSnapshotWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
 				Expect(*updateStatusCalls).To(Equal(1))
 				Expect(*createCalls).To(Equal(1))
-			})
+			},
+				Entry("offline", false),
+				Entry("online", true),
+			)
 
 			It("should update VirtualMachineSnapshotStatus", func() {
 				vmSnapshotContent := createReadyVMSnapshotContent()
@@ -2705,9 +2748,10 @@ func createVirtualMachineSnapshotContent(vmSnapshot *snapshotv1.VirtualMachineSn
 }
 
 func createPVCsForVM(vm *v1.VirtualMachine) []corev1.PersistentVolumeClaim {
-	var pvcs []corev1.PersistentVolumeClaim
-	for i, dv := range vm.Spec.DataVolumeTemplates {
-		pvc := corev1.PersistentVolumeClaim{
+	dvTemplatePVCs := make(map[string]corev1.PersistentVolumeClaim)
+	pvcs := []corev1.PersistentVolumeClaim{}
+	for _, dv := range vm.Spec.DataVolumeTemplates {
+		dvTemplatePVCs[dv.Name] = corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: vm.Namespace,
 				Name:      dv.Name,
@@ -2717,10 +2761,26 @@ func createPVCsForVM(vm *v1.VirtualMachine) []corev1.PersistentVolumeClaim {
 				Phase: corev1.ClaimBound,
 			},
 		}
-		pvc.Spec.VolumeName = fmt.Sprintf("volume%d", i+1)
-		pvc.ResourceVersion = "1"
-		pvcs = append(pvcs, pvc)
 	}
+
+	for _, vol := range vm.Spec.Template.Spec.Volumes {
+		switch {
+		case vol.PersistentVolumeClaim != nil:
+			pvcs = append(pvcs, volumePVC(vol.PersistentVolumeClaim.ClaimName))
+		case vol.MemoryDump != nil:
+			pvcs = append(pvcs, memoryDumpPVC())
+		case vol.DataVolume != nil:
+			pvc, ok := dvTemplatePVCs[vol.DataVolume.Name]
+			if !ok {
+				pvc = volumePVC(vol.DataVolume.Name)
+			}
+			pvc.ResourceVersion = "1"
+			pvcs = append(pvcs, pvc)
+		default:
+			continue
+		}
+	}
+
 	return pvcs
 }
 
@@ -2764,6 +2824,30 @@ func memoryDumpPVC() corev1.PersistentVolumeClaim {
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("500Mi"),
+				},
+			},
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			StorageClassName: &storageClassName,
+		},
+		Status: corev1.PersistentVolumeClaimStatus{
+			Phase: corev1.ClaimBound,
+		},
+	}
+	return pvc
+}
+
+func volumePVC(name string) corev1.PersistentVolumeClaim {
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:       testNamespace,
+			Name:            name,
+			ResourceVersion: "1",
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			VolumeName: name,
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("2Gi"),
 				},
 			},
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
