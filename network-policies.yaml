@@ -1,0 +1,235 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: kubevirt
+spec:
+  podSelector: { }
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-api-server
+  namespace: kubevirt
+spec:
+  podSelector: { }
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 6443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-to-dns
+  namespace: kubevirt
+spec:
+  podSelector: { }
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        # allow talking to the kube-dns pods in kubevirt
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: TCP
+          port: dns-tcp
+        - protocol: UDP
+          port: dns
+---
+# allow metrics access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-metrics
+  namespace: kubevirt
+spec:
+  podSelector: { }
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8443
+---
+# allow virt-api to be reached by anyone
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-virt-api-webhook-server
+  namespace: kubevirt
+spec:
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8443
+---
+# allow virt-api to reach any virt-components for cluster profiler
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-from-virt-api-to-components
+  namespace: kubevirt
+spec:
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              kubevirt.io: virt-api
+        - podSelector:
+            matchLabels:
+              kubevirt.io: virt-operator
+        - podSelector:
+            matchLabels:
+              kubevirt.io: virt-handler
+        - podSelector:
+            matchLabels:
+              kubevirt.io: virt-controller
+      ports:
+        - protocol: TCP
+          port: 8443
+---
+# allow virt-api to reach any virt-handler to retrieve handler connection
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-from-virt-api-to-virt-handler
+  namespace: kubevirt
+spec:
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-api
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 8186
+---
+# allow virt-handler to be reached to retrieve connection
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-virt-handler
+  namespace: kubevirt
+spec:
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-handler
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8186
+---
+# allow virt-operator webhook to be reached by anyone
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-virt-operator-webhook-server
+  namespace: kubevirt
+spec:
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-operator
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8444
+---
+# allow virt-exportproxy to be reached by anyone
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-virt-exportproxy-server
+  namespace: kubevirt
+spec:
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-exportproxy
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8443
+---
+# allow handler to handler communication for migrations
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-handler-to-handler
+  namespace: kubevirt
+spec:
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-handler
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              kubevirt.io: virt-handler
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              kubevirt.io: virt-handler
+---
+# allow ssh/scp to launchers
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ssh-to-launcher
+spec:
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-launcher
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 22
+---
+# allow handler to prometheus (only for testing???)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-handler-to-prometheus
+  namespace: kubevirt
+spec:
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-handler
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 8443
