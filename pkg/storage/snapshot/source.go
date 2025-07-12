@@ -69,6 +69,7 @@ type snapshotSource interface {
 	Lock() (bool, error)
 	Unlock() (bool, error)
 	Online() bool
+	Paused() bool
 	GuestAgent() bool
 	Frozen() bool
 	Freeze() error
@@ -79,6 +80,7 @@ type snapshotSource interface {
 
 type sourceState struct {
 	online     bool
+	paused     bool
 	guestAgent bool
 	frozen     bool
 	locked     bool
@@ -101,6 +103,7 @@ func (s *vmSnapshotSource) UpdateSourceState() error {
 	online := exists
 
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	paused := exists && condManager.HasConditionWithStatus(vmi, kubevirtv1.VirtualMachineInstancePaused, corev1.ConditionTrue)
 	guestAgent := exists && condManager.HasCondition(vmi, kubevirtv1.VirtualMachineInstanceAgentConnected)
 
 	locked := s.vm.Status.SnapshotInProgress != nil &&
@@ -114,6 +117,7 @@ func (s *vmSnapshotSource) UpdateSourceState() error {
 
 	s.state = &sourceState{
 		online:     online,
+		paused:     paused,
 		guestAgent: guestAgent,
 		locked:     locked,
 		frozen:     frozen,
@@ -411,6 +415,10 @@ func (s *vmSnapshotSource) Online() bool {
 	return s.state.online
 }
 
+func (s *vmSnapshotSource) Paused() bool {
+	return s.state.paused
+}
+
 func (s *vmSnapshotSource) GuestAgent() bool {
 	return s.state.guestAgent
 }
@@ -434,6 +442,11 @@ func (s *vmSnapshotSource) Freeze() error {
 		return nil
 	}
 
+	if s.Paused() {
+		log.Log.Warningf("VM %s is paused - taking snapshot without filesystem freeze. Paused VMs cannot flush memory buffers to disk, which may result in inconsistent snapshots.", s.vm.Name)
+		return nil
+	}
+
 	log.Log.V(3).Infof("Freezing vm %s file system before taking the snapshot", s.vm.Name)
 
 	startTime := time.Now()
@@ -451,6 +464,10 @@ func (s *vmSnapshotSource) Freeze() error {
 
 func (s *vmSnapshotSource) Unfreeze() error {
 	if !s.Locked() || !s.GuestAgent() {
+		return nil
+	}
+
+	if s.Paused() {
 		return nil
 	}
 

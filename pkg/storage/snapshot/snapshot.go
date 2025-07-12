@@ -843,6 +843,12 @@ func updateSnapshotIndications(snapshot *snapshotv1.VirtualMachineSnapshot, sour
 		} else {
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
 		}
+
+		// Check for paused VM
+		if source.Paused() {
+			indications = sets.Insert(indications, snapshotv1.VMSnapshotPausedIndication)
+		}
+
 		snapshot.Status.Indications = sets.List(indications)
 	}
 }
