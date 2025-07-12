@@ -18,7 +18,9 @@ import (
 func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, config *virtconfig.ClusterConfig) []k8sv1.Container {
 	passthroughFSVolumes := make(map[string]struct{})
 	for i := range vmi.Spec.Domain.Devices.Filesystems {
-		passthroughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
+		if vmi.Spec.Domain.Devices.Filesystems[i].Virtiofs != nil {
+			passthroughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
+		}
 	}
 	if len(passthroughFSVolumes) == 0 {
 		return nil
