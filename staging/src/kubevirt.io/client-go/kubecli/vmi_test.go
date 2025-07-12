@@ -530,6 +530,23 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		Entry("with proxied server URL", proxyPath),
 	)
 
+	DescribeTable("should evacuate cancel a VirtualMachineInstance", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("PUT", path.Join(proxyPath, subVMIPath, "evacuatecancel")),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
+		))
+		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).EvacuateCancel(context.Background(), "testvm", &v1.EvacuateCancelOptions{})
+
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+		Expect(err).ToNot(HaveOccurred())
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
+
 	AfterEach(func() {
 		server.Close()
 	})
