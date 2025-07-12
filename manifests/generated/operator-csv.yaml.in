@@ -1360,6 +1360,21 @@ spec:
               name: virt-operator
             spec:
               affinity:
+                nodeAffinity:
+                  preferredDuringSchedulingIgnoredDuringExecution:
+                  - preference:
+                      matchExpressions:
+                      - key: node-role.kubernetes.io/worker
+                        operator: DoesNotExist
+                    weight: 100
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: node-role.kubernetes.io/control-plane
+                        operator: Exists
+                    - matchExpressions:
+                      - key: node-role.kubernetes.io/master
+                        operator: Exists
                 podAntiAffinity:
                   preferredDuringSchedulingIgnoredDuringExecution:
                   - podAffinityTerm:
@@ -1460,6 +1475,12 @@ spec:
               serviceAccountName: kubevirt-operator
               tolerations:
               - key: CriticalAddonsOnly
+                operator: Exists
+              - effect: NoSchedule
+                key: node-role.kubernetes.io/control-plane
+                operator: Exists
+              - effect: NoSchedule
+                key: node-role.kubernetes.io/master
                 operator: Exists
               volumes:
               - name: kubevirt-operator-certs

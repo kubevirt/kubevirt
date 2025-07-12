@@ -26,6 +26,7 @@ go_library(
         "//pkg/virt-operator/resource/apply:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//pkg/virt-operator/resource/generate/install:go_default_library",
+        "//pkg/virt-operator/resource/placement:go_default_library",
         "//pkg/virt-operator/util:go_default_library",
         "//pkg/virt-operator/webhooks:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",

@@ -11,8 +11,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/placement"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -98,7 +98,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
 		},
 	}
 
-	apply.InjectPlacementMetadata(infraPlacement, &job.Spec.Template.Spec, apply.RequireControlPlanePreferNonWorker)
+	placement.InjectPlacementMetadata(infraPlacement, &job.Spec.Template.Spec, placement.RequireControlPlanePreferNonWorker)
 	env := job.Spec.Template.Spec.Containers[0].Env
 	extraEnv := util.NewEnvVarMap(config.GetExtraEnv())
 	job.Spec.Template.Spec.Containers[0].Env = append(env, *extraEnv...)
