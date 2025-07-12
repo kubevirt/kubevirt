@@ -276,10 +276,6 @@ func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {
 	return kvMap
 }
 
-func GetOperatorImage() string {
-	return GetOperatorImageWithEnvVarManager(DefaultEnvVarManager)
-}
-
 func GetOperatorImageWithEnvVarManager(envVarManager EnvVarManager) string {
 	image := envVarManager.Getenv(VirtOperatorImageEnvName)
 	if image != "" {
