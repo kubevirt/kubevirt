@@ -725,6 +725,15 @@ type Disk struct {
 	// If specified, it can change the default error policy (stop) for the disk
 	// +optional
 	ErrorPolicy *DiskErrorPolicy `json:"errorPolicy,omitempty"`
+	// RotationRate specifies the rotation rate for the disk device.
+	// Supported for SCSI and SATA bus types only.
+	// A value of 1 indicates SSD emulation (no rotation).
+	// Values in the range 1025 to 65534 indicate HDD emulation with the specified RPM.
+	// The rotation rate affects how the guest OS perceives the storage device characteristics.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65534
+	RotationRate *uint `json:"rotationRate,omitempty"`
 }
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.

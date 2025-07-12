@@ -3837,6 +3837,78 @@ func diskToDiskXML(arch string, disk *v1.Disk) string {
 	return string(data)
 }
 
+var _ = Describe("RotationRate", func() {
+	It("should convert disk with rotation rate for SSD emulation", func() {
+		disk := &v1.Disk{
+			Name: "ssd-disk",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusVirtio,
+				},
+			},
+			RotationRate: pointer.P(uint(1)),
+		}
+
+		apiDisk := &api.Disk{}
+		context := &ConverterContext{
+			Architecture:          archconverter.NewConverter("amd64"),
+			UseVirtioTransitional: false,
+		}
+		devicePerBus := make(map[string]deviceNamer)
+
+		err := Convert_v1_Disk_To_api_Disk(context, disk, apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(apiDisk.RotationRate).ToNot(BeNil())
+		Expect(*apiDisk.RotationRate).To(Equal(uint(1)))
+	})
+
+	It("should convert disk with rotation rate for HDD emulation", func() {
+		disk := &v1.Disk{
+			Name: "hdd-disk",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusSCSI,
+				},
+			},
+			RotationRate: pointer.P(uint(7200)),
+		}
+
+		apiDisk := &api.Disk{}
+		context := &ConverterContext{
+			Architecture:          archconverter.NewConverter("amd64"),
+			UseVirtioTransitional: false,
+		}
+		devicePerBus := make(map[string]deviceNamer)
+
+		err := Convert_v1_Disk_To_api_Disk(context, disk, apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(apiDisk.RotationRate).ToNot(BeNil())
+		Expect(*apiDisk.RotationRate).To(Equal(uint(7200)))
+	})
+
+	It("should not set rotation rate when not specified", func() {
+		disk := &v1.Disk{
+			Name: "normal-disk",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusVirtio,
+				},
+			},
+		}
+
+		apiDisk := &api.Disk{}
+		context := &ConverterContext{
+			Architecture:          archconverter.NewConverter("amd64"),
+			UseVirtioTransitional: false,
+		}
+		devicePerBus := make(map[string]deviceNamer)
+
+		err := Convert_v1_Disk_To_api_Disk(context, disk, apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(apiDisk.RotationRate).To(BeNil())
+	})
+})
+
 func vmiToDomainXML(vmi *v1.VirtualMachineInstance, c *ConverterContext) string {
 	domain := vmiToDomain(vmi, c)
 	data, err := xml.MarshalIndent(domain.Spec, "", "  ")
