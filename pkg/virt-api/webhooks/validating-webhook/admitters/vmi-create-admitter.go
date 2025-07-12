@@ -194,7 +194,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateHugepagesMemoryRequests(field, spec)...)
 	causes = append(causes, validateGuestMemoryLimit(field, spec, config)...)
 	causes = append(causes, validateEmulatedMachine(field, spec, config)...)
-	causes = append(causes, validateFirmwareSerial(field, spec)...)
 	causes = append(causes, validateFirmwareACPI(field.Child("acpi"), spec)...)
 	causes = append(causes, validateCPURequestNotNegative(field, spec)...)
 	causes = append(causes, validateCPULimitNotNegative(field, spec)...)
@@ -981,34 +980,6 @@ func validateCPURequestNotNegative(field *k8sfield.Path, spec *v1.VirtualMachine
 			Field: field.Child("domain", "resources", "requests", "cpu").String(),
 		})
 	}
-	return causes
-}
-
-func validateFirmwareSerial(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if spec.Domain.Firmware == nil || len(spec.Domain.Firmware.Serial) == 0 {
-		return causes
-	}
-	// Verify serial number is within valid length, if provided
-	if len(spec.Domain.Firmware.Serial) > maxStrLen {
-		causes = append(causes, metav1.StatusCause{
-			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified",
-				field.Child("domain", "firmware", "serial").String(),
-				maxStrLen,
-			),
-			Field: field.Child("domain", "firmware", "serial").String(),
-		})
-	}
-	// Verify serial number is made up of valid characters for libvirt, if provided
-	if !isValidExpression(spec.Domain.Firmware.Serial) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s must be made up of the following characters [A-Za-z0-9_.+-], if specified", field.Child("domain", "firmware", "serial").String()),
-			Field:   field.Child("domain", "firmware", "serial").String(),
-		})
-	}
-
 	return causes
 }
 
