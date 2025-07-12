@@ -36,6 +36,24 @@ var _ = Describe("Resolveconf", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("should return a byte array of IPv6 nameservers", func() {
+			ipv6_1 := net.ParseIP("2001:db8::1").To16()
+			ipv6_2 := net.ParseIP("::1").To16()
+			resolvConf := "nameserver 2001:db8::1\nnameserver ::1\n"
+			nameservers, err := ParseNameservers(resolvConf)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nameservers).To(Equal([][]byte{ipv6_1, ipv6_2}))
+		})
+
+		It("should handle mixed IPv4 and IPv6 nameservers", func() {
+			ipv4 := []uint8{8, 8, 8, 8}
+			ipv6 := net.ParseIP("2001:db8::1").To16()
+			resolvConf := "nameserver 8.8.8.8\nnameserver 2001:db8::1\n"
+			nameservers, err := ParseNameservers(resolvConf)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nameservers).To(Equal([][]byte{ipv4, ipv6}))
+		})
+
 		It("should ignore non-nameserver lines and malformed nameserver lines", func() {
 			ns1, ns2 := []uint8{8, 8, 8, 8}, []uint8{8, 8, 4, 4}
 			resolvConf := "search example.com\nnameserver 8.8.8.8\nnameserver 8.8.4.4\nnameserver mynameserver\n"
