@@ -357,7 +357,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
 						Name:       "only-vms",
-						Expression: `object.metadata.name.startsWith("virt-launcher")`,
+						Expression: `object.metadata.name.startsWith("virt-launcher") || object.metadata.name.startsWith("hp-volume-")`,
 					},
 				},
 			},
