@@ -35,22 +35,12 @@ const (
 
 func main() {
 	namespace := flag.String("namespace", "placeholder", "Namespace to use.")
-	operatorImageVersion := flag.String("operatorImageVersion", "latest", "Image sha256 hash or image tag used to uniquely identify the operator container image to use in the CSV")
+	operatorImageVersion := flag.String("operatorImageVersion", "latest", "Image tag used to uniquely identify the operator container image to use in the CSV")
 	imagePrefix := flag.String("imagePrefix", "", "Optional prefix for virt-* image names.")
 	dockerPrefix := flag.String("dockerPrefix", "kubevirt", "Image Repository to use.")
 	kubeVirtVersion := flag.String("kubeVirtVersion", "", "represents the KubeVirt releaseassociated with this CSV. Required when image SHAs are used.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
 	verbosity := flag.String("verbosity", "2", "Verbosity level to use.")
-	apiSha := flag.String("apiSha", "", "virt-api image sha. "+shaEnvDeprecationMsg)
-	controllerSha := flag.String("controllerSha", "", "virt-controller image sha. "+shaEnvDeprecationMsg)
-	handlerSha := flag.String("handlerSha", "", "virt-handler image sha. "+shaEnvDeprecationMsg)
-	launcherSha := flag.String("launcherSha", "", "virt-launcher image sha. "+shaEnvDeprecationMsg)
-	exportProxySha := flag.String("exportProxySha", "", "virt-exportproxy image sha. "+shaEnvDeprecationMsg)
-	exportServerSha := flag.String("exportServerSha", "", "virt-exportserver image sha. "+shaEnvDeprecationMsg)
-	synchronizationControllerSha := flag.String("synchronizationControllerSha", "", "virt-synchronization-controller image sha. "+shaEnvDeprecationMsg)
-	gsSha := flag.String("gsSha", "", "libguestfs-tools image sha")
-	prHelperSha := flag.String("prHelperSha", "", "pr-helper image sha")
-	sidecarShimSha := flag.String("sidecarShimSha", "", "sidecar-shim image sha")
 	runbookURLTemplate := flag.String("", "", "")
 	kubeVirtLogo := flag.String("kubevirtLogo", "", "kubevirt logo data in base64")
 	csvVersion := flag.String("csvVersion", "", "the CSV version being generated")
@@ -80,16 +70,6 @@ func main() {
 		ImagePullPolicy:                    *pullPolicy,
 		Verbosity:                          *verbosity,
 		CsvVersion:                         *csvVersion,
-		VirtApiSha:                         *apiSha,
-		VirtControllerSha:                  *controllerSha,
-		VirtHandlerSha:                     *handlerSha,
-		VirtLauncherSha:                    *launcherSha,
-		VirtExportProxySha:                 *exportProxySha,
-		VirtExportServerSha:                *exportServerSha,
-		VirtSynchronizationControllerSha:   *synchronizationControllerSha,
-		GsSha:                              *gsSha,
-		PrHelperSha:                        *prHelperSha,
-		SidecarShimSha:                     *sidecarShimSha,
 		RunbookURLTemplate:                 *runbookURLTemplate,
 		ReplacesCsvVersion:                 *replacesCsvVersion,
 		IconBase64:                         *kubeVirtLogo,

@@ -47,16 +47,6 @@ type NewClusterServiceVersionData struct {
 	ImagePullPolicy                    string
 	Verbosity                          string
 	CsvVersion                         string
-	VirtApiSha                         string
-	VirtControllerSha                  string
-	VirtHandlerSha                     string
-	VirtLauncherSha                    string
-	VirtExportProxySha                 string
-	VirtExportServerSha                string
-	VirtSynchronizationControllerSha   string
-	GsSha                              string
-	PrHelperSha                        string
-	SidecarShimSha                     string
 	RunbookURLTemplate                 string
 	Replicas                           int
 	IconBase64                         string
@@ -168,16 +158,6 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.OperatorImageVersion,
 		data.Verbosity,
 		data.KubeVirtVersion,
-		data.VirtApiSha,
-		data.VirtControllerSha,
-		data.VirtHandlerSha,
-		data.VirtLauncherSha,
-		data.VirtExportProxySha,
-		data.VirtExportServerSha,
-		data.VirtSynchronizationControllerSha,
-		data.GsSha,
-		data.PrHelperSha,
-		data.SidecarShimSha,
 		data.RunbookURLTemplate,
 		data.VirtApiImage,
 		data.VirtControllerImage,
