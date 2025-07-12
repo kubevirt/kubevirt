@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	versioned "github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned"
 	v1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	v10 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	gomock "go.uber.org/mock/gomock"
@@ -719,6 +720,20 @@ func (m *MockKubevirtClient) GuestfsVersion() *GuestfsVersion {
 func (mr *MockKubevirtClientMockRecorder) GuestfsVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GuestfsVersion", reflect.TypeOf((*MockKubevirtClient)(nil).GuestfsVersion))
+}
+
+// IPAMClaimsClient mocks base method.
+func (m *MockKubevirtClient) IPAMClaimsClient() versioned.Interface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IPAMClaimsClient")
+	ret0, _ := ret[0].(versioned.Interface)
+	return ret0
+}
+
+// IPAMClaimsClient indicates an expected call of IPAMClaimsClient.
+func (mr *MockKubevirtClientMockRecorder) IPAMClaimsClient() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPAMClaimsClient", reflect.TypeOf((*MockKubevirtClient)(nil).IPAMClaimsClient))
 }
 
 // InternalV1alpha1 mocks base method.
