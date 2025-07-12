@@ -19,6 +19,7 @@ import (
 
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	metricsutil "github.com/rhobs/operator-observability-toolkit/pkg/testutil"
 
 	ocpv1 "github.com/openshift/api/route/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -425,6 +426,16 @@ func GetKubevirtVMMetrics(pod *k8sv1.Pod, ip string) string {
 		})
 	Expect(err).ToNot(HaveOccurred())
 	return stdout
+}
+
+func GetMetricsFromHandler(pod *k8sv1.Pod, ip, metricSubstring string) map[string][]metricsutil.MetricResult {
+	metricsPayload := GetKubevirtVMMetrics(pod, ip)
+	fetcher := metricsutil.NewMetricsFetcher("")
+	fetcher.AddNameFilter(metricSubstring)
+	metrics, err := fetcher.LoadMetrics(metricsPayload)
+	Expect(err).ToNot(HaveOccurred(), "Expected to fetch metrics without error")
+
+	return metrics
 }
 
 func PrepareMetricsURL(ip string, port int) string {

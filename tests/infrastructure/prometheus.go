@@ -186,37 +186,12 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 
 var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
 	var (
-		virtClient kubecli.KubevirtClient
-		err        error
-
+		virtClient          kubecli.KubevirtClient
 		preparedVMIs        []*v1.VirtualMachineInstance
 		pod                 *k8sv1.Pod
 		handlerMetricIPs    []string
 		controllerMetricIPs []string
 	)
-
-	// collect metrics whose key contains the given string, expects non-empty result
-	collectMetrics := func(ip, metricSubstring string) map[string]float64 {
-		By("Scraping the Prometheus endpoint")
-		var metrics map[string]float64
-		var lines []string
-
-		Eventually(func() map[string]float64 {
-			out := libmonitoring.GetKubevirtVMMetrics(pod, ip)
-			lines = libinfra.TakeMetricsWithPrefix(out, metricSubstring)
-			metrics, err = libinfra.ParseMetricsToMap(lines)
-			Expect(err).ToNot(HaveOccurred())
-			return metrics
-		}, 30*time.Second, 2*time.Second).ShouldNot(BeEmpty())
-
-		// troubleshooting helper
-		_, err = fmt.Fprintf(GinkgoWriter, "metrics [%s]:\nlines=%s\n%#v\n", metricSubstring, lines, metrics)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(len(metrics)).To(BeNumerically(">=", float64(1.0)))
-		Expect(metrics).To(HaveLen(len(lines)))
-
-		return metrics
-	}
 
 	prepareVMIForTests := func(preferredNodeName string) string {
 		By("Creating the VirtualMachineInstance")
@@ -387,8 +362,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 				req, _ := http.NewRequest("GET", metricsURL, http.NoBody)
 				resp, err := client.Do(req)
 				if err != nil {
-					_, fprintfErr := fmt.Fprintf(GinkgoWriter, "client: request: %v #%d: %v\n", req, ix, err) // troubleshooting helper
-					Expect(fprintfErr).ToNot(HaveOccurred())
+					GinkgoLogr.Info("client request", "request", req, "index", ix, "error", err)
 				} else {
 					Expect(resp.Body.Close()).To(Succeed())
 				}
@@ -438,19 +412,16 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		ip := libnet.GetIP(handlerMetricIPs, family)
 
-		metrics := collectMetrics(ip, metricSubstring)
+		metrics := libmonitoring.GetMetricsFromHandler(pod, ip, metricSubstring)
 		By("Checking the collected metrics")
-		keys := libinfra.GetKeysFromMetrics(metrics)
 		for _, vmi := range preparedVMIs {
 			for _, vol := range vmi.Spec.Volumes {
-				key := libinfra.GetMetricKeyForVmiDisk(keys, vmi.Name, vol.Name)
-				Expect(key).To(Not(BeEmpty()))
+				metricResult, found := libinfra.GetMetricResultForVmiDisk(metrics, vmi.Name, vol.Name)
+				Expect(found).To(BeTrue(), "Expected to find metric for VMI %s and disk %s", vmi.Name, vol.Name)
+				Expect(metricResult).ToNot(BeNil())
 
-				value := metrics[key]
-				_, err := fmt.Fprintf(GinkgoWriter, "metric value was %f\n", value)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(value).To(BeNumerically(operator, float64(0.0)))
-
+				GinkgoLogr.Info("Metric value", "value", metricResult.Value)
+				Expect(metricResult.Value).To(BeNumerically(operator, 0.0))
 			}
 		}
 	},
@@ -489,14 +460,14 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		ip := libnet.GetIP(handlerMetricIPs, family)
 
-		metrics := collectMetrics(ip, metricSubstring)
+		metrics := libmonitoring.GetMetricsFromHandler(pod, ip, metricSubstring)
+
 		By("Checking the collected metrics")
-		keys := libinfra.GetKeysFromMetrics(metrics)
-		for _, key := range keys {
-			value := metrics[key]
-			_, err := fmt.Fprintf(GinkgoWriter, "metric value was %f\n", value)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(value).To(BeNumerically(operator, float64(0.0)))
+		for metricName, results := range metrics {
+			for _, metricResult := range results {
+				GinkgoLogr.Info("Metric value", "metric", metricName, "value", metricResult.Value)
+				Expect(metricResult.Value).To(BeNumerically(operator, 0.0))
+			}
 		}
 	},
 		Entry("[test_id:4143] network metrics by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_network_", ">="),
@@ -516,32 +487,35 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		ip := libnet.GetIP(handlerMetricIPs, family)
 
-		metrics := collectMetrics(ip, "kubevirt_vmi_")
+		metrics := libmonitoring.GetMetricsFromHandler(pod, ip, "kubevirt_vmi_")
 		By("Checking the collected metrics")
-		keys := libinfra.GetKeysFromMetrics(metrics)
 		nodeName := pod.Spec.NodeName
 
-		nameMatchers := []gomegatypes.GomegaMatcher{}
+		var nameMatchers []gomegatypes.GomegaMatcher
 		for _, vmi := range preparedVMIs {
-			nameMatchers = append(nameMatchers, ContainSubstring(`name="%s"`, vmi.Name))
+			nameMatchers = append(nameMatchers, HaveKeyWithValue("name", vmi.Name))
 		}
 
-		for _, key := range keys {
+		for metricName, results := range metrics {
 			// we don't care about the ordering of the labels
-			if strings.HasPrefix(key, "kubevirt_vmi_info") {
+			if strings.HasPrefix(metricName, "kubevirt_vmi_info") {
 				// special case: namespace and name don't make sense for this metric
-				Expect(key).To(ContainSubstring(`node="%s"`, nodeName))
+				for _, metricResult := range results {
+					Expect(metricResult.Labels).To(HaveKeyWithValue("node", nodeName))
+				}
 				continue
 			}
 
-			Expect(key).To(SatisfyAll(
-				ContainSubstring(`node="%s"`, nodeName),
-				// all testing VMIs are on the same node and namespace,
-				// so checking the namespace of any random VMI is fine
-				ContainSubstring(`namespace="%s"`, preparedVMIs[0].Namespace),
-				// otherwise, each key must refer to exactly one the prepared VMIs.
-				SatisfyAny(nameMatchers...),
-			))
+			for _, metricResult := range results {
+				Expect(metricResult.Labels).To(SatisfyAll(
+					HaveKeyWithValue("node", nodeName),
+					// all testing VMIs are on the same node and namespace,
+					// so checking the namespace of any random VMI is fine
+					HaveKeyWithValue("namespace", preparedVMIs[0].Namespace),
+					// otherwise, each result must refer to exactly one the prepared VMIs.
+					SatisfyAny(nameMatchers...),
+				))
+			}
 		}
 	},
 		Entry("[test_id:4145] by IPv4", k8sv1.IPv4Protocol),
@@ -553,13 +527,13 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		ip := libnet.GetIP(handlerMetricIPs, family)
 
-		metrics := collectMetrics(ip, "kubevirt_vmi_")
+		metrics := libmonitoring.GetMetricsFromHandler(pod, ip, "kubevirt_vmi_")
 		By("Checking the collected metrics")
-		keys := libinfra.GetKeysFromMetrics(metrics)
-		for _, key := range keys {
-			if strings.Contains(key, `phase="running"`) {
-				value := metrics[key]
-				Expect(value).To(Equal(float64(len(preparedVMIs))))
+		for _, results := range metrics {
+			for _, metricResult := range results {
+				if phase, ok := metricResult.Labels["phase"]; ok && phase == "Running" {
+					Expect(metricResult.Value).To(Equal(float64(len(preparedVMIs))))
+				}
 			}
 		}
 	},
@@ -572,14 +546,14 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		ip := libnet.GetIP(controllerMetricIPs, family)
 
-		metrics := collectMetrics(ip, "kubevirt_vmi_non_evictable")
+		metrics := libmonitoring.GetMetricsFromHandler(pod, ip, "kubevirt_vmi_non_evictable")
 		By("Checking the collected metrics")
-		keys := libinfra.GetKeysFromMetrics(metrics)
-		for _, key := range keys {
-			value := metrics[key]
-			_, err := fmt.Fprintf(GinkgoWriter, "metric value was %f\n", value)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(value).To(BeNumerically(">=", float64(0.0)))
+
+		for _, results := range metrics {
+			for _, metricResult := range results {
+				GinkgoLogr.Info("Metric value", "value", metricResult.Value)
+				Expect(metricResult.Value).To(BeNumerically(">=", 0.0))
+			}
 		}
 	},
 		Entry("[test_id:4148] by IPv4", k8sv1.IPv4Protocol),
@@ -593,13 +567,16 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		// Every VMI is labeled with kubevirt.io/nodeName, so just creating a VMI should
 		// be enough to its metrics to contain a kubernetes label
-		metrics := collectMetrics(ip, "kubevirt_vmi_vcpu_seconds_total")
+		metrics := libmonitoring.GetMetricsFromHandler(pod, ip, "kubevirt_vmi_vcpu_seconds_total")
 		By("Checking collected metrics")
-		keys := libinfra.GetKeysFromMetrics(metrics)
 		containK8sLabel := false
-		for _, key := range keys {
-			if strings.Contains(key, "kubernetes_vmi_label_") {
-				containK8sLabel = true
+		for _, results := range metrics {
+			for _, metricResult := range results {
+				for label := range metricResult.Labels {
+					if strings.Contains(label, "kubernetes_vmi_label_") {
+						containK8sLabel = true
+					}
+				}
 			}
 		}
 		Expect(containK8sLabel).To(BeTrue())
@@ -614,16 +591,16 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		ip := libnet.GetIP(handlerMetricIPs, family)
 
-		metrics := collectMetrics(ip, "kubevirt_vmi_memory_swap_")
+		metrics := libmonitoring.GetMetricsFromHandler(pod, ip, "kubevirt_vmi_memory_swap_")
 		var in, out bool
-		for k := range metrics {
+		for metricName := range metrics {
 			if in && out {
 				break
 			}
-			if strings.Contains(k, `swap_in`) {
+			if strings.Contains(metricName, "swap_in") {
 				in = true
 			}
-			if strings.Contains(k, `swap_out`) {
+			if strings.Contains(metricName, "swap_out") {
 				out = true
 			}
 		}
