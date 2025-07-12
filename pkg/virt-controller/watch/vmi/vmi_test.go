@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -47,12 +48,12 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
@@ -294,19 +295,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	Context("On valid VirtualMachineInstance given with DataVolume source", func() {
-
-		dvVolumeSource := virtv1.VolumeSource{
-			DataVolume: &virtv1.DataVolumeSource{
-				Name: "test1",
-			},
-		}
 		It("should create a corresponding Pod on VMI creation when DataVolume is ready", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-				Name:         "test1",
-				VolumeSource: dvVolumeSource,
-			})
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
 
 			dvPVC := newPvc(vmi.Namespace, "test1")
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Succeeded)
@@ -322,12 +312,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should create a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-				Name:         "test1",
-				VolumeSource: dvVolumeSource,
-			})
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
 
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
@@ -363,15 +348,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should not delete a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-				Name:         "test1",
-				VolumeSource: dvVolumeSource,
-			})
-
 			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 				Name: "test1",
 			})
@@ -395,14 +375,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should delete a doppleganger Pod on VMI creation when DataVolume is no longer in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-				Name:         "test1",
-				VolumeSource: dvVolumeSource,
-			})
 			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 				Name: "test1",
 			})
@@ -449,16 +425,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		DescribeTable("VMI should handle doppleganger Pod status while DV is in WaitForFirstConsumer phase",
 			func(phase k8sv1.PodPhase, conditions []k8sv1.PodCondition, expectedPhase virtv1.VirtualMachineInstancePhase) {
-				vmi := newPendingVirtualMachine("testvmi")
+				vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
+
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 				pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
 				pod.Status.Phase = phase
 				pod.Status.Conditions = conditions
-
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-					Name:         "test1",
-					VolumeSource: dvVolumeSource,
-				})
 
 				pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 					Name: "test1",
@@ -490,12 +462,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		It("should not create a corresponding Pod on VMI creation when DataVolume is pending", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-				Name:         "test1",
-				VolumeSource: dvVolumeSource,
-			})
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
 
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Pending)
 			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
@@ -512,14 +479,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			var vmi *virtv1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = newPendingVirtualMachine("testvmi")
-				vmi.Spec.Domain.Firmware = &virtv1.Firmware{
-					Bootloader: &virtv1.Bootloader{
-						EFI: &virtv1.EFI{
-							Persistent: pointer.P(true),
-						},
-					},
-				}
+				vmi = newPendingVirtualMachine("testvmi", libvmi.WithPersistentUefi(true))
 				addVirtualMachine(vmi)
 			})
 
@@ -572,14 +532,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			var vmi *virtv1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = newPendingVirtualMachine("testvmi")
-				vmi.Spec.Domain.Firmware = &virtv1.Firmware{
-					Bootloader: &virtv1.Bootloader{
-						EFI: &virtv1.EFI{
-							Persistent: pointer.P(true),
-						},
-					},
-				}
+				vmi = newPendingVirtualMachine("testvmi", libvmi.WithPersistentUefi(true))
 				addVirtualMachine(vmi)
 			})
 
@@ -629,18 +582,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	Context("On valid VirtualMachineInstance given with PVC source, ownedRef of DataVolume", func() {
 
-		pvcVolumeSource := virtv1.VolumeSource{
-			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: "test1",
-			}},
-		}
 		It("should create a corresponding Pod on VMI creation when DataVolume is ready", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-				Name:         "test1",
-				VolumeSource: pvcVolumeSource,
-			})
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
 
 			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Succeeded)
@@ -656,12 +599,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should create a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-				Name:         "test1",
-				VolumeSource: pvcVolumeSource,
-			})
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
 
 			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
@@ -691,14 +629,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should not delete a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-				Name:         "test1",
-				VolumeSource: pvcVolumeSource,
-			})
 
 			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 				Name: "test1",
@@ -723,14 +657,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should delete a doppleganger Pod on VMI creation when DataVolume is no longer in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-				Name:         "test1",
-				VolumeSource: pvcVolumeSource,
-			})
 
 			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 				Name: "test1",
@@ -753,12 +683,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should not create a corresponding Pod on VMI creation when DataVolume is pending", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-				Name:         "test1",
-				VolumeSource: pvcVolumeSource,
-			})
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
 
 			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
@@ -773,12 +698,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should create a corresponding Pod on VMI creation when PVC is not controlled by a DataVolume", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-				Name:         "test1",
-				VolumeSource: pvcVolumeSource,
-			})
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
 
 			pvc := newPvc(vmi.Namespace, "test1")
 
@@ -801,8 +721,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		It("should patch the pod's annotations when network annotations generator returns custom annotations", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Running
+			vmi := newPendingVMIWithPhase("testvmi", virtv1.Running)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -818,8 +737,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should not patch the pod's annotations when network annotations generator returns an empty map", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Running
+			vmi := newPendingVMIWithPhase("testvmi", virtv1.Running)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -840,13 +758,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			newVMI *virtv1.VirtualMachineInstance
 		)
 		BeforeEach(func() {
-			oldVMI = newPendingVirtualMachine("oldvmi")
+			oldVMI = newPendingVMIWithExtraStatusOptions("oldvmi",
+				libvmistatus.WithInterfaceStatus(virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate1"}),
+				libvmistatus.WithInterfaceStatus(virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate2"}),
+			)
 			newVMI = newPendingVirtualMachine("newvmi")
-
-			oldVMI.Status.Interfaces = []virtv1.VirtualMachineInstanceNetworkInterface{
-				{Name: "stubNetStatusUpdate1"},
-				{Name: "stubNetStatusUpdate2"},
-			}
 		})
 		It("should create empty status network interfaces patch, regardless of interfaces order", func() {
 
@@ -909,9 +825,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should add request-evict-only annotation to the virt-launcher pod if annotation does not exist", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionTrue, "")
-			vmi.Status.Phase = virtv1.Running
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+				readyConditionOpt(k8sv1.ConditionTrue, "")}
+
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			delete(pod.Annotations, descheduler.EvictOnlyAnnotation)
 
@@ -924,9 +843,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		DescribeTable("should delete the corresponding Pods on VirtualMachineInstance deletion with vmi", func(phase virtv1.VirtualMachineInstancePhase) {
-			vmi := newPendingVirtualMachine("testvmi")
+			vmi := newPendingVMIWithPhase("testvmi", phase)
 
-			vmi.Status.Phase = phase
 			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 
 			if vmi.IsRunning() {
@@ -987,9 +905,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		It("should delete finalized pods on VMI deletion", func() {
-			vmi := newPendingVirtualMachine("testvmi")
+			vmi := newPendingVMIWithPhase("testvmi", virtv1.Failed)
 
-			vmi.Status.Phase = virtv1.Failed
 			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 
 			finalizedPod := newPodForVirtualMachine(vmi, k8sv1.PodSucceeded)
@@ -1008,10 +925,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should not try to delete a pod again, which is already marked for deletion and go to failed state, when in scheduling state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)}
 
-			vmi.Status.Phase = virtv1.Scheduling
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -1037,10 +956,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectVMIFailedState(vmi)
 		})
 		DescribeTable("should not delete the corresponding Pod if the vmi is in", func(phase virtv1.VirtualMachineInstancePhase) {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(phase),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)}
 
-			vmi.Status.Phase = phase
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			addVirtualMachine(vmi)
@@ -1054,8 +974,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("failed state", virtv1.Succeeded),
 		)
 		It("should do nothing if the vmi is in final state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Failed
+			vmi := newPendingVMIWithPhase("testvmi", virtv1.Failed)
 			vmi.Finalizers = []string{}
 
 			addVirtualMachine(vmi)
@@ -1110,9 +1029,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			)
 		})
 		It("should remove the error condition if the sync finally succeeds", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-
-			vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{Type: virtv1.VirtualMachineInstanceSynchronized})
+			vmi := newPendingVMIWithExtraStatusOptions("testvmi", libvmistatus.WithCondition(virtv1.VirtualMachineInstanceCondition{Type: virtv1.VirtualMachineInstanceSynchronized}))
 
 			addVirtualMachine(vmi)
 
@@ -1159,8 +1076,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					testutils.ExpectEvent(recorder, syncReason)
 				}
 
-				vmi := newPendingVirtualMachine("testvmi")
-				setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodNotExistsReason)
+				vmiStatusOptions := []libvmistatus.Option{
+					libvmistatus.WithPhase(virtv1.Pending),
+					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason)}
+				vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
 
 				vmi.Spec.Volumes = []virtv1.Volume{
 					{
@@ -1210,15 +1129,18 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("should move the vmi to scheduling state if a pod exists", func(phase k8sv1.PodPhase, isReady bool) {
-			vmi := newPendingVirtualMachine("testvmi")
-			pod := newPodForVirtualMachine(vmi, phase)
-			pod.Status.ContainerStatuses[0].Ready = isReady
-
 			unreadyReason := virtv1.GuestNotRunningReason
 			if phase == k8sv1.PodSucceeded || phase == k8sv1.PodFailed {
 				unreadyReason = virtv1.PodTerminatingReason
 			}
-			setReadyCondition(vmi, k8sv1.ConditionFalse, unreadyReason)
+
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Pending),
+				readyConditionOpt(k8sv1.ConditionFalse, unreadyReason)}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
+			pod := newPodForVirtualMachine(vmi, phase)
+			pod.Status.ContainerStatuses[0].Ready = isReady
 
 			addVirtualMachine(vmi)
 			addPod(pod)
@@ -1241,9 +1163,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		Context("when pod failed to schedule", func() {
 			It("should set scheduling pod condition on the VirtualMachineInstance", func() {
-				vmi := newPendingVirtualMachine("testvmi")
-				setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-				vmi.Status.Phase = virtv1.Scheduling
+				vmiStatusOptions := []libvmistatus.Option{
+					libvmistatus.WithPhase(virtv1.Scheduling),
+					readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)}
+				vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 
@@ -1271,18 +1194,18 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		Context("when Pod recovers from scheduling issues", func() {
 			DescribeTable("it should remove scheduling pod condition from the VirtualMachineInstance if the pod", func(owner string, podPhase k8sv1.PodPhase) {
-				vmi := newPendingVirtualMachine("testvmi")
-				setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
-				vmi.Status.Phase = virtv1.Scheduling
+				vmiStatusOptions := []libvmistatus.Option{
+					libvmistatus.WithPhase(virtv1.Scheduling),
+					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodConditionMissingReason),
+					libvmistatus.WithCondition(virtv1.VirtualMachineInstanceCondition{
+						Message: "Insufficient memory",
+						Reason:  "Unschedulable",
+						Status:  k8sv1.ConditionFalse,
+						Type:    virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)}),
+				}
+				vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
 
 				pod := newPodForVirtualMachine(vmi, podPhase)
-
-				vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
-					Message: "Insufficient memory",
-					Reason:  "Unschedulable",
-					Status:  k8sv1.ConditionFalse,
-					Type:    virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
-				})
 
 				addVirtualMachine(vmi)
 				addPod(pod)
@@ -1304,8 +1227,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should move the vmi to failed state if the pod disappears and the vmi is in scheduling state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Scheduling
+			vmi := newPendingVMIWithPhase("testvmi", virtv1.Scheduling)
 
 			addVirtualMachine(vmi)
 
@@ -1323,9 +1245,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		DescribeTable("should hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-			vmi.Status.Phase = virtv1.Scheduling
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.ContainerStatuses = containerStatus
 
@@ -1354,9 +1279,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			),
 		)
 		DescribeTable("should not hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-			vmi.Status.Phase = virtv1.Scheduling
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+			vmi.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstancePhaseTransitionTimestamp{}
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.ContainerStatuses = containerStatus
 
@@ -1379,7 +1308,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("With a virt-launcher pod and an attachment pod, it", func(attachmentPodPhase k8sv1.PodPhase, expectedPhase virtv1.VirtualMachineInstancePhase) {
-			vmi := newPendingVirtualMachine("testvmi")
+			vmiOptions := append(defaultPendingVmiOptions, libvmi.WithHotplugDataVolume("test-dv", "test-dv"))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
 			dv := &cdiv1.DataVolume{
@@ -1393,18 +1327,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			Expect(controller.dataVolumeIndexer.Add(dv)).To(Succeed())
 			Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
-			volume := virtv1.Volume{
-				Name: "test-dv",
-				VolumeSource: virtv1.VolumeSource{
-					DataVolume: &virtv1.DataVolumeSource{
-						Name:         "test-dv",
-						Hotpluggable: true,
-					},
-				},
-			}
-			vmi.Spec.Volumes = []virtv1.Volume{volume}
-			vmi.Status.Phase = virtv1.Scheduling
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
 				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
@@ -1441,10 +1363,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		It("should ignore migration target pods", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
-			vmi.Status.Phase = virtv1.Running
-			vmi.Status.NodeName = "curnode"
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodConditionMissingReason),
+				libvmistatus.WithNodeName("curnode"),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Spec.NodeName = "curnode"
@@ -1471,8 +1395,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should set an error condition if deleting the virtual machine pod fails", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Pending),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -1496,10 +1424,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			)
 		})
 		It("should set an error condition if when pod cannot guarantee resources when cpu pinning has been requested", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-			vmi.Status.Phase = virtv1.Scheduling
-			vmi.Spec.Domain.CPU = &virtv1.CPU{DedicatedCPUPlacement: true}
+			vmiOptions := append(defaultPendingVmiOptions, libvmi.WithDedicatedCPUPlacement())
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Spec = k8sv1.PodSpec{
 				Containers: []k8sv1.Container{
@@ -1550,9 +1481,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			)
 		})
 		It("should update the virtual machine to scheduled if pod is ready, runnning and handed over to virt-handler", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-			vmi.Status.Phase = virtv1.Scheduling
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			addVirtualMachine(vmi)
@@ -1562,9 +1496,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectVMIScheduledState(vmi)
 		})
 		It("should update the virtual machine QOS class if the pod finally has a QOS class assigned", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-			vmi.Status.Phase = virtv1.Scheduling
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.QOSClass = k8sv1.PodQOSGuaranteed
 
@@ -1578,9 +1515,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(*updatedVmi.Status.QOSClass).To(Equal(k8sv1.PodQOSGuaranteed))
 		})
 		It("should update the virtual machine to scheduled if pod is ready, triggered by pod change", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-			vmi.Status.Phase = virtv1.Scheduling
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 
 			addVirtualMachine(vmi)
@@ -1602,10 +1542,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectVMIScheduledState(vmi)
 		})
 		It("should update the virtual machine to failed if pod was not ready, triggered by pod delete", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
-			vmi.Status.Phase = virtv1.Scheduling
 
 			addVirtualMachine(vmi)
 			addPod(pod)
@@ -1623,11 +1565,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectVMIFailedState(vmi)
 		})
 		It("should update the virtual machine to failed if compute container is terminated while still scheduling", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodTerminatingReason)
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodTerminatingReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{Name: "compute", State: k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{}}}}
-			vmi.Status.Phase = virtv1.Scheduling
 
 			addVirtualMachine(vmi)
 			addPod(pod)
@@ -1636,12 +1581,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectVMIFailedState(vmi)
 		})
 		DescribeTable("should remove the fore ground finalizer if no pod is present and the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = phase
-			vmi.Status.LauncherContainerImageVersion = "madeup"
-			vmi.Labels = map[string]string{}
-			vmi.Labels[virtv1.OutdatedLauncherImageLabel] = ""
-			vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineInstanceFinalizer)
+			vmiOptions := append(defaultPendingVmiOptions, libvmi.WithLabel(virtv1.OutdatedLauncherImageLabel, ""), libvmi.WithFinalizer(virtv1.VirtualMachineInstanceFinalizer))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(phase),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
+				libvmistatus.WithLauncherContainerImageVersion("madeup"),
+			}
+			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+
 			Expect(vmi.Finalizers).To(ContainElement(virtv1.VirtualMachineInstanceFinalizer))
 
 			addVirtualMachine(vmi)
@@ -1660,9 +1607,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("VM controller finalizer", func(hasOwner, vmExists, expectFinalizer bool) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer, virtv1.VirtualMachineInstanceFinalizer)
-			vmi.Status.Phase = virtv1.Succeeded
+			vmiOptions := append(defaultPendingVmiOptions,
+				libvmi.WithLabel(virtv1.OutdatedLauncherImageLabel, ""),
+				libvmi.WithFinalizer(virtv1.VirtualMachineControllerFinalizer),
+				libvmi.WithFinalizer(virtv1.VirtualMachineInstanceFinalizer))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Succeeded),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 			Expect(vmi.Finalizers).To(ContainElement(virtv1.VirtualMachineControllerFinalizer))
 
 			vm := watchtesting.VirtualMachineFromVMI(vmi.Name, vmi, true)
@@ -1702,15 +1655,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("should do nothing if pod is handed to virt-handler", func(phase k8sv1.PodPhase) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Scheduled
-			pod := newPodForVirtualMachine(vmi, phase)
-
 			unreadyReason := virtv1.GuestNotRunningReason
 			if phase == k8sv1.PodSucceeded || phase == k8sv1.PodFailed {
 				unreadyReason = virtv1.PodTerminatingReason
 			}
-			setReadyCondition(vmi, k8sv1.ConditionFalse, unreadyReason)
+
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduled),
+				readyConditionOpt(k8sv1.ConditionFalse, unreadyReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+			pod := newPodForVirtualMachine(vmi, phase)
 
 			addVirtualMachine(vmi)
 			addPod(pod)
@@ -1732,9 +1687,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		It("should add outdated label if pod's image is outdated and VMI is in running state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionTrue, "")
-			vmi.Status.Phase = virtv1.Running
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+				readyConditionOpt(k8sv1.ConditionTrue, ""),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
 
@@ -1757,21 +1715,19 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			updatedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updatedPod.Labels).To(HaveKeyWithValue("kubevirt.io", "virt-launcher"))
-			Expect(updatedPod.Labels).To(HaveKeyWithValue("kubevirt.io/created-by", "1234"))
+			Expect(updatedPod.Labels).To(HaveKeyWithValue("kubevirt.io/created-by", string(vmi.UID)))
 			Expect(updatedPod.Labels).To(HaveKeyWithValue(virtv1.OutdatedLauncherImageLabel, ""))
 		})
 		It("should remove outdated label if pod's image up-to-date and VMI is in running state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionTrue, "")
-			vmi.Status.Phase = virtv1.Running
+			vmiOptions := append(defaultPendingVmiOptions, libvmi.WithLabel(virtv1.OutdatedLauncherImageLabel, ""))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+				readyConditionOpt(k8sv1.ConditionTrue, ""),
+			}
+			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
-
-			if vmi.Labels == nil {
-				vmi.Labels = make(map[string]string)
-			}
-
-			vmi.Labels[virtv1.OutdatedLauncherImageLabel] = ""
 
 			pod.Spec.Containers = append(pod.Spec.Containers, k8sv1.Container{
 				Image: controller.templateService.GetLauncherImage(),
@@ -1791,9 +1747,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should add a ready condition if it is present on the pod and the VMI is in running state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
 			vmi.Status.Conditions = nil
-			vmi.Status.Phase = virtv1.Running
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
 
@@ -1812,9 +1771,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should indicate on the ready condition if the pod is terminating", func() {
-			vmi := newPendingVirtualMachine("testvmi")
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
 			vmi.Status.Conditions = nil
-			vmi.Status.Phase = virtv1.Running
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.DeletionTimestamp = pointer.P(metav1.Now())
 			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
@@ -1834,9 +1796,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should add active pods to status if VMI is in running state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
-			vmi.Status.Phase = virtv1.Running
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodConditionMissingReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.UID = "someUID"
 			pod.Spec.NodeName = "someHost"
@@ -1852,11 +1817,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should not remove sync conditions from virt-handler if it is in scheduled state", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-			vmi.Status.Phase = virtv1.Scheduled
-			vmi.Status.Conditions = append(vmi.Status.Conditions,
-				virtv1.VirtualMachineInstanceCondition{Type: virtv1.VirtualMachineInstanceSynchronized, Status: k8sv1.ConditionFalse})
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduled),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
+				libvmistatus.WithCondition(virtv1.VirtualMachineInstanceCondition{Type: virtv1.VirtualMachineInstanceSynchronized, Status: k8sv1.ConditionFalse}),
+			}
+
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
 			addActivePods(vmi, pod.UID, "")
@@ -1870,8 +1838,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		DescribeTable("should mark the vmi as Failed if launcher-pod does not exist", func(phase virtv1.VirtualMachineInstancePhase) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = phase
+			vmi := newPendingVMIWithPhase("testvmi", phase)
 
 			addVirtualMachine(vmi)
 
@@ -1883,9 +1850,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("should move the vmi to failed if pod is not handed over", func(phase k8sv1.PodPhase) {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodTerminatingReason)
-			vmi.Status.Phase = virtv1.Scheduling
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodTerminatingReason),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
 			pod := newPodForVirtualMachine(vmi, phase)
 
 			addVirtualMachine(vmi)
@@ -1899,8 +1869,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("should set a Synchronized=False condition when pod runs into image pull errors", func(initContainer bool, containerWaitingReason string) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Scheduling
+			vmi := newPendingVMIWithPhase("testvmi", virtv1.Scheduling)
+
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 
 			containerStatus := &pod.Status.ContainerStatuses[0]
@@ -1931,17 +1901,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("should override Synchronized=False condition reason when it's already set", func(prevReason, newReason string) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Scheduling
-			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
-
-			vmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{
-				{
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				libvmistatus.WithCondition(virtv1.VirtualMachineInstanceCondition{
 					Type:   virtv1.VirtualMachineInstanceSynchronized,
 					Status: k8sv1.ConditionFalse,
 					Reason: prevReason,
-				},
+				}),
 			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+
+			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 
 			pod.Status.InitContainerStatuses = []k8sv1.ContainerStatus{{
 				State: k8sv1.ContainerState{
@@ -1968,8 +1938,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("ImagePullBackOff --> ErrImagePull", kvcontroller.ImagePullBackOffReason, kvcontroller.ErrImagePullReason),
 		)
 		It("should add MigrationTransport to VMI status if MigrationTransportUnixAnnotation was set", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Scheduling
+			vmi := newPendingVMIWithPhase("testvmi", virtv1.Scheduling)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.MigrationTransportUnixAnnotation] = "true"
 
@@ -1995,15 +1964,22 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				expectedLabels      map[string]string
 			}
 			DescribeTable("when VMI dynamic annotations and label sets changes", func(td *testData) {
-				vmi := newPendingVirtualMachine("testvmi")
-				vmi.Status.Phase = virtv1.Running
+				vmiOpts := defaultPendingVmiOptions
+				vmiStatusOpts := []libvmistatus.Option{
+					libvmistatus.WithPhase(virtv1.Running),
+					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
+				}
+				for key, val := range td.vmiLabels {
+					vmiOpts = append(vmiOpts, libvmi.WithLabel(key, val))
+				}
+				for key, val := range td.vmiAnnotations {
+					vmiOpts = append(vmiOpts, libvmi.WithAnnotation(key, val))
+				}
+
+				vmi := newTestVMIWithOptions("testvmi", vmiOpts, vmiStatusOpts)
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
-				vmi.Labels = td.vmiLabels
-				for key, val := range td.vmiAnnotations {
-					vmi.Annotations[key] = val
-				}
 				for key, val := range td.podAnnotations {
 					pod.Annotations[key] = val
 				}
@@ -2229,12 +2205,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		DescribeTable("should set VirtualMachineUnpaused=False pod condition when VMI is paused", func(currUnpausedStatus k8sv1.ConditionStatus) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Running
-			kvcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
-				Type:   virtv1.VirtualMachineInstancePaused,
-				Status: k8sv1.ConditionTrue,
-			})
+			vmiStatusOpts := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
+				libvmistatus.WithCondition(virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstancePaused,
+					Status: k8sv1.ConditionTrue,
+				}),
+			}
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOpts)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			addActivePods(vmi, pod.UID, "")
@@ -2257,9 +2236,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("should set VirtualMachineUnpaused=True pod condition when VMI is not paused", func(currUnpausedStatus k8sv1.ConditionStatus) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = virtv1.Running
-			kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstancePaused)
+			vmi := newPendingVMIWithPhase("testvmi", virtv1.Running)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			addActivePods(vmi, pod.UID, "")
@@ -2283,20 +2260,21 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		Context("with memory hotplug enabled", func() {
 			It("should add MemoryChange condition when guest memory changes", func() {
-				currentGuestMemory := resource.MustParse("128Mi")
-				requestedGuestMemory := resource.MustParse("512Mi")
+				currentGuestMemory := "128Mi"
+				requestedGuestMemory := "512Mi"
+				currentGuestMemoryResource := resource.MustParse(currentGuestMemory)
 
-				vmi := newPendingVirtualMachine("testvmi")
-				vmi.Status.Phase = virtv1.Running
-				vmi.Status.Memory = &virtv1.MemoryStatus{
-					GuestAtBoot:    &currentGuestMemory,
-					GuestCurrent:   &currentGuestMemory,
-					GuestRequested: &currentGuestMemory,
+				vmiOpts := append(defaultPendingVmiOptions, libvmi.WithGuestMemory(requestedGuestMemory), libvmi.WithMaxGuest(requestedGuestMemory))
+				vmiStatusOpts := []libvmistatus.Option{
+					libvmistatus.WithPhase(virtv1.Running),
+					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
+					libvmistatus.WithMemoryStatus(&virtv1.MemoryStatus{
+						GuestAtBoot:    &currentGuestMemoryResource,
+						GuestCurrent:   &currentGuestMemoryResource,
+						GuestRequested: &currentGuestMemoryResource,
+					}),
 				}
-				vmi.Spec.Domain.Memory = &virtv1.Memory{
-					Guest:    &requestedGuestMemory,
-					MaxGuest: &requestedGuestMemory,
-				}
+				vmi := newTestVMIWithOptions("testvmi", vmiOpts, vmiStatusOpts)
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 				addActivePods(vmi, pod.UID, "")
@@ -2314,18 +2292,20 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			It("should store guestMemoryOverheadRatio if used during memory hotplug", func() {
-				currentGuestMemory := resource.MustParse("128Mi")
-				requestedGuestMemory := resource.MustParse("512Mi")
+				currentGuestMemory := "128Mi"
+				requestedGuestMemory := "512Mi"
+				currentGuestMemoryResource := resource.MustParse(currentGuestMemory)
 
-				vmi := newPendingVirtualMachine("testvmi")
-				vmi.Status.Phase = virtv1.Running
-				vmi.Status.Memory = &virtv1.MemoryStatus{
-					GuestCurrent: &currentGuestMemory,
+				vmiOpts := append(defaultPendingVmiOptions, libvmi.WithGuestMemory(requestedGuestMemory), libvmi.WithMaxGuest(requestedGuestMemory))
+				vmiStatusOpts := []libvmistatus.Option{
+					libvmistatus.WithPhase(virtv1.Running),
+					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
+					libvmistatus.WithMemoryStatus(&virtv1.MemoryStatus{
+						GuestCurrent: &currentGuestMemoryResource,
+					}),
 				}
-				vmi.Spec.Domain.Memory = &virtv1.Memory{
-					Guest:    &requestedGuestMemory,
-					MaxGuest: &requestedGuestMemory,
-				}
+				vmi := newTestVMIWithOptions("testvmi", vmiOpts, vmiStatusOpts)
+
 				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 				overheadRatio := "2"
 				kvCR.Spec.Configuration.AdditionalGuestMemoryOverheadRatio = &overheadRatio
@@ -2496,14 +2476,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("CreateAttachmentPodTemplate should update status to bound if DV owning PVC is bound but not ready", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			addVolumeStatuses(vmi, virtv1.VolumeStatus{
+			vmi := newPendingVMIWithExtraStatusOptions("testvmi", libvmistatus.WithVolumeStatus(virtv1.VolumeStatus{
 				Name:          "test-pvc-volume",
 				HotplugVolume: &virtv1.HotplugVolumeStatus{},
 				Phase:         virtv1.VolumePending,
 				Message:       "some technical reason",
 				Reason:        kvcontroller.PVCNotReadyReason,
-			})
+			}))
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			addDataVolumePVC(pvc)
@@ -2538,8 +2517,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("CreateAttachmentPodTemplate should create a pod template if DV of owning PVC is ready", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
+			vmi := newPendingVMIWithExtraStatusOptions("testvmi", libvmistatus.WithSelinuxContext("system_u:system_r:container_file_t:s0:c1,c2"))
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			addDataVolumePVC(pvc)
@@ -2731,8 +2709,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}
 
 		DescribeTable("handleHotplugVolumes should properly react to input", func(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod, createPodReaction func(*k8sv1.Pod, ...int), pvcFunc func(...int), pvcIndexes []int, orgStatus []virtv1.VolumeStatus, expectedEvent string, expectedErr common.SyncError) {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Status.VolumeStatus = orgStatus
+			volumeStatusOptions := []libvmistatus.Option{}
+			for _, volumeStatus := range orgStatus {
+				volumeStatusOptions = append(volumeStatusOptions, libvmistatus.WithVolumeStatus(volumeStatus))
+			}
+			vmi := newPendingVMIWithExtraStatusOptions("testvmi", volumeStatusOptions...)
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvcFunc(pvcIndexes...)
 			datavolumes := []*cdiv1.DataVolume{}
@@ -3124,55 +3105,20 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		It("Should properly create attachmentpod, if correct volume and disk are added", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
-			volumes := make([]virtv1.Volume, 0)
-			volumes = append(volumes, virtv1.Volume{
-				Name: "existing",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "existing",
-						},
-					},
-				},
-			})
-			volumes = append(volumes, virtv1.Volume{
-				Name: "hotplug",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "hotplug",
-						},
-					},
-				},
-			})
-			vmi.Spec.Volumes = volumes
-			disks := make([]virtv1.Disk, 0)
-			disks = append(disks, virtv1.Disk{
-				Name: "existing",
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{
-						Bus: virtv1.DiskBusVirtio,
-					},
-				},
-			})
-			disks = append(disks, virtv1.Disk{
-				Name: "hotplug",
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{
-						Bus: virtv1.DiskBusSATA,
-					},
-				},
-			})
-			vmi.Spec.Domain.Devices.Disks = disks
-			vmi.Status.Phase = virtv1.Running
-			addVolumeStatuses(vmi, virtv1.VolumeStatus{
-				Name:   "existing",
-				Target: "",
-			})
-			addActivePods(vmi, "virt-launch-uid", "")
-			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
+			vmiOptions := append(defaultPendingVmiOptions,
+				libvmi.WithPersistentVolumeClaim("existing", "existing"),
+				libvmi.WithPersistentVolumeClaim("hotplug", "hotplug",
+					libvmi.WithDiskBus(virtv1.DiskBusSATA)))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodConditionMissingReason),
+				libvmistatus.WithVolumeStatus(virtv1.VolumeStatus{
+					Name:   "existing",
+					Target: ""}),
+				libvmistatus.WithSelinuxContext("system_u:system_r:container_file_t:s0:c1,c2"),
+				libvmistatus.WithActivePod("virt-launch-uid", "")}
+			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			existingPVC := &k8sv1.PersistentVolumeClaim{
@@ -3238,43 +3184,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("Should properly delete attachment, if volume and disk are removed", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
-			volumes := make([]virtv1.Volume, 0)
-			volumes = append(volumes, virtv1.Volume{
-				Name: "existing",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "existing",
-					}},
-				},
-			})
-			vmi.Spec.Volumes = volumes
-			disks := make([]virtv1.Disk, 0)
-			disks = append(disks, virtv1.Disk{
-				Name: "existing",
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{
-						Bus: virtv1.DiskBusVirtio,
-					},
-				},
-			})
-			vmi.Spec.Domain.Devices.Disks = disks
-			vmi.Status.Phase = virtv1.Running
-			addVolumeStatuses(vmi,
-				virtv1.VolumeStatus{
+			vmiOptions := append(defaultPendingVmiOptions,
+				libvmi.WithPersistentVolumeClaim("existing", "existing"))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Running),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodConditionMissingReason),
+				libvmistatus.WithVolumeStatus(virtv1.VolumeStatus{
 					Name:   "existing",
-					Target: "",
-				}, virtv1.VolumeStatus{
+					Target: ""}),
+				libvmistatus.WithVolumeStatus(virtv1.VolumeStatus{
 					Name:   "hotplug",
 					Target: "",
 					HotplugVolume: &virtv1.HotplugVolumeStatus{
 						AttachPodName: "hp-volume-hotplug",
 						AttachPodUID:  "abcd",
-					},
-				},
-			)
-			addActivePods(vmi, "virt-launch-uid", "")
+					}}),
+				libvmistatus.WithActivePod("virt-launch-uid", "")}
+			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			existingPVC := &k8sv1.PersistentVolumeClaim{
@@ -3373,11 +3300,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				})
 			}
 
-			vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testnode",
-				},
-			})
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithUID(types.UID(uuid.NewString())),
+				libvmi.WithLabel(virtv1.NodeNameLabel, "testnode"), libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithPhase(virtv1.Running), libvmistatus.WithNodeName("testnode"),
+				)),
+			)
+
 			if currentPod == nil && len(oldPods) > 0 {
 				currentPod = oldPods[0]
 			}
@@ -3447,28 +3377,22 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	Context("topology hints", func() {
 
 		getVmiWithInvTsc := func() *virtv1.VirtualMachineInstance {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Spec.Architecture = "amd64"
-			vmi.Spec.Domain.CPU = &virtv1.CPU{
-				Features: []virtv1.CPUFeature{
-					{
-						Name:   "invtsc",
-						Policy: "require",
-					},
-				},
-			}
+			vmiOpts := append(defaultPendingVmiOptions,
+				libvmi.WithArchitecture("amd64"),
+				libvmi.WithCPUFeature("invtsc", "require"))
+			vmi := newTestVMIWithOptions("testvmi", vmiOpts, []libvmistatus.Option{})
 
 			return vmi
 		}
 
 		getVmiWithReenlightenment := func() *virtv1.VirtualMachineInstance {
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Spec.Architecture = "amd64"
-			vmi.Spec.Domain.Features = &virtv1.Features{
-				Hyperv: &virtv1.FeatureHyperv{
-					Reenlightenment: &virtv1.FeatureState{Enabled: pointer.P(true)},
-				},
-			}
+			vmiOpts := append(defaultPendingVmiOptions,
+				libvmi.WithArchitecture("amd64"),
+				libvmi.WithDomainFeatures(&virtv1.Features{
+					Hyperv: &virtv1.FeatureHyperv{
+						Reenlightenment: &virtv1.FeatureState{Enabled: pointer.P(true)},
+					}}))
+			vmi := newTestVMIWithOptions("testvmi", vmiOpts, []libvmistatus.Option{})
 
 			return vmi
 		}
@@ -3560,10 +3484,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	Context("auto attach VSOCK", func() {
 		It("should allocate CID when VirtualMachineInstance is scheduled", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-			vmi.Status.Phase = virtv1.Scheduling
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+			vmiOptions := append(defaultPendingVmiOptions, libvmi.WithAutoattachVSOCK(true))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Scheduling),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)}
+
+			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			addVirtualMachine(vmi)
@@ -3580,10 +3506,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			alc := &fakeAllocator{}
 			controller.cidsMap = alc
 
-			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+			vmiOptions := append(defaultPendingVmiOptions, libvmi.WithAutoattachVSOCK(true))
+			vmiStatusOptions := []libvmistatus.Option{
+				libvmistatus.WithPhase(virtv1.Succeeded),
+				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason)}
+
+			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 			Expect(controller.cidsMap.Allocate(vmi)).To(Succeed())
-			vmi.Status.Phase = virtv1.Succeeded
 			addVirtualMachine(vmi)
 
 			Expect(controller.vmiIndexer.Delete(vmi)).To(Succeed())
@@ -3595,38 +3524,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	})
 
 	Context("Aggregating DataVolume conditions", func() {
-
-		dvVolumeSource1 := virtv1.VolumeSource{
-			DataVolume: &virtv1.DataVolumeSource{
-				Name: "test1",
-			},
-		}
-		dvVolumeSource2 := virtv1.VolumeSource{
-			DataVolume: &virtv1.DataVolumeSource{
-				Name: "test2",
-			},
-		}
-		dvVolumeSource3 := virtv1.VolumeSource{
-			DataVolume: &virtv1.DataVolumeSource{
-				Name: "test3",
-			},
-		}
 		DescribeTable("Should aggregate conditions from 3 DataVolumes on VMI status",
 			func(dvConds1, dvConds2, dvConds3 []cdiv1.DataVolumeCondition, expectedStatus k8sv1.ConditionStatus, expectedMessage string) {
-				vmi := newPendingVirtualMachine("testvmi")
-
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-					Name:         "test1",
-					VolumeSource: dvVolumeSource1,
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-					Name:         "test2",
-					VolumeSource: dvVolumeSource2,
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
-					Name:         "test3",
-					VolumeSource: dvVolumeSource3,
-				})
+				vmiOptions := append(defaultPendingVmiOptions,
+					libvmi.WithDataVolume("test1", "test1"),
+					libvmi.WithDataVolume("test2", "test2"),
+					libvmi.WithDataVolume("test3", "test3"),
+				)
+				vmi := newTestVMIWithOptions("testvmi", vmiOptions, defaultPendingVmiStatusOptions)
 
 				dvPVC1 := newPvc(vmi.Namespace, "test1")
 				dvPVC2 := newPvc(vmi.Namespace, "test2")
@@ -3878,13 +3783,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		DescribeTable("Auto migration logic",
 			func(existingCondition *virtv1.VirtualMachineInstanceCondition, evaluator migrationEvaluator, matcher gomegaTypes.GomegaMatcher) {
-				vmi := newPendingVirtualMachine("testvmi")
-				vmi.Status.Phase = virtv1.Running
-
-				if existingCondition != nil {
-					vmi.Status.Conditions = append(vmi.Status.Conditions, *existingCondition)
+				vmiStatusOptions := []libvmistatus.Option{
+					libvmistatus.WithPhase(virtv1.Running),
+					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
 				}
 
+				if existingCondition != nil {
+					vmiStatusOptions = append(vmiStatusOptions,
+						libvmistatus.WithCondition(*existingCondition))
+				}
+
+				vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 				addVirtualMachine(vmi)
@@ -4113,13 +4022,58 @@ func newPvcWithOwner(namespace string, name string, ownerName string, isControll
 	}
 }
 
-func newPendingVirtualMachine(name string) *virtv1.VirtualMachineInstance {
-	vmi := api.NewMinimalVMI(name)
-	vmi.UID = "1234"
-	vmi.Status.Phase = virtv1.Pending
-	setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodNotExistsReason)
+var defaultPendingVmiOptions = []libvmi.Option{
+	libvmi.WithNamespace(k8sv1.NamespaceDefault),
+	libvmi.WithUID("1234"),
+}
+
+var defaultPendingVmiStatusOptions = []libvmistatus.Option{
+	libvmistatus.WithPhase(virtv1.Pending),
+	readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
+}
+
+func newPendingVirtualMachine(name string, extraVmiOpts ...libvmi.Option) *virtv1.VirtualMachineInstance {
+	vmiOptions := append(defaultPendingVmiOptions, extraVmiOpts...)
+
+	return newTestVMIWithOptions(name, vmiOptions, defaultPendingVmiStatusOptions)
+}
+
+func newPendingVMIWithExtraStatusOptions(name string, extraStatusOpts ...libvmistatus.Option) *virtv1.VirtualMachineInstance {
+	vmiStatusOptions := append(defaultPendingVmiStatusOptions, extraStatusOpts...)
+	return newTestVMIWithOptions(name, defaultPendingVmiOptions, vmiStatusOptions)
+}
+
+func newPendingVMIWithPhase(name string, phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
+	vmiStatusOptions := []libvmistatus.Option{
+		libvmistatus.WithPhase(phase),
+		readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
+	}
+	return newTestVMIWithOptions(name, defaultPendingVmiOptions, vmiStatusOptions)
+}
+
+func newTestVMIWithOptions(name string, vmiOptions []libvmi.Option, statusOptions []libvmistatus.Option) *virtv1.VirtualMachineInstance {
+	combinedOptions := append(vmiOptions, libvmi.WithName(name),
+		libvmistatus.WithStatus(
+			libvmistatus.New(
+				statusOptions...,
+			)))
+
+	vmi := libvmi.New(
+		combinedOptions...,
+	)
+
 	kvcontroller.SetLatestApiVersionAnnotation(vmi)
 	return vmi
+}
+
+func readyConditionOpt(status k8sv1.ConditionStatus, reason string) libvmistatus.Option {
+	return libvmistatus.WithCondition(
+		virtv1.VirtualMachineInstanceCondition{
+			Type:   virtv1.VirtualMachineInstanceReady,
+			Status: status,
+			Reason: reason,
+		},
+	)
 }
 
 func setReadyCondition(vmi *virtv1.VirtualMachineInstance, status k8sv1.ConditionStatus, reason string) {
