@@ -36,7 +36,7 @@ import (
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo),
+		Metrics:         append(timestampMetrics, vmLabels, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo),
 		CollectCallback: vmStatsCollectorCallback,
 	}
 
@@ -189,9 +189,10 @@ var (
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
+	loadVMLabelsConfiguration()
+
 	cachedObjs := stores.VM.List()
 	if len(cachedObjs) == 0 {
-		log.Log.V(4).Infof("No VMs detected")
 		return []operatormetrics.CollectorResult{}
 	}
 
@@ -493,6 +494,10 @@ func reportVmsStats(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 func reportVmStats(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
+	// VM labels metric collection
+	cr = append(cr, reportVmLabels(vm)...)
+
+	// VM timestamp metrics collection
 	status := vm.Status.PrintableStatus
 	currentStateMetric := getMetricDesc(status)
 
