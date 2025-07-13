@@ -70,6 +70,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			// needs a machines variable - ignoring since already tested in - tests/infrastructure/prometheus
 			"kubevirt_node_deprecated_machine_types": true,
 
+			// needs a label - ignoring since already tested later in this file
+			"kubevirt_vm_labels": true,
+
 			// migration metrics
 			// needs a migration - ignoring since already tested in - VM Monitoring, VM migration metrics
 			"kubevirt_vmi_migration_phase_transition_time_from_creation_seconds": true,
@@ -216,6 +219,14 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
 			"binding_name": "masquerade",
 		}, 0)
 
+	By("Verifying kubevirt_vm_labels metric")
+	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vm_labels", 1,
+		map[string]string{
+			"namespace":                 vm.Namespace,
+			"name":                      vm.Name,
+			"label_vm_kubevirt_io_test": "test-vm-labels",
+		}, 0)
+
 	By("Deleting the VirtualMachine")
 	err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -235,6 +246,7 @@ func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 		libvmi.WithPersistentVolumeClaim("testdisk", pvc.Name),
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithLabel("vm.kubevirt.io/test", "test-vm-labels"),
 	)
 
 	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
