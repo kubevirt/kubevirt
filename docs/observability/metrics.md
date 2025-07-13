@@ -99,6 +99,9 @@ Virtual Machine last transition timestamp to error status. Type: Counter.
 ### kubevirt_vm_info
 Information about Virtual Machines. Type: Gauge.
 
+### kubevirt_vm_labels
+Kubernetes VM labels converted to Prometheus labels. Can be configured via ConfigMap 'kubevirt-vm-labels-config' in the same namespace as virt-controller with 'allowlist' and 'ignorelist' fields. Type: Gauge.
+
 ### kubevirt_vm_migrating_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to migrating status. Type: Counter.
 
