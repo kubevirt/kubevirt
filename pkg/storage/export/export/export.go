@@ -99,7 +99,9 @@ const (
 	caCertFile    = caDefaultPath + "/tls.crt"
 	caKeyFile     = caDefaultPath + "/tls.key"
 	// name of certificate secret volume in pod
-	certificates = "certificates"
+	certificatesVolName = "certificates"
+	// name of token secret volume in pod
+	tokenVolName = "token"
 
 	exporterPodFailedOrCompletedEvent     = "ExporterPodFailedOrCompleted"
 	exporterPodCreatedEvent               = "ExporterPodCreated"
@@ -747,7 +749,7 @@ func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMa
 func (ctrl *VMExportController) getExportSecretName(ownerPod *corev1.Pod) string {
 	var certSecretName string
 	for _, volume := range ownerPod.Spec.Volumes {
-		if volume.Name == certificates {
+		if volume.Name == certificatesVolName {
 			certSecretName = volume.Secret.SecretName
 		}
 	}
@@ -952,14 +954,14 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 
 	secretName := fmt.Sprintf("secret-%s", rand.String(10))
 	podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
-		Name: certificates,
+		Name: certificatesVolName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: secretName,
 			},
 		},
 	}, corev1.Volume{
-		Name: tokenSecretRef,
+		Name: tokenVolName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: tokenSecretRef,
@@ -968,10 +970,10 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	})
 
 	podManifest.Spec.Containers[0].VolumeMounts = append(podManifest.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-		Name:      certificates,
+		Name:      certificatesVolName,
 		MountPath: "/cert",
 	}, corev1.VolumeMount{
-		Name:      tokenSecretRef,
+		Name:      tokenVolName,
 		MountPath: "/token",
 	})
 
