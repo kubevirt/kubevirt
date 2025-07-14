@@ -580,7 +580,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		pool := newPoolFromVMI(libvmifact.NewCirros())
 
 		// Set up DescendingOrder scale-in strategy
-		basePolicy := poolv1.VirtualMachinePoolBasePolicyDescendingOrder
+		basePolicy := poolv1.VirtualMachinePoolBasePolicyOldest
 		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
 			Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
 				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
