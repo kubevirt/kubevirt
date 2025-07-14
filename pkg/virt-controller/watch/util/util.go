@@ -25,6 +25,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
@@ -111,4 +113,40 @@ func CreateDataVolumeManifest(clientset kubecli.KubevirtClient, dataVolumeTempla
 	}
 
 	return newDataVolume, nil
+}
+
+// NodeSelectorRequirementsAsSelector converts the []NodeSelectorRequirement api type into a struct that implements
+// labels.Selector.
+func NodeSelectorRequirementsAsSelector(nsm *[]corev1.NodeSelectorRequirement) (labels.Selector, error) {
+	if nsm == nil {
+		return labels.Nothing(), nil
+	}
+
+	selector := labels.NewSelector()
+	for _, expr := range *nsm {
+		var op selection.Operator
+		switch expr.Operator {
+		case corev1.NodeSelectorOpIn:
+			op = selection.In
+		case corev1.NodeSelectorOpNotIn:
+			op = selection.NotIn
+		case corev1.NodeSelectorOpExists:
+			op = selection.Exists
+		case corev1.NodeSelectorOpDoesNotExist:
+			op = selection.DoesNotExist
+		case corev1.NodeSelectorOpGt:
+			op = selection.GreaterThan
+		case corev1.NodeSelectorOpLt:
+			op = selection.LessThan
+		default:
+			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
+		}
+		r, err := labels.NewRequirement(expr.Key, op, expr.Values)
+		if err != nil {
+			return nil, err
+		} else {
+			selector = selector.Add(*r)
+		}
+	}
+	return selector, nil
 }
