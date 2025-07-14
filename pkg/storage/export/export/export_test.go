@@ -92,6 +92,7 @@ var (
 			Name:  "TOKEN_FILE",
 			Value: "/token/token",
 		}}
+	tokenSecretName = "my-secret-token"
 )
 
 var _ = Describe("Export controller", func() {
@@ -871,7 +872,7 @@ var _ = Describe("Export controller", func() {
 		Expect(pod.Spec.Volumes).To(HaveLen(numberOfVolumes), "There should be 3/4 volumes, one pvc, and two secrets (token and certs) (and vm def manifest if VM)")
 		certSecretName := ""
 		for _, volume := range pod.Spec.Volumes {
-			if volume.Name == certificates {
+			if volume.Name == certificatesVolName {
 				certSecretName = volume.Secret.SecretName
 			}
 		}
@@ -884,7 +885,7 @@ var _ = Describe("Export controller", func() {
 			},
 		}))
 		Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
-			Name: certificates,
+			Name: certificatesVolName,
 			VolumeSource: k8sv1.VolumeSource{
 				Secret: &k8sv1.SecretVolumeSource{
 					SecretName: certSecretName,
@@ -892,21 +893,22 @@ var _ = Describe("Export controller", func() {
 			},
 		}))
 		Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
-			Name: "token",
+			Name: tokenVolName,
 			VolumeSource: k8sv1.VolumeSource{
 				Secret: &k8sv1.SecretVolumeSource{
-					SecretName: "token",
+					SecretName: tokenSecretName,
 				},
 			},
 		}))
 		Expect(pod.Spec.Containers).To(HaveLen(1))
+		Expect(pod.Spec.Containers[0].Name).To(Equal("exporter"))
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(numberOfVolumes - 1)) // The other is a block Volume
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
-			Name:      certificates,
+			Name:      certificatesVolName,
 			MountPath: "/cert",
 		}))
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
-			Name:      *testVMExport.Status.TokenSecretRef,
+			Name:      tokenVolName,
 			MountPath: "/token",
 		}))
 		Expect(pod.Spec.Containers[0].VolumeDevices).To(HaveLen(1))
@@ -978,7 +980,7 @@ var _ = Describe("Export controller", func() {
 			Spec: k8sv1.PodSpec{
 				Volumes: []k8sv1.Volume{
 					{
-						Name: certificates,
+						Name: certificatesVolName,
 						VolumeSource: k8sv1.VolumeSource{
 							Secret: &k8sv1.SecretVolumeSource{
 								SecretName: "test-secret",
@@ -1542,7 +1544,7 @@ func createPVCVMExportWithName(name string) *exportv1.VirtualMachineExport {
 				Kind:     "PersistentVolumeClaim",
 				Name:     testPVCName,
 			},
-			TokenSecretRef: pointer.P("token"),
+			TokenSecretRef: &tokenSecretName,
 		},
 	}
 }
@@ -1577,7 +1579,7 @@ func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachineSnapshot",
 				Name:     testVmsnapshotName,
 			},
-			TokenSecretRef: pointer.P("token"),
+			TokenSecretRef: &tokenSecretName,
 		},
 	}
 }
@@ -1596,7 +1598,7 @@ func createVMVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachine",
 				Name:     testVmName,
 			},
-			TokenSecretRef: pointer.P("token"),
+			TokenSecretRef: &tokenSecretName,
 		},
 	}
 }
