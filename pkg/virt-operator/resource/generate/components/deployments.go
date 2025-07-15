@@ -496,8 +496,7 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 }
 
 // Used for manifest generation only
-func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosity, kubeVirtVersionEnv, virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
-	virtExportServerShaEnv, virtSynchronizationControllerSha, gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv, virtExportServerImageEnv, virtSynchronizationControllerImageEnv, gsImage, prHelperImage, sidecarShimImage,
+func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosity, kubeVirtVersionEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv, virtExportServerImageEnv, virtSynchronizationControllerImageEnv, gsImage, prHelperImage, sidecarShimImage,
 	image string, pullPolicy corev1.PullPolicy) *appsv1.Deployment {
 
 	const kubernetesOSLinux = "linux"
@@ -645,8 +644,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
 
 	envVars := generateVirtOperatorEnvVars(
-		virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv, virtExportServerShaEnv,
-		virtSynchronizationControllerSha, gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
+		runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
 		virtExportServerImageEnv, virtSynchronizationControllerImageEnv, gsImage, prHelperImage, sidecarShimImage, kubeVirtVersionEnv,
 	)
 
@@ -843,12 +841,10 @@ func criticalAddonsToleration() []corev1.Toleration {
 }
 
 func AddVersionSeparatorPrefix(version string) string {
-	// version can be a template, a tag or shasum
-	// prefix tags with ":" and shasums with "@"
+	// version can be a template or a tag
+	// prefix tags with ":"
 	// templates have to deal with the correct image/version separator themselves
-	if strings.HasPrefix(version, "sha256:") {
-		version = fmt.Sprintf("@%s", version)
-	} else if !strings.HasPrefix(version, "{{if") {
+	if !strings.HasPrefix(version, "{{if") {
 		version = fmt.Sprintf(":%s", version)
 	}
 	return version
@@ -877,8 +873,7 @@ func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *policyv
 	return podDisruptionBudget
 }
 
-func generateVirtOperatorEnvVars(virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
-	virtExportServerShaEnv, virtSynchronizationControllerShaEnv, gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
+func generateVirtOperatorEnvVars(runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
 	virtExportServerImageEnv, virtSynchronizationControllerImageEnv, gsImage, prHelperImage, sidecarShimImage, kubeVirtVersionEnv string) (envVars []corev1.EnvVar) {
 
 	addEnvVar := func(envVarName, envVarValue string) {
@@ -888,55 +883,36 @@ func generateVirtOperatorEnvVars(virtApiShaEnv, virtControllerShaEnv, virtHandle
 		})
 	}
 
-	// Since sha environment variables are being deprecated in favor of the new full-image variables, they are being ignored
-	// if full-image variables exist. This can be simplified once the deprecated environment variables would be removed.
-
 	if virtApiImageEnv != "" {
 		addEnvVar(operatorutil.VirtApiImageEnvName, virtApiImageEnv)
-	} else if virtApiShaEnv != "" {
-		addEnvVar(operatorutil.VirtApiShasumEnvName, virtApiShaEnv)
 	}
 
 	if virtControllerImageEnv != "" {
 		addEnvVar(operatorutil.VirtControllerImageEnvName, virtControllerImageEnv)
-	} else if virtControllerShaEnv != "" {
-		addEnvVar(operatorutil.VirtControllerShasumEnvName, virtControllerShaEnv)
 	}
 
 	if virtHandlerImageEnv != "" {
 		addEnvVar(operatorutil.VirtHandlerImageEnvName, virtHandlerImageEnv)
-	} else if virtHandlerShaEnv != "" {
-		addEnvVar(operatorutil.VirtHandlerShasumEnvName, virtHandlerShaEnv)
 	}
 
 	if virtLauncherImageEnv != "" {
 		addEnvVar(operatorutil.VirtLauncherImageEnvName, virtLauncherImageEnv)
-	} else if virtLauncherShaEnv != "" {
-		addEnvVar(operatorutil.VirtLauncherShasumEnvName, virtLauncherShaEnv)
 	}
 
 	if virtExportProxyImageEnv != "" {
 		addEnvVar(operatorutil.VirtExportProxyImageEnvName, virtExportProxyImageEnv)
-	} else if virtExportProxyShaEnv != "" {
-		addEnvVar(operatorutil.VirtExportProxyShasumEnvName, virtExportProxyShaEnv)
 	}
 
 	if virtExportServerImageEnv != "" {
 		addEnvVar(operatorutil.VirtExportServerImageEnvName, virtExportServerImageEnv)
-	} else if virtExportServerShaEnv != "" {
-		addEnvVar(operatorutil.VirtExportServerShasumEnvName, virtExportServerShaEnv)
 	}
 
 	if virtSynchronizationControllerImageEnv != "" {
 		addEnvVar(operatorutil.VirtSynchronizationControllerImageEnvName, virtSynchronizationControllerImageEnv)
-	} else if virtSynchronizationControllerShaEnv != "" {
-		addEnvVar(operatorutil.VirtSynchronizationControllerShasumEnvName, virtSynchronizationControllerShaEnv)
 	}
 
 	if gsImage != "" {
 		addEnvVar(operatorutil.GsImageEnvName, gsImage)
-	} else if gsShaEnv != "" {
-		addEnvVar(operatorutil.GsEnvShasumName, gsShaEnv)
 	}
 
 	if runbookURLTemplate != "" {
@@ -944,14 +920,10 @@ func generateVirtOperatorEnvVars(virtApiShaEnv, virtControllerShaEnv, virtHandle
 	}
 	if prHelperImage != "" {
 		addEnvVar(operatorutil.PrHelperImageEnvName, prHelperImage)
-	} else if prHelperShaEnv != "" {
-		addEnvVar(operatorutil.PrHelperShasumEnvName, prHelperShaEnv)
 	}
 
 	if sidecarShimImage != "" {
 		addEnvVar(operatorutil.SidecarShimImageEnvName, sidecarShimImage)
-	} else if sidecarShimShaEnv != "" {
-		addEnvVar(operatorutil.SidecarShimShasumEnvName, sidecarShimShaEnv)
 	}
 
 	if kubeVirtVersionEnv != "" {
