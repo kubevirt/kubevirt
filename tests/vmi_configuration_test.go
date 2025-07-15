@@ -1345,24 +1345,20 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with serial-number", func() {
 
 			It("[test_id:3121]should have serial-number set when present", func() {
+				const serial = "4b2f5496-f3a3 460b-a375-168223f68845"
 				snVmi := libvmifact.NewAlpine()
-				snVmi.Spec.Domain.Firmware = &v1.Firmware{Serial: "4b2f5496-f3a3-460b-a375-168223f68845"}
+				snVmi.Spec.Domain.Firmware = &v1.Firmware{Serial: serial}
 
 				By("Starting a VirtualMachineInstance")
 				snVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(snVmi)).Create(context.Background(), snVmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(snVmi)
+				Expect(console.LoginToAlpine(snVmi)).To(Succeed())
 
-				getOptions := metav1.GetOptions{}
-				var freshVMI *v1.VirtualMachineInstance
-
-				freshVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(snVmi)).Get(context.Background(), snVmi.Name, getOptions)
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-
-				domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
-				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
-
-				Expect(domXML).To(ContainSubstring("<entry name='serial'>4b2f5496-f3a3-460b-a375-168223f68845</entry>"), "Should have serial-number present")
+				Expect(console.SafeExpectBatch(snVmi, []expect.Batcher{
+					&expect.BSnd{S: "cat /sys/devices/virtual/dmi/id/subsystem/id/product_serial\n"},
+					&expect.BExp{R: serial},
+				}, 15)).To(Succeed(), "should report the configured serial numnber")
 			})
 		})
 
