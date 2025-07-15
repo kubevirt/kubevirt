@@ -1022,7 +1022,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				if !stopVMBeforeRestore {
-					events.ExpectEvent(restore, corev1.EventTypeNormal, "RestoreTargetNotReady")
+					events.ExpectEvent(restore, corev1.EventTypeWarning, "RestoreTargetNotReady")
 					By(stoppingVM)
 					vm = libvmops.StopVirtualMachine(vm)
 				}
@@ -1171,7 +1171,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				events.ExpectEvent(restore, corev1.EventTypeNormal, "RestoreTargetNotReady")
+				events.ExpectEvent(restore, corev1.EventTypeWarning, "RestoreTargetNotReady")
 				By(stoppingVM)
 				vm = libvmops.StopVirtualMachine(vm)
 
