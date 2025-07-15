@@ -116,10 +116,17 @@ func (s *AsyncAgentStore) GetSysInfo() api.DomainSysInfo {
 		timezone = data.(api.Timezone)
 	}
 
+	data, ok = s.store.Load(libvirt.DOMAIN_GUEST_INFO_LOAD)
+	load := api.Load{}
+	if ok {
+		load = data.(api.Load)
+	}
+
 	return api.DomainSysInfo{
 		Hostname: hostname,
 		OSInfo:   osinfo,
 		Timezone: timezone,
+		Load:     load,
 	}
 }
 
@@ -300,7 +307,8 @@ func CreatePoller(
 				InfoTypes: libvirt.DOMAIN_GUEST_INFO_INTERFACES |
 					libvirt.DOMAIN_GUEST_INFO_OS |
 					libvirt.DOMAIN_GUEST_INFO_HOSTNAME |
-					libvirt.DOMAIN_GUEST_INFO_TIMEZONE,
+					libvirt.DOMAIN_GUEST_INFO_TIMEZONE |
+					libvirt.DOMAIN_GUEST_INFO_LOAD,
 			},
 			{
 				CallTick:  qemuAgentUserInterval,
@@ -424,6 +432,10 @@ func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, agentPoller 
 		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_TIMEZONE, convertToTimezone(guestInfo))
 	}
 
+	if infoTypes&libvirt.DOMAIN_GUEST_INFO_LOAD != 0 {
+		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_LOAD, convertToLoad(guestInfo))
+	}
+
 	if infoTypes&libvirt.DOMAIN_GUEST_INFO_USERS != 0 {
 		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, convertToUsers(guestInfo))
 	}
@@ -497,6 +509,21 @@ func convertToTimezone(guestInfo *libvirt.DomainGuestInfo) api.Timezone {
 		}
 	}
 	return timezone
+}
+
+func convertToLoad(guestInfo *libvirt.DomainGuestInfo) api.Load {
+	load := api.Load{}
+	if guestInfo.Load != nil {
+		load = api.Load{
+			Load1mSet:  guestInfo.Load.Load1MSet,
+			Load1m:     guestInfo.Load.Load1M,
+			Load5mSet:  guestInfo.Load.Load5MSet,
+			Load5m:     guestInfo.Load.Load5M,
+			Load15mSet: guestInfo.Load.Load15MSet,
+			Load15m:    guestInfo.Load.Load15M,
+		}
+	}
+	return load
 }
 
 func convertToUsers(guestInfo *libvirt.DomainGuestInfo) []api.User {
