@@ -2,7 +2,7 @@
 
 The KubeVirt build system starts with a builder helper container, where the entire toolchain and its dependencies are stored, in order to
 ensure consistency between builds. Yet, there are sometimes CVEs that must be remedied with an update of the build toolchain, and from time
-to time, KubeVirt must be enabled for a new system architecture, e.g. `ppc64le` or `s390x`. 
+to time, KubeVirt must be enabled for a new system architecture, e.g. `s390x`. 
 
 The KubeVirt official build stores its builder container and built images in a protected quay.io registry. If there is no builder image for the architecture
 of the machine you are trying to build KubeVirt on and for, `make cluster-up` will fail in its attempt to pull a builder image. You will need to build your own builder image, and tweak the build scripts to refer to it. 
@@ -51,7 +51,7 @@ You will first need to create read and write access to an appropriate namespace 
 
 Bazel binary distribution images for version 5.3.0 for the Arm and x86 architectures are available from https://github.com/bazelbuild/bazel/releases/tag/5.3.0
 
-This, the dependent libraries and build script configuration will constitute the containerized KubeVirt build toolchain.  For architectures other than arm and x86, e.g. IBM ppc64le and s390x, you need to build bazel from scratch on your build-the-builder box. 
+This, the dependent libraries and build script configuration will constitute the containerized KubeVirt build toolchain.  For architectures other than arm and x86, e.g. IBM s390x, you need to build bazel from scratch on your build-the-builder box. 
 
 Currently, [a scripted build for bazel is available for Ubuntu on s390x](https://github.com/linux-on-ibm-z/docs/wiki/Building-TensorFlow) step 1.2 'Build Bazel v5.3.0'.
 
@@ -75,7 +75,7 @@ export DOCKER_IMAGE="builder"
 export VERSION="<your-docker-tag>"
 export KUBEVIRT_BUILDER_IMAGE="${DOCKER_PREFIX}/${DOCKER_IMAGE}/${VERSION}"
 ```
-where <your-system-architecture> is either `amd64` or `arm64` or `s390x` or `ppc64le` for x86, ARM, s390x or Power systems, respectively.
+where <your-system-architecture> is either `amd64` or `arm64` or `s390x` for x86, ARM, s390x or Power systems, respectively.
 
 
 `make builder-build` invokes the build of the bazel builder container. 
@@ -164,7 +164,7 @@ bazeldnf rpmtree \
 SINGLE_ARCH=<your-system-architecture> make rpm-deps
 ```
 
-where <your-system-architecture> is `amd64`, `arm64`, `ppc64le` or `s390x`
+where <your-system-architecture> is `amd64`, `arm64` or `s390x`
 
 ## Build & push KubeVirt images to your test registry 
 
