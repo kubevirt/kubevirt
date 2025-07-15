@@ -62,6 +62,7 @@ import (
 const (
 	unmarshalRequestErrFmt       = "Can not unmarshal Request body to struct, error: %s"
 	vmNotRunning                 = "VM is not running"
+	vmSnapshotInprogress         = "VM snapshot is in progress"
 	patchingVMFmt                = "Patching VM: %s"
 	jsonpatchTestErr             = "jsonpatch test operation does not apply"
 	patchingVMStatusFmt          = "Patching VM status: %s"
@@ -715,6 +716,24 @@ func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, r
 }
 
 func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request, response *restful.Response) {
+
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	// Check VM status - only continue if VM doesn't exist or if it exists without snapshot in progress
+	vm, err := app.fetchVirtualMachine(name, namespace)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			writeError(err, response)
+			return
+		}
+	} else {
+		// VM exists - check if snapshot is in progress
+		if vm.Status.SnapshotInProgress != nil {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(vmSnapshotInprogress)), response)
+			return
+		}
+	}
 
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.Phase != v1.Running {
