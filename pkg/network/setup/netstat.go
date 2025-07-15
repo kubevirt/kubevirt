@@ -89,6 +89,7 @@ func (c *NetStat) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, 
 //
 // Podnet nic has to be the first one in vmi.Status.Interfaces list to match vmi crd wide columns definition
 func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	fmt.Println("DEBUG: Running UpdateStatus")
 	if domain == nil {
 		return nil
 	}
@@ -124,7 +125,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 
 	interfacesStatus = restorePodIfaceNames(interfacesStatus, vmi.Status.Interfaces)
 	vmi.Status.Interfaces = interfacesStatus
-
+	fmt.Printf("\nDEBUG: Running UpdateStatus interfacesStatus=%+v\n", interfacesStatus)
 	c.removeAbsentIfacesFromVolatileCache(vmi)
 
 	return nil

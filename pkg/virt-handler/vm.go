@@ -392,6 +392,7 @@ func (c *VirtualMachineController) execute(key string) error {
 
 	if isMigrationInProgress(vmi, domain) {
 		log.Log.V(4).Infof("ignoring key %v as migration is in progress", key)
+		fmt.Println("DEBUG: was supposed to return here")
 		//		return nil
 	}
 
@@ -1969,6 +1970,7 @@ func (c *VirtualMachineController) handleVMIState(vmi *v1.VirtualMachineInstance
 
 // handleRunningVMI contains the logic specifically for running VMs (hotplugging in running state, metrics, network updates)
 func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, errorTolerantFeaturesError *[]error) error {
+	fmt.Println("handleRunningVMI calling hotplugSriovInterfaces")
 	if err := c.hotplugSriovInterfaces(vmi); err != nil {
 		log.Log.Object(vmi).Error(err.Error())
 	}
@@ -2140,6 +2142,7 @@ func (c *VirtualMachineController) getPreallocatedVolumes(vmi *v1.VirtualMachine
 }
 
 func (c *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachineInstance) error {
+	println("DEBUG: hotplugSriovInterfaces")
 	sriovSpecInterfaces := netvmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
 
 	sriovSpecIfacesNames := netvmispec.IndexInterfaceSpecByName(sriovSpecInterfaces)
@@ -2149,10 +2152,13 @@ func (c *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachine
 			netvmispec.ContainsInfoSource(iface.InfoSource, netvmispec.InfoSourceMultusStatus)
 	})
 
+	fmt.Printf("DEBUG: attachedSriovStatusIfaces=%+v\n", attachedSriovStatusIfaces)
+
 	desiredSriovMultusPluggedIfaces := netvmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces, func(iface v1.VirtualMachineInstanceNetworkInterface) bool {
 		_, exist := sriovSpecIfacesNames[iface.Name]
 		return exist && netvmispec.ContainsInfoSource(iface.InfoSource, netvmispec.InfoSourceMultusStatus)
 	})
+	fmt.Printf("DEBUG: hotplugSriovInterfaces len attached %v, len desired %v \n", len(attachedSriovStatusIfaces), len(desiredSriovMultusPluggedIfaces))
 
 	if len(desiredSriovMultusPluggedIfaces) == len(attachedSriovStatusIfaces) {
 		c.sriovHotplugExecutorPool.Delete(vmi.UID)

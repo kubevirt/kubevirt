@@ -324,6 +324,9 @@ func (c *MigrationSourceController) Execute() bool {
 func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if domain != nil {
 		log.Log.Object(vmi).Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
+		if vmi.Status.Phase == v1.Running && domain.Status.Status == api.Paused {
+			println("DEBUG: this is the right palace to update net status")
+		}
 	} else {
 		log.Log.Object(vmi).Infof("VMI is in phase: %v", vmi.Status.Phase)
 	}
