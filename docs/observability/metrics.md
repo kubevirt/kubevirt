@@ -138,6 +138,15 @@ Total VM filesystem capacity in bytes. Type: Gauge.
 ### kubevirt_vmi_filesystem_used_bytes
 Used VM filesystem capacity in bytes. Type: Gauge.
 
+### kubevirt_vmi_guest_load_15m
+Guest system load average over 15 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Type: Gauge.
+
+### kubevirt_vmi_guest_load_1m
+Guest system load average over 1 minute as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Type: Gauge.
+
+### kubevirt_vmi_guest_load_5m
+Guest system load average over 5 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Type: Gauge.
+
 ### kubevirt_vmi_info
 Information about VirtualMachineInstances. Type: Gauge.
 
