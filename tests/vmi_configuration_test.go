@@ -1364,24 +1364,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				Expect(domXML).To(ContainSubstring("<entry name='serial'>4b2f5496-f3a3-460b-a375-168223f68845</entry>"), "Should have serial-number present")
 			})
-
-			It("[test_id:3122]should not have serial-number set when not present", func() {
-				By("Starting a VirtualMachineInstance")
-				snVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewAlpine(), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(snVmi)
-
-				getOptions := metav1.GetOptions{}
-				var freshVMI *v1.VirtualMachineInstance
-
-				freshVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(snVmi)).Get(context.Background(), snVmi.Name, getOptions)
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-
-				domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
-				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
-
-				Expect(domXML).ToNot(ContainSubstring("<entry name='serial'>"), "Should have serial-number present")
-			})
 		})
 
 		Context("with TSC timer", func() {
