@@ -15376,6 +15376,7 @@
     }
    },
    "v1.MemoryDumpVolumeSource": {
+    "description": "MemoryDumpVolumeSource represents a memory dump volume source. Deprecated: Use ScratchVolumeSource with Type \"memoryDump\" instead. This type will be removed in a future version.",
     "type": "object",
     "required": [
      "claimName"
@@ -16360,6 +16361,31 @@
      "secret": {
       "description": "Secret means that the access credential is pulled from a kubernetes secret",
       "$ref": "#/definitions/v1.AccessCredentialSecretSource"
+     }
+    }
+   },
+   "v1.ScratchVolumeSource": {
+    "type": "object",
+    "required": [
+     "claimName"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+      "type": "string",
+      "default": ""
+     },
+     "hotpluggable": {
+      "description": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.",
+      "type": "boolean"
+     },
+     "readOnly": {
+      "description": "readOnly Will force the ReadOnly setting in VolumeMounts. Default false.",
+      "type": "boolean"
+     },
+     "type": {
+      "description": "Type of the scratch volume.",
+      "type": "string"
      }
     }
    },
@@ -18526,7 +18552,7 @@
       "$ref": "#/definitions/v1.HostDisk"
      },
      "memoryDump": {
-      "description": "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+      "description": "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi Deprecated: Use ScratchVolume with Type \"memoryDump\" instead. This field will be removed in a future version.",
       "$ref": "#/definitions/v1.MemoryDumpVolumeSource"
      },
      "name": {
@@ -18537,6 +18563,10 @@
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
       "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
+     },
+     "scratchVolume": {
+      "description": "ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace. Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest It is used to store data/output collected from the guest like memory dump and backups",
+      "$ref": "#/definitions/v1.ScratchVolumeSource"
      },
      "secret": {
       "description": "SecretVolumeSource represents a reference to a secret data in the same namespace. More info: https://kubernetes.io/docs/concepts/configuration/secret/",

@@ -8023,8 +8023,9 @@ var CRDsValidation map[string]string = map[string]string{
                         - type
                         type: object
                       memoryDump:
-                        description: MemoryDump is attached to the virt launcher and
-                          is populated with a memory dump of the vmi
+                        description: |-
+                          MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+                          Deprecated: Use ScratchVolume with Type "memoryDump" instead. This field will be removed in a future version.
                         properties:
                           claimName:
                             description: |-
@@ -8069,6 +8070,32 @@ var CRDsValidation map[string]string = map[string]string{
                               readOnly Will force the ReadOnly setting in VolumeMounts.
                               Default false.
                             type: boolean
+                        required:
+                        - claimName
+                        type: object
+                      scratchVolume:
+                        description: |-
+                          ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace.
+                          Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest
+                          It is used to store data/output collected from the guest like memory dump and backups
+                        properties:
+                          claimName:
+                            description: |-
+                              claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+                              More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+                            type: string
+                          hotpluggable:
+                            description: Hotpluggable indicates whether the volume
+                              can be hotplugged and hotunplugged.
+                            type: boolean
+                          readOnly:
+                            description: |-
+                              readOnly Will force the ReadOnly setting in VolumeMounts.
+                              Default false.
+                            type: boolean
+                          type:
+                            description: Type of the scratch volume.
+                            type: string
                         required:
                         - claimName
                         type: object
@@ -13452,8 +13479,9 @@ var CRDsValidation map[string]string = map[string]string{
                 - type
                 type: object
               memoryDump:
-                description: MemoryDump is attached to the virt launcher and is populated
-                  with a memory dump of the vmi
+                description: |-
+                  MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+                  Deprecated: Use ScratchVolume with Type "memoryDump" instead. This field will be removed in a future version.
                 properties:
                   claimName:
                     description: |-
@@ -13498,6 +13526,32 @@ var CRDsValidation map[string]string = map[string]string{
                       readOnly Will force the ReadOnly setting in VolumeMounts.
                       Default false.
                     type: boolean
+                required:
+                - claimName
+                type: object
+              scratchVolume:
+                description: |-
+                  ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace.
+                  Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest
+                  It is used to store data/output collected from the guest like memory dump and backups
+                properties:
+                  claimName:
+                    description: |-
+                      claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+                      More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+                    type: string
+                  hotpluggable:
+                    description: Hotpluggable indicates whether the volume can be
+                      hotplugged and hotunplugged.
+                    type: boolean
+                  readOnly:
+                    description: |-
+                      readOnly Will force the ReadOnly setting in VolumeMounts.
+                      Default false.
+                    type: boolean
+                  type:
+                    description: Type of the scratch volume.
+                    type: string
                 required:
                 - claimName
                 type: object
@@ -19659,8 +19713,9 @@ var CRDsValidation map[string]string = map[string]string{
                         - type
                         type: object
                       memoryDump:
-                        description: MemoryDump is attached to the virt launcher and
-                          is populated with a memory dump of the vmi
+                        description: |-
+                          MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+                          Deprecated: Use ScratchVolume with Type "memoryDump" instead. This field will be removed in a future version.
                         properties:
                           claimName:
                             description: |-
@@ -19705,6 +19760,32 @@ var CRDsValidation map[string]string = map[string]string{
                               readOnly Will force the ReadOnly setting in VolumeMounts.
                               Default false.
                             type: boolean
+                        required:
+                        - claimName
+                        type: object
+                      scratchVolume:
+                        description: |-
+                          ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace.
+                          Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest
+                          It is used to store data/output collected from the guest like memory dump and backups
+                        properties:
+                          claimName:
+                            description: |-
+                              claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+                              More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+                            type: string
+                          hotpluggable:
+                            description: Hotpluggable indicates whether the volume
+                              can be hotplugged and hotunplugged.
+                            type: boolean
+                          readOnly:
+                            description: |-
+                              readOnly Will force the ReadOnly setting in VolumeMounts.
+                              Default false.
+                            type: boolean
+                          type:
+                            description: Type of the scratch volume.
+                            type: string
                         required:
                         - claimName
                         type: object
@@ -24355,8 +24436,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 - type
                                 type: object
                               memoryDump:
-                                description: MemoryDump is attached to the virt launcher
-                                  and is populated with a memory dump of the vmi
+                                description: |-
+                                  MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+                                  Deprecated: Use ScratchVolume with Type "memoryDump" instead. This field will be removed in a future version.
                                 properties:
                                   claimName:
                                     description: |-
@@ -24401,6 +24483,32 @@ var CRDsValidation map[string]string = map[string]string{
                                       readOnly Will force the ReadOnly setting in VolumeMounts.
                                       Default false.
                                     type: boolean
+                                required:
+                                - claimName
+                                type: object
+                              scratchVolume:
+                                description: |-
+                                  ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace.
+                                  Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest
+                                  It is used to store data/output collected from the guest like memory dump and backups
+                                properties:
+                                  claimName:
+                                    description: |-
+                                      claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+                                      More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+                                    type: string
+                                  hotpluggable:
+                                    description: Hotpluggable indicates whether the
+                                      volume can be hotplugged and hotunplugged.
+                                    type: boolean
+                                  readOnly:
+                                    description: |-
+                                      readOnly Will force the ReadOnly setting in VolumeMounts.
+                                      Default false.
+                                    type: boolean
+                                  type:
+                                    description: Type of the scratch volume.
+                                    type: string
                                 required:
                                 - claimName
                                 type: object
@@ -29724,9 +29832,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     - type
                                     type: object
                                   memoryDump:
-                                    description: MemoryDump is attached to the virt
-                                      launcher and is populated with a memory dump
-                                      of the vmi
+                                    description: |-
+                                      MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+                                      Deprecated: Use ScratchVolume with Type "memoryDump" instead. This field will be removed in a future version.
                                     properties:
                                       claimName:
                                         description: |-
@@ -29771,6 +29879,32 @@ var CRDsValidation map[string]string = map[string]string{
                                           readOnly Will force the ReadOnly setting in VolumeMounts.
                                           Default false.
                                         type: boolean
+                                    required:
+                                    - claimName
+                                    type: object
+                                  scratchVolume:
+                                    description: |-
+                                      ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace.
+                                      Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest
+                                      It is used to store data/output collected from the guest like memory dump and backups
+                                    properties:
+                                      claimName:
+                                        description: |-
+                                          claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+                                          More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+                                        type: string
+                                      hotpluggable:
+                                        description: Hotpluggable indicates whether
+                                          the volume can be hotplugged and hotunplugged.
+                                        type: boolean
+                                      readOnly:
+                                        description: |-
+                                          readOnly Will force the ReadOnly setting in VolumeMounts.
+                                          Default false.
+                                        type: boolean
+                                      type:
+                                        description: Type of the scratch volume.
+                                        type: string
                                     required:
                                     - claimName
                                     type: object

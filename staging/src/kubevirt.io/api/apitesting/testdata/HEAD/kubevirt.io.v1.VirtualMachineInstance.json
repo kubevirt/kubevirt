@@ -765,6 +765,12 @@
           "claimName": "claimNameValue",
           "readOnly": true,
           "hotpluggable": true
+        },
+        "scratchVolume": {
+          "claimName": "claimNameValue",
+          "readOnly": true,
+          "hotpluggable": true,
+          "type": "typeValue"
         }
       }
     ],

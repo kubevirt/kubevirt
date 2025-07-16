@@ -582,6 +582,11 @@ spec:
       claimName: claimNameValue
       hotpluggable: true
       readOnly: true
+    scratchVolume:
+      claimName: claimNameValue
+      hotpluggable: true
+      readOnly: true
+      type: typeValue
     secret:
       optional: true
       secretName: secretNameValue

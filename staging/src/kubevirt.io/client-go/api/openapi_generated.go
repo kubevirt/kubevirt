@@ -508,6 +508,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredential":                                       schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredential(ref),
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredentialPropagationMethod":                      schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialPropagationMethod(ref),
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredentialSource":                                 schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialSource(ref),
+		"kubevirt.io/api/core/v1.ScratchVolumeSource":                                                schema_kubevirtio_api_core_v1_ScratchVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ScreenshotOptions":                                                  schema_kubevirtio_api_core_v1_ScreenshotOptions(ref),
 		"kubevirt.io/api/core/v1.SeccompConfiguration":                                               schema_kubevirtio_api_core_v1_SeccompConfiguration(ref),
 		"kubevirt.io/api/core/v1.SecretVolumeSource":                                                 schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
@@ -22586,7 +22587,8 @@ func schema_kubevirtio_api_core_v1_MemoryDumpVolumeSource(ref common.ReferenceCa
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "MemoryDumpVolumeSource represents a memory dump volume source. Deprecated: Use ScratchVolumeSource with Type \"memoryDump\" instead. This type will be removed in a future version.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"claimName": {
 						SchemaProps: spec.SchemaProps{
@@ -24489,6 +24491,48 @@ func schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialSource(ref common
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/core/v1.AccessCredentialSecretSource"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_ScratchVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"readOnly": {
+						SchemaProps: spec.SchemaProps{
+							Description: "readOnly Will force the ReadOnly setting in VolumeMounts. Default false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hotpluggable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of the scratch volume.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"claimName"},
+			},
+		},
 	}
 }
 
@@ -28445,8 +28489,14 @@ func schema_kubevirtio_api_core_v1_Volume(ref common.ReferenceCallback) common.O
 					},
 					"memoryDump": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi Deprecated: Use ScratchVolume with Type \"memoryDump\" instead. This field will be removed in a future version.",
 							Ref:         ref("kubevirt.io/api/core/v1.MemoryDumpVolumeSource"),
+						},
+					},
+					"scratchVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace. Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest It is used to store data/output collected from the guest like memory dump and backups",
+							Ref:         ref("kubevirt.io/api/core/v1.ScratchVolumeSource"),
 						},
 					},
 				},
@@ -28454,7 +28504,7 @@ func schema_kubevirtio_api_core_v1_Volume(ref common.ReferenceCallback) common.O
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
+			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.ScratchVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
 	}
 }
 
@@ -28620,15 +28670,21 @@ func schema_kubevirtio_api_core_v1_VolumeSource(ref common.ReferenceCallback) co
 					},
 					"memoryDump": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi Deprecated: Use ScratchVolume with Type \"memoryDump\" instead. This field will be removed in a future version.",
 							Ref:         ref("kubevirt.io/api/core/v1.MemoryDumpVolumeSource"),
+						},
+					},
+					"scratchVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace. Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest It is used to store data/output collected from the guest like memory dump and backups",
+							Ref:         ref("kubevirt.io/api/core/v1.ScratchVolumeSource"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
+			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.ScratchVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
 	}
 }
 

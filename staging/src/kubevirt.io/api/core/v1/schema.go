@@ -905,7 +905,12 @@ type VolumeSource struct {
 	// metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
 	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
 	// MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+	// Deprecated: Use ScratchVolume with Type "memoryDump" instead. This field will be removed in a future version.
 	MemoryDump *MemoryDumpVolumeSource `json:"memoryDump,omitempty"`
+	// ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace.
+	// Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest
+	// It is used to store data/output collected from the guest like memory dump and backups
+	ScratchVolume *ScratchVolumeSource `json:"scratchVolume,omitempty"`
 }
 
 // HotplugVolumeSource Represents the source of a volume to mount which are capable
@@ -941,11 +946,29 @@ type PersistentVolumeClaimVolumeSource struct {
 	Hotpluggable bool `json:"hotpluggable,omitempty"`
 }
 
+// MemoryDumpVolumeSource represents a memory dump volume source.
+// Deprecated: Use ScratchVolumeSource with Type "memoryDump" instead. This type will be removed in a future version.
 type MemoryDumpVolumeSource struct {
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Directly attached to the virt launcher
 	// +optional
 	PersistentVolumeClaimVolumeSource `json:",inline"`
+}
+
+type ScratchVolumeType string
+
+const (
+	MemoryDumpType ScratchVolumeType = "memoryDump"
+)
+
+type ScratchVolumeSource struct {
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// Directly attached to the virt launcher
+	// +optional
+	PersistentVolumeClaimVolumeSource `json:",inline"`
+	// Type of the scratch volume.
+	// +optional
+	Type ScratchVolumeType `json:"type,omitempty"`
 }
 
 type EphemeralVolumeSource struct {
