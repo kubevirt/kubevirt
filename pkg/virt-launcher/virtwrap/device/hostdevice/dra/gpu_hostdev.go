@@ -39,7 +39,7 @@ const (
 func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
 	var hostDevices []api.HostDevice
 	if !hasGPUsWithDRA(vmi) {
-		log.Log.Infof("No DRA GPU devices found for vmi %s/%s", vmi.GetNamespace(), vmi.GetName())
+		log.Log.V(2).Infof("No DRA GPU devices found for vmi %s/%s", vmi.GetNamespace(), vmi.GetName())
 		return hostDevices, nil
 	}
 	draPCIHostDevices, err := getDRAPCIHostDevicesForGPUs(vmi)
