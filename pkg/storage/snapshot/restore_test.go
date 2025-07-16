@@ -258,9 +258,6 @@ var _ = Describe("Restore controller", func() {
 
 		var ctrl *gomock.Controller
 
-		var vmSnapshotSource *framework.FakeControllerSource
-		var vmSnapshotInformer cache.SharedIndexInformer
-
 		var vmSnapshotContentSource *framework.FakeControllerSource
 		var vmSnapshotContentInformer cache.SharedIndexInformer
 
@@ -294,7 +291,6 @@ var _ = Describe("Restore controller", func() {
 		var virtClient *kubecli.MockKubevirtClient
 
 		syncCaches := func(stop chan struct{}) {
-			go vmSnapshotInformer.Run(stop)
 			go vmSnapshotContentInformer.Run(stop)
 			go vmInformer.Run(stop)
 			go pvcInformer.Run(stop)
@@ -304,7 +300,6 @@ var _ = Describe("Restore controller", func() {
 			go crInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
-				vmSnapshotInformer.HasSynced,
 				vmSnapshotContentInformer.HasSynced,
 				vmInformer.HasSynced,
 				pvcInformer.HasSynced,
@@ -321,7 +316,7 @@ var _ = Describe("Restore controller", func() {
 			virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
 			vmRestoreInformer, _ := testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineRestore{}, virtcontroller.GetVirtualMachineRestoreInformerIndexers())
-			vmSnapshotInformer, vmSnapshotSource = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
+			vmSnapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 			vmSnapshotContentInformer, vmSnapshotContentSource = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachine{})
@@ -425,7 +420,7 @@ var _ = Describe("Restore controller", func() {
 					CreationTime: timeFunc(),
 					ReadyToUse:   pointer.P(true),
 				}
-				vmSnapshotSource.Add(s)
+				Expect(controller.VMSnapshotInformer.GetStore().Add(s)).To(Succeed())
 				vmSnapshotContentSource.Add(sc)
 				storageClassSource.Add(storageClass)
 			})
@@ -442,9 +437,9 @@ var _ = Describe("Restore controller", func() {
 						newReadyCondition(corev1.ConditionFalse, expectedError),
 					},
 				}
-				vmSnapshotSource.Delete(createSnapshot())
+				Expect(controller.VMSnapshotInformer.GetStore().Delete(createSnapshot())).To(Succeed())
 				if vmSnapshot != nil {
-					vmSnapshotSource.Add(vmSnapshot)
+					Expect(controller.VMSnapshotInformer.GetStore().Add(vmSnapshot)).To(Succeed())
 				}
 				vmSource.Add(vm)
 				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
@@ -2027,7 +2022,7 @@ var _ = Describe("Restore controller", func() {
 				ReadyToUse:   pointer.P(true),
 			}
 			vmSource.Add(vm)
-			vmSnapshotSource.Add(s)
+			Expect(controller.VMSnapshotInformer.GetStore().Add(s)).To(Succeed())
 			vmSnapshotContentSource.Add(sc)
 			storageClassSource.Add(storageClass)
 
@@ -2106,7 +2101,7 @@ var _ = Describe("Restore controller", func() {
 				}
 
 				vmSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
-				vmSnapshotSource.Add(vmSnapshot)
+				Expect(controller.VMSnapshotInformer.GetStore().Add(vmSnapshot)).To(Succeed())
 
 				instancetypeObj = createInstancetype()
 				var err error
