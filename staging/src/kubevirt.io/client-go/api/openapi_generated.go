@@ -25944,8 +25944,9 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestOSUser(ref common.
 					},
 					"loginTime": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"number"},
-							Format: "double",
+							Description: "Time of login of this user on the computer. If multiple instances of the user are logged in, the earliest login time is reported. The value is in fractional seconds since epoch time.",
+							Type:        []string{"number"},
+							Format:      "double",
 						},
 					},
 				},
