@@ -258,9 +258,6 @@ var _ = Describe("Restore controller", func() {
 
 		var ctrl *gomock.Controller
 
-		var storageClassInformer cache.SharedIndexInformer
-		var storageClassSource *framework.FakeControllerSource
-
 		var crInformer cache.SharedIndexInformer
 		var crSource *framework.FakeControllerSource
 
@@ -276,11 +273,9 @@ var _ = Describe("Restore controller", func() {
 		var virtClient *kubecli.MockKubevirtClient
 
 		syncCaches := func(stop chan struct{}) {
-			go storageClassInformer.Run(stop)
 			go crInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
-				storageClassInformer.HasSynced,
 				crInformer.HasSynced,
 			)).To(BeTrue())
 		}
@@ -297,7 +292,7 @@ var _ = Describe("Restore controller", func() {
 			vmInformer, _ := testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachine{})
 			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			pvcInformer, _ := testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
-			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+			storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, virtcontroller.GetControllerRevisionInformerIndexers())
 
 			recorder = record.NewFakeRecorder(100)
@@ -397,7 +392,7 @@ var _ = Describe("Restore controller", func() {
 				}
 				Expect(controller.VMSnapshotInformer.GetStore().Add(s)).To(Succeed())
 				Expect(controller.VMSnapshotContentInformer.GetStore().Add(sc)).To(Succeed())
-				storageClassSource.Add(storageClass)
+				Expect(controller.StorageClassInformer.GetStore().Add(storageClass)).To(Succeed())
 			})
 
 			DescribeTable("should error if snapshot", func(vmSnapshot *snapshotv1.VirtualMachineSnapshot, expectedError string) {
@@ -2008,7 +2003,7 @@ var _ = Describe("Restore controller", func() {
 			Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 			Expect(controller.VMSnapshotInformer.GetStore().Add(s)).To(Succeed())
 			Expect(controller.VMSnapshotContentInformer.GetStore().Add(sc)).To(Succeed())
-			storageClassSource.Add(storageClass)
+			Expect(controller.StorageClassInformer.GetStore().Add(storageClass)).To(Succeed())
 
 			// Actual test
 			r := createRestoreWithOwner()
