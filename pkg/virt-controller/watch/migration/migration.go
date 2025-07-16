@@ -1212,12 +1212,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 		return nil
 	}
 
-	outboundMigrations, err := c.outboundMigrationsOnNode(vmi.Status.NodeName, runningMigrations)
-
-	if err != nil {
-		return err
-	}
-
+	outboundMigrations := c.outboundMigrationsOnNode(vmi.Status.NodeName, runningMigrations)
 	if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode) {
 		// Let's ensure that we only have two outbound migrations per node
 		// XXX: Make this configurable, think about inbound migration limit, bandwidth per migration, and so on.
@@ -2084,17 +2079,18 @@ func (c *Controller) deleteVMI(obj interface{}) {
 	}
 }
 
-func (c *Controller) outboundMigrationsOnNode(node string, runningMigrations []*virtv1.VirtualMachineInstanceMigration) (int, error) {
+func (c *Controller) outboundMigrationsOnNode(node string, runningMigrations []*virtv1.VirtualMachineInstanceMigration) int {
 	sum := 0
 	for _, migration := range runningMigrations {
 		key := controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName)
-		if vmi, exists, _ := c.vmiStore.GetByKey(key); exists {
-			if vmi.(*virtv1.VirtualMachineInstance).Status.NodeName == node {
-				sum = sum + 1
+		if obj, exists, _ := c.vmiStore.GetByKey(key); exists {
+			vmi := obj.(*virtv1.VirtualMachineInstance)
+			if vmi.Status.NodeName == node || (vmi.Status.MigrationState != nil && vmi.Status.MigrationState.SourceNode == node) {
+				sum++
 			}
 		}
 	}
-	return sum, nil
+	return sum
 }
 
 // findRunningMigrations calculates how many migrations are running or in flight to be triggered to running
