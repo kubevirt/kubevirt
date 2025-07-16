@@ -258,9 +258,6 @@ var _ = Describe("Restore controller", func() {
 
 		var ctrl *gomock.Controller
 
-		var vmiInformer cache.SharedIndexInformer
-		var vmiSource *framework.FakeControllerSource
-
 		var dataVolumeInformer cache.SharedIndexInformer
 		var dataVolumeSource *framework.FakeControllerSource
 
@@ -286,14 +283,12 @@ var _ = Describe("Restore controller", func() {
 
 		syncCaches := func(stop chan struct{}) {
 			go pvcInformer.Run(stop)
-			go vmiInformer.Run(stop)
 			go dataVolumeInformer.Run(stop)
 			go storageClassInformer.Run(stop)
 			go crInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
 				pvcInformer.HasSynced,
-				vmiInformer.HasSynced,
 				dataVolumeInformer.HasSynced,
 				storageClassInformer.HasSynced,
 				crInformer.HasSynced,
@@ -308,7 +303,7 @@ var _ = Describe("Restore controller", func() {
 			vmRestoreInformer, _ := testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineRestore{}, virtcontroller.GetVirtualMachineRestoreInformerIndexers())
 			vmSnapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 			vmSnapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
-			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachineInstance{})
+			vmiInformer, _ := testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachineInstance{})
 			vmInformer, _ := testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachine{})
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
@@ -526,7 +521,7 @@ var _ = Describe("Restore controller", func() {
 				}
 				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc2)
 				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-				vmiSource.Add(vmi)
+				Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
 
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
@@ -1845,7 +1840,7 @@ var _ = Describe("Restore controller", func() {
 						},
 					}
 					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-					vmiSource.Add(vmi)
+					Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
 					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
 					addVirtualMachineRestore(r)
 					controller.processVMRestoreWorkItem()
@@ -1868,7 +1863,7 @@ var _ = Describe("Restore controller", func() {
 						},
 					}
 					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-					vmiSource.Add(vmi)
+					Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
 					stopCalled := expectVMStop(kubevirtClient)
 					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
 					addVirtualMachineRestore(r)
@@ -1898,7 +1893,7 @@ var _ = Describe("Restore controller", func() {
 						},
 					}
 					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-					vmiSource.Add(vmi)
+					Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
 					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
 					addVirtualMachineRestore(r)
 					controller.processVMRestoreWorkItem()
@@ -1955,7 +1950,7 @@ var _ = Describe("Restore controller", func() {
 						},
 					}
 					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-					vmiSource.Add(vmi)
+					Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
 					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
 					addVirtualMachineRestore(r)
 					controller.processVMRestoreWorkItem()
@@ -2002,7 +1997,7 @@ var _ = Describe("Restore controller", func() {
 				vm := createModifiedVM()
 				vmi := createVMI(vm)
 				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-				vmiSource.Add(vmi)
+				Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
 			})
