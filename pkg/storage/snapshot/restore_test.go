@@ -258,9 +258,6 @@ var _ = Describe("Restore controller", func() {
 
 		var ctrl *gomock.Controller
 
-		var vmSnapshotContentSource *framework.FakeControllerSource
-		var vmSnapshotContentInformer cache.SharedIndexInformer
-
 		var vmInformer cache.SharedIndexInformer
 		var vmSource *framework.FakeControllerSource
 
@@ -291,7 +288,6 @@ var _ = Describe("Restore controller", func() {
 		var virtClient *kubecli.MockKubevirtClient
 
 		syncCaches := func(stop chan struct{}) {
-			go vmSnapshotContentInformer.Run(stop)
 			go vmInformer.Run(stop)
 			go pvcInformer.Run(stop)
 			go vmiInformer.Run(stop)
@@ -300,7 +296,6 @@ var _ = Describe("Restore controller", func() {
 			go crInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
-				vmSnapshotContentInformer.HasSynced,
 				vmInformer.HasSynced,
 				pvcInformer.HasSynced,
 				vmiInformer.HasSynced,
@@ -317,7 +312,7 @@ var _ = Describe("Restore controller", func() {
 
 			vmRestoreInformer, _ := testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineRestore{}, virtcontroller.GetVirtualMachineRestoreInformerIndexers())
 			vmSnapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
-			vmSnapshotContentInformer, vmSnapshotContentSource = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
+			vmSnapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachine{})
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
@@ -421,7 +416,7 @@ var _ = Describe("Restore controller", func() {
 					ReadyToUse:   pointer.P(true),
 				}
 				Expect(controller.VMSnapshotInformer.GetStore().Add(s)).To(Succeed())
-				vmSnapshotContentSource.Add(sc)
+				Expect(controller.VMSnapshotContentInformer.GetStore().Add(sc)).To(Succeed())
 				storageClassSource.Add(storageClass)
 			})
 
@@ -707,14 +702,14 @@ var _ = Describe("Restore controller", func() {
 				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
 				// delete previous vmsnapshotcontent
-				vmSnapshotContentSource.Delete(sc)
+				Expect(controller.VMSnapshotContentInformer.GetStore().Delete(sc)).To(Succeed())
 				// create ct vmSnapshotContent with the relevant info
 				sc = createVirtualMachineSnapshotContent(s, vm, pvcs)
 				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					CreationTime: timeFunc(),
 					ReadyToUse:   pointer.P(true),
 				}
-				vmSnapshotContentSource.Add(sc)
+				Expect(controller.VMSnapshotContentInformer.GetStore().Add(sc)).To(Succeed())
 				pvcSize := resource.MustParse("2Gi")
 				vs1 := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, pvcSize)
 				vs2 := createVolumeSnapshot(r.Status.Restores[1].VolumeSnapshotName, pvcSize)
@@ -799,7 +794,7 @@ var _ = Describe("Restore controller", func() {
 				// the restore and doesnt have both running and runstrategy
 				sc.Spec.Source.VirtualMachine.Spec.RunStrategy = nil
 				sc.Spec.Source.VirtualMachine.Spec.Running = pointer.P(true)
-				vmSnapshotContentSource.Modify(sc)
+				Expect(controller.VMSnapshotContentInformer.GetStore().Update(sc)).To(Succeed())
 
 				r := createRestoreWithOwner()
 				addVolumeRestores(r)
@@ -1117,14 +1112,14 @@ var _ = Describe("Restore controller", func() {
 				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
 				// delete previous vmsnapshotcontent
-				vmSnapshotContentSource.Delete(sc)
+				Expect(controller.VMSnapshotContentInformer.GetStore().Delete(sc)).To(Succeed())
 				// create ct vmSnapshotContent with the relevant info
 				sc = createVirtualMachineSnapshotContent(s, vm, pvcs)
 				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					CreationTime: timeFunc(),
 					ReadyToUse:   pointer.P(true),
 				}
-				vmSnapshotContentSource.Add(sc)
+				Expect(controller.VMSnapshotContentInformer.GetStore().Add(sc)).To(Succeed())
 				pvcSize := resource.MustParse("2Gi")
 				vs1 := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, pvcSize)
 				vs2 := createVolumeSnapshot(r.Status.Restores[1].VolumeSnapshotName, pvcSize)
@@ -1211,14 +1206,14 @@ var _ = Describe("Restore controller", func() {
 				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
 				// delete previous vmsnapshotcontent
-				vmSnapshotContentSource.Delete(sc)
+				Expect(controller.VMSnapshotContentInformer.GetStore().Delete(sc)).To(Succeed())
 				// create ct vmSnapshotContent with the relevant info
 				sc = createVirtualMachineSnapshotContent(s, vm, pvcs)
 				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					CreationTime: timeFunc(),
 					ReadyToUse:   pointer.P(true),
 				}
-				vmSnapshotContentSource.Add(sc)
+				Expect(controller.VMSnapshotContentInformer.GetStore().Add(sc)).To(Succeed())
 
 				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
@@ -1618,7 +1613,7 @@ var _ = Describe("Restore controller", func() {
 					// Update snapshoted VM to have runstrategy Always
 					// and see the resulted new VM has Halted
 					sc.Spec.Source.VirtualMachine.Spec.RunStrategy = pointer.P(kubevirtv1.RunStrategyAlways)
-					vmSnapshotContentSource.Modify(sc)
+					Expect(controller.VMSnapshotContentInformer.GetStore().Update(sc)).To(Succeed())
 					By("Creating new VM")
 					newVM := createVirtualMachine(testNamespace, newVMName)
 					newVM.UID = newVMUID
@@ -2023,7 +2018,7 @@ var _ = Describe("Restore controller", func() {
 			}
 			vmSource.Add(vm)
 			Expect(controller.VMSnapshotInformer.GetStore().Add(s)).To(Succeed())
-			vmSnapshotContentSource.Add(sc)
+			Expect(controller.VMSnapshotContentInformer.GetStore().Add(sc)).To(Succeed())
 			storageClassSource.Add(storageClass)
 
 			// Actual test
@@ -2128,7 +2123,7 @@ var _ = Describe("Restore controller", func() {
 
 					vmSnapshotContent.Spec.Source.VirtualMachine.Spec.Instancetype = getSnapshotInstancetypeMatcher()
 					vmSnapshotContent.Spec.Source.VirtualMachine.Spec.Preference = getSnapshotPreferenceMatcher()
-					vmSnapshotContentSource.Add(vmSnapshotContent)
+					Expect(controller.VMSnapshotContentInformer.GetStore().Add(vmSnapshotContent)).To(Succeed())
 
 					updatedVM := originalVM.DeepCopy()
 					updatedVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
@@ -2182,7 +2177,7 @@ var _ = Describe("Restore controller", func() {
 
 					vmSnapshotContent.Spec.Source.VirtualMachine.Spec.Instancetype = getSnapshotInstancetypeMatcher()
 					vmSnapshotContent.Spec.Source.VirtualMachine.Spec.Preference = getSnapshotPreferenceMatcher()
-					vmSnapshotContentSource.Add(vmSnapshotContent)
+					Expect(controller.VMSnapshotContentInformer.GetStore().Add(vmSnapshotContent)).To(Succeed())
 
 					// Ensure we restore into a new VM
 					newVM := originalVM.DeepCopy()
@@ -2264,7 +2259,7 @@ var _ = Describe("Restore controller", func() {
 
 					vmSnapshotContent.Spec.Source.VirtualMachine.Spec.Instancetype = getSnapshotInstancetypeMatcher()
 					vmSnapshotContent.Spec.Source.VirtualMachine.Spec.Preference = getSnapshotPreferenceMatcher()
-					vmSnapshotContentSource.Add(vmSnapshotContent)
+					Expect(controller.VMSnapshotContentInformer.GetStore().Add(vmSnapshotContent)).To(Succeed())
 
 					// Ensure we restore into a new VM
 					newVM := originalVM.DeepCopy()
@@ -2371,7 +2366,7 @@ var _ = Describe("Restore controller", func() {
 					Kind:         instancetypeapi.SingularResourceName,
 					RevisionName: instancetypeSnapshotCR.Name,
 				}
-				vmSnapshotContentSource.Add(vmSnapshotContent)
+				Expect(controller.VMSnapshotContentInformer.GetStore().Add(vmSnapshotContent)).To(Succeed())
 
 				// We expect the original CR to be deleted and recreated with the correct data
 				crDeletes := expectControllerRevisionDelete(k8sClient, instancetypeOriginalCR.Name)
