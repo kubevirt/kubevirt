@@ -258,9 +258,6 @@ var _ = Describe("Restore controller", func() {
 
 		var ctrl *gomock.Controller
 
-		var pvcInformer cache.SharedIndexInformer
-		var pvcSource *framework.FakeControllerSource
-
 		var storageClassInformer cache.SharedIndexInformer
 		var storageClassSource *framework.FakeControllerSource
 
@@ -279,12 +276,10 @@ var _ = Describe("Restore controller", func() {
 		var virtClient *kubecli.MockKubevirtClient
 
 		syncCaches := func(stop chan struct{}) {
-			go pvcInformer.Run(stop)
 			go storageClassInformer.Run(stop)
 			go crInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
-				pvcInformer.HasSynced,
 				storageClassInformer.HasSynced,
 				crInformer.HasSynced,
 			)).To(BeTrue())
@@ -301,7 +296,7 @@ var _ = Describe("Restore controller", func() {
 			vmiInformer, _ := testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachineInstance{})
 			vmInformer, _ := testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachine{})
 			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
-			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
+			pvcInformer, _ := testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, virtcontroller.GetControllerRevisionInformerIndexers())
 
@@ -372,9 +367,7 @@ var _ = Describe("Restore controller", func() {
 
 		addPVC := func(pvc *corev1.PersistentVolumeClaim) {
 			syncCaches(stop)
-			mockVMRestoreQueue.ExpectAdds(1)
-			pvcSource.Add(pvc)
-			mockVMRestoreQueue.Wait()
+			Expect(controller.PVCInformer.GetStore().Add(pvc)).To(Succeed())
 		}
 
 		addVM := func(vm *kubevirtv1.VirtualMachine) {
@@ -772,6 +765,7 @@ var _ = Describe("Restore controller", func() {
 					pvc.Status.Phase = corev1.ClaimPending
 					addPVC(&pvc)
 				}
+				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
 			})
 
@@ -856,7 +850,7 @@ var _ = Describe("Restore controller", func() {
 				}
 
 				Expect(controller.DataVolumeInformer.GetStore().Add(dv)).To(Succeed())
-				pvcSource.Add(&pvc)
+				Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 
 				ur := r.DeepCopy()
 				ur.ResourceVersion = "1"
@@ -925,7 +919,7 @@ var _ = Describe("Restore controller", func() {
 					*metav1.NewControllerRef(dv, schema.GroupVersionKind{Group: "cdi.kubevirt.io", Version: "v1beta1", Kind: "DataVolume"}),
 				}
 
-				pvcSource.Add(&pvc)
+				Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 
 				ur := r.DeepCopy()
 				ur.ResourceVersion = "1"
@@ -1154,6 +1148,7 @@ var _ = Describe("Restore controller", func() {
 					pvc.Status.Phase = corev1.ClaimBound
 					addPVC(&pvc)
 				}
+				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
 				Expect(*pvcUpdateCalls).To(Equal(1))
 				Expect(*updateStatusCalls).To(Equal(1))
@@ -1219,7 +1214,7 @@ var _ = Describe("Restore controller", func() {
 				})
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimBound
-					pvcSource.Add(&pvc)
+					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 				}
 
 				rc := r.DeepCopy()
@@ -1276,7 +1271,7 @@ var _ = Describe("Restore controller", func() {
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"] = pvc.Name
 					pvc.Status.Phase = corev1.ClaimBound
-					pvcSource.Add(&pvc)
+					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 				}
 
 				addVM(vm)
@@ -1347,7 +1342,7 @@ var _ = Describe("Restore controller", func() {
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"] = pvc.Name
 					pvc.Status.Phase = corev1.ClaimBound
-					pvcSource.Add(&pvc)
+					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 				}
 
 				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
@@ -1521,7 +1516,7 @@ var _ = Describe("Restore controller", func() {
 					} else {
 						calls = expectDataVolumeCreate(cdiClient, "restore-uid-disk1")
 					}
-					pvcSource.Add(&pvc)
+					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 					return calls
 				}
 
@@ -1621,6 +1616,7 @@ var _ = Describe("Restore controller", func() {
 						pvc.Status.Phase = corev1.ClaimBound
 						addPVC(&pvc)
 					}
+					enqueueVMR(vmRestore)
 
 					Expect(vmRestore.Status.Restores).To(HaveLen(1))
 					vmRestore.Status.Restores[0].DataVolumeName = pointer.P(restoreDVName(vmRestore, vmRestore.Status.Restores[0].VolumeName, ""))
@@ -1739,6 +1735,7 @@ var _ = Describe("Restore controller", func() {
 							pvc.Status.Phase = corev1.ClaimBound
 							addPVC(&pvc)
 						}
+						enqueueVMR(r)
 
 						changeMacAddressPatch = fmt.Sprintf(`{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`, newMacAddress)
 					})
