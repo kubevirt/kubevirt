@@ -258,9 +258,6 @@ var _ = Describe("Restore controller", func() {
 
 		var ctrl *gomock.Controller
 
-		var dataVolumeInformer cache.SharedIndexInformer
-		var dataVolumeSource *framework.FakeControllerSource
-
 		var pvcInformer cache.SharedIndexInformer
 		var pvcSource *framework.FakeControllerSource
 
@@ -283,13 +280,11 @@ var _ = Describe("Restore controller", func() {
 
 		syncCaches := func(stop chan struct{}) {
 			go pvcInformer.Run(stop)
-			go dataVolumeInformer.Run(stop)
 			go storageClassInformer.Run(stop)
 			go crInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
 				pvcInformer.HasSynced,
-				dataVolumeInformer.HasSynced,
 				storageClassInformer.HasSynced,
 				crInformer.HasSynced,
 			)).To(BeTrue())
@@ -305,7 +300,7 @@ var _ = Describe("Restore controller", func() {
 			vmSnapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 			vmiInformer, _ := testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachineInstance{})
 			vmInformer, _ := testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachine{})
-			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, virtcontroller.GetControllerRevisionInformerIndexers())
@@ -860,7 +855,7 @@ var _ = Describe("Restore controller", func() {
 					*metav1.NewControllerRef(dv, schema.GroupVersionKind{Group: "cdi.kubevirt.io", Version: "v1beta1", Kind: "DataVolume"}),
 				}
 
-				dataVolumeSource.Add(dv)
+				Expect(controller.DataVolumeInformer.GetStore().Add(dv)).To(Succeed())
 				pvcSource.Add(&pvc)
 
 				ur := r.DeepCopy()
@@ -923,7 +918,7 @@ var _ = Describe("Restore controller", func() {
 					},
 				}
 
-				dataVolumeSource.Add(dv)
+				Expect(controller.DataVolumeInformer.GetStore().Add(dv)).To(Succeed())
 
 				pvc := getRestorePVCs(r)[0]
 				pvc.OwnerReferences = []metav1.OwnerReference{
@@ -1276,7 +1271,7 @@ var _ = Describe("Restore controller", func() {
 							Namespace: testNamespace,
 						},
 					}
-					dataVolumeSource.Add(dv)
+					Expect(controller.DataVolumeInformer.GetStore().Add(dv)).To(Succeed())
 				}
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"] = pvc.Name
@@ -1520,7 +1515,7 @@ var _ = Describe("Restore controller", func() {
 								Phase: phase,
 							},
 						}
-						dataVolumeSource.Add(dv)
+						Expect(controller.DataVolumeInformer.GetStore().Add(dv)).To(Succeed())
 						pvc.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(dv, schema.GroupVersionKind{Group: "cdi.kubevirt.io", Version: "v1beta1", Kind: "DataVolume"})}
 						r.Status.DeletedDataVolumes = getDeletedDataVolumes(vm)
 					} else {
@@ -1738,7 +1733,7 @@ var _ = Describe("Restore controller", func() {
 									Phase: cdiv1.Succeeded,
 								},
 							}
-							dataVolumeSource.Add(dv)
+							Expect(controller.DataVolumeInformer.GetStore().Add(dv)).To(Succeed())
 							pvc.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(dv, schema.GroupVersionKind{Group: "cdi.kubevirt.io", Version: "v1beta1", Kind: "DataVolume"})}
 							pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"] = pvc.Name
 							pvc.Status.Phase = corev1.ClaimBound
