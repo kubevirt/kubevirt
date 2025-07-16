@@ -28,10 +28,11 @@ import (
 )
 
 var _ = Describe("Evacuation", func() {
-	var virtClient *kubecli.MockKubevirtClient
-	var recorder *record.FakeRecorder
-
-	var controller *EvacuationController
+	var (
+		virtClient *kubecli.MockKubevirtClient
+		recorder   *record.FakeRecorder
+		controller *EvacuationController
+	)
 
 	addNode := func(node *k8sv1.Node) {
 		controller.nodeStore.Add(node)
