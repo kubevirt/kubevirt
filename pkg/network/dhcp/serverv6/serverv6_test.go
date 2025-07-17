@@ -34,7 +34,7 @@ var _ = Describe("DHCPv6", func() {
 		It("should contain ianaAdrress and duid", func() {
 			clientIP := net.ParseIP("fd10:0:2::2")
 			serverInterfaceMac, _ := net.ParseMAC("12:34:56:78:9A:BC")
-			modifiers := prepareDHCPv6Modifiers(clientIP, serverInterfaceMac)
+			modifiers := prepareDHCPv6Modifiers(clientIP, serverInterfaceMac, nil)
 			Expect(modifiers).To(HaveLen(2))
 
 			msg := &dhcpv6.Message{
@@ -52,6 +52,32 @@ var _ = Describe("DHCPv6", func() {
 			modifiers[1](msg)
 			Expect(msg.GetOneOption(dhcpv6.OptionServerID).String()).To(Equal(expectedServerId.String()))
 		})
+
+		It("should contain DNS servers when provided", func() {
+			clientIP := net.ParseIP("fd10:0:2::2")
+			serverInterfaceMac, _ := net.ParseMAC("12:34:56:78:9A:BC")
+			ipv6Nameservers := [][]byte{
+				net.ParseIP("2001:4860:4860::8888").To16(),
+				net.ParseIP("2001:4860:4860::8844").To16(),
+			}
+			modifiers := prepareDHCPv6Modifiers(clientIP, serverInterfaceMac, ipv6Nameservers)
+			Expect(modifiers).To(HaveLen(3))
+
+			msg := &dhcpv6.Message{
+				MessageType: dhcpv6.MessageTypeAdvertise,
+			}
+
+			for _, modifier := range modifiers {
+				modifier(msg)
+			}
+
+			dnsOpt := msg.GetOneOption(dhcpv6.OptionDNSRecursiveNameServer)
+			Expect(dnsOpt).ToNot(BeNil())
+
+			dnsString := dnsOpt.String()
+			Expect(dnsString).To(ContainSubstring("2001:4860:4860::8888"))
+			Expect(dnsString).To(ContainSubstring("2001:4860:4860::8844"))
+		})
 	})
 	Context("buildResponse should build a response with", func() {
 		var handler *DHCPv6Handler
@@ -59,7 +85,7 @@ var _ = Describe("DHCPv6", func() {
 		BeforeEach(func() {
 			clientIP := net.ParseIP("fd10:0:2::2")
 			serverInterfaceMac, _ := net.ParseMAC("12:34:56:78:9A:BC")
-			modifiers := prepareDHCPv6Modifiers(clientIP, serverInterfaceMac)
+			modifiers := prepareDHCPv6Modifiers(clientIP, serverInterfaceMac, nil)
 
 			handler = &DHCPv6Handler{
 				clientIP:  clientIP,
