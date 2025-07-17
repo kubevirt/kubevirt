@@ -1198,7 +1198,7 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 			RestartPolicy: k8sv1.RestartPolicyNever,
 			Containers: []k8sv1.Container{
 				{
-					Name:            naming.GetName(namePrefix, vmExport.Name, validation.DNS1035LabelMaxLength),
+					Name:            "exporter",
 					Image:           t.exporterImage,
 					ImagePullPolicy: t.clusterConfig.GetImagePullPolicy(),
 					Env: []k8sv1.EnvVar{
