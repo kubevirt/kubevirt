@@ -75,7 +75,7 @@ export DOCKER_IMAGE="builder"
 export VERSION="<your-docker-tag>"
 export KUBEVIRT_BUILDER_IMAGE="${DOCKER_PREFIX}/${DOCKER_IMAGE}/${VERSION}"
 ```
-where <your-system-architecture> is either `amd64` or `arm64` or `s390x` for x86, ARM, s390x or Power systems, respectively.
+where <your-system-architecture> is either `amd64` or `arm64` or `s390x` for x86, ARM, s390x systems, respectively.
 
 
 `make builder-build` invokes the build of the bazel builder container. 
