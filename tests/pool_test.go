@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -744,20 +745,17 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 120*time.Second, 1*time.Second).Should(Succeed(), "maxUnavailable constraint was violated during the update process")
 
 		By("Waiting for all VMIs to be updated")
-		vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
-			LabelSelector: labelSelectorToString(newPool.Spec.Selector),
-		})
+		newLabelSelectorSet := labels.Set{newLabelKey: newLabelValue}
+		newPoolSelectorSet, err := labels.ConvertSelectorToLabelsMap(newPool.Spec.Selector.String())
 		Expect(err).ToNot(HaveOccurred())
-
-		updatedCount := 0
-		for _, vmi := range vmis.Items {
-			if _, ok := vmi.Labels[newLabelKey]; ok {
-				updatedCount++
-			}
-		}
-
-		fmt.Fprintf(GinkgoWriter, "Updated VMIs: %d/%d\n", updatedCount, replicas)
-		Expect(updatedCount).To(Equal(replicas))
+		labelSelector := labels.Merge(newPoolSelectorSet, newLabelSelectorSet).String()
+		Eventually(func(g Gomega) {
+			vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelector,
+			})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vmis.Items).To(HaveLen(replicas))
+		}, 120*time.Second, 1*time.Second).Should(Succeed(), "VMIs not all updated")
 	})
 })
 
