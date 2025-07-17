@@ -473,8 +473,8 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"downwardAPI":           "DownwardAPI represents downward API about the pod that should populate this volume\n+optional",
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
 		"downwardMetrics":       "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
-		"memoryDump":            "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi\nDeprecated: Use ScratchVolume with Type \"memoryDump\" instead. This field will be removed in a future version.",
-		"scratchVolume":         "ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace.\nAttached only to the virt-launcher pod and not mounted as a disk inside the VM guest\nIt is used to store data/output collected from the guest like memory dump and backups",
+		"memoryDump":            "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi\nvolume can be added only as a hotplug volume and has to be marked with hotpluggable: true\nDeprecated: Use ScratchVolume with Type \"memoryDump\" instead. This field will be removed in a future version.",
+		"scratchVolume":         "ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace.\nAttached only to the virt-launcher pod and not mounted as a disk inside the VM guest\nvolume can be added only as a hotplug volume and has to be marked with hotpluggable: true\nIt is used to store data/output collected from the guest like memory dump and backups",
 	}
 }
 

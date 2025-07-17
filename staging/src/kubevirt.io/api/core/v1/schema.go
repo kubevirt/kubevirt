@@ -905,10 +905,12 @@ type VolumeSource struct {
 	// metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
 	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
 	// MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+	// volume can be added only as a hotplug volume and has to be marked with hotpluggable: true
 	// Deprecated: Use ScratchVolume with Type "memoryDump" instead. This field will be removed in a future version.
 	MemoryDump *MemoryDumpVolumeSource `json:"memoryDump,omitempty"`
 	// ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace.
 	// Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest
+	// volume can be added only as a hotplug volume and has to be marked with hotpluggable: true
 	// It is used to store data/output collected from the guest like memory dump and backups
 	ScratchVolume *ScratchVolumeSource `json:"scratchVolume,omitempty"`
 }

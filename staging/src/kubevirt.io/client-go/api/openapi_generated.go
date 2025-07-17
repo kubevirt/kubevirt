@@ -28489,13 +28489,13 @@ func schema_kubevirtio_api_core_v1_Volume(ref common.ReferenceCallback) common.O
 					},
 					"memoryDump": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi Deprecated: Use ScratchVolume with Type \"memoryDump\" instead. This field will be removed in a future version.",
+							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi volume can be added only as a hotplug volume and has to be marked with hotpluggable: true Deprecated: Use ScratchVolume with Type \"memoryDump\" instead. This field will be removed in a future version.",
 							Ref:         ref("kubevirt.io/api/core/v1.MemoryDumpVolumeSource"),
 						},
 					},
 					"scratchVolume": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace. Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest It is used to store data/output collected from the guest like memory dump and backups",
+							Description: "ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace. Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest volume can be added only as a hotplug volume and has to be marked with hotpluggable: true It is used to store data/output collected from the guest like memory dump and backups",
 							Ref:         ref("kubevirt.io/api/core/v1.ScratchVolumeSource"),
 						},
 					},
@@ -28670,13 +28670,13 @@ func schema_kubevirtio_api_core_v1_VolumeSource(ref common.ReferenceCallback) co
 					},
 					"memoryDump": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi Deprecated: Use ScratchVolume with Type \"memoryDump\" instead. This field will be removed in a future version.",
+							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi volume can be added only as a hotplug volume and has to be marked with hotpluggable: true Deprecated: Use ScratchVolume with Type \"memoryDump\" instead. This field will be removed in a future version.",
 							Ref:         ref("kubevirt.io/api/core/v1.MemoryDumpVolumeSource"),
 						},
 					},
 					"scratchVolume": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace. Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest It is used to store data/output collected from the guest like memory dump and backups",
+							Description: "ScratchVolume represents a reference to PersistentVolumeClaim in the same namespace. Attached only to the virt-launcher pod and not mounted as a disk inside the VM guest volume can be added only as a hotplug volume and has to be marked with hotpluggable: true It is used to store data/output collected from the guest like memory dump and backups",
 							Ref:         ref("kubevirt.io/api/core/v1.ScratchVolumeSource"),
 						},
 					},

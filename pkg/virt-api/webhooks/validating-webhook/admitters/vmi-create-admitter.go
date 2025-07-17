@@ -1725,6 +1725,26 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 		if volume.MemoryDump != nil {
 			memoryDumpVolumeCount++
 			volumeSourceSetCount++
+			if !volume.MemoryDump.PersistentVolumeClaimVolumeSource.Hotpluggable {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "MemoryDump must have hotpluggable=true. MemoryDump volumes are only supported as hotplug volumes.",
+					Field:   field.Index(idx).Child("memoryDump", "hotpluggable").String(),
+				})
+			}
+		}
+		if volume.ScratchVolume != nil {
+			volumeSourceSetCount++
+			if volume.ScratchVolume.Type == v1.MemoryDumpType {
+				memoryDumpVolumeCount++
+			}
+			if !volume.ScratchVolume.PersistentVolumeClaimVolumeSource.Hotpluggable {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "ScratchVolume must have hotpluggable=true. ScratchVolumes are only supported as hotplug volumes.",
+					Field:   field.Index(idx).Child("scratchVolume", "hotpluggable").String(),
+				})
+			}
 		}
 
 		if volumeSourceSetCount != 1 {
