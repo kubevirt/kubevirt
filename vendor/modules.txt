@@ -347,8 +347,8 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/opencontainers/runc v1.1.12
-## explicit; go 1.17
+# github.com/opencontainers/runc v1.1.14
+## explicit; go 1.18
 github.com/opencontainers/runc/libcontainer/cgroups
 github.com/opencontainers/runc/libcontainer/cgroups/devices
 github.com/opencontainers/runc/libcontainer/cgroups/ebpf
@@ -358,6 +358,7 @@ github.com/opencontainers/runc/libcontainer/cgroups/fs2
 github.com/opencontainers/runc/libcontainer/cgroups/fscommon
 github.com/opencontainers/runc/libcontainer/configs
 github.com/opencontainers/runc/libcontainer/devices
+github.com/opencontainers/runc/libcontainer/system
 github.com/opencontainers/runc/libcontainer/user
 github.com/opencontainers/runc/libcontainer/userns
 github.com/opencontainers/runc/libcontainer/utils
@@ -643,14 +644,15 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.31.0
-## explicit; go 1.11
+# google.golang.org/protobuf v1.33.0
+## explicit; go 1.17
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
 google.golang.org/protobuf/internal/descfmt
 google.golang.org/protobuf/internal/descopts
 google.golang.org/protobuf/internal/detrand
+google.golang.org/protobuf/internal/editiondefaults
 google.golang.org/protobuf/internal/encoding/defval
 google.golang.org/protobuf/internal/encoding/json
 google.golang.org/protobuf/internal/encoding/messageset
@@ -674,6 +676,7 @@ google.golang.org/protobuf/reflect/protoregistry
 google.golang.org/protobuf/runtime/protoiface
 google.golang.org/protobuf/runtime/protoimpl
 google.golang.org/protobuf/types/descriptorpb
+google.golang.org/protobuf/types/gofeaturespb
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/timestamppb
