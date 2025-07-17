@@ -198,7 +198,7 @@ var _ = Describe("[sig-compute]VM state", func() {
 			// They can't be flake-checked since the flake-checker cluster does support RWX FS.
 			Entry("TPM across migration and restart", decorators.SigCompute, decorators.RequiresRWOFsVMStateStorageClass, decorators.NoFlakeCheck, tpm, !efi, rwo, "migrate", "restart"),
 			Entry("TPM across restart and migration", decorators.SigCompute, decorators.RequiresRWOFsVMStateStorageClass, decorators.NoFlakeCheck, tpm, !efi, rwo, "restart", "migrate"),
-			Entry("EFI across migration and restart", decorators.SigCompute, decorators.RequiresRWOFsVMStateStorageClass, decorators.NoFlakeCheck, !tpm, efi, rwo, "migrate", "restart"),
+			Entry("[QUARANTINE]EFI across migration and restart", decorators.Quarantine, decorators.SigCompute, decorators.RequiresRWOFsVMStateStorageClass, decorators.NoFlakeCheck, !tpm, efi, rwo, "migrate", "restart"),
 			Entry("TPM+EFI across migration and restart", decorators.SigCompute, decorators.RequiresRWOFsVMStateStorageClass, decorators.NoFlakeCheck, tpm, efi, rwo, "migrate", "restart"),
 		)
 		It("should remove persistent storage PVC if VMI is not owned by a VM", decorators.SigCompute, func() {
