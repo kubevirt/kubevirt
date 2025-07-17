@@ -1365,6 +1365,80 @@ var _ = Describe(SIG("Storage", func() {
 			})
 		})
 	})
+
+	Context("With ScratchVolume", func() {
+		It("should mount ScratchVolume to virt-launcher pod", func() {
+			pvcName := "scratch-pvc-" + rand.String(5)
+
+			if _, exists := libstorage.GetRWOFileSystemStorageClass(); !exists {
+				Skip("Skip test when Filesystem storage is not present")
+			}
+
+			By("Creating PVC for ScratchVolume")
+			libstorage.CreateFSPVC(pvcName, testsuite.GetTestNamespace(nil), "500Mi", nil)
+
+			By("Creating a VM with ScratchVolume")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+			// Add ScratchVolume to the VM spec
+			scratchVolume := v1.Volume{
+				Name: pvcName,
+				VolumeSource: v1.VolumeSource{
+					ScratchVolume: &v1.ScratchVolumeSource{
+						PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: pvcName,
+							},
+							Hotpluggable: true,
+						},
+					},
+				},
+			}
+
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, scratchVolume)
+
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VM to be ready and running")
+			var vmi *v1.VirtualMachineInstance
+			Eventually(func() bool {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return false
+				}
+				Expect(err).ToNot(HaveOccurred())
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vm.Status.Ready && vmi.Status.Phase == v1.Running
+			}, 180*time.Second, time.Second).Should(BeTrue())
+
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			output, err := exec.ExecuteCommandOnPod(
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"find", "/var/run/kubevirt/hotplug-disks", "-name", pvcName},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strings.Contains(output, pvcName)).To(BeTrue())
+
+			By("Verifying VMI volume status shows the volume")
+			Eventually(func() bool {
+				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				if err != nil {
+					return false
+				}
+				for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
+					if volumeStatus.Name == pvcName {
+						return true
+					}
+				}
+				return false
+			}, 30*time.Second, 2*time.Second).Should(BeTrue(), "Volume should appear in VMI status")
+		})
+	})
 }))
 
 func waitForPodToDisappearWithTimeout(podName string, seconds int) {
