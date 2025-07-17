@@ -1461,7 +1461,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 
 	if migrationFinalizedOnVMI := vmi.IsMigrationSynchronized(migration) && vmi.Status.MigrationState.MigrationUID == migration.UID &&
 		vmi.Status.MigrationState.EndTimestamp != nil; migrationFinalizedOnVMI {
-		if vmi.IsDecentralizedMigration() {
+		if vmi.IsDecentralizedMigration() && vmi.IsMigrationSource() {
 			// Delete the source VMI since we have migration to another cluster/namespace
 			if err := c.clientset.VirtualMachine(vmi.Namespace).Stop(context.Background(), vmi.Name, &virtv1.StopOptions{}); err != nil {
 				if !k8serrors.IsNotFound(err) {
