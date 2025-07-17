@@ -275,6 +275,9 @@ func ifacesStatusFromDomainInterfaces(domainSpecIfaces []api.Interface) []v1.Vir
 	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
 	for _, domainSpecIface := range domainSpecIfaces {
+		if domainSpecIface.Alias == nil || domainSpecIface.MAC == nil {
+			continue
+		}
 		vmiStatusIfaces = append(vmiStatusIfaces, v1.VirtualMachineInstanceNetworkInterface{
 			Name:       domainSpecIface.Alias.GetName(),
 			MAC:        domainSpecIface.MAC.MAC,
@@ -336,7 +339,7 @@ func ifacesStatusFromGuestAgent(vmiIfacesStatus []v1.VirtualMachineInstanceNetwo
 	return vmiIfacesStatus
 }
 
-// For backward compatability with older virt-launchers, apply this logic:
+// For backward compatibility with older virt-launchers, apply this logic:
 //   - When the domain status `InterfaceName` field is set, the data originates from the guest-agent.
 //     This is true for old virt-launchers and new ones alike.
 //   - When the domain status `InterfaceName` field is not set (empty), the data originates from a merge
