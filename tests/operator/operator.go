@@ -2308,10 +2308,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 
 		It("should properly manage adding entries to the configmap", func() {
-			// add an entry to the configmap
-			cm, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), components.ExternalKubeVirtCAConfigMapName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
 			cert1 := createCrt(time.Hour)
 			cert2 := createCrt(time.Hour)
 			cert3 := createCrt(time.Millisecond)
@@ -2332,9 +2328,13 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(cert3.Leaf.NotAfter).To(BeTemporally("<", now))
 
 			By("Adding the first cert")
-			cm.Data[components.CABundleKey] = string(cert1Encoded)
-			_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(context.Background(), cm, metav1.UpdateOptions{})
+			p, err := patch.New(patch.WithReplace("/data/"+components.CABundleKey, string(cert1Encoded))).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
+			configMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).
+				Patch(context.Background(), components.ExternalKubeVirtCAConfigMapName, types.JSONPatchType, p, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(configMap.Data).To(HaveKeyWithValue(components.CABundleKey, string(cert1Encoded)))
+
 			Eventually(func(g Gomega) {
 				cm, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
@@ -2342,13 +2342,15 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				g.Expect(ok).To(BeTrue())
 				g.Expect(val).To(ContainSubstring(string(cert1Encoded)))
 			}, 10*time.Second, time.Second).Should(Succeed())
-			cm, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), components.ExternalKubeVirtCAConfigMapName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
 
 			By("Adding an invalid string to the configmap, should be ignored and removed from the external CA configmap")
-			cm.Data[components.CABundleKey] = "invalid"
-			_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(context.Background(), cm, metav1.UpdateOptions{})
+			p, err = patch.New(patch.WithReplace("/data/"+components.CABundleKey, "invalid")).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
+			configMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).
+				Patch(context.Background(), components.ExternalKubeVirtCAConfigMapName, types.JSONPatchType, p, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(configMap.Data).To(HaveKeyWithValue(components.CABundleKey, "invalid"))
+
 			Eventually(func(g Gomega) {
 				cm, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
@@ -2357,13 +2359,15 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				g.Expect(val).To(ContainSubstring(string(cert1Encoded)))
 				g.Expect(val).ToNot(ContainSubstring("invalid"))
 			}, 10*time.Second, time.Second).Should(Succeed())
-			cm, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), components.ExternalKubeVirtCAConfigMapName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
 
 			By("Adding the second cert")
-			cm.Data[components.CABundleKey] = string(cert2Encoded)
-			_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(context.Background(), cm, metav1.UpdateOptions{})
+			p, err = patch.New(patch.WithReplace("/data/"+components.CABundleKey, string(cert2Encoded))).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
+			configMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).
+				Patch(context.Background(), components.ExternalKubeVirtCAConfigMapName, types.JSONPatchType, p, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(configMap.Data).To(HaveKeyWithValue(components.CABundleKey, string(cert2Encoded)))
+
 			Eventually(func(g Gomega) {
 				kubevirtCAConfigMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
@@ -2373,13 +2377,15 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				g.Expect(val).ToNot(ContainSubstring("invalid"))
 				g.Expect(val).To(ContainSubstring(string(cert2Encoded)))
 			}, 10*time.Second, time.Second).Should(Succeed())
-			cm, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), components.ExternalKubeVirtCAConfigMapName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
 
 			By("Adding the third cert, which is expired, it should not be added to the kubevirt-ca configmap")
-			cm.Data[components.CABundleKey] = string(cert3Encoded)
-			_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(context.Background(), cm, metav1.UpdateOptions{})
+			p, err = patch.New(patch.WithReplace("/data/"+components.CABundleKey, string(cert3Encoded))).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
+			configMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).
+				Patch(context.Background(), components.ExternalKubeVirtCAConfigMapName, types.JSONPatchType, p, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(configMap.Data).To(HaveKeyWithValue(components.CABundleKey, string(cert3Encoded)))
+
 			Eventually(func(g Gomega) {
 				kubevitCAConfigMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
