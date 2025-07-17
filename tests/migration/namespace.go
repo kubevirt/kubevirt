@@ -103,6 +103,9 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 	createReceiverVMFromVMISpec := func(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachine {
 		vm := libvmi.NewVirtualMachine(vmi,
 			libvmi.WithRunStrategy(virtv1.RunStrategyWaitAsReceiver),
+			libvmi.WithAnnotations(map[string]string{
+				virtv1.RestoreRunStrategy: string(virtv1.RunStrategyAlways),
+			}),
 		)
 		By(fmt.Sprintf("creating VM %s/%s", vmi.Namespace, vmi.Name))
 		vm, err := virtClient.VirtualMachine(vmi.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -301,6 +304,11 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).ShouldNot(BeEmpty())
 			Expect(console.LoginToCirros(targetVMI)).To(Succeed())
 			Expect(console.RunCommand(targetVMI, "cat /home/cirros/test/data.txt", 30*time.Second)).To(Succeed())
+			By("verifying the runStrategy is properly updated to be what the annotation is")
+			targetVM, err = virtClient.VirtualMachine(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(targetVM.Spec.RunStrategy).ToNot(BeNil())
+			Expect(*targetVM.Spec.RunStrategy).To(Equal(virtv1.RunStrategyAlways))
 		})
 	})
 
