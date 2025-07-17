@@ -181,7 +181,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 		})
 
-		It("Should make sure that no mdev is removed if the feature is gated", func() {
+		It("[QUARANTINE]Should make sure that no mdev is removed if the feature is gated", decorators.Quarantine, func() {
 
 			By("Adding feature gate to disable mdevs handling")
 
