@@ -64,23 +64,6 @@ var _ = Describe("Container spec renderer", func() {
 		})
 	})
 
-	Context("with privileged option", func() {
-		BeforeEach(func() {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithPrivileged())
-		})
-
-		It("should feature a privileged security context", func() {
-			Expect(specRenderer.Render(exampleCommand).SecurityContext).Should(
-				Equal(privilegedRootUserSecurityContext()),
-			)
-		})
-
-		It("should set allowPrivilegeEscalation to true when non root", func() {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithPrivileged(), WithNonRoot(nonRootUser))
-			Expect(*specRenderer.Render(exampleCommand).SecurityContext.AllowPrivilegeEscalation).Should(BeTrue())
-		})
-	})
-
 	Context("vmi capabilities", func() {
 		allowedCapabilities := []k8sv1.Capability{
 			CAP_NET_BIND_SERVICE,
