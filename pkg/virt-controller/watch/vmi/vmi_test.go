@@ -1284,6 +1284,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
 			}
 			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
+			// Explicitly setting PhaseTransitionTimestamps to empty slice
 			vmi.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstancePhaseTransitionTimestamp{}
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
