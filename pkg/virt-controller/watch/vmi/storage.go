@@ -173,7 +173,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 			if status.HotplugVolume == nil {
 				status.HotplugVolume = &virtv1.HotplugVolumeStatus{}
 			}
-			if volume.MemoryDump != nil && status.MemoryDumpVolume == nil {
+			if storagetypes.IsMemoryDumpVolume(&volume) && status.MemoryDumpVolume == nil {
 				status.MemoryDumpVolume = &virtv1.DomainMemoryDumpInfo{
 					ClaimName: volume.Name,
 				}
@@ -206,7 +206,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 			}
 		}
 
-		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil || volume.VolumeSource.MemoryDump != nil {
+		if storagetypes.IsPVCBasedVolume(&volume) {
 			pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 			pvcInterface, pvcExists, _ := c.pvcIndexer.GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, pvcName))
 			if pvcExists {

@@ -327,7 +327,7 @@ func hotplugVolumes(vmiVolumeStatus []v1.VolumeStatus, vmiSpecVolumes []v1.Volum
 	}
 	// This detects hotplug volumes for a started but not ready VMI
 	for _, volume := range vmiSpecVolumes {
-		if (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable) {
+		if types.IsHotplugVolume(&volume) {
 			hotplugVolumeSet[volume.Name] = struct{}{}
 		}
 	}

@@ -108,14 +108,20 @@ func IsPreallocated(annotations map[string]string) bool {
 	return false
 }
 
+// Once MemoryDumpVolumeSource is removed, this function should be refactored
 func PVCNameFromVirtVolume(volume *virtv1.Volume) string {
 	if volume.DataVolume != nil {
 		// TODO, look up the correct PVC name based on the datavolume, right now they match, but that will not always be true.
 		return volume.DataVolume.Name
-	} else if volume.PersistentVolumeClaim != nil {
+	}
+	if volume.PersistentVolumeClaim != nil {
 		return volume.PersistentVolumeClaim.ClaimName
-	} else if volume.MemoryDump != nil {
+	}
+	if volume.MemoryDump != nil {
 		return volume.MemoryDump.ClaimName
+	}
+	if volume.ScratchVolume != nil {
+		return volume.ScratchVolume.ClaimName
 	}
 
 	return ""

@@ -312,7 +312,7 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 
 	// Validate that volumes match disks and filesystems correctly
 	for idx, volume := range spec.Volumes {
-		if volume.MemoryDump != nil {
+		if storagetypes.IsScratchVolume(&volume) {
 			continue
 		}
 		if _, matchingDiskExists := diskAndFilesystemNames[volume.Name]; !matchingDiskExists {

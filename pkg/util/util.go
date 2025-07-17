@@ -12,6 +12,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	"kubevirt.io/client-go/log"
+
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 const (
@@ -145,6 +147,10 @@ func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {
 	}
 
 	for _, volume := range spec.Volumes {
+		// ScratchVolumes should not get disks automatically created - they are only mounted as filesystems in virt-launcher
+		if storagetypes.IsScratchVolume(&volume) {
+			continue
+		}
 		if _, foundDisk := diskAndFilesystemNames[volume.Name]; !foundDisk {
 			spec.Domain.Devices.Disks = append(
 				spec.Domain.Devices.Disks,

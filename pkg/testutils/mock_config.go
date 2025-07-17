@@ -70,15 +70,20 @@ func NewFakePersistentVolumeSource() *KVv1.PersistentVolumeClaimVolumeSource {
 	}
 }
 
-func NewFakeMemoryDumpSource(name string) *KVv1.MemoryDumpVolumeSource {
-	return &KVv1.MemoryDumpVolumeSource{
+func NewFakeScratchVolumeSource(name string, scratchType KVv1.ScratchVolumeType) *KVv1.ScratchVolumeSource {
+	return &KVv1.ScratchVolumeSource{
 		PersistentVolumeClaimVolumeSource: KVv1.PersistentVolumeClaimVolumeSource{
 			PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
 				ClaimName: name,
 			},
 			Hotpluggable: true,
 		},
+		Type: scratchType,
 	}
+}
+
+func NewFakeMemoryDumpScratchVolumeSource(name string) *KVv1.ScratchVolumeSource {
+	return NewFakeScratchVolumeSource(name, KVv1.MemoryDumpType)
 }
 
 func RemoveDataVolumeAPI(crdInformer cache.SharedIndexInformer) {

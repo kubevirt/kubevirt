@@ -75,7 +75,7 @@ var _ = Describe("Volume type test", func() {
 		},
 			Entry("with DataVolume", &v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{DataVolume: &v1.DataVolumeSource{}}}),
 			Entry("with PersistentVolumeClaim", &v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{}}}),
-			Entry("with MemoryDump", &v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{MemoryDump: &v1.MemoryDumpVolumeSource{}}}),
+			Entry("with MemoryDump", &v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{ScratchVolume: &v1.ScratchVolumeSource{Type: v1.MemoryDumpType}}}),
 		)
 	})
 })

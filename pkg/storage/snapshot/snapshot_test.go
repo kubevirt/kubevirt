@@ -2780,12 +2780,13 @@ func updateVMWithMemoryDump(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 		Name: "memorydump",
 		VolumeSource: v1.VolumeSource{
-			MemoryDump: &v1.MemoryDumpVolumeSource{
+			ScratchVolume: &v1.ScratchVolumeSource{
 				PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
 					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 						ClaimName: "memorydump",
 					},
 				},
+				Type: v1.MemoryDumpType,
 			},
 		},
 	})

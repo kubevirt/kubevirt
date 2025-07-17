@@ -638,7 +638,7 @@ var _ = Describe("VMSnapshot source", func() {
 		vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
 		content := createTestVMSnapshotContent("snapshot-content")
 		content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes[0].DataVolume = nil
-		content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes[0].MemoryDump = &virtv1.MemoryDumpVolumeSource{}
+		content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes[0].ScratchVolume = &virtv1.ScratchVolumeSource{Type: virtv1.MemoryDumpType}
 		vmSnapshotContentInformer.GetStore().Add(content)
 		fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
 		retry, err := controller.updateVMExport(testVMExport)

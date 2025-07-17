@@ -35,6 +35,23 @@ func IsStorageVolume(volume *v1.Volume) bool {
 	return volume.PersistentVolumeClaim != nil || volume.DataVolume != nil
 }
 
+// Once MemoryDumpVolumeSource is removed, this function should be refactored
+func IsScratchVolume(volume *v1.Volume) bool {
+	return volume.MemoryDump != nil || volume.ScratchVolume != nil
+}
+
+// Added this function for backward compatibility with the old MemoryDumpVolumeSource
+// Once MemoryDumpVolumeSource is removed, this function should be refactored
+func IsMemoryDumpVolume(volume *v1.Volume) bool {
+	return volume.MemoryDump != nil ||
+		(volume.ScratchVolume != nil && volume.ScratchVolume.Type == v1.MemoryDumpType)
+}
+
+func IsPVCBasedVolume(volume *v1.Volume) bool {
+	return IsStorageVolume(volume) ||
+		IsScratchVolume(volume)
+}
+
 func IsDeclarativeHotplugVolume(vol *v1.Volume) bool {
 	if vol == nil {
 		return false
@@ -52,9 +69,10 @@ func IsDeclarativeHotplugVolume(vol *v1.Volume) bool {
 
 func IsHotpluggableVolumeSource(vol *v1.Volume) bool {
 	return IsStorageVolume(vol) ||
-		vol.MemoryDump != nil
+		IsScratchVolume(vol)
 }
 
+// Once MemoryDumpVolumeSource is removed, this function should be refactored
 func IsHotplugVolume(vol *v1.Volume) bool {
 	if vol == nil {
 		return false
@@ -64,6 +82,9 @@ func IsHotplugVolume(vol *v1.Volume) bool {
 	}
 	volSrc := vol.VolumeSource
 	if volSrc.MemoryDump != nil && volSrc.MemoryDump.PersistentVolumeClaimVolumeSource.Hotpluggable {
+		return true
+	}
+	if volSrc.ScratchVolume != nil && volSrc.ScratchVolume.PersistentVolumeClaimVolumeSource.Hotpluggable {
 		return true
 	}
 

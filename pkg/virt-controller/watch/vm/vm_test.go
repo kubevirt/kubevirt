@@ -3314,13 +3314,14 @@ var _ = Describe("VirtualMachine", func() {
 				memoryDumpVol := v1.Volume{
 					Name: testPVCName,
 					VolumeSource: v1.VolumeSource{
-						MemoryDump: &v1.MemoryDumpVolumeSource{
+						ScratchVolume: &v1.ScratchVolumeSource{
 							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
 								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 									ClaimName: testPVCName,
 								},
 								Hotpluggable: true,
 							},
+							Type: v1.MemoryDumpType,
 						},
 					},
 				}

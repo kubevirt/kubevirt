@@ -770,16 +770,16 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 					Expect(content.Spec.VolumeBackups).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
 					for _, vol := range updatedVM.Spec.Template.Spec.Volumes {
-						if vol.MemoryDump == nil {
+						if !storagetypes.IsMemoryDumpVolume(&vol) {
 							continue
 						}
 						found := false
 						for _, vb := range content.Spec.VolumeBackups {
-							if vol.MemoryDump.ClaimName == vb.PersistentVolumeClaim.Name {
+							if vol.ScratchVolume.ClaimName == vb.PersistentVolumeClaim.Name {
 								found = true
 								Expect(vol.Name).To(Equal(vb.VolumeName))
 
-								pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.MemoryDump.ClaimName, metav1.GetOptions{})
+								pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.ScratchVolume.ClaimName, metav1.GetOptions{})
 								Expect(err).ToNot(HaveOccurred())
 								Expect(pvc.Spec).To(Equal(vb.PersistentVolumeClaim.Spec))
 
@@ -790,7 +790,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 									VolumeSnapshots(vm.Namespace).
 									Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
 								Expect(err).ToNot(HaveOccurred())
-								Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.MemoryDump.ClaimName))
+								Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.ScratchVolume.ClaimName))
 								Expect(vs.Status.Error).To(BeNil())
 								Expect(*vs.Status.ReadyToUse).To(BeTrue())
 							}

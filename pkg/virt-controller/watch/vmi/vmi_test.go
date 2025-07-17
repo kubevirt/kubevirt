@@ -2648,7 +2648,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						res = append(res, &virtv1.Volume{
 							Name: fmt.Sprintf("volume%d", index),
 							VolumeSource: virtv1.VolumeSource{
-								MemoryDump: testutils.NewFakeMemoryDumpSource(fmt.Sprintf("claim%d", i)),
+								ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource(fmt.Sprintf("claim%d", i)),
 							},
 						})
 					}

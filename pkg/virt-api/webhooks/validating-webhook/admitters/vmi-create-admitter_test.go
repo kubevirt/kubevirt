@@ -2742,7 +2742,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testMemoryDump",
 				VolumeSource: v1.VolumeSource{
-					MemoryDump: testutils.NewFakeMemoryDumpSource("testMemoryDump"),
+					ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testMemoryDump"),
 				},
 			})
 
@@ -2755,13 +2755,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				v1.Volume{
 					Name: "testMemoryDump",
 					VolumeSource: v1.VolumeSource{
-						MemoryDump: testutils.NewFakeMemoryDumpSource("testMemoryDump"),
+						ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testMemoryDump"),
 					},
 				},
 				v1.Volume{
 					Name: "testMemoryDump2",
 					VolumeSource: v1.VolumeSource{
-						MemoryDump: testutils.NewFakeMemoryDumpSource("testMemoryDump2"),
+						ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testMemoryDump2"),
 					},
 				},
 			)
@@ -2770,6 +2770,36 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(ContainSubstring("fake must have max one memory dump volume set"))
 		})
 
+		It("should accept a single ScratchVolume with type memoryDump", func() {
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testScratchMemoryDump",
+				VolumeSource: v1.VolumeSource{
+					ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testScratchMemoryDump"),
+				},
+			})
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject if both MemoryDump and ScratchVolume with type memoryDump exist", func() {
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes,
+				v1.Volume{
+					Name: "testMemoryDump",
+					VolumeSource: v1.VolumeSource{
+						ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testMemoryDump"),
+					},
+				},
+				v1.Volume{
+					Name: "testScratchMemoryDump",
+					VolumeSource: v1.VolumeSource{
+						ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testScratchMemoryDump"),
+					},
+				},
+			)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("fake must have max one memory dump volume set"))
+		})
 	})
 
 	Context("with bootloader", func() {
