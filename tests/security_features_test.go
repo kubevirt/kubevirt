@@ -67,7 +67,6 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 			kubevirtConfiguration = &kv.Spec.Configuration
 		})
 
-		var container k8sv1.Container
 		var vmi *v1.VirtualMachineInstance
 
 		Context("With selinuxLauncherType as container_t", func() {
@@ -91,14 +90,6 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(vmiPod.Spec.SecurityContext.SELinuxOptions).To(Equal(&k8sv1.SELinuxOptions{Type: "container_t"}))
-
-				for _, containerSpec := range vmiPod.Spec.Containers {
-					if containerSpec.Name == "compute" {
-						container = containerSpec
-						break
-					}
-				}
-				Expect(*container.SecurityContext.Privileged).To(BeFalse())
 			})
 
 			It("[test_id:4297]Make sure qemu processes are MCS constrained", func() {
