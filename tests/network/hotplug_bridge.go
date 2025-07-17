@@ -390,12 +390,13 @@ func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMeth
 		var migration *v1.VirtualMachineInstanceMigration
 
 		Eventually(func() *v1.VirtualMachineInstanceMigration {
-			migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s", v1.MigrationSelectorLabel, vmi.Name),
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, mig := range migrations.Items {
-				if mig.Spec.VMIName == vmi.Name &&
-					mig.CreationTimestamp.After(postOperationTimestamp) {
+				if mig.CreationTimestamp.After(postOperationTimestamp) {
 					migration = mig.DeepCopy()
 					return migration
 				}
