@@ -27,8 +27,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"libvirt.org/go/libvirtxml"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +34,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -48,8 +45,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-
-	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
+	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -62,23 +58,15 @@ type passtRepairSourceHandler interface {
 
 type MigrationSourceController struct {
 	*BaseController
-	capabilities                *libvirtxml.Caps
-	clientset                   kubecli.KubevirtClient
-	queue                       workqueue.TypedRateLimitingInterface[string]
-	launcherClients             launcher_clients.LauncherClientsManager
-	migrationProxy              migrationproxy.ProxyManager
-	podIsolationDetector        isolation.PodIsolationDetector
-	recorder                    record.EventRecorder
-	virtLauncherFSRunDirPattern string
-	vmiExpectations             *controller.UIDTrackingControllerExpectations
-	passtRepairHandler          passtRepairSourceHandler
+	vmiExpectations    *controller.UIDTrackingControllerExpectations
+	passtRepairHandler passtRepairSourceHandler
 }
 
 func NewMigrationSourceController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	host string,
-	launcherClients launcher_clients.LauncherClientsManager,
+	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -88,33 +76,34 @@ func NewMigrationSourceController(
 	passtRepairHandler passtRepairSourceHandler,
 ) (*MigrationSourceController, error) {
 
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-source"},
+	)
+	logger := log.Log.With("controller", "migration-source")
+
 	baseCtrl, err := NewBaseController(
+		logger,
 		host,
+		recorder,
+		clientset,
+		queue,
 		vmiInformer,
 		domainInformer,
 		clusterConfig,
 		podIsolationDetector,
+		launcherClients,
+		migrationProxy,
+		virtLauncherFSRunDirPattern,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
-		workqueue.DefaultTypedControllerRateLimiter[string](),
-		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-source"},
-	)
-
 	c := &MigrationSourceController{
-		BaseController:              baseCtrl,
-		clientset:                   clientset,
-		queue:                       queue,
-		launcherClients:             launcherClients,
-		migrationProxy:              migrationProxy,
-		podIsolationDetector:        podIsolationDetector,
-		recorder:                    recorder,
-		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
-		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		passtRepairHandler:          passtRepairHandler,
+		BaseController:     baseCtrl,
+		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		passtRepairHandler: passtRepairHandler,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -246,7 +235,7 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 		vmi.Status.MigrationState.Completed = true
 		vmi.Status.MigrationState.Failed = true
 
-		log.Log.Object(vmi).Warning("the vmi migrated to an unknown host")
+		c.logger.Object(vmi).Warning("the vmi migrated to an unknown host")
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to unknown host."))
 	} else if !targetNodeDetectedDomain {
 		if timeLeft <= 0 {
@@ -254,13 +243,13 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 			vmi.Status.MigrationState.Completed = true
 			vmi.Status.MigrationState.Failed = true
 
-			log.Log.Object(vmi).Warning("the domain was never observed on the taget after the migration completed within the timeout period")
+			c.logger.Object(vmi).Warning("the domain was never observed on the taget after the migration completed within the timeout period")
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance's domain was never observed on the target after the migration completed within the timeout period."))
 		}
 	}
 
 	if targetNodeDetectedDomain && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
-		log.Log.Object(vmi).V(2).Infof("decentralized migration completed successfully, marking VMI as succeeded")
+		c.logger.Object(vmi).V(2).Infof("decentralized migration completed successfully, marking VMI as succeeded")
 		// this is a decentralized migration, and the migration completed successfully, we need to mark the VMI as succeeded
 		vmi.Status.Phase = v1.Succeeded
 	}
@@ -270,7 +259,7 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 
 func (c *MigrationSourceController) Run(threadiness int, stopCh chan struct{}) {
 	defer c.queue.ShutDown()
-	log.Log.Info("Starting virt-handler source controller.")
+	c.logger.Info("Starting virt-handler source controller.")
 
 	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
@@ -297,7 +286,7 @@ func (c *MigrationSourceController) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	<-stopCh
-	log.Log.Info("Stopping virt-handler source controller.")
+	c.logger.Info("Stopping virt-handler source controller.")
 }
 
 func (c *MigrationSourceController) runWorker() {
@@ -312,10 +301,10 @@ func (c *MigrationSourceController) Execute() bool {
 	}
 	defer c.queue.Done(key)
 	if err := c.execute(key); err != nil {
-		log.Log.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
+		c.logger.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VirtualMachineInstance %v", key)
+		c.logger.V(4).Infof("processed VirtualMachineInstance %v", key)
 		c.queue.Forget(key)
 	}
 	return true
@@ -323,9 +312,9 @@ func (c *MigrationSourceController) Execute() bool {
 
 func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if domain != nil {
-		log.Log.Object(vmi).Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
+		c.logger.Object(vmi).Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
 	} else {
-		log.Log.Object(vmi).Infof("VMI is in phase: %v", vmi.Status.Phase)
+		c.logger.Object(vmi).Infof("VMI is in phase: %v", vmi.Status.Phase)
 	}
 
 	oldStatus := vmi.Status.DeepCopy()
@@ -336,13 +325,13 @@ func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain 
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
 		// `syncErr` will be propagated anyway, and it will be logged in `re-enqueueing`
 		// so there is no need to log it twice in hot path without increased verbosity.
-		log.Log.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
+		c.logger.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
 	}
 
 	updateErr := c.updateStatus(vmi, domain)
 
 	if updateErr != nil {
-		log.Log.Object(vmi).Reason(updateErr).Error("Updating the migration status failed.")
+		c.logger.Object(vmi).Reason(updateErr).Error("Updating the migration status failed.")
 	}
 
 	// update the VMI if necessary
@@ -364,7 +353,7 @@ func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain 
 		return updateErr
 	}
 
-	log.Log.Object(vmi).V(4).Info("Source synchronization loop succeeded.")
+	c.logger.Object(vmi).V(4).Info("Source synchronization loop succeeded.")
 	return nil
 
 }
@@ -376,12 +365,12 @@ func (c *MigrationSourceController) execute(key string) error {
 	}
 
 	if !vmiExists || vmi.IsFinal() || vmi.DeletionTimestamp != nil {
-		log.Log.V(4).Infof("vmi for key %v is terminating, final or does not exists", key)
+		c.logger.V(4).Infof("vmi for key %v is terminating, final or does not exists", key)
 		return nil
 	}
 
 	if !c.vmiExpectations.SatisfiedExpectations(key) {
-		log.Log.V(4).Object(vmi).Info("waiting for expectations to be satisfied")
+		c.logger.V(4).Object(vmi).Info("waiting for expectations to be satisfied")
 		return nil
 	}
 
@@ -391,12 +380,12 @@ func (c *MigrationSourceController) execute(key string) error {
 	}
 
 	if domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
-		log.Log.V(4).Object(vmi).Infof("Detected stale vmi %s that still needs cleanup before new vmi with identical name/namespace can be processed", vmi.UID)
+		c.logger.V(4).Object(vmi).Infof("Detected stale vmi %s that still needs cleanup before new vmi with identical name/namespace can be processed", vmi.UID)
 		return nil
 	}
 
 	if vmi.Status.MigrationState == nil {
-		log.Log.V(4).Object(vmi).Info("no migration is in progress")
+		c.logger.V(4).Object(vmi).Info("no migration is in progress")
 		return nil
 	}
 
@@ -407,7 +396,7 @@ func (c *MigrationSourceController) execute(key string) error {
 	}
 
 	if !c.isMigrationSource(vmi) {
-		log.Log.Object(vmi).V(4).Info("not a migration source")
+		c.logger.Object(vmi).V(4).Info("not a migration source")
 		return nil
 	}
 
@@ -452,16 +441,9 @@ func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMa
 }
 
 func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	isUnresponsive, isInitialized, err := c.launcherClients.IsLauncherClientUnresponsive(vmi)
-	if err != nil {
+	shouldReturn, err := c.checkLauncherClient(vmi)
+	if shouldReturn {
 		return err
-	}
-	if !isInitialized {
-		log.Log.Object(vmi).V(4).Info("launcher client is not initialized")
-		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-		return nil
-	} else if isUnresponsive {
-		return errors.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
 	}
 
 	client, err := c.launcherClients.GetLauncherClient(vmi)
@@ -476,13 +458,13 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 
 	if isMigrationInProgress(vmi, domain) {
 		// we already started this migration, no need to rerun this
-		log.Log.Object(vmi).V(4).Infof("migration %s has already been started", vmi.Status.MigrationState.MigrationUID)
+		c.logger.Object(vmi).V(4).Infof("migration %s has already been started", vmi.Status.MigrationState.MigrationUID)
 		return nil
 	}
 
 	err = c.handleSourceMigrationProxy(vmi)
 	if errors.Is(err, errWaitingForTargetPorts) {
-		log.Log.Object(vmi).V(4).Info("waiting for target node to publish migration ports")
+		c.logger.Object(vmi).V(4).Info("waiting for target node to publish migration ports")
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), 1*time.Second)
 		return nil
 	} else if err != nil {
@@ -508,9 +490,9 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 
 	marshalledOptions, err := json.Marshal(options)
 	if err != nil {
-		log.Log.Object(vmi).Warning("failed to marshall matched migration options")
+		c.logger.Object(vmi).Warning("failed to marshall matched migration options")
 	} else {
-		log.Log.Object(vmi).Infof("migration options matched for vmi %s: %s", vmi.Name, string(marshalledOptions))
+		c.logger.Object(vmi).Infof("migration options matched for vmi %s: %s", vmi.Name, string(marshalledOptions))
 	}
 
 	vmiCopy := vmi.DeepCopy()
@@ -520,8 +502,8 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	}
 
 	if c.clusterConfig.PasstIPStackMigrationEnabled() {
-		if err := c.passtRepairHandler.HandleMigrationSource(vmi, c.passtSocketDirOnHostMigrationSource); err != nil {
-			log.Log.Object(vmi).Warningf("failed to call passt-repair for migration source, %v", err)
+		if err := c.passtRepairHandler.HandleMigrationSource(vmi, c.passtSocketDirOnHostForVMI); err != nil {
+			c.logger.Object(vmi).Warningf("failed to call passt-repair for migration source, %v", err)
 		}
 	}
 
@@ -531,14 +513,6 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	}
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), VMIMigrating)
 	return nil
-}
-
-func (c *MigrationSourceController) passtSocketDirOnHostMigrationSource(vmi *v1.VirtualMachineInstance) (string, error) {
-	path, err := c.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return "", err
-	}
-	return passtSocketDirOnHost(path)
 }
 
 func isMigrationDone(state *v1.VirtualMachineInstanceMigrationState) bool {
@@ -552,7 +526,7 @@ func (c *MigrationSourceController) processVMI(vmi *v1.VirtualMachineInstance, d
 		domain.Status.Status != ""
 
 	if !domainAlive {
-		log.Log.V(4).Object(vmi).Info("domain is not alive")
+		c.logger.V(4).Object(vmi).Info("domain is not alive")
 		return nil
 	}
 
@@ -604,7 +578,7 @@ func (c *MigrationSourceController) handleMigrationAbort(vmi *v1.VirtualMachineI
 	if err := client.CancelVirtualMachineMigration(vmi); err != nil {
 		if err.Error() == migrations.CancelMigrationFailedVmiNotMigratingErr {
 			// If migration did not even start there is no need to cancel it
-			log.Log.Object(vmi).Infof("skipping migration cancellation since vmi is not migrating")
+			c.logger.Object(vmi).Infof("skipping migration cancellation since vmi is not migrating")
 		}
 		return err
 	}
