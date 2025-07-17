@@ -235,7 +235,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 			It("[test_id:1753]should create a virtual machine with two interfaces", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				const secondaryNetName = "ptp"
-				detachedVMI := libvmifact.NewAlpine(
+				detachedVMI := libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -244,7 +244,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(detachedVMI, console.LoginToCirros)
 
 				cmdCheck := "sudo /sbin/cirros-dhcpc up eth1 > /dev/null\n"
 				err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{

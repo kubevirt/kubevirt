@@ -202,14 +202,14 @@ var istioTests = func(vmType VmType) {
 
 			BeforeEach(func() {
 
-				bastionVMI = libvmifact.NewAlpine(
+				bastionVMI = libvmifact.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
 				)
 
 				bastionVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), bastionVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				bastionVMI = libwait.WaitUntilVMIReady(bastionVMI, console.LoginToAlpine)
+				bastionVMI = libwait.WaitUntilVMIReady(bastionVMI, console.LoginToCirros)
 			})
 			Context("With VMI having explicit ports specified", func() {
 				BeforeEach(func() {

@@ -140,7 +140,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 	Context("With simple VM", func() {
 		BeforeEach(func() {
 			var err error
-			vm = libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+			vm = libvmi.NewVirtualMachine(libvmifact.NewCirros())
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})

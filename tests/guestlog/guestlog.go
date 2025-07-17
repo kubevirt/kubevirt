@@ -33,24 +33,28 @@ import (
 )
 
 const alpineStartupTimeout = 60
+const cirrosStartupTimeout = 60
 const testString = "GuestConsoleTest3413254123535234523"
 
 var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func() {
 
 	var (
 		alpineVmi *v1.VirtualMachineInstance
+		cirrosVmi *v1.VirtualMachineInstance
 	)
 
 	BeforeEach(func() {
 		alpineVmi = libvmifact.NewAlpine(libvmi.WithLogSerialConsole(true))
+		cirrosVmi = libvmifact.NewCirros(libvmi.WithLogSerialConsole(true))
 		alpineVmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(true)
+		cirrosVmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(true)
 	})
 
 	Describe("[level:component] Guest console log container", func() {
 		Context("set LogSerialConsole", func() {
 			It("it should exit cleanly when the shutdown is initiated by the guest", func() {
 				By("Starting a VMI")
-				vmi := libvmops.RunVMIAndExpectLaunch(alpineVmi, alpineStartupTimeout)
+				vmi := libvmops.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -64,9 +68,9 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				Expect(foundContainer).To(BeTrue())
 
 				By("Triggering a shutdown from the guest OS")
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "poweroff\n"},
+					&expect.BSnd{S: "sudo poweroff\n"},
 					&expect.BExp{R: "The system is going down NOW!"},
 				}, 240)).To(Succeed())
 

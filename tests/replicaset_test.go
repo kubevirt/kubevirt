@@ -131,7 +131,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		template := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		)
+			libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))
 		return newReplicaSetWithTemplate(template)
 	}
 

@@ -69,7 +69,7 @@ var _ = Describe(SIG("Services", func() {
 		BeforeEach(func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
 
-			inboundVMI = libvmifact.NewAlpine(
+			inboundVMI = libvmifact.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
@@ -80,8 +80,8 @@ var _ = Describe(SIG("Services", func() {
 			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), inboundVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToAlpine)
-			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToAlpine)
+			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
+			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToCirros)
 		})
 
 		Context("with a service matching the vmi exposed", func() {

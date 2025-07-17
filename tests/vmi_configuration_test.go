@@ -671,7 +671,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
 			It("[test_id:1669]should show the requested guest memory inside the VMI", func() {
-				vmi := libvmifact.NewAlpine()
+				vmi := libvmifact.NewCirros()
 				guestMemory := resource.MustParse("256Mi")
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guestMemory,
@@ -681,7 +681,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
@@ -693,7 +693,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory", func() {
 			It("[test_id:3115]should show the memory request inside the VMI", func() {
-				vmi := libvmifact.NewAlpine(
+				vmi := libvmifact.NewCirros(
 					libvmi.WithMemoryRequest("256Mi"),
 					libvmi.WithMemoryLimit("512Mi"),
 				)
@@ -701,7 +701,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
@@ -2274,10 +2274,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		// ordering:
 		// use a small disk for the other ones
 		testVMI := func() *v1.VirtualMachineInstance {
-			// virtio - added by NewAlpine
-			return libvmifact.NewAlpine(
+			// virtio - added by NewCirros
+			return libvmifact.NewCirros(
 				// add sata disk
-				libvmi.WithContainerSATADisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+				libvmi.WithContainerSATADisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 			)
 			// NOTE: we have one disk per bus, so we expect vda, sda
 		}
@@ -2297,7 +2297,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
-			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// keep the ordering!
@@ -2315,7 +2315,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = v1.DiskBusVirtio
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 			checkPciAddress(vmi, vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress)
 		})

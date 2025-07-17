@@ -161,7 +161,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	newOfflineVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewAlpine()))
+		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewAlpine(libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))))
 	}
 
 	DescribeTable("pool should scale", func(startScale int, stopScale int) {

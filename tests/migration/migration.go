@@ -175,7 +175,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			const labelKey = "subdomain"
 			const labelValue = "mysub"
 
-			vmi := libvmifact.NewAlpine(
+			vmi := libvmifact.NewCirros(
 				libvmi.WithHostname(hostname),
 				withSubdomain(subdomain),
 				libvmi.WithLabel(labelKey, labelValue),
@@ -185,7 +185,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Starting hello world in the VM")
-			vmnetserver.StartTCPServer(vmi, port, console.LoginToAlpine)
+			vmnetserver.StartTCPServer(vmi, port, console.LoginToCirros)
 
 			By("Exposing headless service matching subdomain")
 			service := service.BuildHeadlessSpec(subdomain, port, port, labelKey, labelValue)

@@ -388,7 +388,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:1528]should survive guest shutdown, multiple times", decorators.Conformance, func() {
-			vm := createRunningVM(virtClient, libvmifact.NewAlpine())
+			vm := createRunningVM(virtClient, libvmifact.NewCirros())
 			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			for i := 0; i < 3; i++ {
@@ -397,7 +397,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Obtaining the serial console")
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By("Guest shutdown")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -688,7 +688,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Issuing a poweroff command from inside VM")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "sudo poweroff\n"},
+				&expect.BSnd{S: "poweroff\n"},
 				&expect.BExp{R: console.PromptExpression},
 			}, 10)).To(Succeed())
 
@@ -749,7 +749,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		Context("Using RunStrategyAlways", func() {
 			It("[test_id:3165]should restart a succeeded VMI", func() {
 				By("Creating a VM with RunStategyRunning")
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -759,7 +759,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By("Issuing a poweroff command from inside VM")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{

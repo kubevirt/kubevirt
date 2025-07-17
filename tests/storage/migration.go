@@ -1060,7 +1060,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					return ""
 				}).WithTimeout(60 * time.Second).WithPolling(2 * time.Second).ShouldNot(BeEmpty())
 
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 				Expect(console.RunCommand(vmi, "sudo mkfs.ext3 /dev/sda", 30*time.Second)).To(Succeed())
 				Expect(console.RunCommand(vmi, "mkdir test", 30*time.Second)).To(Succeed())
 				Expect(console.RunCommand(vmi, fmt.Sprintf("sudo mount -t ext3 /dev/%s /home/cirros/test", device), 30*time.Second)).To(Succeed())
@@ -1069,7 +1069,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				Expect(console.RunCommand(vmi, "printf 'test' &> /home/cirros/test/test", 30*time.Second)).To(Succeed())
 			}
 			checkFileOnHotpluggedVol := func(vmi *v1.VirtualMachineInstance) {
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 				Expect(console.RunCommand(vmi, "cat /home/cirros/test/test |grep test", 60*time.Second)).To(Succeed())
 			}
 
@@ -1077,7 +1077,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				const volName = "vol0"
 				ns := testsuite.GetTestNamespace(nil)
 				dv := createBlankDV(virtClient, ns, "2G")
-				vmi := libvmifact.NewAlpine(
+				vmi := libvmifact.NewCirros(
 					libvmi.WithNamespace(ns),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
@@ -1123,7 +1123,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				}
 				Expect(exist).To(BeTrue())
 				rootDV := libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc),
 						libdv.StorageWithVolumeSize("1Gi"),
 						libdv.StorageWithVolumeMode(volumeMode),
