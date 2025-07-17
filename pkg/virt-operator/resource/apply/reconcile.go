@@ -1396,7 +1396,9 @@ func (r *Reconciler) exportProxyEnabled() bool {
 }
 
 func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {
-	return r.isFeatureGateEnabled(virtconfig.CommonInstancetypesDeploymentGate)
+	fgEnabled := r.isFeatureGateEnabled(virtconfig.CommonInstancetypesDeploymentGate)
+	config := r.kv.Spec.Configuration.CommonInstancetypesDeployment
+	return fgEnabled && (config == nil || config.Enabled == nil || *config.Enabled)
 }
 
 func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, ok bool) {
