@@ -813,7 +813,7 @@ func (m *VirtualMachineInstanceMigration) IsFinal() bool {
 
 func (m *VirtualMachineInstanceMigration) IsRunning() bool {
 	switch m.Status.Phase {
-	case MigrationFailed, MigrationPending, MigrationPhaseUnset, MigrationSucceeded:
+	case MigrationFailed, MigrationPending, MigrationPhaseUnset, MigrationSucceeded, MigrationWaitingForSync, MigrationSynchronizing:
 		return false
 	}
 	return true
