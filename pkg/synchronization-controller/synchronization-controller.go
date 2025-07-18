@@ -941,6 +941,12 @@ func indexByVmiName(obj interface{}) ([]string, error) {
 	if !ok {
 		return nil, nil
 	}
+	if migration.DeletionTimestamp != nil {
+		return nil, nil
+	}
+	if migration.IsFinal() {
+		return nil, nil
+	}
 	return []string{migration.Spec.VMIName}, nil
 }
 
