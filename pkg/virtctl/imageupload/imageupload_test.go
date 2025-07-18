@@ -44,6 +44,7 @@ const (
 	deleteAfterCompletionAnnotation = "cdi.kubevirt.io/storage.deleteAfterCompletion"
 	UsePopulatorAnnotation          = "cdi.kubevirt.io/storage.usePopulator"
 	PVCPrimeNameAnnotation          = "cdi.kubevirt.io/storage.populator.pvcPrime"
+	labelApplyStorageProfile        = "cdi.kubevirt.io/applyStorageProfile"
 )
 
 const (
@@ -408,6 +409,8 @@ var _ = Describe("ImageUpload", func() {
 		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		validateDefaultInstancetypeLabels(pvc.ObjectMeta.Labels)
+		// This label is applied by default to all imageupload-created PVCs
+		Expect(pvc.ObjectMeta.Labels).To(HaveKeyWithValue(labelApplyStorageProfile, "true"))
 	}
 
 	validateDataVolumeDefaultInstancetypeLabels := func() {
