@@ -305,10 +305,14 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 			Expect(console.LoginToCirros(targetVMI)).To(Succeed())
 			Expect(console.RunCommand(targetVMI, "cat /home/cirros/test/data.txt", 30*time.Second)).To(Succeed())
 			By("verifying the runStrategy is properly updated to be what the annotation is")
-			targetVM, err = virtClient.VirtualMachine(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(targetVM.Spec.RunStrategy).ToNot(BeNil())
-			Expect(*targetVM.Spec.RunStrategy).To(Equal(virtv1.RunStrategyAlways))
+			Eventually(func() virtv1.VirtualMachineRunStrategy {
+				targetVM, err = virtClient.VirtualMachine(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if targetVM.Spec.RunStrategy == nil {
+					return virtv1.RunStrategyUnknown
+				}
+				return *targetVM.Spec.RunStrategy
+			}).WithTimeout(time.Second * 20).WithPolling(500 * time.Millisecond).Should(Equal(virtv1.RunStrategyAlways))
 		})
 	})
 
