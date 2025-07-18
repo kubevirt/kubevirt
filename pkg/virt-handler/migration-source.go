@@ -71,6 +71,7 @@ type MigrationSourceController struct {
 	recorder                    record.EventRecorder
 	virtLauncherFSRunDirPattern string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
+	netStat                     netstat
 	passtRepairHandler          passtRepairSourceHandler
 }
 
@@ -85,6 +86,7 @@ func NewMigrationSourceController(
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
 	virtLauncherFSRunDirPattern string,
+	netStat netstat,
 	passtRepairHandler passtRepairSourceHandler,
 ) (*MigrationSourceController, error) {
 
@@ -114,6 +116,7 @@ func NewMigrationSourceController(
 		recorder:                    recorder,
 		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		netStat:                     netStat,
 		passtRepairHandler:          passtRepairHandler,
 	}
 
@@ -345,6 +348,12 @@ func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain 
 		log.Log.Object(vmi).Reason(updateErr).Error("Updating the migration status failed.")
 	}
 
+	netUpdateErr := c.netStat.UpdateStatus(vmi, domain)
+
+	if netUpdateErr != nil {
+		log.Log.Object(vmi).Reason(updateErr).Error("Updating network interfaces status failed.")
+	}
+
 	// update the VMI if necessary
 	if !equality.Semantic.DeepEqual(*oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
@@ -362,6 +371,10 @@ func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain 
 
 	if updateErr != nil {
 		return updateErr
+	}
+
+	if netUpdateErr != nil {
+		return netUpdateErr
 	}
 
 	log.Log.Object(vmi).V(4).Info("Source synchronization loop succeeded.")

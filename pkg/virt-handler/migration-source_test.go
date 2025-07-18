@@ -203,6 +203,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			mockIsolationDetector,
 			migrationProxy,
 			"/tmp/%d",
+			&netStatStub{},
 			migrationSourcePasstRepairHandler,
 		)
 
@@ -527,6 +528,10 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 		domain.Status.Status = api.Running
+		const testIfaceName = "eth0"
+		domain.Status.Interfaces = []api.InterfaceStatus{
+			{InterfaceName: testIfaceName},
+		}
 		addVMI(vmi, domain)
 		options := &cmdclient.MigrationOptions{
 			Bandwidth:                resource.MustParse("0Mi"),
@@ -540,6 +545,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		sanityExecute()
 		testutils.ExpectEvent(recorder, VMIMigrating)
 		Expect(migrationSourcePasstRepairHandler.isHandleMigrationSourceCalled).Should(BeTrue())
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedVMI.Status.Interfaces[0].InterfaceName).To(Equal(testIfaceName))
 	})
 })
 
