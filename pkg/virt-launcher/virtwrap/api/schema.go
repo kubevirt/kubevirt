@@ -536,6 +536,18 @@ type Devices struct {
 	TPMs        []TPM              `xml:"tpm,omitempty"`
 	VSOCK       *VSOCK             `xml:"vsock,omitempty"`
 	Memory      *MemoryDevice      `xml:"memory,omitempty"`
+	IOMMU       *IOMMU             `xml:"iommu,omitempty"`
+}
+
+type IOMMU struct {
+	Model  string       `xml:"model,attr"`
+	Driver *IOMMUDriver `xml:"driver,omitempty"`
+}
+
+type IOMMUDriver struct {
+	Intremap    string `xml:"intremap,attr,omitempty"`
+	CachingMode string `xml:"cachingMode,attr,omitempty"`
+	IOTLB       string `xml:"iotlb,attr,omitempty"`
 }
 
 type TPM struct {

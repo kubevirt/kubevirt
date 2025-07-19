@@ -1501,6 +1501,16 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	if iommuModel, ok := vmi.Annotations["kubevirt.io/iommu"]; ok {
+		domain.Spec.Devices.IOMMU = &api.IOMMU{
+			Model: iommuModel,
+			Driver: &api.IOMMUDriver{
+				Intremap:    "on",
+				CachingMode: "on",
+				IOTLB:       "on",
+			},
+		}
+	}
 	if vmi.Spec.Domain.Chassis != nil {
 		domain.Spec.SysInfo.Chassis = []api.Entry{
 			{
