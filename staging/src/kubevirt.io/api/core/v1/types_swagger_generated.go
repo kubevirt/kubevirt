@@ -207,8 +207,7 @@ func (ContainerDiskInfo) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceCondition) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"lastProbeTime":      "+nullable",
-		"lastTransitionTime": "+nullable",
+		"lastProbeTime": "+nullable",
 	}
 }
 
