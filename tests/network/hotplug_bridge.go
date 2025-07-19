@@ -382,6 +382,7 @@ func removeInterface(vm *v1.VirtualMachine, name string) error {
 func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
 	if plugMethod == migrationBased {
+		postOperationTimestamp := time.Now()
 		By("Waiting for MigrationRequired condition to appear")
 		Eventually(matcher.ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
 
@@ -389,11 +390,13 @@ func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMeth
 		var migration *v1.VirtualMachineInstanceMigration
 
 		Eventually(func() *v1.VirtualMachineInstanceMigration {
-			migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s", v1.MigrationSelectorLabel, vmi.Name),
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, mig := range migrations.Items {
-				if mig.Spec.VMIName == vmi.Name {
+				if mig.CreationTimestamp.After(postOperationTimestamp) {
 					migration = mig.DeepCopy()
 					return migration
 				}
