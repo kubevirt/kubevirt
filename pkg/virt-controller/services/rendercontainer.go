@@ -96,12 +96,6 @@ func WithNonRoot(userID int64) Option {
 	}
 }
 
-func WithPrivileged() Option {
-	return func(renderer *ContainerSpecRenderer) {
-		renderer.isPrivileged = true
-	}
-}
-
 func WithCapabilities(vmi *v1.VirtualMachineInstance) Option {
 	return func(renderer *ContainerSpecRenderer) {
 		if renderer.capabilities == nil {
