@@ -689,6 +689,7 @@ type Disk struct {
 	Capacity           *int64        `xml:"capacity,omitempty"`
 	ExpandDisksEnabled bool          `xml:"expandDisksEnabled,omitempty"`
 	Shareable          *Shareable    `xml:"shareable,omitempty"`
+	RotationRate       *uint         `xml:"rotation_rate,attr,omitempty"`
 }
 
 type DiskAuth struct {
