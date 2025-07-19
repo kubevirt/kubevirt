@@ -1771,6 +1771,35 @@ var _ = Describe("Manager", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
+
+		It("should update grace period metadata if cached value differs", func() {
+			const initialGracePeriod int64 = 30
+			const updatedGracePeriod int64 = 0
+
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.TerminationGracePeriodSeconds = virtpointer.P(updatedGracePeriod)
+
+			metadataCache.GracePeriod.WithSafeBlock(func(gp *api.GracePeriodMetadata, _ bool) {
+				gp.DeletionGracePeriodSeconds = initialGracePeriod
+			})
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil)
+			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Any()).Return("<domain></domain>", nil)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
+			mockLibvirt.DomainEXPECT().Free()
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			_, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			var actualGracePeriod int64
+			metadataCache.GracePeriod.WithSafeBlock(func(gp *api.GracePeriodMetadata, _ bool) {
+				actualGracePeriod = gp.DeletionGracePeriodSeconds
+			})
+
+			Expect(actualGracePeriod).To(Equal(updatedGracePeriod))
+		})
 	})
 	Context("test marking graceful shutdown", func() {
 		It("Should set metadata when calling MarkGracefulShutdown api", func() {
@@ -1794,6 +1823,36 @@ var _ = Describe("Manager", func() {
 			gracePeriod, _ := metadataCache.GracePeriod.Load()
 			Expect(gracePeriod.DeletionTimestamp).NotTo(BeNil())
 		})
+
+		It("should update DeletionGracePeriodSeconds in metadata if it differs during graceful shutdown", func() {
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT).Return(nil)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			vmi := newVMI(testNamespace, testVmName)
+			const desiredGrace int64 = 0
+			const cachedGrace int64 = 30
+			vmi.Spec.TerminationGracePeriodSeconds = virtpointer.P(desiredGrace)
+
+			metadataCache.GracePeriod.WithSafeBlock(func(gp *api.GracePeriodMetadata, _ bool) {
+				gp.DeletionGracePeriodSeconds = cachedGrace
+			})
+
+			By("ensuring cached grace period is initially set to a different value")
+			var cachedValue int64
+			metadataCache.GracePeriod.WithSafeBlock(func(gp *api.GracePeriodMetadata, _ bool) {
+				cachedValue = gp.DeletionGracePeriodSeconds
+			})
+			Expect(cachedValue).To(Equal(cachedGrace))
+
+			manager.SignalShutdownVMI(vmi)
+
+			gracePeriod, _ := metadataCache.GracePeriod.Load()
+			Expect(gracePeriod.DeletionGracePeriodSeconds).To(Equal(desiredGrace))
+		})
+
 	})
 	Context("test migration monitor", func() {
 		It("migration should be canceled if it's not progressing", func() {
