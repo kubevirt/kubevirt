@@ -47,6 +47,7 @@ func main() {
 	replacesCsvVersion := flag.String("replacesCsvVersion", "", "the CSV version being replaced by this generated CSV")
 	csvCreatedAtTimestamp := flag.String("csvCreatedAtTimestamp", "", "creation timestamp set in the 'createdAt' annotation on the CSV")
 	dumpCRDs := flag.Bool("dumpCRDs", false, "dump CRDs along with CSV manifests to stdout")
+	dumpNetworkPolicies := flag.Bool("dump-network-policies", false, "dump Network Policies along with CSV manifests to stdout")
 	virtOperatorImage := flag.String("virt-operator-image", "", "custom image for virt-operator")
 	virtApiImage := flag.String("virt-api-image", "", "custom image for virt-api. "+customImageExample)
 	virtControllerImage := flag.String("virt-controller-image", "", "custom image for virt-controller. "+customImageExample)
@@ -101,5 +102,12 @@ func main() {
 			panic(err)
 		}
 		util.MarshallObject(kvCRD, os.Stdout)
+	}
+
+	if *dumpNetworkPolicies {
+		kvNPs := components.NewKubeVirtNetworkPolicies(*namespace)
+		for _, v := range kvNPs {
+			util.MarshallObject(v, os.Stdout)
+		}
 	}
 }
