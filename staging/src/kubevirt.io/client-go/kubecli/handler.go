@@ -33,6 +33,7 @@ const (
 	guestInfoTemplateURI      = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
 	userListTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
 	filesystemListTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/filesystemlist"
+	screenshotTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc/screenshot"
 
 	sevFetchCertChainTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/fetchcertchain"
 	sevQueryLaunchMeasurementTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/querylaunchmeasurement"
@@ -59,6 +60,7 @@ type VirtHandlerConn interface {
 	ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	USBRedirURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	VNCURI(vmi *virtv1.VirtualMachineInstance, preserveSession bool) (string, error)
+	ScreenshotURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string, tls string) (string, error)
 	PauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -198,6 +200,10 @@ func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance, preserveSes
 	queryParams.Add("preserveSession", strconv.FormatBool(preserveSession))
 	u.RawQuery = queryParams.Encode()
 	return u.String(), nil
+}
+
+func (v *virtHandlerConn) ScreenshotURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(screenshotTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string, tls string) (string, error) {

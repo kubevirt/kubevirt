@@ -636,6 +636,7 @@ type VirDomain interface {
 	SetLaunchSecurityState(params *libvirt.DomainLaunchSecurityStateParameters, flags uint32) error
 	FSFreeze(mounts []string, flags uint32) error
 	FSThaw(mounts []string, flags uint32) error
+	Screenshot(stream *libvirt.Stream, screen, flags uint32) (string, error)
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {

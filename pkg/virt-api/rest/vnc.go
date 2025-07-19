@@ -54,7 +54,7 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 
 	streamer := NewRawStreamer(
 		app.FetchVirtualMachineInstance,
-		validateVMIForVNC,
+		vmiHasDisplay,
 		app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 			return conn.VNCURI(vmi, preserveSessionParam)
 		}),
@@ -63,11 +63,17 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 	streamer.Handle(request, response)
 }
 
-func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Request, response *restful.Response) {
-	writeError(errors.NewInternalError(fmt.Errorf("%s", "Not implemented")), response)
+func (app *SubresourceAPIApp) ScreenshotRequestHandler(request *restful.Request, response *restful.Response) {
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.ScreenshotURI(vmi)
+	}
+
+	// Screenshot without Display fails with:
+	//   `Requested operation is not valid: no screens to take screenshot from`
+	app.httpGetRequestBinaryHandler(request, response, vmiHasDisplay, getURL)
 }
 
-func validateVMIForVNC(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+func vmiHasDisplay(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 	// If there are no graphics devices present, we can't proceed
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && !*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
 		err := fmt.Errorf("No graphics devices are present.")

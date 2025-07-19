@@ -36,6 +36,7 @@ service Cmd {
   rpc GetLaunchMeasurement(VMIRequest) returns (LaunchMeasurementResponse) {}
   rpc InjectLaunchSecret(InjectLaunchSecretRequest) returns (Response) {}
   rpc GetDomainDirtyRateStats(EmptyRequest) returns (DirtyRateStatsResponse) {}
+  rpc GetScreenshot(VMIRequest) returns (ScreenshotResponse) {}
 }
 
 message QemuVersionResponse {
@@ -211,4 +212,10 @@ message InjectLaunchSecretRequest {
 message DirtyRateStatsResponse {
   Response response = 1;
   int64 dirtyRateMbs = 2;
+}
+
+message ScreenshotResponse {
+  Response response = 1;
+  string mime = 2;
+  bytes data = 3;
 }
