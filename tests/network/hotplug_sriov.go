@@ -21,6 +21,7 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -115,14 +116,14 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 			By("Ensuring live-migration started")
 			var migration *v1.VirtualMachineInstanceMigration
 			Eventually(func() *v1.VirtualMachineInstanceMigration {
-				migrations, err := virtClient.VirtualMachineInstanceMigration(hotPluggedVMI.Namespace).List(context.Background(), metav1.ListOptions{})
+				migrations, err := virtClient.VirtualMachineInstanceMigration(hotPluggedVMI.Namespace).List(context.Background(), metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("%s=%s", v1.MigrationSelectorLabel, hotPluggedVMI.Name),
+				})
 				Expect(err).ToNot(HaveOccurred())
 
-				for _, mig := range migrations.Items {
-					if mig.Spec.VMIName == hotPluggedVMI.Name {
-						migration = mig.DeepCopy()
-						return migration
-					}
+				if len(migrations.Items) > 0 {
+					migration = migrations.Items[0].DeepCopy()
+					return migration
 				}
 				return nil
 			}).WithTimeout(30 * time.Second).WithPolling(time.Second).Should(Not(BeNil()))
