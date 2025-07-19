@@ -34,7 +34,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	virtutil "kubevirt.io/kubevirt/pkg/util"
 	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
@@ -179,12 +178,12 @@ func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {
 // Socket is optional and makes the execution faster
 func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationRes isolation.IsolationResult, err error) {
 	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
-	detector := isolation.NewSocketBasedIsolationDetector(virtutil.VirtShareDir)
+	detector := isolation.NewSocketBasedIsolationDetector()
 
 	if socket == "" {
 		isolationRes, err = detector.Detect(vm)
 	} else {
-		isolationRes, err = detector.DetectForSocket(vm, socket)
+		isolationRes, err = detector.DetectForSocket(socket)
 	}
 
 	if err != nil {
