@@ -39,6 +39,7 @@ type callStack struct {
 type Libvirt struct {
 	VirtConnection *virtConnection
 	VirtDomain     *virtDomain
+	VirtStream     *virtStream
 	callStack      *callStack
 }
 
@@ -49,6 +50,7 @@ func NewLibvirt(ctrl *gomock.Controller) *Libvirt {
 	mockLibvirt := &Libvirt{
 		newVirtConnection(ctrl, cs),
 		newVirtDomain(ctrl, cs),
+		newVirtStream(ctrl, cs),
 		cs,
 	}
 	ginkgo.DeferCleanup(func() {
@@ -78,6 +80,18 @@ func (l *Libvirt) ConnectionEXPECT() *cli.MockConnectionMockRecorder {
 
 func (l *Libvirt) DomainEXPECT() *cli.MockVirDomainMockRecorder {
 	return l.VirtDomain.EXPECT()
+}
+
+type virtStream struct {
+	*cli.MockStream
+	callStack *callStack
+}
+
+func newVirtStream(ctrl *gomock.Controller, callStack *callStack) *virtStream {
+	return &virtStream{
+		cli.NewMockStream(ctrl),
+		callStack,
+	}
 }
 
 type virtDomain struct {
