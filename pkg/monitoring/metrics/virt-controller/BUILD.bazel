@@ -30,6 +30,7 @@ go_library(
         "//staging/src/kubevirt.io/api/snapshot/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/github.com/prometheus/client_model/go:go_default_library",
         "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics:go_default_library",
