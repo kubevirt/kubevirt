@@ -106,7 +106,7 @@ func generateTargetName(sourceName string, targetSuffix string) string {
 	return fmt.Sprintf("clone-%s-%s", sourceName, targetSuffix)
 }
 
-func generateDefaultTarget(cloneSpec *clone.VirtualMachineCloneSpec, targetSuffix string) (target *k8sv1.TypedLocalObjectReference) {
+func generateDefaultTarget(cloneSpec *clone.VirtualMachineCloneSpec, targetSuffix string) (target *k8sv1.TypedObjectReference) {
 	const (
 		virtualMachineAPIGroup = "kubevirt.io"
 		virtualMachineKind     = "VirtualMachine"
@@ -114,7 +114,7 @@ func generateDefaultTarget(cloneSpec *clone.VirtualMachineCloneSpec, targetSuffi
 
 	source := cloneSpec.Source
 
-	target = &k8sv1.TypedLocalObjectReference{
+	target = &k8sv1.TypedObjectReference{
 		APIGroup: pointer.P(virtualMachineAPIGroup),
 		Kind:     virtualMachineKind,
 		Name:     generateTargetName(source.Name, targetSuffix),
@@ -123,7 +123,7 @@ func generateDefaultTarget(cloneSpec *clone.VirtualMachineCloneSpec, targetSuffi
 	return target
 }
 
-func hasTargetChanged(original, mutated *k8sv1.TypedLocalObjectReference) bool {
+func hasTargetChanged(original, mutated *k8sv1.TypedObjectReference) bool {
 	if original == nil {
 		return true
 	}
