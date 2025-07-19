@@ -131,7 +131,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 		})
 
 		It("should be able to create a multi-queue VMI when requesting a single vCPU", func() {
-			vmi := libvmifact.NewCirros()
+			vmi := libvmifact.NewAlpine()
 
 			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 1, Sockets: 1, Threads: 1}
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)
