@@ -74,7 +74,6 @@ type snapshotSource interface {
 	Freeze() error
 	Unfreeze() error
 	Spec() (snapshotv1.SourceSpec, error)
-	PersistentVolumeClaims() (map[string]string, error)
 }
 
 type sourceState struct {
@@ -389,9 +388,9 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 			return snapshotv1.SourceSpec{}, err
 		}
 		vmCpy.ObjectMeta = metaObj
-
-		vmCpy.Spec.Template.Spec.Volumes = s.vm.Spec.Template.Spec.Volumes
-		vmCpy.Spec.Template.Spec.Domain.Devices.Disks = s.vm.Spec.Template.Spec.Domain.Devices.Disks
+		if err := s.handleVolumes(vmCpy); err != nil {
+			return snapshotv1.SourceSpec{}, err
+		}
 	} else {
 		vmCpy.ObjectMeta = metaObj
 		vmCpy.Spec = *s.vm.Spec.DeepCopy()
@@ -405,6 +404,49 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 	return snapshotv1.SourceSpec{
 		VirtualMachine: vmCpy,
 	}, nil
+}
+
+func (s *vmSnapshotSource) handleVolumes(vmCpy *snapshotv1.VirtualMachine) error {
+	vmi, exists, err := s.controller.getVMI(s.vm)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("can't evaluate volumes for online snapshot, vmi doesn't exist")
+	}
+
+	vmDiskMap := map[string]kubevirtv1.Disk{}
+	for _, disk := range s.vm.Spec.Template.Spec.Domain.Devices.Disks {
+		vmDiskMap[disk.Name] = disk
+	}
+
+	vmiVolNames := sets.New[string]()
+	for _, vol := range vmi.Spec.Volumes {
+		vmiVolNames.Insert(vol.Name)
+	}
+
+	vmiDiskNames := sets.New[string]()
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		vmiDiskNames.Insert(disk.Name)
+	}
+
+	vmCpy.Spec.Template.Spec.Volumes = []kubevirtv1.Volume{}
+	vmCpy.Spec.Template.Spec.Domain.Devices.Disks = []kubevirtv1.Disk{}
+
+	for _, vol := range s.vm.Spec.Template.Spec.Volumes {
+		if vol.MemoryDump != nil {
+			vmCpy.Spec.Template.Spec.Volumes = append(vmCpy.Spec.Template.Spec.Volumes, vol)
+		} else if vmiVolNames.Has(vol.Name) {
+			vmCpy.Spec.Template.Spec.Volumes = append(vmCpy.Spec.Template.Spec.Volumes, vol)
+			if disk, ok := vmDiskMap[vol.Name]; ok && vmiDiskNames.Has(vol.Name) {
+				vmCpy.Spec.Template.Spec.Domain.Devices.Disks = append(vmCpy.Spec.Template.Spec.Domain.Devices.Disks, disk)
+			}
+		} else {
+			log.Log.V(3).Infof("Skipping volume %s: absent from active VM and isn't a Memory Dump", vol.Name)
+		}
+	}
+
+	return nil
 }
 
 func (s *vmSnapshotSource) Online() bool {
@@ -466,17 +508,9 @@ func (s *vmSnapshotSource) Unfreeze() error {
 	return nil
 }
 
-func (s *vmSnapshotSource) PersistentVolumeClaims() (map[string]string, error) {
-	volumes, err := storageutils.GetVolumes(s.vm, s.controller.Client, storageutils.WithAllVolumes)
-	if err != nil {
-		return map[string]string{}, err
-	}
-	return storagetypes.GetPVCsFromVolumes(volumes), nil
-}
-
 func (s *vmSnapshotSource) pvcNames() (sets.String, error) {
 	ss := sets.NewString()
-	pvcs, err := s.PersistentVolumeClaims()
+	pvcs, err := storageutils.PVCsFromObj(s.vm, s.controller.Client)
 	if err != nil {
 		return ss, err
 	}
