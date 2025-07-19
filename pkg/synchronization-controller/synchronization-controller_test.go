@@ -158,7 +158,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			controller.migrationInformer.GetStore().Delete(migration)
 			resp, err := controller.SyncSourceMigrationStatus(context.TODO(), request)
 			Expect(err).To(HaveOccurred())
-			Expect(resp.Message).To(Equal(fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
+			Expect(resp.Message).To(Equal(fmt.Sprintf(sourceUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
 		})
 
 		It("should return proper error if no matching vmi for source migration can be found", func() {
@@ -171,7 +171,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			controller.vmiInformer.GetStore().Delete(vmi)
 			resp, err := controller.SyncSourceMigrationStatus(context.TODO(), request)
 			Expect(err).To(HaveOccurred())
-			Expect(resp.Message).To(Equal(fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
+			Expect(resp.Message).To(Equal(fmt.Sprintf(sourceUnableToLocateVMIMigrationIDErrorMsgVMI, testMigrationID, fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name))))
 		})
 
 		It("should return a proper error when the source request vmi status json is invalid", func() {
@@ -309,7 +309,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			controller.migrationInformer.GetStore().Delete(migration)
 			resp, err := controller.SyncTargetMigrationStatus(context.TODO(), request)
 			Expect(err).To(HaveOccurred())
-			Expect(resp.Message).To(Equal(fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
+			Expect(resp.Message).To(Equal(fmt.Sprintf(targetUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
 		})
 
 		It("should return proper error if no matching vmi for target migration can be found", func() {
@@ -322,7 +322,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			controller.vmiInformer.GetStore().Delete(vmi)
 			resp, err := controller.SyncTargetMigrationStatus(context.TODO(), request)
 			Expect(err).To(HaveOccurred())
-			Expect(resp.Message).To(Equal(fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
+			Expect(resp.Message).To(Equal(fmt.Sprintf(targetUnableToLocateVMIMigrationIDErrorMsgVMI, testMigrationID, fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name))))
 		})
 
 		It("should return a proper error when the target request vmi status json is invalid", func() {
@@ -523,7 +523,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = controller.handleSourceState(sourceVMI, sourceMigration)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(sourceUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
 			})
 
 			It("should update target VMI source migration from source VMI", func() {
@@ -579,7 +579,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 				err = controller.handleTargetState(targetVMI, targetMigration)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(targetUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
 			})
 
 			It("should update source VMI target migration from target VMI", func() {
