@@ -55,9 +55,12 @@ const (
 
 	MyPodIP = "MY_POD_IP"
 
-	noSourceStatusErrorMsg               = "must pass source status"
-	noTargetStatusErrorMsg               = "must pass target status"
-	unableToLocateVMIMigrationIDErrorMsg = "unable to locate VMI for migrationID %s"
+	noSourceStatusErrorMsg                        = "must pass source status"
+	noTargetStatusErrorMsg                        = "must pass target status"
+	sourceUnableToLocateVMIMigrationIDErrorMsg    = "source: unable to locate VMI for migrationID %s"
+	targetUnableToLocateVMIMigrationIDErrorMsg    = "target: unable to locate VMI for migrationID %s"
+	sourceUnableToLocateVMIMigrationIDErrorMsgVMI = "source: unable to locate VMI for migrationID %s, vmi: %s"
+	targetUnableToLocateVMIMigrationIDErrorMsgVMI = "target: unable to locate VMI for migrationID %s, vmi: %s"
 
 	successMessage = "success"
 
@@ -488,10 +491,6 @@ func (s *SynchronizationController) handleTargetState(vmi *virtv1.VirtualMachine
 		// No migration state, don't do anything
 		return nil
 	}
-	if migration.IsFinal() {
-		// Migration completed already, no need to synchronize anymore.
-		return nil
-	}
 
 	var outboundConnection *SynchronizationConnection
 	var err error
@@ -750,18 +749,18 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 	migration, err := s.findTargetMigrationFromMigrationID(request.MigrationID)
 	if migration == nil {
 		return &syncv1.VMIStatusResponse{
-			Message: fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, request.MigrationID),
-		}, fmt.Errorf(unableToLocateVMIMigrationIDErrorMsg, request.MigrationID)
+			Message: fmt.Sprintf(sourceUnableToLocateVMIMigrationIDErrorMsg, request.MigrationID),
+		}, fmt.Errorf(sourceUnableToLocateVMIMigrationIDErrorMsg, request.MigrationID)
 	}
 	key := controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName)
 	log.Log.Object(migration).V(5).Infof("looking up VMI %s", key)
 	obj, exists, err := s.vmiInformer.GetStore().GetByKey(key)
 	if err != nil || !exists {
 		if err == nil {
-			err = fmt.Errorf(unableToLocateVMIMigrationIDErrorMsg, request.MigrationID)
+			err = fmt.Errorf(sourceUnableToLocateVMIMigrationIDErrorMsgVMI, request.MigrationID, key)
 		}
 		return &syncv1.VMIStatusResponse{
-			Message: fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, request.MigrationID),
+			Message: fmt.Sprintf(sourceUnableToLocateVMIMigrationIDErrorMsgVMI, request.MigrationID, key),
 		}, err
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
@@ -811,18 +810,18 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	migration, err := s.findSourceMigrationFromMigrationID(request.MigrationID)
 	if migration == nil {
 		return &syncv1.VMIStatusResponse{
-			Message: fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, request.MigrationID),
-		}, fmt.Errorf(unableToLocateVMIMigrationIDErrorMsg, request.MigrationID)
+			Message: fmt.Sprintf(targetUnableToLocateVMIMigrationIDErrorMsg, request.MigrationID),
+		}, fmt.Errorf(targetUnableToLocateVMIMigrationIDErrorMsg, request.MigrationID)
 	}
 
 	key := controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName)
 	obj, exists, err := s.vmiInformer.GetStore().GetByKey(key)
 	if err != nil || !exists {
 		if err == nil {
-			err = fmt.Errorf(unableToLocateVMIMigrationIDErrorMsg, request.MigrationID)
+			err = fmt.Errorf(targetUnableToLocateVMIMigrationIDErrorMsgVMI, request.MigrationID, key)
 		}
 		return &syncv1.VMIStatusResponse{
-			Message: fmt.Sprintf(unableToLocateVMIMigrationIDErrorMsg, request.MigrationID),
+			Message: fmt.Sprintf(targetUnableToLocateVMIMigrationIDErrorMsgVMI, request.MigrationID, key),
 		}, err
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
