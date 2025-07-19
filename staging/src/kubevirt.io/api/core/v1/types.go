@@ -2669,8 +2669,10 @@ type VirtualMachineInstanceGuestOSUserList struct {
 
 // VirtualMachineGuestOSUser is the single user of the guest os
 type VirtualMachineInstanceGuestOSUser struct {
-	UserName  string  `json:"userName"`
-	Domain    string  `json:"domain,omitempty"`
+	UserName string `json:"userName"`
+	Domain   string `json:"domain,omitempty"`
+
+	// Time of login of this user on the computer. If multiple instances of the user are logged in, the earliest login time is reported. The value is in fractional seconds since epoch time.
 	LoginTime float64 `json:"loginTime,omitempty"`
 }
 

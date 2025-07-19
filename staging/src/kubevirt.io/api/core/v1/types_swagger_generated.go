@@ -767,7 +767,8 @@ func (VirtualMachineInstanceGuestOSUserList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceGuestOSUser) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineGuestOSUser is the single user of the guest os",
+		"":          "VirtualMachineGuestOSUser is the single user of the guest os",
+		"loginTime": "Time of login of this user on the computer. If multiple instances of the user are logged in, the earliest login time is reported. The value is in fractional seconds since epoch time.",
 	}
 }
 

@@ -500,13 +500,15 @@ func convertToTimezone(guestInfo *libvirt.DomainGuestInfo) api.Timezone {
 }
 
 func convertToUsers(guestInfo *libvirt.DomainGuestInfo) []api.User {
+	const milliToSeconds = 1000.0
+
 	var users []api.User
 	if guestInfo.Users != nil {
 		for _, user := range guestInfo.Users {
 			users = append(users, api.User{
 				Name:      user.Name,
 				Domain:    user.Domain,
-				LoginTime: float64(user.LoginTime),
+				LoginTime: float64(user.LoginTime) / milliToSeconds,
 			})
 		}
 	}
