@@ -415,13 +415,13 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Expect(*dataVolumeTemapltes[0].Spec.Storage.StorageClassName).To(Equal(expectedStorageClassName))
 		}
 
-		It("should apply PreferredStorageClassName to PVC", func() {
+		It("[test_id:10328]should apply PreferredStorageClassName to PVC", func() {
 			vm.Spec.DataVolumeTemplates[0].Spec.PVC = &k8sv1.PersistentVolumeClaimSpec{}
 			vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 			assertPVCStorageClassName(vmSpec.DataVolumeTemplates, preference.Spec.Volumes.PreferredStorageClassName)
 		})
 
-		It("should apply PreferredStorageClassName to Storage", func() {
+		It("[test_id:10329]should apply PreferredStorageClassName to Storage", func() {
 			vm.Spec.DataVolumeTemplates[0].Spec.Storage = &cdiv1.StorageSpec{}
 			vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 			assertStorageStorageClassName(vmSpec.DataVolumeTemplates, preference.Spec.Volumes.PreferredStorageClassName)
