@@ -56,6 +56,7 @@ type Connection interface {
 	DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error
 	DomainEventDeregister(registrationID int) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
+	NewStream(flags libvirt.StreamFlags) (Stream, error)
 	SetReconnectChan(reconnect chan bool)
 	QemuAgentCommand(command string, domainName string) (string, error)
 	GetAllDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]libvirt.DomainStats, error)
@@ -119,6 +120,19 @@ func (s *VirStream) Close() error {
 
 func (s *VirStream) UnderlyingStream() *libvirt.Stream {
 	return s.Stream
+}
+
+func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error) {
+	if err := l.reconnectIfNecessary(); err != nil {
+		return nil, err
+	}
+
+	s, err := l.Connect.NewStream(flags)
+	if err != nil {
+		l.checkConnectionLost(err)
+		return nil, err
+	}
+	return &VirStream{Stream: s}, nil
 }
 
 func (l *LibvirtConnection) SetReconnectChan(reconnect chan bool) {
