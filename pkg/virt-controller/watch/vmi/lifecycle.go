@@ -262,6 +262,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		if vmiPodExists {
 			vmiCopy.Status.Phase = virtv1.Scheduling
 		} else if vmi.DeletionTimestamp != nil || hasFailedDataVolume {
+			log.Log.Object(vmi).V(1).Infof("setting VMI to failed because it is unprocessed and has failed data volumes")
 			vmiCopy.Status.Phase = virtv1.Failed
 		} else if vmi.IsMigrationTarget() && !vmi.IsMigrationTargetNodeLabelSet() {
 			vmiCopy.Status.Phase = virtv1.WaitingForSync
@@ -292,6 +293,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 						conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
 					}
 					if controller.IsPodFailedOrGoingDown(pod) {
+						log.Log.Object(vmi).V(1).Infof("setting VMI to failed because it is unprocessed and the pod is failed or going down")
 						vmiCopy.Status.Phase = virtv1.Failed
 					}
 				}
@@ -382,11 +384,13 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 					}
 				}
 			} else if controller.IsPodDownOrGoingDown(pod) {
+				log.Log.Object(vmi).V(1).Infof("setting VMI to failed because it is scheduling and the pod is down or going down")
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
 		} else {
 			log.Log.Object(vmi).V(5).Infof("setting VMI to failed during scheduling because pod does not exist")
 			// someone other than the controller deleted the pod unexpectedly
+			log.Log.Object(vmi).V(1).Infof("setting VMI to failed during scheduling because pod does not exist")
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
 	case vmi.IsFinal():
@@ -412,6 +416,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 	case vmi.IsRunning():
 		if !vmiPodExists {
 			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while running because pod does not exist")
+			log.Log.Object(vmi).V(1).Infof("setting VMI to failed while running because pod does not exist")
 			vmiCopy.Status.Phase = virtv1.Failed
 			break
 		}
