@@ -814,3 +814,46 @@ tests:
       - eval_time: 13m
         alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts: []
+
+  # VM High Memory Usage Alert - Alert should not fire for normal memory usage
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_memory_used_bytes{name="test-vm", namespace="test-ns", node="node1"}'
+        values: '734003200+0x15'  # 700MB used (constant)
+      - series: 'kubevirt_vmi_memory_available_bytes{name="test-vm", namespace="test-ns", node="node1"}'
+        values: '1073741824+0x15'  # 1024MB available (constant) = 70% usage
+
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: KubeVirtVMGuestMemoryHigh
+        exp_alerts: []
+
+  # VM High Memory Usage Alert - Alert should fire for sustained high memory usage
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_memory_used_bytes{name="high-memory-vm", namespace="test-namespace", node="node2"}'
+        values: '966367641+0x15'  # 900MB used (constant)
+      - series: 'kubevirt_vmi_memory_available_bytes{name="high-memory-vm", namespace="test-namespace", node="node2"}'
+        values: '1073741824+0x15'  # 1024MB available (constant) = 90% usage
+
+    alert_rule_test:
+      # Alert should not fire before 5 minutes
+      - eval_time: 4m
+        alertname: KubeVirtVMGuestMemoryHigh
+        exp_alerts: []
+      # Alert should fire at 5 minutes (condition true from minute 0, For: 5m means fire at 0+5=5)
+      - eval_time: 5m
+        alertname: KubeVirtVMGuestMemoryHigh
+        exp_alerts:
+          - exp_annotations:
+              description: "The Virtual machine high-memory-vm in namespace test-namespace, running on node node2, has high memory usage (90%) for more than 5 minutes."
+              summary: "The Virtual machine has high memory usage."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMGuestMemoryHigh"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "high-memory-vm"
+              namespace: "test-namespace"
+              node: "node2"
