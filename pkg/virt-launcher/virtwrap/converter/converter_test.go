@@ -2076,6 +2076,15 @@ var _ = Describe("Converter", func() {
 		)
 	})
 
+	It("should not include serial entry in sysinfo when firmware.serial is not set", func() {
+		vmi := libvmi.New()
+		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		domain := vmiToDomain(vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true})
+		Expect(domain.Spec.SysInfo.System).ToNot(ContainElement(HaveField("Name", Equal("serial"))),
+			"serial entry should not be present in sysinfo",
+		)
+	})
+
 	Context("IOThreads", func() {
 
 		DescribeTable("Should use correct IOThreads policies", func(policy v1.IOThreadsPolicy, cpuCores int, threadCount int, threadIDs []int) {
