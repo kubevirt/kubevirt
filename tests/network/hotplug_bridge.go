@@ -405,7 +405,7 @@ func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMeth
 		libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 	}
 	const queueCount = 1
-	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount)
+	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount, 30*time.Second, time.Second)
 }
 
 func verifyUnpluggedIfaceClearedFromVMandVMI(namespace, vmName, netName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
