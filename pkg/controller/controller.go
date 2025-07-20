@@ -114,18 +114,6 @@ const (
 	MigrationBackoffReason = "MigrationBackoff"
 )
 
-type PodCacheStore struct {
-	indexer cache.Indexer
-}
-
-func NewPodCacheStore(indexer cache.Indexer) *PodCacheStore {
-	return &PodCacheStore{indexer: indexer}
-}
-
-func (p *PodCacheStore) CurrentPod(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
-	return CurrentVMIPod(vmi, p.indexer)
-}
-
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, kubevirtNamespace and field selector.
 func NewListWatchFromClient(c cache.Getter, resource string, namespace string, fieldSelector fields.Selector, labelSelector labels.Selector) *cache.ListWatch {
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
