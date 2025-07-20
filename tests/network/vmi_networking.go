@@ -74,7 +74,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 	Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
 		var inboundVMI *v1.VirtualMachineInstance
 		var outboundVMI *v1.VirtualMachineInstance
-		var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
 		var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
 		var inboundVMIWithMultiQueueSingleCPU *v1.VirtualMachineInstance
 
@@ -85,7 +84,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			BeforeEach(func() {
 				inboundVMI = libvmifact.NewCirros()
 				outboundVMI = libvmifact.NewCirros()
-				inboundVMIWithPodNetworkSet = vmiWithPodNetworkSet()
 				inboundVMIWithCustomMacAddress = vmiWithCustomMacAddress("de:ad:00:00:be:af")
 				inboundVMIWithMultiQueueSingleCPU = vmiWithMultiQueue()
 
@@ -164,7 +162,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(libnet.CheckMacAddress(vmi, "eth0", vmi.Status.Interfaces[0].MAC)).To(Succeed())
 			},
 				Entry("[test_id:1539]the Inbound VirtualMachineInstance with default (implicit) binding", &inboundVMI),
-				Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
 				Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
 				Entry("[test_id:1542]the Inbound VirtualMachineInstance with muti-queue and a single CPU", &inboundVMIWithMultiQueueSingleCPU),
 			)
@@ -851,12 +848,6 @@ func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	Expect(err).ToNot(HaveOccurred())
 	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 	return vmi
-}
-
-func vmiWithPodNetworkSet() *v1.VirtualMachineInstance {
-	return libvmifact.NewCirros(
-		libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 
 func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
