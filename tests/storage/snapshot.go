@@ -566,6 +566,52 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				}, 30*time.Second, 2*time.Second).Should(BeEmpty())
 			})
 
+			It("[test_id:12182] should succeed snapshot when VM is paused with Paused indication", func() {
+				dvName := "dv-" + rand.String(5)
+				quantity := resource.MustParse("1Gi")
+
+				opts := []libvmi.Option{
+					libnet.WithMasqueradeNetworking(),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libvmi.WithDataVolume("blank", dvName),
+				}
+
+				vmi := libvmifact.NewFedora(opts...)
+				vm = libvmi.NewVirtualMachine(vmi)
+
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithName(dvName),
+					libdv.WithBlankImageSource(),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(snapshotStorageClass),
+						libdv.StorageWithVolumeSize(quantity.String()),
+					),
+				)
+				libstorage.AddDataVolumeTemplate(vm, dataVolume)
+
+				vm, vmi = createAndStartVM(vm)
+				libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(300))
+
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Pausing the VirtualMachineInstance")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})).To(Succeed())
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+
+				By("Taking the snapshot")
+				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
+				_, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
+
+				By("Verifying snapshot has Paused indication")
+				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotPausedIndication}
+				Expect(snapshot.Status.Indications).To(ContainElements(expectedIndications))
+
+				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
+				checkOnlineSnapshotExpectedContentSource(vm, contentName, true)
+			})
+
 			DescribeTable("should succeed online snapshot with hot plug disk", func(withEphemeralHotplug bool) {
 				if withEphemeralHotplug {
 					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
