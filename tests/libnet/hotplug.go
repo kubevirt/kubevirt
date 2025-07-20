@@ -38,7 +38,12 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
-func VerifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int32) *v1.VirtualMachineInstance {
+func VerifyDynamicInterfaceChange(
+	vmi *v1.VirtualMachineInstance,
+	queueCount int32,
+	timeout,
+	pollInterval time.Duration,
+) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
@@ -52,10 +57,13 @@ func VerifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int
 
 	EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
 		return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
-	}, 30*time.Second).Should(
-		ConsistOf(
-			interfaceStatusFromInterfaces(queueCount, nonAbsentSecondaryIfaces),
-		))
+	}).
+		WithTimeout(timeout).
+		WithPolling(pollInterval).
+		Should(
+			ConsistOf(
+				interfaceStatusFromInterfaces(queueCount, nonAbsentSecondaryIfaces),
+			))
 
 	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
