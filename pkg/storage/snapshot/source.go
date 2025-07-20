@@ -33,6 +33,8 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 
+	corev1 "k8s.io/api/core/v1"
+
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
@@ -304,6 +306,15 @@ func (s *vmSnapshotSource) GuestAgent() (bool, error) {
 	return condManager.HasCondition(vmi, kubevirtv1.VirtualMachineInstanceAgentConnected), nil
 }
 
+func (s *vmSnapshotSource) paused() (bool, error) {
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	vmi, exists, err := s.controller.getVMI(s.vm)
+	if err != nil || !exists {
+		return false, err
+	}
+	return condManager.HasConditionWithStatus(vmi, kubevirtv1.VirtualMachineInstancePaused, corev1.ConditionTrue), nil
+}
+
 func (s *vmSnapshotSource) Frozen() (bool, error) {
 	vmi, exists, err := s.controller.getVMI(s.vm)
 	if err != nil || !exists {
@@ -318,9 +329,28 @@ func (s *vmSnapshotSource) Freeze() error {
 		return fmt.Errorf("attempting to freeze unlocked VM")
 	}
 
+	paused, err := s.paused()
+	if err != nil {
+		return err
+	}
+	if paused {
+		log.Log.Warningf("VM %s is paused - taking snapshot without filesystem freeze. Paused VMs cannot flush memory buffers to disk, which may result in inconsistent snapshots.", s.vm.Name)
+		return nil
+	}
+
 	exists, err := s.GuestAgent()
 	if !exists || err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+		online, err := s.Online()
+		if err != nil {
+			return err
+		}
+		if online {
+			log.Log.Warningf("Guest agent does not exist and VM %s is running. Snapshoting without freezing FS. This can result in inconsistent snapshot!", s.vm.Name)
+		}
+		return nil
 	}
 
 	log.Log.V(3).Infof("Freezing vm %s file system before taking the snapshot", s.vm.Name)
@@ -338,6 +368,14 @@ func (s *vmSnapshotSource) Freeze() error {
 
 func (s *vmSnapshotSource) Unfreeze() error {
 	if !s.Locked() {
+		return nil
+	}
+
+	paused, err := s.paused()
+	if err != nil {
+		return err
+	}
+	if paused {
 		return nil
 	}
 
