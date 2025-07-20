@@ -129,28 +129,5 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 				Expect(int32(*disk.Driver.Queues)).To(Equal(numCpus))
 			}
 		})
-
-		It("should be able to create a multi-queue VMI when requesting a single vCPU", func() {
-			vmi := libvmifact.NewCirros()
-
-			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 1, Sockets: 1, Threads: 1}
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)
-
-			By("Creating and starting the VMI")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Fetching Domain XML from running pod")
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			for i, iface := range domSpec.Devices.Interfaces {
-				expectedIfaceName := fmt.Sprintf("tap%d", i)
-
-				Expect(iface.Target.Device).To(Equal(expectedIfaceName), fmt.Sprintf("the target name should be %s", expectedIfaceName))
-				Expect(iface.Target.Managed).To(Equal("no"), "we should instruct libvirt not to configure the tap device")
-			}
-		})
 	})
 })

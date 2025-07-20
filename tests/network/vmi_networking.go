@@ -76,6 +76,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		var outboundVMI *v1.VirtualMachineInstance
 		var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
 		var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
+		var inboundVMIWithMultiQueueSingleCPU *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
@@ -86,6 +87,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				outboundVMI = libvmifact.NewCirros()
 				inboundVMIWithPodNetworkSet = vmiWithPodNetworkSet()
 				inboundVMIWithCustomMacAddress = vmiWithCustomMacAddress("de:ad:00:00:be:af")
+				inboundVMIWithMultiQueueSingleCPU = vmiWithMultiQueue()
 
 				outboundVMI = runVMI(outboundVMI)
 			})
@@ -164,6 +166,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Entry("[test_id:1539]the Inbound VirtualMachineInstance with default (implicit) binding", &inboundVMI),
 				Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
 				Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
+				Entry("[test_id:1542]the Inbound VirtualMachineInstance with muti-queue and a single CPU", &inboundVMIWithMultiQueueSingleCPU),
 			)
 		})
 
@@ -859,6 +862,13 @@ func vmiWithPodNetworkSet() *v1.VirtualMachineInstance {
 func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmifact.NewCirros(
 		libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultBridgeNetworkInterface(), mac)),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+}
+
+func vmiWithMultiQueue() *v1.VirtualMachineInstance {
+	return libvmifact.NewCirros(
+		libvmi.WithNetworkInterfaceMultiQueue(true),
+		libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 
