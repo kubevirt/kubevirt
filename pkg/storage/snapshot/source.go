@@ -56,6 +56,7 @@ type snapshotSource interface {
 	Lock() (bool, error)
 	Unlock() (bool, error)
 	Online() (bool, error)
+	Paused() (bool, error)
 	GuestAgent() (bool, error)
 	Frozen() (bool, error)
 	Freeze() error
@@ -313,6 +314,10 @@ func (s *vmSnapshotSource) paused() (bool, error) {
 		return false, err
 	}
 	return condManager.HasConditionWithStatus(vmi, kubevirtv1.VirtualMachineInstancePaused, corev1.ConditionTrue), nil
+}
+
+func (s *vmSnapshotSource) Paused() (bool, error) {
+	return s.paused()
 }
 
 func (s *vmSnapshotSource) Frozen() (bool, error) {

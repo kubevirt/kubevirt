@@ -786,16 +786,24 @@ func updateVMSnapshotIndications(source snapshotSource) ([]snapshotv1.Indication
 	if online {
 		indications = append(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
 
-		ga, err := source.GuestAgent()
+		paused, err := source.Paused()
 		if err != nil {
 			return indications, err
 		}
-
-		if ga {
-			indications = append(indications, snapshotv1.VMSnapshotGuestAgentIndication)
-
+		if paused {
+			indications = append(indications, snapshotv1.VMSnapshotPausedIndication)
 		} else {
-			indications = append(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
+			ga, err := source.GuestAgent()
+			if err != nil {
+				return indications, err
+			}
+
+			if ga {
+				indications = append(indications, snapshotv1.VMSnapshotGuestAgentIndication)
+
+			} else {
+				indications = append(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
+			}
 		}
 	}
 	return indications, nil
