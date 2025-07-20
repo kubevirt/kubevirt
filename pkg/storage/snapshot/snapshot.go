@@ -855,21 +855,30 @@ func updateSnapshotIndications(snapshot *snapshotv1.VirtualMachineSnapshot, sour
 	indications := sets.New(snapshot.Status.Indications...)
 	indications = sets.Insert(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
 
-	ga, err := source.GuestAgent()
+	// Add Paused indication when VM is paused
+	paused, err := source.Paused()
 	if err != nil {
 		return err
 	}
-
-	if ga {
-		indications = sets.Insert(indications, snapshotv1.VMSnapshotGuestAgentIndication)
-		snapErr := snapshot.Status.Error
-		if snapErr != nil && snapErr.Message != nil &&
-			strings.Contains(*snapErr.Message, failedFreezeMsg) {
-			indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceFailedIndication)
-		}
+	if paused {
+		indications = sets.Insert(indications, snapshotv1.VMSnapshotPausedIndication)
 	} else {
-		indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
+		ga, err := source.GuestAgent()
+		if err != nil {
+			return err
+		}
+		if ga {
+			indications = sets.Insert(indications, snapshotv1.VMSnapshotGuestAgentIndication)
+			snapErr := snapshot.Status.Error
+			if snapErr != nil && snapErr.Message != nil &&
+				strings.Contains(*snapErr.Message, failedFreezeMsg) {
+				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceFailedIndication)
+			}
+		} else {
+			indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
+		}
 	}
+
 	snapshot.Status.Indications = sets.List(indications)
 	return nil
 }

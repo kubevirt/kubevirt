@@ -1619,6 +1619,122 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*snapshotCreates).To(Equal(1))
 			})
 
+			It("should not freeze paused vm with guest agent and show Paused indication", func() {
+				storageClass := createStorageClass()
+				vmSnapshot := createVMSnapshotInProgress()
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.UID = contentUID
+				vm := createLockedVM()
+				vmSource.Add(vm)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				vmi := createVMI(vm)
+				agentCondition := v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        corev1.ConditionTrue,
+				}
+				pausedCondition := v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstancePaused,
+					LastProbeTime: metav1.Now(),
+					Status:        corev1.ConditionTrue,
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition, pausedCondition)
+				vmiSource.Add(vmi)
+
+				updatedContent := vmSnapshotContent.DeepCopy()
+				updatedContent.ResourceVersion = "1"
+				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse: pointer.P(false),
+				}
+
+				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
+				for i := range volumeSnapshots {
+					vss := snapshotv1.VolumeSnapshotStatus{
+						VolumeSnapshotName: volumeSnapshots[i].Name,
+					}
+					updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, vss)
+				}
+
+				storageClassSource.Add(storageClass)
+
+				// Paused VM should NOT be frozen
+				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
+				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
+				controller.processVMSnapshotContentWorkItem()
+				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
+				Expect(*updateStatusCalls).To(Equal(1))
+				Expect(*snapshotCreates).To(Equal(1))
+			})
+
+			DescribeTable("should set appropriate indications based on VM state",
+				func(vmiCondition *v1.VirtualMachineInstanceCondition, expectedIndications []snapshotv1.Indication) {
+					vm := createLockedVM()
+					vmSource.Add(vm)
+
+					vmi := createVMI(vm)
+					if vmiCondition != nil {
+						vmi.Status.Conditions = append(vmi.Status.Conditions, *vmiCondition)
+					}
+					vmiSource.Add(vmi)
+
+					vmSnapshot := createVMSnapshotInProgress()
+
+					vmSnapshotContent := createVMSnapshotContent()
+					vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+						ReadyToUse: pointer.P(false),
+					}
+					vmSnapshotContentSource.Add(vmSnapshotContent)
+					addVirtualMachineSnapshot(vmSnapshot)
+
+					updatedSnapshot := vmSnapshot.DeepCopy()
+					updatedSnapshot.ResourceVersion = "1"
+					updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
+					updatedSnapshot.Status.Indications = expectedIndications
+					updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+						newReadyCondition(corev1.ConditionFalse, "Not ready"),
+					}
+
+					updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+					controller.processVMSnapshotWorkItem()
+					Expect(*updateStatusCalls).To(Equal(1))
+				},
+				Entry("paused VM without guest agent",
+					&v1.VirtualMachineInstanceCondition{
+						Type:          v1.VirtualMachineInstancePaused,
+						LastProbeTime: metav1.Now(),
+						Status:        corev1.ConditionTrue,
+					},
+					[]snapshotv1.Indication{
+						snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						snapshotv1.VMSnapshotPausedIndication,
+					},
+				),
+				Entry("non-paused VM with guest agent",
+					&v1.VirtualMachineInstanceCondition{
+						Type:          v1.VirtualMachineInstanceAgentConnected,
+						LastProbeTime: metav1.Now(),
+						Status:        corev1.ConditionTrue,
+					},
+					[]snapshotv1.Indication{
+						snapshotv1.VMSnapshotGuestAgentIndication,
+						snapshotv1.VMSnapshotOnlineSnapshotIndication,
+					},
+				),
+				Entry("non-paused VM without guest agent",
+					nil,
+					[]snapshotv1.Indication{
+						snapshotv1.VMSnapshotNoGuestAgentIndication,
+						snapshotv1.VMSnapshotOnlineSnapshotIndication,
+					},
+				),
+			)
+
 			DescribeTable("should update VirtualMachineSnapshotContent", func(readyToUse bool) {
 				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshotContent := createVMSnapshotContent()
@@ -2498,6 +2614,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			)
 		})
 	})
+
 })
 
 func applyPatch(patch []byte, orig, patched interface{}) error {
