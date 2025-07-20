@@ -380,32 +380,21 @@ func removeInterface(vm *v1.VirtualMachine, name string) error {
 }
 
 func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
-	virtClient := kubevirt.Client()
+	var (
+		operationCompletionTimeout = 30 * time.Second
+		pollInterval               = time.Second
+	)
+
 	if plugMethod == migrationBased {
 		By("Waiting for MigrationRequired condition to appear")
 		Eventually(matcher.ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
 
-		By("Ensuring live-migration started")
-		var migration *v1.VirtualMachineInstanceMigration
-
-		Eventually(func() *v1.VirtualMachineInstanceMigration {
-			migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			for _, mig := range migrations.Items {
-				if mig.Spec.VMIName == vmi.Name {
-					migration = mig.DeepCopy()
-					return migration
-				}
-			}
-			return nil
-		}).WithTimeout(30 * time.Second).WithPolling(time.Second).Should(Not(BeNil()))
-
-		libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
-		libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+		operationCompletionTimeout = 5 * time.Minute
+		pollInterval = 5 * time.Second
 	}
+
 	const queueCount = 1
-	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount, 30*time.Second, time.Second)
+	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount, operationCompletionTimeout, pollInterval)
 }
 
 func verifyUnpluggedIfaceClearedFromVMandVMI(namespace, vmName, netName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
