@@ -404,6 +404,7 @@ func (c *guestfsCommand) createLibguestfsPod(client *K8sClient, ns, cmd string, 
 	}
 	allowPrivilegeEscalation := false
 	containerSecurityContext := &corev1.SecurityContext{
+		ReadOnlyRootFilesystem:   pointer.P(true),
 		AllowPrivilegeEscalation: &allowPrivilegeEscalation,
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},

@@ -7,6 +7,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -38,6 +39,7 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 				RunAsUser:                pointer.P(int64(util.NonRootUID)),
 				RunAsNonRoot:             pointer.P(true),
 				AllowPrivilegeEscalation: pointer.P(false),
+				ReadOnlyRootFilesystem:   pointer.P(true),
 				Capabilities: &k8sv1.Capabilities{
 					Drop: []k8sv1.Capability{"ALL"},
 				},

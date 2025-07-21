@@ -31,6 +31,7 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -366,6 +367,7 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtcon
 		SecurityContext: &kubev1.SecurityContext{
 			RunAsUser:                &userId,
 			RunAsNonRoot:             &nonRoot,
+			ReadOnlyRootFilesystem:   pointer.Bool(true),
 			AllowPrivilegeEscalation: &noPrivilegeEscalation,
 			Capabilities: &kubev1.Capabilities{
 				Drop: []kubev1.Capability{"ALL"},

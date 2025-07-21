@@ -136,6 +136,7 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 			RunAsGroup:               pointer.P(int64(util.NonRootUID)),
 			RunAsNonRoot:             pointer.P(true),
 			AllowPrivilegeEscalation: pointer.P(false),
+			ReadOnlyRootFilesystem:   pointer.P(true),
 			Capabilities: &k8sv1.Capabilities{
 				Drop: []k8sv1.Capability{
 					"ALL",
