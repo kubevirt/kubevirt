@@ -128,7 +128,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}
 
 		dataVolume := libdv.NewDataVolume(
-			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 			libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 		)
 
@@ -161,7 +161,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	newOfflineVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewCirros()))
+		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewAlpine(libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))))
 	}
 
 	DescribeTable("pool should scale", func(startScale int, stopScale int) {
@@ -577,7 +577,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should use DescendingOrder scale-in strategy when specified", func() {
 		By("Create a new VirtualMachinePool with DescendingOrder scale-in policy")
-		pool := newPoolFromVMI(libvmifact.NewCirros())
+		pool := newPoolFromVMI(libvmifact.NewAlpine())
 
 		// Set up DescendingOrder scale-in strategy
 		basePolicy := poolv1.VirtualMachinePoolBasePolicyDescendingOrder
