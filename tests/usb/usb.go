@@ -8,20 +8,15 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	pkgUtil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -48,9 +43,6 @@ var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.S
 		nodeName := libnode.GetNodeNameWithHandler()
 		Expect(nodeName).ToNot(BeEmpty())
 
-		// Emulated USB devices only on c9s providers. Remove this when sig-compute 1.26 is the
-		// oldest sig-compute with test with.
-		// See: https://github.com/kubevirt/project-infra/pull/2922
 		stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"dmesg"})
 		Expect(err).ToNot(HaveOccurred())
 		if strings.Count(stdout, "idVendor=46f4") == 0 {
@@ -106,8 +98,7 @@ var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.S
 			vmi.Spec.Domain.Devices.HostDevices = hostDevs
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
-			Expect(console.LoginToCirros(vmi)).To(Succeed())
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 			By("Making sure the usb is present inside the VMI")
 			const expectTimeout = 15
@@ -116,21 +107,13 @@ var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.S
 				&expect.BExp{R: console.RetValue(fmt.Sprintf("%d", len(deviceNames)))},
 			}, expectTimeout)).To(Succeed(), "Device not found")
 
-			By("Verifying ownership is properly set in the host")
-			domainXML, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			By("Trying to read and write to each USB device inside the guest")
 
-			for _, hostDevice := range domainXML.Devices.HostDevices {
-				if hostDevice.Type != api.HostDeviceUSB {
-					continue
-				}
-				addr := hostDevice.Source.Address
-				path := fmt.Sprintf("%sdev/bus/usb/00%s/00%s", pkgUtil.HostRootMount, addr.Bus, addr.Device)
-				cmd := []string{"stat", "--printf", `"%u %g"`, path}
-				stdout, err := libnode.ExecuteCommandInVirtHandlerPod(vmi.Status.NodeName, cmd)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(stdout).Should(Equal(`"107 107"`))
-			}
+			testScript := `for bus in /dev/bus/usb/*; do for dev in "$bus"/*; do echo -n X > "$dev"; cat "$dev"; done; done; echo USB_TEST_DONE`
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: testScript + "\n"},
+				&expect.BExp{R: "USB_TEST_DONE"},
+			}, expectTimeout)).To(Succeed(), "Could not access USB devices from inside the guest")
 		},
 			Entry("Should successfully passthrough 1 emulated USB device", []string{"slow-storage"}),
 			Entry("Should successfully passthrough 2 emulated USB devices", []string{"fast-storage", "low-storage"}),
