@@ -20,14 +20,13 @@
 package network
 
 import (
+	goerrors "errors"
 	"fmt"
 	"os"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
-
-	goerrors "errors"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
@@ -67,7 +66,13 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface 
 		podnic.podInterfaceName = ifaceLink.Attrs().Name
 	}
 
-	podnic.dhcpConfigurator = podnic.newDHCPConfigurator()
+	if network.Pod != nil && network.Name != "default" {
+		log.DefaultLogger().Infof("Skipping DHCP configurator for network %q", network.Name)
+		podnic.dhcpConfigurator = nil
+	} else {
+		log.DefaultLogger().Infof("Creating DHCP configurator for network %q", network.Name)
+		podnic.dhcpConfigurator = podnic.newDHCPConfigurator()
+	}
 	podnic.domainGenerator = podnic.newLibvirtSpecGenerator(domain, domainAttachment)
 
 	return podnic, nil

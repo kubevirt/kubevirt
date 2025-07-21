@@ -20,8 +20,6 @@
 package admitter
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -30,19 +28,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func validateSinglePodNetwork(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func validatePodNetwork(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	podNetworks := vmispec.FilterNetworksSpec(spec.Networks, func(n v1.Network) bool {
 		return n.Pod != nil
 	})
-	if len(podNetworks) > 1 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueDuplicate,
-			Message: fmt.Sprintf("more than one interface is connected to a pod network in %s", field.Child("interfaces").String()),
-			Field:   field.Child("interfaces").String(),
-		})
-	}
 
 	multusDefaultNetworks := vmispec.FilterNetworksSpec(spec.Networks, func(n v1.Network) bool {
 		return n.Multus != nil && n.Multus.Default
