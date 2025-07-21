@@ -61,7 +61,14 @@ fi
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
 elif [[ $TARGET =~ sig-network ]]; then
-  export KUBEVIRT_WITH_MULTUS_V3="${KUBEVIRT_WITH_MULTUS_V3:-true}"
+
+  export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+  export KUBEVIRTCI_CONTAINER_ORG=oshoval
+  export KUBEVIRTCI_CONTAINER_SUFFIX=latest
+  export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/oshoval/gocli:latest
+  export KUBEVIRT_WITH_MULTUS=true
+  export KUBEVIRT_WITH_MULTUS_V3=true
+
   export KUBEVIRT_WITH_DYN_NET_CTRL="${KUBEVIRT_WITH_DYN_NET_CTRL:-false}"
   export KUBEVIRT_NUM_NODES=3
   export KUBEVIRT_WITH_CNAO=true
@@ -69,6 +76,8 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_DEPLOY_CDI=false
   export KUBEVIRT_DEPLOY_ISTIO=true
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+
+  export KUBEVIRT_PROVIDER=k8s-1.33
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
   export KUBEVIRT_STORAGE="rook-ceph-default"
