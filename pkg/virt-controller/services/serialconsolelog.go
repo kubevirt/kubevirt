@@ -38,6 +38,7 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 				RunAsUser:                pointer.Int64(util.NonRootUID),
 				RunAsNonRoot:             pointer.Bool(true),
 				AllowPrivilegeEscalation: pointer.Bool(false),
+				ReadOnlyRootFilesystem:   pointer.Bool(true),
 				Capabilities: &k8sv1.Capabilities{
 					Drop: []k8sv1.Capability{"ALL"},
 				},

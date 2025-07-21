@@ -894,6 +894,7 @@ func (t *templateService) containerForHotplugContainerDisk(ctrName, volName stri
 		Resources: hotplugContainerResourceRequirementsForVMI(vmi, t.clusterConfig),
 		SecurityContext: &k8sv1.SecurityContext{
 			AllowPrivilegeEscalation: pointer.Bool(false),
+			ReadOnlyRootFilesystem:   pointer.Bool(true),
 			RunAsNonRoot:             pointer.Bool(true),
 			RunAsUser:                &runUser,
 			SeccompProfile: &k8sv1.SeccompProfile{
@@ -950,6 +951,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					Resources: hotplugContainerResourceRequirementsForVMI(vmi, t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
 						AllowPrivilegeEscalation: pointer.Bool(false),
+						ReadOnlyRootFilesystem:   pointer.Bool(true),
 						RunAsNonRoot:             pointer.Bool(true),
 						RunAsUser:                &runUser,
 						SeccompProfile: &k8sv1.SeccompProfile{
@@ -1123,6 +1125,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					Command:   command,
 					Resources: hotplugContainerResourceRequirementsForVMI(vmi, t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
+						ReadOnlyRootFilesystem:   pointer.Bool(true),
 						AllowPrivilegeEscalation: pointer.Bool(false),
 						RunAsNonRoot:             pointer.Bool(true),
 						RunAsUser:                &runUser,
@@ -1233,6 +1236,7 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 					},
 					SecurityContext: &k8sv1.SecurityContext{
 						AllowPrivilegeEscalation: pointer.Bool(false),
+						ReadOnlyRootFilesystem:   pointer.Bool(true),
 						Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
 					},
 					Resources: vmExportContainerResourceRequirements(t.clusterConfig),
@@ -1427,6 +1431,7 @@ func generateContainerSecurityContext(selinuxType string, container *k8sv1.Conta
 	}
 	container.SecurityContext.SELinuxOptions.Type = selinuxType
 	container.SecurityContext.SELinuxOptions.Level = "s0"
+	container.SecurityContext.ReadOnlyRootFilesystem = pointer.Bool(true)
 }
 
 func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) (map[string]string, error) {

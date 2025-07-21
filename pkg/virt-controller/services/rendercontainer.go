@@ -184,10 +184,11 @@ func xdgEnvironmentVariables() []k8sv1.EnvVar {
 func securityContext(userId int64, privileged bool, requiredCapabilities *k8sv1.Capabilities) *k8sv1.SecurityContext {
 	isNonRoot := userId != 0
 	context := &k8sv1.SecurityContext{
-		RunAsUser:    &userId,
-		RunAsNonRoot: &isNonRoot,
-		Privileged:   &privileged,
-		Capabilities: requiredCapabilities,
+		RunAsUser:              &userId,
+		RunAsNonRoot:           &isNonRoot,
+		Privileged:             &privileged,
+		Capabilities:           requiredCapabilities,
+		ReadOnlyRootFilesystem: pointer.Bool(true),
 	}
 
 	if isNonRoot {

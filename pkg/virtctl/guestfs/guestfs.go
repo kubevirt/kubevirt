@@ -464,6 +464,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 	}
 	allowPrivilegeEscalation := false
 	containerSecurityContext := &corev1.SecurityContext{
+		ReadOnlyRootFilesystem:   pointer.Bool(true),
 		AllowPrivilegeEscalation: &allowPrivilegeEscalation,
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},

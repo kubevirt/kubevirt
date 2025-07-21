@@ -128,6 +128,7 @@ func securityContextVirtioFS(profile securityProfile) *k8sv1.SecurityContext {
 		RunAsGroup:               credential,
 		RunAsNonRoot:             pointer.Bool(isRestricted(profile)),
 		AllowPrivilegeEscalation: pointer.Bool(isPrivileged(profile)),
+		ReadOnlyRootFilesystem:   pointer.Bool(true),
 		Capabilities:             virtiofsCapabilities(profile),
 	}
 }

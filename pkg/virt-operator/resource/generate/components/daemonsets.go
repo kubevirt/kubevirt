@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
@@ -45,8 +46,9 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(util.RootUser),
-			Privileged: pointer.Bool(true),
+			ReadOnlyRootFilesystem: pointer.Bool(true),
+			RunAsUser:              pointer.Int64(util.RootUser),
+			Privileged:             pointer.Bool(true),
 		},
 	}
 }
@@ -121,14 +123,66 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			Image: launcherImage,
 			Name:  "virt-launcher",
 			SecurityContext: &corev1.SecurityContext{
-				Privileged: pointer.Bool(true),
+				ReadOnlyRootFilesystem: ptr.To(true),
+				Privileged:             pointer.Bool(true),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "node-labeller",
 					MountPath: nodeLabellerVolumePath,
 				},
+				{
+					Name:      "var-run-node-labeller",
+					MountPath: "/var/run",
+				},
+				{
+					Name:      "var-log-node-labeller",
+					MountPath: "/var/log/libvirt",
+				},
+				{
+					Name:      "etc-libvirt-node-labeller",
+					MountPath: "/etc/libvirt",
+				},
+				{
+					Name:      "var-lib-node-labeller",
+					MountPath: "/var/lib/libvirt",
+				},
+				{
+					Name:      "var-cache-node-labeller",
+					MountPath: "/var/cache/libvirt",
+				},
 			},
+		},
+	}
+
+	pod.Volumes = []corev1.Volume{
+		{
+			Name:         "tmp-dir",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         "var-run",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         "var-run-node-labeller",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         "var-log-node-labeller",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         "etc-libvirt-node-labeller",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         "var-lib-node-labeller",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		},
+		{
+			Name:         "var-cache-node-labeller",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 		},
 	}
 
@@ -152,6 +206,9 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 					corev1.ResourceCPU:    resource.MustParse("100m"),
 					corev1.ResourceMemory: resource.MustParse("20Mi"),
 				},
+			},
+			SecurityContext: &corev1.SecurityContext{
+				ReadOnlyRootFilesystem: ptr.To(true),
 			},
 		})
 	}
@@ -191,7 +248,8 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		},
 	}
 	container.SecurityContext = &corev1.SecurityContext{
-		Privileged: pointer.Bool(true),
+		ReadOnlyRootFilesystem: pointer.Bool(true),
+		Privileged:             pointer.Bool(true),
 		SELinuxOptions: &corev1.SELinuxOptions{
 			Level: "s0",
 		},
@@ -299,6 +357,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 		Name:      "podinfo",
 		MountPath: "/etc/podinfo",
+	})
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      "tmp-dir",
+		MountPath: "/tmp",
 	})
 	pod.Volumes = append(pod.Volumes, corev1.Volume{
 		Name: "podinfo",

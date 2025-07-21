@@ -3938,6 +3938,7 @@ var _ = Describe("Template", func() {
 			runUser := int64(util.NonRootUID)
 			Expect(*pod.Spec.Containers[0].SecurityContext).To(Equal(k8sv1.SecurityContext{
 				AllowPrivilegeEscalation: pointer.Bool(false),
+				ReadOnlyRootFilesystem:   pointer.Bool(true),
 				RunAsNonRoot:             pointer.Bool(true),
 				RunAsUser:                &runUser,
 				SeccompProfile: &k8sv1.SeccompProfile{
@@ -4052,6 +4053,7 @@ var _ = Describe("Template", func() {
 			runUser := int64(util.NonRootUID)
 			Expect(*pod.Spec.Containers[0].SecurityContext).To(Equal(k8sv1.SecurityContext{
 				AllowPrivilegeEscalation: pointer.Bool(false),
+				ReadOnlyRootFilesystem:   pointer.Bool(true),
 				RunAsNonRoot:             pointer.Bool(true),
 				RunAsUser:                &runUser,
 				SeccompProfile: &k8sv1.SeccompProfile{
