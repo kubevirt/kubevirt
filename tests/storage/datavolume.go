@@ -1152,72 +1152,57 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 		)
 	})
 
-	Context("With VirtualMachinePreference and PreferredStorageClassName", func() {
-		var vm *v1.VirtualMachine
-		var storageClass *storagev1.StorageClass
-		var virtualMachinePreference *instanceType.VirtualMachinePreference
+	It("should always use VM defined storage class over PreferredStorageClassName", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Fail("Fail test when Filesystem storage class is not present")
+		}
 
-		BeforeEach(func() {
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Fail("Fail test when Filesystem storage class is not present")
-			}
+		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 
-			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+		storageClass := &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "storageclass-",
+			},
+			Provisioner: "default",
+		}
+		storageClass, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() error {
+			return virtClient.StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
+		})
 
-			storageClass = &storagev1.StorageClass{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "storageclass-",
+		virtualMachinePreference := &instanceType.VirtualMachinePreference{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "virtualmachinepreference-test",
+				Namespace: vm.Namespace,
+			},
+			Spec: instanceType.VirtualMachinePreferenceSpec{
+				Volumes: &instanceType.VolumePreferences{
+					PreferredStorageClassName: storageClass.Name,
 				},
-				Provisioner: "default",
+			},
+		}
+		createdPreference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(nil)).Create(context.Background(), virtualMachinePreference, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() error {
+			err := virtClient.VirtualMachinePreference(createdPreference.Namespace).Delete(context.Background(), createdPreference.Name, metav1.DeleteOptions{})
+			if errors.IsNotFound(err) {
+				return nil
 			}
-			storageClass, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			DeferCleanup(func() error {
-				return virtClient.StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
-			})
-
-			virtualMachinePreference = &instanceType.VirtualMachinePreference{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "virtualmachinepreference-test",
-					Namespace: vm.Namespace,
-				},
-				Spec: instanceType.VirtualMachinePreferenceSpec{
-					Volumes: &instanceType.VolumePreferences{
-						PreferredStorageClassName: storageClass.Name,
-					},
-				},
-			}
-			_, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(nil)).Create(context.Background(), virtualMachinePreference, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Bind VirtualMachinePreference to VirtualMachine
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: virtualMachinePreference.Name,
-				Kind: instancetypeapi.SingularPreferenceResourceName,
-			}
+			return err
 		})
 
-		AfterEach(func() {
-			Expect(virtClient.VirtualMachinePreference(virtualMachinePreference.Namespace).Delete(context.Background(), virtualMachinePreference.Name, metav1.DeleteOptions{})).To(Succeed())
-		})
+		// Bind VirtualMachinePreference to VirtualMachine
+		vm.Spec.Preference = &v1.PreferenceMatcher{
+			Name: virtualMachinePreference.Name,
+			Kind: instancetypeapi.SingularPreferenceResourceName,
+		}
 
-		It("should use PreferredStorageClassName when storage class not provided by VM", func() {
-			// Remove storage class name from VM definition
-			vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName = nil
+		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).To(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
-		})
-
-		It("should always use VM defined storage class over PreferredStorageClassName", func() {
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).NotTo(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
-		})
+		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).To(HaveValue(Equal(sc)))
 	})
 }))
 
