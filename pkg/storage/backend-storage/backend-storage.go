@@ -295,7 +295,7 @@ func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 // It labels the target backend-storage PVC as current for the VM and deletes the source backend-storage PVC.
 func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) error {
 	if migration == nil || migration.Status.MigrationState == nil ||
-		migration.Status.MigrationState.SourcePersistentStatePVCName == "" ||
+		(migration.Status.MigrationState.SourcePersistentStatePVCName == "" && !migration.IsDecentralized()) ||
 		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
 		return fmt.Errorf("missing source and/or target PVC name(s)")
 	}
@@ -340,9 +340,11 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 		}
 	}
 
-	err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete PVC: %v", err)
+	if sourcePVC != "" {
+		err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete PVC: %v", err)
+		}
 	}
 
 	return nil
@@ -551,10 +553,11 @@ func (bs *BackendStorage) CreatePVCForVMI(vmi *corev1.VirtualMachineInstance) (*
 
 func (bs *BackendStorage) CreatePVCForMigrationTarget(vmi *corev1.VirtualMachineInstance, migrationName string) (*v1.PersistentVolumeClaim, error) {
 	pvc := PVCForVMI(bs.pvcStore, vmi)
-
-	if len(pvc.Status.AccessModes) > 0 && pvc.Status.AccessModes[0] == v1.ReadWriteMany {
-		// The source PVC is RWX, so it can be used for the target too
-		return pvc, nil
+	if pvc != nil {
+		if len(pvc.Status.AccessModes) > 0 && pvc.Status.AccessModes[0] == v1.ReadWriteMany {
+			// The source PVC is RWX, so it can be used for the target too
+			return pvc, nil
+		}
 	}
 
 	return bs.createPVC(vmi, map[string]string{corev1.MigrationNameLabel: migrationName})

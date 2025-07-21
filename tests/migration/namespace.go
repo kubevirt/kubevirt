@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"time"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -301,6 +302,52 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				}
 				return *targetVM.Spec.RunStrategy
 			}).WithTimeout(time.Second * 20).WithPolling(500 * time.Millisecond).Should(Equal(virtv1.RunStrategyAlways))
+		})
+
+		It("should decentralized migrate a VMI with TPM enabled", decorators.RequiresDecentralizedLiveMigration, func() {
+			By("Creating a VMI with TPM enabled")
+			sourceVMI := libvmifact.NewFedora(
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithTPM(true),
+			)
+			sourceVM = createAndStartVMFromVMISpec(sourceVMI)
+			targetVMI = sourceVMI.DeepCopy()
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
+
+			By("Logging in")
+			Expect(console.LoginToFedora(sourceVMI)).To(Succeed())
+
+			By("Ensuring a TPM device is present")
+			Expect(console.SafeExpectBatch(sourceVMI, []expect.Batcher{
+				&expect.BSnd{S: "ls /dev/tpm*\n"},
+				&expect.BExp{R: "/dev/tpm0"},
+			}, 300)).To(Succeed(), "Could not find a TPM device")
+
+			const expectedState = "0x1EE66777C372B96BC74AC4CB892E0879FA3CCF6A2F53DB1D00FD18B264797F49"
+			By("Ensuring the TPM device is functional")
+			Expect(console.SafeExpectBatch(sourceVMI, []expect.Batcher{
+				&expect.BSnd{S: "tpm2_pcrread sha256:15\n"},
+				&expect.BExp{R: "0x0000000000000000000000000000000000000000000000000000000000000000"},
+				&expect.BSnd{S: "tpm2_pcrextend 15:sha256=54d626e08c1c802b305dad30b7e54a82f102390cc92c7d4db112048935236e9c && echo 'do''ne'\n"},
+				&expect.BExp{R: "done"},
+				&expect.BSnd{S: "tpm2_pcrread sha256:15\n"},
+				&expect.BExp{R: expectedState},
+			}, 300)).To(Succeed(), "PCR extension doesn't work correctly")
+
+			By("Migrating the VMI")
+			targetVM = createReceiverVMFromVMISpec(targetVMI)
+			sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
+			targetMigration := libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
+			sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
+			libmigration.ConfirmVMIPostMigration(virtClient, targetVMI, targetMigration)
+
+			By("Ensuring the TPM is still functional and its state carried over")
+			Expect(console.SafeExpectBatch(targetVMI, []expect.Batcher{
+				&expect.BSnd{S: "tpm2_pcrread sha256:15\n"},
+				&expect.BExp{R: expectedState},
+			}, 300)).To(Succeed(), "Migrating broke the TPM")
 		})
 	})
 
