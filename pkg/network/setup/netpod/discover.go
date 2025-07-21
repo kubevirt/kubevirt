@@ -40,6 +40,10 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 	podIfaceNameByVMINetwork := createNetworkNameScheme(n.vmiSpecNets, n.vmiIfaceStatuses, currentStatus.Interfaces)
 
 	for _, vmiSpecIface := range n.vmiSpecIfaces {
+		if skipPodInterfaceIsNotDefault(vmiSpecIface.Name, n.vmiSpecNets) {
+			continue
+		}
+
 		podIfaceName := podIfaceNameByVMINetwork[vmiSpecIface.Name]
 
 		// The discovery is not relevant for interfaces marked for removal.

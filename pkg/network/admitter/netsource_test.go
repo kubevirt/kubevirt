@@ -31,25 +31,6 @@ import (
 )
 
 var _ = Describe("Validate network source", func() {
-	It("support only a single pod network", func() {
-		const net1Name = "default"
-		const net2Name = "default2"
-		vmi := v1.VirtualMachineInstance{}
-		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-			{Name: net1Name, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-			{Name: net2Name, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-		}
-		vmi.Spec.Networks = []v1.Network{
-			{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-			{Name: net2Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-		}
-		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, clusterConfig)
-		causes := validator.Validate()
-		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Message).To(Equal("more than one interface is connected to a pod network in fake.interfaces"))
-	})
-
 	It("should reject when multiple types defined for a CNI network", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}

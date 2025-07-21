@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/vishvananda/netlink"
+	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -46,6 +47,11 @@ func DiscoverByNetwork(handler driver.NetworkHandler, networks []v1.Network, sub
 }
 
 func networkInterfaceNames(networks []v1.Network, subjectNetwork v1.Network, ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface) ([]string, error) {
+	if subjectNetwork.Pod != nil && subjectNetwork.Name != "default" {
+		log.DefaultLogger().Info(fmt.Sprintf("Pod network is not default, skip discovery, return [%q]", subjectNetwork.Name))
+		return []string{subjectNetwork.Name}, nil
+	}
+
 	ifaceName := namescheme.HashedPodInterfaceName(subjectNetwork, ifaceStatuses)
 	ordinalIfaceName := namescheme.OrdinalPodInterfaceName(subjectNetwork.Name, networks)
 	if ordinalIfaceName == "" {

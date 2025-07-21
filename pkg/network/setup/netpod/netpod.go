@@ -260,6 +260,10 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 	spec := nmstate.Spec{Interfaces: []nmstate.Interface{}}
 
 	for ifIndex, iface := range n.vmiSpecIfaces {
+		if skipPodInterfaceIsNotDefault(iface.Name, n.vmiSpecNets) {
+			continue
+		}
+
 		var (
 			ifacesSpec []nmstate.Interface
 			err        error
@@ -660,6 +664,18 @@ func createNetworkNameScheme(networks []v1.Network, ifaceStatuses []v1.VirtualMa
 	}
 
 	return namescheme.UpdatePrimaryPodIfaceNameFromVMIStatus(podIfaceNamesByNetworkName, networks, ifaceStatuses)
+}
+
+func skipPodInterfaceIsNotDefault(name string, networks []v1.Network) bool {
+	if name == "default" {
+		return false
+	}
+	for _, network := range networks {
+		if network.Name == name && network.Pod != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func includesOrdinalNames(ifaces []nmstate.Interface) bool {
