@@ -4293,6 +4293,22 @@ var _ = Describe("Template", func() {
 			verifyPodRequestLimits(pod)
 		})
 
+		DescribeTable("should pass VMI priority class when rednering hotplug pods", func(priorityClassName string) {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.Spec.PriorityClassName = priorityClassName
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			claimMap := map[string]*k8sv1.PersistentVolumeClaim{}
+			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.PriorityClassName).To(Equal(ownerPod.Spec.PriorityClassName))
+		},
+			Entry("with priority class name", "fake-priority-class"),
+			Entry("without priority class name", ""),
+		)
+
 		DescribeTable("hould compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
