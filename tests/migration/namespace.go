@@ -316,7 +316,33 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 			}).WithTimeout(time.Second * 20).WithPolling(500 * time.Millisecond).Should(Equal(virtv1.RunStrategyAlways))
 		})
 
-		It("should decentralized migrate a VMI with TPM enabled", decorators.RequiresDecentralizedLiveMigration, func() {
+		addDataToTPM := func(vmi *v1.VirtualMachineInstance) {
+			By("Storing a secret into the TPM")
+			// https://www.intel.com/content/www/us/en/developer/articles/code-sample/protecting-secret-data-and-keys-using-intel-platform-trust-technology.html
+			// Not sealing against a set of PCRs, out of scope here, but should work with a carefully selected set (at least PCR1 was seen changing across reboots)
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "tpm2_createprimary -Q --hierarchy=o --key-context=prim.ctx\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "echo MYSECRET | tpm2_create --hash-algorithm=sha256 --public=seal.pub --private=seal.priv --sealing-input=- --parent-context=prim.ctx\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "tpm2_load -Q --parent-context=prim.ctx --public=seal.pub --private=seal.priv --name=seal.name --key-context=seal.ctx\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "tpm2_evictcontrol --hierarchy=o --object-context=seal.ctx 0x81010002\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "tpm2_unseal -Q --object-context=0x81010002\n"},
+				&expect.BExp{R: "MYSECRET"},
+			}, 300)).To(Succeed(), "failed to store secret into the TPM")
+		}
+
+		checkTPM := func(vmi *v1.VirtualMachineInstance) {
+			By("Ensuring the TPM is still functional and its state carried over")
+			ExpectWithOffset(1, console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "tpm2_unseal -Q --object-context=0x81010002\n"},
+				&expect.BExp{R: "MYSECRET"},
+			}, 300)).To(Succeed(), "the state of the TPM did not persist")
+		}
+
+		It("should decentralized migrate a VMI with persistent TPM enabled", decorators.RequiresDecentralizedLiveMigration, func() {
 			By("Creating a VMI with TPM enabled")
 			sourceVMI := libvmifact.NewFedora(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
@@ -331,22 +357,7 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 			By("Logging in")
 			Expect(console.LoginToFedora(sourceVMI)).To(Succeed())
 
-			By("Ensuring a TPM device is present")
-			Expect(console.SafeExpectBatch(sourceVMI, []expect.Batcher{
-				&expect.BSnd{S: "ls /dev/tpm*\n"},
-				&expect.BExp{R: "/dev/tpm0"},
-			}, 300)).To(Succeed(), "Could not find a TPM device")
-
-			const expectedState = "0x1EE66777C372B96BC74AC4CB892E0879FA3CCF6A2F53DB1D00FD18B264797F49"
-			By("Ensuring the TPM device is functional")
-			Expect(console.SafeExpectBatch(sourceVMI, []expect.Batcher{
-				&expect.BSnd{S: "tpm2_pcrread sha256:15\n"},
-				&expect.BExp{R: "0x0000000000000000000000000000000000000000000000000000000000000000"},
-				&expect.BSnd{S: "tpm2_pcrextend 15:sha256=54d626e08c1c802b305dad30b7e54a82f102390cc92c7d4db112048935236e9c && echo 'do''ne'\n"},
-				&expect.BExp{R: "done"},
-				&expect.BSnd{S: "tpm2_pcrread sha256:15\n"},
-				&expect.BExp{R: expectedState},
-			}, 300)).To(Succeed(), "PCR extension doesn't work correctly")
+			addDataToTPM(sourceVMI)
 
 			By("Migrating the VMI")
 			targetVM = createReceiverVMFromVMISpec(targetVMI)
@@ -356,10 +367,17 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 			libmigration.ConfirmVMIPostMigration(virtClient, targetVMI, targetMigration)
 
 			By("Ensuring the TPM is still functional and its state carried over")
-			Expect(console.SafeExpectBatch(targetVMI, []expect.Batcher{
-				&expect.BSnd{S: "tpm2_pcrread sha256:15\n"},
-				&expect.BExp{R: expectedState},
-			}, 300)).To(Succeed(), "Migrating broke the TPM")
+			checkTPM(targetVMI)
+			// TODO: Enable this part of the test when we can generate the proper UID from the
+			// new domain name so that the TPM is not recreated.
+			// By("Stopping the VM")
+			// libvmops.StopVirtualMachine(targetVM)
+			// By("Starting the VM")
+			// targetVM = libvmops.StartVirtualMachine(targetVM)
+			// By("Logging in")
+			// Expect(console.LoginToFedora(targetVMI)).To(Succeed())
+			// By("Ensuring the TPM contains the same data after stop and start")
+			// checkTPM(targetVMI)
 		})
 	})
 
