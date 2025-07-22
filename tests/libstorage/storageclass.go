@@ -364,3 +364,34 @@ func isLocalPV(pv k8sv1.PersistentVolume) bool {
 func isPVAvailable(pv k8sv1.PersistentVolume) bool {
 	return pv.Spec.ClaimRef == nil
 }
+
+func GetAvailableCSIStorageClass() string {
+	virtClient := kubevirt.Client()
+	csiDrivers, err := virtClient.StorageV1().CSIDrivers().List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	// If no CSI drivers are found, return early
+	if len(csiDrivers.Items) == 0 {
+		return ""
+	}
+
+	// Create map of CSI drivers for quicker lookup
+	csiDriverMap := make(map[string]bool)
+	for _, csiDriver := range csiDrivers.Items {
+		csiDriverMap[csiDriver.Name] = true
+	}
+
+	scName := ""
+	// Get all storage classes
+	storageClasses, err := virtClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, sc := range storageClasses.Items {
+		// check if a storage class provisioner matches an existing CSI driver
+		if _, ok := csiDriverMap[sc.Provisioner]; ok {
+			scName = sc.Name
+			break
+		}
+	}
+	return scName
+}

@@ -117,8 +117,14 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			currentKv.ResourceVersion,
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
+
 		scName, err := getCSIStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
+
+		if scName == "" {
+			scName = libstorage.GetAvailableCSIStorageClass()
+		}
+
 		if scName == "" {
 			Fail("Fail test when a CSI storage class is not present")
 		}
@@ -1107,7 +1113,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				checkFileOnHotpluggedVol(vmi)
 			})
 
-			DescribeTable("with a datavolume and an hotplugged datavolume migrating", func(srcBlock, dstBlock bool) {
+			DescribeTable("with a datavolume and an hotplugged datavolume migrating", decorators.RequiresBlockStorage, func(srcBlock, dstBlock bool) {
 				ns := testsuite.GetTestNamespace(nil)
 				rootVolName := "root"
 				hpVolName := "hp"
