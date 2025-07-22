@@ -728,11 +728,11 @@ type Disk struct {
 	// RotationRate specifies the rotation rate for the disk device.
 	// Supported for SCSI and SATA bus types only.
 	// A value of 1 indicates SSD emulation (no rotation).
-	// Values in the range 1025 to 65534 indicate HDD emulation with the specified RPM.
+	// Only 1 (SSD emulation) is currently supported. Other values are reserved for future use.
 	// The rotation rate affects how the guest OS perceives the storage device characteristics.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=65534
+	// +kubebuilder:validation:Maximum=1
 	RotationRate *uint `json:"rotationRate,omitempty"`
 }
 

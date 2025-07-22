@@ -2285,23 +2285,12 @@ func validateRotationRate(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.
 		return causes
 	}
 
-	// Check if bus type supports rotation rate
-	bus := getDiskBus(disk)
-	if bus != v1.DiskBusSCSI && bus != v1.DiskBusSATA {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("RotationRate is only supported for SCSI and SATA bus types, got %s", bus),
-			Field:   field.Index(idx).Child("rotationRate").String(),
-		})
-		return causes
-	}
-
+	// Allows for SSD emulation (rotationRate=1), or leave unset (default)
 	rotationRate := *disk.RotationRate
-	// Valid values are: 1 (SSD) or values in range 1025-65534 (HDD)
-	if rotationRate != 1 && (rotationRate < 1025 || rotationRate > 65534) {
+	if rotationRate != 1 {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("RotationRate must be either 1 (SSD) or between 1025 and 65534 (HDD), got %d", rotationRate),
+			Message: fmt.Sprintf("RotationRate must be 1 for SSD emulation or leave unset; got %d", rotationRate),
 			Field:   field.Index(idx).Child("rotationRate").String(),
 		})
 	}
