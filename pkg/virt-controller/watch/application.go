@@ -452,7 +452,6 @@ func Execute() {
 	app.onOpenshift = onOpenShift
 
 	metricsInformers := &metrics.Indexers{
-		VMI:                   app.vmiInformer.GetIndexer(),
 		PersistentVolumeClaim: app.persistentVolumeClaimInformer.GetIndexer(),
 		VMIMigration:          app.migrationInformer.GetIndexer(),
 		KVPod:                 app.kvPodInformer.GetIndexer(),
@@ -460,6 +459,7 @@ func Execute() {
 
 	metricsStores := &metrics.Stores{
 		VM:                  app.vmInformer.GetStore(),
+		VMI:                 app.vmiInformer.GetStore(),
 		Instancetype:        app.instancetypeInformer.GetStore(),
 		ClusterInstancetype: app.clusterInstancetypeInformer.GetStore(),
 		Preference:          app.preferenceInformer.GetStore(),

@@ -330,7 +330,7 @@ var _ = Describe("VMI Stats Collector", func() {
 		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
 		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
 			vmiInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
-			indexers.VMI = vmiInformer.GetIndexer()
+			stores.VMI = vmiInformer.GetStore()
 
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
