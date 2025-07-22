@@ -341,6 +341,7 @@ func (app *virtHandlerApp) Run() {
 	launcherClientsManager := launcher_clients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
+	netStat := netsetup.NewNetStat()
 	passtRepairHandler := passt.NewRepairManager(app.clusterConfig)
 
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
@@ -354,13 +355,13 @@ func (app *virtHandlerApp) Run() {
 		podIsolationDetector,
 		migrationProxy,
 		"/proc/%d/root/var/run",
+		netStat,
 		passtRepairHandler,
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	netStat := netsetup.NewNetStat()
 	migrationTargetController, err := virthandler.NewMigrationTargetController(
 		recorder,
 		app.virtCli,
