@@ -47,6 +47,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -1513,11 +1514,17 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 			} else {
 				log.Log.Object(vmi).V(5).Info("decentralized migration creating target pod in vmi namespace, source pod based on target VMI")
 				vmiCopy := vmi.DeepCopy()
-				if vmiCopy.Spec.Domain.Devices.TPM != nil {
+				if tpm.HasPersistentDevice(&vmiCopy.Spec) {
 					// This is a decentralized target, generate the source pod template, we don't care about
 					// the backend-storage PVC here because it will be created in the target namespace/cluster.
 					// this is purely a fake source pod template.
 					vmiCopy.Spec.Domain.Devices.TPM.Enabled = pointer.P(false)
+				}
+				if backendstorage.HasPersistentEFI(&vmiCopy.Spec) {
+					// This is a decentralized target, generate the source pod template, we don't care about
+					// the backend-storage PVC here because it will be created in the target namespace/cluster.
+					// this is purely a fake source pod template.
+					vmiCopy.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(false)
 				}
 				sourcePod, err = c.templateService.RenderLaunchManifest(vmiCopy)
 				if err != nil {
