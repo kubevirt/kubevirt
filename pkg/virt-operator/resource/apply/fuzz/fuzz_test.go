@@ -32,6 +32,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	secv1 "github.com/openshift/api/security/v1"
+	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -47,7 +48,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	promclientfake "kubevirt.io/client-go/prometheusoperator/fake"
-	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -74,7 +74,7 @@ type fuzzOption int
 
 const (
 	withSyntaxErrors fuzzOption = 1
-	Namespace = "ns"
+	Namespace                   = "ns"
 )
 
 var (
@@ -329,7 +329,7 @@ func createManifests(t *testing.T, fdp *fuzz.Fuzzer) ([]byte, error) {
 	var randUint8 uint8
 	fdp.Fuzz(&randUint8)
 	var numberOfResources int
-	numberOfResources = int(randUint8)%10
+	numberOfResources = int(randUint8) % 10
 	if numberOfResources <= 0 {
 		numberOfResources = 3
 	}
