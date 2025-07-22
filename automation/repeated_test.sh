@@ -34,6 +34,7 @@ set -euo pipefail
 KUBEVIRT_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 
 # include defaults for retrieving proper vendored cluster-up version
+export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 export DOCKER_TAG_ALT=''
 export IMAGE_PREFIX=''
 export IMAGE_PREFIX_ALT=''

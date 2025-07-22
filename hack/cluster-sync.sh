@@ -33,7 +33,7 @@ function main() {
     ./hack/cluster-build.sh
     # We always want to check for updated digests as we are using a single devel tag so set our imagePullPolicy to Always
     # See https://github.com/kubevirt/kubevirt/issues/15218 for more context
-    IMAGE_PULL_POLICY=Always ./hack/manifests.sh
+    IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-Always} ./hack/manifests.sh
 
     echo "waiting for cluster-clean to finish"
     if ! wait $CLEAN_PID; then
