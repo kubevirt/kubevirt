@@ -70,6 +70,9 @@ import (
 
 const (
 	Namespace = "ns"
+)
+
+var (
 	resources = map[int]string{
 		0:  "Route",
 		1:  "ServiceAccount",
