@@ -451,12 +451,12 @@ func Execute() {
 
 	app.onOpenshift = onOpenShift
 
-	metricsInformers := &metrics.Informers{
-		VM:                    app.vmInformer,
-		VMI:                   app.vmiInformer,
-		PersistentVolumeClaim: app.persistentVolumeClaimInformer,
-		VMIMigration:          app.migrationInformer,
-		KVPod:                 app.kvPodInformer,
+	metricsInformers := &metrics.Indexers{
+		VM:                    app.vmInformer.GetIndexer(),
+		VMI:                   app.vmiInformer.GetIndexer(),
+		PersistentVolumeClaim: app.persistentVolumeClaimInformer.GetIndexer(),
+		VMIMigration:          app.migrationInformer.GetIndexer(),
+		KVPod:                 app.kvPodInformer.GetIndexer(),
 	}
 
 	metricsStores := &metrics.Stores{
@@ -592,7 +592,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 
 		if vca.migrationInformer == nil {
 			vca.migrationInformer = vca.informerFactory.VirtualMachineInstanceMigration()
-			metrics.UpdateVMIMigrationInformer(vca.migrationInformer)
+			metrics.UpdateVMIMigrationInformer(vca.migrationInformer.GetIndexer())
 		}
 		golog.Printf("\nvca.migrationInformer :%v\n", vca.migrationInformer)
 

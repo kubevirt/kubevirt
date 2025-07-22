@@ -189,7 +189,7 @@ var (
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
-	cachedObjs := informers.VM.GetIndexer().List()
+	cachedObjs := indexers.VM.List()
 	if len(cachedObjs) == 0 {
 		log.Log.V(4).Infof("No VMs detected")
 		return []operatormetrics.CollectorResult{}
@@ -589,7 +589,7 @@ func collectDiskMetricsFromPVC(vm *k6tv1.VirtualMachine) []operatormetrics.Colle
 		}
 
 		key := controller.NamespacedKey(vm.Namespace, pvcName)
-		obj, exists, err := informers.PersistentVolumeClaim.GetStore().GetByKey(key)
+		obj, exists, err := indexers.PersistentVolumeClaim.GetByKey(key)
 		if err != nil {
 			log.Log.Errorf("Error retrieving PVC %s in namespace %s: %v", pvcName, vm.Namespace, err)
 			continue
