@@ -86,6 +86,10 @@ linters:
       dot-import-whitelist:
         - github.com/onsi/ginkgo/v2
         - github.com/onsi/gomega
+      checks:
+        - all
+        - "-QF1001" # exclude 'could apply De Morgan's law'
+        - "-QF1008" # exclude 'could remove embedded field "<field>" from selector'
   exclusions:
     generated: lax
     presets:
