@@ -4,9 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "decentralized.go",
+        "limiters.go",
         "migration.go",
         "migrationpolicy.go",
-        "limiters.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/migration",
     visibility = ["//visibility:public"],
