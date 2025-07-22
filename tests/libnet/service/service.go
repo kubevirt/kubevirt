@@ -25,13 +25,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func BuildHeadlessSpec(serviceName string, exposedPort, portToExpose int, selectorKey, selectorValue string) *k8sv1.Service {
+func BuildHeadlessSpec(serviceName string, exposedPort, portToExpose int32, selectorKey, selectorValue string) *k8sv1.Service {
 	service := BuildSpec(serviceName, exposedPort, portToExpose, selectorKey, selectorValue)
 	service.Spec.ClusterIP = k8sv1.ClusterIPNone
 	return service
 }
 
-func BuildIPv6Spec(serviceName string, exposedPort, portToExpose int, selectorKey, selectorValue string) *k8sv1.Service {
+func BuildIPv6Spec(serviceName string, exposedPort, portToExpose int32, selectorKey, selectorValue string) *k8sv1.Service {
 	service := BuildSpec(serviceName, exposedPort, portToExpose, selectorKey, selectorValue)
 	ipv6Family := k8sv1.IPv6Protocol
 	service.Spec.IPFamilies = []k8sv1.IPFamily{ipv6Family}
@@ -39,7 +39,7 @@ func BuildIPv6Spec(serviceName string, exposedPort, portToExpose int, selectorKe
 	return service
 }
 
-func BuildSpec(serviceName string, exposedPort, portToExpose int, selectorKey, selectorValue string) *k8sv1.Service {
+func BuildSpec(serviceName string, exposedPort, portToExpose int32, selectorKey, selectorValue string) *k8sv1.Service {
 	return &k8sv1.Service{
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name: serviceName,
@@ -49,7 +49,7 @@ func BuildSpec(serviceName string, exposedPort, portToExpose int, selectorKey, s
 				selectorKey: selectorValue,
 			},
 			Ports: []k8sv1.ServicePort{
-				{Protocol: k8sv1.ProtocolTCP, Port: int32(portToExpose), TargetPort: intstr.FromInt(exposedPort)},
+				{Protocol: k8sv1.ProtocolTCP, Port: portToExpose, TargetPort: intstr.FromInt32(exposedPort)},
 			},
 		},
 	}

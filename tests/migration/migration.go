@@ -171,7 +171,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		It("should remain to able resolve the VM IP", decorators.Conformance, func() {
 			const hostname = "alpine"
-			const port int = 1500
+			const port = 1500
 			const labelKey = "subdomain"
 			const labelValue = "mysub"
 
