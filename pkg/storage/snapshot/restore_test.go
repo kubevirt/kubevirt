@@ -40,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
@@ -254,30 +253,17 @@ var _ = Describe("Restore controller", func() {
 	}
 
 	Context("One valid Restore controller given", func() {
-
-		var ctrl *gomock.Controller
-
-		var stop chan struct{}
 		var controller *VMRestoreController
 		var recorder *record.FakeRecorder
-		var mockVMRestoreQueue *testutils.MockWorkQueue[string]
 		var fakeVolumeSnapshotProvider *MockVolumeSnapshotProvider
 
 		var kubevirtClient *kubevirtfake.Clientset
 		var k8sClient *k8sfake.Clientset
 		var cdiClient *cdifake.Clientset
-		var virtClient *kubecli.MockKubevirtClient
-
-		syncCaches := func(stop chan struct{}) {
-			Expect(cache.WaitForCacheSync(
-				stop,
-			)).To(BeTrue())
-		}
 
 		BeforeEach(func() {
-			stop = make(chan struct{})
-			ctrl = gomock.NewController(GinkgoT())
-			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			ctrl := gomock.NewController(GinkgoT())
+			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 
 			vmRestoreInformer, _ := testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineRestore{}, virtcontroller.GetVirtualMachineRestoreInformerIndexers())
 			vmSnapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
@@ -313,8 +299,7 @@ var _ = Describe("Restore controller", func() {
 			controller.Init()
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
-			mockVMRestoreQueue = testutils.NewMockWorkQueue(controller.vmRestoreQueue)
-			controller.vmRestoreQueue = mockVMRestoreQueue
+			controller.vmRestoreQueue = testutils.NewMockWorkQueue(controller.vmRestoreQueue)
 
 			// Set up mock client
 			kubevirtClient = kubevirtfake.NewSimpleClientset()
@@ -333,6 +318,7 @@ var _ = Describe("Restore controller", func() {
 
 			cdiClient = cdifake.NewSimpleClientset()
 			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
+			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
 			k8sClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				Expect(action).To(BeNil())
@@ -349,18 +335,15 @@ var _ = Describe("Restore controller", func() {
 		}
 
 		addVirtualMachineRestore := func(r *snapshotv1.VirtualMachineRestore) {
-			syncCaches(stop)
 			Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
 			enqueueVMR(r)
 		}
 
 		addPVC := func(pvc *corev1.PersistentVolumeClaim) {
-			syncCaches(stop)
 			Expect(controller.PVCInformer.GetStore().Add(pvc)).To(Succeed())
 		}
 
 		addVM := func(vm *kubevirtv1.VirtualMachine) {
-			syncCaches(stop)
 			Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 		}
 
@@ -2060,8 +2043,6 @@ var _ = Describe("Restore controller", func() {
 			nilPrefrenceMatcher := func() *kubevirtv1.PreferenceMatcher { return nil }
 
 			BeforeEach(func() {
-				virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
-
 				originalVM = createRestoreInProgressVM()
 				originalVM.Spec.DataVolumeTemplates = []kubevirtv1.DataVolumeTemplateSpec{}
 				restore = createRestoreWithOwner()
