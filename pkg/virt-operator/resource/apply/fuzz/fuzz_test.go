@@ -649,13 +649,6 @@ func fuzzFuncs(options ...fuzzOption) []interface{} {
 		},
 	}
 
-	strategyFuncs := []interface{}{
-		func(obj *install.Strategy, c fuzz.Continue) {
-
-		},
-	}
-	_ = strategyFuncs
-
 	typeFuzzers := []interface{}{}
 	if !addSyntaxErrors {
 		typeFuzzers = []interface{}{
