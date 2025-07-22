@@ -44,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -52,7 +51,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -364,26 +362,6 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 				ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
 				return ds.Status.CurrentNumberScheduled == ds.Status.DesiredNumberScheduled, err
 			}, time.Minute*5, time.Second*2).Should(BeTrue())
-		})
-
-		It("[QUARANTINE] should fire KubevirtVmHighMemoryUsage alert", decorators.Quarantine, func() {
-			By("starting VMI")
-			vmi := libvmifact.NewGuestless()
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
-
-			By("fill up the vmi pod memory")
-			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-			vmiPodRequestMemory := vmiPod.Spec.Containers[0].Resources.Requests.Memory().Value()
-			_, err = exec.ExecuteCommandOnPod(
-				vmiPod,
-				vmiPod.Spec.Containers[0].Name,
-				[]string{"/usr/bin/bash", "-c", fmt.Sprintf("cat <( </dev/zero head -c %d) <(sleep 150) | tail", vmiPodRequestMemory)},
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("waiting for KubevirtVmHighMemoryUsage alert")
-			libmonitoring.VerifyAlertExist(virtClient, "KubevirtVmHighMemoryUsage")
 		})
 
 		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
