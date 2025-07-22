@@ -452,19 +452,19 @@ func Execute() {
 	app.onOpenshift = onOpenShift
 
 	metricsInformers := &metrics.Indexers{
-		PersistentVolumeClaim: app.persistentVolumeClaimInformer.GetIndexer(),
-		VMIMigration:          app.migrationInformer.GetIndexer(),
-		KVPod:                 app.kvPodInformer.GetIndexer(),
+		VMIMigration: app.migrationInformer.GetIndexer(),
+		KVPod:        app.kvPodInformer.GetIndexer(),
 	}
 
 	metricsStores := &metrics.Stores{
-		VM:                  app.vmInformer.GetStore(),
-		VMI:                 app.vmiInformer.GetStore(),
-		Instancetype:        app.instancetypeInformer.GetStore(),
-		ClusterInstancetype: app.clusterInstancetypeInformer.GetStore(),
-		Preference:          app.preferenceInformer.GetStore(),
-		ClusterPreference:   app.clusterPreferenceInformer.GetStore(),
-		ControllerRevision:  app.controllerRevisionInformer.GetStore(),
+		VM:                    app.vmInformer.GetStore(),
+		VMI:                   app.vmiInformer.GetStore(),
+		PersistentVolumeClaim: app.persistentVolumeClaimInformer.GetStore(),
+		Instancetype:          app.instancetypeInformer.GetStore(),
+		ClusterInstancetype:   app.clusterInstancetypeInformer.GetStore(),
+		Preference:            app.preferenceInformer.GetStore(),
+		ClusterPreference:     app.clusterPreferenceInformer.GetStore(),
+		ControllerRevision:    app.controllerRevisionInformer.GetStore(),
 	}
 
 	if err := metrics.SetupMetrics(

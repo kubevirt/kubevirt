@@ -43,19 +43,19 @@ type vmApplyHandler interface {
 }
 
 type Indexers struct {
-	PersistentVolumeClaim cache.Indexer
-	VMIMigration          cache.Indexer
-	KVPod                 cache.Indexer
+	VMIMigration cache.Indexer
+	KVPod        cache.Indexer
 }
 
 type Stores struct {
-	VM                  cache.Store
-	VMI                 cache.Store
-	Instancetype        cache.Store
-	ClusterInstancetype cache.Store
-	Preference          cache.Store
-	ClusterPreference   cache.Store
-	ControllerRevision  cache.Store
+	VM                    cache.Store
+	VMI                   cache.Store
+	PersistentVolumeClaim cache.Store
+	Instancetype          cache.Store
+	ClusterInstancetype   cache.Store
+	Preference            cache.Store
+	ClusterPreference     cache.Store
+	ControllerRevision    cache.Store
 }
 
 var (

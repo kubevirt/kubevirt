@@ -589,7 +589,7 @@ func collectDiskMetricsFromPVC(vm *k6tv1.VirtualMachine) []operatormetrics.Colle
 		}
 
 		key := controller.NamespacedKey(vm.Namespace, pvcName)
-		obj, exists, err := indexers.PersistentVolumeClaim.GetByKey(key)
+		obj, exists, err := stores.PersistentVolumeClaim.GetByKey(key)
 		if err != nil {
 			log.Log.Errorf("Error retrieving PVC %s in namespace %s: %v", pvcName, vm.Namespace, err)
 			continue
