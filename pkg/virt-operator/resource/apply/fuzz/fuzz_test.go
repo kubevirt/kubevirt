@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -46,6 +47,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	promclientfake "kubevirt.io/client-go/prometheusoperator/fake"
+	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -68,7 +70,10 @@ import (
 	fuzz "github.com/google/gofuzz"
 )
 
+type fuzzOption int
+
 const (
+	withSyntaxErrors fuzzOption = 1
 	Namespace = "ns"
 )
 
@@ -317,29 +322,36 @@ func createRandomizedObject(fdp *fuzz.Fuzzer, resourceType string) runtime.Objec
 	}
 }
 
-func createManifests(fdp *fuzz.Fuzzer) ([]byte, error) {
+func createManifests(t *testing.T, fdp *fuzz.Fuzzer) ([]byte, error) {
+	t.Helper()
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
+	var randUint8 uint8
+	fdp.Fuzz(&randUint8)
+	var numberOfResources int
+	numberOfResources = int(randUint8)%10
+	if numberOfResources <= 0 {
+		numberOfResources = 3
+	}
+	// count the created resources to
+	// ensure we create at least one
 	createdResource := 0
-	for range 10 {
-		var add bool
-		fdp.Fuzz(&add)
-		if !add {
-			continue
-		}
+	for range numberOfResources {
 		var resourceType uint8
 		fdp.Fuzz(&resourceType)
 		resourceTypeStr := resources[int(resourceType)%len(resources)]
 		obj := createRandomizedObject(fdp, resourceTypeStr)
 		err := marshalutil.MarshallObject(obj, writer)
-		if err == nil {
-			createdResource += 1
+		if err != nil {
+			t.Errorf("could not marshal: %v", err)
 		}
-	}
-	if createdResource < 3 {
-		return b.Bytes(), fmt.Errorf("Too few resources for efficient fuzzing")
+		createdResource += 1
 	}
 	writer.Flush()
+
+	if createdResource == 0 {
+		t.Errorf("created 0 resources")
+	}
 
 	return b.Bytes(), nil
 }
@@ -366,7 +378,7 @@ func loadTargetStrategyForFuzzing(resources []byte, config *util.KubeVirtDeploym
 
 	err := stores.InstallStrategyConfigMapCache.Add(configMap)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not add to cache: %v", err)
 	}
 	targetStrategy, err := installstrategy.LoadInstallStrategyFromCache(stores, config)
 	return targetStrategy, err
@@ -374,8 +386,8 @@ func loadTargetStrategyForFuzzing(resources []byte, config *util.KubeVirtDeploym
 
 func FuzzReconciler(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte, callType uint8) {
-		fdp := fuzz.NewFromGoFuzz(data)
-		manifests, err := createManifests(fdp)
+		fdp := fuzz.NewFromGoFuzz(data).Funcs(fuzzFuncs()...)
+		manifests, err := createManifests(t, fdp)
 		if err != nil {
 			return
 		}
@@ -539,7 +551,11 @@ func FuzzReconciler(f *testing.F) {
 		clientset.EXPECT().RbacV1().Return(rbacClient.RbacV1()).AnyTimes()
 		clientset.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
 
-		clientset.EXPECT().SecClient().Return(fake.NewSimpleClientset()).AnyTimes()
+		secClient := &secv1fake.FakeSecurityV1{
+			Fake: &fake.NewSimpleClientset().Fake,
+		}
+
+		clientset.EXPECT().SecClient().Return(secClient).AnyTimes()
 		aggregatorclient := install.NewMockAPIServiceInterface(ctrl)
 		aggregatorclient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "apiservices"}, "whatever"))
 		aggregatorclient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(ctx context.Context, obj runtime.Object, opts metav1.CreateOptions) {})
@@ -573,4 +589,109 @@ func getConfig(registry, version string) *util.KubeVirtDeploymentConfig {
 			ImageTag:      version,
 		},
 	})
+}
+
+func fuzzFuncs(options ...fuzzOption) []interface{} {
+	addSyntaxErrors := false
+	for _, opt := range options {
+		if opt == withSyntaxErrors {
+			addSyntaxErrors = true
+		}
+	}
+
+	enumFuzzers := []interface{}{
+		func(e *metav1.FieldsV1, c fuzz.Continue) {},
+		func(objectmeta *metav1.ObjectMeta, c fuzz.Continue) {
+			c.FuzzNoCustom(objectmeta)
+			objectmeta.DeletionGracePeriodSeconds = nil
+			objectmeta.Generation = 0
+			objectmeta.ManagedFields = nil
+		},
+		func(obj *corev1.URIScheme, c fuzz.Continue) {
+			pickType(addSyntaxErrors, obj, []corev1.URIScheme{corev1.URISchemeHTTP, corev1.URISchemeHTTPS}, c)
+		},
+		func(obj *corev1.TaintEffect, c fuzz.Continue) {
+			pickType(addSyntaxErrors, obj, []corev1.TaintEffect{corev1.TaintEffectNoExecute, corev1.TaintEffectNoSchedule, corev1.TaintEffectPreferNoSchedule}, c)
+		},
+		func(obj *corev1.NodeInclusionPolicy, c fuzz.Continue) {
+			pickType(addSyntaxErrors, obj, []corev1.NodeInclusionPolicy{corev1.NodeInclusionPolicyHonor, corev1.NodeInclusionPolicyIgnore}, c)
+		},
+		func(obj *corev1.UnsatisfiableConstraintAction, c fuzz.Continue) {
+			pickType(addSyntaxErrors, obj, []corev1.UnsatisfiableConstraintAction{corev1.DoNotSchedule, corev1.ScheduleAnyway}, c)
+		},
+		func(obj *corev1.PullPolicy, c fuzz.Continue) {
+			pickType(addSyntaxErrors, obj, []corev1.PullPolicy{corev1.PullAlways, corev1.PullNever, corev1.PullIfNotPresent}, c)
+		},
+		func(obj *corev1.NodeSelectorOperator, c fuzz.Continue) {
+			pickType(addSyntaxErrors, obj, []corev1.NodeSelectorOperator{corev1.NodeSelectorOpDoesNotExist, corev1.NodeSelectorOpExists, corev1.NodeSelectorOpGt, corev1.NodeSelectorOpIn, corev1.NodeSelectorOpLt, corev1.NodeSelectorOpNotIn}, c)
+		},
+		func(obj *corev1.TolerationOperator, c fuzz.Continue) {
+			pickType(addSyntaxErrors, obj, []corev1.TolerationOperator{corev1.TolerationOpExists, corev1.TolerationOpEqual}, c)
+		},
+		func(obj *corev1.PodQOSClass, c fuzz.Continue) {
+			pickType(addSyntaxErrors, obj, []corev1.PodQOSClass{corev1.PodQOSBestEffort, corev1.PodQOSGuaranteed, corev1.PodQOSBurstable}, c)
+		},
+		func(obj *corev1.PersistentVolumeMode, c fuzz.Continue) {
+			pickType(addSyntaxErrors, obj, []corev1.PersistentVolumeMode{corev1.PersistentVolumeBlock, corev1.PersistentVolumeFilesystem}, c)
+		},
+		func(obj *corev1.DNSPolicy, c fuzz.Continue) {
+			pickType(addSyntaxErrors, obj, []corev1.DNSPolicy{corev1.DNSClusterFirst, corev1.DNSClusterFirstWithHostNet, corev1.DNSDefault, corev1.DNSNone}, c)
+		},
+		func(obj *corev1.TypedObjectReference, c fuzz.Continue) {
+			c.FuzzNoCustom(obj)
+			str := c.RandString()
+			obj.APIGroup = &str
+		},
+		func(obj *corev1.TypedLocalObjectReference, c fuzz.Continue) {
+			c.FuzzNoCustom(obj)
+			str := c.RandString()
+			obj.APIGroup = &str
+		},
+	}
+
+	strategyFuncs := []interface{}{
+		func(obj *install.Strategy, c fuzz.Continue) {
+
+		},
+	}
+	_ = strategyFuncs
+
+	typeFuzzers := []interface{}{}
+	if !addSyntaxErrors {
+		typeFuzzers = []interface{}{
+			func(obj *int, c fuzz.Continue) {
+				*obj = c.Intn(100000)
+			},
+			func(obj *uint, c fuzz.Continue) {
+				*obj = uint(c.Intn(100000))
+			},
+			func(obj *int32, c fuzz.Continue) {
+				*obj = int32(c.Intn(100000))
+			},
+			func(obj *int64, c fuzz.Continue) {
+				*obj = int64(c.Intn(100000))
+			},
+			func(obj *uint64, c fuzz.Continue) {
+				*obj = uint64(c.Intn(100000))
+			},
+			func(obj *uint32, c fuzz.Continue) {
+				*obj = uint32(c.Intn(100000))
+			},
+		}
+	}
+
+	return append(enumFuzzers, typeFuzzers...)
+}
+
+func pickType(withSyntaxError bool, target interface{}, arr interface{}, c fuzz.Continue) {
+	arrPtr := reflect.ValueOf(arr)
+	targetPtr := reflect.ValueOf(target)
+
+	if withSyntaxError {
+		arrPtr = reflect.Append(arrPtr, reflect.ValueOf("fake").Convert(targetPtr.Elem().Type()))
+	}
+
+	idx := c.Int() % arrPtr.Len()
+
+	targetPtr.Elem().Set(arrPtr.Index(idx))
 }
