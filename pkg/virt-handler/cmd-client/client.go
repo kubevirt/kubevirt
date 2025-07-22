@@ -110,7 +110,7 @@ type LauncherClient interface {
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 	SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	GetDomainDirtyRateStats() (dirtyRateMbps int64, err error)
-	GetScreenshot(*v1.VirtualMachineInstance) (*v1.ScreenshotResponse, error)
+	GetScreenshot(*v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 }
 
 type VirtLauncherClient struct {
@@ -678,7 +678,7 @@ func (c *VirtLauncherClient) GuestPing(domainName string, timeoutSeconds int32) 
 	return err
 }
 
-func (c *VirtLauncherClient) GetScreenshot(vmi *v1.VirtualMachineInstance) (*v1.ScreenshotResponse, error) {
+func (c *VirtLauncherClient) GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error) {
 	vmiJson, err := json.Marshal(vmi)
 	if err != nil {
 		return nil, err
@@ -693,16 +693,7 @@ func (c *VirtLauncherClient) GetScreenshot(vmi *v1.VirtualMachineInstance) (*v1.
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 
-	resp, err := c.v1client.GetScreenshot(ctx, request)
-	if err = handleError(err, "GetScreenshot", resp.GetResponse()); err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to get screenshot")
-		return nil, err
-	}
-
-	return &v1.ScreenshotResponse{
-		Mime: resp.GetMime(),
-		Data: resp.GetData(),
-	}, nil
+	return c.v1client.GetScreenshot(ctx, request)
 }
 
 func (c *VirtLauncherClient) GetSEVInfo() (*v1.SEVPlatformInfo, error) {

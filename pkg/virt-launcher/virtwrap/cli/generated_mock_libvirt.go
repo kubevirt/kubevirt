@@ -263,6 +263,21 @@ func (mr *MockConnectionMockRecorder) LookupDomainByName(name any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupDomainByName", reflect.TypeOf((*MockConnection)(nil).LookupDomainByName), name)
 }
 
+// NewStream mocks base method.
+func (m *MockConnection) NewStream(flags libvirt.StreamFlags) (Stream, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewStream", flags)
+	ret0, _ := ret[0].(Stream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewStream indicates an expected call of NewStream.
+func (mr *MockConnectionMockRecorder) NewStream(flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStream", reflect.TypeOf((*MockConnection)(nil).NewStream), flags)
+}
+
 // QemuAgentCommand mocks base method.
 func (m *MockConnection) QemuAgentCommand(command, domainName string) (string, error) {
 	m.ctrl.T.Helper()
@@ -827,6 +842,21 @@ func (m *MockVirDomain) Resume() error {
 func (mr *MockVirDomainMockRecorder) Resume() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resume", reflect.TypeOf((*MockVirDomain)(nil).Resume))
+}
+
+// Screenshot mocks base method.
+func (m *MockVirDomain) Screenshot(stream *libvirt.Stream, screen, flags uint32) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Screenshot", stream, screen, flags)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Screenshot indicates an expected call of Screenshot.
+func (mr *MockVirDomainMockRecorder) Screenshot(stream, screen, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Screenshot", reflect.TypeOf((*MockVirDomain)(nil).Screenshot), stream, screen, flags)
 }
 
 // SetLaunchSecurityState mocks base method.

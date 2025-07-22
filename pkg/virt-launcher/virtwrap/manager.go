@@ -160,7 +160,7 @@ type DomainManager interface {
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 	UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error
 	GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error)
-	GetScreenshot(vmi *v1.VirtualMachineInstance) (*v1.ScreenshotResponse, error)
+	GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 }
 
 type LibvirtDomainManager struct {
@@ -2448,7 +2448,7 @@ func (l *LibvirtDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileS
 	return fsList
 }
 
-func (l *LibvirtDomainManager) GetScreenshot(vmi *v1.VirtualMachineInstance) (*v1.ScreenshotResponse, error) {
+func (l *LibvirtDomainManager) GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error) {
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
@@ -2478,7 +2478,7 @@ func (l *LibvirtDomainManager) GetScreenshot(vmi *v1.VirtualMachineInstance) (*v
 		return nil, err
 	}
 	log.Log.Object(vmi).V(4).Infof("Screenshot successful: %d bytes, mime: %s", len(data), mime)
-	return &v1.ScreenshotResponse{
+	return &cmdv1.ScreenshotResponse{
 		Mime: mime,
 		Data: data,
 	}, nil

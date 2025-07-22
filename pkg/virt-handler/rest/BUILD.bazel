@@ -6,6 +6,7 @@ go_library(
         "common.go",
         "console.go",
         "lifecycle.go",
+        "screenshot.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/rest",
     visibility = ["//visibility:public"],
