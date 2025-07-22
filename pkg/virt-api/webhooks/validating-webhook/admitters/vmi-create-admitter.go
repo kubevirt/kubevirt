@@ -2274,27 +2274,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		// name can become a container name which will fail to schedule if invalid
 		causes = append(causes, validateDiskNameAsContainerName(field, idx, disk)...)
 		causes = append(causes, validateBlockSize(field, idx, disk)...)
-		causes = append(causes, validateRotationRate(field, idx, disk)...)
 	}
-	return causes
-}
-
-func validateRotationRate(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if disk.RotationRate == nil {
-		return causes
-	}
-
-	// Allows for SSD emulation (rotationRate=1), or leave unset (default)
-	rotationRate := *disk.RotationRate
-	if rotationRate != 1 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("RotationRate must be 1 for SSD emulation or leave unset; got %d", rotationRate),
-			Field:   field.Index(idx).Child("rotationRate").String(),
-		})
-	}
-
 	return causes
 }
 

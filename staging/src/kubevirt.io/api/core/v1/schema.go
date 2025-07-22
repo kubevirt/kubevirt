@@ -725,15 +725,10 @@ type Disk struct {
 	// If specified, it can change the default error policy (stop) for the disk
 	// +optional
 	ErrorPolicy *DiskErrorPolicy `json:"errorPolicy,omitempty"`
-	// RotationRate specifies the rotation rate for the disk device.
-	// Supported for SCSI and SATA bus types only.
-	// A value of 1 indicates SSD emulation (no rotation).
-	// Only 1 (SSD emulation) is currently supported. Other values are reserved for future use.
-	// The rotation rate affects how the guest OS perceives the storage device characteristics.
+	// SolidState, if true, emulates an SSD (non-rotational disk)
+	// If either false or unset, no emulation is performed and the disk will report as an HDD (rotational disk)
 	// +optional
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=1
-	RotationRate *uint `json:"rotationRate,omitempty"`
+	SolidState *bool `json:"solidState,omitempty"`
 }
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.
@@ -1023,13 +1018,13 @@ type Clock struct {
 type Timer struct {
 	// HPET (High Precision Event Timer) - multiple timers with periodic interrupts.
 	HPET *HPETTimer `json:"hpet,omitempty"`
-	// KVM 	(KVM clock) - lets guests read the host’s wall clock time (paravirtualized). For linux guests.
+	// KVM 	(KVM clock) - lets guests read the host's wall clock time (paravirtualized). For linux guests.
 	KVM *KVMTimer `json:"kvm,omitempty"`
 	// PIT (Programmable Interval Timer) - a timer with periodic interrupts.
 	PIT *PITTimer `json:"pit,omitempty"`
 	// RTC (Real Time Clock) - a continuously running timer with periodic interrupts.
 	RTC *RTCTimer `json:"rtc,omitempty"`
-	// Hyperv (Hypervclock) - lets guests read the host’s wall clock time (paravirtualized). For windows guests.
+	// Hyperv (Hypervclock) - lets guests read the host's wall clock time (paravirtualized). For windows guests.
 	Hyperv *HypervTimer `json:"hyperv,omitempty"`
 }
 

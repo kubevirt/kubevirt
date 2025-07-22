@@ -1,5 +1,5 @@
-# This example demonstrates how to configure SSD emulation (rotationRate=1).
-# The rotationRate field is supported for SCSI and SATA bus types only.
+# This example demonstrates how to configure SSD emulation (solidState: true).
+# The `solidState` field is supported for SCSI and SATA bus types only.
 ---
 apiVersion: kubevirt.io/v1
 kind: VirtualMachineInstance
@@ -13,7 +13,7 @@ spec:
       disks:
       - disk:
           bus: scsi
-          rotationRate: 1  # Emmulates an SSD-based device (no rotation)
+          solidState: true  # Emulates an SSD-based device (a non-rotational disk)
         name: ssd-disk
     memory:
       guest: 1Gi

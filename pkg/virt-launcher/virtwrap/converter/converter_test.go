@@ -3837,54 +3837,6 @@ func diskToDiskXML(arch string, disk *v1.Disk) string {
 	return string(data)
 }
 
-var _ = Describe("RotationRate", func() {
-	It("should convert disk with rotation rate for SSD emulation", func() {
-		disk := &v1.Disk{
-			Name: "ssd-disk",
-			DiskDevice: v1.DiskDevice{
-				Disk: &v1.DiskTarget{
-					Bus: v1.DiskBusVirtio,
-				},
-			},
-			RotationRate: pointer.P(uint(1)),
-		}
-
-		apiDisk := &api.Disk{}
-		context := &ConverterContext{
-			Architecture:          archconverter.NewConverter("amd64"),
-			UseVirtioTransitional: false,
-		}
-		devicePerBus := make(map[string]deviceNamer)
-
-		err := Convert_v1_Disk_To_api_Disk(context, disk, apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(apiDisk.RotationRate).ToNot(BeNil())
-		Expect(*apiDisk.RotationRate).To(Equal(uint(1)))
-	})
-
-	It("should not set rotation rate when not specified", func() {
-		disk := &v1.Disk{
-			Name: "normal-disk",
-			DiskDevice: v1.DiskDevice{
-				Disk: &v1.DiskTarget{
-					Bus: v1.DiskBusVirtio,
-				},
-			},
-		}
-
-		apiDisk := &api.Disk{}
-		context := &ConverterContext{
-			Architecture:          archconverter.NewConverter("amd64"),
-			UseVirtioTransitional: false,
-		}
-		devicePerBus := make(map[string]deviceNamer)
-
-		err := Convert_v1_Disk_To_api_Disk(context, disk, apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(apiDisk.RotationRate).To(BeNil())
-	})
-})
-
 func vmiToDomainXML(vmi *v1.VirtualMachineInstance, c *ConverterContext) string {
 	domain := vmiToDomain(vmi, c)
 	data, err := xml.MarshalIndent(domain.Spec, "", "  ")
@@ -4002,5 +3954,76 @@ var _ = Describe("Defaults", func() {
 
 		defaults.SetS390xWatchdog(&vmi.Spec)
 		Expect(vmi.Spec.Domain.Devices.Watchdog).To(BeNil())
+	})
+})
+
+var _ = Describe("SolidState", func() {
+	It("should convert disk with solidState true for SSD emulation", func() {
+		disk := &v1.Disk{
+			Name: "ssd-disk",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusVirtio,
+				},
+			},
+			SolidState: pointer.P(true),
+		}
+
+		apiDisk := &api.Disk{}
+		context := &ConverterContext{
+			Architecture:          archconverter.NewConverter("amd64"),
+			UseVirtioTransitional: false,
+		}
+		devicePerBus := make(map[string]deviceNamer)
+
+		err := Convert_v1_Disk_To_api_Disk(context, disk, apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(apiDisk.RotationRate).ToNot(BeNil())
+		Expect(*apiDisk.RotationRate).To(Equal(uint(1)))
+	})
+
+	It("should not set rotation rate when solidState is false", func() {
+		disk := &v1.Disk{
+			Name: "normal-disk",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusVirtio,
+				},
+			},
+			SolidState: pointer.P(false),
+		}
+
+		apiDisk := &api.Disk{}
+		context := &ConverterContext{
+			Architecture:          archconverter.NewConverter("amd64"),
+			UseVirtioTransitional: false,
+		}
+		devicePerBus := make(map[string]deviceNamer)
+
+		err := Convert_v1_Disk_To_api_Disk(context, disk, apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(apiDisk.RotationRate).To(BeNil())
+	})
+
+	It("should not set rotation rate when solidState is not specified", func() {
+		disk := &v1.Disk{
+			Name: "unset-disk",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusVirtio,
+				},
+			},
+		}
+
+		apiDisk := &api.Disk{}
+		context := &ConverterContext{
+			Architecture:          archconverter.NewConverter("amd64"),
+			UseVirtioTransitional: false,
+		}
+		devicePerBus := make(map[string]deviceNamer)
+
+		err := Convert_v1_Disk_To_api_Disk(context, disk, apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(apiDisk.RotationRate).To(BeNil())
 	})
 })

@@ -1,20 +1,19 @@
-# Disk Rotation Rate Configuration
+# Disk Solid State (SSD) Emulation
 
-KubeVirt supports SSD emulation for virtual disks.
+KubeVirt supports SSD emulation for virtual disks using the `solidState` field.
 
 ## Overview
 
-The `rotationRate` field allows you to specify the rotation rate for disk devices, which affects how the guest operating system perceives the storage device. This feature is supported for **SCSI and SATA** bus types only.
+The `solidState` field allows you to specify whether a disk should be emulated as a SSD (non-rotational) or as a spinning disk (HDD). This feature is supported for **SCSI and SATA** bus types only.
 
-This is particularly useful for:
-
-- **SSD Emulation**: Setting `rotationRate: 1` emulates a solid-state drive with no rotation
+- **SSD Emulation**: Setting `solidState: true` emulates a solid-state drive
+- **HDD Emulation**: Setting `solidState: false` or leaving unset emulates a spinning disk
 
 ## Usage
 
 ### SSD Emulation
 
-To configure a disk as an SSD (no rotation):
+To configure a disk for SSD emulation (a non-rotational disk):
 
 ```yaml
 apiVersion: kubevirt.io/v1
@@ -27,7 +26,7 @@ spec:
       disks:
       - disk:
           bus: scsi  # Supported bus types include: scsi, sata
-          rotationRate: 1  # 1 is used for SSD emulation, empty for no emulation
+          solidState: true  # Enables SSD emulation for the target virtual disk
         name: ssd-disk
     memory:
       guest: 1Gi
@@ -39,27 +38,24 @@ spec:
 
 ## Supported Values
 
-- **1**: SSD emulation (no rotation)
+- **true**: SSD emulation (non-rotational)
+- **false** or unset: spinning disk (HDD emulation)
 
 ## Bus Compatibility
 
-The `rotationRate` field is compatible with the following disk bus types:
+The `solidState` field is compatible with the following disk bus types:
 - `scsi`
 - `sata`
 
-**Note**: USB and virtio bus types do not support rotation rate configuration.
+**Note**: USB and virtio bus types do not support SSD emulation.
 
 ## Technical Details
 
-The rotation rate is passed to QEMU as the `rotation_rate` parameter for disk devices. This affects:
-
-1. **Guest OS Detection**: The guest operating system will detect the disk as having the specified rotation characteristics
-2. **Performance Expectations**: Some guest OS features may adjust behavior based on perceived disk type
-3. **Monitoring**: Disk monitoring tools in the guest will report the configured rotation rate
+If `solidState: true`, the rotation rate is set to 1 in the underlying libvirt/QEMU configuration. Otherwise, no rotation rate is set (spinning disk).
 
 ## Example Output
 
-When using `rotationRate: 1` (SSD emulation), the QEMU command line will include:
+When using `solidState: true` (SSD emulation), the QEMU command line will include (`rotation_rate=1`):
 
 ```
 -device 'scsi-hd,bus=virtioscsi0.0,channel=0,scsi-id=0,lun=0,drive=drive-scsi0,id=scsi0,rotation_rate=1,bootindex=100'
@@ -67,7 +63,6 @@ When using `rotationRate: 1` (SSD emulation), the QEMU command line will include
 
 ## Notes
 
-- The `rotationRate` field is optional. If not specified, no rotation rate is set
+- The `solidState` field is optional. If not specified, the disk will continue to report as a rotational device (HDD)
 - This feature requires QEMU support for the `rotation_rate` parameter on SCSI and SATA devices
-- The rotation rate is purely for emulation and does not affect the actual performance of the underlying storage
-- Only `rotationRate: 1` is supported at this time.
+- The SSD emulation feature is purely OS-level reporting, and will not impact the performance of the underlying devices

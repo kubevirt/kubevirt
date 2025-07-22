@@ -151,9 +151,8 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
-		if diskDevice.RotationRate != nil {
-			rotationRate := uint(*diskDevice.RotationRate)
-			disk.RotationRate = &rotationRate
+		if diskDevice.SolidState != nil && *diskDevice.SolidState {
+			disk.RotationRate = pointer.P(uint(1))
 		}
 		if diskDevice.Shareable != nil {
 			if *diskDevice.Shareable {
