@@ -151,8 +151,11 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
+		// Only set rotation rate for supported bus types (SCSI and SATA)
 		if diskDevice.SolidState != nil && *diskDevice.SolidState {
-			disk.RotationRate = pointer.P(uint(1))
+			if diskDevice.Disk.Bus == v1.DiskBusSCSI || diskDevice.Disk.Bus == v1.DiskBusSATA {
+				disk.RotationRate = pointer.P(uint(1))
+			}
 		}
 		if diskDevice.Shareable != nil {
 			if *diskDevice.Shareable {

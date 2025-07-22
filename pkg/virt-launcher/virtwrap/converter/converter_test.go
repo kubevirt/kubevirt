@@ -3963,7 +3963,7 @@ var _ = Describe("SolidState", func() {
 			Name: "ssd-disk",
 			DiskDevice: v1.DiskDevice{
 				Disk: &v1.DiskTarget{
-					Bus: v1.DiskBusVirtio,
+					Bus: v1.DiskBusSCSI,
 				},
 			},
 			SolidState: pointer.P(true),
@@ -3987,7 +3987,7 @@ var _ = Describe("SolidState", func() {
 			Name: "normal-disk",
 			DiskDevice: v1.DiskDevice{
 				Disk: &v1.DiskTarget{
-					Bus: v1.DiskBusVirtio,
+					Bus: v1.DiskBusSCSI,
 				},
 			},
 			SolidState: pointer.P(false),
@@ -4010,7 +4010,7 @@ var _ = Describe("SolidState", func() {
 			Name: "unset-disk",
 			DiskDevice: v1.DiskDevice{
 				Disk: &v1.DiskTarget{
-					Bus: v1.DiskBusVirtio,
+					Bus: v1.DiskBusSCSI,
 				},
 			},
 		}
@@ -4024,6 +4024,30 @@ var _ = Describe("SolidState", func() {
 
 		err := Convert_v1_Disk_To_api_Disk(context, disk, apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
 		Expect(err).ToNot(HaveOccurred())
+		Expect(apiDisk.RotationRate).To(BeNil())
+	})
+
+	It("should not set rotation rate when solidState is true but bus is unsupported (virtio)", func() {
+		disk := &v1.Disk{
+			Name: "virtio-disk",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusVirtio,
+				},
+			},
+			SolidState: pointer.P(true),
+		}
+
+		apiDisk := &api.Disk{}
+		context := &ConverterContext{
+			Architecture:          archconverter.NewConverter("amd64"),
+			UseVirtioTransitional: false,
+		}
+		devicePerBus := make(map[string]deviceNamer)
+
+		err := Convert_v1_Disk_To_api_Disk(context, disk, apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))
+		Expect(err).ToNot(HaveOccurred())
+		// virtio bus doesn't support rotation_rate, so it should be nil
 		Expect(apiDisk.RotationRate).To(BeNil())
 	})
 })
