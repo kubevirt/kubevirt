@@ -41,7 +41,6 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
@@ -258,9 +257,6 @@ var _ = Describe("Restore controller", func() {
 
 		var ctrl *gomock.Controller
 
-		var crInformer cache.SharedIndexInformer
-		var crSource *framework.FakeControllerSource
-
 		var stop chan struct{}
 		var controller *VMRestoreController
 		var recorder *record.FakeRecorder
@@ -273,10 +269,8 @@ var _ = Describe("Restore controller", func() {
 		var virtClient *kubecli.MockKubevirtClient
 
 		syncCaches := func(stop chan struct{}) {
-			go crInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
-				crInformer.HasSynced,
 			)).To(BeTrue())
 		}
 
@@ -293,7 +287,7 @@ var _ = Describe("Restore controller", func() {
 			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			pvcInformer, _ := testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
-			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, virtcontroller.GetControllerRevisionInformerIndexers())
+			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, virtcontroller.GetControllerRevisionInformerIndexers())
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -2086,17 +2080,17 @@ var _ = Describe("Restore controller", func() {
 				var err error
 				instancetypeOriginalCR, err = revision.CreateControllerRevision(originalVM, instancetypeObj)
 				Expect(err).ToNot(HaveOccurred())
-				crSource.Add(instancetypeOriginalCR)
+				Expect(controller.CRInformer.GetStore().Add(instancetypeOriginalCR)).To(Succeed())
 
 				instancetypeSnapshotCR = createInstancetypeVirtualMachineSnapshotCR(originalVM, vmSnapshot, instancetypeObj)
-				crSource.Add(instancetypeSnapshotCR)
+				Expect(controller.CRInformer.GetStore().Add(instancetypeSnapshotCR)).To(Succeed())
 
 				preferenceObj = createPreference()
 				preferenceOriginalCR, err = revision.CreateControllerRevision(originalVM, preferenceObj)
 				Expect(err).ToNot(HaveOccurred())
-				crSource.Add(preferenceOriginalCR)
+				Expect(controller.CRInformer.GetStore().Add(preferenceOriginalCR)).To(Succeed())
 				preferenceSnapshotCR = createInstancetypeVirtualMachineSnapshotCR(originalVM, vmSnapshot, preferenceObj)
-				crSource.Add(preferenceSnapshotCR)
+				Expect(controller.CRInformer.GetStore().Add(preferenceSnapshotCR)).To(Succeed())
 			})
 
 			DescribeTable("with an existing VirtualMachine",
@@ -2179,10 +2173,9 @@ var _ = Describe("Restore controller", func() {
 
 					// We need to be able to find the created CR from the controller so add it to the source
 					expectedCreatedCR.Namespace = testNamespace
-					crSource.Add(expectedCreatedCR)
+					Expect(controller.CRInformer.GetStore().Add(expectedCreatedCR)).To(Succeed())
 
 					expectedUpdatedCR := expectedCreatedCR.DeepCopy()
-					expectedUpdatedCR.ResourceVersion = "5"
 					newVM.UID = newVMUID
 					expectedUpdatedCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(newVM, kubevirtv1.VirtualMachineGroupVersionKind)}
 					crUpdates := expectControllerRevisionUpdate(k8sClient, expectedUpdatedCR)
@@ -2261,10 +2254,9 @@ var _ = Describe("Restore controller", func() {
 
 					// We need to be able to find the created CR from the controller so add it to the source
 					expectedCreatedCR.Namespace = testNamespace
-					crSource.Add(expectedCreatedCR)
+					Expect(controller.CRInformer.GetStore().Add(expectedCreatedCR)).To(Succeed())
 
 					expectedUpdatedCR := expectedCreatedCR.DeepCopy()
-					expectedUpdatedCR.ResourceVersion = "5"
 					expectedUpdatedCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(newVM, kubevirtv1.VirtualMachineGroupVersionKind)}
 					crUpdates := expectControllerRevisionUpdate(k8sClient, expectedUpdatedCR)
 
@@ -2336,7 +2328,7 @@ var _ = Describe("Restore controller", func() {
 				instancetypeObj.Spec.CPU.Guest = uint32(5)
 				instancetypeOriginalCR, err := revision.CreateControllerRevision(originalVM, instancetypeObj)
 				Expect(err).ToNot(HaveOccurred())
-				crSource.Modify(instancetypeOriginalCR)
+				Expect(controller.CRInformer.GetStore().Update(instancetypeOriginalCR)).To(Succeed())
 
 				originalVM.Spec.Instancetype = &kubevirtv1.InstancetypeMatcher{
 					Name:         instancetypeObj.Name,

@@ -2889,11 +2889,11 @@ func expectControllerRevisionCreate(client *k8sfake.Clientset, expectedCR *appsv
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
 
-		// We don't expect the namespace or resourceversion to be set during creation
-		expectedCR.Namespace = ""
+		// We don't expect the resourceversion to be set during creation
 		expectedCR.ResourceVersion = ""
 
 		createObj := create.GetObject().(*appsv1.ControllerRevision)
+		createObj.Namespace = action.GetNamespace()
 		expectControllerRevisionToEqualExpected(createObj, expectedCR)
 
 		calls++
@@ -2909,11 +2909,11 @@ func expectCreateControllerRevisionAlreadyExists(client *k8sfake.Clientset, expe
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
 
-		// We don't expect the namespace or resourceversion to be set during creation
-		expectedCR.Namespace = ""
+		// We don't expect the resourceversion to be set during creation
 		expectedCR.ResourceVersion = ""
 
 		createObj := create.GetObject().(*appsv1.ControllerRevision)
+		createObj.Namespace = action.GetNamespace()
 		expectControllerRevisionToEqualExpected(createObj, expectedCR)
 
 		calls++
@@ -2928,8 +2928,8 @@ func expectControllerRevisionUpdate(client *k8sfake.Clientset, expectedCR *appsv
 	client.Fake.PrependReactor("update", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		update, ok := action.(testing.UpdateAction)
 		Expect(ok).To(BeTrue())
-
 		updateObj := update.GetObject().(*appsv1.ControllerRevision)
+		updateObj.Namespace = action.GetNamespace()
 		expectControllerRevisionToEqualExpected(updateObj, expectedCR)
 
 		calls++
