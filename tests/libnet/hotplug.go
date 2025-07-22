@@ -21,7 +21,6 @@ package libnet
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -112,22 +111,17 @@ func indexVMsSecondaryNetworks(vmi *v1.VirtualMachineInstance) map[string]v1.Net
 func cleanMACAddressesFromStatus(status []v1.VirtualMachineInstanceNetworkInterface) []v1.VirtualMachineInstanceNetworkInterface {
 	for i := range status {
 		status[i].MAC = ""
+		status[i].InterfaceName = ""
 	}
 	return status
 }
 
 func interfaceStatusFromInterfaces(queueCount int32, ifaces []v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {
-	const (
-		initialIfacesInVMI = 1
-
-		linkStateUp = "up"
-	)
 	var ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
-	for i, iface := range ifaces {
+	for _, iface := range ifaces {
 		newIfaceStatus := v1.VirtualMachineInstanceNetworkInterface{
-			Name:          iface.Name,
-			InterfaceName: fmt.Sprintf("eth%d", i+initialIfacesInVMI),
+			Name: iface.Name,
 			InfoSource: vmispec.NewInfoSource(
 				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus),
 			QueueCount:       queueCount,
@@ -135,7 +129,7 @@ func interfaceStatusFromInterfaces(queueCount int32, ifaces []v1.Interface) []v1
 		}
 
 		if iface.SRIOV == nil {
-			newIfaceStatus.LinkState = linkStateUp
+			newIfaceStatus.LinkState = normalizeState(iface.State)
 		}
 
 		ifaceStatuses = append(ifaceStatuses, newIfaceStatus)
@@ -144,12 +138,19 @@ func interfaceStatusFromInterfaces(queueCount int32, ifaces []v1.Interface) []v1
 	return ifaceStatuses
 }
 
-func PatchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {
+func normalizeState(state v1.InterfaceState) string {
+	if state == "" {
+		return "up"
+	}
+	return string(state)
+}
+
+func PatchVMWithNewInterfaces(vm *v1.VirtualMachine, newNetworks []v1.Network, newIfaces []v1.Interface) error {
 	patchData, err := patch.New(
 		patch.WithTest("/spec/template/spec/networks", vm.Spec.Template.Spec.Networks),
-		patch.WithReplace("/spec/template/spec/networks", append(vm.Spec.Template.Spec.Networks, newNetwork)),
+		patch.WithReplace("/spec/template/spec/networks", append(vm.Spec.Template.Spec.Networks, newNetworks...)),
 		patch.WithTest("/spec/template/spec/domain/devices/interfaces", vm.Spec.Template.Spec.Domain.Devices.Interfaces),
-		patch.WithReplace("/spec/template/spec/domain/devices/interfaces", append(vm.Spec.Template.Spec.Domain.Devices.Interfaces, newIface)),
+		patch.WithReplace("/spec/template/spec/domain/devices/interfaces", append(vm.Spec.Template.Spec.Domain.Devices.Interfaces, newIfaces...)),
 	).GeneratePayload()
 	if err != nil {
 		return err
