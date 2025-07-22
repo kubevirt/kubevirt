@@ -22,6 +22,7 @@ go_test(
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/openshift/api/route/v1:go_default_library",
         "//vendor/github.com/openshift/api/security/v1:go_default_library",
+        "//vendor/github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake:go_default_library",
         "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
         "//vendor/k8s.io/api/admissionregistration/v1:go_default_library",
