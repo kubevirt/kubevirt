@@ -189,7 +189,7 @@ var (
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
-	cachedObjs := indexers.VM.List()
+	cachedObjs := stores.VM.List()
 	if len(cachedObjs) == 0 {
 		log.Log.V(4).Infof("No VMs detected")
 		return []operatormetrics.CollectorResult{}

@@ -43,7 +43,6 @@ type vmApplyHandler interface {
 }
 
 type Indexers struct {
-	VM                    cache.Indexer
 	VMI                   cache.Indexer
 	PersistentVolumeClaim cache.Indexer
 	VMIMigration          cache.Indexer
@@ -51,6 +50,7 @@ type Indexers struct {
 }
 
 type Stores struct {
+	VM                  cache.Store
 	Instancetype        cache.Store
 	ClusterInstancetype cache.Store
 	Preference          cache.Store
