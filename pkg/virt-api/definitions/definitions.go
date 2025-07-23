@@ -568,6 +568,7 @@ const (
 	NamespaceParamName  = "namespace"
 	NameParamName       = "name"
 	MoveCursorParamName = "moveCursor"
+	ForceParamName      = "force"
 )
 
 func NameParam(ws *restful.WebService) *restful.Parameter {
@@ -580,6 +581,13 @@ func NamespaceParam(ws *restful.WebService) *restful.Parameter {
 
 func MoveCursorParam(ws *restful.WebService) *restful.Parameter {
 	return ws.QueryParameter(MoveCursorParamName, "Move the cursor on the VNC display to wake up the screen").DataType("boolean").DefaultValue("false")
+}
+
+func ForceParam(ws *restful.WebService) *restful.Parameter {
+	return ws.
+		QueryParameter(ForceParamName, "Enforce behavior that otherwise would not be allowed.").
+		DataType("boolean").
+		DefaultValue("false")
 }
 
 func labelSelectorParam(ws *restful.WebService) *restful.Parameter {
