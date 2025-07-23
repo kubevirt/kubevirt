@@ -331,6 +331,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		}
 
 		It("should decentralized migrate a VMI with persistent TPM enabled", decorators.RequiresDecentralizedLiveMigration, func() {
+			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
 			By("Creating a VMI with TPM enabled")
 			sourceVMI := libvmifact.NewFedora(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
@@ -338,8 +339,8 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithTPM(true),
 			)
-			sourceVM = createAndStartVMFromVMISpec(sourceVMI)
-			targetVMI = sourceVMI.DeepCopy()
+			createAndStartVMFromVMISpec(sourceVMI)
+			targetVMI := sourceVMI.DeepCopy()
 			targetVMI.Namespace = testsuite.NamespaceTestAlternative
 
 			By("Logging in")
@@ -348,7 +349,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			addDataToTPM(sourceVMI)
 
 			By("Migrating the VMI")
-			targetVM = createReceiverVMFromVMISpec(targetVMI)
+			targetVM := createReceiverVMFromVMISpec(targetVMI)
 			sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
 			targetMigration := libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
 			sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
@@ -356,16 +357,14 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 			By("Ensuring the TPM is still functional and its state carried over")
 			checkTPM(targetVMI)
-			// TODO: Enable this part of the test when we can generate the proper UID from the
-			// new domain name so that the TPM is not recreated.
-			// By("Stopping the VM")
-			// libvmops.StopVirtualMachine(targetVM)
-			// By("Starting the VM")
-			// targetVM = libvmops.StartVirtualMachine(targetVM)
-			// By("Logging in")
-			// Expect(console.LoginToFedora(targetVMI)).To(Succeed())
-			// By("Ensuring the TPM contains the same data after stop and start")
-			// checkTPM(targetVMI)
+			By("Stopping the VM")
+			libvmops.StopVirtualMachine(targetVM)
+			By("Starting the VM")
+			targetVM = libvmops.StartVirtualMachine(targetVM)
+			By("Logging in")
+			Expect(console.LoginToFedora(targetVMI)).To(Succeed())
+			By("Ensuring the TPM contains the same data after stop and start")
+			checkTPM(targetVMI)
 		})
 	})
 
