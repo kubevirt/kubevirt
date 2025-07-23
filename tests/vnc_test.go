@@ -86,7 +86,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 
 				go func() {
 					defer GinkgoRecover()
-					vnc, err := kubevirt.Client().VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
+					vnc, err := kubevirt.Client().VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name, false)
 					if err != nil {
 						k8ResChan <- err
 						return

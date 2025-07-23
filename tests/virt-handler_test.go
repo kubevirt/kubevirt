@@ -84,7 +84,7 @@ var _ = Describe("[sig-compute]virt-handler", decorators.SigCompute, func() {
 					expectNoErr(err)
 				},
 				func() {
-					_, err := vmiInterface.VNC(vmi.Name)
+					_, err := vmiInterface.VNC(vmi.Name, false)
 					expectNoErr(err)
 				},
 				func() {

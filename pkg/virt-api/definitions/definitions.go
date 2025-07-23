@@ -565,9 +565,10 @@ func addPatchParams(ws *restful.WebService, builder *restful.RouteBuilder) *rest
 }
 
 const (
-	NamespaceParamName  = "namespace"
-	NameParamName       = "name"
-	MoveCursorParamName = "moveCursor"
+	NamespaceParamName       = "namespace"
+	NameParamName            = "name"
+	MoveCursorParamName      = "moveCursor"
+	PreserveSessionParamName = "preserveSession"
 )
 
 func NameParam(ws *restful.WebService) *restful.Parameter {
@@ -580,6 +581,13 @@ func NamespaceParam(ws *restful.WebService) *restful.Parameter {
 
 func MoveCursorParam(ws *restful.WebService) *restful.Parameter {
 	return ws.QueryParameter(MoveCursorParamName, "Move the cursor on the VNC display to wake up the screen").DataType("boolean").DefaultValue("false")
+}
+
+func PreserveSessionParam(ws *restful.WebService) *restful.Parameter {
+	return ws.
+		QueryParameter(PreserveSessionParamName, "Connect only if ongoing session is not disturbed.").
+		DataType("boolean").
+		DefaultValue("false")
 }
 
 func labelSelectorParam(ws *restful.WebService) *restful.Parameter {
