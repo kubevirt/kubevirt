@@ -294,10 +294,8 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 			}
 		}
 	}
-	serverTLSConfig := m.serverTLSConfig
 	clientTLSConfig := m.clientTLSConfig
 	if m.config.GetMigrationConfiguration().DisableTLS != nil && *m.config.GetMigrationConfiguration().DisableTLS {
-		serverTLSConfig = nil
 		clientTLSConfig = nil
 	}
 	proxiesList := []*migrationProxy{}
@@ -308,7 +306,7 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 
 		os.RemoveAll(filePath)
 
-		proxy := NewSourceProxy(filePath, targetFullAddr, serverTLSConfig, clientTLSConfig, key)
+		proxy := NewSourceProxy(filePath, targetFullAddr, clientTLSConfig, key)
 
 		err := proxy.Start()
 		if err != nil {
@@ -344,7 +342,7 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 // SRC POD ENV(migration unix socket) <-> HOST ENV (tcp client) <-----> HOST ENV (tcp server) <-> TARGET POD ENV (virtqemud unix socket)
 
 // Source proxy exposes a unix socket server and pipes to an outbound TCP connection.
-func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, serverTLSConfig *tls.Config, clientTLSConfig *tls.Config, vmiUID string) *migrationProxy {
+func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, clientTLSConfig *tls.Config, vmiUID string) *migrationProxy {
 	return &migrationProxy{
 		unixSocketPath:  unixSocketPath,
 		targetAddress:   tcpTargetAddress,
@@ -352,7 +350,6 @@ func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, serverTLSCon
 		stopChan:        make(chan struct{}),
 		fdChan:          make(chan net.Conn, 1),
 		listenErrChan:   make(chan error, 1),
-		serverTLSConfig: serverTLSConfig,
 		clientTLSConfig: clientTLSConfig,
 		logger:          log.Log.With("uid", vmiUID).With("listening", filepath.Base(unixSocketPath)).With("outbound", tcpTargetAddress),
 	}
