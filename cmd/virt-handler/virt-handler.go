@@ -147,16 +147,16 @@ type virtHandlerApp struct {
 	virtCli   kubecli.KubevirtClient
 	namespace string
 
-	serverTLSConfig       *tls.Config
-	clientTLSConfig       *tls.Config
-	consoleServerPort     int
-	clientcertmanager     certificate.Manager
-	servercertmanager     certificate.Manager
-	promTLSConfig         *tls.Config
-	clusterConfig         *virtconfig.ClusterConfig
-	reloadableRateLimiter *ratelimiter.ReloadableRateLimiter
-	caManager             kvtls.ClientCAManager
-	enableNodeLabeller    bool
+	serverTLSConfig          *tls.Config
+	migrationClientTLSConfig *tls.Config
+	consoleServerPort        int
+	clientcertmanager        certificate.Manager
+	servercertmanager        certificate.Manager
+	promTLSConfig            *tls.Config
+	clusterConfig            *virtconfig.ClusterConfig
+	reloadableRateLimiter    *ratelimiter.ReloadableRateLimiter
+	caManager                kvtls.ClientCAManager
+	enableNodeLabeller       bool
 }
 
 var (
@@ -297,7 +297,7 @@ func (app *virtHandlerApp) Run() {
 
 	app.clusterConfig.SetConfigModifiedCallback(vsockConfigCallback)
 
-	migrationProxy := migrationproxy.NewMigrationProxyManager(app.serverTLSConfig, app.clientTLSConfig, app.clusterConfig)
+	migrationProxy := migrationproxy.NewMigrationProxyManager(app.serverTLSConfig, app.migrationClientTLSConfig, app.clusterConfig)
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -696,7 +696,7 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 
 	app.promTLSConfig = kvtls.SetupPromTLS(app.servercertmanager, app.clusterConfig)
 	app.serverTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
-	app.clientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
+	app.migrationClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
 
 	return nil
 }
