@@ -803,6 +803,40 @@ var _ = Describe("Converter", func() {
 			//TODO add s390x entry with custom check of model used (disks/interfaces/controllers/devices will use different models)
 		)
 
+		Context("with ephemeral disk", func() {
+			DescribeTable("a scsi controller", func(enabled bool, arch string) {
+				c.Architecture = archconverter.NewConverter(arch)
+				vmi.Spec.Domain.Devices.DisableHotplug = !enabled
+
+				domain := &api.Domain{}
+				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				Expect(err).ToNot(HaveOccurred())
+
+				found := false
+				model := "virtio-non-transitional"
+				if arch == s390x {
+					model = "virtio-scsi"
+				}
+				for _, controller := range domain.Spec.Devices.Controllers {
+					if controller.Type == "scsi" {
+						found = true
+						Expect(controller.Index).To(Equal("0"))
+						Expect(controller.Model).To(Equal(model))
+					}
+				}
+				Expect(found).To(Equal(enabled))
+			},
+				Entry("should appear if enabled for amd64", true, amd64),
+				Entry("should appear if enabled for ppc64le", true, ppc64le),
+				Entry("should appear if enabled for arm64", true, arm64),
+				Entry("should appear if enabled for s390x", true, s390x),
+				Entry("should NOT appear if disabled for amd64", false, amd64),
+				Entry("should NOT appear if disabled for ppc64le", false, ppc64le),
+				Entry("should NOT appear if disabled for arm64", false, arm64),
+				Entry("should NOT appear if disabled for s390x", false, s390x),
+			)
+		})
+
 		It("should handle float memory", func() {
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2222222200m")
 			xml := vmiToDomainXML(vmi, c)
