@@ -123,6 +123,10 @@ const (
 	defaultTlsKeyFilePath     = "/etc/virt-handler/servercertificates/tls.key"
 )
 
+var (
+	defaultCNTypes = []string{"virt-handler", "migration"}
+)
+
 type virtHandlerApp struct {
 	service.ServiceListen
 	HostOverride              string
@@ -136,6 +140,7 @@ type virtHandlerApp struct {
 	MaxRequestsInFlight       int
 	domainResyncPeriodSeconds int
 	gracefulShutdownSeconds   int
+	migrationCNTypes          []string
 
 	caConfigMapName    string
 	clientCertFilePath string
@@ -685,6 +690,7 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.BoolVar(&app.enableNodeLabeller, "enable-node-labeller", true,
 		"Enable Node Labeller controller.")
+	flag.StringArrayVar(&app.migrationCNTypes, "migration-cn-types", defaultCNTypes, "The Common Name types that should be asserted for migration connections")
 }
 
 func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {
@@ -697,7 +703,7 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 
 	app.promTLSConfig = kvtls.SetupPromTLS(app.servercertmanager, app.clusterConfig)
 	app.serverTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig, []string{"virt-handler"})
-	app.migrationServerTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig, []string{"virt-handler"})
+	app.migrationServerTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig, app.migrationCNTypes)
 	app.migrationClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
 
 	return nil
