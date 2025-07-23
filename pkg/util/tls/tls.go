@@ -210,7 +210,7 @@ func SetupTLSForServer(caManager ClientCAManager, certManager certificate.Manage
 				InsecureSkipVerify: true,
 				// XXX: We need to verify the cert ourselves because we don't have DNS or IP on the certs at the moment
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-					return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageClientAuth, "client", commonNameType)
+					return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageClientAuth, "client", []string{commonNameType})
 				},
 				ClientAuth: tls.RequireAndVerifyClientCert,
 			}
@@ -254,7 +254,7 @@ func SetupTLSForClients(caManager ClientCAManager, certManager certificate.Manag
 				log.Log.Reason(err).Error("Failed to get kubevirt CA")
 				return err
 			}
-			return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageServerAuth, "node", commonNameType)
+			return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageServerAuth, "node", []string{commonNameType})
 		},
 	}
 }
@@ -326,7 +326,7 @@ func TLSVersionName(versionId uint16) string {
 	}
 }
 
-func verifyPeerCert(rawCerts [][]byte, externallyManaged bool, certPool *x509.CertPool, usage x509.ExtKeyUsage, commonName, commonNameType string) error {
+func verifyPeerCert(rawCerts [][]byte, externallyManaged bool, certPool *x509.CertPool, usage x509.ExtKeyUsage, commonName string, commonNameTypes []string) error {
 	// impossible with RequireAnyClientCert
 	if len(rawCerts) == 0 {
 		return fmt.Errorf("no client certificate provided.")
@@ -349,12 +349,17 @@ func verifyPeerCert(rawCerts [][]byte, externallyManaged bool, certPool *x509.Ce
 		return fmt.Errorf("could not verify peer certificate: %v", err)
 	}
 
-	fullCommonName := fmt.Sprintf("kubevirt.io:system:%s:%s", commonName, commonNameType)
-	if !externallyManaged && c.Subject.CommonName != fullCommonName {
-		return fmt.Errorf("common name is invalid, expected %s, but got %s", fullCommonName, c.Subject.CommonName)
+	if externallyManaged {
+		return nil
+	}
+	for _, commonNameType := range commonNameTypes {
+		fullCommonName := fmt.Sprintf("kubevirt.io:system:%s:%s", commonName, commonNameType)
+		if c.Subject.CommonName == fullCommonName {
+			return nil
+		}
 	}
 
-	return nil
+	return fmt.Errorf("common name is invalid, got %s", c.Subject.CommonName)
 }
 
 func createIntermediatePool(externallyManaged bool, rawIntermediates [][]byte) *x509.CertPool {
