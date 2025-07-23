@@ -28,6 +28,7 @@ const (
 	KubeVirtExportCASecretName                        = "kubevirt-export-ca"
 	VirtHandlerCertSecretName                         = "kubevirt-virt-handler-certs"
 	VirtHandlerServerCertSecretName                   = "kubevirt-virt-handler-server-certs"
+	VirtHandlerMigrationClientCertSecretName          = "kubevirt-virt-handler-migration-client-certs"
 	VirtOperatorCertSecretName                        = "kubevirt-operator-certs"
 	VirtApiCertSecretName                             = "kubevirt-virt-api-certs"
 	VirtControllerCertSecretName                      = "kubevirt-controller-certs"
@@ -114,6 +115,19 @@ var populationStrategy = map[string]CertificateCreationCallback{
 			secret.Namespace,
 			CaClusterLocal,
 			nil,
+			nil,
+			duration,
+		)
+		return keyPair.Cert, keyPair.Key
+	},
+	VirtHandlerMigrationClientCertSecretName: func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey) {
+		caKeyPair := &triple.KeyPair{
+			Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
+			Cert: caCert.Leaf,
+		}
+		keyPair, _ := triple.NewClientKeyPair(
+			caKeyPair,
+			"kubevirt.io:system:client:migration",
 			nil,
 			duration,
 		)
@@ -327,6 +341,20 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      VirtHandlerServerCertSecretName,
+				Namespace: installNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
+		},
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      VirtHandlerMigrationClientCertSecretName,
 				Namespace: installNamespace,
 				Labels: map[string]string{
 					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
