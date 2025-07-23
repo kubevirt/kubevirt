@@ -386,11 +386,6 @@ func (c *ClusterConfig) GetVirtSynchronizationControllerVerbosity() uint {
 	return c.getComponentVerbosity(virtSynchronizationController, "")
 }
 
-// GetMinCPUModel return minimal cpu which is used in node-labeller
-func (c *ClusterConfig) GetMinCPUModel() string {
-	return c.GetConfig().MinCPUModel
-}
-
 // GetObsoleteCPUModels return slice of obsolete cpus which are used in node-labeller
 func (c *ClusterConfig) GetObsoleteCPUModels() map[string]bool {
 	return c.GetConfig().ObsoleteCPUModels

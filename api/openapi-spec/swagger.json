@@ -14903,6 +14903,7 @@
       "$ref": "#/definitions/v1.MigrationConfiguration"
      },
      "minCPUModel": {
+      "description": "deprecated",
       "type": "string"
      },
      "network": {

@@ -128,6 +128,7 @@ API rule violation: names_match,kubevirt.io/api/core/v1,InterfaceBindingMethod,D
 API rule violation: names_match,kubevirt.io/api/core/v1,InterfaceBindingMethod,DeprecatedPasst
 API rule violation: names_match,kubevirt.io/api/core/v1,InterfaceBindingMethod,DeprecatedSlirp
 API rule violation: names_match,kubevirt.io/api/core/v1,KVMTimer,Enabled
+API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,DeprecatedMinCPUModel
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,MigrationConfiguration
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,NetworkConfiguration
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,SELinuxLauncherType

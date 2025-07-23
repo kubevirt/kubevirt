@@ -1277,6 +1277,7 @@ var CRDsValidation map[string]string = map[string]string{
                   type: boolean
               type: object
             minCPUModel:
+              description: deprecated
               type: string
             network:
               description: NetworkConfiguration holds network options
