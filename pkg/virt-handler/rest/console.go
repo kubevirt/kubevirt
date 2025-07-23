@@ -154,10 +154,14 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 	}
 
 	uid := vmi.GetUID()
+	forceParam, err := strconv.ParseBool(request.QueryParameter("force"))
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Warningf("VNC's query parameter force")
+	}
 
-	if t.vncInUse(uid) {
-		err = fmt.Errorf("%s", "Ongoing VNC connection. Request denied.")
-		log.Log.Object(vmi).Reason(err).Error("It would drop the user.")
+	if t.vncInUse(uid) && !forceParam {
+		err = fmt.Errorf("%s", "Active VNC connection. Request denied.")
+		log.Log.Object(vmi).Reason(err).Error("Already has an active connection; Use 'force' to replace it.")
 		response.WriteError(http.StatusNotAcceptable, err)
 		return
 	}
