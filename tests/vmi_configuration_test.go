@@ -2975,7 +2975,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						"rss,command",
 					})
 				return err
-			}, time.Second, 50*time.Millisecond).Should(BeNil(), fmt.Sprintf(errorMassageFormat, stdout, stderr, err))
+			}, time.Second, 50*time.Millisecond).Should(Succeed(), fmt.Sprintf(errorMassageFormat, stdout, stderr, err))
 
 			By("Parsing the output of ps")
 			processRss := make(map[string]resource.Quantity)

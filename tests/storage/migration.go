@@ -372,7 +372,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 						&expect.BExp{R: "0"},
 					}, 10)
 					return err
-				}, 120).Should(BeNil())
+				}, 120).Should(Succeed())
 			},
 				Entry("to a filesystem volume", fsPVC),
 				Entry("to a block volume", decorators.RequiresBlockStorage, blockPVC),

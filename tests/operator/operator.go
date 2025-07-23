@@ -874,11 +874,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				Eventually(func() error {
 					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					if err := console.LoginToAlpine(vmi); err != nil {
-						return err
-					}
-					return nil
-				}, 60*time.Second, 1*time.Second).Should(BeNil())
+					return console.LoginToAlpine(vmi)
+				}, 60*time.Second, 1*time.Second).Should(Succeed())
 
 				By(fmt.Sprintf("Verifying firmware UUID for vm %s", vmYaml.vmName))
 				Eventually(func(g Gomega) {

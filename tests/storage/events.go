@@ -84,7 +84,7 @@ var _ = Describe(SIG("K8s IO events", Serial, func() {
 			var err error
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			return err
-		}, 100*time.Second, time.Second).Should(BeNil(), "Failed to create vmi")
+		}, 100*time.Second, time.Second).Should(Succeed(), "Failed to create vmi")
 
 		libwait.WaitForSuccessfulVMIStart(vmi,
 			libwait.WithFailOnWarnings(false),

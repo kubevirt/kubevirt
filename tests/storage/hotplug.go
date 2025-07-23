@@ -1736,7 +1736,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			Eventually(func() error {
 				lr, err = virtClient.CoreV1().LimitRanges(namespace).Get(context.Background(), lr.Name, metav1.GetOptions{})
 				return err
-			}, 30*time.Second, 1*time.Second).Should(BeNil())
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
 		}
 
 		BeforeEach(func() {
