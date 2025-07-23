@@ -170,14 +170,12 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 	zeroAddress := ip.GetIPZeroAddress()
 	proxiesList := []*migrationProxy{}
 	serverTLSConfig := m.serverTLSConfig
-	clientTLSConfig := m.clientTLSConfig
 	if m.config.GetMigrationConfiguration().DisableTLS != nil && *m.config.GetMigrationConfiguration().DisableTLS {
 		serverTLSConfig = nil
-		clientTLSConfig = nil
 	}
 	for _, targetUnixFile := range targetUnixFiles {
 		// 0 means random port is used
-		proxy := NewTargetProxy(zeroAddress, 0, serverTLSConfig, clientTLSConfig, targetUnixFile, key)
+		proxy := NewTargetProxy(zeroAddress, 0, serverTLSConfig, targetUnixFile, key)
 
 		err := proxy.Start()
 		if err != nil {
@@ -361,7 +359,7 @@ func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, serverTLSCon
 }
 
 // Target proxy listens on a tcp socket and pipes to a virtqemud unix socket
-func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls.Config, clientTLSConfig *tls.Config, virtqemudSocketPath string, vmiUID string) *migrationProxy {
+func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls.Config, virtqemudSocketPath string, vmiUID string) *migrationProxy {
 	return &migrationProxy{
 		tcpBindAddress:  tcpBindAddress,
 		tcpBindPort:     tcpBindPort,
@@ -371,7 +369,6 @@ func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls
 		fdChan:          make(chan net.Conn, 1),
 		listenErrChan:   make(chan error, 1),
 		serverTLSConfig: serverTLSConfig,
-		clientTLSConfig: clientTLSConfig,
 		logger:          log.Log.With("uid", vmiUID).With("outbound", filepath.Base(virtqemudSocketPath)),
 	}
 
