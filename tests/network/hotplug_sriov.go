@@ -190,5 +190,5 @@ func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) err
 
 func verifySriovDynamicInterfaceChange(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	const queueCount = 0
-	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount)
+	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount, 30*time.Second, time.Second)
 }
