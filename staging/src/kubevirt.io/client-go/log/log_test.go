@@ -307,6 +307,29 @@ func TestObject(t *testing.T) {
 	tearDown()
 }
 
+func TestObjectWithVerbosity(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(INFO)
+	log.SetVerbosityLevel(6)
+
+	vm := v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{Namespace: "test"}}
+	log.Level(INFO).V(3).Object(&vm).Log("test", "message")
+
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[1].(string) == LogLevelNames[INFO], "Logged line was not of level infoLevel")
+	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
+	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[7].(string) == "test", "Component was not logged")
+	assert(t, logEntry[8].(string) == "namespace", "Logged line did not contain object namespace")
+	assert(t, logEntry[10].(string) == "name", "Logged line did not contain object name")
+	assert(t, logEntry[12].(string) == "kind", "Logged line did not contain object kind")
+	assert(t, logEntry[14].(string) == "uid", "Logged line did not contain UUID")
+	tearDown()
+}
+
 func TestError(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})

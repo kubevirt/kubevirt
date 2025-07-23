@@ -222,7 +222,8 @@ func (l FilteredVerbosityLogger) Infof(msg string, args ...interface{}) {
 }
 
 func (l FilteredVerbosityLogger) Object(obj LoggableObject) *FilteredVerbosityLogger {
-	l.filteredLogger.Object(obj)
+	logParams := createLogParamsForObject(obj)
+	l.filteredLogger.with(logParams...)
 	return &l
 }
 
@@ -236,20 +237,7 @@ func (l FilteredVerbosityLogger) Verbosity(level int) bool {
 }
 
 func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
-
-	name := obj.GetObjectMeta().GetName()
-	namespace := obj.GetObjectMeta().GetNamespace()
-	uid := obj.GetObjectMeta().GetUID()
-	kind := obj.GetObjectKind().GroupVersionKind().Kind
-
-	logParams := make([]interface{}, 0)
-	if namespace != "" {
-		logParams = append(logParams, "namespace", namespace)
-	}
-	logParams = append(logParams, "name", name)
-	logParams = append(logParams, "kind", kind)
-	logParams = append(logParams, "uid", uid)
-
+	logParams := createLogParamsForObject(obj)
 	l.with(logParams...)
 	return &l
 }
@@ -337,6 +325,24 @@ func (l FilteredLogger) Critical(msg string) {
 
 func (l FilteredLogger) Criticalf(msg string, args ...interface{}) {
 	l.Level(FATAL).msgf(msg, args...)
+}
+
+func createLogParamsForObject(obj LoggableObject) []interface{} {
+	name := obj.GetObjectMeta().GetName()
+	namespace := obj.GetObjectMeta().GetNamespace()
+	uid := obj.GetObjectMeta().GetUID()
+	kind := obj.GetObjectKind().GroupVersionKind().Kind
+
+	logParams := make([]interface{}, 0)
+
+	if namespace != "" {
+		logParams = append(logParams, "namespace", namespace)
+	}
+	logParams = append(logParams, "name", name)
+	logParams = append(logParams, "kind", kind)
+	logParams = append(logParams, "uid", uid)
+
+	return logParams
 }
 
 func LogLibvirtLogLine(logger *FilteredLogger, line string) {
