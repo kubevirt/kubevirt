@@ -72,7 +72,7 @@ var _ = Describe("MigrationProxy", func() {
 
 				defer listener.Close()
 
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig, "123")
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, "123")
 				defer sourceProxy.Stop()
 
 				err = sourceProxy.Start()
@@ -115,7 +115,7 @@ var _ = Describe("MigrationProxy", func() {
 				defer virtqemudListener.Close()
 
 				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, virtqemudSock, "123")
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig, "123")
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, "123")
 				defer targetProxy.Stop()
 				defer sourceProxy.Stop()
 
