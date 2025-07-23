@@ -138,6 +138,13 @@ func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *res
 	t.stream(vmi, request, response, unixSocketDialer(vmi, unixSocketPath), stopChan)
 }
 
+func (t *ConsoleHandler) vncInUse(uid types.UID) bool {
+	t.vncLock.Lock()
+	defer t.vncLock.Unlock()
+	_, inUse := t.vncStopChans[uid]
+	return inUse
+}
+
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiStore)
 	if err != nil || vmi == nil {
@@ -145,13 +152,22 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 		response.WriteError(code, err)
 		return
 	}
+
+	uid := vmi.GetUID()
+
+	if t.vncInUse(uid) {
+		err = fmt.Errorf("%s", "Ongoing VNC connection. Request denied.")
+		log.Log.Object(vmi).Reason(err).Error("It would drop the user.")
+		response.WriteError(http.StatusNotAcceptable, err)
+		return
+	}
+
 	unixSocketPath, err := t.getUnixSocketPath(vmi, "virt-vnc")
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed finding unix socket for VNC console")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
-	uid := vmi.GetUID()
 	stopChn := newStopChan(uid, t.vncLock, t.vncStopChans)
 	defer deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
 	t.stream(vmi, request, response, unixSocketDialer(vmi, unixSocketPath), stopChn)
