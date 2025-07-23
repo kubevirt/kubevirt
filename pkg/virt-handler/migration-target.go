@@ -201,6 +201,10 @@ func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachin
 	vmi.Status.MigrationState.EndTimestamp = domain.Spec.Metadata.KubeVirt.Migration.EndTimestamp
 	vmi.Labels[v1.NodeNameLabel] = c.host
 	delete(vmi.Labels, v1.OutdatedLauncherImageLabel)
+	if vmi.Annotations == nil {
+		vmi.Annotations = make(map[string]string)
+	}
+	vmi.Annotations[v1.OriginalDomainUUID] = domain.Spec.UUID
 	vmi.Status.LauncherContainerImageVersion = ""
 	vmi.Status.NodeName = c.host
 	// clean the evacuation node name since have already migrated to a new node

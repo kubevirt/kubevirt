@@ -368,16 +368,14 @@ var _ = Describe(SIG("Live Migration across namespaces", Serial, decorators.Requ
 
 			By("Ensuring the TPM is still functional and its state carried over")
 			checkTPM(targetVMI)
-			// TODO: Enable this part of the test when we can generate the proper UID from the
-			// new domain name so that the TPM is not recreated.
-			// By("Stopping the VM")
-			// libvmops.StopVirtualMachine(targetVM)
-			// By("Starting the VM")
-			// targetVM = libvmops.StartVirtualMachine(targetVM)
-			// By("Logging in")
-			// Expect(console.LoginToFedora(targetVMI)).To(Succeed())
-			// By("Ensuring the TPM contains the same data after stop and start")
-			// checkTPM(targetVMI)
+			By("Stopping the VM")
+			libvmops.StopVirtualMachine(targetVM)
+			By("Starting the VM")
+			targetVM = libvmops.StartVirtualMachine(targetVM)
+			By("Logging in")
+			Expect(console.LoginToFedora(targetVMI)).To(Succeed())
+			By("Ensuring the TPM contains the same data after stop and start")
+			checkTPM(targetVMI)
 		})
 	})
 
