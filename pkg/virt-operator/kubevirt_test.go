@@ -88,8 +88,8 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 85
-	patchCount    = 53
+	resourceCount = 86
+	patchCount    = 54
 	updateCount   = 33
 )
 
