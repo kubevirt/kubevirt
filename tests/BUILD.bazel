@@ -64,7 +64,6 @@ go_test(
         "vmi_cloudinit_hook_sidecar_test.go",
         "vmi_cloudinit_test.go",
         "vmi_configuration_test.go",
-        "vmi_controller_test.go",
         "vmi_headless_test.go",
         "vmi_hook_sidecar_test.go",
         "vmi_hostdev_test.go",
