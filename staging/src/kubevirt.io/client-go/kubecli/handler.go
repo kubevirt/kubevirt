@@ -71,7 +71,7 @@ type VirtHandlerConn interface {
 	SEVInjectLaunchSecretURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
 	Put(url string, body io.ReadCloser) error
-	Get(url string) (string, error)
+	Get(url, contentType string) (string, error)
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -277,13 +277,15 @@ func (v *virtHandlerConn) Put(url string, body io.ReadCloser) error {
 	return nil
 }
 
-func (v *virtHandlerConn) Get(url string) (string, error) {
+func (v *virtHandlerConn) Get(url, contentType string) (string, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
 
-	req.Header.Add("Accept", "application/json")
+	if contentType != "" {
+		req.Header.Add("Accept", contentType)
+	}
 	response, err := v.doRequest(req)
 	if err != nil {
 		return "", err
