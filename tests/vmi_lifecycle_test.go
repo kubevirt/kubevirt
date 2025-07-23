@@ -1443,7 +1443,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Trying to vnc into the VMI")
-			_, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VNC(vmi.Name)
+			_, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VNC(vmi.Name, false)
 			Expect(err).ToNot(HaveOccurred())
 		})
 

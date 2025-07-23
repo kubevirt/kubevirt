@@ -38,7 +38,7 @@ func (c *FakeVirtualMachineInstances) USBRedir(vmiName string) (kvcorev1.StreamI
 	return nil, nil
 }
 
-func (c *FakeVirtualMachineInstances) VNC(name string) (kvcorev1.StreamInterface, error) {
+func (c *FakeVirtualMachineInstances) VNC(name string, preserveSession bool) (kvcorev1.StreamInterface, error) {
 	return nil, nil
 }
 
