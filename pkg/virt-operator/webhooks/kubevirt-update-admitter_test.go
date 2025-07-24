@@ -315,5 +315,28 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("with MacvtapGate", featuregate.MacvtapGate, featuregate.MacvtapDiscontinueMessage),
 			Entry("with ExperimentalVirtiofsSupport", featuregate.VirtIOFSGate, featuregate.VirtioFsFeatureGateDeprecationMessage),
 		)
+
+		DescribeTable("should raise warning when archConfig is set for ppc64le", func(shouldWarn bool, archConfig *v1.ArchConfiguration) {
+			kv := v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						ArchitectureConfiguration: archConfig,
+					},
+				},
+			}
+
+			response := admit(context.Background(), kv)
+			Expect(response).NotTo(BeNil())
+
+			if shouldWarn {
+				Expect(response.Warnings).NotTo(BeEmpty())
+				Expect(response.Warnings).To(ContainElement("spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."))
+			} else {
+				Expect(response.Warnings).To(BeEmpty())
+			}
+		},
+			Entry("should warn when archConfig is set for ppc64le", true, &v1.ArchConfiguration{Ppc64le: &v1.ArchSpecificConfiguration{}}),
+			Entry("should not warn when archConfig is not set for ppc64le", false, &v1.ArchConfiguration{}),
+		)
 	})
 })
