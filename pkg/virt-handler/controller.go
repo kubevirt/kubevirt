@@ -20,15 +20,21 @@
 package virthandler
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -36,6 +42,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
+	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
@@ -87,29 +95,53 @@ type netconf interface {
 }
 
 type BaseController struct {
-	host                 string
-	vmiStore             cache.Store
-	domainStore          cache.Store
-	clusterConfig        *virtconfig.ClusterConfig
-	podIsolationDetector isolation.PodIsolationDetector
-	hasSynced            func() bool
+	logger                      *log.FilteredLogger
+	host                        string
+	clientset                   kubecli.KubevirtClient
+	queue                       workqueue.TypedRateLimitingInterface[string]
+	vmiStore                    cache.Store
+	domainStore                 cache.Store
+	clusterConfig               *virtconfig.ClusterConfig
+	podIsolationDetector        isolation.PodIsolationDetector
+	launcherClients             launcherclients.LauncherClientsManager
+	migrationProxy              migrationproxy.ProxyManager
+	virtLauncherFSRunDirPattern string
+	netStat                     netstat
+	recorder                    record.EventRecorder
+	hasSynced                   func() bool
 }
 
 func NewBaseController(
+	logger *log.FilteredLogger,
 	host string,
+	recorder record.EventRecorder,
+	clientset kubecli.KubevirtClient,
+	queue workqueue.TypedRateLimitingInterface[string],
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
+	launcherClients launcherclients.LauncherClientsManager,
+	migrationProxy migrationproxy.ProxyManager,
+	virtLauncherFSRunDirPattern string,
+	netStat netstat,
 ) (*BaseController, error) {
 
 	c := &BaseController{
-		host:                 host,
-		vmiStore:             vmiInformer.GetStore(),
-		domainStore:          domainInformer.GetStore(),
-		clusterConfig:        clusterConfig,
-		podIsolationDetector: podIsolationDetector,
-		hasSynced:            func() bool { return domainInformer.HasSynced() && vmiInformer.HasSynced() },
+		logger:                      logger,
+		host:                        host,
+		recorder:                    recorder,
+		clientset:                   clientset,
+		queue:                       queue,
+		vmiStore:                    vmiInformer.GetStore(),
+		domainStore:                 domainInformer.GetStore(),
+		clusterConfig:               clusterConfig,
+		podIsolationDetector:        podIsolationDetector,
+		launcherClients:             launcherClients,
+		migrationProxy:              migrationProxy,
+		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
+		netStat:                     netStat,
+		hasSynced:                   func() bool { return domainInformer.HasSynced() && vmiInformer.HasSynced() },
 	}
 
 	return c, nil
@@ -303,4 +335,28 @@ func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) b
 		return vmi.IsMigrationTarget() && !vmi.IsMigrationCompleted()
 	}
 	return false
+}
+
+func (c *BaseController) passtSocketDirOnHostForVMI(vmi *v1.VirtualMachineInstance) (string, error) {
+	path, err := c.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return "", err
+	}
+	return passtSocketDirOnHost(path)
+}
+
+func (c *BaseController) checkLauncherClient(vmi *v1.VirtualMachineInstance) (bool, error) {
+	isUnresponsive, isInitialized, err := c.launcherClients.IsLauncherClientUnresponsive(vmi)
+	if err != nil {
+		return true, err
+	}
+	if !isInitialized {
+		c.logger.Object(vmi).V(4).Info("launcher client is not initialized")
+		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		return true, nil
+	} else if isUnresponsive {
+		return true, errors.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
+	}
+
+	return false, nil
 }

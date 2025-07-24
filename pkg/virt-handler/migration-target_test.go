@@ -64,7 +64,7 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
+	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -98,18 +98,18 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 	)
 
 	addDomain := func(domain *api.Domain) {
-		controller.domainStore.Add(domain)
+		Expect(controller.domainStore.Add(domain)).To(Succeed())
 		key, err := virtcontroller.KeyFunc(domain)
-		Expect(err).To(Not(HaveOccurred()))
+		Expect(err).ToNot(HaveOccurred())
 		controller.queue.Add(key)
 	}
 
 	createVMI := func(vmi *v1.VirtualMachineInstance) {
-		controller.vmiStore.Add(vmi)
+		Expect(controller.vmiStore.Add(vmi)).To(Succeed())
 		_, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.TODO(), vmi, metav1.CreateOptions{})
-		Expect(err).To(Not(HaveOccurred()))
+		Expect(err).ToNot(HaveOccurred())
 		key, err := virtcontroller.KeyFunc(vmi)
-		Expect(err).To(Not(HaveOccurred()))
+		Expect(err).ToNot(HaveOccurred())
 		controller.queue.Add(key)
 	}
 
@@ -143,11 +143,12 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir))
 
-		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)
+		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)).To(Succeed())
 
 		cmdclient.SetPodsBaseDir(podsDir)
 
 		store, err := certificates.GenerateSelfSignedCert(certDir, "test", "test")
+		Expect(err).ToNot(HaveOccurred())
 
 		tlsConfig := &tls.Config{
 			InsecureSkipVerify: true,
@@ -155,9 +156,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				return store.Current()
 			},
 		}
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(err).ToNot(HaveOccurred())
 
 		vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		domainInformer, _ := testutils.NewFakeInformerFor(&api.Domain{})
@@ -184,7 +182,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "dev"), 0755)).To(Succeed())
 		f, err := os.OpenFile(filepath.Join(vmiShareDir, "dev", "kvm"), os.O_CREATE, 0755)
 		Expect(err).ToNot(HaveOccurred())
-		f.Close()
+		Expect(f.Close()).To(Succeed())
 
 		mockIsolationResult := isolation.NewMockIsolationResult(ctrl)
 		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
@@ -199,7 +197,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		mockHotplugVolumeMounter = hotplugvolume.NewMockVolumeMounter(ctrl)
 
 		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
-		launcherClientManager := &launcher_clients.MockLauncherClientManager{
+		launcherClientManager := &launcherclients.MockLauncherClientManager{
 			Initialized: true,
 		}
 		migrationTargetPasstRepairHandler = &stubTargetPasstRepairHandler{isHandleMigrationTargetCalled: false}
@@ -217,6 +215,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			config,
 			mockIsolationDetector,
 			migrationProxy,
+			"/tmp/%d",
 			nil, // capabilities
 			&netConfStub{},
 			&netStatStub{},
@@ -232,7 +231,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
 		f, err = os.Create(sockFile)
 		Expect(err).ToNot(HaveOccurred())
-		f.Close()
+		Expect(f.Close()).To(Succeed())
 
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
@@ -240,8 +239,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		wg.Add(1)
 
 		go func() {
-			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
+			err = notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
 			wg.Done()
+			Expect(err).ToNot(HaveOccurred())
 		}()
 		client = cmdclient.NewMockLauncherClient(ctrl)
 		clientInfo := &virtcache.LauncherClientInfo{
@@ -276,10 +276,10 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		// something has to be listening to the cmd socket
 		// for the proxy to work.
-		os.MkdirAll(cmdclient.SocketDirectoryOnHost(string(podTestUUID)), os.ModePerm)
+		Expect(os.MkdirAll(cmdclient.SocketDirectoryOnHost(string(podTestUUID)), os.ModePerm)).To(Succeed())
 
 		socketFile := cmdclient.SocketFilePathOnHost(string(podTestUUID))
-		os.RemoveAll(socketFile)
+		Expect(os.RemoveAll(socketFile)).To(Succeed())
 		socket, err := net.Listen("unix", socketFile)
 		Expect(err).NotTo(HaveOccurred())
 		defer socket.Close()
@@ -323,10 +323,10 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		// something has to be listening to the cmd socket
 		// for the proxy to work.
-		os.MkdirAll(cmdclient.SocketDirectoryOnHost(string(podTestUUID)), os.ModePerm)
+		Expect(os.MkdirAll(cmdclient.SocketDirectoryOnHost(string(podTestUUID)), os.ModePerm)).To(Succeed())
 
 		socketFile := cmdclient.SocketFilePathOnHost(string(podTestUUID))
-		os.RemoveAll(socketFile)
+		Expect(os.RemoveAll(socketFile)).To(Succeed())
 		socket, err := net.Listen("unix", socketFile)
 		Expect(err).NotTo(HaveOccurred())
 		defer socket.Close()
