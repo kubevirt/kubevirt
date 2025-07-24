@@ -1,0 +1,575 @@
+apiVersion: kubevirt.io/v1
+kind: KubeVirt
+metadata:
+  annotations:
+    annotationsKey: annotationsValue
+  creationTimestamp: "2008-01-01T01:01:01Z"
+  deletionGracePeriodSeconds: 10
+  deletionTimestamp: "2009-01-01T01:01:01Z"
+  finalizers:
+  - finalizersValue
+  generateName: generateNameValue
+  generation: 7
+  labels:
+    labelsKey: labelsValue
+  managedFields:
+  - apiVersion: apiVersionValue
+    fieldsType: fieldsTypeValue
+    fieldsV1: {}
+    manager: managerValue
+    operation: operationValue
+    subresource: subresourceValue
+    time: "2004-01-01T01:01:01Z"
+  name: nameValue
+  namespace: namespaceValue
+  ownerReferences:
+  - apiVersion: apiVersionValue
+    blockOwnerDeletion: true
+    controller: true
+    kind: kindValue
+    name: nameValue
+    uid: uidValue
+  resourceVersion: resourceVersionValue
+  selfLink: selfLinkValue
+  uid: uidValue
+spec:
+  certificateRotateStrategy:
+    selfSigned:
+      ca:
+        duration: 1ns
+        renewBefore: 1ns
+      caOverlapInterval: 1ns
+      caRotateInterval: 1ns
+      certRotateInterval: 1ns
+      server:
+        duration: 1ns
+        renewBefore: 1ns
+  configuration:
+    additionalGuestMemoryOverheadRatio: additionalGuestMemoryOverheadRatioValue
+    apiConfiguration:
+      restClient:
+        rateLimiter:
+          tokenBucketRateLimiter:
+            burst: -5
+            qps: -3
+    architectureConfiguration:
+      amd64:
+        emulatedMachines:
+        - emulatedMachinesValue
+        machineType: machineTypeValue
+        ovmfPath: ovmfPathValue
+      arm64:
+        emulatedMachines:
+        - emulatedMachinesValue
+        machineType: machineTypeValue
+        ovmfPath: ovmfPathValue
+      defaultArchitecture: defaultArchitectureValue
+      ppc64le:
+        emulatedMachines:
+        - emulatedMachinesValue
+        machineType: machineTypeValue
+        ovmfPath: ovmfPathValue
+    autoCPULimitNamespaceLabelSelector:
+      matchExpressions:
+      - key: keyValue
+        operator: operatorValue
+        values:
+        - valuesValue
+      matchLabels:
+        matchLabelsKey: matchLabelsValue
+    commonInstancetypesDeployment:
+      enabled: true
+    controllerConfiguration:
+      restClient:
+        rateLimiter:
+          tokenBucketRateLimiter:
+            burst: -5
+            qps: -3
+    cpuModel: cpuModelValue
+    cpuRequest: "0"
+    defaultRuntimeClass: defaultRuntimeClassValue
+    developerConfiguration:
+      cpuAllocationRatio: -18
+      diskVerification:
+        memoryLimit: "0"
+      featureGates:
+      - featureGatesValue
+      logVerbosity:
+        nodeVerbosity:
+          nodeVerbosityKey: 18446744073709551603
+        virtAPI: 18446744073709551609
+        virtController: 18446744073709551602
+        virtHandler: 18446744073709551605
+        virtLauncher: 18446744073709551604
+        virtOperator: 18446744073709551604
+      memoryOvercommit: -16
+      minimumClusterTSCFrequency: -26
+      minimumReservePVCBytes: 18446744073709551594
+      nodeSelectors:
+        nodeSelectorsKey: nodeSelectorsValue
+      pvcTolerateLessSpaceUpToPercent: -31
+      useEmulation: true
+    emulatedMachines:
+    - emulatedMachinesValue
+    evictionStrategy: evictionStrategyValue
+    handlerConfiguration:
+      restClient:
+        rateLimiter:
+          tokenBucketRateLimiter:
+            burst: -5
+            qps: -3
+    imagePullPolicy: imagePullPolicyValue
+    instancetype:
+      referencePolicy: referencePolicyValue
+    ksmConfiguration:
+      nodeLabelSelector:
+        matchExpressions:
+        - key: keyValue
+          operator: operatorValue
+          values:
+          - valuesValue
+        matchLabels:
+          matchLabelsKey: matchLabelsValue
+    liveUpdateConfiguration:
+      maxCpuSockets: 4294967283
+      maxGuest: "0"
+      maxHotplugRatio: 4294967281
+    machineType: machineTypeValue
+    mediatedDevicesConfiguration:
+      mediatedDeviceTypes:
+      - mediatedDeviceTypesValue
+      mediatedDevicesTypes:
+      - mediatedDevicesTypesValue
+      nodeMediatedDeviceTypes:
+      - mediatedDeviceTypes:
+        - mediatedDeviceTypesValue
+        mediatedDevicesTypes:
+        - mediatedDevicesTypesValue
+        nodeSelector:
+          nodeSelectorKey: nodeSelectorValue
+    memBalloonStatsPeriod: 4294967275
+    migrations:
+      allowAutoConverge: true
+      allowPostCopy: true
+      allowWorkloadDisruption: true
+      bandwidthPerMigration: "0"
+      completionTimeoutPerGiB: -23
+      disableTLS: true
+      matchSELinuxLevelOnMigration: true
+      network: networkValue
+      nodeDrainTaintKey: nodeDrainTaintKeyValue
+      parallelMigrationsPerCluster: 4294967268
+      parallelOutboundMigrationsPerNode: 4294967263
+      progressTimeout: -15
+      unsafeMigrationOverride: true
+    minCPUModel: minCPUModelValue
+    network:
+      binding:
+        bindingKey:
+          computeResourceOverhead:
+            limits:
+              limitsKey: "0"
+            requests:
+              requestsKey: "0"
+          domainAttachmentType: domainAttachmentTypeValue
+          downwardAPI: downwardAPIValue
+          migration:
+            method: methodValue
+          networkAttachmentDefinition: networkAttachmentDefinitionValue
+          sidecarImage: sidecarImageValue
+      defaultNetworkInterface: defaultNetworkInterfaceValue
+      permitBridgeInterfaceOnPodNetwork: true
+      permitSlirpInterface: true
+    obsoleteCPUModels:
+      obsoleteCPUModelsKey: true
+    ovmfPath: ovmfPathValue
+    permittedHostDevices:
+      mediatedDevices:
+      - externalResourceProvider: true
+        mdevNameSelector: mdevNameSelectorValue
+        resourceName: resourceNameValue
+      pciHostDevices:
+      - externalResourceProvider: true
+        pciVendorSelector: pciVendorSelectorValue
+        resourceName: resourceNameValue
+      usb:
+      - externalResourceProvider: true
+        resourceName: resourceNameValue
+        selectors:
+        - product: productValue
+          vendor: vendorValue
+    seccompConfiguration:
+      virtualMachineInstanceProfile:
+        customProfile:
+          localhostProfile: localhostProfileValue
+          runtimeDefaultProfile: true
+    selinuxLauncherType: selinuxLauncherTypeValue
+    smbios:
+      family: familyValue
+      manufacturer: manufacturerValue
+      product: productValue
+      sku: skuValue
+      version: versionValue
+    supportContainerResources:
+    - resources:
+        limits:
+          limitsKey: "0"
+        requests:
+          requestsKey: "0"
+      type: typeValue
+    supportedGuestAgentVersions:
+    - supportedGuestAgentVersionsValue
+    tlsConfiguration:
+      ciphers:
+      - ciphersValue
+      minTLSVersion: minTLSVersionValue
+    virtualMachineInstancesPerNode: -30
+    virtualMachineOptions:
+      disableFreePageReporting: {}
+      disableSerialConsoleLog: {}
+    vmRolloutStrategy: vmRolloutStrategyValue
+    vmStateStorageClass: vmStateStorageClassValue
+    webhookConfiguration:
+      restClient:
+        rateLimiter:
+          tokenBucketRateLimiter:
+            burst: -5
+            qps: -3
+  customizeComponents:
+    flags:
+      api:
+        apiKey: apiValue
+      controller:
+        controllerKey: controllerValue
+      handler:
+        handlerKey: handlerValue
+    patches:
+    - patch: patchValue
+      resourceName: resourceNameValue
+      resourceType: resourceTypeValue
+      type: typeValue
+  imagePullPolicy: imagePullPolicyValue
+  imagePullSecrets:
+  - name: nameValue
+  imageRegistry: imageRegistryValue
+  imageTag: imageTagValue
+  infra:
+    nodePlacement:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchFields:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchFields:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
+              namespaceSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              namespaces:
+              - namespacesValue
+              topologyKey: topologyKeyValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
+            namespaceSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            namespaces:
+            - namespacesValue
+            topologyKey: topologyKeyValue
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
+              namespaceSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              namespaces:
+              - namespacesValue
+              topologyKey: topologyKeyValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
+            namespaceSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            namespaces:
+            - namespacesValue
+            topologyKey: topologyKeyValue
+      nodeSelector:
+        nodeSelectorKey: nodeSelectorValue
+      tolerations:
+      - effect: effectValue
+        key: keyValue
+        operator: operatorValue
+        tolerationSeconds: 5
+        value: valueValue
+    replicas: 248
+  monitorAccount: monitorAccountValue
+  monitorNamespace: monitorNamespaceValue
+  productComponent: productComponentValue
+  productName: productNameValue
+  productVersion: productVersionValue
+  serviceMonitorNamespace: serviceMonitorNamespaceValue
+  uninstallStrategy: uninstallStrategyValue
+  workloadUpdateStrategy:
+    batchEvictionInterval: 1ns
+    batchEvictionSize: -17
+    workloadUpdateMethods:
+    - workloadUpdateMethodsValue
+  workloads:
+    nodePlacement:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchFields:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchFields:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
+              namespaceSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              namespaces:
+              - namespacesValue
+              topologyKey: topologyKeyValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
+            namespaceSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            namespaces:
+            - namespacesValue
+            topologyKey: topologyKeyValue
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
+              namespaceSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              namespaces:
+              - namespacesValue
+              topologyKey: topologyKeyValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
+            namespaceSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            namespaces:
+            - namespacesValue
+            topologyKey: topologyKeyValue
+      nodeSelector:
+        nodeSelectorKey: nodeSelectorValue
+      tolerations:
+      - effect: effectValue
+        key: keyValue
+        operator: operatorValue
+        tolerationSeconds: 5
+        value: valueValue
+    replicas: 248
+status:
+  conditions:
+  - lastProbeTime: "1987-01-01T01:01:01Z"
+    lastTransitionTime: "1982-01-01T01:01:01Z"
+    message: messageValue
+    reason: reasonValue
+    status: statusValue
+    type: typeValue
+  defaultArchitecture: defaultArchitectureValue
+  generations:
+  - group: groupValue
+    hash: hashValue
+    lastGeneration: -14
+    name: nameValue
+    namespace: namespaceValue
+    resource: resourceValue
+  observedDeploymentConfig: observedDeploymentConfigValue
+  observedDeploymentID: observedDeploymentIDValue
+  observedGeneration: -18
+  observedKubeVirtRegistry: observedKubeVirtRegistryValue
+  observedKubeVirtVersion: observedKubeVirtVersionValue
+  operatorVersion: operatorVersionValue
+  outdatedVirtualMachineInstanceWorkloads: -39
+  phase: phaseValue
+  targetDeploymentConfig: targetDeploymentConfigValue
+  targetDeploymentID: targetDeploymentIDValue
+  targetKubeVirtRegistry: targetKubeVirtRegistryValue
+  targetKubeVirtVersion: targetKubeVirtVersionValue

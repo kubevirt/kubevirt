@@ -1,0 +1,856 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  annotations:
+    annotationsKey: annotationsValue
+  creationTimestamp: "2008-01-01T01:01:01Z"
+  deletionGracePeriodSeconds: 10
+  deletionTimestamp: "2009-01-01T01:01:01Z"
+  finalizers:
+  - finalizersValue
+  generateName: generateNameValue
+  generation: 7
+  labels:
+    labelsKey: labelsValue
+  managedFields:
+  - apiVersion: apiVersionValue
+    fieldsType: fieldsTypeValue
+    fieldsV1: {}
+    manager: managerValue
+    operation: operationValue
+    subresource: subresourceValue
+    time: "2004-01-01T01:01:01Z"
+  name: nameValue
+  namespace: namespaceValue
+  ownerReferences:
+  - apiVersion: apiVersionValue
+    blockOwnerDeletion: true
+    controller: true
+    kind: kindValue
+    name: nameValue
+    uid: uidValue
+  resourceVersion: resourceVersionValue
+  selfLink: selfLinkValue
+  uid: uidValue
+spec:
+  dataVolumeTemplates:
+  - metadata:
+      annotations:
+        annotationsKey: annotationsValue
+      creationTimestamp: "2008-01-01T01:01:01Z"
+      deletionGracePeriodSeconds: 10
+      deletionTimestamp: "2009-01-01T01:01:01Z"
+      finalizers:
+      - finalizersValue
+      generateName: generateNameValue
+      generation: 7
+      labels:
+        labelsKey: labelsValue
+      managedFields:
+      - apiVersion: apiVersionValue
+        fieldsType: fieldsTypeValue
+        fieldsV1: {}
+        manager: managerValue
+        operation: operationValue
+        subresource: subresourceValue
+        time: "2004-01-01T01:01:01Z"
+      name: nameValue
+      namespace: namespaceValue
+      ownerReferences:
+      - apiVersion: apiVersionValue
+        blockOwnerDeletion: true
+        controller: true
+        kind: kindValue
+        name: nameValue
+        uid: uidValue
+      resourceVersion: resourceVersionValue
+      selfLink: selfLinkValue
+      uid: uidValue
+    spec:
+      checkpoints:
+      - current: currentValue
+        previous: previousValue
+      contentType: contentTypeValue
+      finalCheckpoint: true
+      preallocation: true
+      priorityClassName: priorityClassNameValue
+      pvc:
+        accessModes:
+        - accessModesValue
+        dataSource:
+          apiGroup: apiGroupValue
+          kind: kindValue
+          name: nameValue
+        dataSourceRef:
+          apiGroup: apiGroupValue
+          kind: kindValue
+          name: nameValue
+          namespace: namespaceValue
+        resources:
+          limits:
+            limitsKey: "0"
+          requests:
+            requestsKey: "0"
+        selector:
+          matchExpressions:
+          - key: keyValue
+            operator: operatorValue
+            values:
+            - valuesValue
+          matchLabels:
+            matchLabelsKey: matchLabelsValue
+        storageClassName: storageClassNameValue
+        volumeAttributesClassName: volumeAttributesClassNameValue
+        volumeMode: volumeModeValue
+        volumeName: volumeNameValue
+      source:
+        blank: {}
+        gcs:
+          secretRef: secretRefValue
+          url: urlValue
+        http:
+          certConfigMap: certConfigMapValue
+          extraHeaders:
+          - extraHeadersValue
+          secretExtraHeaders:
+          - secretExtraHeadersValue
+          secretRef: secretRefValue
+          url: urlValue
+        imageio:
+          certConfigMap: certConfigMapValue
+          diskId: diskIdValue
+          secretRef: secretRefValue
+          url: urlValue
+        pvc:
+          name: nameValue
+          namespace: namespaceValue
+        registry:
+          certConfigMap: certConfigMapValue
+          imageStream: imageStreamValue
+          pullMethod: pullMethodValue
+          secretRef: secretRefValue
+          url: urlValue
+        s3:
+          certConfigMap: certConfigMapValue
+          secretRef: secretRefValue
+          url: urlValue
+        snapshot:
+          name: nameValue
+          namespace: namespaceValue
+        upload: {}
+        vddk:
+          backingFile: backingFileValue
+          initImageURL: initImageURLValue
+          secretRef: secretRefValue
+          thumbprint: thumbprintValue
+          url: urlValue
+          uuid: uuidValue
+      sourceRef:
+        kind: kindValue
+        name: nameValue
+        namespace: namespaceValue
+      storage:
+        accessModes:
+        - accessModesValue
+        dataSource:
+          apiGroup: apiGroupValue
+          kind: kindValue
+          name: nameValue
+        dataSourceRef:
+          apiGroup: apiGroupValue
+          kind: kindValue
+          name: nameValue
+          namespace: namespaceValue
+        resources:
+          claims:
+          - name: nameValue
+          limits:
+            limitsKey: "0"
+          requests:
+            requestsKey: "0"
+        selector:
+          matchExpressions:
+          - key: keyValue
+            operator: operatorValue
+            values:
+            - valuesValue
+          matchLabels:
+            matchLabelsKey: matchLabelsValue
+        storageClassName: storageClassNameValue
+        volumeMode: volumeModeValue
+        volumeName: volumeNameValue
+    status: {}
+  instancetype:
+    inferFromVolume: inferFromVolumeValue
+    inferFromVolumeFailurePolicy: inferFromVolumeFailurePolicyValue
+    kind: kindValue
+    name: nameValue
+    revisionName: revisionNameValue
+  preference:
+    inferFromVolume: inferFromVolumeValue
+    inferFromVolumeFailurePolicy: inferFromVolumeFailurePolicyValue
+    kind: kindValue
+    name: nameValue
+    revisionName: revisionNameValue
+  runStrategy: runStrategyValue
+  running: true
+  template:
+    metadata:
+      annotations:
+        annotationsKey: annotationsValue
+      creationTimestamp: "2008-01-01T01:01:01Z"
+      deletionGracePeriodSeconds: 10
+      deletionTimestamp: "2009-01-01T01:01:01Z"
+      finalizers:
+      - finalizersValue
+      generateName: generateNameValue
+      generation: 7
+      labels:
+        labelsKey: labelsValue
+      managedFields:
+      - apiVersion: apiVersionValue
+        fieldsType: fieldsTypeValue
+        fieldsV1: {}
+        manager: managerValue
+        operation: operationValue
+        subresource: subresourceValue
+        time: "2004-01-01T01:01:01Z"
+      name: nameValue
+      namespace: namespaceValue
+      ownerReferences:
+      - apiVersion: apiVersionValue
+        blockOwnerDeletion: true
+        controller: true
+        kind: kindValue
+        name: nameValue
+        uid: uidValue
+      resourceVersion: resourceVersionValue
+      selfLink: selfLinkValue
+      uid: uidValue
+    spec:
+      accessCredentials:
+      - sshPublicKey:
+          propagationMethod:
+            configDrive: {}
+            noCloud: {}
+            qemuGuestAgent:
+              users:
+              - usersValue
+          source:
+            secret:
+              secretName: secretNameValue
+        userPassword:
+          propagationMethod:
+            qemuGuestAgent: {}
+          source:
+            secret:
+              secretName: secretNameValue
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchFields:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchFields:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
+              namespaceSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              namespaces:
+              - namespacesValue
+              topologyKey: topologyKeyValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
+            namespaceSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            namespaces:
+            - namespacesValue
+            topologyKey: topologyKeyValue
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
+              namespaceSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              namespaces:
+              - namespacesValue
+              topologyKey: topologyKeyValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
+            namespaceSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            namespaces:
+            - namespacesValue
+            topologyKey: topologyKeyValue
+      architecture: architectureValue
+      dnsConfig:
+        nameservers:
+        - nameserversValue
+        options:
+        - name: nameValue
+          value: valueValue
+        searches:
+        - searchesValue
+      dnsPolicy: dnsPolicyValue
+      domain:
+        chassis:
+          asset: assetValue
+          manufacturer: manufacturerValue
+          serial: serialValue
+          sku: skuValue
+          version: versionValue
+        clock:
+          timer:
+            hpet:
+              present: true
+              tickPolicy: tickPolicyValue
+            hyperv:
+              present: true
+            kvm:
+              present: true
+            pit:
+              present: true
+              tickPolicy: tickPolicyValue
+            rtc:
+              present: true
+              tickPolicy: tickPolicyValue
+              track: trackValue
+          timezone: timezoneValue
+          utc:
+            offsetSeconds: -13
+        cpu:
+          cores: 4294967291
+          dedicatedCpuPlacement: true
+          features:
+          - name: nameValue
+            policy: policyValue
+          isolateEmulatorThread: true
+          maxSockets: 4294967286
+          model: modelValue
+          numa:
+            guestMappingPassthrough: {}
+          realtime:
+            mask: maskValue
+          sockets: 4294967289
+          threads: 4294967289
+        devices:
+          autoattachGraphicsDevice: true
+          autoattachInputDevice: true
+          autoattachMemBalloon: true
+          autoattachPodInterface: true
+          autoattachSerialConsole: true
+          autoattachVSOCK: true
+          blockMultiQueue: true
+          clientPassthrough: {}
+          disableHotplug: true
+          disks:
+          - blockSize:
+              custom:
+                logical: 18446744073709551609
+                physical: 18446744073709551608
+              matchVolume:
+                enabled: true
+            bootOrder: 18446744073709551607
+            cache: cacheValue
+            cdrom:
+              bus: busValue
+              readonly: true
+              tray: trayValue
+            dedicatedIOThread: true
+            disk:
+              bus: busValue
+              pciAddress: pciAddressValue
+              readonly: true
+            errorPolicy: errorPolicyValue
+            io: ioValue
+            lun:
+              bus: busValue
+              readonly: true
+              reservation: true
+            name: nameValue
+            serial: serialValue
+            shareable: true
+            tag: tagValue
+          downwardMetrics: {}
+          filesystems:
+          - name: nameValue
+            virtiofs: {}
+          gpus:
+          - deviceName: deviceNameValue
+            name: nameValue
+            tag: tagValue
+            virtualGPUOptions:
+              display:
+                enabled: true
+                ramFB:
+                  enabled: true
+          hostDevices:
+          - deviceName: deviceNameValue
+            name: nameValue
+            tag: tagValue
+          inputs:
+          - bus: busValue
+            name: nameValue
+            type: typeValue
+          interfaces:
+          - acpiIndex: -9
+            binding:
+              name: nameValue
+            bootOrder: 18446744073709551607
+            bridge: {}
+            dhcpOptions:
+              bootFileName: bootFileNameValue
+              ntpServers:
+              - ntpServersValue
+              privateOptions:
+              - option: -6
+                value: valueValue
+              tftpServerName: tftpServerNameValue
+            macAddress: macAddressValue
+            macvtap: {}
+            masquerade: {}
+            model: modelValue
+            name: nameValue
+            passt: {}
+            pciAddress: pciAddressValue
+            ports:
+            - name: nameValue
+              port: -4
+              protocol: protocolValue
+            slirp: {}
+            sriov: {}
+            state: stateValue
+            tag: tagValue
+          logSerialConsole: true
+          networkInterfaceMultiqueue: true
+          rng: {}
+          sound:
+            model: modelValue
+            name: nameValue
+          tpm:
+            enabled: true
+            persistent: true
+          useVirtioTransitional: true
+          watchdog:
+            i6300esb:
+              action: actionValue
+            name: nameValue
+        features:
+          acpi:
+            enabled: true
+          apic:
+            enabled: true
+            endOfInterrupt: true
+          hyperv:
+            evmcs:
+              enabled: true
+            frequencies:
+              enabled: true
+            ipi:
+              enabled: true
+            reenlightenment:
+              enabled: true
+            relaxed:
+              enabled: true
+            reset:
+              enabled: true
+            runtime:
+              enabled: true
+            spinlocks:
+              enabled: true
+              spinlocks: 4294967287
+            synic:
+              enabled: true
+            synictimer:
+              direct:
+                enabled: true
+              enabled: true
+            tlbflush:
+              enabled: true
+            vapic:
+              enabled: true
+            vendorid:
+              enabled: true
+              vendorid: vendoridValue
+            vpindex:
+              enabled: true
+          hypervPassthrough:
+            enabled: true
+          kvm:
+            hidden: true
+          pvspinlock:
+            enabled: true
+          smm:
+            enabled: true
+        firmware:
+          acpi:
+            slicNameRef: slicNameRefValue
+          bootloader:
+            bios:
+              useSerial: true
+            efi:
+              persistent: true
+              secureBoot: true
+          kernelBoot:
+            container:
+              image: imageValue
+              imagePullPolicy: imagePullPolicyValue
+              imagePullSecret: imagePullSecretValue
+              initrdPath: initrdPathValue
+              kernelPath: kernelPathValue
+            kernelArgs: kernelArgsValue
+          serial: serialValue
+          uuid: uuidValue
+        ioThreadsPolicy: ioThreadsPolicyValue
+        launchSecurity:
+          sev:
+            attestation: {}
+            dhCert: dhCertValue
+            policy:
+              encryptedState: true
+            session: sessionValue
+        machine:
+          type: typeValue
+        memory:
+          guest: "0"
+          hugepages:
+            pageSize: pageSizeValue
+          maxGuest: "0"
+        resources:
+          limits:
+            limitsKey: "0"
+          overcommitGuestOverhead: true
+          requests:
+            requestsKey: "0"
+      evictionStrategy: evictionStrategyValue
+      hostname: hostnameValue
+      livenessProbe:
+        exec:
+          command:
+          - commandValue
+        failureThreshold: -16
+        guestAgentPing: {}
+        httpGet:
+          host: hostValue
+          httpHeaders:
+          - name: nameValue
+            value: valueValue
+          path: pathValue
+          port: portValue
+          scheme: schemeValue
+        initialDelaySeconds: -19
+        periodSeconds: -13
+        successThreshold: -16
+        tcpSocket:
+          host: hostValue
+          port: portValue
+        timeoutSeconds: -14
+      networks:
+      - multus:
+          default: true
+          networkName: networkNameValue
+        name: nameValue
+        pod:
+          vmIPv6NetworkCIDR: vmIPv6NetworkCIDRValue
+          vmNetworkCIDR: vmNetworkCIDRValue
+      nodeSelector:
+        nodeSelectorKey: nodeSelectorValue
+      priorityClassName: priorityClassNameValue
+      readinessProbe:
+        exec:
+          command:
+          - commandValue
+        failureThreshold: -16
+        guestAgentPing: {}
+        httpGet:
+          host: hostValue
+          httpHeaders:
+          - name: nameValue
+            value: valueValue
+          path: pathValue
+          port: portValue
+          scheme: schemeValue
+        initialDelaySeconds: -19
+        periodSeconds: -13
+        successThreshold: -16
+        tcpSocket:
+          host: hostValue
+          port: portValue
+        timeoutSeconds: -14
+      schedulerName: schedulerNameValue
+      startStrategy: startStrategyValue
+      subdomain: subdomainValue
+      terminationGracePeriodSeconds: -29
+      tolerations:
+      - effect: effectValue
+        key: keyValue
+        operator: operatorValue
+        tolerationSeconds: 5
+        value: valueValue
+      topologySpreadConstraints:
+      - labelSelector:
+          matchExpressions:
+          - key: keyValue
+            operator: operatorValue
+            values:
+            - valuesValue
+          matchLabels:
+            matchLabelsKey: matchLabelsValue
+        matchLabelKeys:
+        - matchLabelKeysValue
+        maxSkew: 1
+        minDomains: 5
+        nodeAffinityPolicy: nodeAffinityPolicyValue
+        nodeTaintsPolicy: nodeTaintsPolicyValue
+        topologyKey: topologyKeyValue
+        whenUnsatisfiable: whenUnsatisfiableValue
+      volumes:
+      - cloudInitConfigDrive:
+          networkData: networkDataValue
+          networkDataBase64: networkDataBase64Value
+          networkDataSecretRef:
+            name: nameValue
+          secretRef:
+            name: nameValue
+          userData: userDataValue
+          userDataBase64: userDataBase64Value
+        cloudInitNoCloud:
+          networkData: networkDataValue
+          networkDataBase64: networkDataBase64Value
+          networkDataSecretRef:
+            name: nameValue
+          secretRef:
+            name: nameValue
+          userData: userDataValue
+          userDataBase64: userDataBase64Value
+        configMap:
+          name: nameValue
+          optional: true
+          volumeLabel: volumeLabelValue
+        containerDisk:
+          image: imageValue
+          imagePullPolicy: imagePullPolicyValue
+          imagePullSecret: imagePullSecretValue
+          path: pathValue
+        dataVolume:
+          hotpluggable: true
+          name: nameValue
+        downwardAPI:
+          fields:
+          - fieldRef:
+              apiVersion: apiVersionValue
+              fieldPath: fieldPathValue
+            mode: 4
+            path: pathValue
+            resourceFieldRef:
+              containerName: containerNameValue
+              divisor: "0"
+              resource: resourceValue
+          volumeLabel: volumeLabelValue
+        downwardMetrics: {}
+        emptyDisk:
+          capacity: "0"
+        ephemeral:
+          persistentVolumeClaim:
+            claimName: claimNameValue
+            readOnly: true
+        hostDisk:
+          capacity: "0"
+          path: pathValue
+          shared: true
+          type: typeValue
+        memoryDump:
+          claimName: claimNameValue
+          hotpluggable: true
+          readOnly: true
+        name: nameValue
+        persistentVolumeClaim:
+          claimName: claimNameValue
+          hotpluggable: true
+          readOnly: true
+        secret:
+          optional: true
+          secretName: secretNameValue
+          volumeLabel: volumeLabelValue
+        serviceAccount:
+          serviceAccountName: serviceAccountNameValue
+        sysprep:
+          configMap:
+            name: nameValue
+          secret:
+            name: nameValue
+  updateVolumesStrategy: updateVolumesStrategyValue
+status:
+  conditions:
+  - lastProbeTime: "1987-01-01T01:01:01Z"
+    lastTransitionTime: "1982-01-01T01:01:01Z"
+    message: messageValue
+    reason: reasonValue
+    status: statusValue
+    type: typeValue
+  created: true
+  desiredGeneration: -17
+  memoryDumpRequest:
+    claimName: claimNameValue
+    endTimestamp: "1988-01-01T01:01:01Z"
+    fileName: fileNameValue
+    message: messageValue
+    phase: phaseValue
+    remove: true
+    startTimestamp: "1986-01-01T01:01:01Z"
+  observedGeneration: -18
+  printableStatus: printableStatusValue
+  ready: true
+  restoreInProgress: restoreInProgressValue
+  runStrategy: runStrategyValue
+  snapshotInProgress: snapshotInProgressValue
+  startFailure:
+    consecutiveFailCount: -20
+    lastFailedVMIUID: lastFailedVMIUIDValue
+    retryAfterTimestamp: "1981-01-01T01:01:01Z"
+  stateChangeRequests:
+  - action: actionValue
+    data:
+      dataKey: dataValue
+    uid: uidValue
+  volumeRequests:
+  - addVolumeOptions:
+      disk:
+        blockSize:
+          custom:
+            logical: 18446744073709551609
+            physical: 18446744073709551608
+          matchVolume:
+            enabled: true
+        bootOrder: 18446744073709551607
+        cache: cacheValue
+        cdrom:
+          bus: busValue
+          readonly: true
+          tray: trayValue
+        dedicatedIOThread: true
+        disk:
+          bus: busValue
+          pciAddress: pciAddressValue
+          readonly: true
+        errorPolicy: errorPolicyValue
+        io: ioValue
+        lun:
+          bus: busValue
+          readonly: true
+          reservation: true
+        name: nameValue
+        serial: serialValue
+        shareable: true
+        tag: tagValue
+      dryRun:
+      - dryRunValue
+      name: nameValue
+      volumeSource:
+        dataVolume:
+          hotpluggable: true
+          name: nameValue
+        persistentVolumeClaim:
+          claimName: claimNameValue
+          hotpluggable: true
+          readOnly: true
+    removeVolumeOptions:
+      dryRun:
+      - dryRunValue
+      name: nameValue
+  volumeSnapshotStatuses:
+  - enabled: true
+    name: nameValue
+    reason: reasonValue

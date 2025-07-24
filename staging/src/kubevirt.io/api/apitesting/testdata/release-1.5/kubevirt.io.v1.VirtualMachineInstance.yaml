@@ -1,0 +1,737 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  annotations:
+    annotationsKey: annotationsValue
+  creationTimestamp: "2008-01-01T01:01:01Z"
+  deletionGracePeriodSeconds: 10
+  deletionTimestamp: "2009-01-01T01:01:01Z"
+  finalizers:
+  - finalizersValue
+  generateName: generateNameValue
+  generation: 7
+  labels:
+    labelsKey: labelsValue
+  managedFields:
+  - apiVersion: apiVersionValue
+    fieldsType: fieldsTypeValue
+    fieldsV1: {}
+    manager: managerValue
+    operation: operationValue
+    subresource: subresourceValue
+    time: "2004-01-01T01:01:01Z"
+  name: nameValue
+  namespace: namespaceValue
+  ownerReferences:
+  - apiVersion: apiVersionValue
+    blockOwnerDeletion: true
+    controller: true
+    kind: kindValue
+    name: nameValue
+    uid: uidValue
+  resourceVersion: resourceVersionValue
+  selfLink: selfLinkValue
+  uid: uidValue
+spec:
+  accessCredentials:
+  - sshPublicKey:
+      propagationMethod:
+        configDrive: {}
+        noCloud: {}
+        qemuGuestAgent:
+          users:
+          - usersValue
+      source:
+        secret:
+          secretName: secretNameValue
+    userPassword:
+      propagationMethod:
+        qemuGuestAgent: {}
+      source:
+        secret:
+          secretName: secretNameValue
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - preference:
+          matchExpressions:
+          - key: keyValue
+            operator: operatorValue
+            values:
+            - valuesValue
+          matchFields:
+          - key: keyValue
+            operator: operatorValue
+            values:
+            - valuesValue
+        weight: 1
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: keyValue
+            operator: operatorValue
+            values:
+            - valuesValue
+          matchFields:
+          - key: keyValue
+            operator: operatorValue
+            values:
+            - valuesValue
+    podAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: keyValue
+              operator: operatorValue
+              values:
+              - valuesValue
+            matchLabels:
+              matchLabelsKey: matchLabelsValue
+          matchLabelKeys:
+          - matchLabelKeysValue
+          mismatchLabelKeys:
+          - mismatchLabelKeysValue
+          namespaceSelector:
+            matchExpressions:
+            - key: keyValue
+              operator: operatorValue
+              values:
+              - valuesValue
+            matchLabels:
+              matchLabelsKey: matchLabelsValue
+          namespaces:
+          - namespacesValue
+          topologyKey: topologyKeyValue
+        weight: 1
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: keyValue
+            operator: operatorValue
+            values:
+            - valuesValue
+          matchLabels:
+            matchLabelsKey: matchLabelsValue
+        matchLabelKeys:
+        - matchLabelKeysValue
+        mismatchLabelKeys:
+        - mismatchLabelKeysValue
+        namespaceSelector:
+          matchExpressions:
+          - key: keyValue
+            operator: operatorValue
+            values:
+            - valuesValue
+          matchLabels:
+            matchLabelsKey: matchLabelsValue
+        namespaces:
+        - namespacesValue
+        topologyKey: topologyKeyValue
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: keyValue
+              operator: operatorValue
+              values:
+              - valuesValue
+            matchLabels:
+              matchLabelsKey: matchLabelsValue
+          matchLabelKeys:
+          - matchLabelKeysValue
+          mismatchLabelKeys:
+          - mismatchLabelKeysValue
+          namespaceSelector:
+            matchExpressions:
+            - key: keyValue
+              operator: operatorValue
+              values:
+              - valuesValue
+            matchLabels:
+              matchLabelsKey: matchLabelsValue
+          namespaces:
+          - namespacesValue
+          topologyKey: topologyKeyValue
+        weight: 1
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: keyValue
+            operator: operatorValue
+            values:
+            - valuesValue
+          matchLabels:
+            matchLabelsKey: matchLabelsValue
+        matchLabelKeys:
+        - matchLabelKeysValue
+        mismatchLabelKeys:
+        - mismatchLabelKeysValue
+        namespaceSelector:
+          matchExpressions:
+          - key: keyValue
+            operator: operatorValue
+            values:
+            - valuesValue
+          matchLabels:
+            matchLabelsKey: matchLabelsValue
+        namespaces:
+        - namespacesValue
+        topologyKey: topologyKeyValue
+  architecture: architectureValue
+  dnsConfig:
+    nameservers:
+    - nameserversValue
+    options:
+    - name: nameValue
+      value: valueValue
+    searches:
+    - searchesValue
+  dnsPolicy: dnsPolicyValue
+  domain:
+    chassis:
+      asset: assetValue
+      manufacturer: manufacturerValue
+      serial: serialValue
+      sku: skuValue
+      version: versionValue
+    clock:
+      timer:
+        hpet:
+          present: true
+          tickPolicy: tickPolicyValue
+        hyperv:
+          present: true
+        kvm:
+          present: true
+        pit:
+          present: true
+          tickPolicy: tickPolicyValue
+        rtc:
+          present: true
+          tickPolicy: tickPolicyValue
+          track: trackValue
+      timezone: timezoneValue
+      utc:
+        offsetSeconds: -13
+    cpu:
+      cores: 4294967291
+      dedicatedCpuPlacement: true
+      features:
+      - name: nameValue
+        policy: policyValue
+      isolateEmulatorThread: true
+      maxSockets: 4294967286
+      model: modelValue
+      numa:
+        guestMappingPassthrough: {}
+      realtime:
+        mask: maskValue
+      sockets: 4294967289
+      threads: 4294967289
+    devices:
+      autoattachGraphicsDevice: true
+      autoattachInputDevice: true
+      autoattachMemBalloon: true
+      autoattachPodInterface: true
+      autoattachSerialConsole: true
+      autoattachVSOCK: true
+      blockMultiQueue: true
+      clientPassthrough: {}
+      disableHotplug: true
+      disks:
+      - blockSize:
+          custom:
+            logical: 18446744073709551609
+            physical: 18446744073709551608
+          matchVolume:
+            enabled: true
+        bootOrder: 18446744073709551607
+        cache: cacheValue
+        cdrom:
+          bus: busValue
+          readonly: true
+          tray: trayValue
+        dedicatedIOThread: true
+        disk:
+          bus: busValue
+          pciAddress: pciAddressValue
+          readonly: true
+        errorPolicy: errorPolicyValue
+        io: ioValue
+        lun:
+          bus: busValue
+          readonly: true
+          reservation: true
+        name: nameValue
+        serial: serialValue
+        shareable: true
+        tag: tagValue
+      downwardMetrics: {}
+      filesystems:
+      - name: nameValue
+        virtiofs: {}
+      gpus:
+      - deviceName: deviceNameValue
+        name: nameValue
+        tag: tagValue
+        virtualGPUOptions:
+          display:
+            enabled: true
+            ramFB:
+              enabled: true
+      hostDevices:
+      - deviceName: deviceNameValue
+        name: nameValue
+        tag: tagValue
+      inputs:
+      - bus: busValue
+        name: nameValue
+        type: typeValue
+      interfaces:
+      - acpiIndex: -9
+        binding:
+          name: nameValue
+        bootOrder: 18446744073709551607
+        bridge: {}
+        dhcpOptions:
+          bootFileName: bootFileNameValue
+          ntpServers:
+          - ntpServersValue
+          privateOptions:
+          - option: -6
+            value: valueValue
+          tftpServerName: tftpServerNameValue
+        macAddress: macAddressValue
+        macvtap: {}
+        masquerade: {}
+        model: modelValue
+        name: nameValue
+        passt: {}
+        pciAddress: pciAddressValue
+        ports:
+        - name: nameValue
+          port: -4
+          protocol: protocolValue
+        slirp: {}
+        sriov: {}
+        state: stateValue
+        tag: tagValue
+      logSerialConsole: true
+      networkInterfaceMultiqueue: true
+      rng: {}
+      sound:
+        model: modelValue
+        name: nameValue
+      tpm:
+        enabled: true
+        persistent: true
+      useVirtioTransitional: true
+      watchdog:
+        diag288:
+          action: actionValue
+        i6300esb:
+          action: actionValue
+        name: nameValue
+    features:
+      acpi:
+        enabled: true
+      apic:
+        enabled: true
+        endOfInterrupt: true
+      hyperv:
+        evmcs:
+          enabled: true
+        frequencies:
+          enabled: true
+        ipi:
+          enabled: true
+        reenlightenment:
+          enabled: true
+        relaxed:
+          enabled: true
+        reset:
+          enabled: true
+        runtime:
+          enabled: true
+        spinlocks:
+          enabled: true
+          spinlocks: 4294967287
+        synic:
+          enabled: true
+        synictimer:
+          direct:
+            enabled: true
+          enabled: true
+        tlbflush:
+          enabled: true
+        vapic:
+          enabled: true
+        vendorid:
+          enabled: true
+          vendorid: vendoridValue
+        vpindex:
+          enabled: true
+      hypervPassthrough:
+        enabled: true
+      kvm:
+        hidden: true
+      pvspinlock:
+        enabled: true
+      smm:
+        enabled: true
+    firmware:
+      acpi:
+        slicNameRef: slicNameRefValue
+      bootloader:
+        bios:
+          useSerial: true
+        efi:
+          persistent: true
+          secureBoot: true
+      kernelBoot:
+        container:
+          image: imageValue
+          imagePullPolicy: imagePullPolicyValue
+          imagePullSecret: imagePullSecretValue
+          initrdPath: initrdPathValue
+          kernelPath: kernelPathValue
+        kernelArgs: kernelArgsValue
+      serial: serialValue
+      uuid: uuidValue
+    ioThreads:
+      supplementalPoolThreadCount: 4294967269
+    ioThreadsPolicy: ioThreadsPolicyValue
+    launchSecurity:
+      sev:
+        attestation: {}
+        dhCert: dhCertValue
+        policy:
+          encryptedState: true
+        session: sessionValue
+    machine:
+      type: typeValue
+    memory:
+      guest: "0"
+      hugepages:
+        pageSize: pageSizeValue
+      maxGuest: "0"
+    resources:
+      limits:
+        limitsKey: "0"
+      overcommitGuestOverhead: true
+      requests:
+        requestsKey: "0"
+  evictionStrategy: evictionStrategyValue
+  hostname: hostnameValue
+  livenessProbe:
+    exec:
+      command:
+      - commandValue
+    failureThreshold: -16
+    guestAgentPing: {}
+    httpGet:
+      host: hostValue
+      httpHeaders:
+      - name: nameValue
+        value: valueValue
+      path: pathValue
+      port: portValue
+      scheme: schemeValue
+    initialDelaySeconds: -19
+    periodSeconds: -13
+    successThreshold: -16
+    tcpSocket:
+      host: hostValue
+      port: portValue
+    timeoutSeconds: -14
+  networks:
+  - multus:
+      default: true
+      networkName: networkNameValue
+    name: nameValue
+    pod:
+      vmIPv6NetworkCIDR: vmIPv6NetworkCIDRValue
+      vmNetworkCIDR: vmNetworkCIDRValue
+  nodeSelector:
+    nodeSelectorKey: nodeSelectorValue
+  priorityClassName: priorityClassNameValue
+  readinessProbe:
+    exec:
+      command:
+      - commandValue
+    failureThreshold: -16
+    guestAgentPing: {}
+    httpGet:
+      host: hostValue
+      httpHeaders:
+      - name: nameValue
+        value: valueValue
+      path: pathValue
+      port: portValue
+      scheme: schemeValue
+    initialDelaySeconds: -19
+    periodSeconds: -13
+    successThreshold: -16
+    tcpSocket:
+      host: hostValue
+      port: portValue
+    timeoutSeconds: -14
+  schedulerName: schedulerNameValue
+  startStrategy: startStrategyValue
+  subdomain: subdomainValue
+  terminationGracePeriodSeconds: -29
+  tolerations:
+  - effect: effectValue
+    key: keyValue
+    operator: operatorValue
+    tolerationSeconds: 5
+    value: valueValue
+  topologySpreadConstraints:
+  - labelSelector:
+      matchExpressions:
+      - key: keyValue
+        operator: operatorValue
+        values:
+        - valuesValue
+      matchLabels:
+        matchLabelsKey: matchLabelsValue
+    matchLabelKeys:
+    - matchLabelKeysValue
+    maxSkew: 1
+    minDomains: 5
+    nodeAffinityPolicy: nodeAffinityPolicyValue
+    nodeTaintsPolicy: nodeTaintsPolicyValue
+    topologyKey: topologyKeyValue
+    whenUnsatisfiable: whenUnsatisfiableValue
+  volumes:
+  - cloudInitConfigDrive:
+      networkData: networkDataValue
+      networkDataBase64: networkDataBase64Value
+      networkDataSecretRef:
+        name: nameValue
+      secretRef:
+        name: nameValue
+      userData: userDataValue
+      userDataBase64: userDataBase64Value
+    cloudInitNoCloud:
+      networkData: networkDataValue
+      networkDataBase64: networkDataBase64Value
+      networkDataSecretRef:
+        name: nameValue
+      secretRef:
+        name: nameValue
+      userData: userDataValue
+      userDataBase64: userDataBase64Value
+    configMap:
+      name: nameValue
+      optional: true
+      volumeLabel: volumeLabelValue
+    containerDisk:
+      image: imageValue
+      imagePullPolicy: imagePullPolicyValue
+      imagePullSecret: imagePullSecretValue
+      path: pathValue
+    dataVolume:
+      hotpluggable: true
+      name: nameValue
+    downwardAPI:
+      fields:
+      - fieldRef:
+          apiVersion: apiVersionValue
+          fieldPath: fieldPathValue
+        mode: 4
+        path: pathValue
+        resourceFieldRef:
+          containerName: containerNameValue
+          divisor: "0"
+          resource: resourceValue
+      volumeLabel: volumeLabelValue
+    downwardMetrics: {}
+    emptyDisk:
+      capacity: "0"
+    ephemeral:
+      persistentVolumeClaim:
+        claimName: claimNameValue
+        readOnly: true
+    hostDisk:
+      capacity: "0"
+      path: pathValue
+      shared: true
+      type: typeValue
+    memoryDump:
+      claimName: claimNameValue
+      hotpluggable: true
+      readOnly: true
+    name: nameValue
+    persistentVolumeClaim:
+      claimName: claimNameValue
+      hotpluggable: true
+      readOnly: true
+    secret:
+      optional: true
+      secretName: secretNameValue
+      volumeLabel: volumeLabelValue
+    serviceAccount:
+      serviceAccountName: serviceAccountNameValue
+    sysprep:
+      configMap:
+        name: nameValue
+      secret:
+        name: nameValue
+status:
+  VSOCKCID: 4294967288
+  activePods:
+    activePodsKey: activePodsValue
+  conditions:
+  - lastProbeTime: "1987-01-01T01:01:01Z"
+    lastTransitionTime: "1982-01-01T01:01:01Z"
+    message: messageValue
+    reason: reasonValue
+    status: statusValue
+    type: typeValue
+  currentCPUTopology:
+    cores: 4294967291
+    sockets: 4294967289
+    threads: 4294967289
+  evacuationNodeName: evacuationNodeNameValue
+  fsFreezeStatus: fsFreezeStatusValue
+  guestOSInfo:
+    id: idValue
+    kernelRelease: kernelReleaseValue
+    kernelVersion: kernelVersionValue
+    machine: machineValue
+    name: nameValue
+    prettyName: prettyNameValue
+    version: versionValue
+    versionId: versionIdValue
+  interfaces:
+  - infoSource: infoSourceValue
+    interfaceName: interfaceNameValue
+    ipAddress: ipAddressValue
+    ipAddresses:
+    - ipAddressesValue
+    linkState: linkStateValue
+    mac: macValue
+    name: nameValue
+    podInterfaceName: podInterfaceNameValue
+    queueCount: -10
+  kernelBootStatus:
+    initrdInfo:
+      checksum: 4294967288
+    kernelInfo:
+      checksum: 4294967288
+  launcherContainerImageVersion: launcherContainerImageVersionValue
+  machine:
+    type: typeValue
+  memory:
+    guestAtBoot: "0"
+    guestCurrent: "0"
+    guestRequested: "0"
+  migratedVolumes:
+  - destinationPVCInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    sourcePVCInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    volumeName: volumeNameValue
+  migrationMethod: migrationMethodValue
+  migrationState:
+    abortRequested: true
+    abortStatus: abortStatusValue
+    completed: true
+    endTimestamp: "1988-01-01T01:01:01Z"
+    failed: true
+    failureReason: failureReasonValue
+    migrationConfiguration:
+      allowAutoConverge: true
+      allowPostCopy: true
+      allowWorkloadDisruption: true
+      bandwidthPerMigration: "0"
+      completionTimeoutPerGiB: -23
+      disableTLS: true
+      matchSELinuxLevelOnMigration: true
+      network: networkValue
+      nodeDrainTaintKey: nodeDrainTaintKeyValue
+      parallelMigrationsPerCluster: 4294967268
+      parallelOutboundMigrationsPerNode: 4294967263
+      progressTimeout: -15
+      unsafeMigrationOverride: true
+    migrationPolicyName: migrationPolicyNameValue
+    migrationUid: migrationUidValue
+    mode: modeValue
+    sourceNode: sourceNodeValue
+    sourcePersistentStatePVCName: sourcePersistentStatePVCNameValue
+    sourcePod: sourcePodValue
+    startTimestamp: "1986-01-01T01:01:01Z"
+    targetAttachmentPodUID: targetAttachmentPodUIDValue
+    targetCPUSet:
+    - -12
+    targetDirectMigrationNodePorts:
+      targetDirectMigrationNodePortsKey: -30
+    targetNode: targetNodeValue
+    targetNodeAddress: targetNodeAddressValue
+    targetNodeDomainDetected: true
+    targetNodeDomainReadyTimestamp: "1970-01-01T01:01:01Z"
+    targetNodeTopology: targetNodeTopologyValue
+    targetPersistentStatePVCName: targetPersistentStatePVCNameValue
+    targetPod: targetPodValue
+  migrationTransport: migrationTransportValue
+  nodeName: nodeNameValue
+  phase: phaseValue
+  phaseTransitionTimestamps:
+  - phase: phaseValue
+    phaseTransitionTimestamp: "1976-01-01T01:01:01Z"
+  qosClass: qosClassValue
+  reason: reasonValue
+  runtimeUser: 18446744073709551605
+  selinuxContext: selinuxContextValue
+  topologyHints:
+    tscFrequency: -12
+  virtualMachineRevisionName: virtualMachineRevisionNameValue
+  volumeStatus:
+  - containerDiskVolume:
+      checksum: 4294967288
+    hotplugVolume:
+      attachPodName: attachPodNameValue
+      attachPodUID: attachPodUIDValue
+    memoryDumpVolume:
+      claimName: claimNameValue
+      endTimestamp: "1988-01-01T01:01:01Z"
+      startTimestamp: "1986-01-01T01:01:01Z"
+      targetFileName: targetFileNameValue
+    message: messageValue
+    name: nameValue
+    persistentVolumeClaimInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    phase: phaseValue
+    reason: reasonValue
+    size: -4
+    target: targetValue
