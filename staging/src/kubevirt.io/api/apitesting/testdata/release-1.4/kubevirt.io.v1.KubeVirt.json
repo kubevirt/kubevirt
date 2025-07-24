@@ -1,0 +1,919 @@
+{
+  "kind": "KubeVirt",
+  "apiVersion": "kubevirt.io/v1",
+  "metadata": {
+    "name": "nameValue",
+    "generateName": "generateNameValue",
+    "namespace": "namespaceValue",
+    "selfLink": "selfLinkValue",
+    "uid": "uidValue",
+    "resourceVersion": "resourceVersionValue",
+    "generation": 7,
+    "creationTimestamp": "2008-01-01T01:01:01Z",
+    "deletionTimestamp": "2009-01-01T01:01:01Z",
+    "deletionGracePeriodSeconds": 10,
+    "labels": {
+      "labelsKey": "labelsValue"
+    },
+    "annotations": {
+      "annotationsKey": "annotationsValue"
+    },
+    "ownerReferences": [
+      {
+        "apiVersion": "apiVersionValue",
+        "kind": "kindValue",
+        "name": "nameValue",
+        "uid": "uidValue",
+        "controller": true,
+        "blockOwnerDeletion": true
+      }
+    ],
+    "finalizers": [
+      "finalizersValue"
+    ],
+    "managedFields": [
+      {
+        "manager": "managerValue",
+        "operation": "operationValue",
+        "apiVersion": "apiVersionValue",
+        "time": "2004-01-01T01:01:01Z",
+        "fieldsType": "fieldsTypeValue",
+        "fieldsV1": {},
+        "subresource": "subresourceValue"
+      }
+    ]
+  },
+  "spec": {
+    "imageTag": "imageTagValue",
+    "imageRegistry": "imageRegistryValue",
+    "imagePullPolicy": "imagePullPolicyValue",
+    "imagePullSecrets": [
+      {
+        "name": "nameValue"
+      }
+    ],
+    "monitorNamespace": "monitorNamespaceValue",
+    "serviceMonitorNamespace": "serviceMonitorNamespaceValue",
+    "monitorAccount": "monitorAccountValue",
+    "workloadUpdateStrategy": {
+      "workloadUpdateMethods": [
+        "workloadUpdateMethodsValue"
+      ],
+      "batchEvictionSize": -17,
+      "batchEvictionInterval": "1ns"
+    },
+    "uninstallStrategy": "uninstallStrategyValue",
+    "certificateRotateStrategy": {
+      "selfSigned": {
+        "caRotateInterval": "1ns",
+        "certRotateInterval": "1ns",
+        "caOverlapInterval": "1ns",
+        "ca": {
+          "duration": "1ns",
+          "renewBefore": "1ns"
+        },
+        "server": {
+          "duration": "1ns",
+          "renewBefore": "1ns"
+        }
+      }
+    },
+    "productVersion": "productVersionValue",
+    "productName": "productNameValue",
+    "productComponent": "productComponentValue",
+    "configuration": {
+      "cpuModel": "cpuModelValue",
+      "cpuRequest": "0",
+      "developerConfiguration": {
+        "featureGates": [
+          "featureGatesValue"
+        ],
+        "pvcTolerateLessSpaceUpToPercent": -31,
+        "minimumReservePVCBytes": 18446744073709551594,
+        "memoryOvercommit": -16,
+        "nodeSelectors": {
+          "nodeSelectorsKey": "nodeSelectorsValue"
+        },
+        "useEmulation": true,
+        "cpuAllocationRatio": -18,
+        "minimumClusterTSCFrequency": -26,
+        "diskVerification": {
+          "memoryLimit": "0"
+        },
+        "logVerbosity": {
+          "virtAPI": 18446744073709551609,
+          "virtController": 18446744073709551602,
+          "virtHandler": 18446744073709551605,
+          "virtLauncher": 18446744073709551604,
+          "virtOperator": 18446744073709551604,
+          "nodeVerbosity": {
+            "nodeVerbosityKey": 18446744073709551603
+          }
+        }
+      },
+      "emulatedMachines": [
+        "emulatedMachinesValue"
+      ],
+      "imagePullPolicy": "imagePullPolicyValue",
+      "migrations": {
+        "nodeDrainTaintKey": "nodeDrainTaintKeyValue",
+        "parallelOutboundMigrationsPerNode": 4294967263,
+        "parallelMigrationsPerCluster": 4294967268,
+        "allowAutoConverge": true,
+        "bandwidthPerMigration": "0",
+        "completionTimeoutPerGiB": -23,
+        "progressTimeout": -15,
+        "unsafeMigrationOverride": true,
+        "allowPostCopy": true,
+        "disableTLS": true,
+        "network": "networkValue",
+        "matchSELinuxLevelOnMigration": true
+      },
+      "machineType": "machineTypeValue",
+      "network": {
+        "defaultNetworkInterface": "defaultNetworkInterfaceValue",
+        "permitSlirpInterface": true,
+        "permitBridgeInterfaceOnPodNetwork": true,
+        "binding": {
+          "bindingKey": {
+            "sidecarImage": "sidecarImageValue",
+            "networkAttachmentDefinition": "networkAttachmentDefinitionValue",
+            "domainAttachmentType": "domainAttachmentTypeValue",
+            "migration": {
+              "method": "methodValue"
+            },
+            "downwardAPI": "downwardAPIValue",
+            "computeResourceOverhead": {
+              "limits": {
+                "limitsKey": "0"
+              },
+              "requests": {
+                "requestsKey": "0"
+              }
+            }
+          }
+        }
+      },
+      "ovmfPath": "ovmfPathValue",
+      "selinuxLauncherType": "selinuxLauncherTypeValue",
+      "defaultRuntimeClass": "defaultRuntimeClassValue",
+      "smbios": {
+        "manufacturer": "manufacturerValue",
+        "product": "productValue",
+        "version": "versionValue",
+        "sku": "skuValue",
+        "family": "familyValue"
+      },
+      "architectureConfiguration": {
+        "amd64": {
+          "ovmfPath": "ovmfPathValue",
+          "emulatedMachines": [
+            "emulatedMachinesValue"
+          ],
+          "machineType": "machineTypeValue"
+        },
+        "arm64": {
+          "ovmfPath": "ovmfPathValue",
+          "emulatedMachines": [
+            "emulatedMachinesValue"
+          ],
+          "machineType": "machineTypeValue"
+        },
+        "ppc64le": {
+          "ovmfPath": "ovmfPathValue",
+          "emulatedMachines": [
+            "emulatedMachinesValue"
+          ],
+          "machineType": "machineTypeValue"
+        },
+        "defaultArchitecture": "defaultArchitectureValue"
+      },
+      "evictionStrategy": "evictionStrategyValue",
+      "additionalGuestMemoryOverheadRatio": "additionalGuestMemoryOverheadRatioValue",
+      "supportContainerResources": [
+        {
+          "type": "typeValue",
+          "resources": {
+            "limits": {
+              "limitsKey": "0"
+            },
+            "requests": {
+              "requestsKey": "0"
+            }
+          }
+        }
+      ],
+      "supportedGuestAgentVersions": [
+        "supportedGuestAgentVersionsValue"
+      ],
+      "memBalloonStatsPeriod": 4294967275,
+      "permittedHostDevices": {
+        "pciHostDevices": [
+          {
+            "pciVendorSelector": "pciVendorSelectorValue",
+            "resourceName": "resourceNameValue",
+            "externalResourceProvider": true
+          }
+        ],
+        "mediatedDevices": [
+          {
+            "mdevNameSelector": "mdevNameSelectorValue",
+            "resourceName": "resourceNameValue",
+            "externalResourceProvider": true
+          }
+        ],
+        "usb": [
+          {
+            "resourceName": "resourceNameValue",
+            "selectors": [
+              {
+                "vendor": "vendorValue",
+                "product": "productValue"
+              }
+            ],
+            "externalResourceProvider": true
+          }
+        ]
+      },
+      "mediatedDevicesConfiguration": {
+        "mediatedDevicesTypes": [
+          "mediatedDevicesTypesValue"
+        ],
+        "mediatedDeviceTypes": [
+          "mediatedDeviceTypesValue"
+        ],
+        "nodeMediatedDeviceTypes": [
+          {
+            "nodeSelector": {
+              "nodeSelectorKey": "nodeSelectorValue"
+            },
+            "mediatedDevicesTypes": [
+              "mediatedDevicesTypesValue"
+            ],
+            "mediatedDeviceTypes": [
+              "mediatedDeviceTypesValue"
+            ]
+          }
+        ]
+      },
+      "minCPUModel": "minCPUModelValue",
+      "obsoleteCPUModels": {
+        "obsoleteCPUModelsKey": true
+      },
+      "virtualMachineInstancesPerNode": -30,
+      "apiConfiguration": {
+        "restClient": {
+          "rateLimiter": {
+            "tokenBucketRateLimiter": {
+              "qps": -3,
+              "burst": -5
+            }
+          }
+        }
+      },
+      "webhookConfiguration": {
+        "restClient": {
+          "rateLimiter": {
+            "tokenBucketRateLimiter": {
+              "qps": -3,
+              "burst": -5
+            }
+          }
+        }
+      },
+      "controllerConfiguration": {
+        "restClient": {
+          "rateLimiter": {
+            "tokenBucketRateLimiter": {
+              "qps": -3,
+              "burst": -5
+            }
+          }
+        }
+      },
+      "handlerConfiguration": {
+        "restClient": {
+          "rateLimiter": {
+            "tokenBucketRateLimiter": {
+              "qps": -3,
+              "burst": -5
+            }
+          }
+        }
+      },
+      "tlsConfiguration": {
+        "minTLSVersion": "minTLSVersionValue",
+        "ciphers": [
+          "ciphersValue"
+        ]
+      },
+      "seccompConfiguration": {
+        "virtualMachineInstanceProfile": {
+          "customProfile": {
+            "localhostProfile": "localhostProfileValue",
+            "runtimeDefaultProfile": true
+          }
+        }
+      },
+      "vmStateStorageClass": "vmStateStorageClassValue",
+      "virtualMachineOptions": {
+        "disableFreePageReporting": {},
+        "disableSerialConsoleLog": {}
+      },
+      "ksmConfiguration": {
+        "nodeLabelSelector": {
+          "matchLabels": {
+            "matchLabelsKey": "matchLabelsValue"
+          },
+          "matchExpressions": [
+            {
+              "key": "keyValue",
+              "operator": "operatorValue",
+              "values": [
+                "valuesValue"
+              ]
+            }
+          ]
+        }
+      },
+      "autoCPULimitNamespaceLabelSelector": {
+        "matchLabels": {
+          "matchLabelsKey": "matchLabelsValue"
+        },
+        "matchExpressions": [
+          {
+            "key": "keyValue",
+            "operator": "operatorValue",
+            "values": [
+              "valuesValue"
+            ]
+          }
+        ]
+      },
+      "liveUpdateConfiguration": {
+        "maxHotplugRatio": 4294967281,
+        "maxCpuSockets": 4294967283,
+        "maxGuest": "0"
+      },
+      "vmRolloutStrategy": "vmRolloutStrategyValue",
+      "commonInstancetypesDeployment": {
+        "enabled": true
+      },
+      "instancetype": {
+        "referencePolicy": "referencePolicyValue"
+      }
+    },
+    "infra": {
+      "nodePlacement": {
+        "nodeSelector": {
+          "nodeSelectorKey": "nodeSelectorValue"
+        },
+        "affinity": {
+          "nodeAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "nodeSelectorTerms": [
+                {
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ],
+                  "matchFields": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "preferredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "weight": 1,
+                "preference": {
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ],
+                  "matchFields": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "podAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "labelSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "namespaces": [
+                  "namespacesValue"
+                ],
+                "topologyKey": "topologyKeyValue",
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
+              }
+            ],
+            "preferredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "weight": 1,
+                "podAffinityTerm": {
+                  "labelSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "namespaces": [
+                    "namespacesValue"
+                  ],
+                  "topologyKey": "topologyKeyValue",
+                  "namespaceSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
+                }
+              }
+            ]
+          },
+          "podAntiAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "labelSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "namespaces": [
+                  "namespacesValue"
+                ],
+                "topologyKey": "topologyKeyValue",
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
+              }
+            ],
+            "preferredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "weight": 1,
+                "podAffinityTerm": {
+                  "labelSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "namespaces": [
+                    "namespacesValue"
+                  ],
+                  "topologyKey": "topologyKeyValue",
+                  "namespaceSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "tolerations": [
+          {
+            "key": "keyValue",
+            "operator": "operatorValue",
+            "value": "valueValue",
+            "effect": "effectValue",
+            "tolerationSeconds": 5
+          }
+        ]
+      },
+      "replicas": 248
+    },
+    "workloads": {
+      "nodePlacement": {
+        "nodeSelector": {
+          "nodeSelectorKey": "nodeSelectorValue"
+        },
+        "affinity": {
+          "nodeAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "nodeSelectorTerms": [
+                {
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ],
+                  "matchFields": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "preferredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "weight": 1,
+                "preference": {
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ],
+                  "matchFields": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "podAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "labelSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "namespaces": [
+                  "namespacesValue"
+                ],
+                "topologyKey": "topologyKeyValue",
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
+              }
+            ],
+            "preferredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "weight": 1,
+                "podAffinityTerm": {
+                  "labelSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "namespaces": [
+                    "namespacesValue"
+                  ],
+                  "topologyKey": "topologyKeyValue",
+                  "namespaceSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
+                }
+              }
+            ]
+          },
+          "podAntiAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "labelSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "namespaces": [
+                  "namespacesValue"
+                ],
+                "topologyKey": "topologyKeyValue",
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
+              }
+            ],
+            "preferredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "weight": 1,
+                "podAffinityTerm": {
+                  "labelSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "namespaces": [
+                    "namespacesValue"
+                  ],
+                  "topologyKey": "topologyKeyValue",
+                  "namespaceSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "tolerations": [
+          {
+            "key": "keyValue",
+            "operator": "operatorValue",
+            "value": "valueValue",
+            "effect": "effectValue",
+            "tolerationSeconds": 5
+          }
+        ]
+      },
+      "replicas": 248
+    },
+    "customizeComponents": {
+      "patches": [
+        {
+          "resourceName": "resourceNameValue",
+          "resourceType": "resourceTypeValue",
+          "patch": "patchValue",
+          "type": "typeValue"
+        }
+      ],
+      "flags": {
+        "api": {
+          "apiKey": "apiValue"
+        },
+        "controller": {
+          "controllerKey": "controllerValue"
+        },
+        "handler": {
+          "handlerKey": "handlerValue"
+        }
+      }
+    }
+  },
+  "status": {
+    "phase": "phaseValue",
+    "conditions": [
+      {
+        "type": "typeValue",
+        "status": "statusValue",
+        "lastProbeTime": "1987-01-01T01:01:01Z",
+        "lastTransitionTime": "1982-01-01T01:01:01Z",
+        "reason": "reasonValue",
+        "message": "messageValue"
+      }
+    ],
+    "operatorVersion": "operatorVersionValue",
+    "targetKubeVirtRegistry": "targetKubeVirtRegistryValue",
+    "targetKubeVirtVersion": "targetKubeVirtVersionValue",
+    "targetDeploymentConfig": "targetDeploymentConfigValue",
+    "targetDeploymentID": "targetDeploymentIDValue",
+    "observedKubeVirtRegistry": "observedKubeVirtRegistryValue",
+    "observedKubeVirtVersion": "observedKubeVirtVersionValue",
+    "observedDeploymentConfig": "observedDeploymentConfigValue",
+    "observedDeploymentID": "observedDeploymentIDValue",
+    "outdatedVirtualMachineInstanceWorkloads": -39,
+    "observedGeneration": -18,
+    "defaultArchitecture": "defaultArchitectureValue",
+    "generations": [
+      {
+        "group": "groupValue",
+        "resource": "resourceValue",
+        "namespace": "namespaceValue",
+        "name": "nameValue",
+        "lastGeneration": -14,
+        "hash": "hashValue"
+      }
+    ]
+  }
+}
