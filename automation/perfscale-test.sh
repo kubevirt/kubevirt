@@ -20,6 +20,7 @@
 set -ex
 
 kubectl() { KUBEVIRTCI_VERBOSE=false kubevirtci/cluster-up/kubectl.sh "$@"; }
+export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 
 _prometheus_port_forward_pid=""
 trap "clean_up" EXIT SIGINT SIGTERM SIGQUIT
