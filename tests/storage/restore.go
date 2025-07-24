@@ -1338,57 +1338,23 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore a vm with containerdisk and blank datavolume", func(restoreToNewVM bool) {
-				quantity, err := resource.ParseQuantity("1Gi")
-				Expect(err).ToNot(HaveOccurred())
-				vmi = libvmifact.NewCirros(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				dv := libdv.NewDataVolume(
+					libdv.WithBlankImageSource(),
+					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
 				)
-				vm = libvmi.NewVirtualMachine(vmi)
-				vm.Namespace = testsuite.GetTestNamespace(nil)
+				vm, vmi = createAndStartVM(
+					libvmi.NewVirtualMachine(
+						libvmifact.NewCirros(
+							libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithNetwork(v1.DefaultPodNetwork()),
+							libvmi.WithDataVolume("blank", dv.Name),
+						),
+						libvmi.WithDataVolumeTemplate(dv),
+					),
+				)
 
-				dvName := "dv-" + vm.Name
-				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: dvName,
-						},
-						Spec: cdiv1.DataVolumeSpec{
-							Source: &cdiv1.DataVolumeSource{
-								Blank: &cdiv1.DataVolumeBlankImage{},
-							},
-							PVC: &corev1.PersistentVolumeClaimSpec{
-								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-								Resources: corev1.VolumeResourceRequirements{
-									Requests: corev1.ResourceList{
-										"storage": quantity,
-									},
-								},
-								StorageClassName: &snapshotStorageClass,
-							},
-						},
-					},
-				}
-				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: "blank",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
-					},
-				})
-				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-					Name: "blank",
-					VolumeSource: v1.VolumeSource{
-						DataVolume: &v1.DataVolumeSource{
-							Name: "dv-" + vm.Name,
-						},
-					},
-				})
-
-				vm, vmi = createAndStartVM(vm)
-
-				doRestore("/dev/vdc", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("/dev/vdb", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
 
 				if restoreToNewVM {
@@ -1396,8 +1362,8 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 				} else {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
-					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
-					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
+					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dv.Name))
+					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 					Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 				}
 			},
@@ -1567,51 +1533,20 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore a vm from an online snapshot with guest agent", func(restoreToNewVM bool) {
-				quantity, err := resource.ParseQuantity("1Gi")
-				Expect(err).ToNot(HaveOccurred())
-				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = libvmi.NewVirtualMachine(vmi)
-				dvName := "dv-" + vm.Name
-				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: dvName,
-						},
-						Spec: cdiv1.DataVolumeSpec{
-							Source: &cdiv1.DataVolumeSource{
-								Blank: &cdiv1.DataVolumeBlankImage{},
-							},
-							PVC: &corev1.PersistentVolumeClaimSpec{
-								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-								Resources: corev1.VolumeResourceRequirements{
-									Requests: corev1.ResourceList{
-										"storage": quantity,
-									},
-								},
-								StorageClassName: &snapshotStorageClass,
-							},
-						},
-					},
-				}
-				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: "blank",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
-					},
-				})
-				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-					Name: "blank",
-					VolumeSource: v1.VolumeSource{
-						DataVolume: &v1.DataVolumeSource{
-							Name: "dv-" + vm.Name,
-						},
-					},
-				})
+				dv := libdv.NewDataVolume(
+					libdv.WithBlankImageSource(),
+					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
+				)
+				vm, vmi = createAndStartVM(
+					libvmi.NewVirtualMachine(
+						libvmifact.NewFedora(
+							libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+							libnet.WithMasqueradeNetworking(),
+							libvmi.WithDataVolume("blank", dv.Name),
+						),
+						libvmi.WithDataVolumeTemplate(dv)),
+				)
 
-				vm, vmi = createAndStartVM(vm)
 				libwait.WaitForSuccessfulVMIStart(vmi,
 					libwait.WithTimeout(300),
 				)
@@ -1949,42 +1884,18 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			})
 
 			It("should restore with volume restore policy InPlace and PVC as disk", func() {
-				// VM with normal DV mounted to it
-				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
-				vm.Spec.DataVolumeTemplates = nil // Remove traces of DV, we want a raw PVC
-				vm.Spec.Template.Spec.Volumes = vm.Spec.Template.Spec.Volumes[1:]
-
-				// Create and mount PVC to VM
 				pvcName := "standalone-pvc"
-				pvc := &corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      pvcName,
-						Namespace: vm.Namespace,
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-						Resources: corev1.VolumeResourceRequirements{
-							Requests: corev1.ResourceList{
-								"storage": resource.MustParse("2Gi"),
-							},
-						},
-					},
-				}
-
-				vm.Spec.Template.Spec.Volumes = append([]v1.Volume{{
-					Name: "disk0",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-								ClaimName: pvcName,
-							},
-						},
-					},
-				}}, vm.Spec.Template.Spec.Volumes...)
-
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass)
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				vm = libvmi.NewVirtualMachine(
+					libvmi.New(
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+						libvmi.WithResourceMemory("1Mi"),
+						libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
+					),
+				)
 				vm, _ = createAndStartVM(vm)
 
 				By(creatingSnapshot)
@@ -2018,7 +1929,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				// Check the VM post-restore has info we want
 				restoreVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(restoreVM.Spec.Template.Spec.Volumes).To(HaveLen(2))
+				Expect(restoreVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
 				Expect(restoreVM.Spec.Template.Spec.Volumes[0].Name).
 					To(Equal(vm.Spec.Template.Spec.Volumes[0].Name)) // Volume name didn't change
 				Expect(restoreVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).
@@ -2223,7 +2134,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					// TODO: consider ensuring network clone gets done here using StorageProfile CloneStrategy
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
-						libdv.WithStorage(libdv.StorageWithStorageClass(forcedHostAssistedScName), libdv.StorageWithVolumeSize("1Gi")),
+						libdv.WithStorage(libdv.StorageWithStorageClass(forcedHostAssistedScName), libdv.StorageWithoutVolumeSize()),
 					)
 
 					return libvmi.NewVirtualMachine(
