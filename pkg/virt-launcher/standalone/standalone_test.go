@@ -20,7 +20,6 @@
 package standalone_test
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 
@@ -28,20 +27,19 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/standalone"
+	virtwrap "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 )
 
 var _ = Describe("HandleStandaloneMode", func() {
 	var (
 		mockCtrl *gomock.Controller
-		mockDM   *mockDomainManager
+		mockDM   *virtwrap.MockDomainManager
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mockDM = &mockDomainManager{mockCtrl: mockCtrl}
+		mockDM = virtwrap.NewMockDomainManager(mockCtrl)
 	})
 
 	AfterEach(func() {
@@ -54,8 +52,8 @@ var _ = Describe("HandleStandaloneMode", func() {
 	})
 
 	It("should panic on invalid JSON in STANDALONE_VMI", func() {
-		os.Setenv("VMI_OBJ", "invalid json")
-		defer os.Unsetenv("VMI_OBJ")
+		os.Setenv("STANDALONE_VMI", "invalid json")
+		defer os.Unsetenv("STANDALONE_VMI")
 
 		Expect(func() {
 			standalone.HandleStandaloneMode(mockDM)
@@ -67,11 +65,11 @@ var _ = Describe("HandleStandaloneMode", func() {
 		os.Setenv("STANDALONE_VMI", vmiJSON)
 		defer os.Unsetenv("STANDALONE_VMI")
 
-		mockDM.EXPECT().SyncVMI(gomock.Any(), true, nil).Return(true, fmt.Errorf("sync error"))
+		mockDM.EXPECT().SyncVMI(gomock.Any(), true, nil).Return(nil, fmt.Errorf("sync error"))
 
 		Expect(func() {
 			standalone.HandleStandaloneMode(mockDM)
-		}).To(PanicWith("sync error"))
+		}).To(PanicWith(MatchError(ContainSubstring("sync error"))))
 	})
 
 	It("should succeed with valid JSON and successful SyncVMI", func() {
@@ -79,18 +77,34 @@ var _ = Describe("HandleStandaloneMode", func() {
 		os.Setenv("STANDALONE_VMI", vmiJSON)
 		defer os.Unsetenv("STANDALONE_VMI")
 
-		mockDM.EXPECT().SyncVMI(gomock.Any(), true, nil).Return(true, nil)
+		mockDM.EXPECT().SyncVMI(gomock.Any(), true, nil).Return(nil, nil)
 
 		Expect(func() {
 			standalone.HandleStandaloneMode(mockDM)
 		}).NotTo(Panic())
 	})
+
+	It("should succeed with valid YAML and successful SyncVMI", func() {
+		vmiYAML := `apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  name: testvmi-yaml`
+		os.Setenv("STANDALONE_VMI", vmiYAML)
+		defer os.Unsetenv("STANDALONE_VMI")
+
+		mockDM.EXPECT().SyncVMI(gomock.Any(), true, nil).Return(nil, nil)
+
+		Expect(func() {
+			standalone.HandleStandaloneMode(mockDM)
+		}).NotTo(Panic())
+	})
+
+	It("should panic on invalid YAML in STANDALONE_VMI", func() {
+		os.Setenv("STANDALONE_VMI", "invalid: yaml: here")
+		defer os.Unsetenv("STANDALONE_VMI")
+
+		Expect(func() {
+			standalone.HandleStandaloneMode(mockDM)
+		}).To(Panic())
+	})
 })
-
-type mockDomainManager struct {
-	mockCtrl *gomock.Controller
-}
-
-func (m *mockDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, secretUUID *string) (bool, error) {
-	return true, nil
-}
