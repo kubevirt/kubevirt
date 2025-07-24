@@ -103,7 +103,9 @@ const ENV_VAR_LIBVIRT_DEBUG_LOGS = "LIBVIRT_DEBUG_LOGS"
 const ENV_VAR_VIRTIOFSD_DEBUG_LOGS = "VIRTIOFSD_DEBUG_LOGS"
 const ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
 const ENV_VAR_SHARED_FILESYSTEM_PATHS = "SHARED_FILESYSTEM_PATHS"
+const ENV_VAR_VIRT_LAUNCHER_DOWNWARDMETRICS_SERVER = "VIRT_LAUNCHER_DOWNWARDMETRICS_SERVER"
 
+const ENV_VAR_NODE_NAME = "NODE_NAME"
 const ENV_VAR_POD_NAME = "POD_NAME"
 
 // extensive log verbosity threshold after which libvirt debug logs will be enabled
@@ -474,6 +476,18 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 	if labelValue, ok := vmi.Labels[virtiofsDebugLogs]; (ok && strings.EqualFold(labelValue, "true")) || virtLauncherLogVerbosity > EXT_LOG_VERBOSITY_THRESHOLD {
 		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_VIRTIOFSD_DEBUG_LOGS, Value: "1"})
+	}
+
+	if vmi.Spec.Domain.Devices.DownwardMetrics != nil {
+		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_VIRT_LAUNCHER_DOWNWARDMETRICS_SERVER, Value: "1"})
+		compute.Env = append(compute.Env, k8sv1.EnvVar{
+			Name: ENV_VAR_NODE_NAME,
+			ValueFrom: &k8sv1.EnvVarSource{
+				FieldRef: &k8sv1.ObjectFieldSelector{
+					FieldPath: "spec.nodeName",
+				},
+			},
+		})
 	}
 
 	compute.Env = append(compute.Env, k8sv1.EnvVar{

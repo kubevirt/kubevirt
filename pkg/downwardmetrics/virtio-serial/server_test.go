@@ -2,8 +2,8 @@ package virtio_serial
 
 import (
 	"bufio"
-	"context"
 	"errors"
+	"io"
 	"net"
 	"net/textproto"
 	"time"
@@ -59,14 +59,13 @@ var _ = Describe("DownwardMetrics virtio-serial server", func() {
 			reader := textproto.NewReader(bufio.NewReader(qemu))
 
 			done := make(chan struct{})
-			ctx, cancelCtx := context.WithCancel(context.Background())
-			defer cancelCtx()
+			signalStopChannel := make(chan struct{})
 
 			By("Starting the server")
 			server := newServer()
 			go func() {
 				defer close(done)
-				server.serve(ctx, msrv)
+				server.serve(signalStopChannel, msrv)
 			}()
 
 			By("Sending the request")
@@ -98,14 +97,13 @@ var _ = Describe("DownwardMetrics virtio-serial server", func() {
 			reader := textproto.NewReader(bufio.NewReader(qemu))
 
 			done := make(chan struct{})
-			ctx, cancelCtx := context.WithCancel(context.Background())
-			defer cancelCtx()
+			signalStopChannel := make(chan struct{})
 
 			By("Starting the server")
 			server := newServer()
 			go func() {
 				defer close(done)
-				server.serve(ctx, msrv)
+				server.serve(signalStopChannel, msrv)
 			}()
 
 			By("Sending the request")
@@ -138,13 +136,13 @@ var _ = Describe("DownwardMetrics virtio-serial server", func() {
 			defer func() { _ = qemu.Close() }()
 
 			done := make(chan struct{})
-			ctx, cancelCtx := context.WithCancel(context.Background())
+			signalStopChannel := make(chan struct{})
 
 			By("Starting the server")
 			server := newServer()
 			go func() {
 				defer close(done)
-				server.serve(ctx, msrv)
+				server.serve(signalStopChannel, msrv)
 			}()
 
 			By("Sending the request")
@@ -162,12 +160,38 @@ var _ = Describe("DownwardMetrics virtio-serial server", func() {
 			Expect(result).To(Equal(""))
 
 			By("Stopping the server")
-			cancelCtx()
+			close(signalStopChannel)
 			Eventually(done).WithTimeout(5 * time.Second).Should(BeClosed())
 
 			By("The connection should be closed")
 			_, err = reader.ReadLine()
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(io.EOF))
+		})
+	})
+
+	Context("Receive a signal to stop the server", func() {
+		It("using the signalStopChan", func() {
+			qemu, msrv := net.Pipe()
+			reader := textproto.NewReader(bufio.NewReader(qemu))
+
+			signalStopChan := make(chan struct{})
+			done := make(chan struct{})
+
+			By("Starting the server")
+			server := newServer()
+			go func() {
+				defer close(done)
+				server.serve(signalStopChan, msrv)
+			}()
+
+			By("Stopping the server by sending a signal though the stopChannel")
+			signalStopChan <- struct{}{}
+
+			Eventually(done).WithTimeout(5 * time.Second).Should(BeClosed())
+
+			By("The connection should be closed")
+			_, err := reader.ReadLine()
+			Expect(err).To(MatchError(io.EOF))
 		})
 	})
 })
