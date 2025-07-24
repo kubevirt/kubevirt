@@ -190,6 +190,13 @@
           ],
           "machineType": "machineTypeValue"
         },
+        "s390x": {
+          "ovmfPath": "ovmfPathValue",
+          "emulatedMachines": [
+            "emulatedMachinesValue"
+          ],
+          "machineType": "machineTypeValue"
+        },
         "defaultArchitecture": "defaultArchitectureValue"
       },
       "evictionStrategy": "evictionStrategyValue",
