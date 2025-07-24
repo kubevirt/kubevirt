@@ -408,6 +408,7 @@
               "model": "modelValue"
             },
             "tpm": {
+              "enabled": true,
               "persistent": true
             }
           },
@@ -519,7 +520,13 @@
                       ]
                     }
                   ]
-                }
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
               }
             ],
             "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -557,7 +564,13 @@
                         ]
                       }
                     ]
-                  }
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
                 }
               }
             ]
@@ -596,7 +609,13 @@
                       ]
                     }
                   ]
-                }
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
               }
             ],
             "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -634,7 +653,13 @@
                         ]
                       }
                     ]
-                  }
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
                 }
               }
             ]
@@ -1047,7 +1072,8 @@
               "kind": "kindValue",
               "name": "nameValue",
               "namespace": "namespaceValue"
-            }
+            },
+            "volumeAttributesClassName": "volumeAttributesClassNameValue"
           },
           "storage": {
             "accessModes": [
@@ -1073,7 +1099,12 @@
               },
               "requests": {
                 "requestsKey": "0"
-              }
+              },
+              "claims": [
+                {
+                  "name": "nameValue"
+                }
+              ]
             },
             "volumeName": "volumeNameValue",
             "storageClassName": "storageClassNameValue",
@@ -1103,7 +1134,8 @@
         },
         "status": {}
       }
-    ]
+    ],
+    "updateVolumesStrategy": "updateVolumesStrategyValue"
   },
   "status": {
     "snapshotInProgress": "snapshotInProgressValue",
@@ -1214,6 +1246,7 @@
       "message": "messageValue"
     },
     "observedGeneration": -18,
-    "desiredGeneration": -17
+    "desiredGeneration": -17,
+    "runStrategy": "runStrategyValue"
   }
 }
