@@ -32,6 +32,8 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
 var (
@@ -323,6 +325,10 @@ func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormet
 		// CPU requests and limits from domain resources
 		results = append(results, collectCpuResourceRequestsFromDomainResources(vmCopy)...)
 		results = append(results, collectCpuResourceLimitsFromDomainResources(vmCopy)...)
+
+		// Allocated CPU and memory requests and limits after applying hierarchy and defaults
+		results = append(results, collectAllocatedCpuValues(vmCopy)...)
+		results = append(results, collectAllocatedMemoryValues(vmCopy)...)
 	}
 
 	return results
@@ -387,6 +393,33 @@ func collectMemoryResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []
 		Value:  float64(memoryLimit.Value()),
 		Labels: []string{vm.Name, vm.Namespace, "memory", "bytes"},
 	}}
+}
+
+// collectAllocatedMemoryValues calculates the allocated memory requests and limits after applying
+// instance types, preferences, defaults and hierarchy
+func collectAllocatedMemoryValues(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vm.Spec.Template == nil {
+		return cr
+	}
+
+	// Create a VMI from the VM template to use GetVirtualMemory function
+	vmi := &k6tv1.VirtualMachineInstance{
+		Spec: vm.Spec.Template.Spec,
+	}
+
+	// Calculate allocated memory using the memory configuration after hierarchy is applied
+	allocatedMemory := vcpu.GetVirtualMemory(vmi)
+	if allocatedMemory != nil && !allocatedMemory.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(allocatedMemory.Value()),
+			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "guest_effective"},
+		})
+	}
+
+	return cr
 }
 
 func collectCpuResourceRequestsFromDomainCpu(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
@@ -476,6 +509,36 @@ func collectCpuResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []ope
 		Value:  float64(cpuLimits.ScaledValue(resource.Milli)) / 1000,
 		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores"},
 	})
+
+	return cr
+}
+
+// collectAllocatedCpuValues calculates the allocated CPU requests and limits after applying
+// instance types, preferences, defaults and hierarchy - simplified to only report the allocated values
+func collectAllocatedCpuValues(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vm.Spec.Template == nil {
+		return cr
+	}
+
+	// Report only the allocated guest vCPUs - what the VM guest OS will actually see
+	if vm.Spec.Template.Spec.Domain.CPU != nil {
+		allocatedVCPUs := hardware.GetNumberOfVCPUs(vm.Spec.Template.Spec.Domain.CPU)
+
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(allocatedVCPUs),
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "guest_effective"},
+		})
+	} else {
+		// If no Domain.CPU is provided, the effective guest vCPU count defaults to 1
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  1.0,
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "guest_effective"},
+		})
+	}
 
 	return cr
 }
