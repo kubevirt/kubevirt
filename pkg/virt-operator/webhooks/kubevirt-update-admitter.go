@@ -135,6 +135,8 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 		}
 	}
 
+	response.Warnings = append(response.Warnings, warnDeprecatedArchitectures(newKV.Spec.Configuration.ArchitectureConfiguration)...)
+
 	return response
 }
 
@@ -458,6 +460,13 @@ func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
 	}
 
 	return warnings
+}
+
+func warnDeprecatedArchitectures(archConfiguration *v1.ArchConfiguration) []string {
+	if archConfiguration != nil && archConfiguration.Ppc64le != nil {
+		return []string{"spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."}
+	}
+	return nil
 }
 
 func validateGuestToRequestHeadroom(ratioStrPtr *string) (causes []metav1.StatusCause) {
