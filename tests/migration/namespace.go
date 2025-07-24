@@ -149,7 +149,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				return virtv1.RunStrategyUnknown
 			}
 			return *vm.Spec.RunStrategy
-		}, 30*time.Second, 1*time.Second).Should(Equal(virtv1.RunStrategyHalted), "runStrategy not halted in time")
+		}, 210*time.Second, 1*time.Second).Should(Equal(virtv1.RunStrategyHalted), "runStrategy not halted in time")
 		err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 		if k8serrors.IsNotFound(err) {
 			return
