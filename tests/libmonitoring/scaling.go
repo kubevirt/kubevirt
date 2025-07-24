@@ -41,7 +41,7 @@ func (s *Scaling) BackupScale(operatorName string) {
 			s.scales[operatorName] = virtOperatorCurrentScale.Spec.Replicas
 		}
 		return err
-	}, 30*time.Second, 1*time.Second).Should(BeNil())
+	}, 30*time.Second, 1*time.Second).Should(Succeed())
 }
 
 func (s *Scaling) GetScale(operatorName string) int32 {
@@ -61,7 +61,7 @@ func (s *Scaling) UpdateScale(operatorName string, replicas int32) {
 
 		_, err = s.virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).UpdateScale(context.TODO(), operatorName, scale, metav1.UpdateOptions{})
 		return err
-	}, 30*time.Second, 1*time.Second).Should(BeNil())
+	}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 	Eventually(func() int32 {
 		deployment, err := s.virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), operatorName, metav1.GetOptions{})

@@ -1028,7 +1028,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}
 
 				return nil
-			}, 1*time.Minute, 5*time.Second).Should(BeNil())
+			}, 1*time.Minute, 5*time.Second).Should(Succeed())
 
 			By("Updating the VMI template to correct the crash loop")
 			Eventually(func() error {

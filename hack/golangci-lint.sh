@@ -26,6 +26,6 @@ while IFS= read -r line; do
 done <hack/linter/lint-paths.txt
 
 golangci-lint run --timeout 20m --verbose ${paths}
-golangci-lint run --disable-all -E ginkgolinter --timeout 10m --verbose --no-config \
+golangci-lint run --default=none --enable=ginkgolinter --timeout 10m --verbose --no-config \
     ./pkg/... \
     ./tests/...

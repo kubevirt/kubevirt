@@ -210,7 +210,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					&expect.BExp{R: "1"},
 				}, 10)
 				return err
-			}, 360).Should(BeNil())
+			}, 360).Should(Succeed())
 
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "sudo /sbin/resize-filesystem /dev/root /run/resize.rootfs /dev/console && echo $?\n"},

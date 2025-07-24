@@ -19,6 +19,7 @@
 package agentpoller
 
 import (
+	"math"
 	"sync"
 	"time"
 
@@ -506,9 +507,17 @@ func convertToUsers(guestInfo *libvirt.DomainGuestInfo) []api.User {
 			users = append(users, api.User{
 				Name:      user.Name,
 				Domain:    user.Domain,
-				LoginTime: (time.Duration(user.LoginTime) * time.Millisecond).Seconds(),
+				LoginTime: (time.Duration(safeConvertToInt64(user.LoginTime)) * time.Millisecond).Seconds(),
 			})
 		}
 	}
 	return users
+}
+
+func safeConvertToInt64(value uint64) int64 {
+	if value > math.MaxInt64 {
+		log.Log.Errorf("Conversion overflow detected: %v", value)
+		return 0
+	}
+	return int64(value)
 }

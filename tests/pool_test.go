@@ -86,7 +86,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			}
 
 			return nil
-		}, 120*time.Second, 1*time.Second).Should(BeNil())
+		}, 120*time.Second, 1*time.Second).Should(Succeed())
 
 	}
 
@@ -295,7 +295,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			}
 			return nil
 
-		}, 120*time.Second, 1*time.Second).Should(BeNil())
+		}, 120*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Waiting until all VMIs are created and online again")
 		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 2)
@@ -359,7 +359,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			}
 			return nil
 
-		}, 120*time.Second, 1*time.Second).Should(BeNil())
+		}, 120*time.Second, 1*time.Second).Should(Succeed())
 
 	})
 
@@ -406,7 +406,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			}
 
 			return nil
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Ensuring VMI remains consistent and isn't restarted")
 		Consistently(func() error {
@@ -418,7 +418,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			Expect(vmi.UID).To(Equal(vmiUID))
 			Expect(vmi.DeletionTimestamp).To(BeNil())
 			return nil
-		}, 5*time.Second, 1*time.Second).Should(BeNil())
+		}, 5*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	It("should roll out VMI template changes and proactively roll out new VMIs", func() {
@@ -465,7 +465,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			}
 
 			return nil
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Ensuring VMI is re-created to pick up new label")
 		Eventually(func() error {
@@ -482,7 +482,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 				return fmt.Errorf("Expected vmi to pick up the new updated label")
 			}
 			return nil
-		}, 60*time.Second, 1*time.Second).Should(BeNil())
+		}, 60*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	It("should remove owner references on the VirtualMachine if it is orphan deleted", func() {
