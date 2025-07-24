@@ -253,14 +253,25 @@ var _ = Describe(SIG("Storage", func() {
 					// Start the VirtualMachineInstance with the PVC attached
 					vmi = newVMI(pvcName)
 
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+					if imageOwnedByQEMU {
+						vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 
-					By(checkingVMInstanceConsoleOut)
-					Expect(console.LoginToAlpine(vmi)).To(Succeed())
+						By(checkingVMInstanceConsoleOut)
+						Expect(console.LoginToAlpine(vmi)).To(Succeed())
+					} else {
+						By("Starting a VirtualMachineInstance")
+						createdVMI := libvmops.RunVMIAndExpectScheduling(vmi, 60)
+
+						By(fmt.Sprintf("Checking that VirtualMachineInstance start failed: starting at %v", time.Now()))
+						ctx, cancel := context.WithCancel(context.Background())
+						defer cancel()
+						event := watcher.New(createdVMI).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.WarningEvent, "SyncFailed")
+						Expect(event.Message).To(ContainSubstring("Could not open '/var/run/kubevirt-private/vmi-disks/disk0/disk.img': Permission denied"), "VMI should not be started")
+					}
 				},
 					Entry("[test_id:3130]with Disk PVC", newRandomVMIWithPVC, true),
 					Entry("[test_id:3131]with CDRom PVC", newRandomVMIWithCDRom, true),
-					Entry("hostpath disk image file not owned by qemu", newRandomVMIWithPVC, false),
+					Entry("unless hostpath disk image file not owned by qemu", newRandomVMIWithPVC, false),
 				)
 			})
 
