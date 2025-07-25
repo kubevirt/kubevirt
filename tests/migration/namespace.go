@@ -183,7 +183,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		It("should live migrate a container disk vm, several times", func() {
 			var targetVM *virtv1.VirtualMachine
 
-			sourceVMI := libvmifact.NewCirros(
+			sourceVMI := libvmifact.NewAlpine(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -220,7 +220,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				err = deleteMigration(targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToCirros(expectedVMI)).To(Succeed())
+				Expect(console.LoginToAlpine(expectedVMI)).To(Succeed())
 
 				By(fmt.Sprintf("deleting source VM %s/%s", sourceVM.Namespace, sourceVM.Name))
 				deleteVM(sourceVM)
