@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -301,6 +302,127 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				}
 				return *targetVM.Spec.RunStrategy
 			}).WithTimeout(time.Second * 20).WithPolling(500 * time.Millisecond).Should(Equal(virtv1.RunStrategyAlways))
+		})
+
+		createDVBlock := func(name, namespace, sc string) *cdiv1.DataVolume {
+			dvBlock := libdv.NewDataVolume(
+				libdv.WithName(name),
+				libdv.WithBlankImageSource(),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+					libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				),
+			)
+			dvBlock, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dvBlock, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dvBlock, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+			return dvBlock
+		}
+
+		addDVVolume := func(name, namespace, volumeName, claimName string, bus v1.DiskBus) {
+			opts := &v1.AddVolumeOptions{
+				Name: volumeName,
+				Disk: &v1.Disk{
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: bus,
+						},
+					},
+					Serial: volumeName,
+				},
+				VolumeSource: &v1.HotplugVolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: claimName,
+					},
+				},
+			}
+
+			Eventually(func() error {
+				return virtClient.VirtualMachine(namespace).AddVolume(context.Background(), name, opts)
+			}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}
+
+		It("should live migrate a container disk vm, with an additional hotpluggedPVC mounted, should stay mounted after migration", decorators.RequiresRWXBlock, func() {
+			sc, exists := libstorage.GetRWXBlockStorageClass()
+			if !exists {
+				Fail("Fail test when RWXBlock storage class is not present")
+			}
+			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
+			hotpluggedDV := createDVBlock(fmt.Sprintf("dv-%s", migrationID), testsuite.NamespaceTestDefault, sc)
+
+			sourceVMI := libvmifact.NewCirros(
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			sourceVM := createAndStartVMFromVMISpec(sourceVMI)
+			By("Adding volume to running VM")
+			volumeName := "testvolume"
+			addDVVolume(sourceVM.Name, sourceVM.Namespace, volumeName, hotpluggedDV.Name, virtv1.DiskBusSCSI)
+
+			By("Verifying the volume and disk are in the VMI")
+			Eventually(func() virtv1.VolumePhase {
+				sourceVMI, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, v := range sourceVMI.Status.VolumeStatus {
+					if v.Name == volumeName {
+						return v.Phase
+					}
+				}
+				return ""
+			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).Should(Equal(virtv1.VolumeReady))
+			sourceVMI, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			deviceName := ""
+			for _, v := range sourceVMI.Status.VolumeStatus {
+				if v.Name == volumeName {
+					deviceName = v.Target
+					break
+				}
+			}
+
+			By("Writing data to extra disk")
+			Expect(console.LoginToCirros(sourceVMI)).To(Succeed())
+			// I am aware I should not use the device name since it is not guaranteed to be the same as the one in the VMI
+			// I should be using the serial number, but not sure how to access that in cirros.
+			Expect(console.RunCommand(sourceVMI, fmt.Sprintf("sudo mkfs.ext4 /dev/%s", deviceName), 30*time.Second)).To(Succeed())
+			Expect(console.RunCommand(sourceVMI, "mkdir test", 30*time.Second)).To(Succeed())
+			Expect(console.RunCommand(sourceVMI, fmt.Sprintf("sudo mount -t ext4 /dev/%s /home/cirros/test", deviceName), 30*time.Second)).To(Succeed())
+			Expect(console.RunCommand(sourceVMI, "sudo chmod 777 /home/cirros/test", 30*time.Second)).To(Succeed())
+			Expect(console.RunCommand(sourceVMI, "sudo chown cirros:cirros /home/cirros/test", 30*time.Second)).To(Succeed())
+			Expect(console.RunCommand(sourceVMI, "printf 'important data' &> /home/cirros/test/data.txt", 30*time.Second)).To(Succeed())
+
+			By("Creating the target VM and disk")
+			targetVMI := sourceVMI.DeepCopy()
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
+			targetVMI.Labels = map[string]string{}
+			targetVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = ""
+			targetDV := createDVBlock(hotpluggedDV.Name, testsuite.NamespaceTestAlternative, sc)
+			Expect(targetDV.Namespace).To(Equal(targetVMI.Namespace))
+			createReceiverVMFromVMISpec(targetVMI)
+
+			By("Running a migration")
+			sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
+			targetMigration := libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
+			sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
+			libmigration.ConfirmVMIPostMigration(virtClient, targetVMI, targetMigration)
+			By("Verifying data on extra disk")
+			Eventually(func() string {
+				targetVMI, err := virtClient.VirtualMachineInstance(targetVMI.Namespace).Get(context.Background(), targetVMI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, v := range targetVMI.Status.VolumeStatus {
+					if v.Name == volumeName {
+						deviceName = v.Target
+						return v.Target
+					}
+				}
+				return ""
+			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).ShouldNot(BeEmpty())
+			Expect(console.LoginToCirros(targetVMI)).To(Succeed())
+			Expect(console.RunCommand(targetVMI, "cat /home/cirros/test/data.txt", 30*time.Second)).To(Succeed())
 		})
 	})
 
