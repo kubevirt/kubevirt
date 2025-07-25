@@ -71,7 +71,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		Sync(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error)
 		ApplyToVM(*virtv1.VirtualMachine) error
 		ApplyToVMI(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) error
-		ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error
+		ApplyAutoAttachPreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error
 	}
 
 	var (

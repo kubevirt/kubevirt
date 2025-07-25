@@ -23,10 +23,10 @@ import (
 )
 
 type mockController struct {
-	syncFunc                   func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error)
-	applyToVMFunc              func(*virtv1.VirtualMachine) error
-	applyToVMIFunc             func(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) error
-	applyDevicePreferencesFunc func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error
+	syncFunc                       func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error)
+	applyToVMFunc                  func(*virtv1.VirtualMachine) error
+	applyToVMIFunc                 func(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) error
+	applyAutoAttachPreferencesFunc func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error
 }
 
 func NewMockController() *mockController {
@@ -40,7 +40,7 @@ func NewMockController() *mockController {
 		applyToVMIFunc: func(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) error {
 			return nil
 		},
-		applyDevicePreferencesFunc: func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+		applyAutoAttachPreferencesFunc: func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 			return nil
 		},
 	}
@@ -58,6 +58,6 @@ func (m *mockController) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMach
 	return m.syncFunc(vm, vmi)
 }
 
-func (m *mockController) ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	return m.applyDevicePreferencesFunc(vm, vmi)
+func (m *mockController) ApplyAutoAttachPreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	return m.applyAutoAttachPreferencesFunc(vm, vmi)
 }
