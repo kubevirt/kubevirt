@@ -48,7 +48,7 @@ import (
 var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.RequiresTwoSchedulableNodes, func() {
 	Context("during evacuation", func() {
 		It("should add eviction-in-progress annotation to source virt-launcher pod", func() {
-			vmi := libvmifact.NewCirros(
+			vmi := libvmifact.NewAlpine(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
@@ -69,7 +69,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 		Context("when evacuating fails", func() {
 			var vmi *v1.VirtualMachineInstance
 			BeforeEach(func() {
-				vmi = libvmifact.NewCirros(
+				vmi = libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
