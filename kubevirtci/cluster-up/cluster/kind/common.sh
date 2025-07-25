@@ -31,14 +31,11 @@ case ${PLATFORM} in
 x86_64* | i?86_64* | amd64*)
     ARCH="amd64"
     ;;
-ppc64le)
-    ARCH="ppc64le"
-    ;;
 aarch64* | arm64*)
     ARCH="arm64"
     ;;
 *)
-    echo "invalid Arch, only support x86_64, ppc64le, aarch64"
+    echo "invalid Arch, only support x86_64 and aarch64"
     exit 1
     ;;
 esac
