@@ -17294,6 +17294,10 @@
    "v1.VirtualMachineInstanceMigrationSourceState": {
     "type": "object",
     "properties": {
+     "completed": {
+      "description": "Completed is a boolean indicating if the migration has completed",
+      "type": "boolean"
+     },
      "domainName": {
       "description": "The name of the domain on the source libvirt domain",
       "type": "string"
@@ -17546,6 +17550,10 @@
      "attachmentPodUID": {
       "description": "The UID of the target attachment pod for hotplug volumes",
       "type": "string"
+     },
+     "completed": {
+      "description": "Completed is a boolean indicating if the migration has completed",
+      "type": "boolean"
      },
      "cpuSet": {
       "description": "If the VMI requires dedicated CPUs, this field will hold the dedicated CPU set on the target node",

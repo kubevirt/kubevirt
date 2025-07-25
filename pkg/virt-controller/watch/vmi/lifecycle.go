@@ -60,6 +60,9 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 	defer virtControllerVMIWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VMI Name", Value: vmi.Name})
 
 	if vmi.DeletionTimestamp != nil {
+		// if vmi.IsDecentralizedMigration() && vmi.IsMigrationSource() && (vmi.Status.MigrationState == nil || !vmi.Status.MigrationState.Completed) {
+		// 	return nil, pod
+		// }
 		err := c.deleteAllMatchingPods(vmi)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("failed to delete pod: %v", err), controller.FailedDeletePodReason), pod
@@ -413,6 +416,11 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		if !vmiPodExists {
 			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while running because pod does not exist")
 			vmiCopy.Status.Phase = virtv1.Failed
+			break
+		}
+
+		if pod.Status.Phase == k8sv1.PodSucceeded && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+			vmiCopy.Status.Phase = virtv1.Succeeded
 			break
 		}
 

@@ -257,6 +257,7 @@ func (VirtualMachineInstanceCommonMigrationState) SwaggerDoc() map[string]string
 		"persistentStatePVCName":    "If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here",
 		"selinuxContext":            "SELinuxContext is the actual SELinux context of the pod",
 		"virtualMachineInstanceUID": "VirtualMachineInstanceUID is the UID of the target virtual machine instance",
+		"completed":                 "Completed is a boolean indicating if the migration has completed",
 	}
 }
 
