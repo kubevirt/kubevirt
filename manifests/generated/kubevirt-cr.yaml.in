@@ -12,6 +12,7 @@ spec:
       {{- range .FeatureGates}}
       - {{.}}
       {{- end}}{{else}} []{{end}}
+    imagePullPolicy: {{.ImagePullPolicy}}
   customizeComponents: {}
   imagePullPolicy: {{.ImagePullPolicy}}{{if .InfraReplicas}}
   infra:
