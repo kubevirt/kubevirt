@@ -63,6 +63,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	vfsmanager "kubevirt.io/kubevirt/pkg/virt-handler/virtiofs"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -83,6 +84,7 @@ type MigrationTargetController struct {
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 	netConf                          netconf
 	passtRepairHandler               passtRepairTargetHandler
+	vfsManager                       *vfsmanager.VirtiofsManager
 }
 
 func NewMigrationTargetController(
@@ -150,6 +152,7 @@ func NewMigrationTargetController(
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 		netConf:                          netConf,
 		passtRepairHandler:               passtRepairHandler,
+		vfsManager:                       vfsmanager.NewVirtiofsManager("/pods"),
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -702,6 +705,11 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 	if err != nil {
 		c.logger.Object(vmi).Reason(err).Error("Failed to sync Volumes")
 		return err
+	}
+
+	// Look for placeholder virtiofs sockets and launch the dispatcher
+	if err := c.vfsManager.StartVirtiofsDispatcher(vmi); err != nil {
+		return fmt.Errorf("failed to start the virtiofs dispatcher: %w", err)
 	}
 
 	if err := c.setupNetwork(vmi, netsetup.FilterNetsForMigrationTarget(vmi), c.netConf); err != nil {
