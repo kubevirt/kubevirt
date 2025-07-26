@@ -364,3 +364,35 @@ func isLocalPV(pv k8sv1.PersistentVolume) bool {
 func isPVAvailable(pv k8sv1.PersistentVolume) bool {
 	return pv.Spec.ClaimRef == nil
 }
+
+func GetStorageClassFromCSIDriver() string {
+	virtClient := kubevirt.Client()
+
+	csiDrivers, err := virtClient.StorageV1().CSIDrivers().List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	// Create map of CSI drivers for quicker lookup
+	csiDriverMap := make(map[string]bool)
+	for _, csiDriver := range csiDrivers.Items {
+		csiDriverMap[csiDriver.Name] = true
+	}
+
+	// Get all storage classes
+	storageClasses, err := virtClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	// in case mutliple CSI drivers are present, we need to find the one that is used in the default-config
+	configSc, exist := GetRWOFileSystemStorageClass()
+	Expect(exist).To(BeTrue())
+	scName := ""
+	for _, sc := range storageClasses.Items {
+		// check if a storage class provisioner matches an existing  driver
+		if _, ok := csiDriverMap[sc.Provisioner]; ok {
+			if sc.Name == configSc {
+				scName = sc.Name
+				break
+			}
+		}
+	}
+	return scName
+}
