@@ -783,6 +783,28 @@ func (l *Launcher) SyncVirtualMachineMemory(_ context.Context, request *cmdv1.VM
 	return response, nil
 }
 
+func (l *Launcher) GetScreenshot(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.ScreenshotResponse, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	screenshotResponse := &cmdv1.ScreenshotResponse{
+		Response: response,
+	}
+
+	if !screenshotResponse.Response.Success {
+		return screenshotResponse, nil
+	}
+
+	domainScreenshot, err := l.domainManager.GetScreenshot(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to screenshot")
+		screenshotResponse.Response.Success = false
+		screenshotResponse.Response.Message = getErrorMessage(err)
+		return screenshotResponse, nil
+	}
+	screenshotResponse.Mime = domainScreenshot.Mime
+	screenshotResponse.Data = domainScreenshot.Data
+	return screenshotResponse, nil
+}
+
 func ReceivedEarlyExitSignal() bool {
 	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
 	return earlyExit
