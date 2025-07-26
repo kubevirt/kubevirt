@@ -49,6 +49,32 @@ type VMIsMutator struct {
 
 const presetDeprecationWarning = "kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."
 
+// ApplyNewVMIMutations applies all VMI mutations to a VMI object.
+func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig) error {
+	// Set VirtualMachineInstance defaults
+	log.Log.Object(newVMI).V(4).Info("Apply defaults")
+	if err := defaults.SetDefaultVirtualMachineInstance(clusterConfig, newVMI); err != nil {
+		return err
+	}
+
+	if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
+		_, emulatorThreadCompleteToEvenParityAnnotationExists := clusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
+		if emulatorThreadCompleteToEvenParityAnnotationExists && clusterConfig.AlignCPUsEnabled() {
+			log.Log.V(4).Infof("Copy %s annotation from Kubevirt CR", v1.EmulatorThreadCompleteToEvenParity)
+			if newVMI.Annotations == nil {
+				newVMI.Annotations = map[string]string{}
+			}
+			newVMI.Annotations[v1.EmulatorThreadCompleteToEvenParity] = ""
+		}
+	}
+
+	if !clusterConfig.RootEnabled() {
+		markAsNonroot(newVMI)
+	}
+
+	return nil
+}
+
 func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceGroupVersionResource.Group, webhooks.VirtualMachineInstanceGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
@@ -79,22 +105,8 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			}
 		}
 
-		// Set VirtualMachineInstance defaults
-		log.Log.Object(newVMI).V(4).Info("Apply defaults")
-		if err = defaults.SetDefaultVirtualMachineInstance(mutator.ClusterConfig, newVMI); err != nil {
+		if err := ApplyNewVMIMutations(newVMI, mutator.ClusterConfig); err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
-		}
-
-		if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
-			_, emulatorThreadCompleteToEvenParityAnnotationExists := mutator.ClusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
-			if emulatorThreadCompleteToEvenParityAnnotationExists &&
-				mutator.ClusterConfig.AlignCPUsEnabled() {
-				log.Log.V(4).Infof("Copy %s annotation from Kubevirt CR", v1.EmulatorThreadCompleteToEvenParity)
-				if newVMI.Annotations == nil {
-					newVMI.Annotations = map[string]string{}
-				}
-				newVMI.Annotations[v1.EmulatorThreadCompleteToEvenParity] = ""
-			}
 		}
 
 		// Add foreground finalizer
@@ -108,10 +120,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			Phase:                    newVMI.Status.Phase,
 			PhaseTransitionTimestamp: now,
 		})
-
-		if !mutator.ClusterConfig.RootEnabled() {
-			markAsNonroot(newVMI)
-		}
 
 		patchSet.AddOption(
 			patch.WithReplace("/spec", newVMI.Spec),

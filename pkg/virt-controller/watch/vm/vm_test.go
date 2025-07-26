@@ -2591,16 +2591,16 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should have stable firmware UUIDs", func() {
 			vm1, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
-			vmi1 := controller.setupVMIFromVM(vm1)
+			vmi1 := SetupVMIFromVM(vm1)
 
 			// intentionally use the same names
 			vm2, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
-			vmi2 := controller.setupVMIFromVM(vm2)
+			vmi2 := SetupVMIFromVM(vm2)
 			Expect(vmi1.Spec.Domain.Firmware.UUID).To(Equal(vmi2.Spec.Domain.Firmware.UUID))
 
 			// now we want different names
 			vm3, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm3", "testvmi3")
-			vmi3 := controller.setupVMIFromVM(vm3)
+			vmi3 := SetupVMIFromVM(vm3)
 			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi3.Spec.Domain.Firmware.UUID))
 		})
 
@@ -2609,7 +2609,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm1, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
 			vm1.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{UUID: types.UID(uid)}
 
-			vmi1 := controller.setupVMIFromVM(vm1)
+			vmi1 := SetupVMIFromVM(vm1)
 			Expect(string(vmi1.Spec.Domain.Firmware.UUID)).To(Equal(uid))
 		})
 
@@ -3344,7 +3344,7 @@ var _ = Describe("VirtualMachine", func() {
 					Phase:     phase,
 				}
 
-				vmi := controller.setupVMIFromVM(vm)
+				vmi := SetupVMIFromVM(vm)
 				Expect(vmi.Spec.Volumes).To(BeEmpty())
 
 			},
@@ -4727,7 +4727,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm, _ := watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{MaxSockets: maxSocketsFromSpec}
 
-					vmi := controller.setupVMIFromVM(vm)
+					vmi := SetupVMIFromVM(vm)
 					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(maxSocketsFromSpec))
 				})
 
@@ -4745,7 +4745,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 
-					vmi := controller.setupVMIFromVM(vm)
+					vmi := SetupVMIFromVM(vm)
 					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(maxSocketsFromSpec))
 				})
 
@@ -4869,7 +4869,7 @@ var _ = Describe("VirtualMachine", func() {
 						MaxSockets: 4,
 					}
 
-					vmi := controller.setupVMIFromVM(vm)
+					vmi := SetupVMIFromVM(vm)
 					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					controller.vmiIndexer.Add(vmi)
@@ -4898,7 +4898,7 @@ var _ = Describe("VirtualMachine", func() {
 						MaxGuest: &maxGuestFromSpec,
 					}
 
-					vmi := controller.setupVMIFromVM(vm)
+					vmi := SetupVMIFromVM(vm)
 					Expect(*vmi.Spec.Domain.Memory.MaxGuest).To(Equal(maxGuestFromSpec))
 				})
 
@@ -4920,7 +4920,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 
-					vmi := controller.setupVMIFromVM(vm)
+					vmi := SetupVMIFromVM(vm)
 					Expect(*vmi.Spec.Domain.Memory.MaxGuest).To(Equal(maxGuestFromSpec))
 				})
 
@@ -5730,7 +5730,7 @@ var _ = Describe("VirtualMachine", func() {
 				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI with cluster max")
-				vmi = controller.setupVMIFromVM(vm)
+				vmi = SetupVMIFromVM(vm)
 				controller.vmiIndexer.Add(vmi)
 
 				By("Bumping the VM sockets above the cluster maximum")
@@ -5761,7 +5761,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Creating a VMI with hostname 'a'")
 				vm.Spec.Template.Spec.Hostname = "a"
-				vmi = controller.setupVMIFromVM(vm)
+				vmi = SetupVMIFromVM(vm)
 				controller.vmiIndexer.Add(vmi)
 
 				By("Creating a Controller Revision with the hostname 'a'")
@@ -5789,7 +5789,7 @@ var _ = Describe("VirtualMachine", func() {
 				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI with cluster max")
-				vmi = controller.setupVMIFromVM(vm)
+				vmi = SetupVMIFromVM(vm)
 				controller.vmiIndexer.Add(vmi)
 
 				By("Bumping the VM sockets above the cluster maximum")
@@ -5814,7 +5814,7 @@ var _ = Describe("VirtualMachine", func() {
 				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI")
-				vmi = controller.setupVMIFromVM(vm)
+				vmi = SetupVMIFromVM(vm)
 				watchtesting.MarkAsReady(vmi)
 				vmi.Status.Memory = &v1.MemoryStatus{
 					GuestAtBoot:  &maxGuest,
@@ -5841,7 +5841,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VM with two sockets")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
 
-				vmi = controller.setupVMIFromVM(vm)
+				vmi = SetupVMIFromVM(vm)
 				controller.vmiIndexer.Add(vmi)
 
 				By("Creating a Controller Revision with two sockets")
@@ -5879,7 +5879,7 @@ var _ = Describe("VirtualMachine", func() {
 				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI")
-				vmi = controller.setupVMIFromVM(vm)
+				vmi = SetupVMIFromVM(vm)
 				watchtesting.MarkAsReady(vmi)
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
@@ -5946,7 +5946,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("shouldn't appear with the stage rollout strategy and when a volume is added with a hotplug volume request", func() {
 					By("Creating a VM")
-					vmi = controller.setupVMIFromVM(vm)
+					vmi = SetupVMIFromVM(vm)
 					controller.vmiIndexer.Add(vmi)
 
 					By("Creating a Controller Revision")
@@ -5965,7 +5965,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should appear when the volume is directly added to the spec", func() {
 					By("Creating a VM")
-					vmi = controller.setupVMIFromVM(vm)
+					vmi = SetupVMIFromVM(vm)
 					controller.vmiIndexer.Add(vmi)
 
 					By("Creating a Controller Revision")
