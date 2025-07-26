@@ -50,9 +50,6 @@ func NewNodeSelectorRenderer(
 }
 
 func (nsr *NodeSelectorRenderer) Render() map[string]string {
-	if nsr.hasDedicatedCPU {
-		nsr.enableSelectorLabel(v1.CPUManager)
-	}
 	if nsr.hyperv {
 		maps.Copy(nsr.podNodeSelectors, hypervNodeSelectors(nsr.vmiFeatures))
 	}

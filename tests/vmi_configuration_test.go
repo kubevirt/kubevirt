@@ -2336,7 +2336,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			nodeLabels := nodeObject.GetLabels()
 
 			for label, val := range nodeLabels {
-				if label == v1.CPUManager && val == "true" {
+				if label == v1.DeprecatedCPUManager && val == "true" {
 					nodeHaveCpuManagerLabel = true
 					break
 				}
@@ -2675,7 +2675,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				cpuVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
 				Vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("1")
-				Vmi.Spec.NodeSelector = map[string]string{v1.CPUManager: "true"}
+				Vmi.Spec.NodeSelector = map[string]string{v1.DeprecatedCPUManager: "true"}
 
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
