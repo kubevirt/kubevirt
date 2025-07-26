@@ -34,6 +34,8 @@ const (
 const (
 	// Base selection policies
 	VirtualMachinePoolBasePolicyRandom          VirtualMachinePoolBasePolicy = "Random"
+	VirtualMachinePoolBasePolicyOldest          VirtualMachinePoolBasePolicy = "Oldest"
+	VirtualMachinePoolBasePolicyNewest          VirtualMachinePoolBasePolicy = "Newest"
 	VirtualMachinePoolBasePolicyDescendingOrder VirtualMachinePoolBasePolicy = "DescendingOrder"
 )
 
@@ -127,6 +129,10 @@ type VirtualMachinePoolSpec struct {
 	// ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool
 	// +optional
 	ScaleInStrategy *VirtualMachinePoolScaleInStrategy `json:"scaleInStrategy,omitempty"`
+
+	// UpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool
+	// +optional
+	UpdateStrategy *VirtualMachinePoolUpdateStrategy `json:"updateStrategy,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -165,11 +171,51 @@ type VirtualMachinePoolProactiveScaleInStrategy struct {
 // VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for scale-in
 // +k8s:openapi-gen=true
 type VirtualMachinePoolSelectionPolicy struct {
-	// BasePolicy is a catch-all policy [Random|DescendingOrder]
+	// BasePolicy is a catch-all policy [Random|Oldest|Newest]
 	// +optional
-	// +kubebuilder:validation:Enum=Random;DescendingOrder
+	// +kubebuilder:validation:Enum=Random;Oldest;Newest
 	BasePolicy *VirtualMachinePoolBasePolicy `json:"basePolicy,omitempty"`
+
+	// OrderedPolicies is a Ordered list of selection policies. Initial policies include [LabelSelector]. Future policies may include a [NodeSelector] or other selection mechanisms.
+	// +optional
+	OrderedPolicies *VirtualMachinePoolOrderedPolicy `json:"orderedPolicies,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type VirtualMachinePoolOrderedPolicy struct {
+	// LabelSelector is a list of label selector for VMs.
+	// +optional
+	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
+
+	// NodeSelectorRequirementMatcher is a list of node selector requirement for VMs.
+	// +optional
+	NodeSelectorRequirementMatcher *[]k8sv1.NodeSelectorRequirement `json:"nodeSelectorRequirementMatcher,omitempty"`
 }
 
 // +k8s:openapi-gen=true
 type VirtualMachinePoolBasePolicy string
+
+// VirtualMachinePoolUpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool
+// +k8s:openapi-gen=true
+type VirtualMachinePoolUpdateStrategy struct {
+	// Unmanaged indicates that no automatic update of VMs within a VMPool is performed, by default it is false
+	// +optional
+	Unmanaged bool `json:"unmanaged,omitempty"`
+
+	// Opportunistic update by updating the VMs in a pool in a non-blocking manner
+	// +optional
+	Opportunistic bool `json:"opportunistic,omitempty"`
+
+	// Proactive update by forcing the VMs to restart during update
+	// +optional
+	Proactive *VirtualMachinePoolProactiveUpdateStrategy `json:"proactive,omitempty"`
+}
+
+// VirtualMachinePoolProactiveUpdateStrategy represents proactive update strategy
+// +k8s:openapi-gen=true
+type VirtualMachinePoolProactiveUpdateStrategy struct {
+	// SelectionPolicy defines the priority in which VM instances are selected for proactive update
+	// Defaults to "Random" base policy when no SelectionPolicy is configured
+	// +optional
+	SelectionPolicy *VirtualMachinePoolSelectionPolicy `json:"selectionPolicy,omitempty"`
+}

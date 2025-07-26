@@ -575,12 +575,12 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 10*time.Second, 1*time.Second).Should(Equal(int32(1)))
 	})
 
-	It("should use DescendingOrder scale-in strategy when specified", func() {
-		By("Create a new VirtualMachinePool with DescendingOrder scale-in policy")
+	It("should use Oldest scale-in strategy when specified", func() {
+		By("Create a new VirtualMachinePool with Oldest scale-in policy")
 		pool := newPoolFromVMI(libvmifact.NewCirros())
 
-		// Set up DescendingOrder scale-in strategy
-		basePolicy := poolv1.VirtualMachinePoolBasePolicyDescendingOrder
+		// Set up Oldest scale-in strategy
+		basePolicy := poolv1.VirtualMachinePoolBasePolicyOldest
 		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
 			Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
 				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
@@ -602,29 +602,13 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(err).ToNot(HaveOccurred())
 		Expect(filterNotDeletedVMsOwnedByPool(pool.Name, vms)).To(HaveLen(5))
 
-		// Store original VM names sorted by ordinal for comparison
-		var vmNames []string
+		sortVMsByCreationTimestampAscending(vms.Items)
+		vmNames := make([]string, 0, len(vms.Items))
 		for _, vm := range vms.Items {
-			if vm.DeletionTimestamp == nil {
-				for _, ref := range vm.OwnerReferences {
-					if ref.Name == pool.Name {
-						vmNames = append(vmNames, vm.Name)
-						break
-					}
-				}
-			}
+			vmNames = append(vmNames, vm.Name)
 		}
 
-		// Sort by ordinal to know which VMs should be deleted first (highest ordinals)
-		sort.Slice(vmNames, func(i, j int) bool {
-			// Extract ordinal from VM name (assuming format like "poolXXXXX-0", "poolXXXXX-1", etc.)
-			// This assumes indexFromName function extracts the ordinal correctly
-			ordinalI := extractOrdinalFromName(vmNames[i])
-			ordinalJ := extractOrdinalFromName(vmNames[j])
-			return ordinalI > ordinalJ // Sort descending (highest first)
-		})
-
-		By("Scaling down to 2 replicas (should remove 3 VMs with highest ordinals)")
+		By("Scaling down to 2 replicas (should remove 3 Oldest VMs)")
 		doScale(pool.ObjectMeta.Name, 2)
 
 		By("Waiting for scale down to complete")
@@ -634,15 +618,15 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			return len(filterNotDeletedVMsOwnedByPool(pool.Name, vms))
 		}, 120*time.Second, 1*time.Second).Should(Equal(2))
 
-		By("Verifying that VMs with highest ordinals were deleted")
+		By("Verifying that Oldest 3 VMs were deleted")
 		vms, err = virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		remainingVMs := filterNotDeletedVMsOwnedByPool(pool.Name, vms)
 		Expect(remainingVMs).To(HaveLen(2))
 
-		// The remaining VMs should be the ones with the lowest ordinals
-		expectedRemainingVMs := vmNames[3:] // Last 2 VMs (lowest ordinals)
+		// The remaining VMs should be the ones with the newest creation timestamps
+		expectedRemainingVMs := vmNames[3:]
 		var actualRemainingVMNames []string
 		for _, vm := range remainingVMs {
 			actualRemainingVMNames = append(actualRemainingVMNames, vm.Name)
@@ -841,4 +825,10 @@ func extractOrdinalFromName(name string) int {
 		return 0
 	}
 	return ordinal
+}
+
+func sortVMsByCreationTimestampAscending(vms []v1.VirtualMachine) {
+	sort.Slice(vms, func(i, j int) bool {
+		return vms[i].CreationTimestamp.Before(&vms[j].CreationTimestamp)
+	})
 }
