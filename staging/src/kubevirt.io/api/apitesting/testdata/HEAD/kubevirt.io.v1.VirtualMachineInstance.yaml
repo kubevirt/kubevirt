@@ -713,6 +713,7 @@ status:
     sourcePersistentStatePVCName: sourcePersistentStatePVCNameValue
     sourcePod: sourcePodValue
     sourceState:
+      completed: true
       domainName: domainNameValue
       domainNamespace: domainNamespaceValue
       migrationUID: migrationUIDValue
@@ -739,6 +740,7 @@ status:
     targetPod: targetPodValue
     targetState:
       attachmentPodUID: attachmentPodUIDValue
+      completed: true
       cpuSet:
       - -6
       directMigrationNodePorts:

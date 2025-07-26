@@ -14131,6 +14131,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: SourceState contains migration state managed by the source
                 virt handler
               properties:
+                completed:
+                  description: Completed is a boolean indicating if the migration
+                    has completed
+                  type: boolean
                 domainName:
                   description: The name of the domain on the source libvirt domain
                   type: string
@@ -14226,6 +14230,10 @@ var CRDsValidation map[string]string = map[string]string{
                 attachmentPodUID:
                   description: The UID of the target attachment pod for hotplug volumes
                   type: string
+                completed:
+                  description: Completed is a boolean indicating if the migration
+                    has completed
+                  type: boolean
                 cpuSet:
                   description: |-
                     If the VMI requires dedicated CPUs, this field will
@@ -14713,6 +14721,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: SourceState contains migration state managed by the source
                 virt handler
               properties:
+                completed:
+                  description: Completed is a boolean indicating if the migration
+                    has completed
+                  type: boolean
                 domainName:
                   description: The name of the domain on the source libvirt domain
                   type: string
@@ -14808,6 +14820,10 @@ var CRDsValidation map[string]string = map[string]string{
                 attachmentPodUID:
                   description: The UID of the target attachment pod for hotplug volumes
                   type: string
+                completed:
+                  description: Completed is a boolean indicating if the migration
+                    has completed
+                  type: boolean
                 cpuSet:
                   description: |-
                     If the VMI requires dedicated CPUs, this field will

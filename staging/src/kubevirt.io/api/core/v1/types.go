@@ -811,6 +811,15 @@ func (m *VirtualMachineInstanceMigration) IsFinal() bool {
 	return m.Status.Phase == MigrationFailed || m.Status.Phase == MigrationSucceeded
 }
 
+func (m *VirtualMachineInstanceMigration) IsDecentralizedSucceeded() bool {
+	return m.Status.Phase == MigrationSucceeded &&
+		m.Status.MigrationState != nil &&
+		m.Status.MigrationState.SourceState != nil &&
+		m.Status.MigrationState.SourceState.Completed &&
+		m.Status.MigrationState.TargetState != nil &&
+		m.Status.MigrationState.TargetState.Completed
+}
+
 func (m *VirtualMachineInstanceMigration) IsRunning() bool {
 	switch m.Status.Phase {
 	case MigrationFailed, MigrationPending, MigrationPhaseUnset, MigrationSucceeded, MigrationWaitingForSync, MigrationSynchronizing:
@@ -908,6 +917,8 @@ type VirtualMachineInstanceCommonMigrationState struct {
 	SelinuxContext string `json:"selinuxContext,omitempty"`
 	// VirtualMachineInstanceUID is the UID of the target virtual machine instance
 	VirtualMachineInstanceUID *types.UID `json:"virtualMachineInstanceUID,omitempty"`
+	// Completed is a boolean indicating if the migration has completed
+	Completed bool `json:"completed,omitempty"`
 }
 
 // +k8s:openapi-gen=true

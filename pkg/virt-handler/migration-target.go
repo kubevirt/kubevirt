@@ -966,5 +966,8 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 	}
 
 	vmi.Status.MigrationState.Completed = true
+	if vmi.IsDecentralizedMigration() && vmi.Status.MigrationState.TargetState != nil {
+		vmi.Status.MigrationState.TargetState.Completed = true
+	}
 	return nil
 }
