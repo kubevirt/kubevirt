@@ -31,6 +31,7 @@ pkg/virtctl/clientconfig
 pkg/virtctl/configuration
 pkg/virtctl/console
 pkg/virtctl/create/params
+pkg/virtctl/create/preference
 pkg/virtctl/create/vm
 pkg/virtctl/credentials
 pkg/virtctl/testing
