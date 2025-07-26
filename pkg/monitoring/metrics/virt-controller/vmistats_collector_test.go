@@ -172,8 +172,8 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			_ = informers.KVPod.GetStore().Add(originalPod)
-			_ = informers.KVPod.GetStore().Add(targetPod)
+			_ = indexers.KVPod.Add(originalPod)
+			_ = indexers.KVPod.Add(targetPod)
 
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -221,8 +221,8 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			_ = informers.KVPod.GetStore().Add(originalPod)
-			_ = informers.KVPod.GetStore().Add(targetPod)
+			_ = indexers.KVPod.Add(originalPod)
+			_ = indexers.KVPod.Add(targetPod)
 
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -329,7 +329,8 @@ var _ = Describe("VMI Stats Collector", func() {
 
 		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
 		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
-			informers.VMI, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
+			vmiInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
+			stores.VMI = vmiInformer.GetStore()
 
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
@@ -722,19 +723,21 @@ func setupTestCollector() {
 		),
 	)
 
-	informers = &Informers{}
+	indexers = &Indexers{}
 
 	// Pod informer
-	informers.KVPod, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+	kvPodInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
+	indexers.KVPod = kvPodInformer.GetIndexer()
 
-	_ = informers.KVPod.GetStore().Add(&k8sv1.Pod{
+	_ = indexers.KVPod.Add(&k8sv1.Pod{
 		ObjectMeta: newPodMetaForInformer("virt-launcher-testpod", "test-ns", "test-vmi-uid"),
 	})
 
 	// VMI Migration informer
-	informers.VMIMigration, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstanceMigration{})
+	vmiMigrationInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstanceMigration{})
+	indexers.VMIMigration = vmiMigrationInformer.GetIndexer()
 
-	_ = informers.VMIMigration.GetStore().Add(&k6tv1.VirtualMachineInstanceMigration{
+	_ = indexers.VMIMigration.Add(&k6tv1.VirtualMachineInstanceMigration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-migration",
 			Namespace: "test-ns",

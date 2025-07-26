@@ -451,20 +451,20 @@ func Execute() {
 
 	app.onOpenshift = onOpenShift
 
-	metricsInformers := &metrics.Informers{
-		VM:                    app.vmInformer,
-		VMI:                   app.vmiInformer,
-		PersistentVolumeClaim: app.persistentVolumeClaimInformer,
-		VMIMigration:          app.migrationInformer,
-		KVPod:                 app.kvPodInformer,
+	metricsInformers := &metrics.Indexers{
+		VMIMigration: app.migrationInformer.GetIndexer(),
+		KVPod:        app.kvPodInformer.GetIndexer(),
 	}
 
 	metricsStores := &metrics.Stores{
-		Instancetype:        app.instancetypeInformer.GetStore(),
-		ClusterInstancetype: app.clusterInstancetypeInformer.GetStore(),
-		Preference:          app.preferenceInformer.GetStore(),
-		ClusterPreference:   app.clusterPreferenceInformer.GetStore(),
-		ControllerRevision:  app.controllerRevisionInformer.GetStore(),
+		VM:                    app.vmInformer.GetStore(),
+		VMI:                   app.vmiInformer.GetStore(),
+		PersistentVolumeClaim: app.persistentVolumeClaimInformer.GetStore(),
+		Instancetype:          app.instancetypeInformer.GetStore(),
+		ClusterInstancetype:   app.clusterInstancetypeInformer.GetStore(),
+		Preference:            app.preferenceInformer.GetStore(),
+		ClusterPreference:     app.clusterPreferenceInformer.GetStore(),
+		ControllerRevision:    app.controllerRevisionInformer.GetStore(),
 	}
 
 	if err := metrics.SetupMetrics(
@@ -592,7 +592,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 
 		if vca.migrationInformer == nil {
 			vca.migrationInformer = vca.informerFactory.VirtualMachineInstanceMigration()
-			metrics.UpdateVMIMigrationInformer(vca.migrationInformer)
+			metrics.UpdateVMIMigrationInformer(vca.migrationInformer.GetIndexer())
 		}
 		golog.Printf("\nvca.migrationInformer :%v\n", vca.migrationInformer)
 

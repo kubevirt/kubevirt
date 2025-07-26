@@ -42,20 +42,20 @@ type vmApplyHandler interface {
 	ApplyToVM(vm *virtv1.VirtualMachine) error
 }
 
-type Informers struct {
-	VM                    cache.SharedIndexInformer
-	VMI                   cache.SharedIndexInformer
-	PersistentVolumeClaim cache.SharedIndexInformer
-	VMIMigration          cache.SharedIndexInformer
-	KVPod                 cache.SharedIndexInformer
+type Indexers struct {
+	VMIMigration cache.Indexer
+	KVPod        cache.Indexer
 }
 
 type Stores struct {
-	Instancetype        cache.Store
-	ClusterInstancetype cache.Store
-	Preference          cache.Store
-	ClusterPreference   cache.Store
-	ControllerRevision  cache.Store
+	VM                    cache.Store
+	VMI                   cache.Store
+	PersistentVolumeClaim cache.Store
+	Instancetype          cache.Store
+	ClusterInstancetype   cache.Store
+	Preference            cache.Store
+	ClusterPreference     cache.Store
+	ControllerRevision    cache.Store
 }
 
 var (
@@ -67,22 +67,22 @@ var (
 		vmSnapshotMetrics,
 	}
 
-	informers     *Informers
+	indexers      *Indexers
 	stores        *Stores
 	clusterConfig *virtconfig.ClusterConfig
 	vmApplier     vmApplyHandler
 )
 
 func SetupMetrics(
-	metricsInformers *Informers,
+	metricsIndexers *Indexers,
 	metricsStores *Stores,
 	virtClusterConfig *virtconfig.ClusterConfig,
 	clientset kubecli.KubevirtClient,
 ) error {
-	if metricsInformers == nil {
-		metricsInformers = &Informers{}
+	if metricsIndexers == nil {
+		metricsIndexers = &Indexers{}
 	}
-	informers = metricsInformers
+	indexers = metricsIndexers
 
 	if metricsStores == nil {
 		metricsStores = &Stores{}
@@ -132,12 +132,12 @@ func RegisterLeaderMetrics() error {
 	return nil
 }
 
-func UpdateVMIMigrationInformer(informer cache.SharedIndexInformer) {
-	if informers == nil {
-		informers = &Informers{}
+func UpdateVMIMigrationInformer(indexer cache.Indexer) {
+	if indexers == nil {
+		indexers = &Indexers{}
 	}
 
-	informers.VMIMigration = informer
+	indexers.VMIMigration = indexer
 }
 
 func ListMetrics() []operatormetrics.Metric {

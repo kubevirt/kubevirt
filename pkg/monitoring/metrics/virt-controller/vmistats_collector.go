@@ -129,7 +129,7 @@ var (
 )
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
-	cachedObjs := informers.VMI.GetIndexer().List()
+	cachedObjs := stores.VMI.List()
 	if len(cachedObjs) == 0 {
 		log.Log.V(4).Infof("No VMIs detected")
 		return []operatormetrics.CollectorResult{}
@@ -238,7 +238,7 @@ func getVMIMachine(vmi *k6tv1.VirtualMachineInstance) (guestOSMachineType string
 }
 
 func getVMIPod(vmi *k6tv1.VirtualMachineInstance) string {
-	objs, err := informers.KVPod.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := indexers.KVPod.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return none
 	}
@@ -420,7 +420,7 @@ func calculateMigrationStatus(migrationState *k6tv1.VirtualMachineInstanceMigrat
 }
 
 func getMigrationNameFromMigrationUID(namespace string, migrationUID types.UID) string {
-	objs, err := informers.VMIMigration.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := indexers.VMIMigration.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return none
 	}
