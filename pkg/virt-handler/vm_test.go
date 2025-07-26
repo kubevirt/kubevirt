@@ -373,6 +373,36 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
 		})
 
+		It("should attempt graceful shutdown and take the VMI grace period over the cached Domain grace", func() {
+			vmi := libvmi.New(libvmi.WithName("testvmi"),
+				libvmi.WithNamespace(k8sv1.NamespaceDefault),
+				libvmi.WithTerminationGracePeriod(0))
+
+			initialGrace := int64(30)
+			domain := api.NewMinimalDomainWithNS(vmi.Namespace, vmi.Name)
+			domain.Spec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{DeletionGracePeriodSeconds: initialGrace}
+
+			hasExpired, _ := controller.hasGracePeriodExpired(vmi, domain)
+			Expect(hasExpired).To(BeTrue())
+		})
+
+		It("should attempt graceful shutdown and and fall back to cached Domain grace period when VMI grace is unset", func() {
+			vmi := libvmi.New(libvmi.WithName("testvmi"),
+				libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			vmi.Spec.TerminationGracePeriodSeconds = nil
+
+			initialGrace := int64(30)
+			now := metav1.Time{Time: time.Now()}
+			domain := api.NewMinimalDomainWithNS(vmi.Namespace, vmi.Name)
+			domain.Spec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{
+				DeletionGracePeriodSeconds: initialGrace,
+				DeletionTimestamp:          &now,
+			}
+
+			hasExpired, _ := controller.hasGracePeriodExpired(vmi, domain)
+			Expect(hasExpired).To(BeFalse())
+		})
+
 		It("should do nothing if vmi and domain do not match", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = "other uuid"
@@ -932,6 +962,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					libvmistatus.WithActivePod(podTestUUID, host),
 				)),
 			)
+			vmi.Spec.TerminationGracePeriodSeconds = nil
 
 			domain := api.NewMinimalDomainWithUUID(vmi.Name, vmiTestUUID)
 
@@ -2879,6 +2910,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should fail the VMI", func() {
 			By("Creating a migrating VMI with a domain in failed post-copy migration state")
 			vmi := libvmi.New(libvmi.WithUID(vmiTestUUID), libvmi.WithNamespace("default"), libvmi.WithName("testvmi"))
+			vmi.Spec.TerminationGracePeriodSeconds = nil
 			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				TargetNode:                     "abc",
