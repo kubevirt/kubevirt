@@ -15,10 +15,6 @@ type Defaulter struct {
 	Architecture string
 }
 
-func (d *Defaulter) isPPC64() bool {
-	return d.Architecture == "ppc64le"
-}
-
 func (d *Defaulter) isARM64() bool {
 	return d.Architecture == "arm64"
 }
@@ -32,8 +28,6 @@ func (d *Defaulter) setDefaults_OSType(ostype *OSType) {
 
 	if ostype.Arch == "" {
 		switch {
-		case d.isPPC64():
-			ostype.Arch = "ppc64le"
 		case d.isARM64():
 			ostype.Arch = "aarch64"
 		case d.isS390X():
@@ -47,8 +41,6 @@ func (d *Defaulter) setDefaults_OSType(ostype *OSType) {
 	// TODO: we probably want to select concrete type in the future for "future-backwards" compatibility.
 	if ostype.Machine == "" {
 		switch {
-		case d.isPPC64():
-			ostype.Machine = "pseries"
 		case d.isARM64():
 			ostype.Machine = "virt"
 		case d.isS390X():
