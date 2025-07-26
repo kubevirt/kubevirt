@@ -52,6 +52,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
+        "//vendor/k8s.io/client-go/util/certificate:go_default_library",
         "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
@@ -68,7 +69,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",

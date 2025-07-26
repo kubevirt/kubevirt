@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/workqueue"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
@@ -221,7 +222,7 @@ type VMExportController struct {
 
 	vmExportQueue workqueue.TypedRateLimitingInterface[string]
 
-	caCertManager *bootstrap.FileCertificateManager
+	caCertManager certificate.Manager
 
 	clusterConfig *virtconfig.ClusterConfig
 

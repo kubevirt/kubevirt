@@ -24,8 +24,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -66,8 +64,8 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
@@ -136,12 +134,10 @@ var _ = Describe("Export controller", func() {
 		virtClient                  *kubecli.MockKubevirtClient
 		vmExportClient              *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider  *MockVolumeSnapshotProvider
+		fakeCertManager             *MockCertManager
 		mockVMExportQueue           *testutils.MockWorkQueue[string]
 		routeCache                  cache.Store
 		ingressCache                cache.Store
-		certDir                     string
-		certFilePath                string
-		keyFilePath                 string
 		stop                        chan struct{}
 	)
 
@@ -194,12 +190,6 @@ var _ = Describe("Export controller", func() {
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
-		var err error
-		certDir, err = os.MkdirTemp("", "certs")
-		Expect(err).ToNot(HaveOccurred())
-		certFilePath = filepath.Join(certDir, "tls.crt")
-		keyFilePath = filepath.Join(certDir, "tls.key")
-		writeCertsToDir(certDir)
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
@@ -228,6 +218,7 @@ var _ = Describe("Export controller", func() {
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 			volumeSnapshots: []*vsv1.VolumeSnapshot{},
 		}
+		fakeCertManager = &MockCertManager{}
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		k8sClient = k8sfake.NewSimpleClientset()
@@ -249,7 +240,7 @@ var _ = Describe("Export controller", func() {
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
 			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
-			caCertManager:               bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
+			caCertManager:               fakeCertManager,
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,
 			RouteConfigMapInformer:      cmInformer,
@@ -268,11 +259,8 @@ var _ = Describe("Export controller", func() {
 			ControllerRevisionInformer:  controllerRevisionInformer,
 		}
 		initCert = func(ctrl *VMExportController) {
-			go controller.caCertManager.Start()
-			// Give the thread time to read the certs.
-			Eventually(func() *tls.Certificate {
-				return controller.caCertManager.Current()
-			}, time.Second, time.Millisecond).ShouldNot(BeNil())
+			ctrl.caCertManager.Start()
+			Expect(ctrl.caCertManager.Current()).ToNot(BeNil())
 		}
 
 		controller.Init()
@@ -316,11 +304,6 @@ var _ = Describe("Export controller", func() {
 				},
 			}),
 		).To(Succeed())
-	})
-
-	AfterEach(func() {
-		controller.caCertManager.Stop()
-		Expect(os.RemoveAll(certDir)).To(Succeed())
 	})
 
 	generateCertFromTime := func(cn string, before, after *time.Time) string {
@@ -1656,14 +1639,6 @@ func verifyArchiveExternal(vmExport *exportv1.VirtualMachineExport, exportName, 
 		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.tar.gz", currentVersion, namespace, exportName, volumeName))
 }
 
-func writeCertsToDir(dir string) {
-	caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
-	crt := certutil.EncodeCertPEM(caKeyPair.Cert)
-	key := certutil.EncodePrivateKeyPEM(caKeyPair.Key)
-	Expect(os.WriteFile(filepath.Join(dir, bootstrap.CertBytesValue), crt, 0777)).To(Succeed())
-	Expect(os.WriteFile(filepath.Join(dir, bootstrap.KeyBytesValue), key, 0777)).To(Succeed())
-}
-
 func createVMExportMeta(name string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:              name,
@@ -1831,4 +1806,34 @@ func (v *MockVolumeSnapshotProvider) GetVolumeSnapshot(namespace, name string) (
 
 func (v *MockVolumeSnapshotProvider) Add(s *vsv1.VolumeSnapshot) {
 	v.volumeSnapshots = append(v.volumeSnapshots, s)
+}
+
+// A mock to implement the certificate.Manager interface for the export controller
+type MockCertManager struct {
+	crt *tls.Certificate
+}
+
+func (f *MockCertManager) Start() {
+	caKeyPair, _ := triple.NewCA("test.kubevirt.io", time.Hour)
+
+	encodedCert := cert.EncodeCertPEM(caKeyPair.Cert)
+	encodedKey := cert.EncodePrivateKeyPEM(caKeyPair.Key)
+
+	crt, err := tls.X509KeyPair(encodedCert, encodedKey)
+	Expect(err).ToNot(HaveOccurred())
+	leaf, err := cert.ParseCertsPEM(encodedCert)
+	Expect(err).ToNot(HaveOccurred())
+	crt.Leaf = leaf[0]
+	f.crt = &crt
+}
+
+func (f *MockCertManager) Stop() {
+}
+
+func (f *MockCertManager) Current() *tls.Certificate {
+	return f.crt
+}
+
+func (f *MockCertManager) ServerHealthy() bool {
+	return true
 }
