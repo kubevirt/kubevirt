@@ -12,4 +12,4 @@ spec:
   ports:
     - port: 443
       targetPort: 8443
-      nodePort: 31001
+      nodePort: 30085
