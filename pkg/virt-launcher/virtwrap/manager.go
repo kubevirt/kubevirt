@@ -2368,6 +2368,14 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 			ID:            sysInfo.OSInfo.Id,
 		},
 		Timezone: fmt.Sprintf("%s, %d", sysInfo.Timezone.Zone, sysInfo.Timezone.Offset),
+		Load: &v1.VirtualMachineInstanceGuestOSLoad{
+			Load1mSet:  sysInfo.Load.Load1mSet,
+			Load1m:     sysInfo.Load.Load1m,
+			Load5mSet:  sysInfo.Load.Load5mSet,
+			Load5m:     sysInfo.Load.Load5m,
+			Load15mSet: sysInfo.Load.Load15mSet,
+			Load15m:    sysInfo.Load.Load15m,
+		},
 	}
 
 	for _, user := range userInfo {
