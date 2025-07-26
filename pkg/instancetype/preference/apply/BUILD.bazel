@@ -46,6 +46,7 @@ go_test(
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
     ],
 )

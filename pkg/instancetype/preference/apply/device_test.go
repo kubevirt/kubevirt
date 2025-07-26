@@ -19,8 +19,11 @@
 package apply_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -52,8 +55,6 @@ var _ = Describe("Preference.Devices", func() {
 				Physical: 512,
 			},
 		}
-		vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
-		vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
 		vmi.Spec.Domain.Devices.Disks = []virtv1.Disk{
 			{
 				Cache:     virtv1.CacheWriteBack,
@@ -116,11 +117,6 @@ var _ = Describe("Preference.Devices", func() {
 
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Devices: &v1beta1.DevicePreferences{
-				PreferredAutoattachGraphicsDevice:   pointer.P(true),
-				PreferredAutoattachMemBalloon:       pointer.P(true),
-				PreferredAutoattachPodInterface:     pointer.P(true),
-				PreferredAutoattachSerialConsole:    pointer.P(true),
-				PreferredAutoattachInputDevice:      pointer.P(true),
 				PreferredDiskDedicatedIoThread:      pointer.P(true),
 				PreferredDisableHotplug:             pointer.P(true),
 				PreferredUseVirtioTransitional:      pointer.P(true),
@@ -179,9 +175,6 @@ var _ = Describe("Preference.Devices", func() {
 	It("should apply to VMI", func() {
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 
-		Expect(vmi.Spec.Domain.Devices.AutoattachGraphicsDevice).To(HaveValue(BeFalse()))
-		Expect(vmi.Spec.Domain.Devices.AutoattachMemBalloon).To(HaveValue(BeFalse()))
-		Expect(vmi.Spec.Domain.Devices.AutoattachInputDevice).To(HaveValue(BeTrue()))
 		Expect(vmi.Spec.Domain.Devices.Disks[0].Cache).To(Equal(virtv1.CacheWriteBack))
 		Expect(vmi.Spec.Domain.Devices.Disks[0].IO).To(Equal(virtv1.IONative))
 		Expect(vmi.Spec.Domain.Devices.Disks[0].BlockSize).To(HaveValue(Equal(*userDefinedBlockSize)))
@@ -193,8 +186,6 @@ var _ = Describe("Preference.Devices", func() {
 		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Model).To(Equal("e1000"))
 
 		// Assert that everything that isn't defined in the VM/VMI should use Preferences
-		Expect(vmi.Spec.Domain.Devices.AutoattachPodInterface).To(HaveValue(Equal(*preferenceSpec.Devices.PreferredAutoattachPodInterface)))
-		Expect(vmi.Spec.Domain.Devices.AutoattachSerialConsole).To(HaveValue(Equal(*preferenceSpec.Devices.PreferredAutoattachSerialConsole)))
 		Expect(vmi.Spec.Domain.Devices.DisableHotplug).To(Equal(*preferenceSpec.Devices.PreferredDisableHotplug))
 		Expect(vmi.Spec.Domain.Devices.UseVirtioTransitional).To(HaveValue(Equal(*preferenceSpec.Devices.PreferredUseVirtioTransitional)))
 		Expect(vmi.Spec.Domain.Devices.Disks[1].Cache).To(Equal(preferenceSpec.Devices.PreferredDiskCache))
@@ -328,4 +319,47 @@ var _ = Describe("Preference.Devices", func() {
 			),
 		)
 	})
+
+	DescribeTable("PreferredAutoAttach should", func(preferenceValue, vmiValue *bool, match types.GomegaMatcher) {
+		type autoAttachField struct {
+			preference **bool
+			vmi        **bool
+		}
+		autoAttachFields := map[string]autoAttachField{
+			"PreferredAutoattachGraphicsDevice": {
+				&preferenceSpec.Devices.PreferredAutoattachGraphicsDevice,
+				&vmi.Spec.Domain.Devices.AutoattachGraphicsDevice,
+			},
+			"PreferredAutoattachMemBalloon": {
+				&preferenceSpec.Devices.PreferredAutoattachMemBalloon,
+				&vmi.Spec.Domain.Devices.AutoattachMemBalloon,
+			},
+			"PreferredAutoattachPodInterface": {
+				&preferenceSpec.Devices.PreferredAutoattachPodInterface,
+				&vmi.Spec.Domain.Devices.AutoattachPodInterface,
+			},
+			"PreferredAutoattachSerialConsole": {
+				&preferenceSpec.Devices.PreferredAutoattachSerialConsole,
+				&vmi.Spec.Domain.Devices.AutoattachSerialConsole,
+			},
+			"PreferredAutoattachInputDevice": {
+				&preferenceSpec.Devices.PreferredAutoattachInputDevice,
+				&vmi.Spec.Domain.Devices.AutoattachInputDevice,
+			},
+		}
+		for name, f := range autoAttachFields {
+			*f.preference = preferenceValue
+			*f.vmi = vmiValue
+			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+			Expect(*f.vmi).To(match, fmt.Sprintf("%s not applied correctly", name))
+		}
+	},
+		Entry("apply true when VMI value is nil", pointer.P(true), nil, HaveValue(BeTrue())),
+		Entry("apply false when VMI value is nil", pointer.P(false), nil, HaveValue(BeFalse())),
+		Entry("not apply nil when VMI value is nil", nil, nil, BeNil()),
+		Entry("not apply nil when VMI value is true", nil, pointer.P(true), HaveValue(BeTrue())),
+		Entry("not apply nil when VMI value is false", nil, pointer.P(false), HaveValue(BeFalse())),
+		Entry("not apply true when VMI value is false", pointer.P(true), pointer.P(false), HaveValue(BeFalse())),
+		Entry("not apply false when VMI value is true", pointer.P(false), pointer.P(true), HaveValue(BeTrue())),
+	)
 })
