@@ -45,18 +45,27 @@ func NewFirmwareController(clientset kubevirt.Interface) *FirmwareController {
 	}
 }
 
-func (fc *FirmwareController) Sync(vm *v1.VirtualMachine, _ *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
+func (fc *FirmwareController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
 	firmware := vm.Spec.Template.Spec.Domain.Firmware
 	if firmware == nil {
 		firmware = &v1.Firmware{}
 	}
 
-	if firmware.UUID != "" {
+	originalUUID := ""
+	if vmi != nil && vmi.Annotations[v1.OriginalDomainUUID] != "" {
+		originalUUID = vmi.Annotations[v1.OriginalDomainUUID]
+	}
+
+	if firmware.UUID != "" && (originalUUID == "" || firmware.UUID == types.UID(originalUUID)) {
 		return vm, nil
 	}
 
 	firmware = firmware.DeepCopy()
-	firmware.UUID = CalculateLegacyUUID(vm.Name)
+	if originalUUID == "" {
+		firmware.UUID = CalculateLegacyUUID(vm.Name)
+	} else {
+		firmware.UUID = types.UID(originalUUID)
+	}
 
 	updatedVM, err := fc.vmFirmwarePatch(firmware, vm)
 	if err != nil {

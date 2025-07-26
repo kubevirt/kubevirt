@@ -25,6 +25,7 @@ import (
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -97,5 +98,23 @@ var _ = Describe("VM Firmware Controller", func() {
 	},
 		Entry("when the VM has no firmware", nil),
 		Entry("when the VM has firmware with an empty UUID", &v1.Firmware{UUID: ""}),
+	)
+
+	DescribeTable("sync succeeds in setting original firmware if annotation exists", func(vmi *v1.VirtualMachineInstance, expectedUUID string) {
+		clientset := fake.NewSimpleClientset()
+		c := NewFirmwareController(clientset)
+
+		vm := libvmi.NewVirtualMachine(vmi)
+
+		_, err := clientset.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedVM, err := c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedVM.Spec.Template.Spec.Domain.Firmware.UUID).To(Equal(types.UID(expectedUUID)))
+	},
+		Entry("when the VMI has an original domain UUID", libvmi.New(libvmi.WithAnnotation(v1.OriginalDomainUUID, "some-existing-uid")), "some-existing-uid"),
+		Entry("when the VMI has an original domain UUID, but also has UUID set", libvmi.New(libvmi.WithAnnotation(v1.OriginalDomainUUID, "some-existing-uid"), libvmi.WithFirmwareUUID("new-uid")), "some-existing-uid"),
+		Entry("when the VMI has no original domain UUID, but has UUID set", libvmi.New(libvmi.WithAnnotation(v1.OriginalDomainUUID, ""), libvmi.WithFirmwareUUID("new-uid")), "new-uid"),
 	)
 })
