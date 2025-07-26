@@ -78,5 +78,18 @@ var (
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
+		{
+			Alert: "KubeVirtVMHighCPUUsage",
+			Expr:  intstr.FromString("(sum by (name, namespace, node) (rate(kubevirt_vmi_cpu_usage_seconds_total[1m])) / on(name, namespace, node) (count by (name, namespace, node) (kubevirt_vmi_vcpu_seconds_total))) > 0.8"),
+			For:   ptr.To(promv1.Duration("5m")),
+			Annotations: map[string]string{
+				"description": "The Virtual machine {{ $labels.name }} in namespace {{ $labels.namespace }}, running on node {{ $labels.node }}, has high CPU usage ({{ $value | humanizePercentage }}) for more than 5 minutes.",
+				"summary":     "The Virtual machine has high CPU usage.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
 	}
 )
