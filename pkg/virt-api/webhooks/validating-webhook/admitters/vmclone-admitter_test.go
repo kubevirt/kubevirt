@@ -213,31 +213,31 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		admitter.admitAndExpect(vmClone, true)
 	})
 
-	DescribeTable("should reject clone with source that lacks information", func(getSource func() *k8sv1.TypedLocalObjectReference) {
+	DescribeTable("should reject clone with source that lacks information", func(getSource func() *k8sv1.TypedObjectReference) {
 		vmClone.Spec.Source = getSource()
 		admitter.admitAndExpect(vmClone, false)
 	},
-		Entry("Source without Name", func() *k8sv1.TypedLocalObjectReference {
+		Entry("Source without Name", func() *k8sv1.TypedObjectReference {
 			source := newValidObjReference()
 			source.Name = ""
 			return source
 		}),
-		Entry("Source without Kind", func() *k8sv1.TypedLocalObjectReference {
+		Entry("Source without Kind", func() *k8sv1.TypedObjectReference {
 			source := newValidObjReference()
 			source.Kind = ""
 			return source
 		}),
-		Entry("Source with nil APIGroup", func() *k8sv1.TypedLocalObjectReference {
+		Entry("Source with nil APIGroup", func() *k8sv1.TypedObjectReference {
 			source := newValidObjReference()
 			source.APIGroup = nil
 			return source
 		}),
-		Entry("Source with empty APIGroup", func() *k8sv1.TypedLocalObjectReference {
+		Entry("Source with empty APIGroup", func() *k8sv1.TypedObjectReference {
 			source := newValidObjReference()
 			source.APIGroup = pointer.P("")
 			return source
 		}),
-		Entry("Source with bad kind", func() *k8sv1.TypedLocalObjectReference {
+		Entry("Source with bad kind", func() *k8sv1.TypedObjectReference {
 			source := newValidObjReference()
 			source.Kind = "Foobar"
 			return source
@@ -472,8 +472,8 @@ func newValidClone() *clone.VirtualMachineClone {
 	return vmClone
 }
 
-func newValidObjReference() *k8sv1.TypedLocalObjectReference {
-	return &k8sv1.TypedLocalObjectReference{
+func newValidObjReference() *k8sv1.TypedObjectReference {
+	return &k8sv1.TypedObjectReference{
 		APIGroup: pointer.P(core.GroupName),
 		Kind:     virtualMachineKind,
 		Name:     "clone-source-vm",

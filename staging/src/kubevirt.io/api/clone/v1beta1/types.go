@@ -54,7 +54,7 @@ type VirtualMachineCloneSpec struct {
 	// Source is the object that would be cloned. Currently supported source types are:
 	// VirtualMachine of kubevirt.io API group,
 	// VirtualMachineSnapshot of snapshot.kubevirt.io API group
-	Source *corev1.TypedLocalObjectReference `json:"source"`
+	Source *corev1.TypedObjectReference `json:"source"`
 
 	// Target is the outcome of the cloning process.
 	// Currently supported source types are:
@@ -64,7 +64,7 @@ type VirtualMachineCloneSpec struct {
 	// name would be generated for the target. The target's name can be viewed by
 	// inspecting status "TargetName" field below.
 	// +optional
-	Target *corev1.TypedLocalObjectReference `json:"target,omitempty"`
+	Target *corev1.TypedObjectReference `json:"target,omitempty"`
 
 	// Example use: "!some/key*".
 	// For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
