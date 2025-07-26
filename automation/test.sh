@@ -62,7 +62,6 @@ fi
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
 elif [[ $TARGET =~ sig-network ]]; then
-  export KUBEVIRT_WITH_MULTUS_V3="${KUBEVIRT_WITH_MULTUS_V3:-true}"
   export KUBEVIRT_WITH_DYN_NET_CTRL="${KUBEVIRT_WITH_DYN_NET_CTRL:-false}"
   export KUBEVIRT_NUM_NODES=3
   export KUBEVIRT_WITH_CNAO=true
