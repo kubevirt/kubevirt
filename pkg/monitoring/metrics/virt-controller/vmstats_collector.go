@@ -20,25 +20,47 @@
 package virt_controller
 
 import (
+	"context"
+	"regexp"
 	"strings"
 
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/util"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo),
+		Metrics:         append(timestampMetrics, vmLabels, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo),
 		CollectCallback: vmStatsCollectorCallback,
 	}
+
+	// Default allowlist for VM labels ("*" means all labels exposed by default)
+	vmLabelsAllowlist = []string{"*"}
+
+	// Default ignorelist for VM labels (empty by default)
+	vmLabelsIgnorelist = []string{}
+
+	// ConfigMap name for VM labels configuration
+	vmLabelsConfigMapName = "kubevirt-vm-labels-config"
+
+	vmLabels = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_labels",
+			Help: "Kubernetes VM labels converted to Prometheus labels. Can be configured via ConfigMap 'kubevirt-vm-labels-config' in the same namespace as virt-controller with 'allowlist' and 'ignorelist' fields.",
+		},
+		labels,
+	)
 
 	timestampMetrics = []operatormetrics.Metric{
 		startingTimestamp,
@@ -189,6 +211,9 @@ var (
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
+	// Load VM labels configuration from ConfigMap
+	loadVMLabelsConfiguration()
+
 	cachedObjs := informers.VM.GetIndexer().List()
 	if len(cachedObjs) == 0 {
 		log.Log.V(4).Infof("No VMs detected")
@@ -208,6 +233,7 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 	results = append(results, reportVmsStats(vms)...)
 	results = append(results, collectVMCreationTimestamp(vms)...)
 	results = append(results, CollectVmsVnicInfo(vms)...)
+
 	return results
 }
 
@@ -493,6 +519,10 @@ func reportVmsStats(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 func reportVmStats(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
+	// VM labels metric collection
+	cr = append(cr, reportVmLabels(vm)...)
+
+	// VM timestamp metrics collection
 	status := vm.Status.PrintableStatus
 	currentStateMetric := getMetricDesc(status)
 
@@ -755,4 +785,140 @@ func LookupNetworkByName(networks []k6tv1.Network, name string) *k6tv1.Network {
 		}
 	}
 	return nil
+}
+
+func loadVMLabelsConfiguration() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return
+	}
+
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		return
+	}
+
+	configMap, err := virtClient.CoreV1().ConfigMaps(namespace).Get(
+		context.TODO(), vmLabelsConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return
+	}
+
+	updateVMLabelsConfigFromConfigMap(configMap)
+}
+
+func updateVMLabelsConfigFromConfigMap(configMap *k8sv1.ConfigMap) {
+	if configMap.Data == nil {
+		return
+	}
+
+	if allowlistData, exists := configMap.Data["allowlist"]; exists {
+		allowlist := parseLabelsFromString(allowlistData)
+		if len(allowlist) > 0 {
+			vmLabelsAllowlist = allowlist
+		}
+	}
+
+	if ignorelistData, exists := configMap.Data["ignorelist"]; exists {
+		ignorelist := parseLabelsFromString(ignorelistData)
+		vmLabelsIgnorelist = ignorelist
+	}
+}
+
+func parseLabelsFromString(data string) []string {
+	if strings.TrimSpace(data) == "" {
+		return []string{}
+	}
+
+	labels := strings.Split(data, ",")
+	result := make([]string, 0, len(labels))
+
+	for _, label := range labels {
+		trimmed := strings.TrimSpace(label)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+
+	return result
+}
+
+func reportVmLabels(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if len(vmLabelsAllowlist) == 0 || len(vm.Labels) == 0 {
+		return cr
+	}
+
+	vmLabelsMap := filterVMLabels(vm.Labels, vmLabelsAllowlist, vmLabelsIgnorelist)
+
+	if len(vmLabelsMap) == 0 {
+		return cr
+	}
+
+	constLabels := make(map[string]string)
+
+	for labelKey, labelValue := range vmLabelsMap {
+		sanitizedLabelName := sanitizeLabelName(labelKey)
+		prometheusLabelName := "label_" + sanitizedLabelName
+		constLabels[prometheusLabelName] = labelValue
+	}
+
+	cr = append(cr, operatormetrics.CollectorResult{
+		Metric:      vmLabels,
+		Labels:      []string{vm.Name, vm.Namespace},
+		ConstLabels: constLabels,
+		Value:       1.0,
+	})
+
+	return cr
+}
+
+func filterVMLabels(vmLabels map[string]string, allowlist []string, ignorelist []string) map[string]string {
+	if len(allowlist) == 0 {
+		return nil
+	}
+
+	filteredLabels := make(map[string]string)
+	allowMap := make(map[string]bool)
+	allowAll := false
+
+	for _, allowed := range allowlist {
+		if allowed == "*" {
+			allowAll = true
+			break
+		}
+		allowMap[allowed] = true
+	}
+
+	ignoreMap := make(map[string]bool)
+	for _, ignored := range ignorelist {
+		ignoreMap[ignored] = true
+	}
+
+	for key, value := range vmLabels {
+		// Ignore takes precedence over allow
+		if ignoreMap[key] {
+			continue
+		}
+
+		if !allowAll && !allowMap[key] {
+			continue
+		}
+
+		filteredLabels[key] = value
+	}
+
+	return filteredLabels
+}
+
+func sanitizeLabelName(name string) string {
+	var invalidLabelCharRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
+	sanitized := invalidLabelCharRE.ReplaceAllString(name, "_")
+
+	if len(sanitized) > 0 && !strings.HasPrefix(sanitized, "_") && (sanitized[0] < 'a' || sanitized[0] > 'z') && (sanitized[0] < 'A' || sanitized[0] > 'Z') {
+		sanitized = "_" + sanitized
+	}
+
+	return sanitized
 }

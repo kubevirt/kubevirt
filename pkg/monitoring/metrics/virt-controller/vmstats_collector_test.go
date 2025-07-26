@@ -783,6 +783,519 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(metrics).To(BeEmpty())
 		})
 	})
+
+	Context("VM labels collector", func() {
+		var originalAllowlist []string
+		var originalIgnorelist []string
+
+		BeforeEach(func() {
+			// Save original configuration
+			originalAllowlist = make([]string, len(vmLabelsAllowlist))
+			copy(originalAllowlist, vmLabelsAllowlist)
+			originalIgnorelist = make([]string, len(vmLabelsIgnorelist))
+			copy(originalIgnorelist, vmLabelsIgnorelist)
+		})
+
+		AfterEach(func() {
+			// Restore original configuration
+			vmLabelsAllowlist = originalAllowlist
+			vmLabelsIgnorelist = originalIgnorelist
+		})
+
+		Context("parseLabelsFromString", func() {
+			It("should parse comma-separated labels correctly", func() {
+				result := parseLabelsFromString("environment,team,version")
+				Expect(result).To(Equal([]string{"environment", "team", "version"}))
+			})
+
+			It("should handle spaces around labels", func() {
+				result := parseLabelsFromString("environment, team , version")
+				Expect(result).To(Equal([]string{"environment", "team", "version"}))
+			})
+
+			It("should return empty slice for empty string", func() {
+				result := parseLabelsFromString("")
+				Expect(result).To(BeEmpty())
+			})
+
+			It("should return empty slice for whitespace only", func() {
+				result := parseLabelsFromString("   ")
+				Expect(result).To(BeEmpty())
+			})
+
+			It("should handle single label", func() {
+				result := parseLabelsFromString("environment")
+				Expect(result).To(Equal([]string{"environment"}))
+			})
+
+			It("should ignore empty labels", func() {
+				result := parseLabelsFromString("environment,,team,")
+				Expect(result).To(Equal([]string{"environment", "team"}))
+			})
+		})
+
+		Context("sanitizeLabelName", func() {
+			DescribeTable("should sanitize label names correctly",
+				func(input, expected string) {
+					result := sanitizeLabelName(input)
+					Expect(result).To(Equal(expected))
+				},
+				Entry("Kubernetes-style labels", "app.kubernetes.io/name", "app_kubernetes_io_name"),
+				Entry("Labels with hyphens", "cost-center", "cost_center"),
+				Entry("Labels starting with numbers", "123invalid", "_123invalid"),
+				Entry("Valid labels unchanged", "valid_label_name", "valid_label_name"),
+				Entry("Labels with special characters", "label@#$%", "label____"),
+				Entry("Labels with forward slashes", "registry/image", "registry_image"),
+				Entry("Mixed special characters", "app.io/name-v1.0", "app_io_name_v1_0"),
+				Entry("Empty string", "", ""),
+			)
+		})
+
+		Context("filterVMLabels", func() {
+			It("should filter labels based on allowlist", func() {
+				vmLabels := map[string]string{
+					"environment": "production",
+					"team":        "backend",
+					"secret":      "sensitive",
+				}
+				allowlist := []string{"environment", "team"}
+				ignorelist := []string{}
+
+				filtered := filterVMLabels(vmLabels, allowlist, ignorelist)
+
+				Expect(filtered).To(HaveKeyWithValue("environment", "production"))
+				Expect(filtered).To(HaveKeyWithValue("team", "backend"))
+				Expect(filtered).ToNot(HaveKey("secret"))
+			})
+
+			It("should return nil when allowlist is empty", func() {
+				vmLabels := map[string]string{
+					"environment": "production",
+					"team":        "backend",
+				}
+				allowlist := []string{}
+				ignorelist := []string{}
+
+				filtered := filterVMLabels(vmLabels, allowlist, ignorelist)
+
+				Expect(filtered).To(BeNil())
+			})
+
+			It("should allow all labels with wildcard", func() {
+				vmLabels := map[string]string{
+					"environment": "production",
+					"team":        "backend",
+					"custom":      "value",
+				}
+				allowlist := []string{"*"}
+				ignorelist := []string{}
+
+				filtered := filterVMLabels(vmLabels, allowlist, ignorelist)
+
+				Expect(filtered).To(HaveLen(3))
+				Expect(filtered).To(HaveKeyWithValue("environment", "production"))
+				Expect(filtered).To(HaveKeyWithValue("team", "backend"))
+				Expect(filtered).To(HaveKeyWithValue("custom", "value"))
+			})
+
+			It("should ignore labels in ignorelist even with wildcard allowlist", func() {
+				vmLabels := map[string]string{
+					"environment":                      "production",
+					"team":                             "backend",
+					"vm.kubevirt.io/template":          "template-value",
+					"vm.kubevirt.io/template.revision": "123",
+				}
+				allowlist := []string{"*"}
+				ignorelist := []string{"vm.kubevirt.io/template", "vm.kubevirt.io/template.revision"}
+
+				filtered := filterVMLabels(vmLabels, allowlist, ignorelist)
+
+				Expect(filtered).To(HaveLen(2))
+				Expect(filtered).To(HaveKeyWithValue("environment", "production"))
+				Expect(filtered).To(HaveKeyWithValue("team", "backend"))
+				Expect(filtered).ToNot(HaveKey("vm.kubevirt.io/template"))
+				Expect(filtered).ToNot(HaveKey("vm.kubevirt.io/template.revision"))
+			})
+
+			It("should prioritize ignorelist over allowlist", func() {
+				vmLabels := map[string]string{
+					"environment":             "production",
+					"team":                    "backend",
+					"secret":                  "sensitive",
+					"vm.kubevirt.io/template": "template-value",
+				}
+				allowlist := []string{"environment", "team", "vm.kubevirt.io/template"}
+				ignorelist := []string{"vm.kubevirt.io/template"}
+
+				filtered := filterVMLabels(vmLabels, allowlist, ignorelist)
+
+				Expect(filtered).To(HaveLen(2))
+				Expect(filtered).To(HaveKeyWithValue("environment", "production"))
+				Expect(filtered).To(HaveKeyWithValue("team", "backend"))
+				Expect(filtered).ToNot(HaveKey("secret"))
+				Expect(filtered).ToNot(HaveKey("vm.kubevirt.io/template"))
+			})
+		})
+
+		Context("updateVMLabelsConfigFromConfigMap", func() {
+			It("should update allowlist from ConfigMap", func() {
+				configMap := &k8sv1.ConfigMap{
+					Data: map[string]string{
+						"allowlist": "environment,team,version",
+					},
+				}
+
+				updateVMLabelsConfigFromConfigMap(configMap)
+
+				Expect(vmLabelsAllowlist).To(Equal([]string{"environment", "team", "version"}))
+			})
+
+			It("should update ignorelist from ConfigMap", func() {
+				configMap := &k8sv1.ConfigMap{
+					Data: map[string]string{
+						"ignorelist": "secret,internal",
+					},
+				}
+
+				updateVMLabelsConfigFromConfigMap(configMap)
+
+				Expect(vmLabelsIgnorelist).To(Equal([]string{"secret", "internal"}))
+			})
+
+			It("should handle empty ConfigMap data", func() {
+				originalAllowlist := vmLabelsAllowlist
+				originalIgnorelist := vmLabelsIgnorelist
+
+				configMap := &k8sv1.ConfigMap{}
+
+				updateVMLabelsConfigFromConfigMap(configMap)
+
+				// Should not change original values
+				Expect(vmLabelsAllowlist).To(Equal(originalAllowlist))
+				Expect(vmLabelsIgnorelist).To(Equal(originalIgnorelist))
+			})
+
+			It("should handle empty allowlist value", func() {
+				originalAllowlist := vmLabelsAllowlist
+
+				configMap := &k8sv1.ConfigMap{
+					Data: map[string]string{
+						"allowlist": "",
+					},
+				}
+
+				updateVMLabelsConfigFromConfigMap(configMap)
+
+				// Should not change allowlist when empty
+				Expect(vmLabelsAllowlist).To(Equal(originalAllowlist))
+			})
+
+			It("should handle empty ignorelist value", func() {
+				configMap := &k8sv1.ConfigMap{
+					Data: map[string]string{
+						"ignorelist": "",
+					},
+				}
+
+				updateVMLabelsConfigFromConfigMap(configMap)
+
+				Expect(vmLabelsIgnorelist).To(BeEmpty())
+			})
+		})
+
+		Context("reportVmLabels", func() {
+			It("should return empty when allowlist is empty", func() {
+				vmLabelsAllowlist = []string{}
+				vm := &k6tv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						Labels: map[string]string{
+							"environment": "production",
+						},
+					},
+				}
+
+				results := reportVmLabels(vm)
+				Expect(results).To(BeEmpty())
+			})
+
+			It("should return empty when VM has no labels", func() {
+				vmLabelsAllowlist = []string{"*"}
+				vm := &k6tv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						// No labels
+					},
+				}
+
+				results := reportVmLabels(vm)
+				Expect(results).To(BeEmpty())
+			})
+
+			It("should collect allowed labels with wildcard", func() {
+				vmLabelsAllowlist = []string{"*"}
+				vmLabelsIgnorelist = []string{}
+
+				vm := &k6tv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						Labels: map[string]string{
+							"environment": "production",
+							"team":        "backend",
+							"version":     "1.0",
+						},
+					},
+				}
+
+				results := reportVmLabels(vm)
+
+				Expect(results).To(HaveLen(1))
+				result := results[0]
+
+				Expect(result.Metric.GetOpts().Name).To(Equal("kubevirt_vm_labels"))
+				Expect(result.Value).To(Equal(1.0))
+				Expect(result.Labels).To(Equal([]string{"test-vm", "default"}))
+
+				// Check that all labels are present as const labels
+				Expect(result.ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
+				Expect(result.ConstLabels).To(HaveKeyWithValue("label_team", "backend"))
+				Expect(result.ConstLabels).To(HaveKeyWithValue("label_version", "1.0"))
+			})
+
+			It("should collect only allowed labels when specific allowlist is set", func() {
+				vmLabelsAllowlist = []string{"environment", "team"}
+				vmLabelsIgnorelist = []string{}
+
+				vm := &k6tv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						Labels: map[string]string{
+							"environment": "production",
+							"team":        "backend",
+							"secret":      "sensitive",
+						},
+					},
+				}
+
+				results := reportVmLabels(vm)
+
+				Expect(results).To(HaveLen(1))
+				result := results[0]
+
+				Expect(result.Metric.GetOpts().Name).To(Equal("kubevirt_vm_labels"))
+				Expect(result.Value).To(Equal(1.0))
+				Expect(result.Labels).To(Equal([]string{"test-vm", "default"}))
+
+				// Check that only allowed labels are present
+				Expect(result.ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
+				Expect(result.ConstLabels).To(HaveKeyWithValue("label_team", "backend"))
+				Expect(result.ConstLabels).ToNot(HaveKey("label_secret"))
+			})
+
+			It("should ignore labels in ignorelist", func() {
+				vmLabelsAllowlist = []string{"*"}
+				vmLabelsIgnorelist = []string{"vm.kubevirt.io/template", "vm.kubevirt.io/template.revision"}
+
+				vm := &k6tv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						Labels: map[string]string{
+							"environment":                      "production",
+							"vm.kubevirt.io/template":          "template-value",
+							"vm.kubevirt.io/template.revision": "123",
+						},
+					},
+				}
+
+				results := reportVmLabels(vm)
+
+				Expect(results).To(HaveLen(1))
+				result := results[0]
+
+				Expect(result.Metric.GetOpts().Name).To(Equal("kubevirt_vm_labels"))
+				Expect(result.Value).To(Equal(1.0))
+				Expect(result.Labels).To(Equal([]string{"test-vm", "default"}))
+
+				// Check that allowed labels are present but ignored ones are not
+				Expect(result.ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
+				Expect(result.ConstLabels).ToNot(HaveKey("label_vm_kubevirt_io_template"))
+				Expect(result.ConstLabels).ToNot(HaveKey("label_vm_kubevirt_io_template_revision"))
+			})
+
+			It("should handle label sanitization in metrics", func() {
+				vmLabelsAllowlist = []string{"app.kubernetes.io/name"}
+				vmLabelsIgnorelist = []string{}
+
+				vm := &k6tv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app.kubernetes.io/name": "myapp",
+						},
+					},
+				}
+
+				results := reportVmLabels(vm)
+
+				Expect(results).To(HaveLen(1))
+				result := results[0]
+
+				Expect(result.Labels).To(Equal([]string{"test-vm", "default"}))
+				Expect(result.ConstLabels).To(HaveKeyWithValue("label_app_kubernetes_io_name", "myapp"))
+			})
+
+			It("should return empty when no labels pass filtering", func() {
+				vmLabelsAllowlist = []string{"*"}
+				vmLabelsIgnorelist = []string{"environment", "team"}
+
+				vm := &k6tv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						Labels: map[string]string{
+							"environment": "production",
+							"team":        "backend",
+						},
+					},
+				}
+
+				results := reportVmLabels(vm)
+				Expect(results).To(BeEmpty())
+			})
+		})
+
+		Context("integration with VM stats collector", func() {
+			It("should include VM labels in reportVmStats output", func() {
+				vmLabelsAllowlist = []string{"environment", "team"}
+				vmLabelsIgnorelist = []string{}
+
+				vm := &k6tv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						Labels: map[string]string{
+							"environment": "production",
+							"team":        "backend",
+						},
+					},
+					Status: k6tv1.VirtualMachineStatus{
+						PrintableStatus: k6tv1.VirtualMachineStatusRunning,
+						Conditions: []k6tv1.VirtualMachineCondition{
+							{
+								Type:               k6tv1.VirtualMachineReady,
+								Status:             "True",
+								LastTransitionTime: metav1.Now(),
+							},
+						},
+					},
+				}
+
+				results := reportVmStats(vm)
+
+				// Should have labels metric + timestamp metrics
+				Expect(len(results)).To(BeNumerically(">", len(timestampMetrics)))
+
+				// Find the labels metric
+				var labelsResult *operatormetrics.CollectorResult
+				for i := range results {
+					if results[i].Metric.GetOpts().Name == "kubevirt_vm_labels" {
+						labelsResult = &results[i]
+						break
+					}
+				}
+
+				Expect(labelsResult).ToNot(BeNil())
+				Expect(labelsResult.Value).To(Equal(1.0))
+				Expect(labelsResult.Labels).To(Equal([]string{"test-vm", "default"}))
+				Expect(labelsResult.ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
+				Expect(labelsResult.ConstLabels).To(HaveKeyWithValue("label_team", "backend"))
+			})
+
+			It("should work with multiple VMs", func() {
+				vmLabelsAllowlist = []string{"*"}
+				vmLabelsIgnorelist = []string{}
+
+				vms := []*k6tv1.VirtualMachine{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "vm1",
+							Namespace: "default",
+							Labels: map[string]string{
+								"environment": "production",
+								"team":        "backend",
+							},
+						},
+						Status: k6tv1.VirtualMachineStatus{
+							PrintableStatus: k6tv1.VirtualMachineStatusRunning,
+							Conditions: []k6tv1.VirtualMachineCondition{
+								{
+									Type:               k6tv1.VirtualMachineReady,
+									Status:             "True",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "vm2",
+							Namespace: "default",
+							Labels: map[string]string{
+								"environment": "staging",
+								"version":     "2.0",
+							},
+						},
+						Status: k6tv1.VirtualMachineStatus{
+							PrintableStatus: k6tv1.VirtualMachineStatusRunning,
+							Conditions: []k6tv1.VirtualMachineCondition{
+								{
+									Type:               k6tv1.VirtualMachineReady,
+									Status:             "True",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+				}
+
+				results := reportVmsStats(vms)
+
+				// Find the labels metrics
+				var labelsResults []operatormetrics.CollectorResult
+				for _, result := range results {
+					if result.Metric.GetOpts().Name == "kubevirt_vm_labels" {
+						labelsResults = append(labelsResults, result)
+					}
+				}
+
+				Expect(labelsResults).To(HaveLen(2))
+
+				// Check first VM labels
+				vm1Result := labelsResults[0]
+				if vm1Result.Labels[0] != "vm1" {
+					vm1Result = labelsResults[1]
+				}
+				Expect(vm1Result.Labels).To(Equal([]string{"vm1", "default"}))
+				Expect(vm1Result.ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
+				Expect(vm1Result.ConstLabels).To(HaveKeyWithValue("label_team", "backend"))
+
+				// Check second VM labels
+				vm2Result := labelsResults[1]
+				if vm2Result.Labels[0] != "vm2" {
+					vm2Result = labelsResults[0]
+				}
+				Expect(vm2Result.Labels).To(Equal([]string{"vm2", "default"}))
+				Expect(vm2Result.ConstLabels).To(HaveKeyWithValue("label_environment", "staging"))
+				Expect(vm2Result.ConstLabels).To(HaveKeyWithValue("label_version", "2.0"))
+			})
+		})
+	})
 })
 
 func expectDefaultCPUResourceRequests(crs []operatormetrics.CollectorResult) {
