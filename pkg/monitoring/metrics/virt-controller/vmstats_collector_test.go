@@ -309,7 +309,29 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(crs[1].Value).To(BeEquivalentTo(2048))
 			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes"}))
 
-			expectDefaultCPUResourceRequests(crs[2:])
+			// Find allocated memory limits in the results (might not be at index 2)
+			var allocatedLimitsFound bool
+			for _, cr := range crs {
+				if len(cr.Labels) == 5 && cr.Labels[4] == "allocated" && cr.Labels[2] == "memory" {
+					if cr.Metric.GetOpts().Name == "kubevirt_vm_resource_limits" {
+						By("checking the allocated memory limits")
+						Expect(cr.Value).To(BeEquivalentTo(2048))
+						Expect(cr.Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes", "allocated"}))
+						allocatedLimitsFound = true
+						break
+					}
+				}
+			}
+			Expect(allocatedLimitsFound).To(BeTrue(), "Should find allocated memory limits")
+
+			// Find and validate CPU default metrics
+			var cpuDefaultMetrics []operatormetrics.CollectorResult
+			for _, cr := range crs {
+				if len(cr.Labels) == 5 && cr.Labels[4] == "default" && cr.Labels[2] == "cpu" {
+					cpuDefaultMetrics = append(cpuDefaultMetrics, cr)
+				}
+			}
+			expectDefaultCPUResourceRequests(cpuDefaultMetrics)
 		})
 
 		It("should collect VM memory guest and hugepages requests", func() {
@@ -346,7 +368,29 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(crs[1].Value).To(BeEquivalentTo(2097152))
 			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes", "hugepages"}))
 
-			expectDefaultCPUResourceRequests(crs[2:])
+			// Find allocated memory requests in the results
+			var allocatedRequestsFound bool
+			for _, cr := range crs {
+				if len(cr.Labels) == 5 && cr.Labels[4] == "allocated" && cr.Labels[2] == "memory" {
+					if cr.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" {
+						By("checking the allocated memory requests")
+						Expect(cr.Value).To(BeEquivalentTo(1024))
+						Expect(cr.Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes", "allocated"}))
+						allocatedRequestsFound = true
+						break
+					}
+				}
+			}
+			Expect(allocatedRequestsFound).To(BeTrue(), "Should find allocated memory requests")
+
+			// Find and validate CPU default metrics
+			var cpuDefaultMetrics []operatormetrics.CollectorResult
+			for _, cr := range crs {
+				if len(cr.Labels) == 5 && cr.Labels[4] == "default" && cr.Labels[2] == "cpu" {
+					cpuDefaultMetrics = append(cpuDefaultMetrics, cr)
+				}
+			}
+			expectDefaultCPUResourceRequests(cpuDefaultMetrics)
 		})
 
 		It("should collect VM CPU resource requests and limits", func() {
@@ -374,7 +418,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits([]*k6tv1.VirtualMachine{vm})
-			Expect(crs).To(HaveLen(2), "Expected 2 metrics")
+			Expect(crs).To(HaveLen(3), "Expected 3 metrics: requests, limits, and allocated limits")
 
 			By("checking the resource requests")
 			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
@@ -385,6 +429,11 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(crs[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_limits"))
 			Expect(crs[1].Value).To(BeEquivalentTo(1))
 			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores"}))
+
+			By("checking the allocated CPU limits")
+			Expect(crs[2].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_limits"))
+			Expect(crs[2].Value).To(BeEquivalentTo(1))
+			Expect(crs[2].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores", "allocated"}))
 		})
 
 		It("should collect VM CPU resource requests from domain", func() {
@@ -409,7 +458,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits([]*k6tv1.VirtualMachine{vm})
-			Expect(crs).To(HaveLen(3), "Expected 3 metrics")
+			Expect(crs).To(HaveLen(4), "Expected 4 metrics: domain cores/threads/sockets + allocated total")
 
 			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
 			Expect(crs[0].Value).To(BeEquivalentTo(2))
@@ -422,6 +471,11 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(crs[2].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
 			Expect(crs[2].Value).To(BeEquivalentTo(1))
 			Expect(crs[2].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "sockets", "domain"}))
+
+			By("checking the allocated CPU requests")
+			Expect(crs[3].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[3].Value).To(BeEquivalentTo(8)) // 2 cores * 4 threads * 1 socket = 8 vCPUs
+			Expect(crs[3].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores", "allocated"}))
 		})
 
 		It("should collect VM CPU and Memory resource requests from Instance Type", func() {
@@ -456,6 +510,166 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(crs[3].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
 			Expect(crs[3].Value).To(BeEquivalentTo(2))
 			Expect(crs[3].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "sockets", "domain"}))
+		})
+
+		It("should collect allocated CPU requests and limits", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{
+								CPU: &k6tv1.CPU{
+									Cores:   2,
+									Threads: 2,
+									Sockets: 1,
+								},
+								Resources: k6tv1.ResourceRequirements{
+									Limits: k8sv1.ResourceList{
+										k8sv1.ResourceCPU: *resource.NewMilliQuantity(4000, resource.BinarySI),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			crs := collectAllocatedCpuValues(vm)
+			Expect(crs).To(HaveLen(2), "Expected 2 metrics: allocated requests and limits")
+
+			// Check allocated CPU requests (guest vCPUs)
+			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[0].Value).To(BeEquivalentTo(4)) // 2 cores * 2 threads * 1 socket = 4 vCPUs
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores", "allocated"}))
+
+			// Check allocated CPU limits
+			Expect(crs[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_limits"))
+			Expect(crs[1].Value).To(BeEquivalentTo(4)) // 4000m = 4 cores
+			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores", "allocated"}))
+		})
+
+		It("should collect allocated memory requests and limits", func() {
+			guestMemory := resource.MustParse("2Gi")
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{
+								Memory: &k6tv1.Memory{
+									Guest: &guestMemory,
+								},
+								Resources: k6tv1.ResourceRequirements{
+									Limits: k8sv1.ResourceList{
+										k8sv1.ResourceMemory: *resource.NewQuantity(4*1024*1024*1024, resource.BinarySI), // 4Gi
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			crs := collectAllocatedMemoryValues(vm)
+			Expect(crs).To(HaveLen(2), "Expected 2 metrics: allocated requests and limits")
+
+			// Check allocated memory requests
+			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[0].Value).To(BeEquivalentTo(guestMemory.Value()))
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes", "allocated"}))
+
+			// Check allocated memory limits
+			Expect(crs[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_limits"))
+			Expect(crs[1].Value).To(BeEquivalentTo(4 * 1024 * 1024 * 1024))
+			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes", "allocated"}))
+		})
+
+		It("should handle VM with only CPU topology but no limits", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{
+								CPU: &k6tv1.CPU{
+									Cores:   1,
+									Threads: 1,
+									Sockets: 2,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			crs := collectAllocatedCpuValues(vm)
+			Expect(crs).To(HaveLen(1), "Expected 1 metric: only allocated requests")
+
+			// Should only have allocated CPU requests, no limits
+			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[0].Value).To(BeEquivalentTo(2)) // 1 core * 1 thread * 2 sockets = 2 vCPUs
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores", "allocated"}))
+		})
+
+		It("should handle VM with only memory guest but no limits", func() {
+			guestMemory := resource.MustParse("1Gi")
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{
+								Memory: &k6tv1.Memory{
+									Guest: &guestMemory,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			crs := collectAllocatedMemoryValues(vm)
+			Expect(crs).To(HaveLen(1), "Expected 1 metric: only allocated requests")
+
+			// Should only have allocated memory requests, no limits
+			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[0].Value).To(BeEquivalentTo(guestMemory.Value()))
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes", "allocated"}))
+		})
+
+		It("should return empty for VM with no CPU topology or memory", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{},
+						},
+					},
+				},
+			}
+
+			cpuCrs := collectAllocatedCpuValues(vm)
+			Expect(cpuCrs).To(BeEmpty(), "Expected no CPU allocated metrics")
+
+			memoryCrs := collectAllocatedMemoryValues(vm)
+			Expect(memoryCrs).To(BeEmpty(), "Expected no memory allocated metrics")
 		})
 	})
 
