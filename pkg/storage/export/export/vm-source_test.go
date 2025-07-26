@@ -334,12 +334,13 @@ var _ = Describe("PVC source", func() {
 		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 			Name: "volume2",
 			VolumeSource: virtv1.VolumeSource{
-				MemoryDump: &virtv1.MemoryDumpVolumeSource{
+				ScratchVolume: &virtv1.ScratchVolumeSource{
 					PersistentVolumeClaimVolumeSource: virtv1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "volume2",
 						},
 					},
+					Type: virtv1.MemoryDumpType,
 				},
 			},
 		})

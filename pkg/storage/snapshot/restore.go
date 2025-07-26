@@ -933,8 +933,8 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 					}
 				}
 			}
-		} else if nv.MemoryDump != nil {
-			// don't restore memory dump volume in the new spec
+		} else if typesutil.IsScratchVolume(nv) {
+			// don't restore scratch volume in the new spec
 			continue
 		}
 		newVolumes = append(newVolumes, *nv)
@@ -1623,7 +1623,7 @@ func updateRestoreCondition(r *snapshotv1.VirtualMachineRestore, c snapshotv1.Co
 }
 
 // Returns a set of volumes not for restore
-// Currently only memory dump volumes should not be restored
+// Any scratch volume should not be restored
 func (ctrl *VMRestoreController) volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent) (sets.String, error) {
 	noRestore := sets.NewString()
 
@@ -1633,7 +1633,7 @@ func (ctrl *VMRestoreController) volumesNotForRestore(content *snapshotv1.Virtua
 	}
 
 	for _, volume := range volumes {
-		if volume.MemoryDump != nil {
+		if typesutil.IsScratchVolume(&volume) {
 			noRestore.Insert(volume.Name)
 		}
 	}

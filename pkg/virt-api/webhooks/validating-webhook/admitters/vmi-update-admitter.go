@@ -31,6 +31,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -133,7 +134,7 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 func validateExpectedDisksAndFilesystems(volumes []v1.Volume, disks []v1.Disk, filesystems []v1.Filesystem, config *virtconfig.ClusterConfig) error {
 	names := make(map[string]struct{})
 	for _, volume := range volumes {
-		if volume.MemoryDump == nil {
+		if !storagetypes.IsScratchVolume(&volume) {
 			names[volume.Name] = struct{}{}
 		}
 	}
@@ -207,7 +208,7 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 					},
 				})
 			}
-			if v.MemoryDump == nil {
+			if !storagetypes.IsScratchVolume(&v) {
 				if _, ok := newDisks[k]; !ok {
 					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 						{
@@ -226,8 +227,8 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 				}
 			}
 		} else {
-			// This is a new volume, ensure that the volume is either DV, PVC or memoryDumpVolume
-			if v.DataVolume == nil && v.PersistentVolumeClaim == nil && v.MemoryDump == nil {
+			// This is a new volume, ensure that it is hotpluggable
+			if !storagetypes.IsHotpluggableVolumeSource(&v) {
 				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
@@ -235,7 +236,7 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 					},
 				})
 			}
-			if v.MemoryDump == nil {
+			if !storagetypes.IsScratchVolume(&v) {
 				// Also ensure the matching new disk exists and has a valid bus
 				if _, ok := newDisks[k]; !ok {
 					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{

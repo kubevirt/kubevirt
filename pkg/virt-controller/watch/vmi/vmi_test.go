@@ -2648,7 +2648,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						res = append(res, &virtv1.Volume{
 							Name: fmt.Sprintf("volume%d", index),
 							VolumeSource: virtv1.VolumeSource{
-								MemoryDump: testutils.NewFakeMemoryDumpSource(fmt.Sprintf("claim%d", i)),
+								ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource(fmt.Sprintf("claim%d", i)),
 							},
 						})
 					}
@@ -2835,7 +2835,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			virtlauncherPod.Spec.Volumes = virtlauncherVolumes
-			res := kvcontroller.GetHotplugVolumes(vmi, virtlauncherPod)
+			res := storagetypes.GetHotplugVolumes(vmi, virtlauncherPod)
 			Expect(res).To(HaveLen(len(expectedIndexes)))
 			for _, index := range expectedIndexes {
 				found := false

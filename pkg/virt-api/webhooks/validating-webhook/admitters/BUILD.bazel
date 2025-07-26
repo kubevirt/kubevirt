@@ -36,7 +36,6 @@ go_library(
         "//pkg/storage/admitters:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
-        "//pkg/storage/utils:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/migrations:go_default_library",
         "//pkg/util/webhooks:go_default_library",

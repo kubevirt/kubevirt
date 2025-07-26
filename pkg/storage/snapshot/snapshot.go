@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
 
@@ -937,9 +938,7 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotStatus(vm *kubevirtv1.Virtual
 }
 
 func (ctrl *VMSnapshotController) isVolumeSnapshottable(volume *kubevirtv1.Volume) bool {
-	return volume.VolumeSource.PersistentVolumeClaim != nil ||
-		volume.VolumeSource.DataVolume != nil ||
-		volume.VolumeSource.MemoryDump != nil
+	return storagetypes.IsPVCBasedVolume(volume)
 }
 
 func (ctrl *VMSnapshotController) getStorageClassNameForPVC(pvcKey string) (string, error) {
@@ -960,25 +959,11 @@ func (ctrl *VMSnapshotController) getStorageClassNameForPVC(pvcKey string) (stri
 }
 
 func (ctrl *VMSnapshotController) getVolumeStorageClass(namespace string, volume *kubevirtv1.Volume) (string, error) {
-	// TODO Add Ephemeral (add "|| volume.VolumeSource.Ephemeral != nil" to the `if` below)
-	if volume.VolumeSource.PersistentVolumeClaim != nil {
-		pvcKey := cacheKeyFunc(namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
-		storageClassName, err := ctrl.getStorageClassNameForPVC(pvcKey)
-		if err != nil {
-			return "", err
-		}
-		return storageClassName, nil
+	if !storagetypes.IsPVCBasedVolume(volume) {
+		return "", fmt.Errorf("volume type has no StorageClass support")
 	}
 
-	if volume.VolumeSource.MemoryDump != nil {
-		pvcKey := cacheKeyFunc(namespace, volume.VolumeSource.MemoryDump.ClaimName)
-		storageClassName, err := ctrl.getStorageClassNameForPVC(pvcKey)
-		if err != nil {
-			return "", err
-		}
-		return storageClassName, nil
-	}
-
+	claimName := storagetypes.PVCNameFromVirtVolume(volume)
 	if volume.VolumeSource.DataVolume != nil {
 		storageClassName, err := ctrl.getStorageClassNameForDV(namespace, volume.VolumeSource.DataVolume.Name)
 		if err != nil {
@@ -987,7 +972,16 @@ func (ctrl *VMSnapshotController) getVolumeStorageClass(namespace string, volume
 		return storageClassName, nil
 	}
 
-	return "", fmt.Errorf("volume type has no StorageClass defined")
+	if claimName != "" {
+		pvcKey := cacheKeyFunc(namespace, claimName)
+		storageClassName, err := ctrl.getStorageClassNameForPVC(pvcKey)
+		if err != nil {
+			return "", err
+		}
+		return storageClassName, nil
+	}
+
+	return "", fmt.Errorf("failed getting StorageClass for volume %s", volume.Name)
 }
 
 func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvName string) (string, error) {

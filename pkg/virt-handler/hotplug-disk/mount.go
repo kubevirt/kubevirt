@@ -313,13 +313,14 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 	if err != nil {
 		return err
 	}
+
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil {
 			// Skip non hotplug volumes
 			continue
 		}
 		mountDirectory := false
-		if volumeStatus.MemoryDumpVolume != nil {
+		if m.isDirectoryMounted(vmi.Spec.Volumes, volumeStatus.Name) {
 			mountDirectory = true
 		}
 		if sourceUID == "" {
@@ -332,10 +333,10 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 	return nil
 }
 
-func (m *volumeMounter) isDirectoryMounted(vmiStatus *v1.VirtualMachineInstanceStatus, volumeName string) bool {
-	for _, status := range vmiStatus.VolumeStatus {
-		if status.Name == volumeName {
-			return status.MemoryDumpVolume != nil
+func (m *volumeMounter) isDirectoryMounted(vmiVolumes []v1.Volume, volumeName string) bool {
+	for _, volume := range vmiVolumes {
+		if volume.Name == volumeName {
+			return storagetypes.IsScratchVolume(&volume)
 		}
 	}
 	return false
@@ -652,7 +653,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 					// already unmounted or never mounted
 					continue
 				}
-			} else if m.isDirectoryMounted(&vmi.Status, volume.Name) {
+			} else if m.isDirectoryMounted(vmi.Spec.Volumes, volume.Name) {
 				path, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volume.Name, false)
 				if errors.Is(err, os.ErrNotExist) {
 					// already unmounted or never mounted
@@ -811,7 +812,7 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 		isBlockExists, _ := isBlockDevice(deviceName)
 		return isBlockExists, nil
 	}
-	if m.isDirectoryMounted(&vmi.Status, volume) {
+	if m.isDirectoryMounted(vmi.Spec.Volumes, volume) {
 		path, err := safepath.JoinNoFollow(targetPath, volume)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {

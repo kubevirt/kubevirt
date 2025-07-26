@@ -2742,7 +2742,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testMemoryDump",
 				VolumeSource: v1.VolumeSource{
-					MemoryDump: testutils.NewFakeMemoryDumpSource("testMemoryDump"),
+					ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testMemoryDump"),
 				},
 			})
 
@@ -2755,13 +2755,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				v1.Volume{
 					Name: "testMemoryDump",
 					VolumeSource: v1.VolumeSource{
-						MemoryDump: testutils.NewFakeMemoryDumpSource("testMemoryDump"),
+						ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testMemoryDump"),
 					},
 				},
 				v1.Volume{
 					Name: "testMemoryDump2",
 					VolumeSource: v1.VolumeSource{
-						MemoryDump: testutils.NewFakeMemoryDumpSource("testMemoryDump2"),
+						ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testMemoryDump2"),
 					},
 				},
 			)
@@ -2769,6 +2769,112 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("fake must have max one memory dump volume set"))
 		})
+
+		It("should accept a single ScratchVolume with type memoryDump", func() {
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testScratchMemoryDump",
+				VolumeSource: v1.VolumeSource{
+					ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testScratchMemoryDump"),
+				},
+			})
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject if both MemoryDump and ScratchVolume with type memoryDump exist", func() {
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes,
+				v1.Volume{
+					Name: "testMemoryDump",
+					VolumeSource: v1.VolumeSource{
+						ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testMemoryDump"),
+					},
+				},
+				v1.Volume{
+					Name: "testScratchMemoryDump",
+					VolumeSource: v1.VolumeSource{
+						ScratchVolume: testutils.NewFakeMemoryDumpScratchVolumeSource("testScratchMemoryDump"),
+					},
+				},
+			)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("fake must have max one memory dump volume set"))
+		})
+
+		DescribeTable("should validate hotpluggable requirement for volumes",
+			func(volume v1.Volume, shouldPass bool, expectedMessage string, expectedField string) {
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+				causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+
+				if shouldPass {
+					Expect(causes).To(BeEmpty())
+				} else {
+					Expect(causes).To(HaveLen(1))
+					Expect(causes[0].Message).To(ContainSubstring(expectedMessage))
+					Expect(causes[0].Field).To(Equal(expectedField))
+				}
+			},
+			Entry("should reject ScratchVolume with hotpluggable=false",
+				v1.Volume{
+					Name: "testScratchVolume",
+					VolumeSource: v1.VolumeSource{
+						ScratchVolume: &v1.ScratchVolumeSource{
+							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testClaim",
+								},
+								Hotpluggable: false,
+							},
+						},
+					},
+				},
+				false, "ScratchVolume must have hotpluggable=true", "fake[0].scratchVolume.hotpluggable"),
+			Entry("should accept ScratchVolume with hotpluggable=true",
+				v1.Volume{
+					Name: "testScratchVolume",
+					VolumeSource: v1.VolumeSource{
+						ScratchVolume: &v1.ScratchVolumeSource{
+							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testClaim",
+								},
+								Hotpluggable: true,
+							},
+						},
+					},
+				},
+				true, "", ""),
+			Entry("should reject MemoryDump with hotpluggable=false",
+				v1.Volume{
+					Name: "testMemoryDump",
+					VolumeSource: v1.VolumeSource{
+						MemoryDump: &v1.MemoryDumpVolumeSource{
+							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testClaim",
+								},
+								Hotpluggable: false,
+							},
+						},
+					},
+				},
+				false, "MemoryDump must have hotpluggable=true", "fake[0].memoryDump.hotpluggable"),
+			Entry("should accept MemoryDump with hotpluggable=true",
+				v1.Volume{
+					Name: "testMemoryDump",
+					VolumeSource: v1.VolumeSource{
+						MemoryDump: &v1.MemoryDumpVolumeSource{
+							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testClaim",
+								},
+								Hotpluggable: true,
+							},
+						},
+					},
+				},
+				true, "", ""),
+		)
 
 	})
 

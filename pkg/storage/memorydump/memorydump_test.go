@@ -209,7 +209,8 @@ func ApplyVMIMemoryDumpVol(spec *v1.VirtualMachineInstanceSpec) {
 	newVolume := v1.Volume{
 		Name: testPVCName,
 		VolumeSource: v1.VolumeSource{
-			MemoryDump: &v1.MemoryDumpVolumeSource{
+			ScratchVolume: &v1.ScratchVolumeSource{
+				Type: v1.MemoryDumpType,
 				PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
 					PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
 						ClaimName: testPVCName,

@@ -242,19 +242,20 @@ func applyMemoryDumpVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpe
 		}
 	}
 
-	memoryDumpVol := &v1.MemoryDumpVolumeSource{
+	memoryDumpVol := &v1.ScratchVolumeSource{
 		PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
 			PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
 			},
 			Hotpluggable: true,
 		},
+		Type: v1.MemoryDumpType,
 	}
 
 	newVolume := v1.Volume{
 		Name: claimName,
 	}
-	newVolume.VolumeSource.MemoryDump = memoryDumpVol
+	newVolume.VolumeSource.ScratchVolume = memoryDumpVol
 
 	vmiSpec.Volumes = append(vmiSpec.Volumes, newVolume)
 
