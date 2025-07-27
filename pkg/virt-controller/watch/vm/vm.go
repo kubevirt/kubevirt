@@ -96,7 +96,6 @@ const (
 	failedCreateCRforVmErrMsg                 = "Failed to create controller revision for VirtualMachine."
 	failedProcessDeleteNotificationErrMsg     = "Failed to process delete notification"
 	failureDeletingVmiErrFormat               = "Failure attempting to delete VMI: %v"
-	failedCleanupRestartRequired              = "Failed to delete RestartRequired condition or last-seen controller revisions"
 	failedManualRecoveryRequiredCondSetErrMsg = "cannot start the VM since it has the manual recovery required condtion set"
 
 	// UnauthorizedDataVolumeCreateReason is added in an event when the DataVolume
@@ -1228,13 +1227,13 @@ func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance)
 	}
 }
 
-func (c *Controller) cleanupRestartRequired(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+func (c *Controller) cleanupRestartRequired(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
 		vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
 	}
 
-	return vm, c.deleteVMRevisions(vm)
+	return vm
 }
 
 func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
@@ -1260,11 +1259,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, nil
 	}
 
-	vm, err = c.cleanupRestartRequired(vm)
-	if err != nil {
-		log.Log.Object(vm).Reason(err).Error(failedCleanupRestartRequired)
-		return vm, err
-	}
+	vm = c.cleanupRestartRequired(vm)
 
 	// start it
 	vmi := c.setupVMIFromVM(vm)
@@ -1667,11 +1662,7 @@ func (c *Controller) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 		return vm, err
 	}
 
-	vm, err = c.cleanupRestartRequired(vm)
-	if err != nil {
-		log.Log.Object(vm).Reason(err).Error(failedCleanupRestartRequired)
-		return vm, nil
-	}
+	vm = c.cleanupRestartRequired(vm)
 
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
 	log.Log.Object(vm).Infof("Dispatching delete event for vmi %s with phase %s", controller.NamespacedKey(vmi.Namespace, vmi.Name), vmi.Status.Phase)
@@ -1748,35 +1739,6 @@ func (c *Controller) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, err
 	}
 
 	return createNotNeeded, nil
-}
-
-func (c *Controller) deleteVMRevisions(vm *virtv1.VirtualMachine) error {
-	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
-	if err != nil {
-		return err
-	}
-
-	for _, key := range keys {
-		if !strings.Contains(key, vmRevisionName(vm.UID)) {
-			continue
-		}
-
-		storeObj, exists, err := c.crIndexer.GetByKey(key)
-		if !exists || err != nil {
-			return err
-		}
-		cr, ok := storeObj.(*appsv1.ControllerRevision)
-		if !ok {
-			return fmt.Errorf("unexpected resource %+v", storeObj)
-		}
-
-		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, metav1.DeleteOptions{})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // getControllerRevision attempts to get the controller revision by name and
