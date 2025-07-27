@@ -31,6 +31,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -247,7 +248,7 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 				}
 				disk := newDisks[k]
 				if _, ok := oldDisks[k]; !ok {
-					causes := validateHotplugDiskConfiguration(&disk, k, "Hotplug configuration", "")
+					causes := storageadmitters.ValidateHotplugDiskConfiguration(&disk, k, "Hotplug configuration", "")
 					if len(causes) > 0 {
 						return webhookutils.ToAdmissionResponse(causes)
 					}
