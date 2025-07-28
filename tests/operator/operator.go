@@ -1098,7 +1098,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 
 		// this test ensures that we can deal with image prefixes in case they are not used for tests already
-		It("[QUARANTINE][test_id:3149]should be able to create kubevirt install with image prefix", decorators.Quarantine, decorators.Upgrade, func() {
+		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
 
 			if flags.ImagePrefixAlt == "" {
 				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
@@ -1167,7 +1167,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			allKvInfraPodsAreReady(kv)
 		})
 
-		It("[QUARANTINE][test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Quarantine, decorators.Upgrade, func() {
+		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
@@ -1243,7 +1243,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		// NOTE - this test verifies new operators can grab the leader election lease
 		// during operator updates. The only way the new infrastructure is deployed
 		// is if the update operator is capable of getting the lease.
-		It("[QUARANTINE][test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Quarantine, decorators.Upgrade, func() {
+		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
