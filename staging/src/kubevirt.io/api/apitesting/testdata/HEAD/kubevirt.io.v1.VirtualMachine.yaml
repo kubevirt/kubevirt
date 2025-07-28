@@ -619,6 +619,8 @@ spec:
           hugepages:
             pageSize: pageSizeValue
           maxGuest: "0"
+        oemStrings:
+        - oemStringsValue
         resources:
           limits:
             limitsKey: "0"

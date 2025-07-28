@@ -1041,11 +1041,17 @@ type BIOS struct {
 }
 
 type SysInfo struct {
-	Type      string  `xml:"type,attr"`
-	System    []Entry `xml:"system>entry"`
-	BIOS      []Entry `xml:"bios>entry"`
-	BaseBoard []Entry `xml:"baseBoard>entry"`
-	Chassis   []Entry `xml:"chassis>entry"`
+	Type       string  `xml:"type,attr"`
+	System     []Entry `xml:"system>entry"`
+	BIOS       []Entry `xml:"bios>entry"`
+	BaseBoard  []Entry `xml:"baseBoard>entry"`
+	Chassis    []Entry `xml:"chassis>entry"`
+	OemStrings *OemStrings
+}
+
+type OemStrings struct {
+	XMLName xml.Name `xml:"oemStrings,omitempty"`
+	Entries []string `xml:"entry"`
 }
 
 type Entry struct {
