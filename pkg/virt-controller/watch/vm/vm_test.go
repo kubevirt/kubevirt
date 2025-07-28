@@ -1943,99 +1943,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("VM generation tests", func() {
-
-			DescribeTable("should add the generation annotation onto the VMI", func(startingAnnotations map[string]string, endAnnotations map[string]string) {
-				_, vmi := watchtesting.DefaultVirtualMachine(true)
-				vmi.ObjectMeta.Annotations = startingAnnotations
-
-				annotations := endAnnotations
-				setGenerationAnnotationOnVmi(6, vmi)
-				Expect(vmi.ObjectMeta.Annotations).To(Equal(annotations))
-			},
-				Entry("with previous annotations", map[string]string{"test": "test"}, map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "6"}),
-				Entry("without previous annotations", map[string]string{}, map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}),
-			)
-
-			DescribeTable("should add generation annotation during VMI creation", func(runStrategy v1.VirtualMachineRunStrategy) {
-				vm, _ := watchtesting.DefaultVirtualMachine(true)
-
-				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = &runStrategy
-				vm.Generation = 3
-
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-
-				addVirtualMachine(vm)
-
-				sanityExecute(vm)
-
-				//TODO expect update status is called
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.Created).To(BeFalse())
-				Expect(vm.Status.Ready).To(BeFalse())
-
-				if runStrategy == v1.RunStrategyRerunOnFailure || runStrategy == v1.RunStrategyAlways {
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vmi).ToNot(BeNil())
-				}
-
-				testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
-
-				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				annotations := map[string]string{v1.VirtualMachineGenerationAnnotation: "3"}
-				Expect(vmi.ObjectMeta.Annotations).To(Equal(annotations))
-			},
-
-				Entry("with run strategy Always", v1.RunStrategyAlways),
-				Entry("with run strategy Once", v1.RunStrategyOnce),
-				Entry("with run strategy RerunOnFailure", v1.RunStrategyRerunOnFailure),
-			)
-
-			It("should patch the generation annotation onto the vmi", func() {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vmi.ObjectMeta.Annotations = nil
-				addVirtualMachine(vm)
-
-				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				controller.vmiIndexer.Add(vmi)
-
-				_, err = controller.patchVmGenerationAnnotationOnVmi(4, vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Annotations).To(HaveKeyWithValue("kubevirt.io/vm-generation", "4"))
-			})
-
-			DescribeTable("should get the generation annotation from the vmi", func(annotations map[string]string, desiredGeneration *string, desiredErr error) {
-				_, vmi := watchtesting.DefaultVirtualMachine(true)
-				vmi.ObjectMeta.Annotations = annotations
-
-				gen, err := getGenerationAnnotation(vmi)
-				if desiredGeneration == nil {
-					Expect(gen).To(BeNil())
-				} else {
-					Expect(gen).To(Equal(desiredGeneration))
-				}
-				if desiredErr == nil {
-					Expect(err).ToNot(HaveOccurred())
-				} else {
-					Expect(err).To(Equal(desiredErr))
-				}
-			},
-				Entry("with only one entry in the annotations", map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}, pointer.P("6"), nil),
-				Entry("with multiple entries in the annotations", map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "5"}, pointer.P("5"), nil),
-				Entry("with no generation annotation existing", map[string]string{"test": "testing"}, nil, nil),
-				Entry("with empty annotations map", map[string]string{}, nil, nil),
-			)
-
 			DescribeTable("should parse generation from vm controller revision name", func(name string, desiredGeneration *int64) {
-
 				gen := parseGeneration(name, log.DefaultLogger())
 				if desiredGeneration == nil {
 					Expect(gen).To(BeNil())
@@ -2049,307 +1957,6 @@ var _ = Describe("VirtualMachine", func() {
 				Entry("with ill formatted generation", "123-456-2b3b", nil),
 			)
 
-			Context("conditionally bump generation tests", func() {
-				// Needed for the default values in each Entry(..)
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-
-				BeforeEach(func() {
-					// Reset every time
-					vm, vmi = watchtesting.DefaultVirtualMachine(true)
-				})
-
-				DescribeTable("should conditionally bump the generation annotation on the vmi", func(initialAnnotations map[string]string, desiredAnnotations map[string]string, revisionVmSpec v1.VirtualMachineSpec, newVMSpec v1.VirtualMachineSpec, vmGeneration int64, desiredErr error, expectPatch bool) {
-					// Spec and generation for the vmRevision and 'old' objects
-					vmi.ObjectMeta.Annotations = initialAnnotations
-					vm.Generation = 1
-					vm.Spec = revisionVmSpec
-
-					crName, err := controller.createVMRevision(vm)
-					Expect(err).ToNot(HaveOccurred())
-
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), crName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vmi.Status.VirtualMachineRevisionName = crName
-
-					addVirtualMachine(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					controller.vmiIndexer.Add(vmi)
-
-					// This is the 'updated' details on the vm
-					vm.Generation = vmGeneration
-					vm.Spec = newVMSpec
-
-					_, err = controller.conditionallyBumpGenerationAnnotationOnVmi(vm, vmi)
-					if desiredErr == nil {
-						Expect(err).ToNot(HaveOccurred())
-					} else {
-						Expect(err).To(Equal(desiredErr))
-					}
-
-					// TODO patch should not be called if expectPatch == false
-					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi.Annotations).To(Equal(desiredAnnotations))
-
-				},
-					Entry(
-						"with generation and template staying the same",
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-						v1.VirtualMachineSpec{
-							Running: func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vm.ObjectMeta.Name,
-									Labels: vm.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 4,
-										},
-									},
-								},
-							},
-						},
-						v1.VirtualMachineSpec{
-							Running: func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vm.ObjectMeta.Name,
-									Labels: vm.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 4,
-										},
-									},
-								},
-							},
-						},
-						int64(2),
-						nil,
-						false, // Expect no patch
-					),
-					Entry(
-						"with generation increasing and a change in template",
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-						v1.VirtualMachineSpec{
-							Running: func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vmi.ObjectMeta.Name,
-									Labels: vmi.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 4,
-										},
-									},
-								},
-							},
-						},
-						v1.VirtualMachineSpec{
-							Running: func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vmi.ObjectMeta.Name,
-									Labels: vmi.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 3,
-										},
-									},
-								},
-							},
-						},
-						int64(3),
-						nil,
-						false, // No patch because template has changed
-					),
-					Entry(
-						"with generation increasing and no change in template",
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "3"},
-						v1.VirtualMachineSpec{
-							Running: func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vmi.ObjectMeta.Name,
-									Labels: vmi.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 4,
-										},
-									},
-								},
-							},
-						},
-						v1.VirtualMachineSpec{
-							Running: func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vmi.ObjectMeta.Name,
-									Labels: vmi.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 4,
-										},
-									},
-								},
-							},
-						},
-						int64(3),
-						nil,
-						true, // Patch since there is no change and we can bump
-					),
-					Entry(
-						"with generation increasing, no change in template, and run strategy changing",
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-						map[string]string{v1.VirtualMachineGenerationAnnotation: "7"},
-						v1.VirtualMachineSpec{
-							RunStrategy: func(rs v1.VirtualMachineRunStrategy) *v1.VirtualMachineRunStrategy { return &rs }(v1.RunStrategyAlways),
-							Running:     func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vmi.ObjectMeta.Name,
-									Labels: vmi.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 4,
-										},
-									},
-								},
-							},
-						},
-						v1.VirtualMachineSpec{
-							RunStrategy: func(rs v1.VirtualMachineRunStrategy) *v1.VirtualMachineRunStrategy { return &rs }(v1.RunStrategyRerunOnFailure),
-							Running:     func(b bool) *bool { return &b }(true),
-							Template: &v1.VirtualMachineInstanceTemplateSpec{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:   vmi.ObjectMeta.Name,
-									Labels: vmi.ObjectMeta.Labels,
-								},
-								Spec: v1.VirtualMachineInstanceSpec{
-									Domain: v1.DomainSpec{
-										CPU: &v1.CPU{
-											Cores: 4,
-										},
-									},
-								},
-							},
-						},
-						int64(7),
-						nil,
-						true, // Patch since only template matters, not run strategy
-					),
-				)
-			})
-
-			DescribeTable("should sync the generation info", func(initialAnnotations map[string]string, desiredAnnotations map[string]string, revisionVmGeneration int64, vmGeneration int64, desiredErr error, expectPatch bool, desiredObservedGeneration int64, desiredDesiredGeneration int64) {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vmi.ObjectMeta.Annotations = initialAnnotations
-				vm.Generation = revisionVmGeneration
-
-				crName, err := controller.createVMRevision(vm)
-				Expect(err).ToNot(HaveOccurred())
-
-				vmi.Status.VirtualMachineRevisionName = crName
-
-				addVirtualMachine(vm)
-
-				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				controller.vmiIndexer.Add(vmi)
-
-				vm.Generation = vmGeneration
-
-				_, err = controller.syncGenerationInfo(vm, vmi, log.DefaultLogger())
-				if desiredErr == nil {
-					Expect(err).ToNot(HaveOccurred())
-				} else {
-					Expect(err).To(Equal(desiredErr))
-				}
-
-				Expect(vm.Status.ObservedGeneration).To(Equal(desiredObservedGeneration))
-				Expect(vm.Status.DesiredGeneration).To(Equal(desiredDesiredGeneration))
-
-				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Annotations).To(Equal(desiredAnnotations))
-			},
-				Entry(
-					"with annotation existing - generation updates",
-					map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-					map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-					int64(2),
-					int64(3),
-					nil,
-					false,
-					int64(2),
-					int64(3),
-				),
-				Entry(
-					"with annotation existing - generation does not change",
-					map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-					map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-					int64(2),
-					int64(2),
-					nil,
-					false,
-					int64(2),
-					int64(2),
-				),
-				Entry(
-					// In this case the annotation should be back filled from the revision
-					"with annotation existing - ill formatted generation annotation",
-					map[string]string{v1.VirtualMachineGenerationAnnotation: "2b3c"},
-					map[string]string{v1.VirtualMachineGenerationAnnotation: "3"},
-					int64(3),
-					int64(3),
-					nil,
-					true,
-					int64(3),
-					int64(3),
-				),
-				Entry(
-					"with annotation not existing - generation updates and patches vmi",
-					nil,
-					map[string]string{v1.VirtualMachineGenerationAnnotation: "3"},
-					int64(3),
-					int64(4),
-					nil,
-					true,
-					int64(3),
-					int64(4),
-				),
-				Entry(
-					"with annotation not existing - generation does not update and patches vmi",
-					nil,
-					map[string]string{v1.VirtualMachineGenerationAnnotation: "7"},
-					int64(7),
-					int64(7),
-					nil,
-					true,
-					int64(7),
-					int64(7),
-				),
-			)
-
 			Context("generation tests with Execute()", func() {
 				// Needed for the default values in each Entry(..)
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
@@ -2360,27 +1967,35 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				type testCase struct {
-					initialAnnotations        map[string]string
-					desiredAnnotations        map[string]string
 					revisionVmSpec            v1.VirtualMachineSpec
 					newVMSpec                 v1.VirtualMachineSpec
 					revisionVmGeneration      int64
 					vmGeneration              int64
-					desiredErr                error
-					expectPatch               bool
 					desiredObservedGeneration int64
 					desiredDesiredGeneration  int64
 				}
 
-				DescribeTable("should update annotations and sync during Execute()", func(tcase testCase) {
-					vmi.ObjectMeta.Annotations = tcase.initialAnnotations
+				DescribeTable("should update generation and sync during Execute()", func(tcase testCase) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: pointer.P(v1.VMRolloutStrategyLiveUpdate),
+							},
+							WorkloadUpdateStrategy: v1.KubeVirtWorkloadUpdateStrategy{
+								WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{
+									v1.WorkloadUpdateMethodLiveMigrate,
+								},
+							},
+						},
+					})
+
 					vm.Generation = tcase.revisionVmGeneration
 					vm.Spec = tcase.revisionVmSpec
 
-					crName, err := controller.createVMRevision(vm)
-					Expect(err).ToNot(HaveOccurred())
+					cr := createVMRevision(vm)
+					controller.crIndexer.Add(cr)
 
-					vmi.Status.VirtualMachineRevisionName = crName
+					vmi.Status.VirtualMachineRevisionName = cr.Name
 
 					vm.Generation = tcase.vmGeneration
 					vm.Spec = tcase.newVMSpec
@@ -2398,19 +2013,11 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 
-					Expect(vm.Status.ObservedGeneration).To(Equal(tcase.desiredObservedGeneration), "Observed annotation should be")
-					Expect(vm.Status.DesiredGeneration).To(Equal(tcase.desiredDesiredGeneration))
-
-					// TODO should not patch if expectPatch == false
-					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi.Annotations).To(Equal(tcase.desiredAnnotations))
+					Expect(vm.Status.ObservedGeneration).To(Equal(tcase.desiredObservedGeneration), "Observed generation should be")
+					Expect(vm.Status.DesiredGeneration).To(Equal(tcase.desiredDesiredGeneration), "Desired generation should be")
 				},
 					Entry(
-						"with annotation existing, new changes in VM spec", testCase{
-							initialAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-							// Expect no patch on vmi annotations, and vm status to be correct
-							desiredAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
+						"with new changes in VM spec and live-updatable field", testCase{
 							revisionVmSpec: v1.VirtualMachineSpec{
 								Running: func(b bool) *bool { return &b }(true),
 								Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -2421,7 +2028,7 @@ var _ = Describe("VirtualMachine", func() {
 									Spec: v1.VirtualMachineInstanceSpec{
 										Domain: v1.DomainSpec{
 											CPU: &v1.CPU{
-												Cores: 2,
+												Sockets: 1,
 											},
 										},
 									},
@@ -2437,7 +2044,7 @@ var _ = Describe("VirtualMachine", func() {
 									Spec: v1.VirtualMachineInstanceSpec{
 										Domain: v1.DomainSpec{
 											CPU: &v1.CPU{
-												Cores: 4, // changed
+												Sockets: 2, // changed
 											},
 										},
 									},
@@ -2445,17 +2052,12 @@ var _ = Describe("VirtualMachine", func() {
 							},
 							revisionVmGeneration:      2,
 							vmGeneration:              3,
-							desiredErr:                nil,
-							expectPatch:               false,
-							desiredObservedGeneration: 2,
+							desiredObservedGeneration: 3,
 							desiredDesiredGeneration:  3,
 						},
 					),
 					Entry(
-						// Expect a patch on vmi annotations, and vm status to be correct
-						"with annotation existing, no new changes in VM spec", testCase{
-							initialAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
-							desiredAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "3"},
+						"with new changes in the VM spec and non-live-updatable field", testCase{
 							revisionVmSpec: v1.VirtualMachineSpec{
 								Running: pointer.P(true),
 								Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -2466,7 +2068,7 @@ var _ = Describe("VirtualMachine", func() {
 									Spec: v1.VirtualMachineInstanceSpec{
 										Domain: v1.DomainSpec{
 											CPU: &v1.CPU{
-												Cores: 2,
+												Cores: 1, // non-live-updatable field
 											},
 										},
 									},
@@ -2482,7 +2084,7 @@ var _ = Describe("VirtualMachine", func() {
 									Spec: v1.VirtualMachineInstanceSpec{
 										Domain: v1.DomainSpec{
 											CPU: &v1.CPU{
-												Cores: 2,
+												Cores: 2, // changed non-live-updatable field
 											},
 										},
 									},
@@ -2490,9 +2092,7 @@ var _ = Describe("VirtualMachine", func() {
 							},
 							revisionVmGeneration:      2,
 							vmGeneration:              3,
-							desiredErr:                nil,
-							expectPatch:               true,
-							desiredObservedGeneration: 3,
+							desiredObservedGeneration: 2,
 							desiredDesiredGeneration:  3,
 						},
 					),
@@ -3147,7 +2747,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should copy annotations from spec.template to vmi", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"test": "test"}
-			annotations := map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "0"}
+			annotations := map[string]string{"test": "test"}
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStarting
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -3179,7 +2779,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should copy kubevirt ignitiondata annotation from spec.template to vmi", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"kubevirt.io/ignitiondata": "test"}
-			annotations := map[string]string{"kubevirt.io/ignitiondata": "test", v1.VirtualMachineGenerationAnnotation: "0"}
+			annotations := map[string]string{"kubevirt.io/ignitiondata": "test"}
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStarting
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -3196,7 +2796,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should copy kubernetes annotations from spec.template to vmi", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"}
-			annotations := map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true", v1.VirtualMachineGenerationAnnotation: "0"}
+			annotations := map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"}
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStarting
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
