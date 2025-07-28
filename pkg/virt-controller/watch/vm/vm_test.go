@@ -1964,18 +1964,32 @@ var _ = Describe("VirtualMachine", func() {
 				BeforeEach(func() {
 					// Reset every time
 					vm, vmi = watchtesting.DefaultVirtualMachine(true)
+					vm.Generation = 2
 				})
 
-				type testCase struct {
-					revisionVmSpec            v1.VirtualMachineSpec
-					newVMSpec                 v1.VirtualMachineSpec
-					revisionVmGeneration      int64
-					vmGeneration              int64
-					desiredObservedGeneration int64
-					desiredDesiredGeneration  int64
+				setupForSync := func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, spec, newSpec v1.VirtualMachineSpec) {
+					vm.Spec = spec
+
+					cr := createVMRevision(vm)
+					Expect(controller.crIndexer.Add(cr)).To(Succeed())
+
+					vmi.Status.VirtualMachineRevisionName = cr.Name
+
+					vm.Generation = 3
+					vm.Spec = newSpec
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					addVirtualMachine(vm)
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					controller.vmiIndexer.Add(vmi)
 				}
 
-				DescribeTable("should update generation and sync during Execute()", func(tcase testCase) {
+				DescribeTable("should update generation and sync during Execute()", func(spec, newSpec v1.VirtualMachineSpec) {
+					const desiredGeneration = 3
+					const observedGeneration = 3
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
@@ -1989,16 +2003,244 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 
-					vm.Generation = tcase.revisionVmGeneration
-					vm.Spec = tcase.revisionVmSpec
+					setupForSync(vm, vmi, spec, newSpec)
 
+					sanityExecute(vm)
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(vm.Status.ObservedGeneration).To(BeEquivalentTo(observedGeneration), "Observed generation should be")
+					Expect(vm.Status.DesiredGeneration).To(BeEquivalentTo(desiredGeneration), "Desired generation should be")
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(getVMRevisionName(vm.UID, vm.Status.ObservedGeneration)), "VMI status VM revision name should be")
+				},
+					Entry(
+						"with new changes to a live-updatable field",
+						v1.VirtualMachineSpec{
+							Running: pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{
+								Spec: v1.VirtualMachineInstanceSpec{
+									Domain: v1.DomainSpec{
+										CPU: &v1.CPU{
+											Sockets: 1,
+										},
+									},
+								},
+							},
+						},
+						v1.VirtualMachineSpec{
+							Running: pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{
+								Spec: v1.VirtualMachineInstanceSpec{
+									Domain: v1.DomainSpec{
+										CPU: &v1.CPU{
+											Sockets: 2, // changed
+										},
+									},
+								},
+							},
+						},
+					),
+					Entry(
+						"with RunStrategy change",
+						v1.VirtualMachineSpec{
+							RunStrategy: pointer.P(v1.RunStrategyAlways),
+							Template:    &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+						v1.VirtualMachineSpec{
+							RunStrategy: pointer.P(v1.RunStrategyOnce),
+							Template:    &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+					),
+					Entry(
+						"with changes to preferences",
+						v1.VirtualMachineSpec{
+							Running:  pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+						v1.VirtualMachineSpec{
+							Running:  pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{},
+							Preference: &v1.PreferenceMatcher{
+								Name:         "test",
+								Kind:         instancetypeapi.SingularPreferenceResourceName,
+								RevisionName: "testRevision",
+							},
+						},
+					),
+					Entry(
+						"with changes to instancetype",
+						v1.VirtualMachineSpec{
+							Running:  pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+						v1.VirtualMachineSpec{
+							Running:  pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{},
+							Instancetype: &v1.InstancetypeMatcher{
+								Name:         "test",
+								Kind:         instancetypeapi.SingularResourceName,
+								RevisionName: "testRevision",
+							},
+						},
+					),
+					Entry(
+						"with changes to UpdateVolumesStrategy set to UpdateVolumesStrategyMigration",
+						v1.VirtualMachineSpec{
+							Running:  pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+						v1.VirtualMachineSpec{
+							Running:               pointer.P(true),
+							Template:              &v1.VirtualMachineInstanceTemplateSpec{},
+							UpdateVolumesStrategy: pointer.P(v1.UpdateVolumesStrategyMigration),
+						},
+					),
+					Entry(
+						"with change from Running to RunStrategy",
+						v1.VirtualMachineSpec{
+							Running:  pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+						v1.VirtualMachineSpec{
+							RunStrategy: pointer.P(v1.RunStrategyAlways),
+							Template:    &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+					),
+					Entry(
+						"with change from RunStrategy to Running",
+						v1.VirtualMachineSpec{
+							RunStrategy: pointer.P(v1.RunStrategyAlways),
+							Template:    &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+						v1.VirtualMachineSpec{
+							Running:  pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+					),
+				)
+
+				DescribeTable("should not update generation and sync during Execute()", func(spec, newSpec v1.VirtualMachineSpec) {
+					const desiredGeneration = 3
+					const observedGeneration = 2
+					setupForSync(vm, vmi, spec, newSpec)
+
+					sanityExecute(vm)
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(vm.Status.ObservedGeneration).To(BeEquivalentTo(observedGeneration), "Observed generation should be")
+					Expect(vm.Status.DesiredGeneration).To(BeEquivalentTo(desiredGeneration), "Desired generation should be")
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(getVMRevisionName(vm.UID, vm.Status.ObservedGeneration)), "VMI status VM revision name should be")
+				},
+					Entry(
+						"with new changes to a non-live-updatable field",
+						v1.VirtualMachineSpec{
+							Running: pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{
+								Spec: v1.VirtualMachineInstanceSpec{
+									Domain: v1.DomainSpec{
+										CPU: &v1.CPU{
+											Cores: 1, // non-live-updatable field
+										},
+									},
+								},
+							},
+						},
+						v1.VirtualMachineSpec{
+							Running: pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{
+								Spec: v1.VirtualMachineInstanceSpec{
+									Domain: v1.DomainSpec{
+										CPU: &v1.CPU{
+											Cores: 2, // changed non-live-updatable field
+										},
+									},
+								},
+							},
+						},
+					),
+					Entry(
+						"with changes to template metadata",
+						v1.VirtualMachineSpec{
+							Running:  pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+						v1.VirtualMachineSpec{
+							Running: pointer.P(true),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:        vmi.ObjectMeta.Name,
+									Labels:      vmi.ObjectMeta.Labels,
+									Annotations: map[string]string{"test": "test"},
+								},
+							},
+						},
+					),
+				)
+
+				DescribeTable("should not bump observed generation nor create a new VM controller for VM shutdown", func(spec, newSpec v1.VirtualMachineSpec) {
+					const desiredGeneration = 3
+					const observedGeneration = 2
+
+					setupForSync(vm, vmi, spec, newSpec)
+
+					sanityExecute(vm)
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(vm.Status.ObservedGeneration).To(BeEquivalentTo(observedGeneration), "Observed generation should be")
+					Expect(vm.Status.DesiredGeneration).To(BeEquivalentTo(desiredGeneration), "Desired generation should be")
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+					Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+				},
+					Entry(
+						"with RunStrategy set to halted",
+						v1.VirtualMachineSpec{
+							RunStrategy: pointer.P(v1.RunStrategyAlways),
+							Template:    &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+						v1.VirtualMachineSpec{
+							RunStrategy: pointer.P(v1.RunStrategyHalted),
+							Template:    &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+					),
+
+					Entry(
+						"with Running set to false",
+						v1.VirtualMachineSpec{
+							Running:  pointer.P(false),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+						v1.VirtualMachineSpec{
+							Running:  pointer.P(false),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{},
+						},
+					),
+				)
+
+				It("should bump observed generation and create a new VM controller revision for memoryDump", func() {
 					cr := createVMRevision(vm)
-					controller.crIndexer.Add(cr)
+					Expect(controller.crIndexer.Add(cr)).To(Succeed())
 
 					vmi.Status.VirtualMachineRevisionName = cr.Name
 
-					vm.Generation = tcase.vmGeneration
-					vm.Spec = tcase.newVMSpec
+					vm.Generation = 3
+					vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
+						ClaimName: "test",
+						Phase:     v1.MemoryDumpAssociating,
+					}
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
@@ -2013,90 +2255,49 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 
-					Expect(vm.Status.ObservedGeneration).To(Equal(tcase.desiredObservedGeneration), "Observed generation should be")
-					Expect(vm.Status.DesiredGeneration).To(Equal(tcase.desiredDesiredGeneration), "Desired generation should be")
-				},
-					Entry(
-						"with new changes in VM spec and live-updatable field", testCase{
-							revisionVmSpec: v1.VirtualMachineSpec{
-								Running: func(b bool) *bool { return &b }(true),
-								Template: &v1.VirtualMachineInstanceTemplateSpec{
-									ObjectMeta: metav1.ObjectMeta{
-										Name:   vmi.ObjectMeta.Name,
-										Labels: vmi.ObjectMeta.Labels,
-									},
-									Spec: v1.VirtualMachineInstanceSpec{
-										Domain: v1.DomainSpec{
-											CPU: &v1.CPU{
-												Sockets: 1,
-											},
-										},
-									},
-								},
-							},
-							newVMSpec: v1.VirtualMachineSpec{
-								Running: func(b bool) *bool { return &b }(true),
-								Template: &v1.VirtualMachineInstanceTemplateSpec{
-									ObjectMeta: metav1.ObjectMeta{
-										Name:   vmi.ObjectMeta.Name,
-										Labels: vmi.ObjectMeta.Labels,
-									},
-									Spec: v1.VirtualMachineInstanceSpec{
-										Domain: v1.DomainSpec{
-											CPU: &v1.CPU{
-												Sockets: 2, // changed
-											},
-										},
-									},
-								},
-							},
-							revisionVmGeneration:      2,
-							vmGeneration:              3,
-							desiredObservedGeneration: 3,
-							desiredDesiredGeneration:  3,
-						},
-					),
-					Entry(
-						"with new changes in the VM spec and non-live-updatable field", testCase{
-							revisionVmSpec: v1.VirtualMachineSpec{
-								Running: pointer.P(true),
-								Template: &v1.VirtualMachineInstanceTemplateSpec{
-									ObjectMeta: metav1.ObjectMeta{
-										Name:   vmi.ObjectMeta.Name,
-										Labels: vmi.ObjectMeta.Labels,
-									},
-									Spec: v1.VirtualMachineInstanceSpec{
-										Domain: v1.DomainSpec{
-											CPU: &v1.CPU{
-												Cores: 1, // non-live-updatable field
-											},
-										},
-									},
-								},
-							},
-							newVMSpec: v1.VirtualMachineSpec{
-								Running: pointer.P(true),
-								Template: &v1.VirtualMachineInstanceTemplateSpec{
-									ObjectMeta: metav1.ObjectMeta{
-										Name:   vmi.ObjectMeta.Name,
-										Labels: vmi.ObjectMeta.Labels,
-									},
-									Spec: v1.VirtualMachineInstanceSpec{
-										Domain: v1.DomainSpec{
-											CPU: &v1.CPU{
-												Cores: 2, // changed non-live-updatable field
-											},
-										},
-									},
-								},
-							},
-							revisionVmGeneration:      2,
-							vmGeneration:              3,
-							desiredObservedGeneration: 2,
-							desiredDesiredGeneration:  3,
-						},
-					),
-				)
+					Expect(vm.Status.ObservedGeneration).To(BeEquivalentTo(3), "Observed generation should be")
+					Expect(vm.Status.DesiredGeneration).To(BeEquivalentTo(3), "Desired generation should be")
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(getVMRevisionName(vm.UID, vm.Status.ObservedGeneration)), "VMI status VM revision name should be")
+				})
+
+				It("should bump observed generation and create a new VM controller revision for persistent hotplug", func() {
+					cr := createVMRevision(vm)
+					Expect(controller.crIndexer.Add(cr)).To(Succeed())
+
+					vmi.Status.VirtualMachineRevisionName = cr.Name
+
+					dv := libdv.NewDataVolume()
+					libvmi.WithHotplugDataVolume(dv.Name, "test")(vmi)
+					vm = watchtesting.VirtualMachineFromVMI(vmi.Name, vmi, true)
+
+					virtcontroller.SetLatestApiVersionAnnotation(vm)
+					vm.Generation = 3
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					controller.vmiIndexer.Add(vmi)
+
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
+					Expect(vm.Status.ObservedGeneration).To(BeEquivalentTo(3), "Observed generation should be")
+					Expect(vm.Status.DesiredGeneration).To(BeEquivalentTo(3), "Desired generation should be")
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(getVMRevisionName(vm.UID, vm.Status.ObservedGeneration)), "VMI status VM revision name should be")
+				})
 			})
 		})
 
