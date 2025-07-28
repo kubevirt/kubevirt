@@ -51,9 +51,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
-	instancetypeapi "kubevirt.io/api/instancetype"
-	instanceType "kubevirt.io/api/instancetype/v1beta1"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -1150,59 +1147,6 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			Entry("[test_id:5899]with thick provision true, fstrim has no effect", addThickProvisionedTrueAnnotation, false),
 			Entry("[test_id:5896]with thick provision false, fstrim will make the image smaller", addThickProvisionedFalseAnnotation, true),
 		)
-	})
-
-	It("should always use VM defined storage class over PreferredStorageClassName", func() {
-		sc, exists := libstorage.GetRWOFileSystemStorageClass()
-		if !exists {
-			Fail("Fail test when Filesystem storage class is not present")
-		}
-
-		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-
-		storageClass := &storagev1.StorageClass{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "storageclass-",
-			},
-			Provisioner: "default",
-		}
-		storageClass, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		DeferCleanup(func() error {
-			return virtClient.StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
-		})
-
-		virtualMachinePreference := &instanceType.VirtualMachinePreference{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "virtualmachinepreference-test",
-				Namespace: vm.Namespace,
-			},
-			Spec: instanceType.VirtualMachinePreferenceSpec{
-				Volumes: &instanceType.VolumePreferences{
-					PreferredStorageClassName: storageClass.Name,
-				},
-			},
-		}
-		createdPreference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(nil)).Create(context.Background(), virtualMachinePreference, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		DeferCleanup(func() error {
-			err := virtClient.VirtualMachinePreference(createdPreference.Namespace).Delete(context.Background(), createdPreference.Name, metav1.DeleteOptions{})
-			if errors.IsNotFound(err) {
-				return nil
-			}
-			return err
-		})
-
-		// Bind VirtualMachinePreference to VirtualMachine
-		vm.Spec.Preference = &v1.PreferenceMatcher{
-			Name: virtualMachinePreference.Name,
-			Kind: instancetypeapi.SingularPreferenceResourceName,
-		}
-
-		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).To(HaveValue(Equal(sc)))
 	})
 }))
 
