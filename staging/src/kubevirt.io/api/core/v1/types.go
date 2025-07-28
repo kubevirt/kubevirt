@@ -1363,8 +1363,8 @@ const (
 	// vm has the pod networking bind with a bridge
 	AllowPodBridgeNetworkLiveMigrationAnnotation string = "kubevirt.io/allow-pod-bridge-network-live-migration"
 
-	// VirtualMachineGenerationAnnotation is the generation of a Virtual Machine.
-	VirtualMachineGenerationAnnotation string = "kubevirt.io/vm-generation"
+	// DeprecatedVirtualMachineGenerationAnnotation is the generation of a Virtual Machine.
+	DeprecatedVirtualMachineGenerationAnnotation string = "kubevirt.io/vm-generation"
 
 	// MigrationTargetReadyTimestamp indicates the time at which the target node
 	// detected that the VMI became active on the target during live migration.
