@@ -1779,36 +1779,9 @@ func genFromKey(key string) (int64, error) {
 }
 
 func (c *Controller) getLastVMRevisionSpec(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineSpec, error) {
-	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
-	if err != nil {
+	key, err := c.getLastVMRevisionKey(vm)
+	if err != nil || key == "" {
 		return nil, err
-	}
-	if len(keys) == 0 {
-		return nil, nil
-	}
-
-	var highestGen int64 = 0
-	var key string
-	for _, k := range keys {
-		if !strings.Contains(k, vmRevisionName(vm.UID)) {
-			continue
-		}
-		gen, err := genFromKey(k)
-
-		if err != nil {
-			return nil, fmt.Errorf("invalid key: %s", k)
-		}
-		if gen > highestGen {
-			if key != "" {
-				log.Log.Object(vm).Warningf("expected no more than 1 revision, found at least 2")
-			}
-			highestGen = gen
-			key = k
-		}
-	}
-
-	if key == "" {
-		return nil, nil
 	}
 
 	return c.getVMSpecForKey(key)
@@ -3522,4 +3495,35 @@ func (c *Controller) handleNamespaceUpdate(oldObj, newObj interface{}) {
 	for _, vmKey := range vmKeys {
 		c.Queue.Add(vmKey)
 	}
+}
+
+func (c *Controller) getLastVMRevisionKey(vm *virtv1.VirtualMachine) (string, error) {
+	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
+	if err != nil {
+		return "", err
+	}
+	if len(keys) == 0 {
+		return "", nil
+	}
+
+	var highestGen int64 = 0
+	var key string
+	for _, k := range keys {
+		if !strings.Contains(k, vmRevisionName(vm.UID)) {
+			continue
+		}
+		gen, err := genFromKey(k)
+
+		if err != nil {
+			return "", fmt.Errorf("invalid key: %s", k)
+		}
+		if gen > highestGen {
+			if key != "" {
+				log.Log.Object(vm).Warningf("expected no more than 1 revision, found at least 2")
+			}
+			highestGen = gen
+			key = k
+		}
+	}
+	return key, nil
 }
