@@ -1,0 +1,23 @@
+# Usage:
+# 1. Customize the allowlist and ignorelist as needed
+# 2. Apply to your cluster: kubectl apply -f kubevirt-vm-labels-config.yaml
+# Configuration is loaded dynamically - no restart required
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubevirt-vm-labels-config
+data:
+  # Allowlist of labels to expose as Prometheus metrics
+  # Use "*" to allow all labels, or specify comma-separated list of exact label names
+  # Examples:
+  # allowlist: "*"                                    # Allow all labels
+  # allowlist: "app.kubernetes.io/name,app.kubernetes.io/version"  # Allow specific labels
+  allowlist: "*"
+
+  # Ignorelist of labels to exclude from Prometheus metrics
+  # Labels in ignorelist take precedence over allowlist
+  # Use comma-separated list of exact label names to ignore
+  # Examples:
+  # ignorelist: ""                                    # Ignore no labels (empty)
+  # ignorelist: "secret-label,internal-use"          # Ignore specific labels
+  ignorelist: "vm.kubevirt.io/template,vm.kubevirt.io/template.revision,vm.kubevirt.io/template.version"
