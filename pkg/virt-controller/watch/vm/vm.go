@@ -1265,8 +1265,6 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	}
 	vmi.Status.VirtualMachineRevisionName = vmRevisionName
 
-	setGenerationAnnotationOnVmi(vm.Generation, vmi)
-
 	if vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver {
 		log.Log.Infof("Setting up receiver VMI %s/%s", vmi.Namespace, vmi.Name)
 		vmi.Annotations[virtv1.CreateMigrationTarget] = "true"
@@ -1727,7 +1725,7 @@ func (c *Controller) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, err
 			continue
 		}
 		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, metav1.DeleteOptions{})
-		if err != nil {
+		if err != nil && !apiErrors.IsNotFound(err) {
 			return false, err
 		}
 	}
@@ -2379,27 +2377,16 @@ func (c *Controller) syncGenerationInfo(vm *virtv1.VirtualMachine, vmi *virtv1.V
 	if vm == nil || vmi == nil {
 		return vmi, errors.New("passed nil pointer")
 	}
-
-	generation, err := getGenerationAnnotationAsInt(vmi, logger)
-	if err != nil {
+	revisionKey, err := c.getLastVMRevisionKey(vm)
+	if err != nil || revisionKey == "" {
 		return vmi, err
 	}
 
-	// If the generation annotation does not exist, the VMI could have been
-	// been created before the controller was updated. In this case, check the
-	// ControllerRevision on what the latest observed generation is and back-fill
-	// the info onto the vmi annotation.
-	if generation == nil {
-		var patchedVMI *virtv1.VirtualMachineInstance
-		patchedVMI, generation, err = c.patchVmGenerationFromControllerRevision(vmi, logger)
-		if generation == nil || err != nil {
-			return vmi, err
-		}
-		vmi = patchedVMI
+	generation := parseGeneration(revisionKey, logger)
+	if generation != nil {
+		vm.Status.DesiredGeneration = vm.Generation
+		vm.Status.ObservedGeneration = *generation
 	}
-
-	vm.Status.ObservedGeneration = *generation
-	vm.Status.DesiredGeneration = vm.Generation
 
 	return vmi, nil
 }
@@ -2416,6 +2403,10 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceReady, k8score.ConditionTrue)
 		var err error
 		vmi, err = c.syncGenerationInfo(vm, vmi, logger)
+		if err != nil {
+			return err
+		}
+		vmi, err = c.handleVMGenerationIncrease(vm, vmi)
 		if err != nil {
 			return err
 		}
@@ -3120,11 +3111,6 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		}
 	}
 
-	vmi, err = c.conditionallyBumpGenerationAnnotationOnVmi(vm, vmi)
-	if err != nil {
-		return nil, vmi, nil, err
-	}
-
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
@@ -3526,4 +3512,86 @@ func (c *Controller) getLastVMRevisionKey(vm *virtv1.VirtualMachine) (string, er
 		}
 	}
 	return key, nil
+}
+
+func (c *Controller) handleVMGenerationIncrease(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
+	if vm == nil || vmi == nil || vm.Status.DesiredGeneration == vm.Status.ObservedGeneration || migrations.IsMigrating(vmi) {
+		return vmi, nil
+	}
+
+	if controller.NewVirtualMachineConditionManager().HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
+		return vmi, nil
+	}
+
+	revisionKey, err := c.getLastVMRevisionKey(vm)
+	if err != nil || revisionKey == "" {
+		return vmi, err
+	}
+
+	revisionSpec, err := c.getVMSpecForKey(revisionKey)
+	if err != nil || revisionSpec == nil {
+		return vmi, err
+	}
+
+	if !shouldCreateRevision(vm.Spec, *revisionSpec) {
+		return vmi, nil
+	}
+
+	newRevisionName, err := c.createVMRevision(vm)
+	if err != nil {
+		return vmi, err
+	}
+
+	if vmi.Status.VirtualMachineRevisionName != newRevisionName {
+		vmi, err = c.patchVMIRevision(vmi, newRevisionName)
+		if err != nil {
+			return vmi, err
+		}
+	}
+
+	vm.Status.ObservedGeneration = vm.Status.DesiredGeneration
+
+	return vmi, nil
+}
+
+func (c *Controller) patchVMIRevision(vmi *virtv1.VirtualMachineInstance, revisionName string) (*virtv1.VirtualMachineInstance, error) {
+	patchBytes, err := patch.New(
+		patch.WithTest("/status/virtualMachineRevisionName", vmi.Status.VirtualMachineRevisionName),
+		patch.WithReplace("/status/virtualMachineRevisionName", revisionName),
+	).GeneratePayload()
+	if err != nil {
+		return vmi, err
+	}
+
+	vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+	if err != nil {
+		return vmi, err
+	}
+
+	return vmi, nil
+}
+
+func shouldCreateRevision(vmSpec, revisionSpec virtv1.VirtualMachineSpec) bool {
+	if vmSpec.RunStrategy != nil && *vmSpec.RunStrategy == virtv1.RunStrategyHalted {
+		return false
+	}
+
+	if vmSpec.Running != nil && !*vmSpec.Running {
+		return false
+	}
+
+	switchedToRunStrategy := (vmSpec.RunStrategy != nil && revisionSpec.RunStrategy == nil) &&
+		(vmSpec.Running == nil && revisionSpec.Running != nil)
+
+	switchedToRunning := (vmSpec.Running != nil && revisionSpec.Running == nil) &&
+		(vmSpec.RunStrategy == nil && revisionSpec.RunStrategy != nil)
+
+	if switchedToRunStrategy || switchedToRunning {
+		return true
+	}
+
+	vmSpec.Running = revisionSpec.Running
+	vmSpec.Template.ObjectMeta = revisionSpec.Template.ObjectMeta
+
+	return !equality.Semantic.DeepEqual(vmSpec, revisionSpec)
 }
