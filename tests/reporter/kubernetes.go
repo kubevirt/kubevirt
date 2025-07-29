@@ -200,6 +200,7 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 	r.logKubeVirtCR(virtCli)
 	r.logNodes(nodes)
 	r.logPods(pods)
+	r.logJobs(virtCli)
 	r.logVMs(virtCli)
 	r.logVMRestore(virtCli)
 	r.logDVs(virtCli)
@@ -651,6 +652,15 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 
 func (r *KubernetesReporter) logPods(pods *v1.PodList) {
 	r.logObjects(pods, "pods")
+}
+
+func (r *KubernetesReporter) logJobs(virtCli kubecli.KubevirtClient) {
+	jobs, err := virtCli.BatchV1().Jobs(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		printError("failed to fetch jobs: %v", err)
+		return
+	}
+	r.logObjects(jobs, "jobs")
 }
 
 func (r *KubernetesReporter) logServices(virtCli kubecli.KubevirtClient) {
