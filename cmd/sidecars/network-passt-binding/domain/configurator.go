@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"strings"
 
-	vishnetlink "github.com/vishvananda/netlink"
 	vmschema "kubevirt.io/api/core/v1"
 
 	domainschema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -33,14 +32,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 
-	"kubevirt.io/kubevirt/pkg/network/driver/netlink"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
-
-type linkFinder interface {
-	LinkByName(name string) (vishnetlink.Link, error)
-}
 
 type NetworkConfiguratorOptions struct {
 	IstioProxyInjectionEnabled bool
@@ -49,8 +42,8 @@ type NetworkConfiguratorOptions struct {
 
 type PasstNetworkConfigurator struct {
 	vmiSpecIface *vmschema.Interface
+	podIfaceName string
 	options      NetworkConfiguratorOptions
-	linkFinder   linkFinder
 }
 
 const (
@@ -60,7 +53,12 @@ const (
 	PasstLogFilePath = "/var/run/kubevirt/passt.log"
 )
 
-func NewPasstNetworkConfigurator(ifaces []vmschema.Interface, networks []vmschema.Network, opts NetworkConfiguratorOptions, linkFinder linkFinder) (*PasstNetworkConfigurator, error) {
+func NewPasstNetworkConfigurator(
+	ifaces []vmschema.Interface,
+	networks []vmschema.Network,
+	ifaceStatuses []vmschema.VirtualMachineInstanceNetworkInterface,
+	opts NetworkConfiguratorOptions,
+) (*PasstNetworkConfigurator, error) {
 	network := vmispec.LookupPodNetwork(networks)
 	if network == nil {
 		return nil, fmt.Errorf("pod network not found")
@@ -72,14 +70,21 @@ func NewPasstNetworkConfigurator(ifaces []vmschema.Interface, networks []vmschem
 	if iface.Binding == nil || iface.Binding != nil && iface.Binding.Name != PasstPluginName {
 		return nil, fmt.Errorf("interface %q is not set with Passt network binding plugin", network.Name)
 	}
-	if linkFinder == nil {
-		linkFinder = &netlink.NetLink{}
+
+	ifaceStatus := vmispec.LookupInterfaceStatusByName(ifaceStatuses, network.Name)
+	if ifaceStatus == nil {
+		return nil, fmt.Errorf("primary network interface status was not found")
+	}
+
+	primaryPodIfaceName := ifaceStatus.PodInterfaceName
+	if primaryPodIfaceName == "" {
+		return nil, fmt.Errorf("primary pod network interface name was not found")
 	}
 
 	return &PasstNetworkConfigurator{
 		vmiSpecIface: iface,
+		podIfaceName: primaryPodIfaceName,
 		options:      opts,
-		linkFinder:   linkFinder,
 	}, nil
 }
 
@@ -132,11 +137,6 @@ func lookupIfaceByAliasName(ifaces []domainschema.Interface, name string) *domai
 }
 
 func (p PasstNetworkConfigurator) generateInterface() (*domainschema.Interface, error) {
-	sourceLinkName, err := p.discoverSourceLinkName()
-	if err != nil {
-		return nil, err
-	}
-
 	var pciAddress *domainschema.Address
 	if p.vmiSpecIface.PciAddress != "" {
 		var err error
@@ -186,7 +186,7 @@ func (p PasstNetworkConfigurator) generateInterface() (*domainschema.Interface, 
 		MAC:         mac,
 		ACPI:        acpi,
 		Type:        ifaceTypeVhostUser,
-		Source:      domainschema.InterfaceSource{Device: sourceLinkName},
+		Source:      domainschema.InterfaceSource{Device: p.podIfaceName},
 		Backend:     &domainschema.InterfaceBackend{Type: ifaceBackendPasst, LogFile: PasstLogFilePath},
 		PortForward: p.generatePortForward(),
 	}, nil
@@ -229,22 +229,4 @@ func (p PasstNetworkConfigurator) generatePortForward() []domainschema.Interface
 	}
 
 	return portsFwd
-}
-
-func (p PasstNetworkConfigurator) discoverSourceLinkName() (string, error) {
-	// optionalLinkName link name to look for before falling back to eth0 if the
-	// link do not exist
-	// FIXME: This will be configurable in the future.
-	const (
-		// optionalLinkName comes from https://github.com/ovn-org/ovn-kubernetes/blob/master/go-controller/pkg/cni/udn/primary_network.go#L30
-		optionalLinkName = "ovn-udn1"
-	)
-
-	if _, err := p.linkFinder.LinkByName(optionalLinkName); err != nil {
-		if _, notFound := err.(vishnetlink.LinkNotFoundError); notFound {
-			return namescheme.PrimaryPodInterfaceName, nil
-		}
-		return "", err
-	}
-	return optionalLinkName, nil
 }
