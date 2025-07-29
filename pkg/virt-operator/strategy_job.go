@@ -1,7 +1,6 @@
 package virt_operator
 
 import (
-	"context"
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -123,7 +122,6 @@ func (c *KubeVirtController) getInstallStrategyJob(config *operatorutil.KubeVirt
 }
 
 func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
-	batch := c.clientset.BatchV1()
 	jobs := c.stores.InstallStrategyJobCache.List()
 
 	for _, obj := range jobs {
@@ -134,15 +132,7 @@ func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
 		if job.Status.CompletionTime == nil {
 			continue
 		}
-
-		propagationPolicy := metav1.DeletePropagationForeground
-		err := batch.Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
-			PropagationPolicy: &propagationPolicy,
-		})
-		if err != nil {
-			return err
-		}
-		log.Log.Object(job).Infof("Garbage collected completed install strategy job")
+		log.Log.Object(job).Infof("Skipping garbage collection of completed install strategy job started @ %s finished @ %s", job.Status.StartTime.String(), job.Status.CompletionTime.String())
 	}
 
 	return nil
