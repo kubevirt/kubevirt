@@ -467,6 +467,8 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 
 	strategy := &Strategy{}
 
+	log.Log.Info("Starting...")
+
 	functions := []func() (*extv1.CustomResourceDefinition, error){
 		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
 		components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
@@ -484,6 +486,8 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		}
 		strategy.crds = append(strategy.crds, crd)
 	}
+
+	log.Log.Info("Finished CRDs...")
 
 	rbaclist := make([]runtime.Object, 0)
 	rbaclist = append(rbaclist, rbac.GetAllCluster()...)
@@ -519,6 +523,8 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		log.Log.Warningf("failed to create ServiceMonitor resources because couldn't find ServiceAccount %v in any monitoring namespaces : %v", monitorServiceAccount, strings.Join(config.GetPotentialMonitorNamespaces(), ", "))
 	}
 
+	log.Log.Info("Finished ServiceMonitor...")
+
 	for _, entry := range rbaclist {
 		cr, ok := entry.(*rbacv1.ClusterRole)
 		if ok {
@@ -544,6 +550,8 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 			strategy.serviceAccounts = append(strategy.serviceAccounts, sa)
 		}
 	}
+
+	log.Log.Info("Finished RBAC...")
 
 	var productName string
 	var productVersion string
@@ -571,10 +579,15 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewVirtAPIValidatingWebhookConfiguration(config.GetNamespace()))
 	strategy.mutatingWebhookConfigurations = append(strategy.mutatingWebhookConfigurations, components.NewVirtAPIMutatingWebhookConfiguration(config.GetNamespace()))
 
+	log.Log.Info("Finished webhooks...")
+
 	strategy.services = append(strategy.services, components.NewPrometheusService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewOperatorWebhookService(operatorNamespace))
 	strategy.services = append(strategy.services, components.NewExportProxyService(config.GetNamespace()))
+
+	log.Log.Info("Finished services..")
+
 	apiDeployment := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, productComponent, config.VirtApiImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
@@ -589,19 +602,29 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	synchronizationControllerDeployment := components.NewSynchronizationControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetSynchronizationControllerVersion(), productName, productVersion, productComponent, config.VirtSynchronizationControllerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetSynchronizationPort(), config.GetVerbosity(), config.GetExtraEnv())
 	strategy.deployments = append(strategy.deployments, synchronizationControllerDeployment)
 
+	log.Log.Info("Finished deploymeents..")
+
 	handler := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
 
 	strategy.daemonSets = append(strategy.daemonSets, handler)
 	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
+
+	log.Log.Info("Finished SCCs...")
+
 	strategy.apiServices = components.NewVirtAPIAPIServices(config.GetNamespace())
 	strategy.certificateSecrets = components.NewCertSecrets(config.GetNamespace(), operatorNamespace)
 	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecrets(operatorNamespace)...)
+
+	log.Log.Info("Finished certs....")
+
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
 	strategy.routes = append(strategy.routes, components.GetAllRoutes(operatorNamespace)...)
 
 	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, components.NewHandlerV1ValidatingAdmissionPolicyBinding())
 	virtHandlerServiceAccount := getVirtHandlerServiceAccount(config.GetNamespace())
 	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, components.NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount))
+
+	log.Log.Info("Finished VAPs....")
 
 	instancetypes, err := components.NewClusterInstancetypes()
 	if err != nil {
@@ -614,6 +637,8 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		return nil, fmt.Errorf("error generating preferences for environment %v", err)
 	}
 	strategy.preferences = preferences
+
+	log.Log.Info("Finished instance types and preferences....")
 
 	return strategy, nil
 }
