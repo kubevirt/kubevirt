@@ -17,6 +17,7 @@ go_library(
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/virt-operator:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util/cluster:go_default_library",
         "//pkg/util/tls:go_default_library",
