@@ -205,6 +205,7 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 	r.logDVs(virtCli)
 	r.logVMExports(virtCli)
 	r.logDeployments(virtCli)
+	r.logReplicaSets(virtCli)
 	r.logDaemonsets(virtCli)
 	r.logVolumeSnapshots(virtCli)
 	r.logVirtualMachineSnapshots(virtCli)
@@ -779,6 +780,16 @@ func (r *KubernetesReporter) logDeployments(virtCli kubecli.KubevirtClient) {
 	}
 
 	r.logObjects(deployments, "deployments")
+}
+
+func (r *KubernetesReporter) logReplicaSets(virtCli kubecli.KubevirtClient) {
+	replicaSets, err := virtCli.AppsV1().ReplicaSets(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		printError("failed to fetch deployments: %v", err)
+		return
+	}
+
+	r.logObjects(replicaSets, "replicasets")
 }
 
 func (r *KubernetesReporter) logDaemonsets(virtCli kubecli.KubevirtClient) {
