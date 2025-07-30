@@ -11,6 +11,7 @@ pkg/network/deviceinfo
 pkg/network/domainspec
 pkg/network/downwardapi
 pkg/network/driver/netlink
+pkg/network/driver/virtchroot
 pkg/network/errors
 pkg/network/istio
 pkg/network/migration
