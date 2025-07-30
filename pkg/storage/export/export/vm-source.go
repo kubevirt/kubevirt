@@ -157,11 +157,23 @@ func (ctrl *VMExportController) isSourceInUseVM(vmExport *exportv1.VirtualMachin
 		}
 		return false, "", nil
 	}
-	return exists, "", nil
+	return exists, fmt.Sprintf("Virtual Machine Instance %s/%s does not exist", vmExport.Namespace, vmExport.Spec.Source.Name), nil
 }
 
 func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMachineExport) (*sourceVolumes, error) {
-	pvcs, allPopulated, err := ctrl.getPVCsFromVM(vmExport.Namespace, vmExport.Spec.Source.Name)
+	vm, exists, err := ctrl.getVm(vmExport.Namespace, vmExport.Spec.Source.Name)
+	if err != nil {
+		return &sourceVolumes{}, err
+	}
+	if !exists {
+		return &sourceVolumes{
+			volumes:          []*corev1.PersistentVolumeClaim{},
+			inUse:            false,
+			isPopulated:      true, // Don't retry for missing VM
+			availableMessage: fmt.Sprintf("Virtual Machine %s/%s does not exist", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
+	}
+
+	pvcs, allPopulated, err := ctrl.getPVCsFromVM(vm)
 	if err != nil {
 		return &sourceVolumes{}, err
 	}
@@ -184,15 +196,8 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 		availableMessage: availableMessage}, nil
 }
 
-func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*corev1.PersistentVolumeClaim, bool, error) {
+func (ctrl *VMExportController) getPVCsFromVM(vm *virtv1.VirtualMachine) ([]*corev1.PersistentVolumeClaim, bool, error) {
 	var pvcs []*corev1.PersistentVolumeClaim
-	vm, exists, err := ctrl.getVm(vmNamespace, vmName)
-	if err != nil {
-		return nil, false, err
-	}
-	if !exists {
-		return nil, false, nil
-	}
 	allPopulated := true
 
 	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithAllVolumes)
@@ -209,7 +214,7 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 		if pvcName == "" {
 			continue
 		}
-		pvc, exists, err := ctrl.getPvc(vmNamespace, pvcName)
+		pvc, exists, err := ctrl.getPvc(vm.Namespace, pvcName)
 		if err != nil {
 			return nil, false, nil
 		}
