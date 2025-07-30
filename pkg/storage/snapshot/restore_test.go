@@ -328,15 +328,11 @@ var _ = Describe("Restore controller", func() {
 			currentTime = timeFunc
 		})
 
-		enqueueVMR := func(r *snapshotv1.VirtualMachineRestore) {
+		addVirtualMachineRestore := func(r *snapshotv1.VirtualMachineRestore) {
+			Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
 			key, err := virtcontroller.KeyFunc(r)
 			Expect(err).ToNot(HaveOccurred())
 			controller.vmRestoreQueue.Add(key)
-		}
-
-		addVirtualMachineRestore := func(r *snapshotv1.VirtualMachineRestore) {
-			Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
-			enqueueVMR(r)
 		}
 
 		Context("with initialized snapshot and content", func() {
@@ -724,12 +720,11 @@ var _ = Describe("Restore controller", func() {
 
 				vm := createRestoreInProgressVM()
 				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
+				addVirtualMachineRestore(r)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimPending
 					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 				}
-				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
 			})
 
@@ -1105,14 +1100,13 @@ var _ = Describe("Restore controller", func() {
 
 				vm := createRestoreInProgressVM()
 				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
+				addVirtualMachineRestore(r)
 				pvcUpdateCalls := expectPVCUpdates(k8sClient, ur)
 				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, ur)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimBound
 					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 				}
-				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
 				Expect(*pvcUpdateCalls).To(Equal(1))
 				Expect(*updateStatusCalls).To(Equal(1))
@@ -1218,7 +1212,7 @@ var _ = Describe("Restore controller", func() {
 				for i := range r.Status.Restores {
 					r.Status.Restores[i].DataVolumeName = &r.Status.Restores[i].PersistentVolumeClaimName
 				}
-				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
+				addVirtualMachineRestore(r)
 
 				vm := createRestoreInProgressVM()
 				vm.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
@@ -1256,7 +1250,6 @@ var _ = Describe("Restore controller", func() {
 				dvDeleteCalls := expectDataVolumeDeletes(cdiClient, r.Status.DeletedDataVolumes)
 				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, ur)
 
-				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
 
 				l, err := cdiClient.CdiV1beta1().DataVolumes("").List(context.Background(), metav1.ListOptions{})
@@ -1309,9 +1302,8 @@ var _ = Describe("Restore controller", func() {
 					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 				}
 
-				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
+				addVirtualMachineRestore(r)
 				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreComplete")
 				Expect(*updateStatusCalls).To(Equal(1))
@@ -1333,7 +1325,7 @@ var _ = Describe("Restore controller", func() {
 				vm := createModifiedVM()
 				vm.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 
-				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
+				addVirtualMachineRestore(r)
 				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 
 				updatedVMRestore := r.DeepCopy()
@@ -1344,7 +1336,6 @@ var _ = Describe("Restore controller", func() {
 				updatedVMRestore.ResourceVersion = "1"
 
 				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore)
-				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
@@ -1365,14 +1356,13 @@ var _ = Describe("Restore controller", func() {
 				vm := createModifiedVM()
 				vm.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 
-				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
+				addVirtualMachineRestore(r)
 				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 
 				updatedVMRestore := r.DeepCopy()
 				updatedVMRestore.Finalizers = []string{}
 
 				patchCount := expectVMRestorePatch(kubevirtClient, r, updatedVMRestore)
-				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
 				Expect(*patchCount).To(Equal(1))
 			})
@@ -1390,7 +1380,7 @@ var _ = Describe("Restore controller", func() {
 
 				vm := createRestoreInProgressVM()
 
-				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
+				addVirtualMachineRestore(r)
 				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 
 				vmUpdated := vm.DeepCopy()
@@ -1405,7 +1395,6 @@ var _ = Describe("Restore controller", func() {
 
 				updateVMStatusCalls := expectVMUpdateStatus(kubevirtClient, vmUpdated)
 				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, updatedVMRestore)
-				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
 				Expect(*updateVMStatusCalls).To(Equal(1))
 				Expect(*updateStatusCalls).To(Equal(1))
@@ -1424,14 +1413,13 @@ var _ = Describe("Restore controller", func() {
 
 				vm := createModifiedVM()
 
-				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
+				addVirtualMachineRestore(r)
 				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 
 				updatedVMRestore := r.DeepCopy()
 				updatedVMRestore.Finalizers = []string{}
 
 				patchCount := expectVMRestorePatch(kubevirtClient, r, updatedVMRestore)
-				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
 				Expect(*patchCount).To(Equal(1))
 			})
@@ -1487,7 +1475,7 @@ var _ = Describe("Restore controller", func() {
 				DescribeTable("should", func(dvExists bool, phase cdiv1.DataVolumePhase, expecteUpdateVM bool) {
 					dvCreateCalls := addRestoreVolumes(dvExists, phase)
 
-					Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
+					addVirtualMachineRestore(r)
 					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 					updateVMCalls := pointer.P(0)
 					if expecteUpdateVM {
@@ -1498,7 +1486,6 @@ var _ = Describe("Restore controller", func() {
 						setLegacyFirmwareUUID(updatedVM)
 						updateVMCalls = expectVMUpdate(kubevirtClient, updatedVM)
 					}
-					enqueueVMR(r)
 					res, err := targetVM.Reconcile()
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(res).To(BeTrue())
@@ -1517,7 +1504,7 @@ var _ = Describe("Restore controller", func() {
 
 				It("should set firmware UUID when it lacks from snapshot", func() {
 					addRestoreVolumes(true, cdiv1.Succeeded)
-					Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
+					addVirtualMachineRestore(r)
 
 					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 					updatedVM := createSnapshotVM()
@@ -1527,7 +1514,6 @@ var _ = Describe("Restore controller", func() {
 					updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
 					setLegacyFirmwareUUID(updatedVM)
 					expectVMUpdate(kubevirtClient, updatedVM)
-					enqueueVMR(r)
 					res, err := targetVM.Reconcile()
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(res).To(BeTrue())
@@ -1535,7 +1521,7 @@ var _ = Describe("Restore controller", func() {
 
 				It("should not override existing firmware UUID", func() {
 					addRestoreVolumes(true, cdiv1.Succeeded)
-					Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
+					addVirtualMachineRestore(r)
 
 					uid := types.UID("existing-uid")
 					existingFirmware := &kubevirtv1.Firmware{UUID: uid}
@@ -1551,7 +1537,6 @@ var _ = Describe("Restore controller", func() {
 					updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
 					updatedVM.Spec.Template.Spec.Domain.Firmware = &kubevirtv1.Firmware{UUID: uid}
 					expectVMUpdate(kubevirtClient, updatedVM)
-					enqueueVMR(r)
 					res, err := targetVM.Reconcile()
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(res).To(BeTrue())
@@ -1580,7 +1565,6 @@ var _ = Describe("Restore controller", func() {
 						pvc.Status.Phase = corev1.ClaimBound
 						Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 					}
-					enqueueVMR(vmRestore)
 
 					Expect(vmRestore.Status.Restores).To(HaveLen(1))
 					vmRestore.Status.Restores[0].DataVolumeName = pointer.P(restoreDVName(vmRestore, vmRestore.Status.Restores[0].VolumeName, ""))
@@ -1699,7 +1683,6 @@ var _ = Describe("Restore controller", func() {
 							pvc.Status.Phase = corev1.ClaimBound
 							Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 						}
-						enqueueVMR(r)
 
 						changeMacAddressPatch = fmt.Sprintf(`{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`, newMacAddress)
 					})
