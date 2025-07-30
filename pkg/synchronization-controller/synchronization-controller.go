@@ -1017,7 +1017,7 @@ func copyCommonLegacyFields(targetMigrationState, sourceMigrationState *virtv1.V
 		targetMigrationState.StartTimestamp = sourceMigrationState.StartTimestamp
 	}
 	if sourceMigrationState.EndTimestamp != nil {
-		targetMigrationState.EndTimestamp = sourceMigrationState.StartTimestamp
+		targetMigrationState.EndTimestamp = sourceMigrationState.EndTimestamp
 	}
 }
 
