@@ -339,14 +339,6 @@ var _ = Describe("Restore controller", func() {
 			enqueueVMR(r)
 		}
 
-		addPVC := func(pvc *corev1.PersistentVolumeClaim) {
-			Expect(controller.PVCInformer.GetStore().Add(pvc)).To(Succeed())
-		}
-
-		addVM := func(vm *kubevirtv1.VirtualMachine) {
-			Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-		}
-
 		Context("with initialized snapshot and content", func() {
 
 			var (
@@ -735,7 +727,7 @@ var _ = Describe("Restore controller", func() {
 				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimPending
-					addPVC(&pvc)
+					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 				}
 				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
@@ -773,7 +765,7 @@ var _ = Describe("Restore controller", func() {
 				setLegacyFirmwareUUID(uvm)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimBound
-					addPVC(&pvc)
+					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 				}
 				addVirtualMachineRestore(r)
 
@@ -1118,7 +1110,7 @@ var _ = Describe("Restore controller", func() {
 				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, ur)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimBound
-					addPVC(&pvc)
+					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 				}
 				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
@@ -1246,7 +1238,7 @@ var _ = Describe("Restore controller", func() {
 					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 				}
 
-				addVM(vm)
+				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 
 				updatedVM := vm.DeepCopy()
 				updatedVM.Status.RestoreInProgress = nil
@@ -1318,7 +1310,7 @@ var _ = Describe("Restore controller", func() {
 				}
 
 				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
-				addVM(vm)
+				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 				enqueueVMR(r)
 				controller.processVMRestoreWorkItem()
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreComplete")
@@ -1342,7 +1334,7 @@ var _ = Describe("Restore controller", func() {
 				vm.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 
 				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
-				addVM(vm)
+				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 
 				updatedVMRestore := r.DeepCopy()
 				updatedVMRestore.Status.Conditions = []snapshotv1.Condition{
@@ -1374,7 +1366,7 @@ var _ = Describe("Restore controller", func() {
 				vm.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 
 				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
-				addVM(vm)
+				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 
 				updatedVMRestore := r.DeepCopy()
 				updatedVMRestore.Finalizers = []string{}
@@ -1399,7 +1391,7 @@ var _ = Describe("Restore controller", func() {
 				vm := createRestoreInProgressVM()
 
 				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
-				addVM(vm)
+				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 
 				vmUpdated := vm.DeepCopy()
 				vmUpdated.Status.RestoreInProgress = nil
@@ -1433,7 +1425,7 @@ var _ = Describe("Restore controller", func() {
 				vm := createModifiedVM()
 
 				Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
-				addVM(vm)
+				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 
 				updatedVMRestore := r.DeepCopy()
 				updatedVMRestore.Finalizers = []string{}
@@ -1496,7 +1488,7 @@ var _ = Describe("Restore controller", func() {
 					dvCreateCalls := addRestoreVolumes(dvExists, phase)
 
 					Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
-					addVM(vm)
+					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 					updateVMCalls := pointer.P(0)
 					if expecteUpdateVM {
 						updatedVM := vm.DeepCopy()
@@ -1527,7 +1519,7 @@ var _ = Describe("Restore controller", func() {
 					addRestoreVolumes(true, cdiv1.Succeeded)
 					Expect(controller.VMRestoreInformer.GetStore().Add(r)).To(Succeed())
 
-					addVM(vm)
+					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 					updatedVM := createSnapshotVM()
 					updatedVM.Status.RestoreInProgress = &vmRestoreName
 					updatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
@@ -1551,7 +1543,7 @@ var _ = Describe("Restore controller", func() {
 					vm.Spec.Template.Spec.Domain.Firmware = existingFirmware
 					sc.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Firmware = existingFirmware
 
-					addVM(vm)
+					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 					updatedVM := createSnapshotVM()
 					updatedVM.Status.RestoreInProgress = &vmRestoreName
 					updatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
@@ -1586,7 +1578,7 @@ var _ = Describe("Restore controller", func() {
 					By("Creating PVC")
 					for _, pvc := range getRestorePVCs(vmRestore) {
 						pvc.Status.Phase = corev1.ClaimBound
-						addPVC(&pvc)
+						Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 					}
 					enqueueVMR(vmRestore)
 
@@ -1705,7 +1697,7 @@ var _ = Describe("Restore controller", func() {
 							pvc.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(dv, schema.GroupVersionKind{Group: "cdi.kubevirt.io", Version: "v1beta1", Kind: "DataVolume"})}
 							pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"] = pvc.Name
 							pvc.Status.Phase = corev1.ClaimBound
-							addPVC(&pvc)
+							Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
 						}
 						enqueueVMR(r)
 
