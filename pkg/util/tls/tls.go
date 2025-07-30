@@ -91,7 +91,7 @@ func SetupExportProxyTLS(certManager certificate.Manager, kubeVirtInformer cache
 	return tlsConfig
 }
 
-func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.Manager, clientAuth tls.ClientAuthType, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
+func SetupTLSWithCertManager(caManager KubernetesCAManager, certManager certificate.Manager, clientAuth tls.ClientAuthType, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
 	tlsConfig := &tls.Config{
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()
@@ -122,6 +122,32 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 				Certificates: []tls.Certificate{*cert},
 				ClientCAs:    clientCAPool,
 				ClientAuth:   clientAuth,
+				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+					if len(verifiedChains) == 0 || len(verifiedChains[0]) == 0 {
+						return nil
+					}
+
+					certificate, err := x509.ParseCertificate(rawCerts[0])
+					if err != nil {
+						return fmt.Errorf("failed to parse peer certificate: %v", err)
+					}
+
+					CNs, err := caManager.GetCNs()
+					if err != nil {
+						return err
+					}
+
+					if len(CNs) == 0 {
+						return nil
+					}
+					for _, CN := range CNs {
+						if certificate.Subject.CommonName == CN {
+							return nil
+						}
+					}
+
+					return fmt.Errorf("common name is invalid")
+				},
 			}
 
 			config.BuildNameToCertificate()
