@@ -28,6 +28,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -85,7 +86,13 @@ var _ = Describe(SIG("[sig-compute]VNC", decorators.SigCompute, decorators.WgArm
 
 	It("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]"+
 		"[test_id:5274]should connect to vnc with --proxy-only flag to the specified port", func() {
-		const testPort = "33333"
+		const (
+			portRangeFirst = 33333
+			portRangeLast  = 33433
+		)
+		port, found := findOpenPort(portRangeFirst, portRangeLast)
+		Expect(found).To(BeTrue())
+		testPort := strconv.FormatInt(int64(port), 10)
 
 		By("Invoking virtctl vnc with --proxy-only")
 		go func() {
@@ -149,4 +156,18 @@ func verifyProxyConnection(port, vmiName string) {
 
 		g.Expect(clientConn.DesktopName).To(ContainSubstring(vmiName))
 	}, 60*time.Second).Should(Succeed())
+}
+
+func findOpenPort(start, end int) (int, bool) {
+	Expect(end).To(BeNumerically(">=", start), "Start <= End")
+	const host = "localhost"
+	for port := start; port < end; port++ {
+		addr := net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
+		if conn, err := net.Listen("tcp", addr); err == nil {
+			err = conn.Close()
+			Expect(err).ToNot(HaveOccurred())
+			return port, true
+		}
+	}
+	return -1, false
 }
