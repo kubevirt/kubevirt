@@ -16,7 +16,6 @@ import (
 
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -116,9 +115,22 @@ func CheckSynchronizationAddressPopulated(virtClient kubecli.KubevirtClient, mig
 }
 
 func RunDecentralizedMigrationAndExpectToComplete(virtClient kubecli.KubevirtClient, sourceMigration, targetMigration *v1.VirtualMachineInstanceMigration, timeout int) (*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigration) {
+	By("ensuring the source VMI exists")
+	Eventually(func() *v1.VirtualMachineInstance {
+		vmi, err := virtClient.VirtualMachineInstance(sourceMigration.Namespace).Get(context.Background(), sourceMigration.Spec.VMIName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return vmi
+	}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
+
 	sourceMigration = RunMigration(virtClient, sourceMigration)
 	CheckSynchronizationAddressPopulated(virtClient, sourceMigration)
 
+	By("ensuring the target VMI exists")
+	Eventually(func() *v1.VirtualMachineInstance {
+		vmi, err := virtClient.VirtualMachineInstance(targetMigration.Namespace).Get(context.Background(), targetMigration.Spec.VMIName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return vmi
+	}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
 	targetMigration = RunMigration(virtClient, targetMigration)
 	CheckSynchronizationAddressPopulated(virtClient, targetMigration)
 	sourceMigration = ExpectMigrationToSucceed(virtClient, sourceMigration, timeout)
@@ -137,17 +149,9 @@ func RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient kubecli.Kubevi
 }
 
 func RunMigration(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstanceMigration {
-	var migrationCreated *v1.VirtualMachineInstanceMigration
-	var err error
 	By("Starting a Migration")
-	Eventually(func() error {
-		migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
-		if k8serrors.IsAlreadyExists(err) {
-			migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-			return err
-		}
-		return err
-	}).WithTimeout(time.Second*20).WithPolling(500*time.Millisecond).ShouldNot(HaveOccurred(), "unable to start migration in time")
+	migrationCreated, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
 	return migrationCreated
 }
