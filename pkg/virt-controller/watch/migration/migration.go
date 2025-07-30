@@ -1455,7 +1455,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 	}
 
 	if migrationFinalizedOnVMI := vmi.IsMigrationSynchronized(migration) && vmi.Status.MigrationState.MigrationUID == migration.UID &&
-		vmi.Status.MigrationState.EndTimestamp != nil && vmi.Status.MigrationState.Completed; migrationFinalizedOnVMI {
+		vmi.Status.MigrationState.Completed; migrationFinalizedOnVMI {
 		return nil
 	}
 

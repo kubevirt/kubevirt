@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -40,15 +39,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -60,29 +56,18 @@ import (
 
 var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDecentralizedLiveMigration, func() {
 	var (
-		virtClient         kubecli.KubevirtClient
-		connectionURL      string
-		err                error
-		featureGateEnabled bool
+		virtClient    kubecli.KubevirtClient
+		connectionURL string
+		err           error
 	)
 
 	BeforeEach(func() {
-		featureGateEnabled = checks.HasFeature(featuregate.DecentralizedLiveMigration)
-		if !featureGateEnabled {
-			kvconfig.EnableFeatureGate(featuregate.DecentralizedLiveMigration)
-		}
 		if !libstorage.HasCDI() {
 			Fail("Fail DataVolume tests when CDI is not present")
 		}
 		virtClient = kubevirt.Client()
 		connectionURL, err = getKubevirtSynchronizationSyncAddress(virtClient)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if !featureGateEnabled {
-			kvconfig.DisableFeatureGate(featuregate.DecentralizedLiveMigration)
-		}
 	})
 
 	createAndStartVMFromVMISpec := func(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachine {
@@ -156,21 +141,9 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		}
 		Expect(err).ToNot(HaveOccurred())
 		By("Verifying VM is gone")
-		Eventually(func() *virtv1.VirtualMachine {
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			return vm
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
+		Eventually(matcher.ThisVMWith(vm.Namespace, vm.Name), 30*time.Second, 1*time.Second).Should(matcher.BeGone(), "VM should disappear")
 		By("Verifying VMI is gone")
-		Eventually(func() *virtv1.VirtualMachineInstance {
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			return vmi
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 30*time.Second, 1*time.Second).Should(matcher.BeGone(), "VMI should disappear")
 	}
 
 	deleteDV := func(dv *cdiv1.DataVolume) {
@@ -180,21 +153,9 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		}
 		Expect(err).ToNot(HaveOccurred())
 		By("Verifying DV is gone")
-		Eventually(func() *cdiv1.DataVolume {
-			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			return dv
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
+		Eventually(matcher.ThisDVWith(dv.Namespace, dv.Name), 30*time.Second, 1*time.Second).Should(matcher.BeGone(), "DV should disappear")
 		By("Verifying PVC is gone")
-		Eventually(func() *k8sv1.PersistentVolumeClaim {
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			return pvc
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
+		Eventually(matcher.ThisPVCWith(dv.Namespace, dv.Name), 30*time.Second, 1*time.Second).Should(matcher.BeGone(), "PVC should disappear")
 	}
 
 	updateRunStrategy := func(vm *virtv1.VirtualMachine, strategy *virtv1.VirtualMachineRunStrategy) {
