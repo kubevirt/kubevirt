@@ -31,6 +31,7 @@ import (
 
 type mockCAManager struct {
 	caBundle []byte
+	cns      []string
 }
 
 type mockCertManager struct {
@@ -66,9 +67,13 @@ func (m *mockCAManager) GetCurrentRaw() ([]byte, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (m *mockCAManager) GetCNs() ([]string, error) {
+	return m.cns, nil
+}
+
 var _ = Describe("TLS", func() {
 
-	var caManager kvtls.ClientCAManager
+	var caManager kvtls.KubernetesCAManager
 	var certmanagers map[string]certificate.Manager
 	var clusterConfig *virtconfig.ClusterConfig
 	var kubeVirtInformer cache.SharedIndexInformer
@@ -220,7 +225,8 @@ var _ = Describe("TLS", func() {
 		}),
 	)
 
-	DescribeTable("should verify self-signed client and server certificates", func(serverSecret, clientSecret string, errStr string) {
+	DescribeTable("should verify self-signed client and server certificates", func(serverSecret, clientSecret, errStr string, cns []string) {
+		caManager.(*mockCAManager).cns = cns
 		serverTLSConfig := kvtls.SetupTLSWithCertManager(caManager, certmanagers[serverSecret], tls.RequireAndVerifyClientCert, clusterConfig)
 		clientTLSConfig := kvtls.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], false)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -248,18 +254,35 @@ var _ = Describe("TLS", func() {
 			components.VirtHandlerServerCertSecretName,
 			components.VirtHandlerCertSecretName,
 			"",
+			[]string{"kubevirt.io:system:client:virt-handler"},
+		),
+		Entry(
+			"connect with proper certificates with no CN auth",
+			components.VirtHandlerServerCertSecretName,
+			components.VirtHandlerCertSecretName,
+			"",
+			[]string{},
+		),
+		Entry(
+			"fail if client uses an invalid certificates (CN)",
+			components.VirtHandlerServerCertSecretName,
+			components.VirtHandlerCertSecretName,
+			"remote error: tls: bad certificate",
+			[]string{"kubevirt.io:system:clientv2:virt-handler"},
 		),
 		Entry(
 			"fail if client uses an invalid certificate",
 			components.VirtHandlerServerCertSecretName,
 			components.VirtHandlerServerCertSecretName,
 			"remote error: tls: bad certificate",
+			[]string{"kubevirt.io:system:client:virt-handler"},
 		),
 		Entry(
 			"fail if server uses an invalid certificate",
 			components.VirtHandlerCertSecretName,
 			components.VirtHandlerCertSecretName,
 			"x509: certificate specifies an incompatible key usage",
+			[]string{"kubevirt.io:system:client:virt-handler"},
 		),
 	)
 
