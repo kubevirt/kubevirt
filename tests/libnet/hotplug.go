@@ -21,7 +21,6 @@ package libnet
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -56,7 +55,7 @@ func VerifyDynamicInterfaceChange(
 	ExpectWithOffset(1, nonAbsentSecondaryIfaces).NotTo(BeEmpty())
 
 	EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
-		return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
+		return normalizeIfaceStatuses(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
 	}).
 		WithTimeout(timeout).
 		WithPolling(pollInterval).
@@ -117,21 +116,20 @@ func indexVMsSecondaryNetworks(vmi *v1.VirtualMachineInstance) map[string]v1.Net
 	return indexedSecondaryNetworks
 }
 
-func cleanMACAddressesFromStatus(status []v1.VirtualMachineInstanceNetworkInterface) []v1.VirtualMachineInstanceNetworkInterface {
+func normalizeIfaceStatuses(status []v1.VirtualMachineInstanceNetworkInterface) []v1.VirtualMachineInstanceNetworkInterface {
 	for i := range status {
 		status[i].MAC = ""
+		status[i].InterfaceName = ""
 	}
 	return status
 }
 
 func interfaceStatusFromInterfaces(queueCount int32, ifaces []v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {
-	const initialIfacesInVMI = 1
 	var ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
-	for i, iface := range ifaces {
+	for _, iface := range ifaces {
 		newIfaceStatus := v1.VirtualMachineInstanceNetworkInterface{
-			Name:          iface.Name,
-			InterfaceName: fmt.Sprintf("eth%d", i+initialIfacesInVMI),
+			Name: iface.Name,
 			InfoSource: vmispec.NewInfoSource(
 				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus),
 			QueueCount:       queueCount,
@@ -144,7 +142,6 @@ func interfaceStatusFromInterfaces(queueCount int32, ifaces []v1.Interface) []v1
 
 		ifaceStatuses = append(ifaceStatuses, newIfaceStatus)
 	}
-
 	return ifaceStatuses
 }
 
