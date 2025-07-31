@@ -52,6 +52,7 @@ import (
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -207,8 +208,8 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance, host string) (string, erro
 			continue
 		}
 		socket := SocketFilePathOnHost(string(podUID))
-		exists, _ := diskutils.FileExists(socket)
-		if exists {
+		_, err := safepath.NewPathNoFollow(socket)
+		if err == nil {
 			foundSocket = socket
 			socketsFound++
 		}
