@@ -349,7 +349,7 @@ func (s *SynchronizationController) execute(key string) error {
 		return nil
 	} else {
 		// No migration found don't do anything
-		log.Log.Object(vmi).V(4).Info("no decentralized migration found for VMI")
+		log.Log.Object(vmi).V(4).Info("no active decentralized migration found for VMI")
 		return nil
 	}
 }
@@ -431,10 +431,6 @@ func (s *SynchronizationController) handleSourceState(vmi *virtv1.VirtualMachine
 	}
 	if vmi.Status.MigrationState.SourceState == nil || vmi.Status.MigrationState.TargetState == nil {
 		// No migration state, don't do anything
-		return nil
-	}
-	if migration.IsFinal() {
-		// Migration completed already, no need to synchronize anymore.
 		return nil
 	}
 
@@ -555,8 +551,17 @@ func (s *SynchronizationController) getMigrationForVMI(vmi *virtv1.VirtualMachin
 				return nil, fmt.Errorf("not a virtual machine instance migration")
 			}
 			if migration.Namespace == vmi.Namespace {
-				count++
-				res = migration
+				if migration.IsDecentralizedSource() {
+					if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.SourceState != nil && migration.UID == vmi.Status.MigrationState.SourceState.MigrationUID {
+						count++
+						res = migration
+					}
+				} else if migration.IsDecentralizedTarget() {
+					if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetState != nil && migration.UID == vmi.Status.MigrationState.TargetState.MigrationUID {
+						count++
+						res = migration
+					}
+				}
 			}
 		}
 		if count > 1 {
@@ -860,11 +865,11 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 }
 
 func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVMI *virtv1.VirtualMachineInstance) error {
-	if origVMI.Status.MigrationState != nil && origVMI.Status.MigrationState.Completed {
+	if origVMI.Status.MigrationState != nil &&
+		origVMI.Status.MigrationState.Completed {
 		log.Log.Object(origVMI).V(3).Infof("VMI is completed, skipping patch")
 		return nil
 	}
-
 	patchSet := patch.New()
 
 	if !apiequality.Semantic.DeepEqual(origVMI.Labels, newVMI.Labels) {
@@ -914,12 +919,13 @@ func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVM
 			)
 		}
 	}
+
 	if !patchSet.IsEmpty() {
 		patchBytes, err := patchSet.GeneratePayload()
 		if err != nil {
 			return err
 		}
-		log.Log.Object(origVMI).V(3).Infof("patch VMI with %s", string(patchBytes))
+		log.Log.Object(origVMI).V(5).Infof("patch VMI with %s", string(patchBytes))
 		if _, err := s.client.VirtualMachineInstance(origVMI.Namespace).Patch(ctx, origVMI.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 			return err
 		}
@@ -941,9 +947,6 @@ func indexByVmiName(obj interface{}) ([]string, error) {
 		return nil, nil
 	}
 	if migration.DeletionTimestamp != nil {
-		return nil, nil
-	}
-	if migration.IsFinal() {
 		return nil, nil
 	}
 	return []string{migration.Spec.VMIName}, nil
