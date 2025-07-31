@@ -5,8 +5,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
@@ -16,17 +16,17 @@ import (
 
 var _ = Describe("CaManager", func() {
 
-	var configMap *v1.ConfigMap
+	var configMap *k8sv1.ConfigMap
 	var manager ClientCAManager
 	var store cache.Store
 
 	BeforeEach(func() {
 		ca, err := triple.NewCA("first", time.Hour)
 		Expect(err).ToNot(HaveOccurred())
-		configMap = &v1.ConfigMap{
-			ObjectMeta: v12.ObjectMeta{
+		configMap = &k8sv1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:            util.ExtensionAPIServerAuthenticationConfigMap,
-				Namespace:       v12.NamespaceSystem,
+				Namespace:       metav1.NamespaceSystem,
 				ResourceVersion: "1",
 			},
 			Data: map[string]string{
@@ -91,5 +91,65 @@ var _ = Describe("CaManager", func() {
 		cert, err := manager.GetCurrent()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(cert.Subjects()[0]).To(ContainSubstring("first"))
+	})
+})
+
+var _ = Describe("KubernetesCAManager", func() {
+
+	prepareManagerComplex := func(f func(*k8sv1.ConfigMap)) KubernetesCAManager {
+		ca, err := triple.NewCA("first", time.Hour)
+		Expect(err).ToNot(HaveOccurred())
+		configMap := &k8sv1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            util.ExtensionAPIServerAuthenticationConfigMap,
+				Namespace:       metav1.NamespaceSystem,
+				ResourceVersion: "1",
+			},
+			Data: map[string]string{
+				util.RequestHeaderClientCAFileKey: string(cert.EncodeCertPEM(ca.Cert)),
+			},
+		}
+		f(configMap)
+		store := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+		Expect(store.Add(configMap)).To(Succeed())
+		return NewKubernetesClientCAManager(store)
+	}
+
+	prepareManager := func(data string) KubernetesCAManager {
+		return prepareManagerComplex(func(cm *k8sv1.ConfigMap) {
+			cm.Data["requestheader-allowed-names"] = data
+		})
+	}
+
+	DescribeTable("should return zero CNs", func(data string) {
+		manager := prepareManager(data)
+		Expect(manager.GetCNs()).To(BeEmpty())
+	},
+		Entry("with empty", ""),
+		Entry("with empty slice", "[]"),
+	)
+
+	DescribeTable("should return", func(data string, expected []string) {
+		manager := prepareManager(data)
+		Expect(manager.GetCNs()).To(ConsistOf(expected))
+	},
+		Entry("with one element", `["one"]`, []string{"one"}),
+		Entry("with two elements", `["one", "two"]`, []string{"one", "two"}),
+	)
+
+	DescribeTable("should return error", func(data string) {
+		manager := prepareManager(data)
+		_, err := manager.GetCNs()
+		Expect(err).To(HaveOccurred())
+	},
+		Entry("with malformed", `["one",]`),
+		Entry("with malformed string", `[one]`),
+		Entry("with no array", "one"),
+	)
+
+	It(`should error when no "requestheader-allowed-names" is not specified`, func() {
+		manager := prepareManagerComplex(func(cm *k8sv1.ConfigMap) {})
+		_, err := manager.GetCNs()
+		Expect(err).To(MatchError(ContainSubstring("requestheader-allowed-names not found in")))
 	})
 })
