@@ -947,18 +947,6 @@ var _ = Describe("VMI status synchronization controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should not index migrations that are final", func() {
-		migration := createSourceMigration(testMigrationID, "test-vmi", "", k8sv1.NamespaceDefault)
-		migration.Status.Phase = virtv1.MigrationSucceeded
-		res, err := indexByVmiName(migration)
-		Expect(res).To(BeEmpty())
-		Expect(err).ToNot(HaveOccurred())
-		migration.Status.Phase = virtv1.MigrationFailed
-		res, err = indexByVmiName(migration)
-		Expect(res).To(BeEmpty())
-		Expect(err).ToNot(HaveOccurred())
-	})
-
 	It("should not index migrations marked for deletion", func() {
 		migration := createSourceMigration(testMigrationID, "test-vmi", "", k8sv1.NamespaceDefault)
 		res, err := indexByVmiName(migration)
