@@ -392,6 +392,7 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 
 		vmCpy.Spec.Template.Spec.Volumes = s.vm.Spec.Template.Spec.Volumes
 		vmCpy.Spec.Template.Spec.Domain.Devices.Disks = s.vm.Spec.Template.Spec.Domain.Devices.Disks
+		vmCpy.Spec.DataVolumeTemplates = s.vm.Spec.DataVolumeTemplates
 	} else {
 		vmCpy.ObjectMeta = metaObj
 		vmCpy.Spec = *s.vm.Spec.DeepCopy()
