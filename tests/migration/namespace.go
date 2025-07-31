@@ -172,7 +172,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 	Context("container disk", func() {
 
-		It("[QUARANTINE] should live migrate a container disk vm, several times", decorators.Quarantine, func() {
+		It("should live migrate a container disk vm, several times", func() {
 			var targetVM *virtv1.VirtualMachine
 
 			sourceVMI := libvmifact.NewCirros(
@@ -220,7 +220,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			}
 		})
 
-		It("[QUARANTINE] should live migrate a container disk vm, with an additional PVC mounted, should stay mounted after migration", decorators.Quarantine, func() {
+		It("should live migrate a container disk vm, with an additional PVC mounted, should stay mounted after migration", func() {
 			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
 			sourceDV := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
@@ -319,7 +319,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			return targetDV
 		}
 
-		It("[QUARANTINE] should live migrate regular disk several times", decorators.Quarantine, func() {
+		It("should live migrate regular disk several times", func() {
 			var targetVM *virtv1.VirtualMachine
 			sourceDV := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
