@@ -180,11 +180,11 @@ func MarkSocketUnresponsive(socket string) error {
 }
 
 func SocketDirectoryOnHost(podUID string) string {
-	return fmt.Sprintf("/%s/%s/volumes/kubernetes.io~empty-dir/sockets", podsBaseDir, string(podUID))
+	return filepath.Clean(fmt.Sprintf("/%s/%s/volumes/kubernetes.io~empty-dir/sockets", podsBaseDir, podUID))
 }
 
 func SocketFilePathOnHost(podUID string) string {
-	return fmt.Sprintf("%s/%s", SocketDirectoryOnHost(podUID), StandardLauncherSocketFileName)
+	return filepath.Clean(fmt.Sprintf("%s/%s", SocketDirectoryOnHost(podUID), StandardLauncherSocketFileName))
 }
 
 // gets the cmd socket for a VMI
