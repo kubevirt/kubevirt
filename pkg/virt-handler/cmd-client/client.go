@@ -179,8 +179,8 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	// so it will not be found.
 	for podUID := range vmi.Status.ActivePods {
 		socketPodDir := SocketDirectoryOnHost(string(podUID))
-		exists, _ := diskutils.FileExists(socketPodDir)
-		if exists {
+		_, err := safepath.NewPathNoFollow(socketPodDir)
+		if err == nil {
 			return socketPodDir, nil
 		}
 	}
