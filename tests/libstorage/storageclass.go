@@ -366,6 +366,9 @@ func isPVAvailable(pv k8sv1.PersistentVolume) bool {
 }
 
 func GetAvailableCSIStorageClass() string {
+	// First try to see if sc defined in config is a CSI enabled storage class
+	rwofsSc, foundConfigSc := GetRWOFileSystemStorageClass()
+
 	virtClient := kubevirt.Client()
 	csiDrivers, err := virtClient.StorageV1().CSIDrivers().List(context.Background(), metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -381,8 +384,18 @@ func GetAvailableCSIStorageClass() string {
 		csiDriverMap[csiDriver.Name] = true
 	}
 
+	// check if sc defined in config is a CSI enabled storage class
+	if foundConfigSc {
+		storageObject, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), rwofsSc, metav1.GetOptions{})
+		if err == nil {
+			if _, ok := csiDriverMap[storageObject.Provisioner]; ok {
+				return rwofsSc
+			}
+		}
+	}
+
+	// else return the first CSI enabled storage class
 	scName := ""
-	// Get all storage classes
 	storageClasses, err := virtClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
