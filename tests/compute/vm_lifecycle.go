@@ -21,11 +21,13 @@ package compute
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	v1 "kubevirt.io/api/core/v1"
@@ -36,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -48,28 +51,78 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	It("[test_id:3007][QUARANTINE] Should force restart a VM with terminationGracePeriodSeconds>0", decorators.Quarantine, func() {
-		By("getting a VM with high TerminationGracePeriod")
-		vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+	Context(" with high TerminationGracePeriod", func() {
+		It("[test_id:3007][QUARANTINE] Should force restart a VM with terminationGracePeriodSeconds>0", decorators.Quarantine, func() {
+			By("getting a VM with high TerminationGracePeriod")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
-		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-		By("Force restarting the VM with grace period of 0")
-		err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{GracePeriodSeconds: pointer.P(int64(0))})
-		Expect(err).ToNot(HaveOccurred())
+			By("Force restarting the VM with grace period of 0")
+			err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{GracePeriodSeconds: pointer.P(int64(0))})
+			Expect(err).ToNot(HaveOccurred())
 
-		// Checks if the old VMI Pod still exists after the force restart
-		Eventually(func() error {
-			_, err := libpod.GetRunningPodByLabel(string(vmi.UID), v1.CreatedByLabel, vm.Namespace, "")
-			return err
-		}, 120*time.Second, 1*time.Second).Should(MatchError(ContainSubstring("failed to find pod with the label")))
+			// Checks if the old VMI Pod still exists after the force restart
+			Eventually(func() error {
+				_, err := libpod.GetRunningPodByLabel(string(vmi.UID), v1.CreatedByLabel, vm.Namespace, "")
+				return err
+			}, 120*time.Second, 1*time.Second).Should(MatchError(ContainSubstring("failed to find pod with the label")))
 
-		By("Comparing the new UID with the old one")
-		Eventually(matcher.ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
+			By("Comparing the new UID with the old one")
+			Eventually(matcher.ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
+		})
+
+		It("should override high TerminationGracePeriod and delete VM promptly when a low TerminationGracePeriodSeconds is provided", Serial, func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmifact.NewCirros(libvmi.WithTerminationGracePeriod(1600)),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+			By("Creating a VM with a high TerminationGracePeriod")
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VMI to start")
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Deleting the VM with grace time of 3 seconds")
+			gracePeriod := int64(3)
+			err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensuring the VMI reflects the updated TerminationGracePeriodSeconds")
+			Eventually(func() error {
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				if *vmi.Spec.TerminationGracePeriodSeconds != gracePeriod {
+					return fmt.Errorf("expected gracePeriod to be %d, but got %d", gracePeriod, *vmi.Spec.TerminationGracePeriodSeconds)
+				}
+				return nil
+			}, 60*time.Second, 1*time.Second).Should(Succeed(), "VMI should have been updated by the patch")
+
+			By("Ensuring the virt-launcher pod is not deleted before grace period ends")
+			Consistently(func() bool {
+				_, err := virtClient.CoreV1().Pods(vm.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+				return !errors.IsNotFound(err)
+			}, time.Duration(gracePeriod)*time.Second, 1*time.Second).Should(BeTrue(), "virt-launcher pod should not be deleted before grace period")
+
+			By("Ensuring the virt-launcher pod is deleted after grace period")
+			Eventually(func() bool {
+				_, err := virtClient.CoreV1().Pods(vm.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+				return errors.IsNotFound(err)
+			}, 120*time.Second, 1*time.Second).Should(BeTrue(), "virt-launcher pod should be deleted after grace period")
+		})
 	})
 
 	It("should force stop a VM with terminationGracePeriodSeconds>0", func() {
