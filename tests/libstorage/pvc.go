@@ -302,7 +302,7 @@ func createSeparateDeviceHostPathPv(osName, namespace, nodeName string) {
 }
 
 func CreateHostPathPv(osName, namespace, hostPath string) string {
-	return createHostPathPvWithSize(osName, namespace, hostPath, "1Gi")
+	return createHostPathPvWithSize(osName, namespace, hostPath, "2Gi")
 }
 
 func createHostPathPvWithSize(osName, namespace, hostPath, size string) string {
