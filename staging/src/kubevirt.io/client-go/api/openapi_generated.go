@@ -34759,6 +34759,12 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineRestoreSpec(ref common
 							Format: "",
 						},
 					},
+					"volumeOwnershipPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"volumeRestoreOverrides": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{

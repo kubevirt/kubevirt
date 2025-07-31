@@ -1889,7 +1889,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				vm = libvmi.NewVirtualMachine(
 					libvmi.New(
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-						libvmi.WithResourceMemory("1Mi"),
+						libvmi.WithMemoryRequest("1Mi"),
 						libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
 					),
 				)
@@ -1941,6 +1941,53 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(pvc.OwnerReferences).To(HaveLen(1))
 				Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
 				Expect(pvc.OwnerReferences[0].Name).To(Equal(restoreVM.Name))
+			})
+
+			It("standalone PVC should have no owner with volumeOwnershipPolicyNone", func() {
+				pvcName := "standalone-pvc"
+				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass)
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm = libvmi.NewVirtualMachine(
+					libvmi.New(
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+						libvmi.WithMemoryRequest("1Mi"),
+						libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
+					),
+				)
+
+				// Create a VM and snapshot it
+				vm, _ = createAndStartVM(vm)
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+
+				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
+				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+
+				// We want the restored PVC to not be owned by the restored VM
+				restoreDef.Spec.VolumeOwnershipPolicy = virtpointer.P(snapshotv1.VolumeOwnershipPolicyNone)
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restoreDef, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+
+				// PVC should have no owner reference when restored
+				r, err := virtClient.VirtualMachineRestore(vm.Namespace).Get(context.Background(), restoreDef.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				restoredVolume := r.Status.Restores[0]
+				Expect(restoredVolume).NotTo(BeNil())
+				restoredPvc := restoredVolume.PersistentVolumeClaimName
+
+				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restoredPvc, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvc.OwnerReferences).To(BeNil())
+
+				deleteRestore(restore)
+				restore = nil
 			})
 
 			It("with run strategy and snapshot should successfully restore", func() {
