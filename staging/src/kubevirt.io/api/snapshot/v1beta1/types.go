@@ -349,6 +349,17 @@ const (
 	VolumeRestorePolicyInPlace VolumeRestorePolicy = "InPlace"
 )
 
+// VolumeOwnershipPolicy defines what owns volumes once they're restored
+type VolumeOwnershipPolicy string
+
+const (
+	// VolumeOwnershipPolicyVm defines a VolumeOwnershipPolicyVm where restored volumes are owned by the restored VM
+	VolumeOwnershipPolicyVm VolumeOwnershipPolicy = "Vm"
+
+	// VolumeOwnershipPolicyNone defines a VolumeOwnershipPolicyVm where restored volumes are not owned by any entity
+	VolumeOwnershipPolicyNone VolumeOwnershipPolicy = "None"
+)
+
 // VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore resource
 type VirtualMachineRestoreSpec struct {
 	// initially only VirtualMachine type supported
@@ -361,6 +372,9 @@ type VirtualMachineRestoreSpec struct {
 
 	// +optional
 	VolumeRestorePolicy *VolumeRestorePolicy `json:"volumeRestorePolicy,omitempty"`
+
+	// +optional
+	VolumeOwnershipPolicy *VolumeOwnershipPolicy `json:"volumeOwnershipPolicy,omitempty"`
 
 	// VolumeRestoreOverrides gives the option to change properties of each restored volume
 	// For example, specifying the name of the restored volume, or adding labels/annotations to it
