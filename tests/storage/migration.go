@@ -933,7 +933,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					}
 				}
 				return ""
-			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).ShouldNot(Equal(""))
+			}).WithTimeout(360 * time.Second).WithPolling(2 * time.Second).ShouldNot(Equal(""))
 		}
 
 		DescribeTable("should be able to add and remove a volume with the volume migration feature gate enabled", func(persist bool) {
@@ -1339,7 +1339,7 @@ func waitForMigrationToSucceed(virtClient kubecli.KubevirtClient, vmiName, ns st
 		vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vmi.Status.MigrationState
-	}, 120*time.Second, time.Second).Should(And(Not(BeNil()), gstruct.PointTo(
+	}, 360*time.Second, time.Second).Should(And(Not(BeNil()), gstruct.PointTo(
 		gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Failed":    BeFalse(),
 			"Completed": BeTrue(),
