@@ -960,7 +960,7 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 	})
 }
 
-func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.ClientCAManager, kubevirtCAManager kvtls.ClientCAManager) {
+func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.KubernetesCAManager, kubevirtCAManager kvtls.ClientCAManager) {
 
 	// A VerifyClientCertIfGiven request means we're not guaranteed
 	// a client has been authenticated unless they provide a peer
