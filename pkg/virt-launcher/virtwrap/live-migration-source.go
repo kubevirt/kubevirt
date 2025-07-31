@@ -734,6 +734,24 @@ func (m *migrationMonitor) startMonitor() {
 			}
 		case libvirt.DOMAIN_JOB_NONE:
 			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
+		case libvirt.DOMAIN_JOB_COMPLETED:
+			logger.Info("Migration has been completed")
+			m.l.setMigrationResult(false, "", "")
+			return
+		case libvirt.DOMAIN_JOB_FAILED:
+			logger.Info("Migration job failed")
+
+			reason := strings.Builder{}
+			reason.WriteString("Domain job failed")
+			if m.migrationFailedWithError != nil {
+				reason.WriteString(fmt.Sprintf(": %v", m.migrationFailedWithError))
+			}
+			if stats.ErrorMessageSet {
+				reason.WriteString(fmt.Sprintf(": %s", stats.ErrorMessage))
+			}
+
+			m.l.setMigrationResult(true, reason.String(), "")
+			return
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
 			m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
