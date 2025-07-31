@@ -681,7 +681,17 @@ func (m *migrationMonitor) startMonitor() {
 			return
 		case libvirt.DOMAIN_JOB_FAILED:
 			logger.Info("Migration job failed")
-			m.l.setMigrationResult(true, fmt.Sprintf("%v", m.migrationFailedWithError), "")
+
+			reason := strings.Builder{}
+			reason.WriteString("Domain job failed")
+			if m.migrationFailedWithError != nil {
+				reason.WriteString(fmt.Sprintf(": %v", m.migrationFailedWithError))
+			}
+			if stats.ErrorMessageSet {
+				reason.WriteString(fmt.Sprintf(": %s", stats.ErrorMessage))
+			}
+
+			m.l.setMigrationResult(true, reason.String(), "")
 			return
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
