@@ -26,7 +26,7 @@ import (
 
 	preferencewebhooks "kubevirt.io/kubevirt/pkg/instancetype/preference/webhooks"
 	instancetypewebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks"
-	storageAdmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
+	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -83,15 +83,15 @@ func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
 }
 
 func ServeVMSnapshots(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, storageAdmitters.NewVMSnapshotAdmitter(clusterConfig, virtCli))
+	validating_webhooks.Serve(resp, req, storageadmitters.NewVMSnapshotAdmitter(clusterConfig, virtCli))
 }
 
 func ServeVMRestores(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
-	validating_webhooks.Serve(resp, req, storageAdmitters.NewVMRestoreAdmitter(clusterConfig, virtCli, informers.VMRestoreInformer))
+	validating_webhooks.Serve(resp, req, storageadmitters.NewVMRestoreAdmitter(clusterConfig, virtCli, informers.VMRestoreInformer))
 }
 
 func ServeVMExports(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
-	validating_webhooks.Serve(resp, req, storageAdmitters.NewVMExportAdmitter(clusterConfig))
+	validating_webhooks.Serve(resp, req, storageadmitters.NewVMExportAdmitter(clusterConfig))
 }
 
 func ServeVmInstancetypes(resp http.ResponseWriter, req *http.Request) {
