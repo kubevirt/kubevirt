@@ -1029,6 +1029,63 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*createCalls).To(Equal(1))
 			})
 
+			It("should create online VirtualMachineSnapshotContent with volume migration", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createLockedVM()
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+				vmRevision := createVMRevision(vm)
+				crSource.Add(vmRevision)
+
+				vm.ObjectMeta.Annotations = map[string]string{}
+
+				vm.Spec.DataVolumeTemplates[0].Name = "alpine-dv-dest"
+				vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name = "alpine-dv-dest"
+
+				vmi := createVMI(vm)
+				vmi.Status.VirtualMachineRevisionName = vmRevisionName
+				vmiSource.Add(vmi)
+
+				vm.ObjectMeta.Generation = 2
+				pvcs := createPVCsForVM(vm)
+				for i := range pvcs {
+					pvcSource.Add(&pvcs[i])
+				}
+
+				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
+				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				}
+				vmSource.Add(vm)
+				storageClass := createStorageClass()
+				storageClassSource.Add(storageClass)
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
+				createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, expectedContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
+					SourceUID:  &vmUID,
+					ReadyToUse: pointer.P(false),
+					Phase:      snapshotv1.InProgress,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+						newReadyCondition(corev1.ConditionFalse, "Not ready"),
+					},
+				}
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
+					snapshotv1.VMSnapshotNoGuestAgentIndication,
+					snapshotv1.VMSnapshotOnlineSnapshotIndication,
+				}
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
+				Expect(*updateStatusCalls).To(Equal(1))
+				Expect(*createCalls).To(Equal(1))
+			})
+
 			It("should update VirtualMachineSnapshotStatus", func() {
 				vmSnapshotContent := createReadyVMSnapshotContent()
 
