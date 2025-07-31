@@ -16,7 +16,8 @@ function validate_single_stack_ipv6() {
     fi
 
     if _kubectl get pod -n ${kube_ns} ${pod} -ojsonpath="{ @.status.podIPs[1] }" > /dev/null 2>&1; then
-        echo "error: single stack cluster expected"
+        echo "error: single stack cluster expected, podIPs"
+        _kubectl get pod -n ${kube_ns} ${pod} -ojsonpath="{ @.status.podIPs }"
         exit 1
     fi
 }
