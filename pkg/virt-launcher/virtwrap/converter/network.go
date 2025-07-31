@@ -43,7 +43,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 	networks := indexNetworksByName(nonAbsentNets)
 
 	for i, iface := range nonAbsentIfaces {
-		_, isExist := networks[iface.Name]
+		network, isExist := networks[iface.Name]
 		if !isExist {
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
 		}
@@ -105,6 +105,14 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 		if iface.State == v1.InterfaceStateLinkDown {
 			domainIface.LinkState = &api.LinkState{State: "down"}
 		}
+
+		isPodNetworkNonDefault := network.Pod != nil && network.Name != "default"
+		// For default pod network, ip and mac address are configured by dhcp.
+		// For non-default pod network, we need to set macaddress.
+		if isPodNetworkNonDefault && iface.MacAddress != "" {
+			domainIface.MAC = &api.MAC{MAC: iface.MacAddress}
+		}
+
 		domainInterfaces = append(domainInterfaces, domainIface)
 	}
 
