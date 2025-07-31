@@ -217,12 +217,25 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 		DescribeTable("is able to hotplug multiple network interfaces", func(plugMethod hotplugMethod) {
 			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
-			By("hotplugging the second interface")
+
+			By("hotplugging the second interface with state down")
 			var err error
 			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
+
 			const secondHotpluggedIfaceName = "iface2"
-			Expect(addBridgeInterface(hotPluggedVM, secondHotpluggedIfaceName, nadName)).To(Succeed())
+			secondIfaceMac, err := libnet.GenerateRandomMac()
+			Expect(err).NotTo(HaveOccurred())
+
+			secondHotpluggedIface := libvmi.InterfaceDeviceWithBridgeBinding(secondHotpluggedIfaceName)
+			secondHotpluggedIface.MacAddress = secondIfaceMac.String()
+			secondHotpluggedIface.State = v1.InterfaceStateLinkDown
+
+			Expect(
+				libnet.PatchVMWithNewInterface(hotPluggedVM,
+					*libvmi.MultusNetwork(secondHotpluggedIfaceName, nadName),
+					secondHotpluggedIface,
+				)).To(Succeed())
 
 			By("wait for the second network to appear in the VMI spec")
 			EventuallyWithOffset(1, func() []v1.Network {
@@ -247,7 +260,17 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 					},
 				))
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
-			Expect(libnet.InterfaceExists(hotPluggedVMI, "eth2")).To(Succeed())
+
+			By("set the guest iface to up and verify state down")
+			secondHotpluggedIfaceStatus := vmispec.LookupInterfaceStatusByName(hotPluggedVMI.Status.Interfaces, secondHotpluggedIfaceName)
+			Expect(secondHotpluggedIfaceStatus).ToNot(BeNil())
+
+			secondGuestIfaceName := secondHotpluggedIfaceStatus.InterfaceName
+			Expect(secondGuestIfaceName).NotTo(BeEmpty())
+
+			Expect(libnet.SetInterfaceUp(hotPluggedVMI, secondGuestIfaceName)).To(Succeed())
+			timeout := 30 * time.Second
+			Expect(console.RunCommand(hotPluggedVMI, libnet.NewLinkStateAssersionCmd(secondIfaceMac.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
@@ -276,8 +299,7 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 	const (
 		linuxBridgeNetworkName1 = "red"
 		linuxBridgeNetworkName2 = "blue"
-
-		nadName = "skynet"
+		nadName                 = "skynet"
 	)
 
 	Context("a running VM", func() {
