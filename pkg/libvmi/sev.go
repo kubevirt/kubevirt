@@ -24,10 +24,18 @@ func WithSEV(isESEnabled bool, isSNPEnabled bool) Option {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 			SEV: &v1.SEV{
 				Policy: &v1.SEVPolicy{
-					EncryptedState:     &isESEnabled,
-					SecureNestedPaging: &isSNPEnabled,
+					EncryptedState: &isESEnabled,
 				},
 			},
+		}
+	}
+}
+
+// WithSEVSNP adds launchsecurity with 'sev-snp'
+func WithSEVSNP(isSNPEnabled bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+			SNP: &v1.SEVSNP{},
 		}
 	}
 }

@@ -3349,11 +3349,7 @@ var _ = Describe("Converter", func() {
 		It("should set LaunchSecurity domain element with 'sev-snp' type with 'Reserved' policy bits", func() {
 			// VMI with SEV-SNP
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
-				SEV: &v1.SEV{
-					Policy: &v1.SEVPolicy{
-						SecureNestedPaging: pointer.P(true),
-					},
-				},
+				SNP: &v1.SEVSNP{},
 			}
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
@@ -3366,11 +3362,12 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 				SEV: &v1.SEV{
 					Policy: &v1.SEVPolicy{
-						SecureNestedPaging: pointer.P(true),
+						EncryptedState: pointer.P(true),
 					},
 				},
 			}
 			domain := vmiToDomain(vmi, c)
+			fmt.Println("Domain Spec:", domain.Spec.MemoryBacking.Source)
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.MemoryBacking.Source).ToNot(BeNil())
 			Expect(domain.Spec.MemoryBacking.Source.Type).To(Equal("memfd"))

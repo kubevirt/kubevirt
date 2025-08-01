@@ -85,28 +85,52 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 
 // Check if a VMI spec requests AMD SEV
 func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
+	return vmi.Spec.Domain.LaunchSecurity != nil && (vmi.Spec.Domain.LaunchSecurity.SEV != nil || vmi.Spec.Domain.LaunchSecurity.SNP != nil)
 }
 
-// Check if a VMI spec requests AMD SEV-ES
+// Check if VMI spec requests AMD SEV-ES
 func IsSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
-	return IsSEVVMI(vmi) &&
-		vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
-		vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState != nil &&
-		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState
+	if !IsSEVVMI(vmi) {
+		return false
+	}
+	if vmi.Spec.Domain.LaunchSecurity.SEV == nil {
+		return false
+	}
+	if vmi.Spec.Domain.LaunchSecurity.SEV.Policy == nil {
+		return false
+	}
+	if vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState == nil {
+		return false
+	}
+	return *vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState
 }
 
 // Check if a VMI spec requests AMD SEV-SNP
 func IsSEVSNPVMI(vmi *v1.VirtualMachineInstance) bool {
-	return IsSEVVMI(vmi) &&
-		vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
-		vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging != nil &&
-		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging
+	if !IsSEVVMI(vmi) {
+		return false
+	}
+	if vmi.Spec.Domain.LaunchSecurity.SNP == nil {
+		return false
+	}
+
+	return true
 }
 
 // Check if a VMI spec requests SEV with attestation
 func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
-	return IsSEVVMI(vmi) && vmi.Spec.Domain.LaunchSecurity.SEV.Attestation != nil
+	if !IsSEVVMI(vmi) {
+		return false
+	}
+	// If SEV-SNP is requested, attestation is not applicable
+	if IsSEVSNPVMI(vmi) {
+		return false
+	}
+	// Check if SEV is configured before accessing Attestation
+	if vmi.Spec.Domain.LaunchSecurity.SEV == nil {
+		return false
+	}
+	return vmi.Spec.Domain.LaunchSecurity.SEV.Attestation != nil
 }
 
 // NeedVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.

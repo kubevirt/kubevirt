@@ -502,6 +502,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SEVMeasurementInfo":                                                 schema_kubevirtio_api_core_v1_SEVMeasurementInfo(ref),
 		"kubevirt.io/api/core/v1.SEVPlatformInfo":                                                    schema_kubevirtio_api_core_v1_SEVPlatformInfo(ref),
 		"kubevirt.io/api/core/v1.SEVPolicy":                                                          schema_kubevirtio_api_core_v1_SEVPolicy(ref),
+		"kubevirt.io/api/core/v1.SEVSNP":                                                             schema_kubevirtio_api_core_v1_SEVSNP(ref),
 		"kubevirt.io/api/core/v1.SEVSecretOptions":                                                   schema_kubevirtio_api_core_v1_SEVSecretOptions(ref),
 		"kubevirt.io/api/core/v1.SEVSessionOptions":                                                  schema_kubevirtio_api_core_v1_SEVSessionOptions(ref),
 		"kubevirt.io/api/core/v1.SMBiosConfiguration":                                                schema_kubevirtio_api_core_v1_SMBiosConfiguration(ref),
@@ -22284,11 +22285,17 @@ func schema_kubevirtio_api_core_v1_LaunchSecurity(ref common.ReferenceCallback) 
 							Ref:         ref("kubevirt.io/api/core/v1.SEV"),
 						},
 					},
+					"snp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AMD SEV-SNP flags defined by the SEV-SNP specifications.",
+							Ref:         ref("kubevirt.io/api/core/v1.SEVSNP"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.SEV"},
+			"kubevirt.io/api/core/v1.SEV", "kubevirt.io/api/core/v1.SEVSNP"},
 	}
 }
 
@@ -24307,9 +24314,70 @@ func schema_kubevirtio_api_core_v1_SEVPolicy(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
-					"secureNestedPaging": {
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_SEVSNP(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"policy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SEV-SNP is required. Defaults to false.",
+							Description: "64-bit SEV-SNP Guest Policy",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"guestVisibleWorkarounds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "16-byte base64 encoded guest hypervisor-defined workarounds.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"idBlock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "96-byte base64 encoded ID Block Structure.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"idAuth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "4096-byte base64 encoded ID Auth Structure.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hostData": {
+						SchemaProps: spec.SchemaProps{
+							Description: "32-byte base64 encoded user-defined blob to provide to the guest.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authorKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether the guest is allowed to use VCEK for attestation reports. Set to false to disable VCEK usage.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"vcek": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether idAuth contains VCEK field for attestation",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"kernelHashes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional attribute to indicate whether the hashes of the kernel, and command line should be included in the measurement done by the firmware.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

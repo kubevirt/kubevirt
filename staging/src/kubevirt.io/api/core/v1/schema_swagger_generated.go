@@ -411,6 +411,7 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 func (LaunchSecurity) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"sev": "AMD Secure Encrypted Virtualization (SEV).",
+		"snp": "AMD SEV-SNP flags defined by the SEV-SNP specifications.\n+optional",
 	}
 }
 
@@ -425,8 +426,20 @@ func (SEV) SwaggerDoc() map[string]string {
 
 func (SEVPolicy) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"encryptedState":     "SEV-ES is required.\nDefaults to false.\n+optional",
-		"secureNestedPaging": "SEV-SNP is required.\nDefaults to false.\n+optional",
+		"encryptedState": "SEV-ES is required.\nDefaults to false.\n+optional",
+	}
+}
+
+func (SEVSNP) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"policy":                  "64-bit SEV-SNP Guest Policy\n+optional",
+		"guestVisibleWorkarounds": "16-byte base64 encoded guest hypervisor-defined workarounds.\n+optional",
+		"idBlock":                 "96-byte base64 encoded ID Block Structure.\n+optional",
+		"idAuth":                  "4096-byte base64 encoded ID Auth Structure.\n+optional",
+		"hostData":                "32-byte base64 encoded user-defined blob to provide to the guest.\n+optional",
+		"authorKey":               "Whether the guest is allowed to use VCEK for attestation reports. Set to false to disable VCEK usage.\n+optional",
+		"vcek":                    "Whether idAuth contains VCEK field for attestation\n+optional",
+		"kernelHashes":            "Optional attribute to indicate whether the hashes of the kernel, and command line should be included in the measurement done by the firmware.",
 	}
 }
 

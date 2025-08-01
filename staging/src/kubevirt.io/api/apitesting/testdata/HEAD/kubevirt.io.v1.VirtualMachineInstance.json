@@ -382,12 +382,21 @@
       "launchSecurity": {
         "sev": {
           "policy": {
-            "encryptedState": true,
-            "secureNestedPaging": true
+            "encryptedState": true
           },
           "attestation": {},
           "session": "sessionValue",
           "dhCert": "dhCertValue"
+        },
+        "snp": {
+          "policy": "policyValue",
+          "guestVisibleWorkarounds": "guestVisibleWorkaroundsValue",
+          "idBlock": "idBlockValue",
+          "idAuth": "idAuthValue",
+          "hostData": "hostDataValue",
+          "authorKey": true,
+          "vcek": true,
+          "kernelHashes": true
         }
       }
     },

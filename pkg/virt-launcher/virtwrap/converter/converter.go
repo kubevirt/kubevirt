@@ -1326,6 +1326,12 @@ func hasIOThreads(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func isEFIVMI(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Firmware != nil &&
+		vmi.Spec.Domain.Firmware.Bootloader != nil &&
+		vmi.Spec.Domain.Firmware.Bootloader.EFI != nil
+}
+
 func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoThreads int) {
 	dedicatedThreads := 0
 
@@ -1503,20 +1509,47 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if c.UseLaunchSecurity {
-		sevPolicyBits := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
-		sevTypeStr := "sev"
-		if vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
-			vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging != nil &&
-			*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging {
-			sevTypeStr = "sev-snp"
+		launchSec := vmi.Spec.Domain.LaunchSecurity
+		if launchSec.SEV == nil && launchSec.SNP != nil {
+			snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
+			domain.Spec.LaunchSecurity = &api.LaunchSecurity{
+				Type: "sev-snp",
+			}
+			if launchSec.SNP.Policy != nil {
+				domain.Spec.LaunchSecurity.Policy = *launchSec.SNP.Policy
+			} else {
+				// Use default policy
+				domain.Spec.LaunchSecurity.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
+			}
+			// If AuthorKey is set, IDAuth and IDBlock must be provided
+			if launchSec.SNP.AuthorKey != nil && *launchSec.SNP.AuthorKey && launchSec.SNP.IDAuth != nil && launchSec.SNP.IDBlock != nil {
+				domain.Spec.LaunchSecurity.AuthorKey = boolToYesNo(launchSec.SNP.AuthorKey, false)
+				domain.Spec.LaunchSecurity.IdBlock = *launchSec.SNP.IDBlock
+				domain.Spec.LaunchSecurity.IdAuth = *launchSec.SNP.IDAuth
+			}
+			if launchSec.SNP.VCEK != nil {
+				domain.Spec.LaunchSecurity.VCEK = boolToYesNo(launchSec.SNP.VCEK, false)
+			}
+			if launchSec.SNP.KernelHashes != nil {
+				domain.Spec.LaunchSecurity.KernelHashes = boolToYesNo(launchSec.SNP.KernelHashes, false)
+			}
+			if launchSec.SNP.HostData != nil {
+				domain.Spec.LaunchSecurity.HostData = *launchSec.SNP.HostData
+			}
+		} else if launchSec.SEV != nil {
+			sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
+			domain.Spec.LaunchSecurity = &api.LaunchSecurity{
+				Type:   "sev",
+				Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
+			}
+			if launchSec.SEV.DHCert != "" {
+				domain.Spec.LaunchSecurity.DHCert = launchSec.SEV.DHCert
+			}
+			if launchSec.SEV.Session != "" {
+				domain.Spec.LaunchSecurity.Session = launchSec.SEV.Session
+			}
 		}
-		// Cbitpos and ReducedPhysBits will be filled automatically by libvirt from the domain capabilities
-		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
-			Type:    sevTypeStr,
-			Policy:  "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
-			DHCert:  vmi.Spec.Domain.LaunchSecurity.SEV.DHCert,
-			Session: vmi.Spec.Domain.LaunchSecurity.SEV.Session,
-		}
+
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
 		}
@@ -1625,7 +1658,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	// SEV-SNP must use memfd
-	if util.IsSEVSNPVMI(vmi) {
+	if util.IsSEVSNPVMI(vmi) || util.IsSEVESVMI(vmi) {
 		if domain.Spec.MemoryBacking == nil {
 			domain.Spec.MemoryBacking = &api.MemoryBacking{}
 		}

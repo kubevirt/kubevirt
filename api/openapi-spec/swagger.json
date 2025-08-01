@@ -15217,6 +15217,10 @@
      "sev": {
       "description": "AMD Secure Encrypted Virtualization (SEV).",
       "$ref": "#/definitions/v1.SEV"
+     },
+     "snp": {
+      "description": "AMD SEV-SNP flags defined by the SEV-SNP specifications.",
+      "$ref": "#/definitions/v1.SEVSNP"
      }
     }
    },
@@ -16264,9 +16268,42 @@
      "encryptedState": {
       "description": "SEV-ES is required. Defaults to false.",
       "type": "boolean"
+     }
+    }
+   },
+   "v1.SEVSNP": {
+    "type": "object",
+    "properties": {
+     "authorKey": {
+      "description": "Whether the guest is allowed to use VCEK for attestation reports. Set to false to disable VCEK usage.",
+      "type": "boolean"
      },
-     "secureNestedPaging": {
-      "description": "SEV-SNP is required. Defaults to false.",
+     "guestVisibleWorkarounds": {
+      "description": "16-byte base64 encoded guest hypervisor-defined workarounds.",
+      "type": "string"
+     },
+     "hostData": {
+      "description": "32-byte base64 encoded user-defined blob to provide to the guest.",
+      "type": "string"
+     },
+     "idAuth": {
+      "description": "4096-byte base64 encoded ID Auth Structure.",
+      "type": "string"
+     },
+     "idBlock": {
+      "description": "96-byte base64 encoded ID Block Structure.",
+      "type": "string"
+     },
+     "kernelHashes": {
+      "description": "Optional attribute to indicate whether the hashes of the kernel, and command line should be included in the measurement done by the firmware.",
+      "type": "boolean"
+     },
+     "policy": {
+      "description": "64-bit SEV-SNP Guest Policy",
+      "type": "string"
+     },
+     "vcek": {
+      "description": "Whether idAuth contains VCEK field for attestation",
       "type": "boolean"
      }
     }

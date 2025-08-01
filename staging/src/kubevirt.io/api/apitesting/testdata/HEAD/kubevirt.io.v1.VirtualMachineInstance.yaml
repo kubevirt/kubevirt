@@ -418,8 +418,16 @@ spec:
         dhCert: dhCertValue
         policy:
           encryptedState: true
-          secureNestedPaging: true
         session: sessionValue
+      snp:
+        authorKey: true
+        guestVisibleWorkarounds: guestVisibleWorkaroundsValue
+        hostData: hostDataValue
+        idAuth: idAuthValue
+        idBlock: idBlockValue
+        kernelHashes: true
+        policy: policyValue
+        vcek: true
     machine:
       type: typeValue
     memory:
