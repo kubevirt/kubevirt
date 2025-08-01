@@ -1,0 +1,1163 @@
+{
+  "kind": "VirtualMachineInstance",
+  "apiVersion": "kubevirt.io/v1",
+  "metadata": {
+    "name": "nameValue",
+    "generateName": "generateNameValue",
+    "namespace": "namespaceValue",
+    "selfLink": "selfLinkValue",
+    "uid": "uidValue",
+    "resourceVersion": "resourceVersionValue",
+    "generation": 7,
+    "creationTimestamp": "2008-01-01T01:01:01Z",
+    "deletionTimestamp": "2009-01-01T01:01:01Z",
+    "deletionGracePeriodSeconds": 10,
+    "labels": {
+      "labelsKey": "labelsValue"
+    },
+    "annotations": {
+      "annotationsKey": "annotationsValue"
+    },
+    "ownerReferences": [
+      {
+        "apiVersion": "apiVersionValue",
+        "kind": "kindValue",
+        "name": "nameValue",
+        "uid": "uidValue",
+        "controller": true,
+        "blockOwnerDeletion": true
+      }
+    ],
+    "finalizers": [
+      "finalizersValue"
+    ],
+    "managedFields": [
+      {
+        "manager": "managerValue",
+        "operation": "operationValue",
+        "apiVersion": "apiVersionValue",
+        "time": "2004-01-01T01:01:01Z",
+        "fieldsType": "fieldsTypeValue",
+        "fieldsV1": {},
+        "subresource": "subresourceValue"
+      }
+    ]
+  },
+  "spec": {
+    "priorityClassName": "priorityClassNameValue",
+    "domain": {
+      "resources": {
+        "requests": {
+          "requestsKey": "0"
+        },
+        "limits": {
+          "limitsKey": "0"
+        },
+        "overcommitGuestOverhead": true
+      },
+      "cpu": {
+        "cores": 4294967291,
+        "sockets": 4294967289,
+        "maxSockets": 4294967286,
+        "threads": 4294967289,
+        "model": "modelValue",
+        "features": [
+          {
+            "name": "nameValue",
+            "policy": "policyValue"
+          }
+        ],
+        "dedicatedCpuPlacement": true,
+        "numa": {
+          "guestMappingPassthrough": {}
+        },
+        "isolateEmulatorThread": true,
+        "realtime": {
+          "mask": "maskValue"
+        }
+      },
+      "memory": {
+        "hugepages": {
+          "pageSize": "pageSizeValue"
+        },
+        "guest": "0",
+        "maxGuest": "0"
+      },
+      "machine": {
+        "type": "typeValue"
+      },
+      "firmware": {
+        "uuid": "uuidValue",
+        "bootloader": {
+          "bios": {
+            "useSerial": true
+          },
+          "efi": {
+            "secureBoot": true,
+            "persistent": true
+          }
+        },
+        "serial": "serialValue",
+        "kernelBoot": {
+          "kernelArgs": "kernelArgsValue",
+          "container": {
+            "image": "imageValue",
+            "imagePullSecret": "imagePullSecretValue",
+            "imagePullPolicy": "imagePullPolicyValue",
+            "kernelPath": "kernelPathValue",
+            "initrdPath": "initrdPathValue"
+          }
+        },
+        "acpi": {
+          "slicNameRef": "slicNameRefValue",
+          "msdmNameRef": "msdmNameRefValue"
+        }
+      },
+      "clock": {
+        "utc": {
+          "offsetSeconds": -13
+        },
+        "timezone": "timezoneValue",
+        "timer": {
+          "hpet": {
+            "tickPolicy": "tickPolicyValue",
+            "present": true
+          },
+          "kvm": {
+            "present": true
+          },
+          "pit": {
+            "tickPolicy": "tickPolicyValue",
+            "present": true
+          },
+          "rtc": {
+            "tickPolicy": "tickPolicyValue",
+            "present": true,
+            "track": "trackValue"
+          },
+          "hyperv": {
+            "present": true
+          }
+        }
+      },
+      "features": {
+        "acpi": {
+          "enabled": true
+        },
+        "apic": {
+          "enabled": true,
+          "endOfInterrupt": true
+        },
+        "hypervPassthrough": {
+          "enabled": true
+        },
+        "hyperv": {
+          "relaxed": {
+            "enabled": true
+          },
+          "vapic": {
+            "enabled": true
+          },
+          "spinlocks": {
+            "enabled": true,
+            "spinlocks": 4294967287
+          },
+          "vpindex": {
+            "enabled": true
+          },
+          "runtime": {
+            "enabled": true
+          },
+          "synic": {
+            "enabled": true
+          },
+          "synictimer": {
+            "enabled": true,
+            "direct": {
+              "enabled": true
+            }
+          },
+          "reset": {
+            "enabled": true
+          },
+          "vendorid": {
+            "enabled": true,
+            "vendorid": "vendoridValue"
+          },
+          "frequencies": {
+            "enabled": true
+          },
+          "reenlightenment": {
+            "enabled": true
+          },
+          "tlbflush": {
+            "enabled": true
+          },
+          "ipi": {
+            "enabled": true
+          },
+          "evmcs": {
+            "enabled": true
+          }
+        },
+        "smm": {
+          "enabled": true
+        },
+        "kvm": {
+          "hidden": true
+        },
+        "pvspinlock": {
+          "enabled": true
+        }
+      },
+      "devices": {
+        "useVirtioTransitional": true,
+        "disableHotplug": true,
+        "disks": [
+          {
+            "name": "nameValue",
+            "disk": {
+              "bus": "busValue",
+              "readonly": true,
+              "pciAddress": "pciAddressValue"
+            },
+            "lun": {
+              "bus": "busValue",
+              "readonly": true,
+              "reservation": true
+            },
+            "cdrom": {
+              "bus": "busValue",
+              "readonly": true,
+              "tray": "trayValue"
+            },
+            "bootOrder": 18446744073709551607,
+            "serial": "serialValue",
+            "dedicatedIOThread": true,
+            "cache": "cacheValue",
+            "io": "ioValue",
+            "tag": "tagValue",
+            "blockSize": {
+              "custom": {
+                "logical": 18446744073709551609,
+                "physical": 18446744073709551608
+              },
+              "matchVolume": {
+                "enabled": true
+              }
+            },
+            "shareable": true,
+            "errorPolicy": "errorPolicyValue"
+          }
+        ],
+        "watchdog": {
+          "name": "nameValue",
+          "i6300esb": {
+            "action": "actionValue"
+          },
+          "diag288": {
+            "action": "actionValue"
+          }
+        },
+        "interfaces": [
+          {
+            "name": "nameValue",
+            "model": "modelValue",
+            "bridge": {},
+            "slirp": {},
+            "masquerade": {},
+            "sriov": {},
+            "macvtap": {},
+            "passt": {},
+            "binding": {
+              "name": "nameValue"
+            },
+            "ports": [
+              {
+                "name": "nameValue",
+                "protocol": "protocolValue",
+                "port": -4
+              }
+            ],
+            "macAddress": "macAddressValue",
+            "bootOrder": 18446744073709551607,
+            "pciAddress": "pciAddressValue",
+            "dhcpOptions": {
+              "bootFileName": "bootFileNameValue",
+              "tftpServerName": "tftpServerNameValue",
+              "ntpServers": [
+                "ntpServersValue"
+              ],
+              "privateOptions": [
+                {
+                  "option": -6,
+                  "value": "valueValue"
+                }
+              ]
+            },
+            "tag": "tagValue",
+            "acpiIndex": -9,
+            "state": "stateValue"
+          }
+        ],
+        "inputs": [
+          {
+            "bus": "busValue",
+            "type": "typeValue",
+            "name": "nameValue"
+          }
+        ],
+        "autoattachPodInterface": true,
+        "autoattachGraphicsDevice": true,
+        "autoattachSerialConsole": true,
+        "logSerialConsole": true,
+        "autoattachMemBalloon": true,
+        "autoattachInputDevice": true,
+        "autoattachVSOCK": true,
+        "rng": {},
+        "blockMultiQueue": true,
+        "networkInterfaceMultiqueue": true,
+        "gpus": [
+          {
+            "name": "nameValue",
+            "deviceName": "deviceNameValue",
+            "claimName": "claimNameValue",
+            "requestName": "requestNameValue",
+            "virtualGPUOptions": {
+              "display": {
+                "enabled": true,
+                "ramFB": {
+                  "enabled": true
+                }
+              }
+            },
+            "tag": "tagValue"
+          }
+        ],
+        "downwardMetrics": {},
+        "panicDevices": [
+          {
+            "model": "modelValue"
+          }
+        ],
+        "filesystems": [
+          {
+            "name": "nameValue",
+            "virtiofs": {}
+          }
+        ],
+        "hostDevices": [
+          {
+            "name": "nameValue",
+            "deviceName": "deviceNameValue",
+            "claimName": "claimNameValue",
+            "requestName": "requestNameValue",
+            "tag": "tagValue"
+          }
+        ],
+        "clientPassthrough": {},
+        "sound": {
+          "name": "nameValue",
+          "model": "modelValue"
+        },
+        "tpm": {
+          "enabled": true,
+          "persistent": true
+        },
+        "video": {
+          "type": "typeValue"
+        }
+      },
+      "ioThreadsPolicy": "ioThreadsPolicyValue",
+      "ioThreads": {
+        "supplementalPoolThreadCount": 4294967269
+      },
+      "chassis": {
+        "manufacturer": "manufacturerValue",
+        "version": "versionValue",
+        "serial": "serialValue",
+        "asset": "assetValue",
+        "sku": "skuValue"
+      },
+      "launchSecurity": {
+        "sev": {
+          "policy": {
+            "encryptedState": true
+          },
+          "attestation": {},
+          "session": "sessionValue",
+          "dhCert": "dhCertValue"
+        }
+      }
+    },
+    "nodeSelector": {
+      "nodeSelectorKey": "nodeSelectorValue"
+    },
+    "affinity": {
+      "nodeAffinity": {
+        "requiredDuringSchedulingIgnoredDuringExecution": {
+          "nodeSelectorTerms": [
+            {
+              "matchExpressions": [
+                {
+                  "key": "keyValue",
+                  "operator": "operatorValue",
+                  "values": [
+                    "valuesValue"
+                  ]
+                }
+              ],
+              "matchFields": [
+                {
+                  "key": "keyValue",
+                  "operator": "operatorValue",
+                  "values": [
+                    "valuesValue"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "preferredDuringSchedulingIgnoredDuringExecution": [
+          {
+            "weight": 1,
+            "preference": {
+              "matchExpressions": [
+                {
+                  "key": "keyValue",
+                  "operator": "operatorValue",
+                  "values": [
+                    "valuesValue"
+                  ]
+                }
+              ],
+              "matchFields": [
+                {
+                  "key": "keyValue",
+                  "operator": "operatorValue",
+                  "values": [
+                    "valuesValue"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "podAffinity": {
+        "requiredDuringSchedulingIgnoredDuringExecution": [
+          {
+            "labelSelector": {
+              "matchLabels": {
+                "matchLabelsKey": "matchLabelsValue"
+              },
+              "matchExpressions": [
+                {
+                  "key": "keyValue",
+                  "operator": "operatorValue",
+                  "values": [
+                    "valuesValue"
+                  ]
+                }
+              ]
+            },
+            "namespaces": [
+              "namespacesValue"
+            ],
+            "topologyKey": "topologyKeyValue",
+            "namespaceSelector": {
+              "matchLabels": {
+                "matchLabelsKey": "matchLabelsValue"
+              },
+              "matchExpressions": [
+                {
+                  "key": "keyValue",
+                  "operator": "operatorValue",
+                  "values": [
+                    "valuesValue"
+                  ]
+                }
+              ]
+            },
+            "matchLabelKeys": [
+              "matchLabelKeysValue"
+            ],
+            "mismatchLabelKeys": [
+              "mismatchLabelKeysValue"
+            ]
+          }
+        ],
+        "preferredDuringSchedulingIgnoredDuringExecution": [
+          {
+            "weight": 1,
+            "podAffinityTerm": {
+              "labelSelector": {
+                "matchLabels": {
+                  "matchLabelsKey": "matchLabelsValue"
+                },
+                "matchExpressions": [
+                  {
+                    "key": "keyValue",
+                    "operator": "operatorValue",
+                    "values": [
+                      "valuesValue"
+                    ]
+                  }
+                ]
+              },
+              "namespaces": [
+                "namespacesValue"
+              ],
+              "topologyKey": "topologyKeyValue",
+              "namespaceSelector": {
+                "matchLabels": {
+                  "matchLabelsKey": "matchLabelsValue"
+                },
+                "matchExpressions": [
+                  {
+                    "key": "keyValue",
+                    "operator": "operatorValue",
+                    "values": [
+                      "valuesValue"
+                    ]
+                  }
+                ]
+              },
+              "matchLabelKeys": [
+                "matchLabelKeysValue"
+              ],
+              "mismatchLabelKeys": [
+                "mismatchLabelKeysValue"
+              ]
+            }
+          }
+        ]
+      },
+      "podAntiAffinity": {
+        "requiredDuringSchedulingIgnoredDuringExecution": [
+          {
+            "labelSelector": {
+              "matchLabels": {
+                "matchLabelsKey": "matchLabelsValue"
+              },
+              "matchExpressions": [
+                {
+                  "key": "keyValue",
+                  "operator": "operatorValue",
+                  "values": [
+                    "valuesValue"
+                  ]
+                }
+              ]
+            },
+            "namespaces": [
+              "namespacesValue"
+            ],
+            "topologyKey": "topologyKeyValue",
+            "namespaceSelector": {
+              "matchLabels": {
+                "matchLabelsKey": "matchLabelsValue"
+              },
+              "matchExpressions": [
+                {
+                  "key": "keyValue",
+                  "operator": "operatorValue",
+                  "values": [
+                    "valuesValue"
+                  ]
+                }
+              ]
+            },
+            "matchLabelKeys": [
+              "matchLabelKeysValue"
+            ],
+            "mismatchLabelKeys": [
+              "mismatchLabelKeysValue"
+            ]
+          }
+        ],
+        "preferredDuringSchedulingIgnoredDuringExecution": [
+          {
+            "weight": 1,
+            "podAffinityTerm": {
+              "labelSelector": {
+                "matchLabels": {
+                  "matchLabelsKey": "matchLabelsValue"
+                },
+                "matchExpressions": [
+                  {
+                    "key": "keyValue",
+                    "operator": "operatorValue",
+                    "values": [
+                      "valuesValue"
+                    ]
+                  }
+                ]
+              },
+              "namespaces": [
+                "namespacesValue"
+              ],
+              "topologyKey": "topologyKeyValue",
+              "namespaceSelector": {
+                "matchLabels": {
+                  "matchLabelsKey": "matchLabelsValue"
+                },
+                "matchExpressions": [
+                  {
+                    "key": "keyValue",
+                    "operator": "operatorValue",
+                    "values": [
+                      "valuesValue"
+                    ]
+                  }
+                ]
+              },
+              "matchLabelKeys": [
+                "matchLabelKeysValue"
+              ],
+              "mismatchLabelKeys": [
+                "mismatchLabelKeysValue"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "schedulerName": "schedulerNameValue",
+    "tolerations": [
+      {
+        "key": "keyValue",
+        "operator": "operatorValue",
+        "value": "valueValue",
+        "effect": "effectValue",
+        "tolerationSeconds": 5
+      }
+    ],
+    "topologySpreadConstraints": [
+      {
+        "maxSkew": 1,
+        "topologyKey": "topologyKeyValue",
+        "whenUnsatisfiable": "whenUnsatisfiableValue",
+        "labelSelector": {
+          "matchLabels": {
+            "matchLabelsKey": "matchLabelsValue"
+          },
+          "matchExpressions": [
+            {
+              "key": "keyValue",
+              "operator": "operatorValue",
+              "values": [
+                "valuesValue"
+              ]
+            }
+          ]
+        },
+        "minDomains": 5,
+        "nodeAffinityPolicy": "nodeAffinityPolicyValue",
+        "nodeTaintsPolicy": "nodeTaintsPolicyValue",
+        "matchLabelKeys": [
+          "matchLabelKeysValue"
+        ]
+      }
+    ],
+    "evictionStrategy": "evictionStrategyValue",
+    "startStrategy": "startStrategyValue",
+    "terminationGracePeriodSeconds": -29,
+    "volumes": [
+      {
+        "name": "nameValue",
+        "hostDisk": {
+          "path": "pathValue",
+          "type": "typeValue",
+          "capacity": "0",
+          "shared": true
+        },
+        "persistentVolumeClaim": {
+          "claimName": "claimNameValue",
+          "readOnly": true,
+          "hotpluggable": true
+        },
+        "cloudInitNoCloud": {
+          "secretRef": {
+            "name": "nameValue"
+          },
+          "userDataBase64": "userDataBase64Value",
+          "userData": "userDataValue",
+          "networkDataSecretRef": {
+            "name": "nameValue"
+          },
+          "networkDataBase64": "networkDataBase64Value",
+          "networkData": "networkDataValue"
+        },
+        "cloudInitConfigDrive": {
+          "secretRef": {
+            "name": "nameValue"
+          },
+          "userDataBase64": "userDataBase64Value",
+          "userData": "userDataValue",
+          "networkDataSecretRef": {
+            "name": "nameValue"
+          },
+          "networkDataBase64": "networkDataBase64Value",
+          "networkData": "networkDataValue"
+        },
+        "sysprep": {
+          "secret": {
+            "name": "nameValue"
+          },
+          "configMap": {
+            "name": "nameValue"
+          }
+        },
+        "containerDisk": {
+          "image": "imageValue",
+          "imagePullSecret": "imagePullSecretValue",
+          "path": "pathValue",
+          "imagePullPolicy": "imagePullPolicyValue"
+        },
+        "ephemeral": {
+          "persistentVolumeClaim": {
+            "claimName": "claimNameValue",
+            "readOnly": true
+          }
+        },
+        "emptyDisk": {
+          "capacity": "0"
+        },
+        "dataVolume": {
+          "name": "nameValue",
+          "hotpluggable": true
+        },
+        "configMap": {
+          "name": "nameValue",
+          "optional": true,
+          "volumeLabel": "volumeLabelValue"
+        },
+        "secret": {
+          "secretName": "secretNameValue",
+          "optional": true,
+          "volumeLabel": "volumeLabelValue"
+        },
+        "downwardAPI": {
+          "fields": [
+            {
+              "path": "pathValue",
+              "fieldRef": {
+                "apiVersion": "apiVersionValue",
+                "fieldPath": "fieldPathValue"
+              },
+              "resourceFieldRef": {
+                "containerName": "containerNameValue",
+                "resource": "resourceValue",
+                "divisor": "0"
+              },
+              "mode": 4
+            }
+          ],
+          "volumeLabel": "volumeLabelValue"
+        },
+        "serviceAccount": {
+          "serviceAccountName": "serviceAccountNameValue"
+        },
+        "downwardMetrics": {},
+        "memoryDump": {
+          "claimName": "claimNameValue",
+          "readOnly": true,
+          "hotpluggable": true
+        }
+      }
+    ],
+    "livenessProbe": {
+      "exec": {
+        "command": [
+          "commandValue"
+        ]
+      },
+      "guestAgentPing": {},
+      "httpGet": {
+        "path": "pathValue",
+        "port": "portValue",
+        "host": "hostValue",
+        "scheme": "schemeValue",
+        "httpHeaders": [
+          {
+            "name": "nameValue",
+            "value": "valueValue"
+          }
+        ]
+      },
+      "tcpSocket": {
+        "port": "portValue",
+        "host": "hostValue"
+      },
+      "initialDelaySeconds": -19,
+      "timeoutSeconds": -14,
+      "periodSeconds": -13,
+      "successThreshold": -16,
+      "failureThreshold": -16
+    },
+    "readinessProbe": {
+      "exec": {
+        "command": [
+          "commandValue"
+        ]
+      },
+      "guestAgentPing": {},
+      "httpGet": {
+        "path": "pathValue",
+        "port": "portValue",
+        "host": "hostValue",
+        "scheme": "schemeValue",
+        "httpHeaders": [
+          {
+            "name": "nameValue",
+            "value": "valueValue"
+          }
+        ]
+      },
+      "tcpSocket": {
+        "port": "portValue",
+        "host": "hostValue"
+      },
+      "initialDelaySeconds": -19,
+      "timeoutSeconds": -14,
+      "periodSeconds": -13,
+      "successThreshold": -16,
+      "failureThreshold": -16
+    },
+    "hostname": "hostnameValue",
+    "subdomain": "subdomainValue",
+    "networks": [
+      {
+        "name": "nameValue",
+        "pod": {
+          "vmNetworkCIDR": "vmNetworkCIDRValue",
+          "vmIPv6NetworkCIDR": "vmIPv6NetworkCIDRValue"
+        },
+        "multus": {
+          "networkName": "networkNameValue",
+          "default": true
+        }
+      }
+    ],
+    "dnsPolicy": "dnsPolicyValue",
+    "dnsConfig": {
+      "nameservers": [
+        "nameserversValue"
+      ],
+      "searches": [
+        "searchesValue"
+      ],
+      "options": [
+        {
+          "name": "nameValue",
+          "value": "valueValue"
+        }
+      ]
+    },
+    "accessCredentials": [
+      {
+        "sshPublicKey": {
+          "source": {
+            "secret": {
+              "secretName": "secretNameValue"
+            }
+          },
+          "propagationMethod": {
+            "configDrive": {},
+            "noCloud": {},
+            "qemuGuestAgent": {
+              "users": [
+                "usersValue"
+              ]
+            }
+          }
+        },
+        "userPassword": {
+          "source": {
+            "secret": {
+              "secretName": "secretNameValue"
+            }
+          },
+          "propagationMethod": {
+            "qemuGuestAgent": {}
+          }
+        }
+      }
+    ],
+    "architecture": "architectureValue",
+    "resourceClaims": [
+      {
+        "name": "nameValue",
+        "resourceClaimName": "resourceClaimNameValue",
+        "resourceClaimTemplateName": "resourceClaimTemplateNameValue"
+      }
+    ]
+  },
+  "status": {
+    "nodeName": "nodeNameValue",
+    "reason": "reasonValue",
+    "conditions": [
+      {
+        "type": "typeValue",
+        "status": "statusValue",
+        "lastProbeTime": "1987-01-01T01:01:01Z",
+        "lastTransitionTime": "1982-01-01T01:01:01Z",
+        "reason": "reasonValue",
+        "message": "messageValue"
+      }
+    ],
+    "phase": "phaseValue",
+    "phaseTransitionTimestamps": [
+      {
+        "phase": "phaseValue",
+        "phaseTransitionTimestamp": "1976-01-01T01:01:01Z"
+      }
+    ],
+    "interfaces": [
+      {
+        "ipAddress": "ipAddressValue",
+        "mac": "macValue",
+        "name": "nameValue",
+        "ipAddresses": [
+          "ipAddressesValue"
+        ],
+        "podInterfaceName": "podInterfaceNameValue",
+        "interfaceName": "interfaceNameValue",
+        "infoSource": "infoSourceValue",
+        "queueCount": -10,
+        "linkState": "linkStateValue"
+      }
+    ],
+    "guestOSInfo": {
+      "name": "nameValue",
+      "kernelRelease": "kernelReleaseValue",
+      "version": "versionValue",
+      "prettyName": "prettyNameValue",
+      "versionId": "versionIdValue",
+      "kernelVersion": "kernelVersionValue",
+      "machine": "machineValue",
+      "id": "idValue"
+    },
+    "migrationState": {
+      "startTimestamp": "1986-01-01T01:01:01Z",
+      "endTimestamp": "1988-01-01T01:01:01Z",
+      "targetNodeDomainReadyTimestamp": "1970-01-01T01:01:01Z",
+      "targetNodeDomainDetected": true,
+      "targetNodeAddress": "targetNodeAddressValue",
+      "targetDirectMigrationNodePorts": {
+        "targetDirectMigrationNodePortsKey": -30
+      },
+      "targetNode": "targetNodeValue",
+      "targetPod": "targetPodValue",
+      "targetAttachmentPodUID": "targetAttachmentPodUIDValue",
+      "sourceNode": "sourceNodeValue",
+      "sourcePod": "sourcePodValue",
+      "completed": true,
+      "failed": true,
+      "abortRequested": true,
+      "abortStatus": "abortStatusValue",
+      "failureReason": "failureReasonValue",
+      "migrationUid": "migrationUidValue",
+      "mode": "modeValue",
+      "migrationPolicyName": "migrationPolicyNameValue",
+      "migrationConfiguration": {
+        "nodeDrainTaintKey": "nodeDrainTaintKeyValue",
+        "parallelOutboundMigrationsPerNode": 4294967263,
+        "parallelMigrationsPerCluster": 4294967268,
+        "allowAutoConverge": true,
+        "bandwidthPerMigration": "0",
+        "completionTimeoutPerGiB": -23,
+        "progressTimeout": -15,
+        "unsafeMigrationOverride": true,
+        "allowPostCopy": true,
+        "allowWorkloadDisruption": true,
+        "disableTLS": true,
+        "network": "networkValue",
+        "matchSELinuxLevelOnMigration": true
+      },
+      "targetCPUSet": [
+        -12
+      ],
+      "targetNodeTopology": "targetNodeTopologyValue",
+      "sourcePersistentStatePVCName": "sourcePersistentStatePVCNameValue",
+      "targetPersistentStatePVCName": "targetPersistentStatePVCNameValue",
+      "sourceState": {
+        "node": "nodeValue",
+        "pod": "podValue",
+        "migrationUID": "migrationUIDValue",
+        "domainName": "domainNameValue",
+        "domainNamespace": "domainNamespaceValue",
+        "syncAddress": "syncAddressValue",
+        "persistentStatePVCName": "persistentStatePVCNameValue",
+        "selinuxContext": "selinuxContextValue",
+        "virtualMachineInstanceUID": "virtualMachineInstanceUIDValue",
+        "nodeSelectors": {
+          "nodeSelectorsKey": "nodeSelectorsValue"
+        }
+      },
+      "targetState": {
+        "node": "nodeValue",
+        "pod": "podValue",
+        "migrationUID": "migrationUIDValue",
+        "domainName": "domainNameValue",
+        "domainNamespace": "domainNamespaceValue",
+        "syncAddress": "syncAddressValue",
+        "persistentStatePVCName": "persistentStatePVCNameValue",
+        "selinuxContext": "selinuxContextValue",
+        "virtualMachineInstanceUID": "virtualMachineInstanceUIDValue",
+        "domainReadyTimestamp": "1980-01-01T01:01:01Z",
+        "domainDetected": true,
+        "nodeAddress": "nodeAddressValue",
+        "directMigrationNodePorts": {
+          "directMigrationNodePortsKey": -24
+        },
+        "attachmentPodUID": "attachmentPodUIDValue",
+        "cpuSet": [
+          -6
+        ],
+        "nodeTopology": "nodeTopologyValue"
+      },
+      "migrationNetworkType": "migrationNetworkTypeValue"
+    },
+    "migrationMethod": "migrationMethodValue",
+    "migrationTransport": "migrationTransportValue",
+    "qosClass": "qosClassValue",
+    "launcherContainerImageVersion": "launcherContainerImageVersionValue",
+    "evacuationNodeName": "evacuationNodeNameValue",
+    "activePods": {
+      "activePodsKey": "activePodsValue"
+    },
+    "volumeStatus": [
+      {
+        "name": "nameValue",
+        "target": "targetValue",
+        "phase": "phaseValue",
+        "reason": "reasonValue",
+        "message": "messageValue",
+        "persistentVolumeClaimInfo": {
+          "claimName": "claimNameValue",
+          "accessModes": [
+            "accessModesValue"
+          ],
+          "volumeMode": "volumeModeValue",
+          "capacity": {
+            "capacityKey": "0"
+          },
+          "requests": {
+            "requestsKey": "0"
+          },
+          "preallocated": true,
+          "filesystemOverhead": "filesystemOverheadValue"
+        },
+        "hotplugVolume": {
+          "attachPodName": "attachPodNameValue",
+          "attachPodUID": "attachPodUIDValue"
+        },
+        "size": -4,
+        "memoryDumpVolume": {
+          "startTimestamp": "1986-01-01T01:01:01Z",
+          "endTimestamp": "1988-01-01T01:01:01Z",
+          "claimName": "claimNameValue",
+          "targetFileName": "targetFileNameValue"
+        },
+        "containerDiskVolume": {
+          "checksum": 4294967288
+        }
+      }
+    ],
+    "kernelBootStatus": {
+      "kernelInfo": {
+        "checksum": 4294967288
+      },
+      "initrdInfo": {
+        "checksum": 4294967288
+      }
+    },
+    "fsFreezeStatus": "fsFreezeStatusValue",
+    "topologyHints": {
+      "tscFrequency": -12
+    },
+    "virtualMachineRevisionName": "virtualMachineRevisionNameValue",
+    "runtimeUser": 18446744073709551605,
+    "VSOCKCID": 4294967288,
+    "selinuxContext": "selinuxContextValue",
+    "machine": {
+      "type": "typeValue"
+    },
+    "currentCPUTopology": {
+      "cores": 4294967291,
+      "sockets": 4294967289,
+      "threads": 4294967289
+    },
+    "memory": {
+      "guestAtBoot": "0",
+      "guestCurrent": "0",
+      "guestRequested": "0"
+    },
+    "migratedVolumes": [
+      {
+        "volumeName": "volumeNameValue",
+        "sourcePVCInfo": {
+          "claimName": "claimNameValue",
+          "accessModes": [
+            "accessModesValue"
+          ],
+          "volumeMode": "volumeModeValue",
+          "capacity": {
+            "capacityKey": "0"
+          },
+          "requests": {
+            "requestsKey": "0"
+          },
+          "preallocated": true,
+          "filesystemOverhead": "filesystemOverheadValue"
+        },
+        "destinationPVCInfo": {
+          "claimName": "claimNameValue",
+          "accessModes": [
+            "accessModesValue"
+          ],
+          "volumeMode": "volumeModeValue",
+          "capacity": {
+            "capacityKey": "0"
+          },
+          "requests": {
+            "requestsKey": "0"
+          },
+          "preallocated": true,
+          "filesystemOverhead": "filesystemOverheadValue"
+        }
+      }
+    ],
+    "deviceStatus": {
+      "gpuStatuses": [
+        {
+          "name": "nameValue",
+          "deviceResourceClaimStatus": {
+            "name": "nameValue",
+            "resourceClaimName": "resourceClaimNameValue",
+            "attributes": {
+              "pciAddress": "pciAddressValue",
+              "mDevUUID": "mDevUUIDValue"
+            }
+          }
+        }
+      ],
+      "hostDeviceStatuses": [
+        {
+          "name": "nameValue",
+          "deviceResourceClaimStatus": {
+            "name": "nameValue",
+            "resourceClaimName": "resourceClaimNameValue",
+            "attributes": {
+              "pciAddress": "pciAddressValue",
+              "mDevUUID": "mDevUUIDValue"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
