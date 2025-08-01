@@ -43,7 +43,6 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 
-	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -712,13 +711,13 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		log.Log.V(4).Info("Add SEV node label selector")
 		opts = append(opts, WithSEVSelector())
 	}
-	if isSEVESVMI(vmi) {
+	if util.IsSEVESVMI(vmi) {
 		log.Log.V(4).Info("Add SEV-ES node label selector")
 		opts = append(opts, WithSEVESSelector())
 	}
-	if util.IsSecureExecutionVMI(vmi) {
-		log.Log.V(4).Info("Add Secure Execution node label selector")
-		opts = append(opts, WithSecureExecutionSelector())
+	if util.IsSEVSNPVMI(vmi) {
+		log.Log.V(4).Info("Add SEV-SNP node label selector")
+		opts = append(opts, WithSEVSNPSelector())
 	}
 
 	return NewNodeSelectorRenderer(
@@ -1604,66 +1603,4 @@ func WithNetTargetAnnotationsGenerator(generator targetAnnotationsGenerator) tem
 
 func hasHugePages(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
-}
-
-// Check if a VMI spec requests AMD SEV-ES
-func isSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
-	return util.IsSEVVMI(vmi) &&
-		vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
-		vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState != nil &&
-		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState
-}
-
-// isGPUVMIDevicePlugins checks if a VMI has any GPUs configured for device plugins
-func isGPUVMIDevicePlugins(vmi *v1.VirtualMachineInstance) bool {
-	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
-		if isGPUDevicePlugin(gpu) {
-			return true
-		}
-	}
-	return false
-}
-
-func isGPUDevicePlugin(gpu v1.GPU) bool {
-	return gpu.DeviceName != "" && gpu.ClaimRequest == nil
-}
-
-// isGPUVMIDRA checks if a VMI has any GPUs configured for Dynamic Resource Allocation
-func isGPUVMIDRA(vmi *v1.VirtualMachineInstance) bool {
-	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
-		if drautil.IsGPUDRA(gpu) {
-			return true
-		}
-	}
-	return false
-}
-
-// isHostDevVMIDevicePlugins checks if a VMI has any HostDevices configured for device plugins
-func isHostDevVMIDevicePlugins(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.HostDevices == nil {
-		return false
-	}
-
-	for _, hostDev := range vmi.Spec.Domain.Devices.HostDevices {
-		if hostDev.DeviceName != "" && hostDev.ClaimRequest == nil {
-			return true
-		}
-	}
-
-	return false
-}
-
-// isHostDevVMIDRA checks if a VMI has any HostDevices configured for Dynamic Resource Allocation
-func isHostDevVMIDRA(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.HostDevices == nil {
-		return false
-	}
-
-	for _, hostDev := range vmi.Spec.Domain.Devices.HostDevices {
-		if hostDev.DeviceName == "" && hostDev.ClaimRequest != nil {
-			return true
-		}
-	}
-
-	return false
 }
