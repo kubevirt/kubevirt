@@ -38,12 +38,17 @@ func SEVPolicyToBits(policy *v1.SEVPolicy) uint {
 	bits := uint(SEVPolicyNoDebug)
 
 	if policy != nil {
-		if policy.SecureNestedPaging != nil && *policy.SecureNestedPaging {
-			return SNPPolicySmt | SNPPolicyReserved
-		} else if policy.EncryptedState != nil && *policy.EncryptedState {
+		if policy.EncryptedState != nil && *policy.EncryptedState {
 			bits = bits | SEVPolicyEncryptedState
 		}
 	}
 
 	return bits
+}
+
+func SEVSNPPolicyToBits(policy *v1.SEVSNP) uint {
+	if policy != nil {
+		return SNPPolicySmt | SNPPolicyReserved
+	}
+	return 0
 }

@@ -7090,15 +7090,13 @@ var CRDsValidation map[string]string = map[string]string{
                                     SEV-ES is required.
                                     Defaults to false.
                                   type: boolean
-                                secureNestedPaging:
-                                  description: |-
-                                    SEV-SNP is required.
-                                    Defaults to false.
-                                  type: boolean
                               type: object
                             session:
                               description: Base64 encoded session blob.
                               type: string
+                          type: object
+                        snp:
+                          description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
                           type: object
                       type: object
                     machine:
@@ -9276,15 +9274,13 @@ var CRDsValidation map[string]string = map[string]string{
                         SEV-ES is required.
                         Defaults to false.
                       type: boolean
-                    secureNestedPaging:
-                      description: |-
-                        SEV-SNP is required.
-                        Defaults to false.
-                      type: boolean
                   type: object
                 session:
                   description: Base64 encoded session blob.
                   type: string
+              type: object
+            snp:
+              description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
               type: object
           type: object
         memory:
@@ -12561,15 +12557,13 @@ var CRDsValidation map[string]string = map[string]string{
                             SEV-ES is required.
                             Defaults to false.
                           type: boolean
-                        secureNestedPaging:
-                          description: |-
-                            SEV-SNP is required.
-                            Defaults to false.
-                          type: boolean
                       type: object
                     session:
                       description: Base64 encoded session blob.
                       type: string
+                  type: object
+                snp:
+                  description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
                   type: object
               type: object
             machine:
@@ -16280,15 +16274,13 @@ var CRDsValidation map[string]string = map[string]string{
                             SEV-ES is required.
                             Defaults to false.
                           type: boolean
-                        secureNestedPaging:
-                          description: |-
-                            SEV-SNP is required.
-                            Defaults to false.
-                          type: boolean
                       type: object
                     session:
                       description: Base64 encoded session blob.
                       type: string
+                  type: object
+                snp:
+                  description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
                   type: object
               type: object
             machine:
@@ -18786,15 +18778,13 @@ var CRDsValidation map[string]string = map[string]string{
                                     SEV-ES is required.
                                     Defaults to false.
                                   type: boolean
-                                secureNestedPaging:
-                                  description: |-
-                                    SEV-SNP is required.
-                                    Defaults to false.
-                                  type: boolean
                               type: object
                             session:
                               description: Base64 encoded session blob.
                               type: string
+                          type: object
+                        snp:
+                          description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
                           type: object
                       type: object
                     machine:
@@ -20225,15 +20215,13 @@ var CRDsValidation map[string]string = map[string]string{
                         SEV-ES is required.
                         Defaults to false.
                       type: boolean
-                    secureNestedPaging:
-                      description: |-
-                        SEV-SNP is required.
-                        Defaults to false.
-                      type: boolean
                   type: object
                 session:
                   description: Base64 encoded session blob.
                   type: string
+              type: object
+            snp:
+              description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
               type: object
           type: object
         memory:
@@ -23499,15 +23487,14 @@ var CRDsValidation map[string]string = map[string]string{
                                             SEV-ES is required.
                                             Defaults to false.
                                           type: boolean
-                                        secureNestedPaging:
-                                          description: |-
-                                            SEV-SNP is required.
-                                            Defaults to false.
-                                          type: boolean
                                       type: object
                                     session:
                                       description: Base64 encoded session blob.
                                       type: string
+                                  type: object
+                                snp:
+                                  description: AMD SEV-SNP flags defined by the SEV-SNP
+                                    specifications.
                                   type: object
                               type: object
                             machine:
@@ -28886,15 +28873,14 @@ var CRDsValidation map[string]string = map[string]string{
                                                 SEV-ES is required.
                                                 Defaults to false.
                                               type: boolean
-                                            secureNestedPaging:
-                                              description: |-
-                                                SEV-SNP is required.
-                                                Defaults to false.
-                                              type: boolean
                                           type: object
                                         session:
                                           description: Base64 encoded session blob.
                                           type: string
+                                      type: object
+                                    snp:
+                                      description: AMD SEV-SNP flags defined by the
+                                        SEV-SNP specifications.
                                       type: object
                                   type: object
                                 machine:

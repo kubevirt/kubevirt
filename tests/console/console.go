@@ -317,5 +317,6 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 }
 
 func RetValue(retcode string) string {
-	return "\n" + retcode + CRLF + ".*" + PromptExpression
+	// Allow for escape sequences and different newline types
+	return "[\r\n].*" + retcode + ".*" + PromptExpression
 }
