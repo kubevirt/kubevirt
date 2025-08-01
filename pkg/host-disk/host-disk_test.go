@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -56,11 +57,16 @@ var _ = Describe("HostDisk", func() {
 	createTempDiskImg := func(volumeName string) os.FileInfo {
 		imgPath := path.Join(tempDir, volumeName, "disk.img")
 
-		err := os.Mkdir(path.Join(tempDir, volumeName), 0755)
+		// 67108864 = 64Mi
+		dir := filepath.Dir(imgPath)
+
+		err := os.Mkdir(dir, 0755)
 		Expect(err).NotTo(HaveOccurred())
 
-		// 67108864 = 64Mi
-		err = createSparseRaw(imgPath, 67108864)
+		sDir, err := safepath.NewPathNoFollow(dir)
+		Expect(err).To(Not(HaveOccurred()))
+
+		err = createSparseRaw(sDir, filepath.Base(imgPath), 67108864)
 		Expect(err).NotTo(HaveOccurred())
 
 		file, err := os.Stat(imgPath)
