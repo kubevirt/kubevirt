@@ -169,7 +169,6 @@ spec:
           - watch
           - patch
           - update
-          - patch
         - apiGroups:
           - ""
           resources:
