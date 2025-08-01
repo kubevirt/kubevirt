@@ -1229,6 +1229,10 @@ const (
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
 	// RestoreRunStrategy is how to restore the run strategy of the VMI
 	RestoreRunStrategy = "kubevirt.io/restore-run-strategy"
+	// OriginalDomainUUID is the domain UUID of the original domain
+	// This is important after a cross namespace/cross cluster migration the domain name of the VM is changed
+	// but if there is a persistent vTPM device, it uses the UUID of the original domain to find the device.
+	OriginalDomainUUID = "kubevirt.io/original-domain-uuid"
 
 	// This annotation represents vmi running nonroot implementation
 	DeprecatedNonRootVMIAnnotation = "kubevirt.io/nonroot"
