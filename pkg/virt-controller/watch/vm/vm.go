@@ -1267,7 +1267,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	}
 
 	// start it
-	vmi := c.setupVMIFromVM(vm)
+	vmi := SetupVMIFromVM(vm)
 	vmRevisionName, err := c.createVMRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
@@ -1294,9 +1294,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, err
 	}
 
-	util.SetDefaultVolumeDisk(&vmi.Spec)
-
-	autoAttachInputDevice(vmi)
+	AutoAttachInputDevice(vmi)
 
 	err = netvmispec.SetDefaultNetworkInterface(c.clusterConfig, &vmi.Spec)
 	if err != nil {
@@ -1885,8 +1883,8 @@ func (c *Controller) createVMRevision(vm *virtv1.VirtualMachine) (string, error)
 	return cr.Name, nil
 }
 
-// setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
-func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
+// SetupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
+func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 	vmi := libvmi.New()
 	vmi.ObjectMeta = *vm.Spec.Template.ObjectMeta.DeepCopy()
 	vmi.ObjectMeta.Name = vm.ObjectMeta.Name
@@ -1911,6 +1909,8 @@ func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMa
 	vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
 		*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
+
+	util.SetDefaultVolumeDisk(&vmi.Spec)
 
 	return vmi
 }
@@ -3332,7 +3332,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav
 	return vm.(*virtv1.VirtualMachine)
 }
 
-func autoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
+func AutoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
 	autoAttachInput := vmi.Spec.Domain.Devices.AutoattachInputDevice
 	// Default to False if nil and return, otherwise return if input devices are already present
 	if autoAttachInput == nil || !*autoAttachInput || len(vmi.Spec.Domain.Devices.Inputs) > 0 {
