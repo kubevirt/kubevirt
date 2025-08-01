@@ -20,12 +20,14 @@
 package hostdisk
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"syscall"
 
+	"golang.org/x/sys/unix"
 	"kubevirt.io/client-go/log"
 
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -47,12 +49,6 @@ const (
 	EventReasonToleratedSmallPV = "ToleratedSmallPV"
 	EventTypeToleratedSmallPV   = k8sv1.EventTypeNormal
 )
-
-// Used by tests.
-func setDiskDirectory(dir string) error {
-	pvcBaseDir = dir
-	return os.MkdirAll(dir, 0750)
-}
 
 func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 	// If PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
@@ -170,13 +166,34 @@ func dirBytesAvailable(path string, reserve uint64) (uint64, error) {
 	return stat.Bavail*uint64(stat.Bsize) - reserve, nil
 }
 
-func createSparseRaw(fullPath string, size int64) (err error) {
+func createSparseRaw(diskdir *safepath.Path, diskName string, size int64) (err error) {
 	offset := size - 1
-	f, err := os.Create(fullPath)
+	if filepath.Base(diskName) != diskName {
+		return fmt.Errorf("Disk name needs to be base")
+	}
+
+	err = safepath.TouchAtNoFollow(diskdir, filepath.Base(diskName), 0666)
+	if err != nil {
+		return fmt.Errorf("Failed touch %s,%s : %v", diskdir, diskName, err)
+	}
+
+	diskPath, err := safepath.JoinNoFollow(diskdir, diskName)
+	if err != nil {
+		return fmt.Errorf("Failed append  %s,%s : %v", diskdir, diskName, err)
+	}
+
+	sFile, err := safepath.OpenAtNoFollow(diskPath)
+	if err != nil {
+		return fmt.Errorf("Failed NewFile %s,%s : %v", diskdir, diskName, err)
+	}
+	defer util.CloseIOAndCheckErr(sFile, &err)
+
+	f, err := os.OpenFile(sFile.SafePath(), os.O_WRONLY, 0666)
 	if err != nil {
 		return err
 	}
 	defer util.CloseIOAndCheckErr(f, &err)
+
 	_, err = f.WriteAt([]byte{0}, offset)
 	if err != nil {
 		return err
@@ -186,14 +203,6 @@ func createSparseRaw(fullPath string, size int64) (err error) {
 
 func getPVCDiskImgPath(volumeName string, diskName string) string {
 	return path.Join(pvcBaseDir, volumeName, diskName)
-}
-
-func GetMountedHostDiskPathFromHandler(mountRoot, volumeName, path string) string {
-	return filepath.Join(mountRoot, getPVCDiskImgPath(volumeName, filepath.Base(path)))
-}
-
-func GetMountedHostDiskDirFromHandler(mountRoot, volumeName string) string {
-	return filepath.Join(mountRoot, getPVCDiskImgPath(volumeName, ""))
 }
 
 func GetMountedHostDiskPath(volumeName string, path string) string {
@@ -242,18 +251,28 @@ func shouldMountHostDisk(hostDisk *v1.HostDisk) bool {
 }
 
 func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineInstance, volumeName string, hostDisk *v1.HostDisk) error {
-	diskPath := GetMountedHostDiskPathFromHandler(unsafepath.UnsafeAbsolute(hdc.mountRoot.Raw()), volumeName, hostDisk.Path)
-	diskDir := GetMountedHostDiskDirFromHandler(unsafepath.UnsafeAbsolute(hdc.mountRoot.Raw()), volumeName)
-	fileExists, err := ephemeraldiskutils.FileExists(diskPath)
+	diskDir, err := hdc.mountRoot.AppendAndResolveWithRelativeRoot(GetMountedHostDiskDir(volumeName))
 	if err != nil {
-		return err
+		return fmt.Errorf("Resolve diskdir : %v", err)
 	}
-	if !fileExists {
-		if err = hdc.handleRequestedSizeAndCreateSparseRaw(vmi, diskDir, diskPath, hostDisk); err != nil {
+
+	diskPath, err := safepath.JoinNoFollow(diskDir, filepath.Base(hostDisk.Path))
+	fileNotExists := errors.Is(err, unix.ENOENT)
+	if err != nil && !fileNotExists {
+		return fmt.Errorf("Resolve diskPath :%v", err)
+	}
+
+	if fileNotExists {
+		if err := hdc.handleRequestedSizeAndCreateSparseRaw(vmi, diskDir, filepath.Base(hostDisk.Path), hostDisk); err != nil {
 			return err
 		}
+
+		diskPath, err = safepath.JoinNoFollow(diskDir, filepath.Base(hostDisk.Path))
+		if err != nil {
+			return fmt.Errorf("last %v", err)
+		}
 		// Change file ownership to the qemu user.
-		if err = ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(diskPath); err != nil {
+		if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(diskPath); err != nil {
 			log.Log.Reason(err).Errorf("Couldn't set Ownership on %s: %v", diskPath, err)
 			return err
 		}
@@ -261,8 +280,8 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 	return nil
 }
 
-func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.VirtualMachineInstance, diskDir string, diskPath string, hostDisk *v1.HostDisk) error {
-	size, err := hdc.dirBytesAvailableFunc(diskDir, hdc.minimumPVCReserveBytes)
+func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.VirtualMachineInstance, diskDir *safepath.Path, diskName string, hostDisk *v1.HostDisk) error {
+	size, err := hdc.dirBytesAvailableFunc(unsafepath.UnsafeAbsolute(diskDir.Raw()), hdc.minimumPVCReserveBytes)
 	availableSize := int64(size)
 	if err != nil {
 		return err
@@ -274,9 +293,10 @@ func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.Virtual
 			return err
 		}
 	}
-	err = createSparseRaw(diskPath, requestedSize)
+	err = createSparseRaw(diskDir, diskName, requestedSize)
 	if err != nil {
-		log.Log.Reason(err).Errorf("Couldn't create a sparse raw file for disk path: %s, error: %v", diskPath, err)
+		fullPath := filepath.Join(unsafepath.UnsafeAbsolute(diskDir.Raw()), diskName)
+		log.Log.Reason(err).Errorf("Couldn't create a sparse raw file for disk path: %s, error: %v", fullPath, err)
 		return err
 	}
 	return nil
