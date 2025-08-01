@@ -102,6 +102,10 @@ var (
 	WgS390x = Label("wg-s390x")
 	WgArm64 = Label("wg-arm64")
 
+	RequiresAMD64 = Label("requires-amd64")
+	RequiresS390X = Label("requires-s390x")
+	RequiresARM64 = Label("requires-arm64")
+
 	// Virtctl related tests
 	Virtctl = Label("virtctl")
 
