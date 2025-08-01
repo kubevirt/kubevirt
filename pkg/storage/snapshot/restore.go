@@ -690,7 +690,7 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 }
 
 func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualMachine) (bool, error) {
-	if !backendstorage.IsBackendStorageNeededForVMI(&snapshotVM.Spec.Template.Spec) {
+	if !backendstorage.IsBackendStorageNeeded(snapshotVM) {
 		return true, nil
 	}
 
@@ -1286,7 +1286,7 @@ func (ctrl *VMRestoreController) deleteObsoleteVolumes(vmRestore *snapshotv1.Vir
 
 func (ctrl *VMRestoreController) deleteObsoleteBackendPVC(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
 	// Target should always exist at this point, just nil check for safety.
-	if target.Exists() && backendstorage.IsBackendStorageNeededForVM(target.VirtualMachine()) {
+	if target.Exists() && backendstorage.IsBackendStorageNeeded(target.VirtualMachine()) {
 		pvcs, err := ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("%s=%s", restoreCleanupBackendPVCLabel, getCleanupLabelValue(vmRestore)),
 		})
