@@ -57,6 +57,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		sevOptions := []libvmi.Option{
 			libvmi.WithUefi(secureBoot),
 			libvmi.WithSEV(withES, withSNP),
+			libvmi.WithCPUModel("EPYC-v4"),
 		}
 		opts = append(sevOptions, opts...)
 		return libvmifact.NewFedora(opts...)
@@ -315,7 +316,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES bool, withSNP bool, sevstr string) {
 				vmi := newSEVFedora(withES, withSNP)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -325,18 +326,18 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: ""},
 					&expect.BSnd{S: "dmesg | grep --color=never SEV\n"},
-					&expect.BExp{R: "AMD Memory Encryption Features active: " + sevstr},
+					&expect.BExp{R: "Memory Encryption Features active: AMD " + sevstr},
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: ""},
-				}, 30)
+				}, 60)
 				Expect(err).ToNot(HaveOccurred())
 			},
 			// SEV-ES disabled, SEV enabled
-			Entry("It should launch with base SEV features enabled", false, "SEV"),
+			Entry("It should launch with base SEV features enabled", false, false, "SEV"),
 			// SEV-ES enabled
-			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, "SEV SEV-ES"),
+			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, false, "SEV SEV-ES"),
 			// SEV-SNP enabled
-			Entry("It should launch with SEV-SNP features enabled", decorators.SEVSNP, true, "SEV SEV-ES SEV-SNP"),
+			Entry("It should launch with SEV-SNP features enabled", decorators.SEVSNP, false, true, "SEV SEV-ES SEV-SNP"),
 		)
 
 		It("[QUARANTINE] should run guest attestation", decorators.Quarantine, func() {

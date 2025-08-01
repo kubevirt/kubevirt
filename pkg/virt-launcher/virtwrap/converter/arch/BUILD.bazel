@@ -12,7 +12,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/pointer:go_default_library",
-        "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
         "//pkg/virt-launcher/virtwrap/launchsecurity:go_default_library",

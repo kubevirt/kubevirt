@@ -293,7 +293,6 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 
 	if n.SEV.Supported == "yes" {
 		newLabels[kubevirtv1.SEVLabel] = "true"
-		newLabels[kubevirtv1.SEVLabel] = "true"
 	}
 
 	if n.SEV.SupportedES == "yes" {
@@ -302,6 +301,10 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 
 	if n.SEV.SupportedSNP == "yes" {
 		newLabels[kubevirtv1.SEVSNPLabel] = "true"
+	}
+
+	if n.SecureExecution.Supported == "yes" {
+		newLabels[kubevirtv1.SecureExecutionLabel] = "true"
 	}
 
 	return newLabels

@@ -23,7 +23,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
@@ -135,16 +134,28 @@ func (converterAMD64) SupportPCIHole64Disabling() bool {
 }
 
 func (converterAMD64) LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
-	// Set SEV launch security parameters: https://libvirt.org/formatdomain.html#launch-security
-	if util.IsSEVVMI(vmi) {
-		sevPolicyBits := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
-		// Cbitpos and ReducedPhysBits will be filled automatically by libvirt from the domain capabilities
-		return &api.LaunchSecurity{
-			Type:    "sev",
-			Policy:  "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
-			DHCert:  vmi.Spec.Domain.LaunchSecurity.SEV.DHCert,
-			Session: vmi.Spec.Domain.LaunchSecurity.SEV.Session,
+	launchSec := vmi.Spec.Domain.LaunchSecurity
+	if launchSec.SEV == nil && launchSec.SNP != nil {
+		snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
+		domain := &api.LaunchSecurity{
+			Type: "sev-snp",
 		}
+		// Use Default Policy
+		domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
+		return domain
+	} else if launchSec.SEV != nil {
+		sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
+		domain := &api.LaunchSecurity{
+			Type:   "sev",
+			Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
+		}
+		if launchSec.SEV.DHCert != "" {
+			domain.DHCert = launchSec.SEV.DHCert
+		}
+		if launchSec.SEV.Session != "" {
+			domain.Session = launchSec.SEV.Session
+		}
+		return domain
 	}
 	return nil
 }

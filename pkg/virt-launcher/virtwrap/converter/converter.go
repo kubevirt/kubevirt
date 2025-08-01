@@ -64,7 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
 const (
@@ -1232,23 +1231,17 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 		},
 	}
 
-	if isEFIVMI(vmi) {
+	if vmi.IsBootloaderEFI() {
+		domain.Spec.OS.BootLoader = &api.Loader{
+			Path:     c.EFIConfiguration.EFICode,
+			ReadOnly: "yes",
+			Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
+		}
 		if util.IsSEVSNPVMI(vmi) {
 			// SEV-SNP cannot use the pflash loader.
-			domain.Spec.OS.BootLoader = &api.Loader{
-				Path:     c.EFIConfiguration.EFICode,
-				ReadOnly: "yes",
-				Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
-				Type:     "rom",
-			}
+			domain.Spec.OS.BootLoader.Type = "rom"
 		} else {
-			domain.Spec.OS.BootLoader = &api.Loader{
-				Path:     c.EFIConfiguration.EFICode,
-				ReadOnly: "yes",
-				Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
-				Type:     "pflash",
-			}
-
+			domain.Spec.OS.BootLoader.Type = "pflash"
 			domain.Spec.OS.NVRam = &api.NVRam{
 				Template: c.EFIConfiguration.EFIVars,
 				NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
@@ -1547,20 +1540,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if c.UseLaunchSecurity {
-		sevPolicyBits := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
-		sevTypeStr := "sev"
-		if vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
-			vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging != nil &&
-			*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging {
-			sevTypeStr = "sev-snp"
-		}
-		// Cbitpos and ReducedPhysBits will be filled automatically by libvirt from the domain capabilities
-		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
-			Type:    sevTypeStr,
-			Policy:  "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
-			DHCert:  vmi.Spec.Domain.LaunchSecurity.SEV.DHCert,
-			Session: vmi.Spec.Domain.LaunchSecurity.SEV.Session,
-		}
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
 		}
@@ -1665,19 +1644,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 					},
 				},
 			}
-		}
-	}
-
-	// SEV-SNP must use memfd
-	if util.IsSEVSNPVMI(vmi) {
-		if domain.Spec.MemoryBacking == nil {
-			domain.Spec.MemoryBacking = &api.MemoryBacking{}
-		}
-		domain.Spec.MemoryBacking.Source = &api.MemoryBackingSource{
-			Type: "memfd",
-		}
-		domain.Spec.MemoryBacking.Access = &api.MemoryBackingAccess{
-			Mode: "private",
 		}
 	}
 

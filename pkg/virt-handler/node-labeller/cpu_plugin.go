@@ -154,16 +154,16 @@ func (n *NodeLabeller) getDomCapabilities() (HostDomCapabilities, error) {
 		return hostDomCapabilities, err
 	}
 
-	if hostDomCapabilities.SEV.Supported == "yes" && hostDomCapabilities.SEV.MaxESGuests > 0 {
-		hostDomCapabilities.SEV.SupportedES = "yes"
-		if hostDomCapabilities.LaunchSecurity.Supported == "yes" && slices.Contains(hostDomCapabilities.LaunchSecurity.SecTypes.Values, "sev-snp") {
-			hostDomCapabilities.SEV.SupportedSNP = "yes"
+	if hostDomCapabilities.SEV.Supported == isSupported && hostDomCapabilities.SEV.MaxESGuests > 0 {
+		hostDomCapabilities.SEV.SupportedES = isSupported
+		if hostDomCapabilities.LaunchSecurity.Supported == isSupported && slices.Contains(hostDomCapabilities.LaunchSecurity.SecTypes.Values, "sev-snp") {
+			hostDomCapabilities.SEV.SupportedSNP = isSupported
 		} else {
-			hostDomCapabilities.SEV.SupportedSNP = "no"
+			hostDomCapabilities.SEV.SupportedSNP = isUnusable
 		}
 	} else {
-		hostDomCapabilities.SEV.SupportedES = "no"
-		hostDomCapabilities.SEV.SupportedSNP = "no"
+		hostDomCapabilities.SEV.SupportedES = isUnusable
+		hostDomCapabilities.SEV.SupportedSNP = isUnusable
 	}
 
 	return hostDomCapabilities, err

@@ -567,13 +567,19 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 			Field:   field.Child("launchSecurity").String(),
 		})
 	}
-	if !config.WorkloadEncryptionSEVEnabled() && launchSecurity.SEV != nil {
+	if !config.WorkloadEncryptionSEVEnabled() && (launchSecurity.SEV != nil || launchSecurity.SNP != nil) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.WorkloadEncryptionSEV),
 			Field:   field.Child("launchSecurity").String(),
 		})
-	} else if launchSecurity.SEV != nil {
+	} else if sevEnabled(launchSecurity) && snpEnabled(launchSecurity) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeForbidden,
+			Message: fmt.Sprintf("%s has both SEV and SEV-SNP configured, but they are mutually exclusive.", field.String()),
+			Field:   field.String(),
+		})
+	} else if sevEnabled(launchSecurity) || snpEnabled(launchSecurity) {
 		firmware := spec.Domain.Firmware
 		if !efiBootEnabled(firmware) {
 			causes = append(causes, metav1.StatusCause{
@@ -589,13 +595,23 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 			})
 		}
 
-		startStrategy := spec.StartStrategy
-		if launchSecurity.SEV.Attestation != nil && (startStrategy == nil || *startStrategy != v1.StartStrategyPaused) {
+		if snpEnabled(launchSecurity) && persistentEFIEnabled(firmware) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("SEV attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
+				Message: "SEV-SNP does not work along with Persistent EFI variables",
 				Field:   field.Child("launchSecurity").String(),
 			})
+		}
+
+		startStrategy := spec.StartStrategy
+		if sevEnabled(launchSecurity) && (startStrategy == nil || *startStrategy != v1.StartStrategyPaused) {
+			if launchSecurity.SEV.Attestation != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("SEV attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
 		}
 
 		for _, iface := range spec.Domain.Devices.Interfaces {
@@ -1446,9 +1462,21 @@ func efiBootEnabled(firmware *v1.Firmware) bool {
 	return firmware != nil && firmware.Bootloader != nil && firmware.Bootloader.EFI != nil
 }
 
+func persistentEFIEnabled(firmware *v1.Firmware) bool {
+	return efiBootEnabled(firmware) &&
+		firmware.Bootloader.EFI.Persistent != nil && *firmware.Bootloader.EFI.Persistent
+}
+
 func secureBootEnabled(firmware *v1.Firmware) bool {
 	return efiBootEnabled(firmware) &&
 		(firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot)
+}
+
+func sevEnabled(launchSecurity *v1.LaunchSecurity) bool {
+	return launchSecurity != nil && launchSecurity.SEV != nil
+}
+func snpEnabled(launchSecurity *v1.LaunchSecurity) bool {
+	return launchSecurity != nil && launchSecurity.SNP != nil
 }
 
 func smmFeatureEnabled(features *v1.Features) bool {
