@@ -197,13 +197,24 @@ func (app *SubresourceAPIApp) httpGetRequestHandler(request *restful.Request, re
 		return
 	}
 
-	if err := json.Unmarshal([]byte(resp), &v); err != nil {
-		log.Log.Reason(err).Error("error unmarshalling response")
-		response.WriteError(http.StatusInternalServerError, err)
-		return
+	switch v {
+	case nil:
+		if nbytes, err := response.Write([]byte(resp)); err != nil {
+			log.Log.Reason(err).Error("Failed to write response")
+			response.WriteError(http.StatusInternalServerError, err)
+		} else if nbytes != len(resp) {
+			err = fmt.Errorf("Failed to write full response: %d of %d written", nbytes, len(resp))
+			log.Log.Reason(err).Error("Incomplete message written")
+			response.WriteError(http.StatusInternalServerError, err)
+		}
+	default:
+		if err := json.Unmarshal([]byte(resp), &v); err != nil {
+			log.Log.Reason(err).Error("error unmarshalling response")
+			response.WriteError(http.StatusInternalServerError, err)
+			return
+		}
+		response.WriteEntity(v)
 	}
-
-	response.WriteEntity(v)
 }
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, *errors.StatusError) {

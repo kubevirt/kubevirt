@@ -3517,6 +3517,17 @@ type LiveUpdateConfiguration struct {
 	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
 }
 
+// ScreenshotResponse contains the display image from the VirtualMachineInstance
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ScreenshotResponse struct {
+	metav1.TypeMeta `json:",inline"`
+	// a string representing the mime-type of the image format
+	Mime string `json:"mime"`
+	// the actual image
+	Data []byte `json:"data"`
+}
+
 // SEVPlatformInfo contains information about the AMD SEV features for the node.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
