@@ -41,10 +41,8 @@ echo 'Performance testing'
 export KUBEVIRT_E2E_PERF_TEST=true
 
 echo 'Preparing directory for artifacts'
-export ARTIFACTS=${ARTIFACTS}/performance
 export AUDIT_CONFIG=${ARTIFACTS}/perfscale-audit-cfg.json
 export AUDIT_RESULTS=${ARTIFACTS}/perfscale-audit-results.json
-rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
 export TESTS_OUT_DIR=${TESTS_OUT_DIR}
