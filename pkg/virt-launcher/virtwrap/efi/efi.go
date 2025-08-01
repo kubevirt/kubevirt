@@ -46,43 +46,86 @@ type EFIEnvironment struct {
 	codeSNP        string
 }
 
-func (e *EFIEnvironment) Bootable(secureBoot, sev bool, snp bool) bool {
-	if secureBoot {
-		return e.varsSecureBoot != "" && e.codeSecureBoot != ""
-	} else if snp {
-		// SEV-SNP only
-		return e.codeSNP != ""
-	} else if sev {
-		// SEV and SEV-ES
-		return e.varsSEV != "" && e.codeSEV != ""
-	} else {
-		return e.vars != "" && e.code != ""
+type SecureVMType int
+
+const (
+	None SecureVMType = iota // Regular VM without confidential computing
+	SEV                      // AMD SEV/SEV-ES VM
+	SNP                      // AMD SNP VM
+)
+
+func (e *EFIEnvironment) Bootable(secureBoot bool, vmType SecureVMType) bool {
+	switch vmType {
+	case SEV:
+		if secureBoot {
+			// secure boot cannot work with SEV
+			return false
+		} else {
+			return e.varsSEV != "" && e.codeSEV != ""
+		}
+	case SNP:
+		if secureBoot {
+			// secure boot not compatible with SNP
+			return false
+		} else {
+			return e.codeSNP != ""
+		}
+	default:
+		if secureBoot {
+			return e.varsSecureBoot != "" && e.codeSecureBoot != ""
+		} else {
+			return e.vars != "" && e.code != ""
+		}
 	}
 }
 
-func (e *EFIEnvironment) EFICode(secureBoot, sev bool, snp bool) string {
-	if secureBoot {
-		return e.codeSecureBoot
-	} else if snp {
-		// SEV-SNP only
-		return e.codeSNP
-	} else if sev {
-		// SEV and SEV-ES
-		return e.codeSEV
-	} else {
-		return e.code
+func (e *EFIEnvironment) EFICode(secureBoot bool, vmType SecureVMType) string {
+	switch vmType {
+	case SEV:
+		if secureBoot {
+			// secure boot cannot work with SEV
+			return ""
+		} else {
+			return e.codeSEV
+		}
+	case SNP:
+		if secureBoot {
+			// secure boot cannot work with SNP
+			return ""
+		} else {
+			return e.codeSNP
+		}
+	default:
+		if secureBoot {
+			return e.codeSecureBoot
+		} else {
+			return e.code
+		}
 	}
 }
 
-func (e *EFIEnvironment) EFIVars(secureBoot, sev bool, snp bool) string {
-	if secureBoot {
-		return e.varsSecureBoot
-	} else if snp {
-		return ""
-	} else if sev {
-		return e.varsSEV
-	} else {
-		return e.vars
+func (e *EFIEnvironment) EFIVars(secureBoot bool, vmType SecureVMType) string {
+	switch vmType {
+	case SEV:
+		if secureBoot {
+			// secure boot cannot work with SEV
+			return ""
+		} else {
+			return e.varsSEV
+		}
+	case SNP:
+		if secureBoot {
+			// secure boot cannot work with SNP
+			return ""
+		} else {
+			return e.varsSEV
+		}
+	default:
+		if secureBoot {
+			return e.varsSecureBoot
+		} else {
+			return e.vars
+		}
 	}
 }
 

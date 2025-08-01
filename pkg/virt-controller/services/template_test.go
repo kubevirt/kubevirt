@@ -1272,11 +1272,7 @@ var _ = Describe("Template", func() {
 
 				It("should add SEV and SEV-SNP node label selector with SEV-SNP workload", func() {
 					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
-						SEV: &v1.SEV{
-							Policy: &v1.SEVPolicy{
-								SecureNestedPaging: pointer.P(true),
-							},
-						},
+						SNP: &v1.SEVSNP{},
 					}
 
 					pod, err := svc.RenderLaunchManifest(vmi)
@@ -1300,6 +1296,14 @@ var _ = Describe("Template", func() {
 					Entry("when no SEV-ES policy bit is set", &v1.SEVPolicy{EncryptedState: nil}),
 					Entry("when SEV-ES policy bit is set to false", &v1.SEVPolicy{EncryptedState: pointer.P(false)}),
 				)
+
+				It("should not add SEV-SNP node label selector when no SEV-SNP workload", func() {
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.SEVSNPLabel))))
+				})
 			})
 
 			Context("When scheduling Secure Execution workloads", func() {
