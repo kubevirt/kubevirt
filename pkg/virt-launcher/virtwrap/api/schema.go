@@ -123,6 +123,7 @@ type DomainSysInfo struct {
 	Hostname string
 	OSInfo   GuestOSInfo
 	Timezone Timezone
+	Load     Load
 }
 
 type GuestOSInfo struct {
@@ -151,6 +152,15 @@ type SEVNodeParameters struct {
 type Timezone struct {
 	Zone   string
 	Offset int
+}
+
+type Load struct {
+	Load1mSet  bool
+	Load1m     float64
+	Load5mSet  bool
+	Load5m     float64
+	Load15mSet bool
+	Load15m    float64
 }
 
 type FSFreeze struct {

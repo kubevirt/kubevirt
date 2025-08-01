@@ -95,6 +95,12 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 			// This metric is using a dedicated collector and is being tested separately
 			"kubevirt_vmi_dirty_rate_bytes_per_second": true,
+
+			// CPU load metrics need an updated libvirt version running on the nodes
+			// that exposes the CPU load information
+			"kubevirt_vmi_guest_load_1m":  true,
+			"kubevirt_vmi_guest_load_5m":  true,
+			"kubevirt_vmi_guest_load_15m": true,
 		}
 
 		It("should contain virt components metrics", func() {
