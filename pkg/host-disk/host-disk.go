@@ -50,12 +50,6 @@ const (
 	EventTypeToleratedSmallPV   = k8sv1.EventTypeNormal
 )
 
-// Used by tests.
-func setDiskDirectory(dir string) error {
-	pvcBaseDir = dir
-	return os.MkdirAll(dir, 0750)
-}
-
 func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 	// If PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
 	// Filesystem PersistenVolumeClaim is mounted into pod as directory from node filesystem
