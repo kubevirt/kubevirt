@@ -57,8 +57,10 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		sevOptions := []libvmi.Option{
 			libvmi.WithUefi(secureBoot),
 			libvmi.WithSEV(withES, withSNP),
+			libvmi.WithCPUModel("EPYC-v4"),
 		}
 		opts = append(sevOptions, opts...)
+		//return libvmifact.NewAlpine(opts...)
 		return libvmifact.NewFedora(opts...)
 	}
 
@@ -332,11 +334,11 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 				Expect(err).ToNot(HaveOccurred())
 			},
 			// SEV-ES disabled, SEV enabled
-			Entry("It should launch with base SEV features enabled", false, "SEV"),
+			Entry("It should launch with base SEV features enabled", false, false, "SEV"),
 			// SEV-ES enabled
-			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, "SEV SEV-ES"),
+			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, false, "SEV SEV-ES"),
 			// SEV-SNP enabled
-			Entry("It should launch with SEV-SNP features enabled", decorators.SEVSNP, true, "SEV SEV-ES SEV-SNP"),
+			Entry("It should launch with SEV-SNP features enabled", decorators.SEVSNP, false, true, "SEV SEV-ES SEV-SNP"),
 		)
 
 		It("[QUARANTINE] should run guest attestation", decorators.Quarantine, func() {

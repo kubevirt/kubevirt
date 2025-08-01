@@ -442,13 +442,13 @@
           "launchSecurity": {
             "sev": {
               "policy": {
-                "encryptedState": true,
-                "secureNestedPaging": true
+                "encryptedState": true
               },
               "attestation": {},
               "session": "sessionValue",
               "dhCert": "dhCertValue"
-            }
+            },
+            "snp": {}
           }
         },
         "nodeSelector": {

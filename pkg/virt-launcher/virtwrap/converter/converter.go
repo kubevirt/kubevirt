@@ -64,7 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
 const (
@@ -1326,6 +1325,12 @@ func hasIOThreads(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func isEFIVMI(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Firmware != nil &&
+		vmi.Spec.Domain.Firmware.Bootloader != nil &&
+		vmi.Spec.Domain.Firmware.Bootloader.EFI != nil
+}
+
 func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoThreads int) {
 	dedicatedThreads := 0
 
@@ -1503,26 +1508,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if c.UseLaunchSecurity {
-		sevPolicyBits := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
-		sevTypeStr := "sev"
-		if vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
-			vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging != nil &&
-			*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging {
-			sevTypeStr = "sev-snp"
-		}
-		// Cbitpos and ReducedPhysBits will be filled automatically by libvirt from the domain capabilities
-		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
-			Type:    sevTypeStr,
-			Policy:  "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
-			DHCert:  vmi.Spec.Domain.LaunchSecurity.SEV.DHCert,
-			Session: vmi.Spec.Domain.LaunchSecurity.SEV.Session,
-		}
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
 		}
 		domain.Spec.LaunchSecurity = c.Architecture.LaunchSecurity(vmi)
 	}
-
 	if c.SMBios != nil {
 		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
 			api.Entry{
@@ -1625,7 +1615,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	// SEV-SNP must use memfd
-	if util.IsSEVSNPVMI(vmi) {
+	if util.IsSEVSNPVMI(vmi) || util.IsSEVESVMI(vmi) {
 		if domain.Spec.MemoryBacking == nil {
 			domain.Spec.MemoryBacking = &api.MemoryBacking{}
 		}
