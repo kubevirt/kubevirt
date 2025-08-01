@@ -78,5 +78,29 @@ var (
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
+		{
+			Alert: "GuestVCPUQueueHighWarning",
+			Expr:  intstr.FromString("kubevirt_vmi_guest_vcpu_queue > 10"),
+			Annotations: map[string]string{
+				"description": "VirtualMachineInstance {{ $labels.name }} CPU queue length > 10",
+				"summary":     "Guest vCPU Queue within collection cycle > 10",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "GuestVCPUQueueHighCritical",
+			Expr:  intstr.FromString("kubevirt_vmi_guest_vcpu_queue > 20"),
+			Annotations: map[string]string{
+				"description": "VirtualMachineInstance {{ $labels.name }} CPU queue length > 20",
+				"summary":     "Guest vCPU Queue within collection cycle > 20",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
 	}
 )
