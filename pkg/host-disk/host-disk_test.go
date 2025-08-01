@@ -87,7 +87,7 @@ var _ = Describe("HostDisk", func() {
 		err := os.Mkdir(dir, 0755)
 		Expect(err).NotTo(HaveOccurred())
 
-		sDir, err := safepath.NewPathNoFollow(dir)
+		sDir, err := safepath.JoinAndResolveWithRelativeRoot(tempDir, volumeName)
 		Expect(err).To(Not(HaveOccurred()))
 
 		err = createSparseRaw(sDir, filepath.Base(imgPath), 67108864)
@@ -99,10 +99,13 @@ var _ = Describe("HostDisk", func() {
 	}
 
 	BeforeEach(func() {
-		var err error
-		tempDir, err = os.MkdirTemp("", "host-disk-images")
-		Expect(setDiskDirectory(tempDir)).To(Succeed())
-		Expect(err).NotTo(HaveOccurred())
+		tempDir = GinkgoT().TempDir()
+		Expect(os.MkdirAll(filepath.Join(tempDir, "run", "kubevirt-private", "vmi-disks"), 0777)).To(Succeed())
+		Expect(os.Mkdir(filepath.Join(tempDir, "var"), 0777)).To(Succeed())
+		Expect(os.Symlink(filepath.Join(tempDir, "run"), filepath.Join(tempDir, "var", "run"))).To(Succeed())
+		tempDir = filepath.Join(tempDir, "/var/run/kubevirt-private/vmi-disks")
+
+		pvcBaseDir = tempDir
 
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
