@@ -53,6 +53,7 @@ import (
 var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", decorators.SigCompute, decorators.WgArm64, func() {
 
 	var vmi *v1.VirtualMachineInstance
+	const vncWaitResponseTimeout = time.Second * 45
 
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		BeforeEach(func() {
@@ -64,65 +65,12 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("with VNC connection", func() {
-			vncConnect := func() {
-				pipeOutReader, pipeOutWriter := io.Pipe()
-				defer pipeOutReader.Close()
-
-				k8ResChan := make(chan error)
-				readStop := make(chan string)
-
-				go func() {
-					defer GinkgoRecover()
-					vnc, err := kubevirt.Client().VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name, true)
-					if err != nil {
-						k8ResChan <- err
-						return
-					}
-
-					pipeInReader, _ := io.Pipe()
-					defer pipeInReader.Close()
-
-					k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
-						In:  pipeInReader,
-						Out: pipeOutWriter,
-					})
-				}()
-				// write to FD <- pipeOutReader
-				By("Reading from the VNC socket")
-				go func() {
-					defer GinkgoRecover()
-					buf := make([]byte, 1024)
-					// reading qemu vnc server
-					n, err := pipeOutReader.Read(buf)
-					if err != nil && err != io.EOF {
-						Expect(err).ToNot(HaveOccurred())
-						return
-					}
-					if n == 0 && err == io.EOF {
-						log.Log.Info("zero bytes read from vnc socket.")
-						return
-					}
-					readStop <- string(buf[0:n])
-				}()
-
-				select {
-				case response := <-readStop:
-					// This is the response capture by wireshark when the VNC server is contacted.
-					// This verifies that the test is able to establish a connection with VNC and
-					// communicate.
-					By("Checking the response from VNC server")
-					Expect(response).To(Equal("RFB 003.008\n"))
-				case err := <-k8ResChan:
-					Expect(err).ToNot(HaveOccurred())
-				case <-time.After(45 * time.Second):
-					Fail("Timeout reached while waiting for valid VNC server response")
-				}
-			}
-
 			It("[test_id:1611]should allow accessing the VNC device multiple times", decorators.Conformance, func() {
 
 				for i := 0; i < 10; i++ {
-					vncConnect()
+					ctx, cancel := context.WithTimeout(context.Background(), vncWaitResponseTimeout)
+					DeferCleanup(cancel)
+					vncConnect(ctx, vmi, true)
 				}
 			})
 		})
@@ -206,4 +154,64 @@ func upgradeCheckRoundTripperFromConfig(config *rest.Config, subprotocols []stri
 	return &checkUpgradeRoundTripper{
 		Dialer: dialer,
 	}, nil
+}
+
+func vncConnect(
+	ctx context.Context,
+	vmi *v1.VirtualMachineInstance,
+	force bool,
+) {
+	Expect(ctx).ToNot(BeNil())
+	pipeOutReader, pipeOutWriter := io.Pipe()
+	defer pipeOutReader.Close()
+
+	k8ResChan := make(chan error)
+	readStop := make(chan string)
+
+	go func() {
+		defer GinkgoRecover()
+		vnc, err := kubevirt.Client().VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name, force)
+		if err != nil {
+			k8ResChan <- err
+			return
+		}
+
+		pipeInReader, _ := io.Pipe()
+		defer pipeInReader.Close()
+
+		k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
+			In:  pipeInReader,
+			Out: pipeOutWriter,
+		})
+	}()
+	// write to FD <- pipeOutReader
+	By("Reading from the VNC socket")
+	go func() {
+		defer GinkgoRecover()
+		buf := make([]byte, 1024)
+		// reading qemu vnc server
+		n, err := pipeOutReader.Read(buf)
+		if err != nil && err != io.EOF {
+			Expect(err).ToNot(HaveOccurred())
+			return
+		}
+		if n == 0 && err == io.EOF {
+			log.Log.Info("zero bytes read from vnc socket.")
+			return
+		}
+		readStop <- string(buf[0:n])
+	}()
+
+	select {
+	case response := <-readStop:
+		// This is the response capture by wireshark when the VNC server is contacted.
+		// This verifies that the test is able to establish a connection with VNC and
+		// communicate.
+		By("Checking the response from VNC server")
+		Expect(response).To(Equal("RFB 003.008\n"))
+	case err := <-k8ResChan:
+		Expect(err).ToNot(HaveOccurred())
+	case <-ctx.Done():
+		Expect(ctx.Err()).ToNot(HaveOccurred())
+	}
 }
