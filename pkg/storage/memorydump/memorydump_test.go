@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -224,7 +225,7 @@ func ApplyVMIMemoryDumpVol(spec *v1.VirtualMachineInstanceSpec) {
 }
 
 func createVirtualMachineWithMemoryDump(memoryDumpPhase v1.MemoryDumpPhase) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
-	vmi := api.NewMinimalVMI(vmName)
+	vmi := libvmi.New(libvmi.WithName(vmName))
 	vmi.Status.Phase = v1.Running
 	vm := &v1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: "vm-uid"},
