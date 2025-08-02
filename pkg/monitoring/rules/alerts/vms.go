@@ -78,5 +78,18 @@ var (
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
+		{
+			Alert: "KubeVirtVMGuestMemoryHigh",
+			Expr:  intstr.FromString("(kubevirt_vmi_memory_used_bytes / on(name, namespace, node) kubevirt_vmi_memory_available_bytes) > 0.85"),
+			For:   ptr.To(promv1.Duration("5m")),
+			Annotations: map[string]string{
+				"description": "The Virtual machine {{ $labels.name }} in namespace {{ $labels.namespace }}, running on node {{ $labels.node }}, has high memory usage ({{ $value | humanizePercentage }}) for more than 5 minutes.",
+				"summary":     "The Virtual machine has high memory usage.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
 	}
 )
