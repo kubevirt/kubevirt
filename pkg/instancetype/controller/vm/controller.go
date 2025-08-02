@@ -215,7 +215,7 @@ func (c *controller) handleExpand(
 	return vm, nil
 }
 
-func (c *controller) ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+func (c *controller) ApplyAutoAttachPreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if vm.Spec.Preference == nil {
 		return nil
 	}
@@ -223,7 +223,7 @@ func (c *controller) ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virt
 	if err != nil {
 		return err
 	}
-	preferenceapply.ApplyDevicePreferences(preferenceSpec, &vmi.Spec)
+	preferenceapply.ApplyAutoAttachPreferences(preferenceSpec, &vmi.Spec)
 
 	return nil
 }

@@ -255,7 +255,7 @@ type instancetypeHandler interface {
 	synchronizer
 	ApplyToVM(*virtv1.VirtualMachine) error
 	ApplyToVMI(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) error
-	ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error
+	ApplyAutoAttachPreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error
 }
 
 type Controller struct {
@@ -1286,9 +1286,8 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	// the VMI before it is deleted
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 
-	// We need to apply device preferences before any new network or input devices are added. Doing so allows
-	// any autoAttach preferences we might have to be applied, either enabling or disabling the attachment of these devices.
-	if err := c.instancetypeController.ApplyDevicePreferences(vm, vmi); err != nil {
+	// We need to apply auto attach preferences before any new network or input devices are added.
+	if err := c.instancetypeController.ApplyAutoAttachPreferences(vm, vmi); err != nil {
 		log.Log.Object(vm).Infof("Failed to apply device preferences again to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
 		return vm, err
