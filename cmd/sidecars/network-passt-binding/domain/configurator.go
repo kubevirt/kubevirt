@@ -56,11 +56,17 @@ type PasstNetworkConfigurator struct {
 const (
 	// PasstPluginName passt binding plugin name should be registered to Kubevirt through Kubevirt CR
 	PasstPluginName = "passt"
+	//nolint:gosec
 	// PasstLogFilePath passt log file path Kubevirt consume and record
 	PasstLogFilePath = "/var/run/kubevirt/passt.log"
 )
 
-func NewPasstNetworkConfigurator(ifaces []vmschema.Interface, networks []vmschema.Network, opts NetworkConfiguratorOptions, linkFinder linkFinder) (*PasstNetworkConfigurator, error) {
+func NewPasstNetworkConfigurator(
+	ifaces []vmschema.Interface,
+	networks []vmschema.Network,
+	opts NetworkConfiguratorOptions,
+	linkFinder linkFinder,
+) (*PasstNetworkConfigurator, error) {
 	network := vmispec.LookupPodNetwork(networks)
 	if network == nil {
 		return nil, fmt.Errorf("pod network not found")
@@ -89,7 +95,9 @@ func (p PasstNetworkConfigurator) Mutate(domainSpec *domainschema.DomainSpec) (*
 		memfdMemoryBackingSourceType  = "memfd"
 	)
 
-	if domainSpec.MemoryBacking != nil && domainSpec.MemoryBacking.Access != nil && domainSpec.MemoryBacking.Access.Mode != sharedMemoryBackingAccessMode {
+	if domainSpec.MemoryBacking != nil &&
+		domainSpec.MemoryBacking.Access != nil &&
+		domainSpec.MemoryBacking.Access.Mode != sharedMemoryBackingAccessMode {
 		return nil, fmt.Errorf("memory backing access mode must be 'shared'; cannot override existing mode: %q",
 			domainSpec.MemoryBacking.Access.Mode)
 	}
@@ -218,8 +226,10 @@ func (p PasstNetworkConfigurator) generatePortForward() []domainschema.Interface
 
 	var portsFwd []domainschema.InterfacePortForward
 	if len(udpPortsRange) == 0 && len(tcpPortsRange) == 0 {
-		portsFwd = append(portsFwd, domainschema.InterfacePortForward{Proto: protoTCP})
-		portsFwd = append(portsFwd, domainschema.InterfacePortForward{Proto: protoUDP})
+		portsFwd = append(portsFwd,
+			domainschema.InterfacePortForward{Proto: protoTCP},
+			domainschema.InterfacePortForward{Proto: protoUDP},
+		)
 	}
 	if len(tcpPortsRange) > 0 {
 		portsFwd = append(portsFwd, domainschema.InterfacePortForward{Proto: protoTCP, Ranges: tcpPortsRange})
