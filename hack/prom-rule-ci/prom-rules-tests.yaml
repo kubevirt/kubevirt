@@ -814,3 +814,56 @@ tests:
       - eval_time: 13m
         alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts: []
+
+  # VM High CPU Usage Alert - Alert should not fire for normal CPU usage
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_cpu_usage_seconds_total{name="test-vm", namespace="test-ns", node="node1"}'
+        values: '0+30x15'  # 50% CPU usage: 30s/60s = 0.5 cpu-seconds/second rate, extend to 15 minutes
+      - series: 'kubevirt_vmi_vcpu_seconds_total{name="test-vm", namespace="test-ns", node="node1", id="0"}'
+        values: '0+30x15'  # 1 vCPU
+
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: KubeVirtVMHighCPUUsage
+        exp_alerts: []
+
+  # VM High CPU Usage Alert - Alert should fire for sustained high CPU usage
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_cpu_usage_seconds_total{name="high-cpu-vm", namespace="test-namespace", node="node2"}'
+        values: '0+195x15'  # 81% CPU usage: 195s/60s = 3.25 cpu-seconds/second, 3.25/4 = 81.25%, extend to 15 minutes
+      - series: 'kubevirt_vmi_vcpu_seconds_total{name="high-cpu-vm", namespace="test-namespace", node="node2", id="0"}'
+        values: '0+48x15'  # vCPU 0
+      - series: 'kubevirt_vmi_vcpu_seconds_total{name="high-cpu-vm", namespace="test-namespace", node="node2", id="1"}'
+        values: '0+49x15'  # vCPU 1
+      - series: 'kubevirt_vmi_vcpu_seconds_total{name="high-cpu-vm", namespace="test-namespace", node="node2", id="2"}'
+        values: '0+49x15'  # vCPU 2
+      - series: 'kubevirt_vmi_vcpu_seconds_total{name="high-cpu-vm", namespace="test-namespace", node="node2", id="3"}'
+        values: '0+49x15'  # vCPU 3
+
+    alert_rule_test:
+      # Alert should not fire before 5 minutes
+      - eval_time: 4m
+        alertname: KubeVirtVMHighCPUUsage
+        exp_alerts: []
+      # Alert should not fire exactly at 5 minutes (condition needs to be true FOR 5 minutes)
+      - eval_time: 5m
+        alertname: KubeVirtVMHighCPUUsage
+        exp_alerts: []
+      # Alert should fire at 6 minutes (condition true from minute 1, For: 5m means fire at 1+5=6)
+      - eval_time: 6m
+        alertname: KubeVirtVMHighCPUUsage
+        exp_alerts:
+          - exp_annotations:
+              description: "The Virtual machine high-cpu-vm in namespace test-namespace, running on node node2, has high CPU usage (81.25%) for more than 5 minutes."
+              summary: "The Virtual machine has high CPU usage."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMHighCPUUsage"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "high-cpu-vm"
+              namespace: "test-namespace"
+              node: "node2"
