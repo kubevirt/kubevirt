@@ -704,7 +704,7 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
-						Name:       "virtualmachinesinstances/objectgraph",
+						Name:       "virtualmachineinstances/objectgraph",
 						Namespaced: true,
 					},
 					{
