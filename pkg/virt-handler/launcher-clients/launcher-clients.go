@@ -165,7 +165,7 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 			socketFile, err = cmdclient.FindSocket(vmi)
 			if err != nil {
 				// socket does not exist, but let's see if the pod is still there
-				if _, err = cmdclient.FindPodDirOnHost(vmi, cmdclient.SocketDirectoryOnHost); err != nil {
+				if _, err = cmdclient.FindPodDir(vmi); err != nil {
 					// no pod meanst that waiting for it to initialize makes no sense
 					return true, true, nil
 				}
@@ -189,7 +189,7 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 		// no socket file, no VMI, so it's unresponsive
 		if err != nil {
 			// socket does not exist, but let's see if the pod is still there
-			if _, err = cmdclient.FindPodDirOnHost(vmi, cmdclient.SocketDirectoryOnHost); err != nil {
+			if _, err = cmdclient.FindPodDir(vmi); err != nil {
 				// no pod means that waiting for it to initialize makes no sense
 				return true, true, nil
 			}
