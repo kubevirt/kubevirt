@@ -17,7 +17,8 @@ HARD_CODED_MODULES="${KUBEVIRT_DIR}/hack/gen-client-python/hard-coded-modules"
 if [ -n "${DOCKER_TAG:-}" ]; then
     CLIENT_PYTHON_VERSION="$DOCKER_TAG"
 else
-    CLIENT_PYTHON_VERSION="$(git describe || echo 'none')"
+    version=$(git describe || echo 'none')
+    CLIENT_PYTHON_VERSION="${version%-g$(git rev-parse --short HEAD)}"
 fi
 
 mkdir -p "${PYTHON_CLIENT_OUT_DIR}"
