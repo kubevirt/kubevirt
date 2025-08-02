@@ -156,6 +156,7 @@ type virtHandlerApp struct {
 	clusterConfig         *virtconfig.ClusterConfig
 	reloadableRateLimiter *ratelimiter.ReloadableRateLimiter
 	caManager             kvtls.ClientCAManager
+	enableNodeLabeller    bool
 }
 
 var (
@@ -328,7 +329,9 @@ func (app *virtHandlerApp) Run() {
 
 	hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
 
-	go nodeLabellerController.Run(10, stop)
+	if app.enableNodeLabeller {
+		go nodeLabellerController.Run(10, stop)
+	}
 
 	migrationIpAddress := app.PodIpAddress
 	migrationIpAddress, err = virthandler.FindMigrationIP(migrationIpAddress)
@@ -676,6 +679,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.IntVar(&app.gracefulShutdownSeconds, "graceful-shutdown-seconds", defaultGracefulShutdownSeconds,
 		"The number of seconds to wait for existing migration connections to close before shutting down virt-handler.")
+
+	flag.BoolVar(&app.enableNodeLabeller, "enable-node-labeller", true,
+		"Enable Node Labeller controller.")
 }
 
 func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {
