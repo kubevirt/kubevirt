@@ -1879,7 +1879,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			libstorage.DeleteStorageClass(storageClassHostPath)
 		})
 
-		It("should attach a hostpath based volume to running VM", decorators.StorageCritical, func() {
+		It("should attach a hostpath based volume to running VM", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
