@@ -50,9 +50,15 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
+type ctxKeyTypeVNC string
+
+const connectedKeyVNC ctxKeyTypeVNC = "connected"
+const keepConnectedKeyVNC ctxKeyTypeVNC = "keep-connected"
+
 var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", decorators.SigCompute, decorators.WgArm64, func() {
 
 	var vmi *v1.VirtualMachineInstance
+	const vncWaitResponseTimeout = time.Second * 45
 
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		BeforeEach(func() {
@@ -64,65 +70,11 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("with VNC connection", func() {
-			vncConnect := func() {
-				pipeOutReader, pipeOutWriter := io.Pipe()
-				defer pipeOutReader.Close()
-
-				k8ResChan := make(chan error)
-				readStop := make(chan string)
-
-				go func() {
-					defer GinkgoRecover()
-					vnc, err := kubevirt.Client().VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
-					if err != nil {
-						k8ResChan <- err
-						return
-					}
-
-					pipeInReader, _ := io.Pipe()
-					defer pipeInReader.Close()
-
-					k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
-						In:  pipeInReader,
-						Out: pipeOutWriter,
-					})
-				}()
-				// write to FD <- pipeOutReader
-				By("Reading from the VNC socket")
-				go func() {
-					defer GinkgoRecover()
-					buf := make([]byte, 1024)
-					// reading qemu vnc server
-					n, err := pipeOutReader.Read(buf)
-					if err != nil && err != io.EOF {
-						Expect(err).ToNot(HaveOccurred())
-						return
-					}
-					if n == 0 && err == io.EOF {
-						log.Log.Info("zero bytes read from vnc socket.")
-						return
-					}
-					readStop <- string(buf[0:n])
-				}()
-
-				select {
-				case response := <-readStop:
-					// This is the response capture by wireshark when the VNC server is contacted.
-					// This verifies that the test is able to establish a connection with VNC and
-					// communicate.
-					By("Checking the response from VNC server")
-					Expect(response).To(Equal("RFB 003.008\n"))
-				case err := <-k8ResChan:
-					Expect(err).ToNot(HaveOccurred())
-				case <-time.After(45 * time.Second):
-					Fail("Timeout reached while waiting for valid VNC server response")
-				}
-			}
-
 			It("[test_id:1611]should allow accessing the VNC device multiple times", decorators.Conformance, func() {
-
 				for i := 0; i < 10; i++ {
-					vncConnect()
+					ctx, cancel := context.WithTimeout(context.Background(), vncWaitResponseTimeout)
+					DeferCleanup(cancel)
+					vncConnect(ctx, vmi, true, "")
 				}
 			})
 		})
@@ -166,6 +118,72 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			_, err = wrappedRoundTripper.RoundTrip(req)
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		DescribeTable("Dual connection. Validate default behavior and with 'force' option", func(force1, force2 bool) {
+			newCtxWithConnect := func() (context.Context, context.CancelFunc, chan struct{}, chan struct{}) {
+				connect := make(chan struct{})
+				disconnect := make(chan struct{})
+				ctx := context.WithValue(context.Background(), connectedKeyVNC, connect)
+				ctx = context.WithValue(ctx, keepConnectedKeyVNC, disconnect)
+				ctx, cancel := context.WithTimeout(ctx, vncWaitResponseTimeout)
+				return ctx, cancel, connect, disconnect
+			}
+
+			ctx1, cancel1, connected1, disconnect1 := newCtxWithConnect()
+			DeferCleanup(cancel1)
+			go func() {
+				defer GinkgoRecover()
+				vncConnect(ctx1, vmi, force1, "")
+			}()
+
+			// wait connect
+			select {
+			case <-connected1:
+			case <-ctx1.Done():
+				// Timeout
+				Expect(ctx1.Err()).ToNot(HaveOccurred())
+			}
+
+			ctx2, cancel2, connected2, disconnect2 := newCtxWithConnect()
+			DeferCleanup(cancel2)
+			go func() {
+				defer GinkgoRecover()
+				errMsg := ""
+				if !force2 {
+					errMsg = "websocket: bad handshake"
+				}
+				vncConnect(ctx2, vmi, force2, errMsg)
+			}()
+
+			// Wait connect or timeout
+			select {
+			case <-connected2:
+			case <-ctx2.Done():
+				Expect(force2).To(BeFalse())
+				Expect(ctx2.Err()).ToNot(HaveOccurred())
+			case <-time.After(time.Second * 2):
+				Expect(force2).To(BeFalse())
+				disconnect2 <- struct{}{}
+				close(disconnect2)
+			}
+			if force2 {
+				disconnect2 <- struct{}{}
+				close(disconnect2)
+			}
+			Expect(disconnect2).To(BeClosed())
+
+			disconnect1 <- struct{}{}
+
+			// Just so the test cleanup properly
+			time.Sleep(time.Second * 2)
+
+		},
+			Entry("Second session without force", false, false),
+			Entry("Second session with force", false, true),
+			// Force in the first session should not change the behavior
+			Entry("First with force, Second session without force", true, false),
+			Entry("First with force, Second session with force", true, true),
+		)
 	})
 })
 
@@ -206,4 +224,80 @@ func upgradeCheckRoundTripperFromConfig(config *rest.Config, subprotocols []stri
 	return &checkUpgradeRoundTripper{
 		Dialer: dialer,
 	}, nil
+}
+
+func vncConnect(
+	ctx context.Context,
+	vmi *v1.VirtualMachineInstance,
+	force bool,
+	errMsg string,
+) {
+	Expect(ctx).ToNot(BeNil())
+	pipeOutReader, pipeOutWriter := io.Pipe()
+	defer pipeOutReader.Close()
+
+	k8ResChan := make(chan error)
+	readStop := make(chan string)
+
+	go func() {
+		defer GinkgoRecover()
+		vnc, err := kubevirt.Client().VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name, force)
+		if err != nil {
+			k8ResChan <- err
+			return
+		}
+
+		pipeInReader, _ := io.Pipe()
+		defer pipeInReader.Close()
+
+		k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
+			In:  pipeInReader,
+			Out: pipeOutWriter,
+		})
+	}()
+	// write to FD <- pipeOutReader
+	By("Reading from the VNC socket")
+	go func() {
+		defer GinkgoRecover()
+		buf := make([]byte, 1024)
+		// reading qemu vnc server
+		n, err := pipeOutReader.Read(buf)
+		if err != nil && err != io.EOF && errMsg == "" {
+			Expect(err).ToNot(HaveOccurred())
+			return
+		}
+		if n == 0 && err == io.EOF {
+			log.Log.Info("zero bytes read from vnc socket.")
+			return
+		}
+		// Let caller know VNC connect() phase is done
+		if connected, ok := ctx.Value(connectedKeyVNC).(chan struct{}); ok {
+			connected <- struct{}{}
+		}
+		readStop <- string(buf[0:n])
+		if disconnect, ok := ctx.Value(keepConnectedKeyVNC).(chan struct{}); ok {
+			<-disconnect
+		}
+	}()
+
+	select {
+	case response := <-readStop:
+		// This is the response capture by wireshark when the VNC server is contacted.
+		// This verifies that the test is able to establish a connection with VNC and
+		// communicate.
+		By("Checking the response from VNC server")
+		Expect(response).To(Equal("RFB 003.008\n"))
+	case err := <-k8ResChan:
+		switch errMsg {
+		case "":
+			Expect(err).ToNot(HaveOccurred())
+		default:
+			Expect(err.Error()).To(ContainSubstring(errMsg))
+		}
+	case <-ctx.Done():
+		Expect(ctx.Err()).ToNot(HaveOccurred())
+	}
+	if disconnect, ok := ctx.Value(keepConnectedKeyVNC).(chan struct{}); ok {
+		<-disconnect
+	}
 }

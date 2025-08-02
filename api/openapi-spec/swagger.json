@@ -8988,6 +8988,9 @@
     },
     "parameters": [
      {
+      "$ref": "#/parameters/force-S5EceU5x"
+     },
+     {
       "uniqueItems": true,
       "type": "string",
       "description": "Name of the resource",
@@ -10583,6 +10586,9 @@
      }
     },
     "parameters": [
+     {
+      "$ref": "#/parameters/force-S5EceU5x"
+     },
      {
       "uniqueItems": true,
       "type": "string",
@@ -21099,6 +21105,13 @@
     "type": "string",
     "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
     "name": "fieldSelector",
+    "in": "query"
+   },
+   "force-S5EceU5x": {
+    "uniqueItems": true,
+    "type": "boolean",
+    "description": "Enforce behavior that otherwise would not be allowed.",
+    "name": "force",
     "in": "query"
    },
    "gracePeriodSeconds--K5HaBOS": {
