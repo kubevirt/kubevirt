@@ -29,8 +29,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/api"
-
 	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
@@ -66,7 +64,9 @@ var _ = Describe("DownwardAPI", func() {
 	})
 
 	It("Should create a new downwardapi iso disk without a Disk device", func() {
-		vmi := api.NewMinimalVMI("fake-vmi")
+		vmi := libvmi.New(
+			libvmi.WithName("fake-vmi"),
+		)
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "downwardapi-volume",
 			VolumeSource: v1.VolumeSource{
