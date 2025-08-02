@@ -88,6 +88,10 @@ spec:
               - valuesValue
             matchLabels:
               matchLabelsKey: matchLabelsValue
+          matchLabelKeys:
+          - matchLabelKeysValue
+          mismatchLabelKeys:
+          - mismatchLabelKeysValue
           namespaceSelector:
             matchExpressions:
             - key: keyValue
@@ -109,6 +113,10 @@ spec:
             - valuesValue
           matchLabels:
             matchLabelsKey: matchLabelsValue
+        matchLabelKeys:
+        - matchLabelKeysValue
+        mismatchLabelKeys:
+        - mismatchLabelKeysValue
         namespaceSelector:
           matchExpressions:
           - key: keyValue
@@ -131,6 +139,10 @@ spec:
               - valuesValue
             matchLabels:
               matchLabelsKey: matchLabelsValue
+          matchLabelKeys:
+          - matchLabelKeysValue
+          mismatchLabelKeys:
+          - mismatchLabelKeysValue
           namespaceSelector:
             matchExpressions:
             - key: keyValue
@@ -152,6 +164,10 @@ spec:
             - valuesValue
           matchLabels:
             matchLabelsKey: matchLabelsValue
+        matchLabelKeys:
+        - matchLabelKeysValue
+        mismatchLabelKeys:
+        - mismatchLabelKeysValue
         namespaceSelector:
           matchExpressions:
           - key: keyValue
@@ -257,8 +273,10 @@ spec:
       - name: nameValue
         virtiofs: {}
       gpus:
-      - deviceName: deviceNameValue
+      - claimName: claimNameValue
+        deviceName: deviceNameValue
         name: nameValue
+        requestName: requestNameValue
         tag: tagValue
         virtualGPUOptions:
           display:
@@ -266,8 +284,10 @@ spec:
             ramFB:
               enabled: true
       hostDevices:
-      - deviceName: deviceNameValue
+      - claimName: claimNameValue
+        deviceName: deviceNameValue
         name: nameValue
+        requestName: requestNameValue
         tag: tagValue
       inputs:
       - bus: busValue
@@ -304,14 +324,21 @@ spec:
         tag: tagValue
       logSerialConsole: true
       networkInterfaceMultiqueue: true
+      panicDevices:
+      - model: modelValue
       rng: {}
       sound:
         model: modelValue
         name: nameValue
       tpm:
+        enabled: true
         persistent: true
       useVirtioTransitional: true
+      video:
+        type: typeValue
       watchdog:
+        diag288:
+          action: actionValue
         i6300esb:
           action: actionValue
         name: nameValue
@@ -364,6 +391,7 @@ spec:
         enabled: true
     firmware:
       acpi:
+        msdmNameRef: msdmNameRefValue
         slicNameRef: slicNameRefValue
       bootloader:
         bios:
@@ -381,6 +409,8 @@ spec:
         kernelArgs: kernelArgsValue
       serial: serialValue
       uuid: uuidValue
+    ioThreads:
+      supplementalPoolThreadCount: 4294967269
     ioThreadsPolicy: ioThreadsPolicyValue
     launchSecurity:
       sev:
@@ -457,6 +487,10 @@ spec:
       host: hostValue
       port: portValue
     timeoutSeconds: -14
+  resourceClaims:
+  - name: nameValue
+    resourceClaimName: resourceClaimNameValue
+    resourceClaimTemplateName: resourceClaimTemplateNameValue
   schedulerName: schedulerNameValue
   startStrategy: startStrategyValue
   subdomain: subdomainValue
@@ -574,6 +608,23 @@ status:
     cores: 4294967291
     sockets: 4294967289
     threads: 4294967289
+  deviceStatus:
+    gpuStatuses:
+    - deviceResourceClaimStatus:
+        attributes:
+          mDevUUID: mDevUUIDValue
+          pciAddress: pciAddressValue
+        name: nameValue
+        resourceClaimName: resourceClaimNameValue
+      name: nameValue
+    hostDeviceStatuses:
+    - deviceResourceClaimStatus:
+        attributes:
+          mDevUUID: mDevUUIDValue
+          pciAddress: pciAddressValue
+        name: nameValue
+        resourceClaimName: resourceClaimNameValue
+      name: nameValue
   evacuationNodeName: evacuationNodeNameValue
   fsFreezeStatus: fsFreezeStatusValue
   guestOSInfo:
@@ -591,8 +642,10 @@ status:
     ipAddress: ipAddressValue
     ipAddresses:
     - ipAddressesValue
+    linkState: linkStateValue
     mac: macValue
     name: nameValue
+    podInterfaceName: podInterfaceNameValue
     queueCount: -10
   kernelBootStatus:
     initrdInfo:
@@ -606,6 +659,30 @@ status:
     guestAtBoot: "0"
     guestCurrent: "0"
     guestRequested: "0"
+  migratedVolumes:
+  - destinationPVCInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    sourcePVCInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    volumeName: volumeNameValue
   migrationMethod: migrationMethodValue
   migrationState:
     abortRequested: true
@@ -617,6 +694,7 @@ status:
     migrationConfiguration:
       allowAutoConverge: true
       allowPostCopy: true
+      allowWorkloadDisruption: true
       bandwidthPerMigration: "0"
       completionTimeoutPerGiB: -23
       disableTLS: true
@@ -627,11 +705,25 @@ status:
       parallelOutboundMigrationsPerNode: 4294967263
       progressTimeout: -15
       unsafeMigrationOverride: true
+    migrationNetworkType: migrationNetworkTypeValue
     migrationPolicyName: migrationPolicyNameValue
     migrationUid: migrationUidValue
     mode: modeValue
     sourceNode: sourceNodeValue
+    sourcePersistentStatePVCName: sourcePersistentStatePVCNameValue
     sourcePod: sourcePodValue
+    sourceState:
+      domainName: domainNameValue
+      domainNamespace: domainNamespaceValue
+      migrationUID: migrationUIDValue
+      node: nodeValue
+      nodeSelectors:
+        nodeSelectorsKey: nodeSelectorsValue
+      persistentStatePVCName: persistentStatePVCNameValue
+      pod: podValue
+      selinuxContext: selinuxContextValue
+      syncAddress: syncAddressValue
+      virtualMachineInstanceUID: virtualMachineInstanceUIDValue
     startTimestamp: "1986-01-01T01:01:01Z"
     targetAttachmentPodUID: targetAttachmentPodUIDValue
     targetCPUSet:
@@ -643,7 +735,27 @@ status:
     targetNodeDomainDetected: true
     targetNodeDomainReadyTimestamp: "1970-01-01T01:01:01Z"
     targetNodeTopology: targetNodeTopologyValue
+    targetPersistentStatePVCName: targetPersistentStatePVCNameValue
     targetPod: targetPodValue
+    targetState:
+      attachmentPodUID: attachmentPodUIDValue
+      cpuSet:
+      - -6
+      directMigrationNodePorts:
+        directMigrationNodePortsKey: -24
+      domainDetected: true
+      domainName: domainNameValue
+      domainNamespace: domainNamespaceValue
+      domainReadyTimestamp: "1980-01-01T01:01:01Z"
+      migrationUID: migrationUIDValue
+      node: nodeValue
+      nodeAddress: nodeAddressValue
+      nodeTopology: nodeTopologyValue
+      persistentStatePVCName: persistentStatePVCNameValue
+      pod: podValue
+      selinuxContext: selinuxContextValue
+      syncAddress: syncAddressValue
+      virtualMachineInstanceUID: virtualMachineInstanceUIDValue
   migrationTransport: migrationTransportValue
   nodeName: nodeNameValue
   phase: phaseValue
@@ -675,6 +787,7 @@ status:
       - accessModesValue
       capacity:
         capacityKey: "0"
+      claimName: claimNameValue
       filesystemOverhead: filesystemOverheadValue
       preallocated: true
       requests:

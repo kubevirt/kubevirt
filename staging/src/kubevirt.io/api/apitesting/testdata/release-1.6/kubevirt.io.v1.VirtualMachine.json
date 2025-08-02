@@ -169,7 +169,8 @@
               }
             },
             "acpi": {
-              "slicNameRef": "slicNameRefValue"
+              "slicNameRef": "slicNameRefValue",
+              "msdmNameRef": "msdmNameRefValue"
             }
           },
           "clock": {
@@ -313,6 +314,9 @@
               "name": "nameValue",
               "i6300esb": {
                 "action": "actionValue"
+              },
+              "diag288": {
+                "action": "actionValue"
               }
             },
             "interfaces": [
@@ -377,6 +381,8 @@
               {
                 "name": "nameValue",
                 "deviceName": "deviceNameValue",
+                "claimName": "claimNameValue",
+                "requestName": "requestNameValue",
                 "virtualGPUOptions": {
                   "display": {
                     "enabled": true,
@@ -389,6 +395,11 @@
               }
             ],
             "downwardMetrics": {},
+            "panicDevices": [
+              {
+                "model": "modelValue"
+              }
+            ],
             "filesystems": [
               {
                 "name": "nameValue",
@@ -399,6 +410,8 @@
               {
                 "name": "nameValue",
                 "deviceName": "deviceNameValue",
+                "claimName": "claimNameValue",
+                "requestName": "requestNameValue",
                 "tag": "tagValue"
               }
             ],
@@ -408,10 +421,17 @@
               "model": "modelValue"
             },
             "tpm": {
+              "enabled": true,
               "persistent": true
+            },
+            "video": {
+              "type": "typeValue"
             }
           },
           "ioThreadsPolicy": "ioThreadsPolicyValue",
+          "ioThreads": {
+            "supplementalPoolThreadCount": 4294967269
+          },
           "chassis": {
             "manufacturer": "manufacturerValue",
             "version": "versionValue",
@@ -519,7 +539,13 @@
                       ]
                     }
                   ]
-                }
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
               }
             ],
             "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -557,7 +583,13 @@
                         ]
                       }
                     ]
-                  }
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
                 }
               }
             ]
@@ -596,7 +628,13 @@
                       ]
                     }
                   ]
-                }
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
               }
             ],
             "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -634,7 +672,13 @@
                         ]
                       }
                     ]
-                  }
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
                 }
               }
             ]
@@ -902,7 +946,14 @@
             }
           }
         ],
-        "architecture": "architectureValue"
+        "architecture": "architectureValue",
+        "resourceClaims": [
+          {
+            "name": "nameValue",
+            "resourceClaimName": "resourceClaimNameValue",
+            "resourceClaimTemplateName": "resourceClaimTemplateNameValue"
+          }
+        ]
       }
     },
     "dataVolumeTemplates": [
@@ -1047,7 +1098,8 @@
               "kind": "kindValue",
               "name": "nameValue",
               "namespace": "namespaceValue"
-            }
+            },
+            "volumeAttributesClassName": "volumeAttributesClassNameValue"
           },
           "storage": {
             "accessModes": [
@@ -1073,12 +1125,7 @@
               },
               "requests": {
                 "requestsKey": "0"
-              },
-              "claims": [
-                {
-                  "name": "nameValue"
-                }
-              ]
+              }
             },
             "volumeName": "volumeNameValue",
             "storageClassName": "storageClassNameValue",
@@ -1108,7 +1155,8 @@
         },
         "status": {}
       }
-    ]
+    ],
+    "updateVolumesStrategy": "updateVolumesStrategyValue"
   },
   "status": {
     "snapshotInProgress": "snapshotInProgressValue",
@@ -1219,6 +1267,64 @@
       "message": "messageValue"
     },
     "observedGeneration": -18,
-    "desiredGeneration": -17
+    "desiredGeneration": -17,
+    "runStrategy": "runStrategyValue",
+    "volumeUpdateState": {
+      "volumeMigrationState": {
+        "migratedVolumes": [
+          {
+            "volumeName": "volumeNameValue",
+            "sourcePVCInfo": {
+              "claimName": "claimNameValue",
+              "accessModes": [
+                "accessModesValue"
+              ],
+              "volumeMode": "volumeModeValue",
+              "capacity": {
+                "capacityKey": "0"
+              },
+              "requests": {
+                "requestsKey": "0"
+              },
+              "preallocated": true,
+              "filesystemOverhead": "filesystemOverheadValue"
+            },
+            "destinationPVCInfo": {
+              "claimName": "claimNameValue",
+              "accessModes": [
+                "accessModesValue"
+              ],
+              "volumeMode": "volumeModeValue",
+              "capacity": {
+                "capacityKey": "0"
+              },
+              "requests": {
+                "requestsKey": "0"
+              },
+              "preallocated": true,
+              "filesystemOverhead": "filesystemOverheadValue"
+            }
+          }
+        ]
+      }
+    },
+    "instancetypeRef": {
+      "name": "nameValue",
+      "kind": "kindValue",
+      "controllerRevisionRef": {
+        "name": "nameValue"
+      },
+      "inferFromVolume": "inferFromVolumeValue",
+      "inferFromVolumeFailurePolicy": "inferFromVolumeFailurePolicyValue"
+    },
+    "preferenceRef": {
+      "name": "nameValue",
+      "kind": "kindValue",
+      "controllerRevisionRef": {
+        "name": "nameValue"
+      },
+      "inferFromVolume": "inferFromVolumeValue",
+      "inferFromVolumeFailurePolicy": "inferFromVolumeFailurePolicyValue"
+    }
   }
 }
