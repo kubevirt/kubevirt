@@ -88,6 +88,10 @@ spec:
               - valuesValue
             matchLabels:
               matchLabelsKey: matchLabelsValue
+          matchLabelKeys:
+          - matchLabelKeysValue
+          mismatchLabelKeys:
+          - mismatchLabelKeysValue
           namespaceSelector:
             matchExpressions:
             - key: keyValue
@@ -109,6 +113,10 @@ spec:
             - valuesValue
           matchLabels:
             matchLabelsKey: matchLabelsValue
+        matchLabelKeys:
+        - matchLabelKeysValue
+        mismatchLabelKeys:
+        - mismatchLabelKeysValue
         namespaceSelector:
           matchExpressions:
           - key: keyValue
@@ -131,6 +139,10 @@ spec:
               - valuesValue
             matchLabels:
               matchLabelsKey: matchLabelsValue
+          matchLabelKeys:
+          - matchLabelKeysValue
+          mismatchLabelKeys:
+          - mismatchLabelKeysValue
           namespaceSelector:
             matchExpressions:
             - key: keyValue
@@ -152,6 +164,10 @@ spec:
             - valuesValue
           matchLabels:
             matchLabelsKey: matchLabelsValue
+        matchLabelKeys:
+        - matchLabelKeysValue
+        mismatchLabelKeys:
+        - mismatchLabelKeysValue
         namespaceSelector:
           matchExpressions:
           - key: keyValue
@@ -309,6 +325,7 @@ spec:
         model: modelValue
         name: nameValue
       tpm:
+        enabled: true
         persistent: true
       useVirtioTransitional: true
       watchdog:
@@ -593,6 +610,7 @@ status:
     - ipAddressesValue
     mac: macValue
     name: nameValue
+    podInterfaceName: podInterfaceNameValue
     queueCount: -10
   kernelBootStatus:
     initrdInfo:
@@ -606,6 +624,30 @@ status:
     guestAtBoot: "0"
     guestCurrent: "0"
     guestRequested: "0"
+  migratedVolumes:
+  - destinationPVCInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    sourcePVCInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    volumeName: volumeNameValue
   migrationMethod: migrationMethodValue
   migrationState:
     abortRequested: true
@@ -631,6 +673,7 @@ status:
     migrationUid: migrationUidValue
     mode: modeValue
     sourceNode: sourceNodeValue
+    sourcePersistentStatePVCName: sourcePersistentStatePVCNameValue
     sourcePod: sourcePodValue
     startTimestamp: "1986-01-01T01:01:01Z"
     targetAttachmentPodUID: targetAttachmentPodUIDValue
@@ -643,6 +686,7 @@ status:
     targetNodeDomainDetected: true
     targetNodeDomainReadyTimestamp: "1970-01-01T01:01:01Z"
     targetNodeTopology: targetNodeTopologyValue
+    targetPersistentStatePVCName: targetPersistentStatePVCNameValue
     targetPod: targetPodValue
   migrationTransport: migrationTransportValue
   nodeName: nodeNameValue
@@ -675,6 +719,7 @@ status:
       - accessModesValue
       capacity:
         capacityKey: "0"
+      claimName: claimNameValue
       filesystemOverhead: filesystemOverheadValue
       preallocated: true
       requests:

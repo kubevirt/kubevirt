@@ -408,6 +408,7 @@
               "model": "modelValue"
             },
             "tpm": {
+              "enabled": true,
               "persistent": true
             }
           },
@@ -519,7 +520,13 @@
                       ]
                     }
                   ]
-                }
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
               }
             ],
             "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -557,7 +564,13 @@
                         ]
                       }
                     ]
-                  }
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
                 }
               }
             ]
@@ -596,7 +609,13 @@
                       ]
                     }
                   ]
-                }
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
               }
             ],
             "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -634,7 +653,13 @@
                         ]
                       }
                     ]
-                  }
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
                 }
               }
             ]
@@ -1047,7 +1072,8 @@
               "kind": "kindValue",
               "name": "nameValue",
               "namespace": "namespaceValue"
-            }
+            },
+            "volumeAttributesClassName": "volumeAttributesClassNameValue"
           },
           "storage": {
             "accessModes": [
@@ -1076,7 +1102,8 @@
               },
               "claims": [
                 {
-                  "name": "nameValue"
+                  "name": "nameValue",
+                  "request": "requestValue"
                 }
               ]
             },
@@ -1108,7 +1135,8 @@
         },
         "status": {}
       }
-    ]
+    ],
+    "updateVolumesStrategy": "updateVolumesStrategyValue"
   },
   "status": {
     "snapshotInProgress": "snapshotInProgressValue",
@@ -1219,6 +1247,46 @@
       "message": "messageValue"
     },
     "observedGeneration": -18,
-    "desiredGeneration": -17
+    "desiredGeneration": -17,
+    "runStrategy": "runStrategyValue",
+    "volumeUpdateState": {
+      "volumeMigrationState": {
+        "migratedVolumes": [
+          {
+            "volumeName": "volumeNameValue",
+            "sourcePVCInfo": {
+              "claimName": "claimNameValue",
+              "accessModes": [
+                "accessModesValue"
+              ],
+              "volumeMode": "volumeModeValue",
+              "capacity": {
+                "capacityKey": "0"
+              },
+              "requests": {
+                "requestsKey": "0"
+              },
+              "preallocated": true,
+              "filesystemOverhead": "filesystemOverheadValue"
+            },
+            "destinationPVCInfo": {
+              "claimName": "claimNameValue",
+              "accessModes": [
+                "accessModesValue"
+              ],
+              "volumeMode": "volumeModeValue",
+              "capacity": {
+                "capacityKey": "0"
+              },
+              "requests": {
+                "requestsKey": "0"
+              },
+              "preallocated": true,
+              "filesystemOverhead": "filesystemOverheadValue"
+            }
+          }
+        ]
+      }
+    }
   }
 }
