@@ -23,8 +23,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func WithDomainFeatures(features *v1.Features) Option {
+func WithHyperv(hyperv *v1.FeatureHyperv) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Features = features
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		vmi.Spec.Domain.Features.Hyperv = hyperv
 	}
 }

@@ -3391,10 +3391,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		getVmiWithReenlightenment := func() *virtv1.VirtualMachineInstance {
 			vmiOpts := append(defaultPendingVmiOptions,
 				libvmi.WithArchitecture("amd64"),
-				libvmi.WithDomainFeatures(&virtv1.Features{
-					Hyperv: &virtv1.FeatureHyperv{
-						Reenlightenment: &virtv1.FeatureState{Enabled: pointer.P(true)},
-					}}))
+				libvmi.WithHyperv(&virtv1.FeatureHyperv{
+					Reenlightenment: &virtv1.FeatureState{Enabled: pointer.P(true)},
+				}))
 			vmi := newTestVMIWithOptions("testvmi", vmiOpts, []libvmistatus.Option{})
 
 			return vmi
