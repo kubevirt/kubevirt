@@ -128,7 +128,7 @@ func (d *domainWatcher) startBackground() error {
 }
 
 func (d *domainWatcher) handleResync() {
-	socketFiles, err := listSockets()
+	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")
 		return
@@ -164,7 +164,7 @@ func (d *domainWatcher) handleResync() {
 func (d *domainWatcher) handleStaleSocketConnections() error {
 	var unresponsive []string
 
-	socketFiles, err := listSockets()
+	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")
 		return err
@@ -212,7 +212,7 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 
 		if diff > int64(d.watchdogTimeout) {
 
-			record, exists := findGhostRecordBySocket(key)
+			record, exists := GhostRecordGlobalStore.findBySocket(key)
 
 			if !exists {
 				// ignore if info file doesn't exist
@@ -241,7 +241,7 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	var domains []*api.Domain
 
-	socketFiles, err := listSockets()
+	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 		}
 
 		if !exists {
-			record, recordExists := findGhostRecordBySocket(socketFile)
+			record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
 			if recordExists {
 				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
 				domain.ObjectMeta.UID = record.UID
@@ -336,4 +336,14 @@ func (d *domainWatcher) Stop() {
 
 func (d *domainWatcher) ResultChan() <-chan watch.Event {
 	return d.eventChan
+}
+
+func listSockets(ghostRecords []ghostRecord) ([]string, error) {
+	var sockets []string
+
+	for _, record := range ghostRecords {
+		sockets = append(sockets, record.SocketFile)
+	}
+
+	return sockets, nil
 }

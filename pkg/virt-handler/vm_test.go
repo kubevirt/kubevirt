@@ -139,8 +139,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		ghostCacheDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 
-		err = virtcache.InitializeGhostRecordCache(ghostCacheDir)
-		Expect(err).ToNot(HaveOccurred())
+		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir))
 
 		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)
 
@@ -1897,9 +1896,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 
 			// Create stale socket ghost file
-			err := virtcache.AddGhostRecord(vmi.Namespace, vmi.Name, "made/up/path", vmi.UID)
+			err := virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, "made/up/path", vmi.UID)
 			Expect(err).NotTo(HaveOccurred())
-			exists := virtcache.HasGhostRecord(vmi.Namespace, vmi.Name)
+			exists := virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)
 			Expect(exists).To(BeTrue())
 
 			// Create new socket
@@ -1917,7 +1916,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecute()
 
 			// ensure cleanup occurred of previous connection
-			exists = virtcache.HasGhostRecord(vmi.Namespace, vmi.Name)
+			exists = virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)
 			Expect(exists).To(BeFalse())
 
 		})
