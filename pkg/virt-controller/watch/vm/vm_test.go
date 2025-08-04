@@ -3205,7 +3205,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("dynamic annotations", func() {
-			const selectedKey = descheduler.EvictPodAnnotationKeyBeta
+			const selectedKey = descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction
 			const ignoredKey = "anotherAnnotation"
 			const intitialValue = "initialValue"
 			const updatedValue = "updatedValue"
