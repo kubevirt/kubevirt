@@ -1284,8 +1284,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
 			}
 			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions, vmiStatusOptions)
-			// Explicitly setting PhaseTransitionTimestamps to empty slice
-			vmi.Status.PhaseTransitionTimestamps = []virtv1.VirtualMachineInstancePhaseTransitionTimestamp{}
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.ContainerStatuses = containerStatus
@@ -1298,7 +1296,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectVMIBeInPhase(vmi.Namespace, vmi.Name, virtv1.Scheduling)
 			expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
 				Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady), "Status": Equal(k8sv1.ConditionFalse), "Reason": Equal(virtv1.GuestNotRunningReason)})))
-			expectVMITimestamp(vmi.Namespace, vmi.Name, BeEmpty())
+			// We do not expect any new phase transition timestamps to be set,
+			// as the VMI is not moving to another phase
+			expectVMITimestamp(vmi.Namespace, vmi.Name, HaveLen(len(vmi.Status.PhaseTransitionTimestamps)))
 		},
 			Entry("with not ready infra container and not ready compute container",
 				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}, {Name: "kubevirt-infra", Ready: false}},
