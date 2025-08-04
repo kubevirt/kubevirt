@@ -59,12 +59,6 @@ func WithCPUFeature(featureName, policy string) Option {
 	}
 }
 
-func WithDomainFeatures(features *v1.Features) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Features = features
-	}
-}
-
 func WithDedicatedCPUPlacement() Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.CPU == nil {
