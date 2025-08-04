@@ -356,6 +356,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithAnnotation("kubevirt.io/libvirt-log-filters", "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"),
 			)
 
 			sourceVM := createAndStartVMFromVMISpec(sourceVMI)
