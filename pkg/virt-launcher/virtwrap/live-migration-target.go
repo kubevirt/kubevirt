@@ -21,10 +21,13 @@ package virtwrap
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -220,6 +223,50 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 				return err
 			}
 
+		}
+	}
+
+	entries, err := os.ReadDir("/var/run/kubevirt/hotplug-disks")
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			logger.V(1).Infof("no hotplugged disks found")
+			return nil
+		}
+		return err
+	}
+	logger.V(1).Infof("found %d hotplugged files", len(entries))
+	for _, entry := range entries {
+		logger.V(1).Infof("hotplug disk %s found", entry.Name())
+		info, err := entry.Info()
+		if err != nil {
+			logger.V(1).Infof("failed to get info for hotplug disk %s, %v", entry.Name(), err)
+			continue
+		}
+		logger.V(1).Infof("hotplug disk %s found, mode: %s", entry.Name(), info.Mode().String())
+		if info.Sys() != nil {
+			stat := info.Sys().(*syscall.Stat_t)
+			logger.V(1).Infof("hotplug disk %s found, uid: %d, gid: %d", entry.Name(), stat.Uid, stat.Gid)
+			ready, err := checkIfDiskReadyToUse(entry.Name())
+			if err != nil {
+				logger.V(1).Infof("failed to check if hotplug disk %s is ready to use, %v", entry.Name(), err)
+				continue
+			}
+			if ready {
+				logger.V(1).Infof("hotplug disk %s is ready to use", entry.Name())
+			} else {
+				logger.V(1).Infof("hotplug disk %s is not ready to use", entry.Name())
+				time.Sleep(10 * time.Second)
+				ready, err = checkIfDiskReadyToUse(entry.Name())
+				if err != nil {
+					logger.V(1).Infof("failed to check if hotplug disk %s is ready to use, %v, second attempt", entry.Name(), err)
+					continue
+				}
+				if ready {
+					logger.V(1).Infof("hotplug disk %s is ready to use second attempt", entry.Name())
+				} else {
+					logger.V(1).Infof("hotplug disk %s is not ready to use second attempt", entry.Name())
+				}
+			}
 		}
 	}
 
