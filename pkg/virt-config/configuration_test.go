@@ -121,7 +121,7 @@ var _ = Describe("test configuration", func() {
 		Entry("is empty, GetNodeSelectors should return the default", map[string]string{}, nil),
 	)
 
-	DescribeTable(" when machineType", func(cpuArch string, machineTypeAMD64 string, machineTypeARM64 string, machineTypePPC64le string, machineTypeS390X string, result string) {
+	DescribeTable(" when machineType", func(cpuArch string, machineTypeAMD64 string, machineTypeARM64 string, machineTypeS390X string, result string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -130,10 +130,9 @@ var _ = Describe("test configuration", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ArchitectureConfiguration: &v1.ArchConfiguration{
-						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeAMD64},
-						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeARM64},
-						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: machineTypePPC64le},
-						S390x:   &v1.ArchSpecificConfiguration{MachineType: machineTypeS390X},
+						Amd64: &v1.ArchSpecificConfiguration{MachineType: machineTypeAMD64},
+						Arm64: &v1.ArchSpecificConfiguration{MachineType: machineTypeARM64},
+						S390x: &v1.ArchSpecificConfiguration{MachineType: machineTypeS390X},
 					},
 				},
 			},
@@ -143,14 +142,12 @@ var _ = Describe("test configuration", func() {
 		}, cpuArch)
 		Expect(clusterConfig.GetMachineType(cpuArch)).To(Equal(result))
 	},
-		Entry("when amd64 set, GetMachineType should return the value", "amd64", "pc-q35-3.0", "", "", "", "pc-q35-3.0"),
-		Entry("when arm64 set, GetMachineType should return the value", "arm64", "", "virt-rhel", "", "", "virt-rhel"),
-		Entry("when ppc64le set, GetMachineType should return the value", "ppc64le", "", "", "pseries-rhel", "", "pseries-rhel"),
-		Entry("when s390x set, GetMachineType should return the value", "s390x", "", "", "", "s390-ccw-virtio-rhel", "s390-ccw-virtio-rhel"),
-		Entry("when amd64 unset, GetMachineType should return the default with amd64", "amd64", "", "", "", "", virtconfig.DefaultAMD64MachineType),
-		Entry("when arm64 unset, GetMachineType should return the default with arm64", "arm64", "", "", "", "", virtconfig.DefaultAARCH64MachineType),
-		Entry("when ppc64le unset, GetMachineType should return the default with ppc64le", "ppc64le", "", "", "", "", virtconfig.DefaultPPC64LEMachineType),
-		Entry("when s390x unset, GetMachineType should return the default with s390x", "s390x", "", "", "", "", virtconfig.DefaultS390XMachineType),
+		Entry("when amd64 set, GetMachineType should return the value", "amd64", "pc-q35-3.0", "", "", "pc-q35-3.0"),
+		Entry("when arm64 set, GetMachineType should return the value", "arm64", "", "virt-rhel", "", "virt-rhel"),
+		Entry("when s390x set, GetMachineType should return the value", "s390x", "", "", "s390-ccw-virtio-rhel", "s390-ccw-virtio-rhel"),
+		Entry("when amd64 unset, GetMachineType should return the default with amd64", "amd64", "", "", "", virtconfig.DefaultAMD64MachineType),
+		Entry("when arm64 unset, GetMachineType should return the default with arm64", "arm64", "", "", "", virtconfig.DefaultAARCH64MachineType),
+		Entry("when s390x unset, GetMachineType should return the default with s390x", "s390x", "", "", "", virtconfig.DefaultS390XMachineType),
 	)
 
 	It("architectureConfiguration fields should not have higher priority when deprecated options are set", func() {
@@ -233,7 +230,7 @@ var _ = Describe("test configuration", func() {
 		Entry("when negative, GetCPUAllocationRatio should return the default", -150, virtconfig.DefaultCPUAllocationRatio),
 	)
 
-	DescribeTable(" when emulatedMachines", func(cpuArch string, emuMachinesAMD64 []string, emuMachinesARM64 []string, emuMachinesAPC64le64 []string, emuMachinesS390X []string, result []string) {
+	DescribeTable(" when emulatedMachines", func(cpuArch string, emuMachinesAMD64 []string, emuMachinesARM64 []string, emuMachinesS390X []string, result []string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -242,10 +239,9 @@ var _ = Describe("test configuration", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ArchitectureConfiguration: &v1.ArchConfiguration{
-						Amd64:   &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesAMD64},
-						Arm64:   &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesARM64},
-						Ppc64le: &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesAPC64le64},
-						S390x:   &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesS390X},
+						Amd64: &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesAMD64},
+						Arm64: &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesARM64},
+						S390x: &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesS390X},
 					},
 				},
 			},
@@ -256,18 +252,15 @@ var _ = Describe("test configuration", func() {
 		emulatedMachines := clusterConfig.GetEmulatedMachines(cpuArch)
 		Expect(emulatedMachines).To(ConsistOf(result))
 	},
-		Entry("when amd64 set, GetEmulatedMachines should return the value", "amd64", []string{"q35", "i440*"}, nil, nil, nil, []string{"q35", "i440*"}),
-		Entry("when arm64 set, GetEmulatedMachines should return the value", "arm64", nil, []string{"virt-test*"}, nil, nil, []string{"virt-test*"}),
-		Entry("when ppc64le set, GetEmulatedMachines should return the value", "ppc64le", nil, nil, []string{"pseries-test*"}, nil, []string{"pseries-test*"}),
-		Entry("when s390x set, GetEmulatedMachines should return the value", "s390x", nil, nil, nil, []string{"s390-ccw-virtio-test*"}, []string{"s390-ccw-virtio-test*"}),
-		Entry("when unset, GetEmulatedMachines should return the defaults with amd64", "amd64", nil, nil, nil, nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
-		Entry("when empty, GetEmulatedMachines should return the defaults with amd64", "amd64", []string{}, []string{}, []string{}, nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
-		Entry("when unset, GetEmulatedMachines should return the defaults with arm64", "arm64", nil, nil, nil, nil, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
-		Entry("when empty, GetEmulatedMachines should return the defaults with arm64", "arm64", []string{}, []string{}, nil, []string{}, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
-		Entry("when unset, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", nil, nil, nil, nil, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
-		Entry("when empty, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", []string{}, []string{}, []string{}, nil, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
-		Entry("when unset, GetEmulatedMachines should return the defaults with s390x", "s390x", nil, nil, nil, nil, strings.Split(virtconfig.DefaultS390XEmulatedMachines, ",")),
-		Entry("when empty, GetEmulatedMachines should return the defaults with s390x", "s390x", []string{}, []string{}, []string{}, nil, strings.Split(virtconfig.DefaultS390XEmulatedMachines, ",")),
+		Entry("when amd64 set, GetEmulatedMachines should return the value", "amd64", []string{"q35", "i440*"}, nil, nil, []string{"q35", "i440*"}),
+		Entry("when arm64 set, GetEmulatedMachines should return the value", "arm64", nil, []string{"virt-test*"}, nil, []string{"virt-test*"}),
+		Entry("when s390x set, GetEmulatedMachines should return the value", "s390x", nil, nil, []string{"s390-ccw-virtio-test*"}, []string{"s390-ccw-virtio-test*"}),
+		Entry("when unset, GetEmulatedMachines should return the defaults with amd64", "amd64", nil, nil, nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
+		Entry("when empty, GetEmulatedMachines should return the defaults with amd64", "amd64", []string{}, []string{}, nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
+		Entry("when unset, GetEmulatedMachines should return the defaults with arm64", "arm64", nil, nil, nil, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
+		Entry("when empty, GetEmulatedMachines should return the defaults with arm64", "arm64", []string{}, []string{}, []string{}, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
+		Entry("when unset, GetEmulatedMachines should return the defaults with s390x", "s390x", nil, nil, nil, strings.Split(virtconfig.DefaultS390XEmulatedMachines, ",")),
+		Entry("when empty, GetEmulatedMachines should return the defaults with s390x", "s390x", []string{}, []string{}, nil, strings.Split(virtconfig.DefaultS390XEmulatedMachines, ",")),
 	)
 
 	DescribeTable("when virtualMachineOptions", func(virtualMachineOptions *v1.VirtualMachineOptions, expected bool) {
@@ -489,7 +482,7 @@ var _ = Describe("test configuration", func() {
 		Entry("when unset, GetSELinuxLauncherType should return the default", virtconfig.DefaultSELinuxLauncherType, virtconfig.DefaultSELinuxLauncherType),
 	)
 
-	DescribeTable(" when OVMFPath", func(cpuArch string, ovmfPathKeyAMD64 string, ovmfPathKeyARM64 string, ovmfPathKeyPPC64le64 string, ovmfPathKeyS390X string, result string) {
+	DescribeTable(" when OVMFPath", func(cpuArch string, ovmfPathKeyAMD64 string, ovmfPathKeyARM64 string, ovmfPathKeyS390X string, result string) {
 
 		kv := &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -499,10 +492,9 @@ var _ = Describe("test configuration", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ArchitectureConfiguration: &v1.ArchConfiguration{
-						Amd64:   &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyAMD64},
-						Arm64:   &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyARM64},
-						Ppc64le: &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyPPC64le64},
-						S390x:   &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyS390X},
+						Amd64: &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyAMD64},
+						Arm64: &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyARM64},
+						S390x: &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyS390X},
 					},
 				},
 			},
@@ -515,14 +507,12 @@ var _ = Describe("test configuration", func() {
 		ovmfPath := clusterConfig.GetOVMFPath(cpuArch)
 		Expect(ovmfPath).To(Equal(result))
 	},
-		Entry("when amd64 set, GetOVMFPath should return the value", "amd64", "/usr/share/ovmf/x64", "", "", "", "/usr/share/ovmf/x64"),
-		Entry("when arm64 set, GetOVMFPath should return the value", "arm64", "", "/usr/share/AAVMF", "", "", "/usr/share/AAVMF"),
-		Entry("when ppc64le set, GetOVMFPath should return the value", "ppc64le", "", "", "/usr/share/ovmf/x64", "", "/usr/share/ovmf/x64"),
-		Entry("when s390x set, GetOVMFPath should return the value", "s390x", "", "", "", "/usr/share/ovmf/s390x", "/usr/share/ovmf/s390x"),
-		Entry("when unset, GetOVMFPath should return the default with amd64", "amd64", "", "", "", "", virtconfig.DefaultARCHOVMFPath),
-		Entry("when unset, GetOVMFPath should return the default with arm64", "arm64", "", "", "", "", virtconfig.DefaultAARCH64OVMFPath),
-		Entry("when unset, GetOVMFPath should return the default with ppc64le", "ppc64le", "", "", "", "", virtconfig.DefaultARCHOVMFPath),
-		Entry("when unset, GetOVMFPath should return the default with s390x", "s390x", "", "", "", "", virtconfig.DefaultS390xOVMFPath),
+		Entry("when amd64 set, GetOVMFPath should return the value", "amd64", "/usr/share/ovmf/x64", "", "", "/usr/share/ovmf/x64"),
+		Entry("when arm64 set, GetOVMFPath should return the value", "arm64", "", "/usr/share/AAVMF", "", "/usr/share/AAVMF"),
+		Entry("when s390x set, GetOVMFPath should return the value", "s390x", "", "", "/usr/share/ovmf/s390x", "/usr/share/ovmf/s390x"),
+		Entry("when unset, GetOVMFPath should return the default with amd64", "amd64", "", "", "", virtconfig.DefaultARCHOVMFPath),
+		Entry("when unset, GetOVMFPath should return the default with arm64", "arm64", "", "", "", virtconfig.DefaultAARCH64OVMFPath),
+		Entry("when unset, GetOVMFPath should return the default with s390x", "s390x", "", "", "", virtconfig.DefaultS390xOVMFPath),
 	)
 
 	It("verifies that SetConfigModifiedCallback works as expected ", func() {
