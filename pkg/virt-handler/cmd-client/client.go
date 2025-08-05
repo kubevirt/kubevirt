@@ -48,6 +48,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"golang.org/x/sys/unix"
+
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
@@ -203,21 +205,24 @@ func SocketMonitoringEnabled(socket string) bool {
 }
 
 func IsSocketUnresponsive(socket string) bool {
-	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
-	exists, _ := diskutils.FileExists(file)
+	dir, err := safepath.NewPathNoFollow(filepath.Dir(socket))
+	fileNotExists := errors.Is(err, unix.ENOENT)
+	if err != nil {
+		return fileNotExists
+	}
+
+	_, err = safepath.JoinNoFollow(dir, StandardLauncherUnresponsiveFileName)
+	unresponsive := !errors.Is(err, unix.ENOENT)
 	// if the unresponsive socket monitor marked this socket
 	// as being unresponsive, return true
-	if exists {
+	if unresponsive {
 		return true
 	}
 
-	exists, _ = diskutils.FileExists(socket)
+	_, err = safepath.JoinNoFollow(dir, filepath.Base(socket))
+	fileNotExists = errors.Is(err, unix.ENOENT)
 	// if the socket file doesn't exist, it's definitely unresponsive as well
-	if !exists {
-		return true
-	}
-
-	return false
+	return fileNotExists
 }
 
 func MarkSocketUnresponsive(socket string) error {
