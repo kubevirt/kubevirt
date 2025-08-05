@@ -162,13 +162,11 @@ func IsSocketUnresponsive(socket string) bool {
 }
 
 func MarkSocketUnresponsive(socket string) error {
-	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
-	f, err := os.Create(file)
+	dir, err := safepath.NewPathNoFollow(filepath.Dir(socket))
 	if err != nil {
 		return err
 	}
-	f.Close()
-	return nil
+	return safepath.TouchAtNoFollow(dir, StandardLauncherUnresponsiveFileName, 0666)
 }
 
 func SocketDirectoryOnHost(podUID string) string {
