@@ -1635,14 +1635,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			sanityExecute()
 			expectVMIFailedState(vmi)
 		})
-		DescribeTable("should remove the fore ground finalizer if no pod is present and the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase) {
+		DescribeTable("should remove the fore ground finalizer if no pod is present and the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase, finalizer string) {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
 			vmi.Status.LauncherContainerImageVersion = "madeup"
 			vmi.Labels = map[string]string{}
 			vmi.Labels[virtv1.OutdatedLauncherImageLabel] = ""
-			vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineInstanceFinalizer)
-			Expect(vmi.Finalizers).To(ContainElement(virtv1.VirtualMachineInstanceFinalizer))
+			vmi.Finalizers = append(vmi.Finalizers, finalizer)
+			Expect(vmi.Finalizers).To(ContainElement(finalizer))
 
 			addVirtualMachine(vmi)
 
@@ -1653,15 +1653,22 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(updatedVmi.Labels).To(Not(HaveKey(virtv1.OutdatedLauncherImageLabel)))
 			Expect(updatedVmi.Status.LauncherContainerImageVersion).To(BeEmpty())
 			Expect(updatedVmi.Status.Phase).To(Equal(phase))
-			Expect(updatedVmi.Finalizers).ToNot(ContainElement(virtv1.VirtualMachineInstanceFinalizer))
+			Expect(updatedVmi.Finalizers).ToNot(ContainElement(finalizer))
 		},
-			Entry("succeeded state", virtv1.Succeeded),
-			Entry("failed state", virtv1.Failed),
+			Entry("succeeded state with deprecated finalizer", virtv1.Succeeded, virtv1.DeprecatedVirtualMachineInstanceFinalizer),
+			Entry("failed state with deprecated finalizer", virtv1.Failed, virtv1.DeprecatedVirtualMachineInstanceFinalizer),
+			Entry("succeeded state with domain-qualified finalizer", virtv1.Succeeded, virtv1.VirtualMachineInstanceFinalizer),
+			Entry("failed state with domain-qualified finalizer", virtv1.Failed, virtv1.VirtualMachineInstanceFinalizer),
 		)
 
 		DescribeTable("VM controller finalizer", func(hasOwner, vmExists, expectFinalizer bool) {
 			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer, virtv1.VirtualMachineInstanceFinalizer)
+			vmi.Finalizers = append(
+				vmi.Finalizers,
+				virtv1.VirtualMachineControllerFinalizer,
+				virtv1.DeprecatedVirtualMachineInstanceFinalizer,
+				virtv1.VirtualMachineInstanceFinalizer,
+			)
 			vmi.Status.Phase = virtv1.Succeeded
 			Expect(vmi.Finalizers).To(ContainElement(virtv1.VirtualMachineControllerFinalizer))
 
@@ -1689,6 +1696,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			updatedVmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVmi.Finalizers).ToNot(ContainElement(virtv1.DeprecatedVirtualMachineInstanceFinalizer))
 			Expect(updatedVmi.Finalizers).ToNot(ContainElement(virtv1.VirtualMachineInstanceFinalizer))
 			if !expectFinalizer {
 				Expect(updatedVmi.Finalizers).ToNot(ContainElement(virtv1.VirtualMachineControllerFinalizer))
