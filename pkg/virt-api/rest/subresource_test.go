@@ -504,6 +504,70 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Entry("in status Running with dry-run", v1.Running, &v1.StopOptions{GracePeriod: gracePeriodZero, DryRun: withDryRun()}),
 				Entry("in status Failed with dry-run", v1.Failed, &v1.StopOptions{GracePeriod: gracePeriodZero, DryRun: withDryRun()}),
 			)
+
+			It("should set terminationGracePeriodSeconds to 0 when VMI is paused", func() {
+				request.PathParameters()["name"] = testVMName
+				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
+
+				stopOptions := &v1.StopOptions{}
+				bytesRepresentation, _ := json.Marshal(stopOptions)
+				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
+
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
+
+				var terminationGracePeriodSeconds int64 = 1600
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Name:      testVMName,
+						Namespace: k8smetav1.NamespaceDefault,
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+					},
+					Status: v1.VirtualMachineInstanceStatus{
+						Phase: v1.Running,
+						Conditions: []v1.VirtualMachineInstanceCondition{
+							{
+								Type:   v1.VirtualMachineInstancePaused,
+								Status: k8sv1.ConditionTrue,
+							},
+						},
+					},
+				}
+				vmi.ObjectMeta.SetUID(uuid.NewUUID())
+
+				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+				vmiClient.EXPECT().Get(context.Background(), vmi.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
+
+				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+						patchBytes, ok := body.([]byte)
+						Expect(ok).To(BeTrue(), "patch body should be []byte")
+
+						var patches []map[string]interface{}
+						err := json.Unmarshal(patchBytes, &patches)
+						Expect(err).ToNot(HaveOccurred())
+
+						found := false
+						for _, p := range patches {
+							if p["op"] == "replace" && p["path"] == "/spec/terminationGracePeriodSeconds" {
+								Expect(p["value"]).To(BeEquivalentTo(0))
+								found = true
+							}
+						}
+						Expect(found).To(BeTrue(), "expected a replace op setting terminationGracePeriodSeconds to 0")
+						return &vmi, nil
+					}).AnyTimes()
+
+				vmClient.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).
+					Return(vm, nil)
+
+				app.StopVMRequestHandler(request, response)
+
+				Expect(response.Error()).ToNot(HaveOccurred())
+				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			})
+
 		})
 	})
 
