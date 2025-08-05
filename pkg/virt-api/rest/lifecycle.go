@@ -201,6 +201,14 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		return
 	}
 
+	if hasVMI {
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if condManager.HasConditionWithStatus(vmi, v1.VirtualMachineInstancePaused, k8sv1.ConditionTrue) {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("cannot stop a paused VirtualMachineInstance; it must be unpaused first")), response)
+			return
+		}
+	}
+
 	var oldGracePeriodSeconds int64
 	var patchErr error
 	if hasVMI && !vmi.IsFinal() && bodyStruct.GracePeriod != nil {
