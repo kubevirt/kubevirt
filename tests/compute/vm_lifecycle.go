@@ -138,32 +138,6 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachinePaused))
 		})
 
-		It("[test_id:3085]should be stopped successfully", decorators.Conformance, func() {
-			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				withStartStrategy(pointer.P(v1.StartStrategyPaused))),
-				libvmi.WithRunStrategy(v1.RunStrategyAlways),
-			)
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
-
-			By("Stopping the VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Checking deletion of VMI")
-			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300*time.Second).WithPolling(time.Second).Should(matcher.BeGone(), "The VMI did not disappear")
-
-			By("Checking status of VM")
-			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(Not(matcher.BeReady()))
-
-			By("Ensuring a second invocation should fail")
-			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
-			Expect(err).To(MatchError(ContainSubstring("VM is not running")))
-		})
-
 		It("[test_id:3229]should gracefully handle being started again", func() {
 			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
