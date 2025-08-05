@@ -195,7 +195,6 @@ rules:
   - watch
   - patch
   - update
-  - patch
 - apiGroups:
   - ""
   resources:
