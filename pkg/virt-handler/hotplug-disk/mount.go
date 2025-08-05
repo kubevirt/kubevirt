@@ -46,7 +46,7 @@ var (
 	}
 
 	socketPath = func(podUID types.UID) string {
-		return fmt.Sprintf("pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks/hp.sock", string(podUID))
+		return fmt.Sprintf("/pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks/hp.sock", string(podUID))
 	}
 
 	statDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
