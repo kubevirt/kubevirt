@@ -150,6 +150,7 @@ aliases:
   sig-observability-approvers:
     - sradco
     - machadovilaca
+    - avlitman
   sig-observability-reviewers:
     - machadovilaca
     - avlitman
