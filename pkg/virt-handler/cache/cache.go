@@ -34,7 +34,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
 	"kubevirt.io/kubevirt/pkg/util"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -118,7 +117,7 @@ func LastKnownUIDFromGhostRecordCache(key string) types.UID {
 	return record.UID
 }
 
-func getGhostRecords() ([]ghostRecord, error) {
+func getGhostRecords() []ghostRecord {
 	ghostRecordGlobalMutex.Lock()
 	defer ghostRecordGlobalMutex.Unlock()
 
@@ -128,7 +127,7 @@ func getGhostRecords() ([]ghostRecord, error) {
 		records = append(records, record)
 	}
 
-	return records, nil
+	return records
 }
 
 func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
@@ -219,36 +218,6 @@ func DeleteGhostRecord(namespace string, name string) error {
 	delete(ghostRecordGlobalCache, key)
 
 	return nil
-}
-
-func listSockets() ([]string, error) {
-	var sockets []string
-
-	knownSocketFiles, err := cmdclient.ListAllSockets()
-	if err != nil {
-		return sockets, err
-	}
-	ghostRecords, err := getGhostRecords()
-	if err != nil {
-		return sockets, err
-	}
-
-	sockets = append(sockets, knownSocketFiles...)
-
-	for _, record := range ghostRecords {
-		exists := false
-		for _, socket := range knownSocketFiles {
-			if record.SocketFile == socket {
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			sockets = append(sockets, record.SocketFile)
-		}
-	}
-
-	return sockets, nil
 }
 
 func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
