@@ -814,3 +814,43 @@ tests:
       - eval_time: 13m
         alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts: []
+
+
+  # VMI CPU Queue higher than 20
+  - interval: 1m
+    input_series:
+      # time:   0   1   2   3
+      - series: 'kubevirt_vmi_guest_load_1m{namespace="testns",name="vm1"}'
+        values: '0  12  25  5'
+      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",id="0"}'
+        values: '0  0   0   0'
+      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",id="1"}'
+        values: '0  0   0   0'   # values irrelevant. only series presence counts
+
+    alert_rule_test:
+      # at 1m: queue = 12 – 2 = 10  -> below 20
+      - eval_time: 1m
+        alertname: GuestVCPUQueueHighCritical
+        exp_alerts: []
+
+      # at 2m: queue = 25 – 2 = 23  -> alert fires
+      - eval_time: 2m
+        alertname: GuestVCPUQueueHighCritical
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachineInstance vm1 CPU queue length > 20"
+              summary: "Guest vCPU Queue within collection cycle > 20"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/GuestVCPUQueueHighCritical"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "testns"
+              name: "vm1"
+
+
+      # at3m: queue = 5 – 2 = 3 -> alert clears
+      - eval_time: 3m
+        alertname: GuestVCPUQueueHighCritical
+        exp_alerts: []

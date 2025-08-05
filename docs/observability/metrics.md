@@ -147,6 +147,9 @@ Guest system load average over 1 minute as reported by the guest agent. Load is 
 ### kubevirt_vmi_guest_load_5m
 Guest system load average over 5 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Type: Gauge.
 
+### kubevirt_vmi_guest_vcpu_queue
+Guest queue length. Type: Gauge.
+
 ### kubevirt_vmi_info
 Information about VirtualMachineInstances. Type: Gauge.
 
@@ -308,6 +311,9 @@ Total time spent on write operations. Type: Counter.
 
 ### kubevirt_vmi_storage_write_traffic_bytes_total
 Total number of written bytes. Type: Counter.
+
+### kubevirt_vmi_vcpu_count
+The number of the VMI vCPUs. Type: Gauge.
 
 ### kubevirt_vmi_vcpu_delay_seconds_total
 Amount of time spent by each vcpu waiting in the queue instead of running. Type: Counter.
