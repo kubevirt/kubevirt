@@ -144,7 +144,7 @@ func LastKnownUIDFromGhostRecordCache(key string) types.UID {
 	return record.UID
 }
 
-func getGhostRecords() ([]ghostRecord, error) {
+func getGhostRecords() []ghostRecord {
 	ghostRecordGlobalMutex.Lock()
 	defer ghostRecordGlobalMutex.Unlock()
 
@@ -154,7 +154,7 @@ func getGhostRecords() ([]ghostRecord, error) {
 		records = append(records, record)
 	}
 
-	return records, nil
+	return records
 }
 
 func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
