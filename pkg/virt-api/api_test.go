@@ -20,7 +20,9 @@
 package virt_api
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -31,6 +33,7 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authclientv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
@@ -189,7 +192,66 @@ var _ = Describe("Virt-api", func() {
 			resp, err := http.Get(backend.URL + "/apis/subresources.kubevirt.io/v1alpha3/")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			// TODO: Check list
+
+			// Read the response body
+			body, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(body).ToNot(BeEmpty())
+
+			// Parse the body as a APIResourceList object
+			var apiResourceList metav1.APIResourceList
+			err = json.Unmarshal(body, &apiResourceList)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Extract the list of resource names exposed by the API
+			exposedApiResources := []string{}
+			for _, resource := range apiResourceList.APIResources {
+				exposedApiResources = append(exposedApiResources, resource.Name)
+			}
+
+			// List of expected API resources
+			expectedApiResources := []string{
+				"expand-vm-spec",
+				"virtualmachineinstances/addvolume",
+				"virtualmachineinstances/backup",
+				"virtualmachineinstances/console",
+				"virtualmachineinstances/evacuate/cancel",
+				"virtualmachineinstances/filesystemlist",
+				"virtualmachineinstances/freeze",
+				"virtualmachineinstances/guestosinfo",
+				"virtualmachineinstances/objectgraph",
+				"virtualmachineinstances/pause",
+				"virtualmachineinstances/portforward",
+				"virtualmachineinstances/removevolume",
+				"virtualmachineinstances/reset",
+				"virtualmachineinstances/sev/fetchcertchain",
+				"virtualmachineinstances/sev/injectlaunchsecret",
+				"virtualmachineinstances/sev/querylaunchmeasurement",
+				"virtualmachineinstances/sev/setupsession",
+				"virtualmachineinstances/softreboot",
+				"virtualmachineinstances/unfreeze",
+				"virtualmachineinstances/unpause",
+				"virtualmachineinstances/usbredir",
+				"virtualmachineinstances/userlist",
+				"virtualmachineinstances/vnc",
+				"virtualmachineinstances/vnc/screenshot",
+				"virtualmachineinstances/vsock",
+				"virtualmachines/addvolume",
+				"virtualmachines/evacuate/cancel",
+				"virtualmachines/expand-spec",
+				"virtualmachines/memorydump",
+				"virtualmachines/migrate",
+				"virtualmachines/objectgraph",
+				"virtualmachines/portforward",
+				"virtualmachines/removememorydump",
+				"virtualmachines/removevolume",
+				"virtualmachines/restart",
+				"virtualmachines/start",
+				"virtualmachines/stop",
+			}
+
+			// Check if the list of expected resources exactly matches the exposed Api resources
+			Expect(exposedApiResources).To(ConsistOf(expectedApiResources))
 		})
 
 		It("should return info on the API group", func() {
