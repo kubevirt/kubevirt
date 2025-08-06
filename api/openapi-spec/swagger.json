@@ -18040,6 +18040,10 @@
       "description": "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state.",
       "type": "string"
      },
+     "startupProbe": {
+      "description": "StartupProbe indicates that the VirtualMachineInstance(VMI) has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to lad data or warm a cache, than during steady-state operation. This cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+      "$ref": "#/definitions/v1.Probe"
+     },
      "subdomain": {
       "description": "If specified, the fully qualified vmi hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.",
       "type": "string"
