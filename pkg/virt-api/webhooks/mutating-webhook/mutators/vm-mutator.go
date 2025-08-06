@@ -48,12 +48,14 @@ type instancetypeVMsMutator interface {
 type VMsMutator struct {
 	ClusterConfig       *virtconfig.ClusterConfig
 	instancetypeMutator instancetypeVMsMutator
+	virtClient          kubecli.KubevirtClient
 }
 
 func NewVMsMutator(clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) *VMsMutator {
 	return &VMsMutator{
 		ClusterConfig:       clusterConfig,
 		instancetypeMutator: instancetypeVMWebhooks.NewMutator(virtCli),
+		virtClient:          virtCli,
 	}
 }
 
@@ -94,7 +96,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	log.Log.Object(vm).V(4).Info("Apply defaults")
 
 	preferenceSpec, _ := mutator.instancetypeMutator.FindPreference(vm)
-	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig, preferenceSpec)
+	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig, preferenceSpec, mutator.virtClient)
 
 	patchBytes, err := patch.New(
 		patch.WithReplace("/spec", vm.Spec),
