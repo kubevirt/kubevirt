@@ -2129,19 +2129,19 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("when VMI and pod annotations differ",
 					&testData{
 						vmiAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						podAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "true",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "true",
 						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
 						},
 						expectedAnnotations: map[string]string{
-							"kubevirt.io/domain":                  "testvmi",
-							descheduler.EvictOnlyAnnotation:       "",
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							"kubevirt.io/domain":                                   "testvmi",
+							descheduler.EvictOnlyAnnotation:                        "",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedPatch: true,
 					},
@@ -2149,19 +2149,19 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("when VMI and pod annotations are the same",
 					&testData{
 						vmiAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						podAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
 						},
 						expectedAnnotations: map[string]string{
-							"kubevirt.io/domain":                  "testvmi",
-							descheduler.EvictOnlyAnnotation:       "",
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							"kubevirt.io/domain":                                   "testvmi",
+							descheduler.EvictOnlyAnnotation:                        "",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedPatch: false,
 					},
@@ -2169,7 +2169,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("when POD annotation doesn't exist",
 					&testData{
 						vmiAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						podAnnotations: map[string]string{
 							"kubevirt.io/domain":            "testvmi",
@@ -2180,9 +2180,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 							"kubevirt.io/created-by": "1234",
 						},
 						expectedAnnotations: map[string]string{
-							"kubevirt.io/domain":                  "testvmi",
-							descheduler.EvictOnlyAnnotation:       "",
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							"kubevirt.io/domain":                                   "testvmi",
+							descheduler.EvictOnlyAnnotation:                        "",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedPatch: true,
 					},
@@ -2191,9 +2191,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					&testData{
 						vmiAnnotations: map[string]string{},
 						podAnnotations: map[string]string{
-							"kubevirt.io/domain":                  "testvmi",
-							descheduler.EvictOnlyAnnotation:       "",
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							"kubevirt.io/domain":                                   "testvmi",
+							descheduler.EvictOnlyAnnotation:                        "",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
@@ -2209,10 +2209,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("when both annotations and labels differ between VMI and pod",
 					&testData{
 						vmiAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						podAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "true",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "true",
 						},
 						vmiLabels: map[string]string{
 							virtv1.NodeNameLabel: "node2",
@@ -2226,9 +2226,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 							virtv1.NodeNameLabel:     "node2",
 						},
 						expectedAnnotations: map[string]string{
-							"kubevirt.io/domain":                  "testvmi",
-							descheduler.EvictOnlyAnnotation:       "",
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							"kubevirt.io/domain":                                   "testvmi",
+							descheduler.EvictOnlyAnnotation:                        "",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedPatch: true,
 					},
