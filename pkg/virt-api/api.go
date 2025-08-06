@@ -612,6 +612,9 @@ func (app *virtAPIApp) composeSubresources() {
 		// only the base URI needs to be exposed, e.g., portforward.
 		uniqueApiResourceNames := make(map[string]struct{})
 
+		// Regex to match parameter substrings like /{protocol}
+		// in subresourcePath.
+		paramRegex := regexp.MustCompile("/{(.*?)}")
 		for _, route := range subws.Routes() {
 			pathWithoutBasePath := strings.TrimPrefix(route.Path, definitions.GroupVersionBasePath(version))
 
@@ -619,9 +622,9 @@ func (app *virtAPIApp) composeSubresources() {
 			for _, subresourceGVR := range []schema.GroupVersionResource{subresourcesvmGVR, subresourcesvmiGVR} {
 				if strings.HasPrefix(pathWithoutBasePath, definitions.NamespacedResourcePath(subresourceGVR)) {
 					subresourcePath := strings.TrimPrefix(pathWithoutBasePath, definitions.NamespacedResourcePath(subresourceGVR)+"/")
-					// Replace substrings in subresourcePatch matching
-					// patterns like /{protocol} with empty string.
-					subresourcePath = regexp.MustCompile("/{(.*?)}").ReplaceAllString(subresourcePath, "")
+					// Replace parameter substrings like /{protocol} in
+					// subresourcePath with empty string.
+					subresourcePath = paramRegex.ReplaceAllString(subresourcePath, "")
 					uniqueApiResourceNames[subresourceGVR.Resource+"/"+subresourcePath] = struct{}{}
 				}
 			}
