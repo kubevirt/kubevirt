@@ -20,7 +20,10 @@
 package virt_api
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -189,7 +192,70 @@ var _ = Describe("Virt-api", func() {
 			resp, err := http.Get(backend.URL + "/apis/subresources.kubevirt.io/v1alpha3/")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			// TODO: Check list
+
+			// Read the response body
+			body, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(body).ToNot(BeEmpty())
+
+			// Parse the body as a JSON object
+			var jsonResponse map[string]interface{}
+			err = json.Unmarshal(body, &jsonResponse)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Extract the list of API resources exposed by the API
+			exposedApiResources := []string{}
+
+			resources, ok := jsonResponse["resources"].([]map[string]interface{})
+			Expect(ok).To(BeTrue(), "Expected 'resources' to be a list of objects")
+			for _, resourceMap := range resources {
+				resourceStr, ok := resourceMap["name"].(string)
+				Expect(ok).To(BeTrue(), "Expected 'name' to be a string in each resource object")
+				exposedApiResources = append(exposedApiResources, resourceStr)
+			}
+
+			// List of expected API resources
+			expectedApiResources := []string{
+				"expand-vm-spec",
+				"virtualmachineinstances/addvolume",
+				"virtualmachineinstances/console",
+				"virtualmachineinstances/filesystemlist",
+				"virtualmachineinstances/freeze",
+				"virtualmachineinstances/guestosinfo",
+				"virtualmachineinstances/objectgraph",
+				"virtualmachineinstances/pause",
+				"virtualmachineinstances/portforward",
+				"virtualmachineinstances/removevolume",
+				"virtualmachineinstances/reset",
+				"virtualmachineinstances/sev/fetchcertchain",
+				"virtualmachineinstances/sev/injectlaunchsecret",
+				"virtualmachineinstances/sev/querylaunchmeasurement",
+				"virtualmachineinstances/sev/setupsession",
+				"virtualmachineinstances/softreboot",
+				"virtualmachineinstances/unfreeze",
+				"virtualmachineinstances/unpause",
+				"virtualmachineinstances/usbredir",
+				"virtualmachineinstances/userlist",
+				"virtualmachineinstances/vnc",
+				"virtualmachineinstances/vnc/screenshot",
+				"virtualmachineinstances/vsock",
+				"virtualmachines/addvolume",
+				"virtualmachines/expand-spec",
+				"virtualmachines/memorydump",
+				"virtualmachines/migrate",
+				"virtualmachines/objectgraph",
+				"virtualmachines/portforward",
+				"virtualmachines/removememorydump",
+				"virtualmachines/removevolume",
+				"virtualmachines/restart",
+				"virtualmachines/start",
+				"virtualmachines/stop",
+			}
+
+			for _, expectedResource := range expectedApiResources {
+				Expect(exposedApiResources).To(ContainElement(expectedResource),
+					fmt.Sprintf("Expected resource '%s' to be exposed, but it was not found in the response", expectedResource))
+			}
 		})
 
 		It("should return info on the API group", func() {
