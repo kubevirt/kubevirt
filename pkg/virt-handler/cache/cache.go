@@ -89,13 +89,6 @@ var ghostRecordGlobalCache map[string]ghostRecord
 var ghostRecordGlobalMutex sync.Mutex
 var ghostRecordDir string
 
-// this function is only used by unit tests
-func clearGhostRecordCache() {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
-	ghostRecordGlobalCache = make(map[string]ghostRecord)
-}
-
 func InitializeGhostRecordCache(directoryPath string) error {
 	ghostRecordGlobalMutex.Lock()
 	defer ghostRecordGlobalMutex.Unlock()
@@ -270,36 +263,6 @@ func DeleteGhostRecord(namespace string, name string) error {
 	return nil
 }
 
-func listSockets() ([]string, error) {
-	var sockets []string
-
-	knownSocketFiles, err := cmdclient.ListAllSockets()
-	if err != nil {
-		return sockets, err
-	}
-	ghostRecords, err := getGhostRecords()
-	if err != nil {
-		return sockets, err
-	}
-
-	sockets = append(sockets, knownSocketFiles...)
-
-	for _, record := range ghostRecords {
-		exists := false
-		for _, socket := range knownSocketFiles {
-			if record.SocketFile == socket {
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			sockets = append(sockets, record.SocketFile)
-		}
-	}
-
-	return sockets, nil
-}
-
 func (d *DomainWatcher) startBackground() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -376,7 +339,7 @@ func (d *DomainWatcher) handleStaleWatchdogFiles() error {
 
 func (d *DomainWatcher) handleResync() {
 
-	socketFiles, err := listSockets()
+	socketFiles, err := listSockets(getGhostRecords())
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")
 		return
@@ -412,7 +375,7 @@ func (d *DomainWatcher) handleResync() {
 func (d *DomainWatcher) handleStaleSocketConnections() error {
 	var unresponsive []string
 
-	socketFiles, err := listSockets()
+	socketFiles, err := listSockets(getGhostRecords())
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")
 		return err
@@ -495,7 +458,7 @@ func (d *DomainWatcher) handleStaleSocketConnections() error {
 func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	var domains []*api.Domain
 
-	socketFiles, err := listSockets()
+	socketFiles, err := listSockets(getGhostRecords())
 	if err != nil {
 		return nil, err
 	}
@@ -596,4 +559,14 @@ func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record
 	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout, recorder, vmiStore, resyncPeriod)
 	informer := cache.NewSharedInformer(lw, &api.Domain{}, 0)
 	return informer, nil
+}
+
+func listSockets(ghostRecords []ghostRecord) ([]string, error) {
+	var sockets []string
+
+	for _, record := range ghostRecords {
+		sockets = append(sockets, record.SocketFile)
+	}
+
+	return sockets, nil
 }
