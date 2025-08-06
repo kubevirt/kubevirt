@@ -409,6 +409,22 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
 			targetMigration := libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
 			sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
+			Expect(targetMigration).ToNot(BeNil())
+			if sourceMigration == nil {
+				// Source migration was already removed due to migration completed and VMI being deleted.
+				// Verify that the VMI doesn't exist, and that the VM is in the correct state.
+				By("Verifying the VMI doesn't exist")
+				_, err := virtClient.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+
+				By("Verifying the VM is in the correct state")
+				Eventually(func() virtv1.VirtualMachineRunStrategy {
+					vm, err := virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+					return *vm.Spec.RunStrategy
+				}).WithTimeout(time.Second * 20).WithPolling(500 * time.Millisecond).Should(Equal(virtv1.RunStrategyHalted))
+			}
 			libmigration.ConfirmVMIPostMigration(virtClient, targetVMI, targetMigration)
 			By("Verifying data on extra disk")
 			Eventually(func() string {
