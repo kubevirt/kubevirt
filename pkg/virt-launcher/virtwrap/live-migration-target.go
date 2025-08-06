@@ -27,7 +27,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"syscall"
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -42,6 +41,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+)
+
+const (
+	containerHotplugDir = "/var/run/kubevirt/hotplug-disks"
+	retryCount          = 20
+	sleepTime           = 500 * time.Millisecond
 )
 
 func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
@@ -226,47 +231,9 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		}
 	}
 
-	entries, err := os.ReadDir("/var/run/kubevirt/hotplug-disks")
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			logger.V(1).Infof("no hotplugged disks found")
-			return nil
-		}
-		return err
-	}
-	logger.V(1).Infof("found %d hotplugged files", len(entries))
-	for _, entry := range entries {
-		logger.V(1).Infof("hotplug disk %s found", entry.Name())
-		info, err := entry.Info()
-		if err != nil {
-			logger.V(1).Infof("failed to get info for hotplug disk %s, %v", entry.Name(), err)
-			continue
-		}
-		logger.V(1).Infof("hotplug disk %s found, mode: %s", entry.Name(), info.Mode().String())
-		if info.Sys() != nil {
-			stat := info.Sys().(*syscall.Stat_t)
-			logger.V(1).Infof("hotplug disk %s found, uid: %d, gid: %d", entry.Name(), stat.Uid, stat.Gid)
-			ready, err := checkIfDiskReadyToUse(entry.Name())
-			if err != nil {
-				logger.V(1).Infof("failed to check if hotplug disk %s is ready to use, %v", entry.Name(), err)
-				continue
-			}
-			if ready {
-				logger.V(1).Infof("hotplug disk %s is ready to use", entry.Name())
-			} else {
-				logger.V(1).Infof("hotplug disk %s is not ready to use", entry.Name())
-				time.Sleep(10 * time.Second)
-				ready, err = checkIfDiskReadyToUse(entry.Name())
-				if err != nil {
-					logger.V(1).Infof("failed to check if hotplug disk %s is ready to use, %v, second attempt", entry.Name(), err)
-					continue
-				}
-				if ready {
-					logger.V(1).Infof("hotplug disk %s is ready to use second attempt", entry.Name())
-				} else {
-					logger.V(1).Infof("hotplug disk %s is not ready to use second attempt", entry.Name())
-				}
-			}
+	if vmi.IsDecentralizedMigration() {
+		if err := checkIfHotplugDisksReadyToUse(vmi); err != nil {
+			return err
 		}
 	}
 
@@ -278,4 +245,73 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	}
 
 	return nil
+}
+
+func checkIfHotplugDisksReadyToUse(vmi *v1.VirtualMachineInstance) error {
+	logger := log.Log.Object(vmi)
+
+	vmiHotplugCount := getVMIHotplugCount(vmi)
+	if vmiHotplugCount == 0 {
+		logger.Info("no hotplugged disks to check")
+		return nil
+	}
+
+	var entries []os.DirEntry
+	var err error
+	for i := 0; i < retryCount; i++ {
+		if i > 0 {
+			// Wait some time before checking again
+			time.Sleep(sleepTime)
+		}
+		entries, err = os.ReadDir(containerHotplugDir)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
+		logger.Infof("found %d hotplugged disks files, compared to %d from vmi spec", len(entries), vmiHotplugCount)
+		if len(entries) == vmiHotplugCount {
+			break
+		}
+	}
+
+	readyCount := 0
+	for i := 0; i < retryCount && readyCount < vmiHotplugCount; i++ {
+		readyCount = 0
+		if i > 0 {
+			// Wait some time before checking again
+			time.Sleep(sleepTime)
+		}
+		for _, entry := range entries {
+			logger.Infof("checking if hotplugged disk %s is ready to use", filepath.Join(containerHotplugDir, entry.Name()))
+			ready, err := checkIfDiskReadyToUse(filepath.Join(containerHotplugDir, entry.Name()))
+			if err != nil {
+				return err
+			}
+			if ready {
+				logger.Infof("hotplugged disk %s is ready to use", filepath.Join(containerHotplugDir, entry.Name()))
+				readyCount++
+			}
+		}
+		if readyCount != vmiHotplugCount {
+			logger.Infof("not all hotplugged disks are ready to use, waiting for them to be ready")
+		}
+	}
+	if readyCount == vmiHotplugCount {
+		logger.Info("all hotplugged disks are ready to use")
+	}
+	return nil
+}
+
+func getVMIHotplugCount(vmi *v1.VirtualMachineInstance) int {
+	hotplugCount := 0
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+			hotplugCount++
+		} else if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
+			hotplugCount++
+		}
+	}
+	return hotplugCount
 }
