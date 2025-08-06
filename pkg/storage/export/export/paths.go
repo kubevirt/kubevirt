@@ -21,10 +21,10 @@ package export
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // VolumeInfo contains paths for a volume
@@ -34,6 +34,7 @@ type VolumeInfo struct {
 	DirURI     string
 	RawURI     string
 	RawGzURI   string
+	Id         types.UID
 }
 
 // ServerPaths contains static paths and per-volume paths
@@ -77,6 +78,7 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 				DirURI:     env[envPrefix+"_EXPORT_DIR_URI"],
 				RawURI:     env[envPrefix+"_EXPORT_RAW_URI"],
 				RawGzURI:   env[envPrefix+"_EXPORT_RAW_GZIP_URI"],
+				Id:         types.UID(env[envPrefix+"_EXPORT_ID"]),
 			}
 			result.Volumes = append(result.Volumes, vi)
 		}
@@ -85,10 +87,9 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 }
 
 // GetVolumeInfo returns the VolumeInfo for a given PVC name
-func (sp *ServerPaths) GetVolumeInfo(pvcName string) *VolumeInfo {
+func (sp *ServerPaths) GetVolumeInfo(pvcId *types.UID) *VolumeInfo {
 	for _, v := range sp.Volumes {
-		_, n := filepath.Split(filepath.Clean(v.Path))
-		if n == pvcName {
+		if v.Id == *pvcId {
 			return &v
 		}
 	}

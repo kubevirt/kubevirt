@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -48,6 +49,9 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libdv"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
@@ -327,6 +331,29 @@ var _ = Describe("PVC source", func() {
 		return vm
 	}
 
+	createVMWithDataVolumeTemplates := func(pvcName string) *virtv1.VirtualMachine {
+		vmi := libvmi.New(
+			libvmi.WithName(testVmName),
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithDataVolume("datavolumedisk1", pvcName),
+			libvmi.WithCloudInitNoCloud(
+				cloudinit.WithNoCloudUserData("#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"),
+			),
+		)
+		dv := libdv.NewDataVolume(
+			libdv.WithName(pvcName),
+			libdv.WithNamespace(testNamespace),
+			libdv.WithHttpSource("https://some-image-url"),
+			libdv.WithStorage(
+				libdv.StorageWithReadWriteManyAccessMode(),
+			),
+		)
+		vm := libvmi.NewVirtualMachine(vmi,
+			libvmi.WithDataVolumeTemplate(dv),
+		)
+		return vm
+	}
+
 	createVMIWithDataVolumes := func() *virtv1.VirtualMachineInstance {
 		return &virtv1.VirtualMachineInstance{
 			ObjectMeta: metav1.ObjectMeta{
@@ -377,7 +404,7 @@ var _ = Describe("PVC source", func() {
 			Format: exportv1.ArchiveGz,
 			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.tar.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeNames[1]),
 		})
-		verifyLinksInternal(vmExport, exportVolumeFormats...)
+		verifyLinksInternal(vmExport, nil, exportVolumeFormats...)
 	}
 
 	DescribeTable("Should create VM export, when VM is stopped", func(createVMFunc func() *virtv1.VirtualMachine, contentType1, contentType2 string, verifyFunc func(vmExport *exportv1.VirtualMachineExport, exportName, namespace string, volumeNames ...string)) {
@@ -652,4 +679,27 @@ var _ = Describe("PVC source", func() {
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 		testutils.ExpectEvent(recorder, exporterPodFailedOrCompletedEvent)
 	})
+
+	It("Should correctly handle PVCs that have dots in their names", func() {
+		testVMExport := createVMVMExport()
+		controller.VMInformer.GetStore().Add(createVMWithDataVolumeTemplates("mydisk.example.local"))
+		controller.PVCInformer.GetStore().Add(createPVC("mydisk.example.local", "kubevirt"))
+		controller.VMExportInformer.GetStore().Add(testVMExport)
+
+		expectExporterCreate(k8sClient, k8sv1.PodRunning)
+
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			verifyLinksInternal(vmExport, ptr.To("mydisk.example.local"), vmExport.Status.Links.Internal.Volumes[0].Formats...)
+			return true, vmExport, nil
+		})
+
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+	})
+
 })
