@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -83,6 +84,7 @@ const (
 	labelValue      = "label-value"
 	annotationKey   = "annotation-key"
 	annotationValue = "annotation-value"
+	fakePVCUID      = "d6a57c45-c5f5-40ee-a497-c9a3bf7fb742"
 )
 
 var (
@@ -1511,6 +1513,14 @@ func verifyLinksEmpty(vmExport *exportv1.VirtualMachineExport) {
 	Expect(vmExport.Status.Links.External).To(BeNil())
 }
 
+func verifyInternalLinkHasVolume(vmExport *exportv1.VirtualMachineExport, volName string) {
+	Expect(vmExport.Status.Links).ToNot(BeNil())
+	Expect(vmExport.Status.Links.Internal).ToNot(BeNil())
+	Expect(len(vmExport.Status.Links.Internal.Volumes)).To(BeEquivalentTo(1))
+	Expect(vmExport.Status.Links.Internal.Volumes[0].Name).To(Equal(volName))
+	Expect(len(vmExport.Status.Links.Internal.Volumes[0].Formats)).To(BeEquivalentTo(2))
+}
+
 func verifyLinksInternal(vmExport *exportv1.VirtualMachineExport, expectedVolumeFormats ...exportv1.VirtualMachineExportVolumeFormat) {
 	Expect(vmExport.Status).ToNot(BeNil())
 	Expect(vmExport.Status.Links).ToNot(BeNil())
@@ -1734,6 +1744,7 @@ func createPVC(name, contentType string) *k8sv1.PersistentVolumeClaim {
 			Annotations: map[string]string{
 				annContentType: contentType,
 			},
+			UID: types.UID(fakePVCUID),
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			VolumeMode:  pointer.P(k8sv1.PersistentVolumeMode("testvolumemode")),
