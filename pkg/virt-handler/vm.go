@@ -778,7 +778,8 @@ func (c *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMac
 			return err
 		}
 
-		guestInfo, err := client.GetGuestInfo()
+		c.logger.V(1).Object(vmi).Info("Calling GetGuestInfo from virt-handler/vm.go")
+		guestInfo, err := client.GetGuestInfo(vmi, c.clusterConfig.GetSupportedAgentVersions())
 		if err != nil {
 			return err
 		}

@@ -100,7 +100,7 @@ func run(config *FreezerConfig, client cmdclient.LauncherClient) error {
 		},
 	}
 
-	info, err := client.GetGuestInfo()
+	info, err := client.GetGuestInfo(vmi, nil)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to get guest info")
 		return err

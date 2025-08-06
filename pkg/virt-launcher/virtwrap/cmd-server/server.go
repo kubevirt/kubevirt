@@ -517,7 +517,7 @@ func (l *Launcher) GetDomainDirtyRateStats(_ context.Context, _ *cmdv1.EmptyRequ
 }
 
 // GetGuestInfo collect guest info from the domain
-func (l *Launcher) GetGuestInfo(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestInfoResponse, error) {
+func (l *Launcher) GetGuestInfo(_ context.Context, _ *cmdv1.VMIRequest) (*cmdv1.GuestInfoResponse, error) {
 	response := &cmdv1.GuestInfoResponse{
 		Response: &cmdv1.Response{
 			Success: true,

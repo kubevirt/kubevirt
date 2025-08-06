@@ -222,7 +222,7 @@ func (mr *MockCmdClientMockRecorder) GetFilesystems(ctx, in any, opts ...any) *g
 }
 
 // GetGuestInfo mocks base method.
-func (m *MockCmdClient) GetGuestInfo(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GuestInfoResponse, error) {
+func (m *MockCmdClient) GetGuestInfo(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*GuestInfoResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
@@ -841,7 +841,7 @@ func (mr *MockCmdServerMockRecorder) GetFilesystems(arg0, arg1 any) *gomock.Call
 }
 
 // GetGuestInfo mocks base method.
-func (m *MockCmdServer) GetGuestInfo(arg0 context.Context, arg1 *EmptyRequest) (*GuestInfoResponse, error) {
+func (m *MockCmdServer) GetGuestInfo(arg0 context.Context, arg1 *VMIRequest) (*GuestInfoResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetGuestInfo", arg0, arg1)
 	ret0, _ := ret[0].(*GuestInfoResponse)
