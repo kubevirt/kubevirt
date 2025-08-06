@@ -1371,9 +1371,6 @@ spec:
                     - matchExpressions:
                       - key: node-role.kubernetes.io/control-plane
                         operator: Exists
-                    - matchExpressions:
-                      - key: node-role.kubernetes.io/master
-                        operator: Exists
                 podAntiAffinity:
                   preferredDuringSchedulingIgnoredDuringExecution:
                   - podAffinityTerm:
@@ -1457,9 +1454,6 @@ spec:
                 operator: Exists
               - effect: NoSchedule
                 key: node-role.kubernetes.io/control-plane
-                operator: Exists
-              - effect: NoSchedule
-                key: node-role.kubernetes.io/master
                 operator: Exists
               volumes:
               - name: kubevirt-operator-certs
