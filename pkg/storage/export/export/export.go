@@ -259,7 +259,7 @@ func (sv *sourceVolumes) populateLink(
 			continue
 		}
 
-		volumeInfo := paths.GetVolumeInfo(pvc.Name)
+		volumeInfo := paths.GetVolumeInfo(&pvc.UID)
 		if volumeInfo == nil {
 			log.Log.Warningf("Volume %s not found in paths", pvc.Name)
 			continue
@@ -1288,6 +1288,10 @@ func addVolumeEnvironmentVariables(exportContainer *corev1.Container, pvc *corev
 	exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 		Name:  fmt.Sprintf("VOLUME%d_EXPORT_PATH", index),
 		Value: mountPoint,
+	})
+	exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
+		Name:  fmt.Sprintf("VOLUME%d_EXPORT_ID", index),
+		Value: string(pvc.GetUID()),
 	})
 	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 		exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
