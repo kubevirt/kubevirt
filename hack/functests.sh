@@ -53,6 +53,10 @@ rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
 function functest() {
+    for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
+        until ./cluster-up/ssh.sh "node$(printf "%02d" ${i})" "echo \"registry:5000/kubevirt/alpine-container-disk-demo:${DOCKER_TAG} registry:5000/kubevirt/cirros-container-disk-demo:${DOCKER_TAG} registry:5000/kubevirt/virtio-container-disk:${DOCKER_TAG}\" | xargs \-\-max-args=1 sudo crictl pull"; do sleep 1; done
+    done
+
     KUBEVIRT_FUNC_TEST_SUITE_ARGS="--ginkgo.trace
 	    -apply-default-e2e-configuration \
 	    -conn-check-ipv4-address=${conn_check_ipv4_address} \
