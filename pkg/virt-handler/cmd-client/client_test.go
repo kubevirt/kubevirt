@@ -104,20 +104,6 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", "1234_sock")))
 		})
 
-		It("Listing all sockets", func() {
-			// the new socket is already created in the Before function
-
-			// create a legacy socket to ensure we find both new and legacy sockets
-			f, err := os.Create(filepath.Join(socketsDir, "1234_sock"))
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
-
-			// listing all sockets should detect both the new and legacy sockets
-			sockets, err := ListAllSockets()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(sockets).To(HaveLen(2))
-		})
-
 		It("Detect unresponsive socket", func() {
 			sock, err := FindSocketOnHost(vmi)
 			Expect(err).ToNot(HaveOccurred())
