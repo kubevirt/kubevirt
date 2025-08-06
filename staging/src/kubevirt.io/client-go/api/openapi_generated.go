@@ -30351,6 +30351,13 @@ func schema_kubevirtio_api_instancetype_v1beta1_PreferenceRequirements(ref commo
 							Ref:         ref("kubevirt.io/api/instancetype/v1beta1.MemoryPreferenceRequirement"),
 						},
 					},
+					"architecture": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required Architecture of the VM referencing this preference",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -30973,6 +30980,13 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachinePreferenceSpec(ref
 							Description: "PreferSpreadSocketToCoreRatio defines the ratio to spread vCPUs between cores and sockets, it defaults to 2.",
 							Type:        []string{"integer"},
 							Format:      "int64",
+						},
+					},
+					"preferredArchitecture": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredArchitecture defines a prefeerred architecture for the VirtualMachine",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
