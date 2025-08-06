@@ -76,7 +76,7 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 				config.SELinuxLauncherType = "container_t"
 				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi = libvmifact.NewCirros()
+				vmi = libvmifact.NewAlpine()
 			})
 
 			It("[test_id:2953][test_id:2895]Ensure virt-launcher pod securityContext type is correctly set and not privileged", func() {
