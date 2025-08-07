@@ -638,9 +638,6 @@ func (c *VirtLauncherClient) GetGuestInfo(vmi *v1.VirtualMachineInstance, suppor
 			return guestInfo, err
 		}
 	}
-
-	fmt.Println("Guest Agent response: ", guestInfo)
-
 	return guestInfo, nil
 }
 

@@ -5,6 +5,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "generated_mock_manager.go",
+        "guestagent.go",
         "live-migration-source.go",
         "live-migration-target.go",
         "manager.go",

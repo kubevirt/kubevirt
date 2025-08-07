@@ -5,7 +5,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "controller.go",
-        "guestagent.go",
         "ksm.go",
         "migration.go",
         "migration-source.go",

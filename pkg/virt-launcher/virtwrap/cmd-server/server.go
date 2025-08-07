@@ -529,7 +529,7 @@ func (l *Launcher) GetGuestInfo(_ context.Context, request *cmdv1.VMIRequest) (*
 		},
 	}
 
-	guestInfo, err := l.domainManager.GetGuestInfo(vmi)
+	guestInfo, err := l.domainManager.GetGuestInfo(vmi, request.Options.SupportedGuestAgentVersions)
 	if err != nil {
 		return nil, err
 	}
