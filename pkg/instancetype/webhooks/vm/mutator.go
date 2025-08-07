@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/infer"
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
@@ -70,10 +71,18 @@ func (m *mutator) Mutate(vm, oldVM *virtv1.VirtualMachine, ar *admissionv1.Admis
 	}
 
 	preferenceSpec, _ := m.FindPreference(vm)
+	mutateArch(vm, preferenceSpec)
 	mutateMachineType(vm, preferenceSpec)
 	mutateDataVolumeTemplates(vm, preferenceSpec)
 
 	return nil
+}
+
+func mutateArch(vm *virtv1.VirtualMachine, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) {
+	if vm.Spec.Template == nil {
+		return
+	}
+	apply.ApplyArchitecturePreferences(preferenceSpec, &vm.Spec.Template.Spec)
 }
 
 // NOTE(lyarwood): We mutate the preferred machine type value into the VM early

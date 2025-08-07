@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "annotations.go",
+        "architecture.go",
         "clock.go",
         "cpu.go",
         "device.go",
@@ -30,6 +31,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "apply_suite_test.go",
+        "architecture_test.go",
         "clock_test.go",
         "device_test.go",
         "features_test.go",
