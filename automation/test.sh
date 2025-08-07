@@ -567,6 +567,7 @@ spec:
 EOF
 fi
 
+kubectl get pods -A
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest

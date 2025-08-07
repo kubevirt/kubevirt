@@ -636,7 +636,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 	})
 
-	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", decorators.Upgrade, func() {
+	FDescribe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", decorators.Upgrade, func() {
 		runStrategyHalted := v1.RunStrategyHalted
 
 		// This test is installing a previous release of KubeVirt

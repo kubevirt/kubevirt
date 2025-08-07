@@ -139,6 +139,10 @@ function _add_common_params() {
         params=" --single-stack $params"
     fi
 
+    if [ $KUBEVIRT_FLANNEL == "true" ]; then
+        params=" --flannel $params"
+    fi
+
     if [ $KUBEVIRT_NO_ETCD_FSYNC == "true" ]; then
         params=" --no-etcd-fsync $params"
     fi
