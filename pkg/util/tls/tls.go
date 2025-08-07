@@ -161,14 +161,14 @@ func SetupTLSWithCertManager(caManager KubernetesCAManager, certManager certific
 }
 
 func SetupTLSForVirtSynchronizationControllerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
-	return SetupTLSForServer(caManager, certManager, externallyManaged, clusterConfig, "virt-synchronization-controller")
+	return SetupTLSForServer(caManager, certManager, externallyManaged, clusterConfig, []string{"virt-synchronization-controller"})
 }
 
-func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
-	return SetupTLSForServer(caManager, certManager, externallyManaged, clusterConfig, "virt-handler")
+func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig, commonNameTypes []string) *tls.Config {
+	return SetupTLSForServer(caManager, certManager, externallyManaged, clusterConfig, commonNameTypes)
 }
 
-func SetupTLSForServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig, commonNameType string) *tls.Config {
+func SetupTLSForServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig, commonNameTypes []string) *tls.Config {
 	// #nosec cause: InsecureSkipVerify: true
 	// resolution: Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
 	return &tls.Config{
@@ -210,7 +210,7 @@ func SetupTLSForServer(caManager ClientCAManager, certManager certificate.Manage
 				InsecureSkipVerify: true,
 				// XXX: We need to verify the cert ourselves because we don't have DNS or IP on the certs at the moment
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-					return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageClientAuth, "client", []string{commonNameType})
+					return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageClientAuth, "client", commonNameTypes)
 				},
 				ClientAuth: tls.RequireAndVerifyClientCert,
 			}
