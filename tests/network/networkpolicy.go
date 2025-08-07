@@ -132,7 +132,6 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				})
 
 				It("[test_id:1514] should fail pinging between two VMI/s each on different namespaces", decorators.Conformance, func() {
-					checks.SkipIfUseFlannel(virtClient)
 					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
 				})
 			})
