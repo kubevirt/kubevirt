@@ -1687,6 +1687,103 @@ var _ = Describe("Snapshot controlleer", func() {
 				Entry("ready", true, timeFunc()),
 			)
 
+			It("should update VirtualMachineSnapshotContent error when errorMessage present and not ready", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshotContent := createVMSnapshotContent()
+
+				// Set up content with no existing error
+				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse: pointer.P(false),
+				}
+
+				updatedContent := vmSnapshotContent.DeepCopy()
+				updatedContent.ResourceVersion = "1"
+
+				vmSnapshotSource.Add(vmSnapshot)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				// Create a volume snapshot with an error
+				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
+				message := "test volume snapshot error"
+				volumeSnapshots[0].Status.ReadyToUse = pointer.P(false)
+				volumeSnapshots[0].Status.Error = &vsv1.VolumeSnapshotError{
+					Message: &message,
+					Time:    timeFunc(),
+				}
+				addVolumeSnapshot(&volumeSnapshots[0])
+
+				// Expected error message format
+				expectedErrorMessage := fmt.Sprintf("VolumeSnapshot %s error: %s", volumeSnapshots[0].Name, message)
+
+				// Update expected content status
+				updatedContent.Status.ReadyToUse = pointer.P(false)
+				updatedContent.Status.Error = &snapshotv1.Error{
+					Time:    timeFunc(),
+					Message: &expectedErrorMessage,
+				}
+				updatedContent.Status.VolumeSnapshotStatus = []snapshotv1.VolumeSnapshotStatus{
+					{
+						VolumeSnapshotName: volumeSnapshots[0].Name,
+						ReadyToUse:         volumeSnapshots[0].Status.ReadyToUse,
+						Error:              translateError(volumeSnapshots[0].Status.Error),
+					},
+				}
+
+				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
+
+				controller.processVMSnapshotContentWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
+			It("should clear VirtualMachineSnapshotContent error when transitioning from error to success", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshotContent := createVMSnapshotContent()
+
+				// Set up content with existing error status
+				errorMessage := "VolumeSnapshot vmsnapshot-snapshot-uid-volume-disk1 error: previous error"
+				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse:   pointer.P(false),
+					CreationTime: timeFunc(),
+					Error: &snapshotv1.Error{
+						Time:    timeFunc(),
+						Message: &errorMessage,
+					},
+				}
+
+				updatedContent := vmSnapshotContent.DeepCopy()
+				updatedContent.ResourceVersion = "1"
+
+				vmSnapshotSource.Add(vmSnapshot)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				// Create volume snapshots that are now ready (no errors)
+				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
+				for i := range volumeSnapshots {
+					volumeSnapshots[i].Status.ReadyToUse = pointer.P(true)
+					volumeSnapshots[i].Status.CreationTime = timeFunc()
+					// No error status - this simulates the error being resolved
+					addVolumeSnapshot(&volumeSnapshots[i])
+
+					vss := snapshotv1.VolumeSnapshotStatus{
+						VolumeSnapshotName: volumeSnapshots[i].Name,
+						ReadyToUse:         volumeSnapshots[i].Status.ReadyToUse,
+						CreationTime:       volumeSnapshots[i].Status.CreationTime,
+						Error:              translateError(volumeSnapshots[i].Status.Error), // nil
+					}
+					updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, vss)
+				}
+
+				// Expected: error should be cleared, ready should be true
+				updatedContent.Status.ReadyToUse = pointer.P(true)
+				updatedContent.Status.Error = nil // This is the key assertion - error should be cleared
+				updatedContent.Status.CreationTime = timeFunc()
+
+				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
+
+				controller.processVMSnapshotContentWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
 			It("should update VirtualMachineSnapshotContent when VolumeSnapshot deleted", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshotContent := createReadyVMSnapshotContent()
@@ -1716,6 +1813,33 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotContentWorkItem()
 				testutils.ExpectEvent(recorder, "VolumeSnapshotMissing")
 				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
+			It("should not update snapshotContent the same error is already updated", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshotContent := createVMSnapshotContent()
+
+				volumeSnapshotName := "vmsnapshot-snapshot-uid-volume-disk1"
+				existingErrorMessage := fmt.Sprintf("VolumeSnapshots (%s) missing", volumeSnapshotName)
+				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse:   pointer.P(false),
+					CreationTime: timeFunc(),
+					Error: &snapshotv1.Error{
+						Time:    timeFunc(),
+						Message: &existingErrorMessage,
+					},
+				}
+
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+				addVirtualMachineSnapshot(vmSnapshot)
+
+				// Don't add any volume snapshots to simulate deletion
+				// The controller should generate the same error message
+
+				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, vmSnapshotContent)
+
+				controller.processVMSnapshotContentWorkItem()
+				Expect(*updateStatusCalls).To(Equal(0))
 			})
 
 			DescribeTable("should unfreeze vm with online snapshot and guest agent", func(ct *metav1.Time, r bool) {
