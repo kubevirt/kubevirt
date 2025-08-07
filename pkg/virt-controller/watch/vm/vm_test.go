@@ -5732,6 +5732,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Creating a VMI with cluster max")
 				vmi = controller.setupVMIFromVM(vm)
+				vmi.Status.Phase = v1.Running
 				controller.vmiIndexer.Add(vmi)
 
 				By("Bumping the VM sockets above the cluster maximum")
