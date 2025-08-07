@@ -97,6 +97,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -3102,6 +3103,32 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 
 		vmis = append(vmis, vmi)
 	}
+
+	lastVMIIndex := len(vmis) - 1
+	vmi := vmis[lastVMIIndex]
+
+	const nadName = "secondarynet"
+	netAttachDef := libnet.NewBridgeNetAttachDef(nadName, nadName)
+	_, err := libnet.CreateNetAttachDef(context.Background(), vmi.GetNamespace(), netAttachDef)
+	Expect(err).NotTo(HaveOccurred())
+
+	const networkName = "tenant-blue"
+	vmi.Spec.Domain.Devices.Interfaces = append(
+		vmi.Spec.Domain.Devices.Interfaces,
+		v1.Interface{
+			Name:                   networkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+		},
+	)
+	vmi.Spec.Networks = append(
+		vmi.Spec.Networks,
+		v1.Network{
+			Name: networkName,
+			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+				NetworkName: nadName,
+			}},
+		},
+	)
 
 	return vmis, nil
 }
