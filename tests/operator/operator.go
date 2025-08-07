@@ -3108,9 +3108,7 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 	vmi := vmis[lastVMIIndex]
 
 	const nadName = "secondarynet"
-	netAttachDef := libnet.NewBridgeNetAttachDef(nadName, nadName)
-	_, err := libnet.CreateNetAttachDef(context.Background(), vmi.GetNamespace(), netAttachDef)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(libnet.CreateNAD(testsuite.GetTestNamespace(vmi), nadName)).To(Succeed())
 
 	const networkName = "tenant-blue"
 	vmi.Spec.Domain.Devices.Interfaces = append(
