@@ -38,10 +38,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
-const (
-	noVolumeVMReason = "VMNoVolumes"
-)
-
 func (ctrl *VMExportController) handleVMExport(obj interface{}) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
@@ -171,17 +167,25 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 			volumes:          pvcs,
 			inUse:            false,
 			isPopulated:      allPopulated,
-			availableMessage: fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
+			availableMessage: fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", vmExport.Namespace, vmExport.Spec.Source.Name),
+			availableReason:  volumesNotPopulatedReason}, nil
 	}
 	inUse, availableMessage, err := ctrl.isSourceInUseVM(vmExport)
 	if err != nil {
 		return &sourceVolumes{}, err
 	}
+
+	availableReason := ""
+	if inUse {
+		availableReason = inUseReason
+	}
+
 	return &sourceVolumes{
 		volumes:          pvcs,
 		inUse:            inUse,
 		isPopulated:      allPopulated,
-		availableMessage: availableMessage}, nil
+		availableMessage: availableMessage,
+		availableReason:  availableReason}, nil
 }
 
 func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*corev1.PersistentVolumeClaim, bool, error) {

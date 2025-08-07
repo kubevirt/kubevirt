@@ -73,15 +73,22 @@ const (
 	failedKeyFromObjectFmt = "failed to get key from object: %v, %v"
 	enqueuedForSyncFmt     = "enqueued %q for sync"
 
-	pvcNotFoundReason  = "PVCNotFound"
-	pvcBoundReason     = "PVCBound"
-	pvcPendingReason   = "PVCPending"
-	unknownReason      = "Unknown"
-	initializingReason = "Initializing"
-	inUseReason        = "InUse"
-	podPendingReason   = "PodPending"
-	podReadyReason     = "PodReady"
-	podCompletedReason = "PodCompleted"
+	pvcNotFoundReason           = "PVCNotFound"
+	pvcBoundReason              = "PVCBound"
+	pvcPendingReason            = "PVCPending"
+	unknownReason               = "Unknown"
+	initializingReason          = "Initializing"
+	inUseReason                 = "InUse"
+	podPendingReason            = "PodPending"
+	podReadyReason              = "PodReady"
+	podCompletedReason          = "PodCompleted"
+	vmNotFoundReason            = "VMNotFound"
+	volumesNotPopulatedReason   = "VolumesNotPopulated"
+	vmDeletedDuringExportReason = "VMDeletedDuringExport"
+	noVolumeVMReason            = "VMNoVolumes"
+	noVolumeSnapshotReason      = "VMSnapshotNoVolumes"
+	notAllPVCsCreatedReason     = "NotAllPVCsCreated"
+	VMSnapshotNotFoundReason    = "VMSnapshotNotFound"
 
 	exportServiceLabel = "kubevirt.io.virt-export-service"
 
@@ -172,6 +179,7 @@ type sourceVolumes struct {
 	inUse            bool
 	isPopulated      bool
 	availableMessage string
+	availableReason  string
 }
 
 func (sv *sourceVolumes) isSourceAvailable() bool {
@@ -1249,7 +1257,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 	vmExportCopy.Status.ServiceName = service.Name
 	vmExportCopy.Status.Links = &exportv1.VirtualMachineExportLinks{}
 	if exporterPod == nil {
-		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, inUseReason, sourceVolumes.availableMessage))
+		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, sourceVolumes.availableReason, sourceVolumes.availableMessage))
 		vmExportCopy.Status.Phase = exportv1.Pending
 	} else {
 		if optutil.PodIsReady(exporterPod) {
@@ -1306,7 +1314,6 @@ func populateInitialVMExportStatus(vmExport *exportv1.VirtualMachineExport) {
 		Phase: exportv1.Pending,
 		Conditions: []exportv1.Condition{
 			newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
-			newPvcCondition(corev1.ConditionFalse, unknownReason, ""),
 		},
 		TTLExpirationTime: &expireAt,
 	}

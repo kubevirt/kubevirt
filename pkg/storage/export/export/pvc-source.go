@@ -69,25 +69,38 @@ func (ctrl *VMExportController) getPvc(namespace, name string) (*corev1.Persiste
 	return obj.(*corev1.PersistentVolumeClaim).DeepCopy(), true, nil
 }
 
-func (ctrl *VMExportController) isSourceAvailablePVC(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (bool, bool, string, error) {
+func (ctrl *VMExportController) isSourceAvailablePVC(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (*sourceVolumes, error) {
 	availableMessage := ""
 	isPopulated, err := ctrl.isPVCPopulated(pvc)
 	inUse := false
 	if err != nil {
-		return false, false, "", err
+		return nil, err
 	}
 	if isPopulated {
 		inUse, err = ctrl.isPVCInUse(vmExport, pvc)
 		if err != nil {
-			return false, false, "", err
+			return nil, err
 		}
 		if inUse {
-			availableMessage = fmt.Sprintf("pvc %s/%s is in use", pvc.Namespace, pvc.Name)
+			availableMessage = fmt.Sprintf("PersistentVolumeClaim %s/%s is in use", pvc.Namespace, pvc.Name)
 		}
 	} else {
-		availableMessage = fmt.Sprintf("pvc %s/%s is not populated", pvc.Namespace, pvc.Name)
+		availableMessage = fmt.Sprintf("PersistentVolumeClaim %s/%s is not populated", pvc.Namespace, pvc.Name)
 	}
-	return isPopulated, inUse, availableMessage, nil
+
+	availableReason := ""
+	if !isPopulated {
+		availableReason = pvcPendingReason
+	} else if inUse {
+		availableReason = inUseReason
+	}
+
+	return &sourceVolumes{
+		volumes:          []*corev1.PersistentVolumeClaim{pvc},
+		inUse:            inUse,
+		isPopulated:      isPopulated,
+		availableMessage: availableMessage,
+		availableReason:  availableReason}, nil
 }
 
 func (ctrl *VMExportController) getPVCFromSourcePVC(vmExport *exportv1.VirtualMachineExport) (*sourceVolumes, error) {
@@ -100,18 +113,11 @@ func (ctrl *VMExportController) getPVCFromSourcePVC(vmExport *exportv1.VirtualMa
 			volumes:          nil,
 			inUse:            false,
 			isPopulated:      false,
-			availableMessage: fmt.Sprintf("pvc %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
+			availableMessage: fmt.Sprintf("PersistentVolumeClaim %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name),
+			availableReason:  pvcNotFoundReason}, nil
 	}
 
-	isPopulated, inUse, availableMessage, err := ctrl.isSourceAvailablePVC(vmExport, pvc)
-	if err != nil {
-		return &sourceVolumes{}, err
-	}
-	return &sourceVolumes{
-		volumes:          []*corev1.PersistentVolumeClaim{pvc},
-		inUse:            inUse,
-		isPopulated:      isPopulated,
-		availableMessage: availableMessage}, nil
+	return ctrl.isSourceAvailablePVC(vmExport, pvc)
 }
 
 func (ctrl *VMExportController) isPVCInUse(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (bool, error) {
@@ -147,9 +153,9 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 
 	if len(sourceVolumes.volumes) == 0 {
 		log.Log.V(3).Info("PVC(s) not found, updating status to not found")
-		updateCondition(vmExportCopy.Status.Conditions, newPvcCondition(corev1.ConditionFalse, pvcNotFoundReason, sourceVolumes.availableMessage))
+		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newPvcCondition(corev1.ConditionFalse, pvcNotFoundReason, sourceVolumes.availableMessage))
 	} else {
-		updateCondition(vmExportCopy.Status.Conditions, ctrl.pvcConditionFromPVC(sourceVolumes.volumes))
+		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, ctrl.pvcConditionFromPVC(sourceVolumes.volumes))
 	}
 
 	if err := ctrl.updateVMExportStatus(vmExport, vmExportCopy); err != nil {
