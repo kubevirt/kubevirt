@@ -1009,6 +1009,8 @@ func (c *VMController) addStartRequest(vm *virtv1.VirtualMachine) error {
 	}
 	vm.Status.StateChangeRequests = append(vm.Status.StateChangeRequests, addRequest[0])
 
+	fmt.Println("BBBB")
+	fmt.Println(vm.Status.StateChangeRequests)
 	return nil
 }
 
@@ -3217,6 +3219,31 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 		if err := c.handleVolumeUpdateRequest(vmCopy, vmi); err != nil {
 			return vm, &syncErrorImpl{fmt.Errorf("error encountered while handling volumes update requests: %v", err), VolumesUpdateErrorReason}, nil
+		}
+	}
+
+	if cond := conditionManager.GetCondition(vmCopy, virtv1.VirtualMachineRestartRequired); cond != nil && cond.Status == k8score.ConditionTrue {
+		switch vmi.Status.Phase {
+		case virtv1.VmPhaseUnset, virtv1.Pending, virtv1.Scheduling:
+			startExist := false
+			for _, stateChange := range vmCopy.Status.StateChangeRequests {
+				switch stateChange.Action {
+				case virtv1.StartRequest:
+					startExist = true
+				case virtv1.StopRequest:
+					startExist = false
+				}
+			}
+			if !startExist {
+				if err = c.addStartRequest(vmCopy); err != nil {
+					return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to add start request: %v", err), FailedUpdateErrorReason}, nil
+				}
+			}
+			updatedVM, err := c.stopVMI(vmCopy, vmi)
+			if err != nil {
+				return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to stop vmi: %v", err), FailedUpdateErrorReason}, nil
+			}
+			vmCopy = updatedVM
 		}
 	}
 
