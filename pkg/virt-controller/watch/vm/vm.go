@@ -3075,7 +3075,7 @@ func (c *Controller) syncVMAnnotationsToVMI(vm *virtv1.VirtualMachine, vmi *virt
 
 	annotationsToSync := []string{
 		descheduler.EvictPodAnnotationKeyAlpha,
-		descheduler.EvictPodAnnotationKeyBeta,
+		descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction,
 	}
 
 	newVMIAnnotations := map[string]string{}

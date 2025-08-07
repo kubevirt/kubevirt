@@ -48,9 +48,9 @@ const EvictionInProgressAnnotation = "descheduler.alpha.kubernetes.io/eviction-i
 // The descheduler will only check the presence of the annotation and not its value.
 const EvictPodAnnotationKeyAlpha = "descheduler.alpha.kubernetes.io/evict"
 
-// EvictPodAnnotationKeyBeta can be used to explicitly opt-in/out a pod to be eventually descheduled.
-// The descheduler will check the annotation value with a Boolean logic.
-const EvictPodAnnotationKeyBeta = "descheduler.beta.kubernetes.io/evict"
+// EvictPodAnnotationKeyAlphaPreferNoEviction can be used to explicitly opt-out a pod to be eventually descheduled.
+// The descheduler will only check the presence of the annotation and not its value.
+const EvictPodAnnotationKeyAlphaPreferNoEviction = "descheduler.alpha.kubernetes.io/prefer-no-eviction"
 
 func MarkEvictionInProgress(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.Pod) error {
 	if _, exists := sourcePod.GetAnnotations()[EvictionInProgressAnnotation]; exists {
