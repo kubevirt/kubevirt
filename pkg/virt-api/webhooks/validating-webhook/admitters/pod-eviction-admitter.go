@@ -9,6 +9,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	k8scorev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -55,11 +56,43 @@ func (admitter *PodEvictionAdmitter) Admit(ctx context.Context, ar *admissionv1.
 	if err != nil {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
+	switch {
+	case isHotplugPod(pod):
+		return admitter.admitHotplugPod(ctx, pod)
+	case isVirtLauncher(pod) && !isCompleted(pod):
+		return admitter.admitLauncherPod(ctx, ar, pod)
+	}
+	return validating_webhooks.NewPassingAdmissionResponse()
+}
 
-	if !isVirtLauncher(pod) || isCompleted(pod) {
+func (admitter *PodEvictionAdmitter) admitHotplugPod(ctx context.Context, pod *k8scorev1.Pod) *admissionv1.AdmissionResponse {
+	ownerPod, err := admitter.kubeClient.CoreV1().Pods(pod.Namespace).Get(ctx, pod.OwnerReferences[0].Name, metav1.GetOptions{})
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return denied(fmt.Sprintf("failed getting owner for hotplug pod: %v", err))
+		}
+		return validating_webhooks.NewPassingAdmissionResponse()
+	}
+	if !isVirtLauncher(ownerPod) || isCompleted(ownerPod) {
+		return validating_webhooks.NewPassingAdmissionResponse()
+	}
+	vmiName, exists := ownerPod.GetAnnotations()[virtv1.DomainAnnotation]
+	if !exists {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
+	_, err = admitter.virtClient.KubevirtV1().VirtualMachineInstances(pod.Namespace).Get(ctx, vmiName, metav1.GetOptions{})
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return denied(fmt.Sprintf("kubevirt failed getting the vmi: %v", err))
+		}
+		return validating_webhooks.NewPassingAdmissionResponse()
+	}
+
+	return denied(fmt.Sprintf("cannot evict hotplug pod: %s associated with running vmi: %s in namespace %s", pod.Name, vmiName, pod.Namespace))
+}
+
+func (admitter *PodEvictionAdmitter) admitLauncherPod(ctx context.Context, ar *admissionv1.AdmissionReview, pod *k8scorev1.Pod) *admissionv1.AdmissionResponse {
 	vmiName, exists := pod.GetAnnotations()[virtv1.DomainAnnotation]
 	if !exists {
 		return validating_webhooks.NewPassingAdmissionResponse()
@@ -67,7 +100,7 @@ func (admitter *PodEvictionAdmitter) Admit(ctx context.Context, ar *admissionv1.
 
 	vmi, err := admitter.virtClient.KubevirtV1().VirtualMachineInstances(ar.Request.Namespace).Get(ctx, vmiName, metav1.GetOptions{})
 	if err != nil {
-		return denied(fmt.Sprintf("kubevirt failed getting the vmi: %s", err.Error()))
+		return denied(fmt.Sprintf("kubevirt failed getting the vmi: %v", err))
 	}
 
 	evictionStrategy := migrations.VMIEvictionStrategy(admitter.clusterConfig, vmi)
@@ -107,7 +140,7 @@ func (admitter *PodEvictionAdmitter) Admit(ctx context.Context, ar *admissionv1.
 	err = admitter.markVMI(ctx, vmi.Namespace, vmi.Name, pod.Spec.NodeName, isDryRun(ar))
 	if err != nil {
 		// As with the previous case, it is up to the user to issue a retry.
-		return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
+		return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %v", err))
 	}
 	return denied(fmt.Sprintf(evictionFmt, vmi.Namespace, vmi.Name))
 }
@@ -149,6 +182,10 @@ func denied(message string) *admissionv1.AdmissionResponse {
 
 func isVirtLauncher(pod *k8scorev1.Pod) bool {
 	return pod.Labels[virtv1.AppLabel] == "virt-launcher"
+}
+
+func isHotplugPod(pod *k8scorev1.Pod) bool {
+	return pod.Labels[virtv1.AppLabel] == "hotplug-disk" && len(pod.OwnerReferences) == 1
 }
 
 func isCompleted(pod *k8scorev1.Pod) bool {

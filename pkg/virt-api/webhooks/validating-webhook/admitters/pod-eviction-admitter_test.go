@@ -439,6 +439,38 @@ var _ = Describe("Pod eviction admitter", func() {
 		Entry("dry run is set in the request", &dryRunOptions{dryRunInRequest: true}),
 		Entry("dry run is set in the object", &dryRunOptions{dryRunInObject: []string{metav1.DryRunAll}}),
 	)
+
+	Context("hotplug pod eviction", func() {
+		It("should deny the request for a hotplug pod of a VMI", func() {
+			vmiOptions := append(defaultVMIOptions,
+				libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
+				withLiveMigratableCondition(),
+			)
+			migratableVMI := libvmi.New(vmiOptions...)
+
+			virtClient := kubevirtfake.NewSimpleClientset(migratableVMI)
+			evictedVirtLauncherPod := newVirtLauncherPod(migratableVMI.Namespace, migratableVMI.Name, migratableVMI.Status.NodeName)
+			hotplugPod := newHotplugPod(evictedVirtLauncherPod)
+			kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod, hotplugPod)
+
+			admitter := admitters.NewPodEvictionAdmitter(
+				newClusterConfig(nil),
+				kubeClient,
+				virtClient,
+			)
+
+			expectedAdmissionResponse := newDeniedAdmissionResponse(
+				fmt.Sprintf("cannot evict hotplug pod: %s associated with running vmi: %s in namespace %s", hotplugPod.Name, migratableVMI.Name, hotplugPod.Namespace),
+			)
+			actualAdmissionResponse := admitter.Admit(
+				context.Background(),
+				newAdmissionReview(hotplugPod.Namespace, hotplugPod.Name, &dryRunOptions{}),
+			)
+			Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
+			Expect(kubeClient.Fake.Actions()).To(HaveLen(2))
+			Expect(virtClient.Fake.Actions()).To(HaveLen(1))
+		})
+	})
 })
 
 func newClusterConfig(clusterWideEvictionStrategy *virtv1.EvictionStrategy) *virtconfig.ClusterConfig {
@@ -487,6 +519,25 @@ func newVirtLauncherPodWithPhase(namespace, vmiName, nodeName string, phase k8sv
 	pod := newVirtLauncherPod(namespace, vmiName, nodeName)
 	pod.Status.Phase = phase
 	return pod
+}
+
+func newHotplugPod(virtLauncherPod *k8sv1.Pod) *k8sv1.Pod {
+	podName := "hp-volume-" + virtLauncherPod.Name
+	hotplugPod := newPod(virtLauncherPod.Namespace, podName, virtLauncherPod.Spec.NodeName)
+	hotplugPod.SetOwnerReferences([]metav1.OwnerReference{
+		{
+			Name:       virtLauncherPod.Name,
+			Kind:       "Pod",
+			APIVersion: "v1",
+			Controller: pointer.P(true),
+			UID:        virtLauncherPod.UID,
+		},
+	})
+	hotplugPod.SetLabels(map[string]string{
+		virtv1.AppLabel: "hotplug-disk",
+	})
+
+	return hotplugPod
 }
 
 type dryRunOptions struct {
