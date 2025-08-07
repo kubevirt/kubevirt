@@ -1522,6 +1522,28 @@ func (k *KubeVirtTestData) makeHandlerReady() {
 	}
 }
 
+func (k *KubeVirtTestData) makeHandlerComplete() {
+	exists := false
+	var obj interface{}
+	// we need to wait until the daemonset exists
+	for !exists {
+		obj, exists, _ = k.controller.stores.DaemonSetCache.GetByKey(NAMESPACE + "/virt-handler")
+		if exists {
+			handler, _ := obj.(*appsv1.DaemonSet)
+			handlerNew := handler.DeepCopy()
+			maxUnavailable := intstr.FromInt(1)
+			handlerNew.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+				MaxUnavailable: &maxUnavailable,
+			}
+			handlerNew.Spec.Template.Spec.Containers[0].Args = append(handlerNew.Spec.Template.Spec.Containers[0].Args, "migration-cn-types")
+			k.controller.stores.DaemonSetCache.Update(handlerNew)
+			key, err := kubecontroller.KeyFunc(handlerNew)
+			Expect(err).To(Not(HaveOccurred()))
+			k.mockQueue.Add(key)
+		}
+	}
+}
+
 func (k *KubeVirtTestData) addDummyValidationWebhook() {
 	version := fmt.Sprintf("rand-%s", rand.String(10))
 	registry := fmt.Sprintf("rand-%s", rand.String(10))
@@ -2018,6 +2040,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
 			kvTestData.makeDeploymentsReady(kv)
 			kvTestData.makeHandlerReady()
+			kvTestData.makeHandlerComplete()
 
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
@@ -2033,14 +2056,16 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 
 			// add one for the namespace
-			Expect(kvTestData.totalPatches).To(Equal(numGenerations + 1))
+			// now we don't patch and set generation for hadnler
+			Expect(kvTestData.totalPatches).To(Equal(numGenerations + 1 - 1))
 
 			// all these resources should be tracked by there generation so everyone that has been added should now be patched
 			// since they where the `lastGeneration` was set to -1 on the KubeVirt CR
 			Expect(kvTestData.resourceChanges["mutatingwebhookconfigurations"][Patched]).To(Equal(kvTestData.resourceChanges["mutatingwebhookconfigurations"][Added]))
 			Expect(kvTestData.resourceChanges["validatingwebhookconfigurations"][Patched]).To(Equal(kvTestData.resourceChanges["validatingwebhookconfigurations"][Added]))
 			Expect(kvTestData.resourceChanges["deployements"][Patched]).To(Equal(kvTestData.resourceChanges["deployements"][Added]))
-			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(kvTestData.resourceChanges["daemonsets"][Added]))
+			// Nothing to do
+			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(0))
 		})
 
 		It("should delete operator managed resources not in the deployed installstrategy", func() {

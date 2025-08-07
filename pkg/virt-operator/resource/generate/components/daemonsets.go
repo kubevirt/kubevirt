@@ -20,14 +20,15 @@ import (
 )
 
 const (
-	VirtHandlerName = "virt-handler"
-	kubeletPodsPath = util.KubeletRoot + "/pods"
-	runtimesPath    = "/var/run/kubevirt-libvirt-runtimes"
-	PrHelperName    = "pr-helper"
-	prVolumeName    = "pr-helper-socket-vol"
-	devDirVol       = "dev-dir"
-	SidecarShimName = "sidecar-shim"
-	etcMultipath    = "etc-multipath"
+	VirtHandlerName                = "virt-handler"
+	kubeletPodsPath                = util.KubeletRoot + "/pods"
+	runtimesPath                   = "/var/run/kubevirt-libvirt-runtimes"
+	PrHelperName                   = "pr-helper"
+	prVolumeName                   = "pr-helper-socket-vol"
+	devDirVol                      = "dev-dir"
+	SidecarShimName                = "sidecar-shim"
+	etcMultipath                   = "etc-multipath"
+	SupportsMigrationCNsValidation = "kubevirt.io/supports-migration-cn-types"
 )
 
 func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
@@ -98,7 +99,8 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			Namespace: namespace,
 			Name:      VirtHandlerName,
 			Labels: map[string]string{
-				virtv1.AppLabel: VirtHandlerName,
+				virtv1.AppLabel:                VirtHandlerName,
+				SupportsMigrationCNsValidation: "true",
 			},
 		},
 		Spec: appsv1.DaemonSetSpec{
