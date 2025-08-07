@@ -389,8 +389,8 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 		}
 		for i := 1; i <= int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount); i++ {
 			// The cpus for the iothreads are additionally allocated and aren't part of the cpu set dedicated to the vcpus threads
-			cpu := vcpus + i + indexEmulatorThread
-			appendDomainIOThreadPin(domain, uint32(i), fmt.Sprintf("%d", cpu))
+			cpu := vcpus + (i - 1) + indexEmulatorThread
+			appendDomainIOThreadPin(domain, uint32(i), fmt.Sprintf("%d", cpuset[cpu]))
 		}
 	case vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread:
 		// pin the IOThread on the same pCPU as the emulator thread
