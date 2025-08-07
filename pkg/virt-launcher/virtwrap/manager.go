@@ -2343,39 +2343,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 
 // GetGuestInfo queries the agent store and return the aggregated data from Guest agent
 func (l *LibvirtDomainManager) GetGuestInfo(vmi *v1.VirtualMachineInstance, supportedGuestAgentVersions []string) (*v1.VirtualMachineInstanceGuestAgentInfo, error) {
-	domainName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domainName)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to lookup domain by name: %v", err)
-	}
-	defer dom.Free()
-
-	// Check if the agent is even connected
-	domainSpec, err := getDomainSpec(dom)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to convert cli.VirDomain to api.DomainSpec: %v", err)
-	}
-	channelConnected := false
-	if domainSpec != nil {
-		for _, channel := range domainSpec.Devices.Channels {
-			if channel.Target != nil {
-				log.Log.Infof("Channel: %s, %s", channel.Target.Name, channel.Target.State)
-				if channel.Target.Name == "org.qemu.guest_agent.0" {
-					if channel.Target.State == "connected" {
-						channelConnected = true
-					}
-				}
-
-			}
-		}
-	}
-
-	if !channelConnected {
-		return &v1.VirtualMachineInstanceGuestAgentInfo{
-			GuestAgentConnected: false,
-		}, nil
-	}
-
+	agentConnectedStatus := l.agentData.GetAgentConnectedStatus()
 	sysInfo := l.agentData.GetSysInfo()
 	fsInfo := l.agentData.GetFS(10)
 	userInfo := l.agentData.GetUsers(10)
@@ -2387,7 +2355,7 @@ func (l *LibvirtDomainManager) GetGuestInfo(vmi *v1.VirtualMachineInstance, supp
 	gaInfo := l.agentData.GetGA()
 
 	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{
-		GuestAgentConnected: channelConnected,
+		GuestAgentConnected: agentConnectedStatus,
 		GAVersion:           gaInfo.Version,
 		SupportedCommands:   gaInfo.SupportedCommands,
 		Hostname:            sysInfo.Hostname,
