@@ -112,7 +112,7 @@ func (c *consoleCommand) handleConsoleConnection(client kubecli.KubevirtClient, 
 		}
 	}
 	err := Attach(stdinReader, stdoutReader, stdinWriter, stdoutWriter,
-		fmt.Sprint("Successfully connected to ", vmi, " console. The escape sequence is ^]\n"),
+		fmt.Sprintf("Successfully connected to %s console. Press Ctrl+] or Ctrl+5 to exit console.\n", vmi),
 		resChan)
 
 	if err != nil {
