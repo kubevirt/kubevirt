@@ -173,6 +173,7 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 	podsDir := r.createPodsDir()
 	networkPodsDir := r.createNetworkPodsDir()
 	computeProcessesDir := r.createComputeProcessesDir()
+	qemuLogsDir := r.createQemuLogsDir()
 
 	duration += 5 * time.Second
 	since := time.Now().Add(-duration)
@@ -242,6 +243,10 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 	}
 	r.logVirtLauncherCommands(virtCli, computeProcessesDir, computeCommandConfigs)
 	r.logVirtLauncherPrivilegedCommands(virtCli, networkPodsDir, virtHandlerPods)
+	qemuLogsCommandConfigs := []commands{
+		{command: "for file in /run/kubevirt-private/libvirt/qemu/log/*.log; do printf '%s\n' \"$file\";  cat \"$file\"; done", fileNameSuffix: "qemu"},
+	}
+	r.logVirtLauncherCommands(virtCli, qemuLogsDir, qemuLogsCommandConfigs)
 	r.logVMICommands(virtCli, vmiNamespaces)
 
 	r.logCloudInit(virtCli, vmiNamespaces)
@@ -1041,6 +1046,15 @@ func (r *KubernetesReporter) createComputeProcessesDir() string {
 		return ""
 	}
 
+	return logsdir
+}
+
+func (r *KubernetesReporter) createQemuLogsDir() string {
+	logsdir := filepath.Join(r.artifactsDir, "qemu", "logs")
+	if err := os.MkdirAll(logsdir, 0777); err != nil {
+		printError(failedCreateLogsDirectoryFmt, logsdir, err)
+		return ""
+	}
 	return logsdir
 }
 
