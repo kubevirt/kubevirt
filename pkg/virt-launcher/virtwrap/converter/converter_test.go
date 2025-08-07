@@ -803,6 +803,37 @@ var _ = Describe("Converter", func() {
 			//TODO add s390x entry with custom check of model used (disks/interfaces/controllers/devices will use different models)
 		)
 
+		Context("with ephemeral disk", func() {
+			DescribeTable("a scsi controller should ", func(enabled bool, expectedType, expectedModel, arch string) {
+				c.Architecture = archconverter.NewConverter(arch)
+				vmi.Spec.Domain.Devices.DisableHotplug = !enabled
+
+				domain := &api.Domain{}
+				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domain.Spec.Devices.Controllers).To(ContainElement(
+					api.Controller{
+						Type:  expectedType,
+						Index: "0",
+						Model: expectedModel,
+					}))
+				if !enabled {
+					for _, controller := range domain.Spec.Devices.Controllers {
+						Expect(controller.Type).ToNot(Equal("scsi"))
+					}
+				}
+			},
+				Entry("appear if enabled for amd64", true, "scsi", "virtio-non-transitional", amd64),
+				Entry("appear if enabled for ppc64le", true, "scsi", "virtio-non-transitional", ppc64le),
+				Entry("appear if enabled for arm64", true, "scsi", "virtio-non-transitional", arm64),
+				Entry("appear if enabled for s390x", true, "scsi", "virtio-scsi", s390x),
+				Entry("NOT appear if disabled for amd64", false, "virtio-serial", "virtio-non-transitional", amd64),
+				Entry("NOT appear if disabled for ppc64le", false, "virtio-serial", "virtio-non-transitional", ppc64le),
+				Entry("NOT appear if disabled for arm64", false, "virtio-serial", "virtio-non-transitional", arm64),
+				Entry("NOT appear if disabled for s390x", false, "virtio-serial", "virtio", s390x),
+			)
+		})
+
 		It("should handle float memory", func() {
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2222222200m")
 			xml := vmiToDomainXML(vmi, c)
