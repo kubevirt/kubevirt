@@ -52,9 +52,9 @@ func (h handlerDial) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *k8s
 	if statusError != nil {
 		return nil, statusError
 	}
-	conn, _, err := kvcorev1.Dial(url, h.app.handlerTLSConfiguration)
+	conn, resp, err := kvcorev1.Dial(url, h.app.handlerTLSConfiguration)
 	if err != nil {
-		return nil, k8serrors.NewInternalError(fmt.Errorf("dialing virt-handler: %w", err))
+		return nil, k8serrors.NewInternalError(kvcorev1.EnrichError(err, resp))
 	}
 	return conn, nil
 }
