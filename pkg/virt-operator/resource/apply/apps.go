@@ -193,6 +193,8 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 	var status CanaryUpgradeStatus
 	done := false
 
+	log := log.Log.With("resource", fmt.Sprintf("ds/%s", cachedDaemonSet.Name))
+
 	isDaemonSetUpdated := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) && !forceUpdate
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
 	if isDaemonSetUpdated {
@@ -208,6 +210,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			if err != nil {
 				return false, fmt.Errorf("unable to start canary upgrade for daemonset %+v: %v", newDS, err), CanaryUpgradeStatusFailed
 			}
+			log.V(2).Infof("daemonSet %v started upgrade", newDS.GetName())
 		} else {
 			// check for a crashed canary pod
 			canaryPods := r.getCanaryPods(cachedDaemonSet)
@@ -228,10 +231,10 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			if err != nil {
 				return false, fmt.Errorf("unable to update daemonset %+v: %v", newDS, err), CanaryUpgradeStatusFailed
 			}
-			log.Log.V(2).Infof("daemonSet %v updated", newDS.GetName())
+			log.V(2).Infof("daemonSet %v updated", newDS.GetName())
 			status = CanaryUpgradeStatusUpgradingDaemonSet
 		} else {
-			log.Log.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
+			log.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
 			status = CanaryUpgradeStatusWaitingDaemonSetRollout
 		}
 		done = false
@@ -244,7 +247,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			return false, err, CanaryUpgradeStatusFailed
 		}
 		SetGeneration(&r.kv.Status.Generations, newDS)
-		log.Log.V(2).Infof("daemonSet %v is ready", newDS.GetName())
+		log.V(2).Infof("daemonSet %v is ready", newDS.GetName())
 		done, status = true, CanaryUpgradeStatusSuccessful
 	}
 	return done, nil, status
