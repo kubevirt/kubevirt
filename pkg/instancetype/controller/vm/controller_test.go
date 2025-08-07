@@ -41,8 +41,6 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	"kubevirt.io/api/instancetype/v1alpha1"
-	"kubevirt.io/api/instancetype/v1alpha2"
 	"kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
@@ -330,90 +328,6 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Expect(vmi.Annotations).ToNot(HaveKey(virtv1.ClusterInstancetypeAnnotation))
 				Expect(vmi.Annotations).ToNot(HaveKey(virtv1.ClusterPreferenceAnnotation))
 			},
-			Entry("using v1alpha1 and VirtualMachineInstancetypeSpecRevision with APIVersion", func() []byte {
-				specBytes, err := json.Marshal(&v1alpha1.VirtualMachineInstancetypeSpec{
-					CPU: v1alpha1.CPUInstancetype{
-						Guest: instancetypeObj.Spec.CPU.Guest,
-					},
-					Memory: v1alpha1.MemoryInstancetype{
-						Guest: instancetypeObj.Spec.Memory.Guest,
-					},
-				})
-				Expect(err).ToNot(HaveOccurred())
-
-				specRevision := v1alpha1.VirtualMachineInstancetypeSpecRevision{
-					APIVersion: v1alpha1.SchemeGroupVersion.String(),
-					Spec:       specBytes,
-				}
-				specRevisionBytes, err := json.Marshal(specRevision)
-				Expect(err).ToNot(HaveOccurred())
-
-				return specRevisionBytes
-			}),
-			Entry("using v1alpha1 and VirtualMachineInstancetypeSpecRevision without APIVersion", func() []byte {
-				specBytes, err := json.Marshal(&v1alpha1.VirtualMachineInstancetypeSpec{
-					CPU: v1alpha1.CPUInstancetype{
-						Guest: instancetypeObj.Spec.CPU.Guest,
-					},
-					Memory: v1alpha1.MemoryInstancetype{
-						Guest: instancetypeObj.Spec.Memory.Guest,
-					},
-				})
-				Expect(err).ToNot(HaveOccurred())
-
-				specRevision := v1alpha1.VirtualMachineInstancetypeSpecRevision{
-					APIVersion: "",
-					Spec:       specBytes,
-				}
-				specRevisionBytes, err := json.Marshal(specRevision)
-				Expect(err).ToNot(HaveOccurred())
-
-				return specRevisionBytes
-			}),
-			Entry("using v1alpha1", func() []byte {
-				instancetypeBytes, err := json.Marshal(&v1alpha1.VirtualMachineInstancetype{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: v1alpha1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineInstancetype",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: instancetypeObj.Name,
-					},
-					Spec: v1alpha1.VirtualMachineInstancetypeSpec{
-						CPU: v1alpha1.CPUInstancetype{
-							Guest: instancetypeObj.Spec.CPU.Guest,
-						},
-						Memory: v1alpha1.MemoryInstancetype{
-							Guest: instancetypeObj.Spec.Memory.Guest,
-						},
-					},
-				})
-				Expect(err).ToNot(HaveOccurred())
-
-				return instancetypeBytes
-			}),
-			Entry("using v1alpha2", func() []byte {
-				instancetypeBytes, err := json.Marshal(&v1alpha2.VirtualMachineInstancetype{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: v1alpha2.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineInstancetype",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: instancetypeObj.Name,
-					},
-					Spec: v1alpha2.VirtualMachineInstancetypeSpec{
-						CPU: v1alpha2.CPUInstancetype{
-							Guest: instancetypeObj.Spec.CPU.Guest,
-						},
-						Memory: v1alpha2.MemoryInstancetype{
-							Guest: instancetypeObj.Spec.Memory.Guest,
-						},
-					},
-				})
-				Expect(err).ToNot(HaveOccurred())
-
-				return instancetypeBytes
-			}),
 			Entry("using v1beta1", func() []byte {
 				instancetypeBytes, err := json.Marshal(instancetypeObj)
 				Expect(err).ToNot(HaveOccurred())
@@ -669,102 +583,6 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Expect(vmi.Annotations).ToNot(HaveKey(virtv1.ClusterInstancetypeAnnotation))
 				Expect(vmi.Annotations).ToNot(HaveKey(virtv1.ClusterPreferenceAnnotation))
 			},
-			Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision with APIVersion", func() []byte {
-				specBytes, err := json.Marshal(&v1alpha1.VirtualMachinePreferenceSpec{
-					Firmware: &v1alpha1.FirmwarePreferences{
-						PreferredUseEfi: pointer.P(true),
-					},
-					Devices: &v1alpha1.DevicePreferences{
-						PreferredDiskBus:        virtv1.DiskBusVirtio,
-						PreferredInterfaceModel: "virtio",
-						PreferredInputBus:       virtv1.InputBusUSB,
-						PreferredInputType:      virtv1.InputTypeTablet,
-					},
-				})
-				Expect(err).ToNot(HaveOccurred())
-
-				specRevision := v1alpha1.VirtualMachinePreferenceSpecRevision{
-					APIVersion: v1alpha1.SchemeGroupVersion.String(),
-					Spec:       specBytes,
-				}
-				specRevisionBytes, err := json.Marshal(specRevision)
-				Expect(err).ToNot(HaveOccurred())
-
-				return specRevisionBytes
-			}),
-			Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision without APIVersion", func() []byte {
-				specBytes, err := json.Marshal(&v1alpha1.VirtualMachinePreferenceSpec{
-					Firmware: &v1alpha1.FirmwarePreferences{
-						PreferredUseEfi: pointer.P(true),
-					},
-					Devices: &v1alpha1.DevicePreferences{
-						PreferredDiskBus:        virtv1.DiskBusVirtio,
-						PreferredInterfaceModel: "virtio",
-						PreferredInputBus:       virtv1.InputBusUSB,
-						PreferredInputType:      virtv1.InputTypeTablet,
-					},
-				})
-				Expect(err).ToNot(HaveOccurred())
-
-				specRevision := v1alpha1.VirtualMachinePreferenceSpecRevision{
-					APIVersion: "",
-					Spec:       specBytes,
-				}
-				specRevisionBytes, err := json.Marshal(specRevision)
-				Expect(err).ToNot(HaveOccurred())
-
-				return specRevisionBytes
-			}),
-			Entry("using v1alpha1", func() []byte {
-				preferenceBytes, err := json.Marshal(&v1alpha1.VirtualMachinePreference{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: v1alpha1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachinePreference",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: preference.Name,
-					},
-					Spec: v1alpha1.VirtualMachinePreferenceSpec{
-						Firmware: &v1alpha1.FirmwarePreferences{
-							PreferredUseEfi: pointer.P(true),
-						},
-						Devices: &v1alpha1.DevicePreferences{
-							PreferredDiskBus:        virtv1.DiskBusVirtio,
-							PreferredInterfaceModel: "virtio",
-							PreferredInputBus:       virtv1.InputBusUSB,
-							PreferredInputType:      virtv1.InputTypeTablet,
-						},
-					},
-				})
-				Expect(err).ToNot(HaveOccurred())
-
-				return preferenceBytes
-			}),
-			Entry("using v1alpha2", func() []byte {
-				preferenceBytes, err := json.Marshal(&v1alpha2.VirtualMachinePreference{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: v1alpha2.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachinePreference",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: preference.Name,
-					},
-					Spec: v1alpha2.VirtualMachinePreferenceSpec{
-						Firmware: &v1alpha2.FirmwarePreferences{
-							PreferredUseEfi: pointer.P(true),
-						},
-						Devices: &v1alpha2.DevicePreferences{
-							PreferredDiskBus:        virtv1.DiskBusVirtio,
-							PreferredInterfaceModel: "virtio",
-							PreferredInputBus:       virtv1.InputBusUSB,
-							PreferredInputType:      virtv1.InputTypeTablet,
-						},
-					},
-				})
-				Expect(err).ToNot(HaveOccurred())
-
-				return preferenceBytes
-			}),
 			Entry("using v1beta1", func() []byte {
 				preferenceBytes, err := json.Marshal(preference)
 				Expect(err).ToNot(HaveOccurred())
