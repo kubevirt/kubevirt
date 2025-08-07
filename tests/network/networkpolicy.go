@@ -39,8 +39,6 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 	)
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		checks.SkipIfUseFlannel(virtClient)
 		checks.SkipIfRunningOnKindInfra("Skip Network Policy tests till issue https://github.com/kubevirt/kubevirt/issues/4081 is fixed")
 
 		serverVMILabels = map[string]string{"type": "test"}
@@ -134,6 +132,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				})
 
 				It("[test_id:1514] should fail pinging between two VMI/s each on different namespaces", decorators.Conformance, func() {
+					checks.SkipIfUseFlannel(virtClient)
 					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
 				})
 			})
