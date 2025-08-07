@@ -517,14 +517,22 @@ func (l *Launcher) GetDomainDirtyRateStats(_ context.Context, _ *cmdv1.EmptyRequ
 }
 
 // GetGuestInfo collect guest info from the domain
-func (l *Launcher) GetGuestInfo(_ context.Context, _ *cmdv1.VMIRequest) (*cmdv1.GuestInfoResponse, error) {
+func (l *Launcher) GetGuestInfo(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.GuestInfoResponse, error) {
+	vmi, vmiResponse := getVMIFromRequest(request.Vmi)
+	if !vmiResponse.Success {
+		return nil, fmt.Errorf("failed to get VMI from request: %s", vmiResponse.Message)
+	}
+
 	response := &cmdv1.GuestInfoResponse{
 		Response: &cmdv1.Response{
 			Success: true,
 		},
 	}
 
-	guestInfo := l.domainManager.GetGuestInfo()
+	guestInfo, err := l.domainManager.GetGuestInfo(vmi)
+	if err != nil {
+		return nil, err
+	}
 	if jGuestInfo, err := json.Marshal(guestInfo); err != nil {
 		log.Log.Reason(err).Errorf("Failed to marshal agent info")
 		response.Response.Success = false

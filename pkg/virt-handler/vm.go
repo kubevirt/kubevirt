@@ -743,22 +743,17 @@ func (c *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 }
 
 func (c *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
-
-	// Update the condition when GA is connected
-	channelConnected := false
-	if domain != nil {
-		for _, channel := range domain.Spec.Devices.Channels {
-			if channel.Target != nil {
-				c.logger.V(4).Infof("Channel: %s, %s", channel.Target.Name, channel.Target.State)
-				if channel.Target.Name == "org.qemu.guest_agent.0" {
-					if channel.Target.State == "connected" {
-						channelConnected = true
-					}
-				}
-
-			}
-		}
+	client, err := c.launcherClients.GetLauncherClient(vmi)
+	if err != nil {
+		return err
 	}
+	c.logger.V(1).Object(vmi).Info("Calling GetGuestInfo from virt-handler/vm.go")
+	guestInfo, err := client.GetGuestInfo(vmi, c.clusterConfig.GetSupportedAgentVersions())
+	if err != nil {
+		return err
+	}
+
+	channelConnected := guestInfo.GuestAgentConnected
 
 	switch {
 	case channelConnected && !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected):

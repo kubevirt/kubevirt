@@ -143,7 +143,7 @@ type DomainManager interface {
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
 	GetDomainStats() (*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
-	GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo
+	GetGuestInfo(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() []v1.VirtualMachineInstanceGuestOSUser
 	GetFilesystems() []v1.VirtualMachineInstanceFileSystem
 	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance, *cmdv1.VirtualMachineOptions) error
@@ -2341,7 +2341,40 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 }
 
 // GetGuestInfo queries the agent store and return the aggregated data from Guest agent
-func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo {
+func (l *LibvirtDomainManager) GetGuestInfo(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanceGuestAgentInfo, error) {
+	domainName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domainName)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to lookup domain by name: %v", err)
+	}
+	defer dom.Free()
+
+	// Check if the agent is even connected
+	domainSpec, err := getDomainSpec(dom)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to convert cli.VirDomain to api.DomainSpec: %v", err)
+	}
+	channelConnected := false
+	if domainSpec != nil {
+		for _, channel := range domainSpec.Devices.Channels {
+			if channel.Target != nil {
+				log.Log.Infof("Channel: %s, %s", channel.Target.Name, channel.Target.State)
+				if channel.Target.Name == "org.qemu.guest_agent.0" {
+					if channel.Target.State == "connected" {
+						channelConnected = true
+					}
+				}
+
+			}
+		}
+	}
+
+	if !channelConnected {
+		return &v1.VirtualMachineInstanceGuestAgentInfo{
+			GuestAgentConnected: false,
+		}, nil
+	}
+
 	sysInfo := l.agentData.GetSysInfo()
 	fsInfo := l.agentData.GetFS(10)
 	userInfo := l.agentData.GetUsers(10)
@@ -2353,10 +2386,11 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 	gaInfo := l.agentData.GetGA()
 
 	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{
-		GAVersion:         gaInfo.Version,
-		SupportedCommands: gaInfo.SupportedCommands,
-		Hostname:          sysInfo.Hostname,
-		FSFreezeStatus:    fsFreezestatus.Status,
+		GuestAgentConnected: channelConnected,
+		GAVersion:           gaInfo.Version,
+		SupportedCommands:   gaInfo.SupportedCommands,
+		Hostname:            sysInfo.Hostname,
+		FSFreezeStatus:      fsFreezestatus.Status,
 		OS: v1.VirtualMachineInstanceGuestOSInfo{
 			Name:          sysInfo.OSInfo.Name,
 			KernelRelease: sysInfo.OSInfo.KernelRelease,
@@ -2397,7 +2431,7 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 		})
 	}
 
-	return guestInfo
+	return &guestInfo, nil
 }
 
 // InterfacesStatus returns the interfaces Guest Agent reported
