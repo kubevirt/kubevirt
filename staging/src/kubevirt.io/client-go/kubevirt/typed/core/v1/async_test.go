@@ -67,7 +67,7 @@ var _ = Describe("async", func() {
 	DescribeTable("should enrich error with reponse body when possible",
 		func(body []byte, prevErr error, expectErrMsg string) {
 			resp := newResp(body)
-			err := enrichError(prevErr, resp)
+			err := EnrichError(prevErr, resp)
 			Expect(err).To(MatchError(ContainSubstring(expectErrMsg)))
 		},
 		// Each entry relates to the first argument: Response body
@@ -75,8 +75,6 @@ var _ = Describe("async", func() {
 		Entry("body is empty", []byte(""), curErr, errMsgDefault),
 		Entry("body has valid json Status", []byte(errJsonValid), curErr, errMsgValidJson),
 		Entry("body has invalid json Status", []byte(errJsonUnsupported), curErr, errMsgDefault),
-
-		// Unsupported: does not enrich the error
-		Entry("body has text plain", []byte(errMsgTextPlain), curErr, curErr.Error()),
+		Entry("body has text plain", []byte(errMsgTextPlain), curErr, errMsgTextPlain),
 	)
 })
