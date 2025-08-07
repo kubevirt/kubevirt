@@ -153,11 +153,24 @@ func (ctrl *VMExportController) isSourceInUseVM(vmExport *exportv1.VirtualMachin
 		}
 		return false, "", nil
 	}
-	return exists, "", nil
+	return exists, fmt.Sprintf("Virtual Machine Instance %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name), nil
 }
 
 func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMachineExport) (*sourceVolumes, error) {
-	pvcs, allPopulated, err := ctrl.getPVCsFromVM(vmExport.Namespace, vmExport.Spec.Source.Name)
+	vm, exists, err := ctrl.getVm(vmExport.Namespace, vmExport.Spec.Source.Name)
+	if err != nil {
+		return &sourceVolumes{}, err
+	}
+	if !exists {
+		return &sourceVolumes{
+			volumes:          []*corev1.PersistentVolumeClaim{},
+			inUse:            false,
+			isPopulated:      true, // Don't retry for missing VM
+			availableMessage: fmt.Sprintf("Virtual Machine %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name),
+			availableReason:  vmNotFoundReason}, nil
+	}
+
+	pvcs, allPopulated, err := ctrl.getPVCsFromVM(vm)
 	if err != nil {
 		return &sourceVolumes{}, err
 	}
@@ -188,15 +201,8 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 		availableReason:  availableReason}, nil
 }
 
-func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*corev1.PersistentVolumeClaim, bool, error) {
+func (ctrl *VMExportController) getPVCsFromVM(vm *virtv1.VirtualMachine) ([]*corev1.PersistentVolumeClaim, bool, error) {
 	var pvcs []*corev1.PersistentVolumeClaim
-	vm, exists, err := ctrl.getVm(vmNamespace, vmName)
-	if err != nil {
-		return nil, false, err
-	}
-	if !exists {
-		return nil, false, nil
-	}
 	allPopulated := true
 
 	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithAllVolumes)
@@ -213,9 +219,9 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 		if pvcName == "" {
 			continue
 		}
-		pvc, exists, err := ctrl.getPvc(vmNamespace, pvcName)
+		pvc, exists, err := ctrl.getPvc(vm.Namespace, pvcName)
 		if err != nil {
-			return nil, false, nil
+			return nil, false, err
 		}
 		if exists {
 			populated, err := ctrl.isPVCPopulated(pvc)
@@ -246,10 +252,32 @@ func (ctrl *VMExportController) updateVMExportVMStatus(vmExport *exportv1.Virtua
 	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes, getVolumeName); err != nil {
 		return requeue, err
 	}
+
 	if len(sourceVolumes.volumes) == 0 {
-		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, noVolumeVMReason, sourceVolumes.availableMessage))
-		vmExportCopy.Status.Phase = exportv1.Skipped
+		reason := noVolumeVMReason
+		message := sourceVolumes.availableMessage
+		status := corev1.ConditionFalse
+		phase := exportv1.Skipped
+
+		_, podExists, err := ctrl.getExporterPod(vmExport)
+		if err != nil {
+			return requeue, err
+		}
+
+		if sourceVolumes.availableReason == vmNotFoundReason && podExists {
+			// VM was deleted but export exists
+			reason = vmDeletedDuringExportReason
+			message = fmt.Sprintf("Export ready, VM %s/%s deleted", vmExport.Namespace, vmExport.Spec.Source.Name)
+			status = corev1.ConditionTrue
+			phase = exportv1.Ready
+		} else if sourceVolumes.availableReason != "" {
+			reason = sourceVolumes.availableReason
+		}
+
+		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(status, reason, message))
+		vmExportCopy.Status.Phase = phase
 	}
+
 	if !sourceVolumes.isPopulated {
 		requeue = requeueTime
 	}
