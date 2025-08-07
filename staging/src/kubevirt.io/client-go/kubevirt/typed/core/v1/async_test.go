@@ -67,7 +67,7 @@ var _ = ginkgo.Describe("async", func() {
 	ginkgo.DescribeTable("should enrich error with reponse body when possible",
 		func(body []byte, prevErr error, expectErrMsg string) {
 			resp := newResp(body)
-			err := enrichError(prevErr, resp)
+			err := EnrichError(prevErr, resp)
 			gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(expectErrMsg)))
 		},
 		// Each entry relates to the first argument: Response body
@@ -75,8 +75,6 @@ var _ = ginkgo.Describe("async", func() {
 		ginkgo.Entry("body is empty", []byte(""), curErr, errMsgDefault),
 		ginkgo.Entry("body has valid json Status", []byte(errJsonValid), curErr, errMsgValidJson),
 		ginkgo.Entry("body has invalid json Status", []byte(errJsonUnsupported), curErr, errMsgDefault),
-
-		// Unsupported: does not enrich the error
-		ginkgo.Entry("body has text plain", []byte(errMsgTextPlain), curErr, curErr.Error()),
+		ginkgo.Entry("body has text plain", []byte(errMsgTextPlain), curErr, errMsgTextPlain),
 	)
 })
