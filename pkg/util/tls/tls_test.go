@@ -117,7 +117,7 @@ var _ = Describe("TLS", func() {
 	})
 
 	DescribeTable("on virt-handler with self-signed CA should", func(serverSecret, clientSecret string, errStr string) {
-		serverTLSConfig := kvtls.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], false, clusterConfig, []string{"virt-handler"})
+		serverTLSConfig := kvtls.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], false, clusterConfig, []string{"virt-handler", "migration"})
 		clientTLSConfig := kvtls.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], false)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "hello")
@@ -139,6 +139,12 @@ var _ = Describe("TLS", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	},
+		Entry(
+			"connect with migration certificate",
+			components.VirtHandlerServerCertSecretName,
+			components.VirtHandlerMigrationClientCertSecretName,
+			"",
+		),
 		Entry(
 			"connect with proper certificates",
 			components.VirtHandlerServerCertSecretName,
