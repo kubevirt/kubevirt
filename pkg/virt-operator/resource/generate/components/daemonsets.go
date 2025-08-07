@@ -98,7 +98,8 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			Namespace: namespace,
 			Name:      VirtHandlerName,
 			Labels: map[string]string{
-				virtv1.AppLabel: VirtHandlerName,
+				virtv1.AppLabel:   VirtHandlerName,
+				"kubevirt.io/tls": "true",
 			},
 		},
 		Spec: appsv1.DaemonSetSpec{

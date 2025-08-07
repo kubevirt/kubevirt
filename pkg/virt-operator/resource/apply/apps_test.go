@@ -653,7 +653,7 @@ var _ = Describe("Apply Apps", func() {
 				),
 				Entry("should complete rollout",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
-						maxUnavailable := intstr.FromString("10%")
+						maxUnavailable := intstr.FromInt(1)
 						newDs := daemonSet.DeepCopy()
 						addCustomTargetDeployment(kv, newDs)
 						addCustomTargetDeployment(kv, currentDs)
@@ -661,6 +661,9 @@ var _ = Describe("Apply Apps", func() {
 						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
 							MaxUnavailable: &maxUnavailable,
 						}
+						currentDs.Spec.Template.Spec.Containers[0].Args = append(currentDs.Spec.Template.Spec.Containers[0].Args,
+							"--migration-cn-types",
+						)
 						return currentDs, newDs
 					},
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
@@ -670,7 +673,30 @@ var _ = Describe("Apply Apps", func() {
 						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
 						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
 					},
-					CanaryUpgradeStatusSuccessful, true, false, true,
+					CanaryUpgradeStatusSuccessful, true, false, false,
+				),
+				Entry("should switch to tls rollout",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						maxUnavailable := intstr.FromInt(1)
+						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+							MaxUnavailable: &maxUnavailable,
+						}
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						markHandlerReady(daemonSet)
+
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						rollingUpdate := daemonSet.Spec.UpdateStrategy.RollingUpdate
+						Expect(rollingUpdate).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
+						Expect(daemonSet.Spec.Template.Spec.Containers[0].Args).To(ContainElements("--migration-cn-types", "migration"))
+					},
+					CanaryUpgradeStatusWaitingDaemonSetRollout, false, false, true,
 				),
 			)
 		})
