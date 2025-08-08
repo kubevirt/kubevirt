@@ -205,10 +205,11 @@ var _ = Describe("Virt-api", func() {
 
 			// Extract the list of API resources exposed by the API
 			exposedApiResources := []string{}
-
-			resources, ok := jsonResponse["resources"].([]map[string]interface{})
+			resources, ok := jsonResponse["resources"].([]interface{})
 			Expect(ok).To(BeTrue(), "Expected 'resources' to be a list of objects")
-			for _, resourceMap := range resources {
+			for _, resource := range resources {
+				resourceMap, ok := resource.(map[string]interface{})
+				Expect(ok).To(BeTrue(), "Expected each resource to be a map")
 				resourceStr, ok := resourceMap["name"].(string)
 				Expect(ok).To(BeTrue(), "Expected 'name' to be a string in each resource object")
 				exposedApiResources = append(exposedApiResources, resourceStr)
@@ -252,9 +253,16 @@ var _ = Describe("Virt-api", func() {
 				"virtualmachines/stop",
 			}
 
+			// Check if all expected resources are present in the exposedApiResources
 			for _, expectedResource := range expectedApiResources {
 				Expect(exposedApiResources).To(ContainElement(expectedResource),
 					fmt.Sprintf("Expected resource '%s' to be exposed, but it was not found in the response", expectedResource))
+			}
+
+			// Check if there are no additional resources in exposedApiResources that were not expected by the test
+			for _, exposedResource := range exposedApiResources {
+				Expect(expectedApiResources).To(ContainElement(exposedResource),
+					fmt.Sprintf("Unexpected resource '%s' found in the response", exposedResource))
 			}
 		})
 
