@@ -232,12 +232,26 @@ var _ = Describe("Pool", func() {
 			expectVMCreationWithValidation(nameMatcher, func(_ *v1.VirtualMachine) {})
 		}
 
+		expectPoolPatch := func() {
+			fakeVirtClient.Fake.PrependReactor("patch", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, nil
+			})
+		}
+
 		expectVMUpdate := func(revisionName string) {
 			fakeVirtClient.Fake.PrependReactor("update", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				created, ok := action.(k8stesting.UpdateAction)
 				Expect(ok).To(BeTrue())
 				updateObj := created.GetObject().(*v1.VirtualMachine)
 				Expect(updateObj.Labels).To(HaveKeyWithValue(v1.VirtualMachinePoolRevisionName, revisionName))
+				return true, created.GetObject(), nil
+			})
+		}
+
+		expectPoolUpdate := func() {
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				created, ok := action.(k8stesting.UpdateAction)
+				Expect(ok).To(BeTrue())
 				return true, created.GetObject(), nil
 			})
 		}
@@ -256,6 +270,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
+			expectPoolPatch()
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -287,6 +302,7 @@ var _ = Describe("Pool", func() {
 
 			expectControllerRevisionCreation(newPoolRevision)
 			expectVMUpdate(newPoolRevision.Name)
+			expectPoolPatch()
 
 			sanityExecute()
 
@@ -304,6 +320,11 @@ var _ = Describe("Pool", func() {
 			addCR(poolRevision)
 
 			expectControllerRevisionDeletion(poolRevision)
+			expectPoolPatch()
+			fakeVirtClient.Fake.PrependReactor("get", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, nil
+			})
+
 			sanityExecute()
 		})
 
@@ -334,6 +355,7 @@ var _ = Describe("Pool", func() {
 			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, nil
 			})
+			expectPoolPatch()
 
 			sanityExecute()
 
@@ -355,6 +377,7 @@ var _ = Describe("Pool", func() {
 			addVM(vm)
 			addVMI(vmi)
 			addCR(poolRevision)
+			expectPoolPatch()
 
 			sanityExecute()
 		})
@@ -379,6 +402,7 @@ var _ = Describe("Pool", func() {
 			addCR(oldPoolRevision)
 
 			expectControllerRevisionDeletion(oldPoolRevision)
+			expectPoolPatch()
 			sanityExecute()
 		})
 
@@ -402,6 +426,7 @@ var _ = Describe("Pool", func() {
 				Expect(updateObj.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
 				return true, update.GetObject(), nil
 			})
+			expectPoolPatch()
 
 			sanityExecute()
 
@@ -436,6 +461,7 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
+			expectPoolPatch()
 
 			sanityExecute()
 
@@ -469,6 +495,7 @@ var _ = Describe("Pool", func() {
 				Expect(updateObj.Status.Conditions).To(BeEmpty())
 				return true, update.GetObject(), nil
 			})
+			expectPoolPatch()
 
 			sanityExecute()
 		})
@@ -503,6 +530,7 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
+			expectPoolPatch()
 
 			sanityExecute()
 
@@ -522,6 +550,7 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
+			expectPoolPatch()
 
 			sanityExecute()
 
@@ -555,6 +584,7 @@ var _ = Describe("Pool", func() {
 			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, nil
 			})
+			expectPoolPatch()
 
 			sanityExecute()
 
@@ -594,6 +624,7 @@ var _ = Describe("Pool", func() {
 			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, nil
 			})
+			expectPoolPatch()
 			sanityExecute()
 
 			for x := 0; x < 5; x++ {
@@ -619,6 +650,7 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
+			expectPoolPatch()
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -647,6 +679,7 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
+			expectPoolPatch()
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -678,6 +711,7 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
+			expectPoolPatch()
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -721,6 +755,7 @@ var _ = Describe("Pool", func() {
 				Expect(updateObj.Status.Replicas).To(Equal(int32(5)))
 				return true, update.GetObject(), nil
 			})
+			expectPoolPatch()
 
 			sanityExecute()
 
@@ -762,6 +797,7 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
+			expectPoolPatch()
 			expectVMCreationWithValidation(
 				HavePrefix(fmt.Sprintf("%s-", pool.Name)),
 				func(vm *v1.VirtualMachine) {
@@ -823,6 +859,7 @@ var _ = Describe("Pool", func() {
 			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, nil
 			})
+			expectPoolPatch()
 			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
@@ -879,6 +916,7 @@ var _ = Describe("Pool", func() {
 				Expect(updateObj.Status.Conditions[0].Message).To(ContainSubstring("timeout occurred while waiting for the VMI to become healthy"))
 				return true, update.GetObject(), nil
 			})
+			expectPoolPatch()
 
 			sanityExecute()
 			// Should not see any VMI deletions since one VMI is not ready
@@ -936,12 +974,58 @@ var _ = Describe("Pool", func() {
 				Expect(updateObj.Status.Conditions[0].Reason).To(Equal(FailedUpdateReason))
 				return true, update.GetObject(), nil
 			})
+			expectPoolPatch()
 
 			sanityExecute()
 
 			// Verify that only one VMI deletion was attempted
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
 			testutils.ExpectEvent(recorder, common.FailedUpdateVirtualMachineReason)
+		})
+
+		It("should remove finalizer from VMs marked for deletion during opportunistic scale in", func() {
+			pool, vm := DefaultPool(2)
+			pool.Status.Replicas = 2
+			pool.Status.ReadyReplicas = 2
+
+			poolRevision := createPoolRevision(pool)
+			addPool(pool)
+
+			// Create two VMs with finalizers, mark the first one for deletion
+			vm1 := vm.DeepCopy()
+			vm1.Name = fmt.Sprintf("%s-0", pool.Name)
+			vm1.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
+			vm1.DeletionTimestamp = pointer.P(metav1.Now())
+
+			vm2 := vm.DeepCopy()
+			vm2.Name = fmt.Sprintf("%s-1", pool.Name)
+			vm2.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
+			addVM(vm1)
+			addVM(vm2)
+
+			addCR(poolRevision)
+			expectControllerRevisionCreation(poolRevision)
+			expectVMUpdate(poolRevision.Name)
+			expectPoolUpdate()
+			expectPoolPatch()
+
+			fakeVirtClient.Fake.PrependReactor("patch", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				patch, ok := action.(k8stesting.PatchAction)
+				Expect(ok).To(BeTrue())
+				Expect(patch.GetName()).To(Equal(vm1.Name))
+				return true, vm1, nil
+			})
+
+			fakeVirtClient.Fake.PrependReactor("get", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				get, ok := action.(k8stesting.GetAction)
+				Expect(ok).To(BeTrue())
+				Expect(get.GetName()).To(Equal(vm1.Name))
+				return true, vm1, nil
+			})
+
+			sanityExecute()
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "patch", "virtualmachines")).To(HaveLen(1))
 		})
 	})
 })
