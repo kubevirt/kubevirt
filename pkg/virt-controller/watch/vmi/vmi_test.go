@@ -764,10 +764,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			newVMI *virtv1.VirtualMachineInstance
 		)
 		BeforeEach(func() {
-			oldVMI = newPendingVMIWithExtraStatusOptions("oldvmi",
+			oldVmiStatusOptions := append(defaultPendingVmiStatusOptions(),
 				libvmistatus.WithInterfaceStatus(virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate1"}),
 				libvmistatus.WithInterfaceStatus(virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate2"}),
 			)
+			oldVMI = newTestVMIWithOptions("oldvmi", defaultPendingVmiOptions(), oldVmiStatusOptions)
+
 			newVMI = newPendingVirtualMachine("newvmi")
 		})
 		It("should create empty status network interfaces patch, regardless of interfaces order", func() {
@@ -1035,7 +1037,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			)
 		})
 		It("should remove the error condition if the sync finally succeeds", func() {
-			vmi := newPendingVMIWithExtraStatusOptions("testvmi", libvmistatus.WithCondition(virtv1.VirtualMachineInstanceCondition{Type: virtv1.VirtualMachineInstanceSynchronized}))
+			vmiStatusOptions := append(defaultPendingVmiStatusOptions(),
+				libvmistatus.WithCondition(virtv1.VirtualMachineInstanceCondition{Type: virtv1.VirtualMachineInstanceSynchronized}))
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			addVirtualMachine(vmi)
 
@@ -2485,13 +2489,16 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("CreateAttachmentPodTemplate should update status to bound if DV owning PVC is bound but not ready", func() {
-			vmi := newPendingVMIWithExtraStatusOptions("testvmi", libvmistatus.WithVolumeStatus(virtv1.VolumeStatus{
-				Name:          "test-pvc-volume",
-				HotplugVolume: &virtv1.HotplugVolumeStatus{},
-				Phase:         virtv1.VolumePending,
-				Message:       "some technical reason",
-				Reason:        kvcontroller.PVCNotReadyReason,
-			}))
+			vmiStatusOptions := append(defaultPendingVmiStatusOptions(),
+				libvmistatus.WithVolumeStatus(virtv1.VolumeStatus{
+					Name:          "test-pvc-volume",
+					HotplugVolume: &virtv1.HotplugVolumeStatus{},
+					Phase:         virtv1.VolumePending,
+					Message:       "some technical reason",
+					Reason:        kvcontroller.PVCNotReadyReason,
+				}))
+
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			addDataVolumePVC(pvc)
@@ -2526,7 +2533,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("CreateAttachmentPodTemplate should create a pod template if DV of owning PVC is ready", func() {
-			vmi := newPendingVMIWithExtraStatusOptions("testvmi", libvmistatus.WithSelinuxContext("system_u:system_r:container_file_t:s0:c1,c2"))
+			vmiStatusOptions := append(defaultPendingVmiStatusOptions(),
+				libvmistatus.WithSelinuxContext("system_u:system_r:container_file_t:s0:c1,c2"))
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			addDataVolumePVC(pvc)
@@ -2722,7 +2731,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			for _, volumeStatus := range orgStatus {
 				volumeStatusOptions = append(volumeStatusOptions, libvmistatus.WithVolumeStatus(volumeStatus))
 			}
-			vmi := newPendingVMIWithExtraStatusOptions("testvmi", volumeStatusOptions...)
+			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), append(defaultPendingVmiStatusOptions(), volumeStatusOptions...))
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvcFunc(pvcIndexes...)
 			datavolumes := []*cdiv1.DataVolume{}
@@ -4048,11 +4057,6 @@ func newPendingVirtualMachine(name string, extraVmiOpts ...libvmi.Option) *virtv
 	vmiOptions := append(defaultPendingVmiOptions(), extraVmiOpts...)
 
 	return newTestVMIWithOptions(name, vmiOptions, defaultPendingVmiStatusOptions())
-}
-
-func newPendingVMIWithExtraStatusOptions(name string, extraStatusOpts ...libvmistatus.Option) *virtv1.VirtualMachineInstance {
-	vmiStatusOptions := append(defaultPendingVmiStatusOptions(), extraStatusOpts...)
-	return newTestVMIWithOptions(name, defaultPendingVmiOptions(), vmiStatusOptions)
 }
 
 func newPendingVMIWithPhase(name string, phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
