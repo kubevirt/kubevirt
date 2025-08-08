@@ -2269,18 +2269,18 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		Context("with memory hotplug enabled", func() {
 			It("should add MemoryChange condition when guest memory changes", func() {
-				currentGuestMemory := "128Mi"
-				requestedGuestMemory := "512Mi"
-				currentGuestMemoryResource := resource.MustParse(currentGuestMemory)
+				currentGuestMemoryStr := "128Mi"
+				requestedGuestMemoryStr := "512Mi"
+				currentGuestMemory := resource.MustParse(currentGuestMemoryStr)
 
-				vmiOpts := append(defaultPendingVmiOptions, libvmi.WithGuestMemory(requestedGuestMemory), libvmi.WithMaxGuest(requestedGuestMemory))
+				vmiOpts := append(defaultPendingVmiOptions, libvmi.WithGuestMemory(requestedGuestMemoryStr), libvmi.WithMaxGuest(requestedGuestMemoryStr))
 				vmiStatusOpts := []libvmistatus.Option{
 					libvmistatus.WithPhase(virtv1.Running),
 					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
 					libvmistatus.WithMemoryStatus(&virtv1.MemoryStatus{
-						GuestAtBoot:    &currentGuestMemoryResource,
-						GuestCurrent:   &currentGuestMemoryResource,
-						GuestRequested: &currentGuestMemoryResource,
+						GuestAtBoot:    &currentGuestMemory,
+						GuestCurrent:   &currentGuestMemory,
+						GuestRequested: &currentGuestMemory,
 					}),
 				}
 				vmi := newTestVMIWithOptions("testvmi", vmiOpts, vmiStatusOpts)
@@ -2301,16 +2301,16 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			It("should store guestMemoryOverheadRatio if used during memory hotplug", func() {
-				currentGuestMemory := "128Mi"
-				requestedGuestMemory := "512Mi"
-				currentGuestMemoryResource := resource.MustParse(currentGuestMemory)
+				currentGuestMemoryStr := "128Mi"
+				requestedGuestMemoryStr := "512Mi"
+				currentGuestMemory := resource.MustParse(currentGuestMemoryStr)
 
-				vmiOpts := append(defaultPendingVmiOptions, libvmi.WithGuestMemory(requestedGuestMemory), libvmi.WithMaxGuest(requestedGuestMemory))
+				vmiOpts := append(defaultPendingVmiOptions, libvmi.WithGuestMemory(requestedGuestMemoryStr), libvmi.WithMaxGuest(requestedGuestMemoryStr))
 				vmiStatusOpts := []libvmistatus.Option{
 					libvmistatus.WithPhase(virtv1.Running),
 					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
 					libvmistatus.WithMemoryStatus(&virtv1.MemoryStatus{
-						GuestCurrent: &currentGuestMemoryResource,
+						GuestCurrent: &currentGuestMemory,
 					}),
 				}
 				vmi := newTestVMIWithOptions("testvmi", vmiOpts, vmiStatusOpts)
