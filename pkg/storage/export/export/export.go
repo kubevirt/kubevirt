@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/openshift/library-go/pkg/build/naming"
@@ -98,7 +99,9 @@ const (
 	caCertFile    = caDefaultPath + "/tls.crt"
 	caKeyFile     = caDefaultPath + "/tls.key"
 	// name of certificate secret volume in pod
-	certificates = "certificates"
+	certificatesVolName = "certificates"
+	// name of token secret volume in pod
+	tokenVolName = "token"
 
 	exporterPodFailedOrCompletedEvent     = "ExporterPodFailedOrCompleted"
 	exporterPodCreatedEvent               = "ExporterPodCreated"
@@ -746,7 +749,7 @@ func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMa
 func (ctrl *VMExportController) getExportSecretName(ownerPod *corev1.Pod) string {
 	var certSecretName string
 	for _, volume := range ownerPod.Spec.Volumes {
-		if volume.Name == certificates {
+		if volume.Name == certificatesVolName {
 			certSecretName = volume.Secret.SecretName
 		}
 	}
@@ -759,10 +762,29 @@ func getDefaultTokenSecretName(vme *exportv1.VirtualMachineExport) string {
 }
 
 func (ctrl *VMExportController) getExportServiceName(vmExport *exportv1.VirtualMachineExport) string {
-	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
+	// get rid of dots which are not allowed in DNS1035 labels
+	sanitizedSuffix := strings.ReplaceAll(vmExport.Name, ".", "-")
+	// super unlikely special case where svc name would begin with "-" instead of alphabetic char
+	// https://github.com/openshift/library-go/blob/cd26fa5a3d88178cb8f753c52c80ea2edd3f9349/pkg/build/naming/namer.go#L24
+	// (baseLength = 0)
+	if len(sanitizedSuffix) == validation.DNS1035LabelMaxLength-10 {
+		sanitizedSuffix = sanitizedSuffix[:len(sanitizedSuffix)-1]
+	}
+	return naming.GetName(exportPrefix, sanitizedSuffix, validation.DNS1035LabelMaxLength)
 }
 
 func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachineExport) string {
+	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
+}
+
+// getExportLabelValue will return the virtual machine's name if it is under the
+// DNS1035-specified max length, or a normalized name otherwise.
+func (ctrl *VMExportController) getExportLabelValue(vmExport *exportv1.VirtualMachineExport) string {
+	// Maintain backwards compatibility by using the export's name if it's under
+	// the max length.
+	if len(vmExport.Name) <= validation.DNS1035LabelMaxLength {
+		return vmExport.Name
+	}
 	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
 }
 
@@ -811,7 +833,7 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 				},
 			},
 			Selector: map[string]string{
-				exportServiceLabel: vmExport.Name,
+				exportServiceLabel: ctrl.getExportLabelValue(vmExport),
 			},
 		},
 	}
@@ -869,7 +891,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 
 	deadline := certParams.Duration - certParams.RenewBefore
 	podManifest := ctrl.TemplateService.RenderExporterManifest(vmExport, exportPrefix)
-	podManifest.Labels = map[string]string{exportServiceLabel: vmExport.Name}
+	podManifest.Labels = map[string]string{exportServiceLabel: ctrl.getExportLabelValue(vmExport)}
 	podManifest.Annotations = map[string]string{annCertParams: scp}
 	podManifest.Spec.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot:   pointer.Bool(true),
@@ -878,22 +900,23 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	}
 	for i, pvc := range pvcs {
 		var mountPoint string
+		volumeName := strings.ReplaceAll(pvc.Name, ".", "-")
 		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
-			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, pvc.Name)
+			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
 			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
-				Name:       pvc.Name,
+				Name:       volumeName,
 				DevicePath: mountPoint,
 			})
 		} else {
-			mountPoint = fmt.Sprintf("%s/%s", fileSystemMountPath, pvc.Name)
+			mountPoint = fmt.Sprintf("%s/%s", fileSystemMountPath, volumeName)
 			podManifest.Spec.Containers[0].VolumeMounts = append(podManifest.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-				Name:      pvc.Name,
+				Name:      volumeName,
 				ReadOnly:  true,
 				MountPath: mountPoint,
 			})
 		}
 		podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
-			Name: pvc.Name,
+			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: pvc.Name,
@@ -931,14 +954,14 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 
 	secretName := fmt.Sprintf("secret-%s", rand.String(10))
 	podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
-		Name: certificates,
+		Name: certificatesVolName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: secretName,
 			},
 		},
 	}, corev1.Volume{
-		Name: tokenSecretRef,
+		Name: tokenVolName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: tokenSecretRef,
@@ -947,10 +970,10 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	})
 
 	podManifest.Spec.Containers[0].VolumeMounts = append(podManifest.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-		Name:      certificates,
+		Name:      certificatesVolName,
 		MountPath: "/cert",
 	}, corev1.VolumeMount{
-		Name:      tokenSecretRef,
+		Name:      tokenVolName,
 		MountPath: "/token",
 	})
 
