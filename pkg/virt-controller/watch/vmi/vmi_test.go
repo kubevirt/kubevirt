@@ -70,6 +70,12 @@ import (
 )
 
 var _ = Describe("VirtualMachineInstance watcher", func() {
+	const (
+		testDv1 = "test1"
+		testDv2 = "test2"
+		testDv3 = "test3"
+	)
+
 	var config *virtconfig.ClusterConfig
 
 	var controller *Controller
@@ -296,10 +302,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	Context("On valid VirtualMachineInstance given with DataVolume source", func() {
 		It("should create a corresponding Pod on VMI creation when DataVolume is ready", func() {
-			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume(testDv1, testDv1))
 
-			dvPVC := newPvc(vmi.Namespace, "test1")
-			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Succeeded)
+			dvPVC := newPvc(vmi.Namespace, testDv1)
+			dataVolume := newDv(vmi.Namespace, testDv1, cdiv1.Succeeded)
 
 			addVirtualMachine(vmi)
 			addDataVolumePVC(dvPVC)
@@ -312,11 +318,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should create a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume(testDv1, testDv1))
 
-			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
+			dataVolume := newDv(vmi.Namespace, testDv1, cdiv1.WaitForFirstConsumer)
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, testDv1, dataVolume.Name, pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			addDataVolumePVC(dvPVC)
 			addVirtualMachine(vmi)
@@ -348,17 +354,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should not delete a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume(testDv1, testDv1))
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
 			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
-				Name: "test1",
+				Name: testDv1,
 			})
 
-			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
+			dataVolume := newDv(vmi.Namespace, testDv1, cdiv1.WaitForFirstConsumer)
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, testDv1, dataVolume.Name, pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 
 			addDataVolumePVC(dvPVC)
@@ -375,16 +381,16 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should delete a doppleganger Pod on VMI creation when DataVolume is no longer in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume(testDv1, testDv1))
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
 			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
-				Name: "test1",
+				Name: testDv1,
 			})
 
-			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Succeeded)
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+			dataVolume := newDv(vmi.Namespace, testDv1, cdiv1.Succeeded)
+			dvPVC := newPvcWithOwner(vmi.Namespace, testDv1, dataVolume.Name, pointer.P(true))
 			addDataVolumePVC(dvPVC)
 			addVirtualMachine(vmi)
 			addPod(pod)
@@ -425,7 +431,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		DescribeTable("VMI should handle doppleganger Pod status while DV is in WaitForFirstConsumer phase",
 			func(phase k8sv1.PodPhase, conditions []k8sv1.PodCondition, expectedPhase virtv1.VirtualMachineInstancePhase) {
-				vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
+				vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume(testDv1, testDv1))
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 				pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
@@ -433,11 +439,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pod.Status.Conditions = conditions
 
 				pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
-					Name: "test1",
+					Name: testDv1,
 				})
 
-				dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
-				dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+				dataVolume := newDv(vmi.Namespace, testDv1, cdiv1.WaitForFirstConsumer)
+				dvPVC := newPvcWithOwner(vmi.Namespace, testDv1, dataVolume.Name, pointer.P(true))
 				dvPVC.Status.Phase = k8sv1.ClaimBound
 				Expect(controller.pvcIndexer.Add(dvPVC)).To(Succeed())
 
@@ -462,10 +468,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		It("should not create a corresponding Pod on VMI creation when DataVolume is pending", func() {
-			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume("test1", "test1"))
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithDataVolume(testDv1, testDv1))
 
-			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Pending)
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+			dataVolume := newDv(vmi.Namespace, testDv1, cdiv1.Pending)
+			dvPVC := newPvcWithOwner(vmi.Namespace, testDv1, dataVolume.Name, pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 
 			addVirtualMachine(vmi)
@@ -583,10 +589,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	Context("On valid VirtualMachineInstance given with PVC source, ownedRef of DataVolume", func() {
 
 		It("should create a corresponding Pod on VMI creation when DataVolume is ready", func() {
-			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim(testDv1, testDv1))
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
-			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Succeeded)
+			dvPVC := newPvcWithOwner(vmi.Namespace, testDv1, testDv1, pointer.P(true))
+			dataVolume := newDv(vmi.Namespace, testDv1, cdiv1.Succeeded)
 
 			addVirtualMachine(vmi)
 			addDataVolumePVC(dvPVC)
@@ -599,11 +605,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should create a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim(testDv1, testDv1))
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, testDv1, testDv1, pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
-			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
+			dataVolume := newDv(vmi.Namespace, testDv1, cdiv1.WaitForFirstConsumer)
 
 			addVirtualMachine(vmi)
 			addDataVolumePVC(dvPVC)
@@ -629,18 +635,18 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should not delete a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim(testDv1, testDv1))
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
 
 			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
-				Name: "test1",
+				Name: testDv1,
 			})
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, testDv1, testDv1, pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
-			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
+			dataVolume := newDv(vmi.Namespace, testDv1, cdiv1.WaitForFirstConsumer)
 
 			addVirtualMachine(vmi)
 			addDataVolumePVC(dvPVC)
@@ -657,17 +663,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should delete a doppleganger Pod on VMI creation when DataVolume is no longer in WaitForFirstConsumer state", func() {
-			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim(testDv1, testDv1))
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.EphemeralProvisioningObject] = "true"
 
 			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
-				Name: "test1",
+				Name: testDv1,
 			})
 
-			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Succeeded)
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+			dataVolume := newDv(vmi.Namespace, testDv1, cdiv1.Succeeded)
+			dvPVC := newPvcWithOwner(vmi.Namespace, testDv1, dataVolume.Name, pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimBound
 			addVirtualMachine(vmi)
 			addDataVolumePVC(dvPVC)
@@ -683,11 +689,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should not create a corresponding Pod on VMI creation when DataVolume is pending", func() {
-			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim(testDv1, testDv1))
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, testDv1, testDv1, pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
-			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Pending)
+			dataVolume := newDv(vmi.Namespace, testDv1, cdiv1.Pending)
 
 			addVirtualMachine(vmi)
 			addDataVolumePVC(dvPVC)
@@ -698,9 +704,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should create a corresponding Pod on VMI creation when PVC is not controlled by a DataVolume", func() {
-			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim("test1", "test1"))
+			vmi := newPendingVirtualMachine("testvmi", libvmi.WithPersistentVolumeClaim(testDv1, testDv1))
 
-			pvc := newPvc(vmi.Namespace, "test1")
+			pvc := newPvc(vmi.Namespace, testDv1)
 
 			addVirtualMachine(vmi)
 			addDataVolumePVC(pvc)
@@ -3529,24 +3535,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		DescribeTable("Should aggregate conditions from 3 DataVolumes on VMI status",
 			func(dvConds1, dvConds2, dvConds3 []cdiv1.DataVolumeCondition, expectedStatus k8sv1.ConditionStatus, expectedMessage string) {
 				vmiOptions := append(defaultPendingVmiOptions,
-					libvmi.WithDataVolume("test1", "test1"),
-					libvmi.WithDataVolume("test2", "test2"),
-					libvmi.WithDataVolume("test3", "test3"),
+					libvmi.WithDataVolume(testDv1, testDv1),
+					libvmi.WithDataVolume(testDv2, testDv2),
+					libvmi.WithDataVolume(testDv3, testDv3),
 				)
 				vmi := newTestVMIWithOptions("testvmi", vmiOptions, defaultPendingVmiStatusOptions)
 
-				dvPVC1 := newPvc(vmi.Namespace, "test1")
-				dvPVC2 := newPvc(vmi.Namespace, "test2")
-				dvPVC3 := newPvc(vmi.Namespace, "test3")
+				dvPVC1 := newPvc(vmi.Namespace, testDv1)
+				dvPVC2 := newPvc(vmi.Namespace, testDv2)
+				dvPVC3 := newPvc(vmi.Namespace, testDv3)
 				// we are mocking a successful DataVolume. we expect the PVC to
 				// be available in the store if DV is successful.
 				addDataVolumePVC(dvPVC1)
 				addDataVolumePVC(dvPVC2)
 				addDataVolumePVC(dvPVC3)
 
-				dataVolume1 := newDv(vmi.Namespace, "test1", cdiv1.Unknown)
-				dataVolume2 := newDv(vmi.Namespace, "test2", cdiv1.Unknown)
-				dataVolume3 := newDv(vmi.Namespace, "test3", cdiv1.Unknown)
+				dataVolume1 := newDv(vmi.Namespace, testDv1, cdiv1.Unknown)
+				dataVolume2 := newDv(vmi.Namespace, testDv2, cdiv1.Unknown)
+				dataVolume3 := newDv(vmi.Namespace, testDv3, cdiv1.Unknown)
 				for _, c := range dvConds1 {
 					setDataVolumeCondition(dataVolume1, c)
 				}
