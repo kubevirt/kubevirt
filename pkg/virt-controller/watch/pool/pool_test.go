@@ -242,6 +242,14 @@ var _ = Describe("Pool", func() {
 			})
 		}
 
+		expectPoolUpdate := func() {
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				created, ok := action.(k8stesting.UpdateAction)
+				Expect(ok).To(BeTrue())
+				return true, created.GetObject(), nil
+			})
+		}
+
 		sanityExecute := func() {
 			controllertesting.SanityExecute(controller, []cache.Store{
 				controller.vmiStore, controller.vmIndexer, controller.poolIndexer, controller.revisionIndexer,
@@ -942,6 +950,43 @@ var _ = Describe("Pool", func() {
 			// Verify that only one VMI deletion was attempted
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
 			testutils.ExpectEvent(recorder, common.FailedUpdateVirtualMachineReason)
+		})
+
+		It("should remove finalizer from VMs marked for deletion during opportunistic scale in", func() {
+			pool, vm := DefaultPool(2)
+			pool.Status.Replicas = 2
+			pool.Status.ReadyReplicas = 2
+
+			poolRevision := createPoolRevision(pool)
+			addPool(pool)
+
+			// Create two VMs with finalizers, mark the first one for deletion
+			vm1 := vm.DeepCopy()
+			vm1.Name = fmt.Sprintf("%s-0", pool.Name)
+			vm1.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
+			vm1.DeletionTimestamp = pointer.P(metav1.Now())
+
+			vm2 := vm.DeepCopy()
+			vm2.Name = fmt.Sprintf("%s-1", pool.Name)
+			vm2.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
+			addVM(vm1)
+			addVM(vm2)
+
+			addCR(poolRevision)
+			expectControllerRevisionCreation(poolRevision)
+			expectVMUpdate(poolRevision.Name)
+			expectPoolUpdate()
+
+			fakeVirtClient.Fake.PrependReactor("patch", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				patch, ok := action.(k8stesting.PatchAction)
+				Expect(ok).To(BeTrue())
+				Expect(patch.GetName()).To(Equal(vm1.Name))
+				return true, vm1, nil
+			})
+
+			sanityExecute()
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "patch", "virtualmachines")).To(HaveLen(1))
 		})
 	})
 })
