@@ -109,6 +109,7 @@ func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 		"requirements":                           "Requirements defines the minium amount of instance type defined resources required by a set of preferences\n\n+optional",
 		"annotations":                            "Optionally defines preferred Annotations to be applied to the VirtualMachineInstance\n\n+optional",
 		"preferSpreadSocketToCoreRatio":          "PreferSpreadSocketToCoreRatio defines the ratio to spread vCPUs between cores and sockets, it defaults to 2.\n\n+optional",
+		"preferredArchitecture":                  "PreferredArchitecture defines a prefeerred architecture for the VirtualMachine\n\n+optional",
 	}
 }
 
@@ -205,8 +206,9 @@ func (ClockPreferences) SwaggerDoc() map[string]string {
 
 func (PreferenceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"cpu":    "Required CPU related attributes of the instancetype.\n\n+optional",
-		"memory": "Required Memory related attributes of the instancetype.\n\n+optional",
+		"cpu":          "Required CPU related attributes of the instancetype.\n\n+optional",
+		"memory":       "Required Memory related attributes of the instancetype.\n\n+optional",
+		"architecture": "Required Architecture of the VM referencing this preference\n\n+optional",
 	}
 }
 

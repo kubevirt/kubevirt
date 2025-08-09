@@ -48,5 +48,6 @@ func (a *vmiApplier) Apply(
 	applyClockPreferences(preferenceSpec, vmiSpec)
 	applySubdomain(preferenceSpec, vmiSpec)
 	applyTerminationGracePeriodSeconds(preferenceSpec, vmiSpec)
+	applyArchitecturePreferences(preferenceSpec, vmiSpec)
 	applyPreferenceAnnotations(preferenceSpec.Annotations, vmiMetadata)
 }
