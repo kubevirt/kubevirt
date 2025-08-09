@@ -96,6 +96,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"ioThreads":       "IOThreads specifies the IOThreads options.\n+optional",
 		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
 		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
+		"oemStrings":      "OemStrings represents block 11 of SMBIOS.\n+optional",
 	}
 }
 
