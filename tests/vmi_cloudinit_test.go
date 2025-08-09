@@ -138,13 +138,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
 					checkCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 					verifyUserDataVMI(vmi, []expect.Batcher{
-						&expect.BSnd{S: "\n"},
-						&expect.BExp{R: "login:"},
-						&expect.BSnd{S: "fedora\n"},
-						&expect.BExp{R: "Password:"},
-						&expect.BSnd{S: fedoraPassword + "\n"},
-						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
 						&expect.BExp{R: "test-ssh-key"},
 					}, time.Second*300)
