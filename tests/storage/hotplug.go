@@ -1860,7 +1860,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 		BeforeEach(func() {
 			libstorage.CreateStorageClass(storageClassHostPath, &immediateBinding)
-			pvNode := libstorage.CreateHostPathPvWithSizeAndStorageClass(customHostPath, testsuite.GetTestNamespace(nil), hotplugPvPath, "1Gi", storageClassHostPath)
+			pvNode := libstorage.CreateHostPathPvWithSizeAndStorageClass(customHostPath, testsuite.GetTestNamespace(nil), hotplugPvPath, "2Gi", storageClassHostPath)
 			libstorage.CreatePVC(customHostPath, testsuite.GetTestNamespace(nil), "1Gi", storageClassHostPath, false)
 
 			opts := []libvmi.Option{}
@@ -1879,7 +1879,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			libstorage.DeleteStorageClass(storageClassHostPath)
 		})
 
-		It("should attach a hostpath based volume to running VM", decorators.StorageCritical, func() {
+		It("should attach a hostpath based volume to running VM", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
