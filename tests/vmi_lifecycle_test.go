@@ -1458,6 +1458,30 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		})
 
+		It("should immediately terminate paused VMI when VM is stopped", func() {
+			const gracePeriodSeconds int64 = 1600
+			vmi := libvmifact.NewCirros(libvmi.WithTerminationGracePeriod(gracePeriodSeconds), libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			_, err := kubevirt.Client().VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
+
+			By("Pausing VMI")
+			err = kubevirt.Client().VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
+
+			err = kubevirt.Client().VirtualMachine(vmi.Namespace).Stop(context.Background(), vmi.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Expecting VMI to be gone quickly despite long grace period")
+			Eventually(func() error {
+				_, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				return err
+			}, 60*time.Second, time.Second).Should(HaveOccurred(), "expected VMI to be gone quickly")
+		})
+
 		It("[test_id:3083][test_id:3084]should be able to connect to serial console and VNC", func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(libvmi.WithAutoattachGraphicsDevice(true)), 90)
 
