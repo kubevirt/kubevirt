@@ -2527,7 +2527,8 @@ var _ = Describe("Manager", func() {
 		// we need the non-typecast object to make the function we want to test available
 		libvirtmanager := manager.(*LibvirtDomainManager)
 
-		guestInfo := libvirtmanager.GetGuestInfo()
+		vmi := newVMI(testNamespace, testVmName)
+		guestInfo, _ := libvirtmanager.GetGuestInfo(vmi, []string{})
 		Expect(guestInfo.UserList).To(ConsistOf(v1.VirtualMachineInstanceGuestOSUser{
 			UserName:  "test",
 			Domain:    "test",
@@ -2676,6 +2677,138 @@ var _ = Describe("Manager", func() {
 
 		err := libvirtmanager.generateCloudInitEmptyISO(vmi, nil)
 		Expect(err).To(MatchError(ContainSubstring("failed to find the status of volume test1")))
+	})
+
+	Context("Guest Agent Compatibility", func() {
+		var vmi *v1.VirtualMachineInstance
+		var vmiWithPassword *v1.VirtualMachineInstance
+		var vmiWithSSH *v1.VirtualMachineInstance
+		var basicCommands []v1.GuestAgentCommandInfo
+		var sshCommands []v1.GuestAgentCommandInfo
+		var oldSshCommands []v1.GuestAgentCommandInfo
+		var passwordCommands []v1.GuestAgentCommandInfo
+		const agentSupported = "This guest agent is supported"
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{}
+			vmiWithPassword = &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					AccessCredentials: []v1.AccessCredential{
+						{
+							UserPassword: &v1.UserPasswordAccessCredential{
+								PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+									QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+								},
+							},
+						},
+					},
+				},
+			}
+			vmiWithSSH = &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					AccessCredentials: []v1.AccessCredential{
+						{
+							SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+								PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+									QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			basicCommands = []v1.GuestAgentCommandInfo{}
+			for _, cmdName := range requiredGuestAgentCommands {
+				basicCommands = append(basicCommands, v1.GuestAgentCommandInfo{
+					Name:    cmdName,
+					Enabled: true,
+				})
+			}
+
+			sshCommands = []v1.GuestAgentCommandInfo{}
+			for _, cmdName := range sshRelatedGuestAgentCommands {
+				sshCommands = append(sshCommands, v1.GuestAgentCommandInfo{
+					Name:    cmdName,
+					Enabled: true,
+				})
+			}
+
+			oldSshCommands = []v1.GuestAgentCommandInfo{}
+			for _, cmdName := range oldSSHRelatedGuestAgentCommands {
+				oldSshCommands = append(oldSshCommands, v1.GuestAgentCommandInfo{
+					Name:    cmdName,
+					Enabled: true,
+				})
+			}
+
+			passwordCommands = []v1.GuestAgentCommandInfo{}
+			for _, cmdName := range passwordRelatedGuestAgentCommands {
+				passwordCommands = append(passwordCommands, v1.GuestAgentCommandInfo{
+					Name:    cmdName,
+					Enabled: true,
+				})
+			}
+		})
+
+		It("should succeed with empty VMI and basic commands", func() {
+			result, reason := isGuestAgentSupported(vmi, basicCommands)
+			Expect(result).To(BeTrue())
+			Expect(reason).To(Equal(agentSupported))
+		})
+
+		It("should succeed with empty VMI and all commands", func() {
+			var commands []v1.GuestAgentCommandInfo
+			commands = append(commands, basicCommands...)
+			commands = append(commands, sshCommands...)
+			commands = append(commands, passwordCommands...)
+
+			result, reason := isGuestAgentSupported(vmi, commands)
+			Expect(result).To(BeTrue())
+			Expect(reason).To(Equal(agentSupported))
+		})
+
+		It("should fail with password and basic commands", func() {
+			result, reason := isGuestAgentSupported(vmiWithPassword, basicCommands)
+			Expect(result).To(BeFalse())
+			Expect(reason).To(Equal("This guest agent doesn't support required password commands"))
+		})
+
+		It("should succeed with password and required commands", func() {
+			var commands []v1.GuestAgentCommandInfo
+			commands = append(commands, basicCommands...)
+			commands = append(commands, passwordCommands...)
+
+			result, reason := isGuestAgentSupported(vmiWithPassword, commands)
+			Expect(result).To(BeTrue())
+			Expect(reason).To(Equal(agentSupported))
+		})
+
+		It("should fail with SSH and basic commands", func() {
+			result, reason := isGuestAgentSupported(vmiWithSSH, basicCommands)
+			Expect(result).To(BeFalse())
+			Expect(reason).To(Equal("This guest agent doesn't support required public key commands"))
+		})
+
+		It("should succeed with SSH and required commands", func() {
+			var commands []v1.GuestAgentCommandInfo
+			commands = append(commands, basicCommands...)
+			commands = append(commands, sshCommands...)
+
+			result, reason := isGuestAgentSupported(vmiWithSSH, commands)
+			Expect(result).To(BeTrue())
+			Expect(reason).To(Equal(agentSupported))
+		})
+
+		It("should succeed with SSH and old required commands", func() {
+			var commands []v1.GuestAgentCommandInfo
+			commands = append(commands, basicCommands...)
+			commands = append(commands, oldSshCommands...)
+
+			result, reason := isGuestAgentSupported(vmiWithSSH, commands)
+			Expect(result).To(BeTrue())
+			Expect(reason).To(Equal(agentSupported))
+		})
 	})
 
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts

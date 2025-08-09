@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -743,72 +742,35 @@ func (c *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 }
 
 func (c *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
-
-	// Update the condition when GA is connected
-	channelConnected := false
-	if domain != nil {
-		for _, channel := range domain.Spec.Devices.Channels {
-			if channel.Target != nil {
-				c.logger.V(4).Infof("Channel: %s, %s", channel.Target.Name, channel.Target.State)
-				if channel.Target.Name == "org.qemu.guest_agent.0" {
-					if channel.Target.State == "connected" {
-						channelConnected = true
-					}
-				}
-
-			}
-		}
+	client, err := c.launcherClients.GetLauncherClient(vmi)
+	if err != nil {
+		return err
+	}
+	guestInfo, err := client.GetGuestInfo(vmi, c.clusterConfig.GetSupportedAgentVersions())
+	if err != nil {
+		return err
 	}
 
 	switch {
-	case channelConnected && !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected):
+	case guestInfo.GuestAgentConnected && !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected):
 		agentCondition := v1.VirtualMachineInstanceCondition{
 			Type:          v1.VirtualMachineInstanceAgentConnected,
 			LastProbeTime: metav1.Now(),
 			Status:        k8sv1.ConditionTrue,
 		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
-	case !channelConnected:
+	case !guestInfo.GuestAgentConnected:
 		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceAgentConnected)
 	}
 
 	if condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected) {
-		client, err := c.launcherClients.GetLauncherClient(vmi)
-		if err != nil {
-			return err
-		}
-
-		guestInfo, err := client.GetGuestInfo()
-		if err != nil {
-			return err
-		}
-
-		var supported = false
-		var reason = ""
-
-		// For current versions, virt-launcher's supported commands will always contain data.
-		// For backwards compatibility: during upgrade from a previous version of KubeVirt,
-		// virt-launcher might not provide any supported commands. If the list of supported
-		// commands is empty, fall back to previous behavior.
-		if len(guestInfo.SupportedCommands) > 0 {
-			supported, reason = isGuestAgentSupported(vmi, guestInfo.SupportedCommands)
-			c.logger.V(3).Object(vmi).Info(reason)
-		} else {
-			for _, version := range c.clusterConfig.GetSupportedAgentVersions() {
-				supported = supported || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
-			}
-			if !supported {
-				reason = fmt.Sprintf("Guest agent version '%s' is not supported", guestInfo.GAVersion)
-			}
-		}
-
-		if !supported {
+		if !guestInfo.GuestAgentSupported {
 			if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent) {
 				agentCondition := v1.VirtualMachineInstanceCondition{
 					Type:          v1.VirtualMachineInstanceUnsupportedAgent,
 					LastProbeTime: metav1.Now(),
 					Status:        k8sv1.ConditionTrue,
-					Reason:        reason,
+					Reason:        guestInfo.GuestAgentUnsupportedReason,
 				}
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 			}

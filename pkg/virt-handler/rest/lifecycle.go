@@ -190,7 +190,7 @@ func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *res
 
 	log.Log.Object(vmi).Infof("Retreiving guestinfo from %s", vmi.Name)
 
-	guestInfo, err := client.GetGuestInfo()
+	guestInfo, err := client.GetGuestInfo(vmi, nil)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to get guest info")
 		response.WriteError(http.StatusInternalServerError, err)
