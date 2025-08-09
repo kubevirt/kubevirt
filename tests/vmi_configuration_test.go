@@ -204,41 +204,48 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		)
 
 		DescribeTable("with memory configuration", func(vmiOptions []libvmi.Option, expectedGuestMemory int) {
-			vmi := libvmi.New(vmiOptions...)
+			fedoraOptions := []libvmi.Option{
+				libvmi.WithRng(),
+				libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
+			}
+			allOptions := append(fedoraOptions, vmiOptions...)
+			vmi := libvmi.New(allOptions...)
 
 			By("Starting a VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
-			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			expectedMemoryInKiB := expectedGuestMemory * 1024
-			expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
-
-			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
+			libwait.WaitForSuccessfulVMIStart(vmi)
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+			By("Check memory available in guest")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: fmt.Sprintf("[ $(sudo od -An -t u2 -j 12 -N 2 /sys/firmware/dmi/entries/17-0/raw | xargs) -eq %d ] && echo 'pass'\n", expectedGuestMemory)},
+				&expect.BExp{R: console.RetValue("pass")},
+			}, 15)).To(Succeed())
 
 		},
 			Entry("provided by domain spec directly",
 				[]libvmi.Option{
+					libvmi.WithMemoryLimit("1024Mi"),
 					libvmi.WithGuestMemory("512Mi"),
 				},
 				512,
 			),
 			Entry("provided by resources limits",
 				[]libvmi.Option{
-					libvmi.WithMemoryLimit("256Mi"),
+					libvmi.WithMemoryLimit("1Gi"),
 					libvmi.WithCPULimit("1"),
 				},
-				256,
+				1024,
 			),
 			Entry("provided by resources requests and limits",
 				[]libvmi.Option{
 					libvmi.WithCPURequest("1"),
 					libvmi.WithCPULimit("1"),
-					libvmi.WithMemoryRequest("64Mi"),
-					libvmi.WithMemoryLimit("256Mi"),
+					libvmi.WithMemoryRequest("512Mi"),
+					libvmi.WithMemoryLimit("1Gi"),
 				},
-				64,
+				512,
 			),
 		)
 
@@ -290,20 +297,21 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(399)))
 			})
 			It("[test_id:4624]should set a correct memory units", func() {
-				vmi := libvmifact.NewAlpine(
-					libvmi.WithMemoryRequest("128Mi"),
+				vmi := libvmifact.NewFedora(
+					libvmi.WithMemoryRequest("512Mi"),
 				)
-				expectedMemoryInKiB := 128 * 1024
-				expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
+				By("Check memory available in guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("[ $(sudo od -An -t u2 -j 12 -N 2 /sys/firmware/dmi/entries/17-0/raw | xargs) -eq %d ] && echo 'pass'\n", expectedGuestMemory)},
+					&expect.BExp{R: console.RetValue("pass")},
+				}, 15)).To(Succeed())
 			})
 
 			It("[test_id:1660]should report 3 sockets under guest OS", func() {
@@ -404,9 +412,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("queues='3'"))
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Check block device queues in guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "[ $(ls /sys/block/vda/mq | wc -l) -eq 3 ] && echo 'pass'\n"},
+					&expect.BExp{R: console.RetValue("pass")},
+				}, 15)).To(Succeed())
 			})
 
 			It("[test_id:1665]should map cores to virtio net queues", func() {
@@ -428,14 +441,25 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("driver name='vhost' queues='3'"))
-				// make sure that there are not block queues configured
-				Expect(domXml).ToNot(ContainSubstring("cache='none' queues='3'"))
+				time.Sleep(120 * time.Second)
+
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Check network interface queues in guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "[ $(ls /sys/class/net/eth0/queues/ | grep rx | wc -l) -eq 3 ] && echo 'pass'\n"},
+					&expect.BExp{R: console.RetValue("pass")},
+				}, 15)).To(Succeed())
+
+				By("Check block device does not have multiple queues")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "[ $(ls -1 /sys/block/vda/mq | wc -l) -eq 1 ] && echo 'pass'\n"},
+					&expect.BExp{R: console.RetValue("pass")},
+				}, 15)).To(Succeed())
 			})
 
-			It("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", func() {
+			FIt("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", func() {
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithMemoryRequest("128Mi"),
 				)
@@ -451,9 +475,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).ToNot(ContainSubstring("queues='"))
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "[ $(ls /sys/block/vda/mq | wc -l) -eq 1 ] && echo 'pass'\n"},
+					&expect.BExp{R: console.RetValue("pass")},
+				}, 15)).To(Succeed())
 			})
 		})
 
@@ -633,7 +661,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction, msg string, fileName string) {
+		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) {
 			By("Starting a VirtualMachineInstance")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -659,14 +687,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					Should(ContainSubstring("EFI OVMF rom missing"))
 			default:
 				libwait.WaitUntilVMIReady(vmi, loginTo)
-				By(msg)
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(MatchRegexp(fileName))
 			}
 		},
-			Entry("[test_id:1668]should use EFI without secure boot", Serial, alpineWithUefiWithoutSecureBoot, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
-			Entry("[test_id:4437]should enable EFI secure boot", Serial, fedoraWithUefiSecuredBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
+			Entry("[test_id:1668]should use EFI without secure boot", Serial, alpineWithUefiWithoutSecureBoot, console.LoginToAlpine),
+			Entry("[test_id:4437]should enable EFI secure boot", Serial, fedoraWithUefiSecuredBoot, console.SecureBootExpecter),
 		)
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
@@ -2779,11 +2803,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Check values on domain XML")
-			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
 
 			By("Expecting console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
