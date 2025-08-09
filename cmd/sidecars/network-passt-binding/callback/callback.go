@@ -29,11 +29,11 @@ import (
 // TODO: move to Kubevirt domain API package
 const libvirtDomainQemuSchema = "http://libvirt.org/schemas/domain/qemu/1.0"
 
-type DomainSpecMutator interface {
+type domainSpecMutator interface {
 	Mutate(*domainschema.DomainSpec) (*domainschema.DomainSpec, error)
 }
 
-func OnDefineDomain(domainXML []byte, domSpecMutator DomainSpecMutator) ([]byte, error) {
+func OnDefineDomain(domainXML []byte, domSpecMutator domainSpecMutator) ([]byte, error) {
 	domainSpec := &domainschema.DomainSpec{
 		// Unmarshalling domain spec makes the XML namespace attribute empty.
 		// Some domain parameters requires namespace to be defined.
