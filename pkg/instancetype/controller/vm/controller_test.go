@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -216,7 +217,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		return objects
 	}
 
-	sanitySync := func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	sanitySync := func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachine {
 		stores := []cache.Store{
 			instancetypeInformerStore,
 			clusterInstancetypeInformerStore,
@@ -230,12 +231,14 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			listOfObjects = append(listOfObjects, deepCopyList(store.List()))
 		}
 
-		_, err := instancetypeController.Sync(vm, vmi)
+		syncedVM, err := instancetypeController.Sync(vm, vmi)
 		Expect(err).ToNot(HaveOccurred())
 
 		for i, objects := range listOfObjects {
 			ExpectWithOffset(1, stores[i].List()).To(ConsistOf(objects...))
 		}
+
+		return syncedVM
 	}
 
 	Context("instancetype", func() {
@@ -282,11 +285,11 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			expectedRevision, err := revision.CreateControllerRevision(vm, instancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
+			syncedVM := sanitySync(vm, vmi)
 
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(expectedRevision.Name))
+			Expect(syncedVM.Status.InstancetypeRef.Name).To(Equal(instancetypeObj.Name))
+			Expect(syncedVM.Status.InstancetypeRef.Kind).To(Equal(strings.ToLower(instancetypeObj.Kind)))
+			Expect(syncedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(expectedRevision.Name))
 
 			revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 				context.Background(), expectedRevision.Name, metav1.GetOptions{})
@@ -435,14 +438,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Kind: instancetypeapi.SingularResourceName,
 			}
 
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			syncedVM := sanitySync(vm, vmi)
 
-			sanitySync(vm, vmi)
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeRevision.Name))
+			Expect(syncedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeRevision.Name))
 		})
 
 		It("should store VirtualMachineClusterInstancetype as ControllerRevision on Sync", func() {
@@ -461,11 +459,11 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			expectedRevision, err := revision.CreateControllerRevision(vm, clusterInstancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
+			syncedVM := sanitySync(vm, vmi)
 
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(expectedRevision.Name))
+			Expect(syncedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetypeObj.Name))
+			Expect(syncedVM.Status.InstancetypeRef.Kind).To(Equal(strings.ToLower(clusterInstancetypeObj.Kind)))
+			Expect(syncedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(expectedRevision.Name))
 
 			revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 				context.Background(), expectedRevisionName, metav1.GetOptions{})
@@ -622,11 +620,11 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
+			syncedVM := sanitySync(vm, vmi)
 
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
+			Expect(syncedVM.Status.PreferenceRef.Name).To(Equal(preference.Name))
+			Expect(syncedVM.Status.PreferenceRef.Kind).To(Equal(strings.ToLower(preference.Kind)))
+			Expect(syncedVM.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 
 			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 				context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
@@ -789,11 +787,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
+			syncedVM := sanitySync(vm, vmi)
 
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(preferenceRevision.Name))
+			Expect(syncedVM.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(preferenceRevision.Name))
 		})
 
 		It("should store VirtualMachineClusterPreference as ControllerRevision on sync", func() {
@@ -809,11 +805,11 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
+			syncedVM := sanitySync(vm, vmi)
 
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
+			Expect(syncedVM.Status.PreferenceRef.Name).To(Equal(clusterPreference.Name))
+			Expect(syncedVM.Status.PreferenceRef.Kind).To(Equal(strings.ToLower(clusterPreference.Kind)))
+			Expect(syncedVM.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 
 			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 				context.Background(), expectedPreferenceRevision.Name, metav1.GetOptions{})
@@ -973,19 +969,16 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
+			syncedVM := sanitySync(vm, vmi)
 
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(
-				context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.Spec.Instancetype).ToNot(BeNil())
-			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetypeObj.Name))
-			Expect(vm.Spec.Instancetype.RevisionName).To(BeEmpty())
-			Expect(revision.HasControllerRevisionRef(vm.Status.InstancetypeRef)).To(BeTrue())
-			Expect(vm.Spec.Preference).ToNot(BeNil())
-			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
-			Expect(vm.Spec.Preference.RevisionName).To(BeEmpty())
-			Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeTrue())
+			Expect(syncedVM.Spec.Instancetype).ToNot(BeNil())
+			Expect(syncedVM.Spec.Instancetype.Name).To(Equal(instancetypeObj.Name))
+			Expect(syncedVM.Spec.Instancetype.RevisionName).To(BeEmpty())
+			Expect(revision.HasControllerRevisionRef(syncedVM.Status.InstancetypeRef)).To(BeTrue())
+			Expect(syncedVM.Spec.Preference).ToNot(BeNil())
+			Expect(syncedVM.Spec.Preference.Name).To(Equal(preference.Name))
+			Expect(syncedVM.Spec.Preference.RevisionName).To(BeEmpty())
+			Expect(revision.HasControllerRevisionRef(syncedVM.Status.PreferenceRef)).To(BeTrue())
 		},
 			Entry("default referencePolicy",
 				&virtv1.KubeVirt{Spec: virtv1.KubeVirtSpec{Configuration: virtv1.KubeVirtConfiguration{}}}, func() {}),
@@ -1016,17 +1009,14 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
+			syncedVM := sanitySync(vm, vmi)
 
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(
-				context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.Spec.Instancetype).To(BeNil())
-			Expect(vm.Status.InstancetypeRef).To(BeNil())
-			Expect(vm.Spec.Preference).To(BeNil())
-			Expect(vm.Status.PreferenceRef).To(BeNil())
-			Expect(vm.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
-			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()).To(Equal(instancetypeObj.Spec.Memory.Guest.Value()))
+			Expect(syncedVM.Spec.Instancetype).To(BeNil())
+			Expect(syncedVM.Status.InstancetypeRef).To(BeNil())
+			Expect(syncedVM.Spec.Preference).To(BeNil())
+			Expect(syncedVM.Status.PreferenceRef).To(BeNil())
+			Expect(syncedVM.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
+			Expect(syncedVM.Spec.Template.Spec.Domain.Memory.Guest.Value()).To(Equal(instancetypeObj.Spec.Memory.Guest.Value()))
 
 			// Assert that the original ControllerRevisions have been cleaned up
 			if originalVM.Spec.Instancetype.RevisionName != "" {
