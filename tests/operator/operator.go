@@ -97,6 +97,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -635,7 +636,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 	})
 
-	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", decorators.Upgrade, func() {
+	FDescribe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", decorators.Upgrade, func() {
 		runStrategyHalted := v1.RunStrategyHalted
 
 		// This test is installing a previous release of KubeVirt
@@ -1098,10 +1099,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 
 		// this test ensures that we can deal with image prefixes in case they are not used for tests already
-		//
-		// decorated with no-flake-check since CNAO is enabled on the check-tests-for-flakes-lane
-		// see https://github.com/kubevirt/kubevirt/pull/15333
-		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, decorators.NoFlakeCheck, func() {
+		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
 
 			if flags.ImagePrefixAlt == "" {
 				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
@@ -1170,9 +1168,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			allKvInfraPodsAreReady(kv)
 		})
 
-		// decorated with no-flake-check since CNAO is enabled on the check-tests-for-flakes-lane
-		// see https://github.com/kubevirt/kubevirt/pull/15333
-		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, decorators.NoFlakeCheck, func() {
+		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
@@ -1248,10 +1244,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		// NOTE - this test verifies new operators can grab the leader election lease
 		// during operator updates. The only way the new infrastructure is deployed
 		// is if the update operator is capable of getting the lease.
-		//
-		// decorated with no-flake-check since CNAO is enabled on the check-tests-for-flakes-lane
-		// see https://github.com/kubevirt/kubevirt/pull/15333
-		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, decorators.NoFlakeCheck, func() {
+		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
@@ -3110,6 +3103,30 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 
 		vmis = append(vmis, vmi)
 	}
+
+	lastVMIIndex := len(vmis) - 1
+	vmi := vmis[lastVMIIndex]
+
+	const nadName = "secondarynet"
+	Expect(libnet.CreateNAD(testsuite.GetTestNamespace(vmi), nadName)).To(Succeed())
+
+	const networkName = "tenant-blue"
+	vmi.Spec.Domain.Devices.Interfaces = append(
+		vmi.Spec.Domain.Devices.Interfaces,
+		v1.Interface{
+			Name:                   networkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+		},
+	)
+	vmi.Spec.Networks = append(
+		vmi.Spec.Networks,
+		v1.Network{
+			Name: networkName,
+			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+				NetworkName: nadName,
+			}},
+		},
+	)
 
 	return vmis, nil
 }

@@ -98,6 +98,15 @@ elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
+  export KUBEVIRT_WITH_CNAO=true
+  export KUBEVIRT_NUM_SECONDARY_NICS=1
+  export KUBEVIRT_FLANNEL=true
+
+  # lets test it, do not merge
+  export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+  export KUBEVIRTCI_CONTAINER_ORG=oshoval
+  export KUBEVIRTCI_CONTAINER_SUFFIX=flannel_new
+  export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/oshoval/gocli:$KUBEVIRTCI_CONTAINER_SUFFIX
 elif [[ $TARGET =~ sig-monitoring ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
     export KUBEVIRT_DEPLOY_PROMETHEUS=true
@@ -558,6 +567,7 @@ spec:
 EOF
 fi
 
+kubectl get pods -A
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
