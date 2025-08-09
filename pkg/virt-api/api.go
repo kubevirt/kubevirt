@@ -27,6 +27,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -605,6 +607,42 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
+		// Maintain a set of unique strings for which API resources to expose
+		// in the APIResourceList. This is to avoid duplicates in cases where
+		// only the base URI needs to be exposed, e.g., portforward.
+		uniqueApiResourceNames := make(map[string]struct{})
+
+		// Regex to match parameter substrings like /{protocol}
+		// in subresourcePath.
+		paramRegex := regexp.MustCompile("/{(.*?)}")
+		for _, route := range subws.Routes() {
+			pathWithoutBasePath := strings.TrimPrefix(route.Path, definitions.GroupVersionBasePath(version))
+
+			// Add API resources pertaining to the VM and VMI resources
+			for _, subresourceGVR := range []schema.GroupVersionResource{subresourcesvmGVR, subresourcesvmiGVR} {
+				if strings.HasPrefix(pathWithoutBasePath, definitions.NamespacedResourcePath(subresourceGVR)) {
+					subresourcePath := strings.TrimPrefix(pathWithoutBasePath, definitions.NamespacedResourcePath(subresourceGVR)+"/")
+					// Replace parameter substrings like /{protocol} in
+					// subresourcePath with empty string.
+					subresourcePath = paramRegex.ReplaceAllString(subresourcePath, "")
+					uniqueApiResourceNames[subresourceGVR.Resource+"/"+subresourcePath] = struct{}{}
+				}
+			}
+
+			// Add API resources pertaining to the expand-vm-spec resource
+			if strings.HasPrefix(pathWithoutBasePath, definitions.NamespacedResourceBasePath(expandvmspecGVR)) {
+				uniqueApiResourceNames[expandvmspecGVR.Resource] = struct{}{}
+			}
+		}
+
+		apiResourcesToExpose := []metav1.APIResource{}
+		for apiResourceName := range uniqueApiResourceNames {
+			apiResourcesToExpose = append(apiResourcesToExpose, metav1.APIResource{
+				Name:       apiResourceName,
+				Namespaced: true,
+			})
+		}
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -618,112 +656,7 @@ func (app *virtAPIApp) composeSubresources() {
 				list.Kind = "APIResourceList"
 				list.GroupVersion = version.Group + "/" + version.Version
 				list.APIVersion = "v1"
-				list.APIResources = []metav1.APIResource{
-					{
-						Name:       "expand-vm-spec",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/vnc",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/console",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/portforward",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/pause",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/unpause",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/freeze",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/unfreeze",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/reset",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/softreboot",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachines/start",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachines/stop",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachines/restart",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachines/migrate",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachines/expand-spec",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachines/objectgraph",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/guestosinfo",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/userlist",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/filesystemlist",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/addvolume",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/removevolume",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/objectgraph",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/sev/fetchcertchain",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/sev/querylaunchmeasurement",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/sev/setupsession",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/sev/injectlaunchsecret",
-						Namespaced: true,
-					},
-				}
+				list.APIResources = apiResourcesToExpose
 
 				response.WriteAsJson(list)
 			}).
