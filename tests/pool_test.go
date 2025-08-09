@@ -744,20 +744,19 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 120*time.Second, 1*time.Second).Should(Succeed(), "maxUnavailable constraint was violated during the update process")
 
 		By("Waiting for all VMIs to be updated")
-		vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
-			LabelSelector: labelSelectorToString(newPool.Spec.Selector),
-		})
-		Expect(err).ToNot(HaveOccurred())
-
-		updatedCount := 0
-		for _, vmi := range vmis.Items {
-			if _, ok := vmi.Labels[newLabelKey]; ok {
-				updatedCount++
-			}
+		updatedSelector := newPool.Spec.Selector.DeepCopy()
+		if updatedSelector.MatchLabels == nil {
+			updatedSelector.MatchLabels = make(map[string]string)
 		}
-
-		fmt.Fprintf(GinkgoWriter, "Updated VMIs: %d/%d\n", updatedCount, replicas)
-		Expect(updatedCount).To(Equal(replicas))
+		updatedSelector.MatchLabels[newLabelKey] = newLabelValue
+		labelSelector := labelSelectorToString(updatedSelector)
+		Eventually(func(g Gomega) {
+			vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelector,
+			})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vmis.Items).To(HaveLen(replicas))
+		}, 120*time.Second, 1*time.Second).Should(Succeed(), "VMIs not all updated")
 	})
 })
 
