@@ -120,6 +120,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	n.hostCapabilities.items = usableModels
 	n.SEV = hostDomCapabilities.SEV
 	n.SecureExecution = hostDomCapabilities.SecureExecution
+	n.TDX = hostDomCapabilities.TDX
 
 	return nil
 }
