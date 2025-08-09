@@ -220,7 +220,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			}
 		})
 
-		It("[QUARANTINE] should live migrate a container disk vm, with an additional PVC mounted, should stay mounted after migration", decorators.Quarantine, func() {
+		It("should live migrate a container disk vm, with an additional PVC mounted, should stay mounted after migration", func() {
 			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
 			sourceDV := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
