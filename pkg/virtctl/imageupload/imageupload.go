@@ -70,10 +70,6 @@ const (
 	UsePopulatorAnnotation          = "cdi.kubevirt.io/storage.usePopulator"
 	PVCPrimeNameAnnotation          = "cdi.kubevirt.io/storage.populator.pvcPrime"
 
-	// labelApplyStorageProfile is a label used by the CDI mutating webhook
-	// to modify the PVC according to the storage profile.
-	labelApplyStorageProfile = "cdi.kubevirt.io/applyStorageProfile"
-
 	uploadReadyWaitInterval = 2 * time.Second
 
 	processingWaitInterval = 2 * time.Second
@@ -767,7 +763,7 @@ func (c *command) createUploadPVC() (*v1.PersistentVolumeClaim, error) {
 		// This mutating webhook processes the PVC based on its associated StorageProfile.
 		// For example, a profile can define a minimum supported volume size via the annotation:
 		// cdi.kubevirt.io/minimumSupportedPvcSize: 4Gi
-		labelApplyStorageProfile: "true",
+		storagetypes.LabelApplyStorageProfile: "true",
 	}
 
 	if c.forceBind {
