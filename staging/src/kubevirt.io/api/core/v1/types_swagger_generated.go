@@ -1160,6 +1160,14 @@ func (LiveUpdateConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (ScreenshotResponse) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "ScreenshotResponse contains the display image from the VirtualMachineInstance\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"mime": "a string representing the mime-type of the image format",
+		"data": "the actual image",
+	}
+}
+
 func (SEVPlatformInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":          "SEVPlatformInfo contains information about the AMD SEV features for the node.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
