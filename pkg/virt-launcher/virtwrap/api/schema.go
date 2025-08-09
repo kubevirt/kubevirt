@@ -1067,12 +1067,19 @@ type Entry struct {
 //BEGIN LaunchSecurity --------------------
 
 type LaunchSecurity struct {
-	Type            string `xml:"type,attr"`
-	Cbitpos         string `xml:"cbitpos,omitempty"`
-	ReducedPhysBits string `xml:"reducedPhysBits,omitempty"`
-	Policy          string `xml:"policy,omitempty"`
-	DHCert          string `xml:"dhCert,omitempty"`
-	Session         string `xml:"session,omitempty"`
+	Type                    string `xml:"type,attr"`
+	DHCert                  string `xml:"dhCert,omitempty"`
+	Session                 string `xml:"session,omitempty"`
+	VCEK                    string `xml:"vcek,attr,omitempty"`
+	AuthorKey               string `xml:"authorKey,attr,omitempty"`
+	KernelHashes            string `xml:"kernelHashes,attr,omitempty"`
+	HostData                string `xml:"hostData,omitempty"`
+	Cbitpos                 string `xml:"cbitpos,omitempty"`
+	ReducedPhysBits         string `xml:"reducedPhysBits,omitempty"`
+	Policy                  string `xml:"policy,omitempty"`
+	GuestVisibleWorkarounds string `xml:"guestVisibleWorkarounds,omitempty"`
+	IdBlock                 string `xml:"idBlock,omitempty"`
+	IdAuth                  string `xml:"idAuth,omitempty"`
 }
 
 //END LaunchSecurity --------------------

@@ -387,6 +387,16 @@
           "attestation": {},
           "session": "sessionValue",
           "dhCert": "dhCertValue"
+        },
+        "snp": {
+          "policy": "policyValue",
+          "guestVisibleWorkarounds": "guestVisibleWorkaroundsValue",
+          "idBlock": "idBlockValue",
+          "idAuth": "idAuthValue",
+          "hostData": "hostDataValue",
+          "authorKey": true,
+          "vcek": true,
+          "kernelHashes": true
         }
       }
     },
