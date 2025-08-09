@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"time"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -301,6 +302,70 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				}
 				return *targetVM.Spec.RunStrategy
 			}).WithTimeout(time.Second * 20).WithPolling(500 * time.Millisecond).Should(Equal(virtv1.RunStrategyAlways))
+		})
+
+		addDataToTPM := func(vmi *v1.VirtualMachineInstance) {
+			By("Storing a secret into the TPM")
+			// https://www.intel.com/content/www/us/en/developer/articles/code-sample/protecting-secret-data-and-keys-using-intel-platform-trust-technology.html
+			// Not sealing against a set of PCRs, out of scope here, but should work with a carefully selected set (at least PCR1 was seen changing across reboots)
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "tpm2_createprimary -Q --hierarchy=o --key-context=prim.ctx\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "echo MYSECRET | tpm2_create --hash-algorithm=sha256 --public=seal.pub --private=seal.priv --sealing-input=- --parent-context=prim.ctx\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "tpm2_load -Q --parent-context=prim.ctx --public=seal.pub --private=seal.priv --name=seal.name --key-context=seal.ctx\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "tpm2_evictcontrol --hierarchy=o --object-context=seal.ctx 0x81010002\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "tpm2_unseal -Q --object-context=0x81010002\n"},
+				&expect.BExp{R: "MYSECRET"},
+			}, 300)).To(Succeed(), "failed to store secret into the TPM")
+		}
+
+		checkTPM := func(vmi *v1.VirtualMachineInstance) {
+			By("Ensuring the TPM is still functional and its state carried over")
+			ExpectWithOffset(1, console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "tpm2_unseal -Q --object-context=0x81010002\n"},
+				&expect.BExp{R: "MYSECRET"},
+			}, 300)).To(Succeed(), "the state of the TPM did not persist")
+		}
+
+		It("should decentralized migrate a VMI with persistent TPM enabled", decorators.RequiresDecentralizedLiveMigration, func() {
+			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
+			By("Creating a VMI with TPM enabled")
+			sourceVMI := libvmifact.NewFedora(
+				libvmi.WithAnnotation("kubevirt.io/libvirt-log-filters", "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"),
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithTPM(true),
+			)
+			createAndStartVMFromVMISpec(sourceVMI)
+			targetVMI := sourceVMI.DeepCopy()
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
+
+			By("Logging in")
+			Expect(console.LoginToFedora(sourceVMI)).To(Succeed())
+
+			addDataToTPM(sourceVMI)
+
+			By("Migrating the VMI")
+			targetVM := createReceiverVMFromVMISpec(targetVMI)
+			sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
+			targetMigration := libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
+			sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
+			libmigration.ConfirmVMIPostMigration(virtClient, targetVMI, targetMigration)
+
+			By("Ensuring the TPM is still functional and its state carried over")
+			checkTPM(targetVMI)
+			By("Stopping the VM")
+			libvmops.StopVirtualMachine(targetVM)
+			By("Starting the VM")
+			targetVM = libvmops.StartVirtualMachine(targetVM)
+			By("Logging in")
+			Expect(console.LoginToFedora(targetVMI)).To(Succeed())
+			By("Ensuring the TPM contains the same data after stop and start")
+			checkTPM(targetVMI)
 		})
 	})
 
