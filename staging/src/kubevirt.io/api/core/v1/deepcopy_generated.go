@@ -6128,6 +6128,11 @@ func (in *VirtualMachineInstanceSpec) DeepCopyInto(out *VirtualMachineInstanceSp
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.StartupProbe != nil {
+		in, out := &in.StartupProbe, &out.StartupProbe
+		*out = new(Probe)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.LivenessProbe != nil {
 		in, out := &in.LivenessProbe, &out.LivenessProbe
 		*out = new(Probe)
