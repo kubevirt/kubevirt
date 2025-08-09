@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "domain.go",
         "matchers.go",
         "mock_config.go",
         "mock_priorityqueue.go",
