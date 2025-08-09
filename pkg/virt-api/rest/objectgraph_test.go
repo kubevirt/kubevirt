@@ -458,22 +458,12 @@ var _ = Describe("Object Graph", func() {
 			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(graphNodes.Children).To(HaveLen(4))
+			Expect(graphNodes.Children).To(HaveLen(2))
 
 			childMap := make(map[string]v1.ObjectGraphNode)
 			for _, child := range graphNodes.Children {
 				childMap[child.ObjectReference.Name] = child
 			}
-
-			Expect(childMap).To(HaveKey("test-instancetype"))
-			instanceTypeNode := childMap["test-instancetype"]
-			Expect(instanceTypeNode.ObjectReference.Kind).To(Equal("VirtualMachineInstancetype"))
-			Expect(*instanceTypeNode.Optional).To(BeTrue())
-
-			Expect(childMap).To(HaveKey("test-preference"))
-			preferenceNode := childMap["test-preference"]
-			Expect(preferenceNode.ObjectReference.Kind).To(Equal("VirtualMachinePreference"))
-			Expect(*preferenceNode.Optional).To(BeTrue())
 
 			Expect(childMap).To(HaveKey("test-instancetype-revision"))
 			Expect(childMap["test-instancetype-revision"].ObjectReference.Kind).To(Equal("ControllerRevision"))
@@ -491,6 +481,17 @@ var _ = Describe("Object Graph", func() {
 				Kind: "VirtualMachineClusterPreference",
 			}
 
+			vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+				ControllerRevisionRef: &v1.ControllerRevisionRef{
+					Name: "test-instancetype-revision",
+				},
+			}
+			vm.Status.PreferenceRef = &v1.InstancetypeStatusRef{
+				ControllerRevisionRef: &v1.ControllerRevisionRef{
+					Name: "test-preference-revision",
+				},
+			}
+
 			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
@@ -500,15 +501,11 @@ var _ = Describe("Object Graph", func() {
 				childMap[child.ObjectReference.Name] = child
 			}
 
-			Expect(childMap).To(HaveKey("test-cluster-instancetype"))
-			instanceTypeNode := childMap["test-cluster-instancetype"]
-			Expect(instanceTypeNode.ObjectReference.Kind).To(Equal("VirtualMachineClusterInstancetype"))
-			Expect(*instanceTypeNode.ObjectReference.Namespace).To(Equal(""))
+			Expect(childMap).To(HaveKey("test-instancetype-revision"))
+			Expect(childMap["test-instancetype-revision"].ObjectReference.Kind).To(Equal("ControllerRevision"))
+			Expect(childMap).To(HaveKey("test-preference-revision"))
+			Expect(childMap["test-preference-revision"].ObjectReference.Kind).To(Equal("ControllerRevision"))
 
-			Expect(childMap).To(HaveKey("test-cluster-preference"))
-			preferenceNode := childMap["test-cluster-preference"]
-			Expect(preferenceNode.ObjectReference.Kind).To(Equal("VirtualMachineClusterPreference"))
-			Expect(*preferenceNode.ObjectReference.Namespace).To(Equal(""))
 		})
 
 		It("should handle VM with multiple access credentials", func() {
