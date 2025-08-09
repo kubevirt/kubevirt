@@ -1593,9 +1593,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "arm64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.architecture"))
-			Expect(causes[0].Message).To(Equal("threads must not be greater than 1 at fake.domain.cpu.threads (got 2) when fake.architecture is arm64"))
+			Expect(causes).To(ContainElement(
+				metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "fake.architecture",
+					Message: "threads must not be greater than 1 at fake.domain.cpu.threads (got 2) when fake.architecture is arm64",
+				},
+			))
 		})
 
 		It("should accept vmi with threads == 1 for arm64 arch", func() {
@@ -1634,8 +1638,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				k8sv1.ResourceCPU: resource.MustParse("12"),
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(ContainSubstring("Not more than two threads must be provided at fake.domain.cpu.threads (got 3) when DedicatedCPUPlacement is true"))
+			Expect(causes).To(ContainElement(
+				metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "fake.domain.cpu.dedicatedCpuPlacement",
+					Message: "Not more than two threads must be provided at fake.domain.cpu.threads (got 3) when DedicatedCPUPlacement is true",
+				},
+			))
 		})
 
 		It("should reject specs without cpu reqirements", func() {
