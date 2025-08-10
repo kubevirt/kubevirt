@@ -349,9 +349,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("queues='3'"))
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Check block device queues in guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls /sys/block/vda/mq | wc -l\n"},
+					&expect.BExp{R: console.RetValue("3")},
+				}, 15)).To(Succeed())
 			})
 
 			It("[test_id:1665]should map cores to virtio net queues", func() {
@@ -373,11 +378,20 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("driver name='vhost' queues='3'"))
-				// make sure that there are not block queues configured
-				Expect(domXml).ToNot(ContainSubstring("cache='none' queues='3'"))
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Check network interface queues in guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls /sys/class/net/eth0/queues/ | grep rx | wc -l\n"},
+					&expect.BExp{R: console.RetValue("3")},
+				}, 15)).To(Succeed())
+
+				By("Check block device does not have multiple queues")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls -1 /sys/block/vda/mq | wc -l\n"},
+					&expect.BExp{R: console.RetValue("1")},
+				}, 15)).To(Succeed())
 			})
 
 			It("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", func() {
@@ -396,9 +410,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).ToNot(ContainSubstring("queues='"))
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls /sys/block/vda/mq | wc -l\n"},
+					&expect.BExp{R: console.RetValue("1")},
+				}, 15)).To(Succeed())
 			})
 		})
 
