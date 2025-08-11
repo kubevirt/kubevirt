@@ -727,7 +727,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		It("should patch the pod's annotations when network annotations generator returns custom annotations", func() {
-			vmi := newPendingVMIWithPhase("testvmi", virtv1.Running)
+			vmi := newTestVmiWithPhase("testvmi", virtv1.Running)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -743,7 +743,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should not patch the pod's annotations when network annotations generator returns an empty map", func() {
-			vmi := newPendingVMIWithPhase("testvmi", virtv1.Running)
+			vmi := newTestVmiWithPhase("testvmi", virtv1.Running)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -768,7 +768,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithInterfaceStatus(virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate1"}),
 				libvmistatus.WithInterfaceStatus(virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate2"}),
 			)
-			oldVMI = newTestVMIWithOptions("oldvmi", defaultPendingVmiOptions(), oldVmiStatusOptions)
+			oldVMI = newTestVmiWithOptions("oldvmi", defaultPendingVmiOptions(), oldVmiStatusOptions)
 
 			newVMI = newPendingVirtualMachine("newvmi")
 		})
@@ -837,7 +837,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Running),
 				readyConditionOpt(k8sv1.ConditionTrue, "")}
 
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			delete(pod.Annotations, descheduler.EvictOnlyAnnotation)
@@ -851,7 +851,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		DescribeTable("should delete the corresponding Pods on VirtualMachineInstance deletion with vmi", func(phase virtv1.VirtualMachineInstancePhase) {
-			vmi := newPendingVMIWithPhase("testvmi", phase)
+			vmi := newTestVmiWithPhase("testvmi", phase)
 
 			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 
@@ -913,7 +913,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		It("should delete finalized pods on VMI deletion", func() {
-			vmi := newPendingVMIWithPhase("testvmi", virtv1.Failed)
+			vmi := newTestVmiWithPhase("testvmi", virtv1.Failed)
 
 			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 
@@ -937,7 +937,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)}
 
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -968,7 +968,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(phase),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)}
 
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			addVirtualMachine(vmi)
@@ -982,7 +982,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("failed state", virtv1.Succeeded),
 		)
 		It("should do nothing if the vmi is in final state", func() {
-			vmi := newPendingVMIWithPhase("testvmi", virtv1.Failed)
+			vmi := newTestVmiWithPhase("testvmi", virtv1.Failed)
 			vmi.Finalizers = []string{}
 
 			addVirtualMachine(vmi)
@@ -1039,7 +1039,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		It("should remove the error condition if the sync finally succeeds", func() {
 			vmiStatusOptions := append(defaultPendingVmiStatusOptions(),
 				libvmistatus.WithCondition(virtv1.VirtualMachineInstanceCondition{Type: virtv1.VirtualMachineInstanceSynchronized}))
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			addVirtualMachine(vmi)
 
@@ -1089,7 +1089,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				vmiStatusOptions := []libvmistatus.Option{
 					libvmistatus.WithPhase(virtv1.Pending),
 					readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason)}
-				vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+				vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 				vmi.Spec.Volumes = []virtv1.Volume{
 					{
@@ -1147,7 +1147,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmiStatusOptions := []libvmistatus.Option{
 				libvmistatus.WithPhase(virtv1.Pending),
 				readyConditionOpt(k8sv1.ConditionFalse, unreadyReason)}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, phase)
 			pod.Status.ContainerStatuses[0].Ready = isReady
@@ -1176,7 +1176,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				vmiStatusOptions := []libvmistatus.Option{
 					libvmistatus.WithPhase(virtv1.Scheduling),
 					readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)}
-				vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+				vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 
@@ -1213,7 +1213,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						Status:  k8sv1.ConditionFalse,
 						Type:    virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)}),
 				}
-				vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+				vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 				pod := newPodForVirtualMachine(vmi, podPhase)
 
@@ -1237,7 +1237,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("should move the vmi to failed state if the pod disappears and the vmi is in scheduling state", func() {
-			vmi := newPendingVMIWithPhase("testvmi", virtv1.Scheduling)
+			vmi := newTestVmiWithPhase("testvmi", virtv1.Scheduling)
 
 			addVirtualMachine(vmi)
 
@@ -1259,7 +1259,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.ContainerStatuses = containerStatus
@@ -1293,7 +1293,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.ContainerStatuses = containerStatus
@@ -1324,7 +1324,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
 			dv := &cdiv1.DataVolume{
@@ -1379,7 +1379,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodConditionMissingReason),
 				libvmistatus.WithNodeName("curnode"),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Spec.NodeName = "curnode"
@@ -1410,7 +1410,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Pending),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			vmi.DeletionTimestamp = pointer.P(metav1.Now())
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -1440,7 +1440,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Spec = k8sv1.PodSpec{
@@ -1496,7 +1496,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -1511,7 +1511,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.QOSClass = k8sv1.PodQOSGuaranteed
@@ -1530,7 +1530,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 
@@ -1557,7 +1557,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 
 			addVirtualMachine(vmi)
@@ -1580,7 +1580,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodTerminatingReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{Name: "compute", State: k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{}}}}
@@ -1599,7 +1599,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
 				libvmistatus.WithLauncherContainerImageVersion("madeup"),
 			}
-			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 
 			Expect(vmi.Finalizers).To(ContainElement(finalizer))
 
@@ -1627,7 +1627,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Succeeded),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 			Expect(vmi.Finalizers).To(ContainElement(virtv1.VirtualMachineControllerFinalizer))
 
 			vm := watchtesting.VirtualMachineFromVMI(vmi.Name, vmi, true)
@@ -1677,7 +1677,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduled),
 				readyConditionOpt(k8sv1.ConditionFalse, unreadyReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 			pod := newPodForVirtualMachine(vmi, phase)
 
 			addVirtualMachine(vmi)
@@ -1704,7 +1704,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Running),
 				readyConditionOpt(k8sv1.ConditionTrue, ""),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
@@ -1737,7 +1737,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Running),
 				readyConditionOpt(k8sv1.ConditionTrue, ""),
 			}
-			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
@@ -1763,7 +1763,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmiStatusOptions := []libvmistatus.Option{
 				libvmistatus.WithPhase(virtv1.Running),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 			vmi.Status.Conditions = nil
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -1787,7 +1787,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmiStatusOptions := []libvmistatus.Option{
 				libvmistatus.WithPhase(virtv1.Running),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 			vmi.Status.Conditions = nil
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -1813,7 +1813,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Running),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodConditionMissingReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.UID = "someUID"
@@ -1836,7 +1836,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithCondition(virtv1.VirtualMachineInstanceCondition{Type: virtv1.VirtualMachineInstanceSynchronized, Status: k8sv1.ConditionFalse}),
 			}
 
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
@@ -1851,7 +1851,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		DescribeTable("should mark the vmi as Failed if launcher-pod does not exist", func(phase virtv1.VirtualMachineInstancePhase) {
-			vmi := newPendingVMIWithPhase("testvmi", phase)
+			vmi := newTestVmiWithPhase("testvmi", phase)
 
 			addVirtualMachine(vmi)
 
@@ -1867,7 +1867,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodTerminatingReason),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, phase)
 
@@ -1882,7 +1882,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("should set a Synchronized=False condition when pod runs into image pull errors", func(initContainer bool, containerWaitingReason string) {
-			vmi := newPendingVMIWithPhase("testvmi", virtv1.Scheduling)
+			vmi := newTestVmiWithPhase("testvmi", virtv1.Scheduling)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 
@@ -1922,7 +1922,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Reason: prevReason,
 				}),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 
@@ -1951,7 +1951,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("ImagePullBackOff --> ErrImagePull", kvcontroller.ImagePullBackOffReason, kvcontroller.ErrImagePullReason),
 		)
 		It("should add MigrationTransport to VMI status if MigrationTransportUnixAnnotation was set", func() {
-			vmi := newPendingVMIWithPhase("testvmi", virtv1.Scheduling)
+			vmi := newTestVmiWithPhase("testvmi", virtv1.Scheduling)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[virtv1.MigrationTransportUnixAnnotation] = "true"
 
@@ -1989,7 +1989,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					vmiOpts = append(vmiOpts, libvmi.WithAnnotation(key, val))
 				}
 
-				vmi := newTestVMIWithOptions("testvmi", vmiOpts, vmiStatusOpts)
+				vmi := newTestVmiWithOptions("testvmi", vmiOpts, vmiStatusOpts)
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -2226,7 +2226,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Status: k8sv1.ConditionTrue,
 				}),
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOpts)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOpts)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			addActivePods(vmi, pod.UID, "")
@@ -2249,7 +2249,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("should set VirtualMachineUnpaused=True pod condition when VMI is not paused", func(currUnpausedStatus k8sv1.ConditionStatus) {
-			vmi := newPendingVMIWithPhase("testvmi", virtv1.Running)
+			vmi := newTestVmiWithPhase("testvmi", virtv1.Running)
 
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			addActivePods(vmi, pod.UID, "")
@@ -2287,7 +2287,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						GuestRequested: &currentGuestMemory,
 					}),
 				}
-				vmi := newTestVMIWithOptions("testvmi", vmiOpts, vmiStatusOpts)
+				vmi := newTestVmiWithOptions("testvmi", vmiOpts, vmiStatusOpts)
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 				addActivePods(vmi, pod.UID, "")
@@ -2317,7 +2317,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						GuestCurrent: &currentGuestMemory,
 					}),
 				}
-				vmi := newTestVMIWithOptions("testvmi", vmiOpts, vmiStatusOpts)
+				vmi := newTestVmiWithOptions("testvmi", vmiOpts, vmiStatusOpts)
 
 				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 				overheadRatio := "2"
@@ -2498,7 +2498,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Reason:        kvcontroller.PVCNotReadyReason,
 				}))
 
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			addDataVolumePVC(pvc)
@@ -2535,7 +2535,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		It("CreateAttachmentPodTemplate should create a pod template if DV of owning PVC is ready", func() {
 			vmiStatusOptions := append(defaultPendingVmiStatusOptions(),
 				libvmistatus.WithSelinuxContext("system_u:system_r:container_file_t:s0:c1,c2"))
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			addDataVolumePVC(pvc)
@@ -2731,7 +2731,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			for _, volumeStatus := range orgStatus {
 				volumeStatusOptions = append(volumeStatusOptions, libvmistatus.WithVolumeStatus(volumeStatus))
 			}
-			vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), append(defaultPendingVmiStatusOptions(), volumeStatusOptions...))
+			vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), append(defaultPendingVmiStatusOptions(), volumeStatusOptions...))
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvcFunc(pvcIndexes...)
 			datavolumes := []*cdiv1.DataVolume{}
@@ -3135,7 +3135,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Target: ""}),
 				libvmistatus.WithSelinuxContext("system_u:system_r:container_file_t:s0:c1,c2"),
 				libvmistatus.WithActivePod("virt-launch-uid", "")}
-			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -3218,7 +3218,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						AttachPodUID:  "abcd",
 					}}),
 				libvmistatus.WithActivePod("virt-launch-uid", "")}
-			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -3398,7 +3398,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmiOpts := append(defaultPendingVmiOptions(),
 				libvmi.WithArchitecture("amd64"),
 				libvmi.WithCPUFeature("invtsc", "require"))
-			vmi := newTestVMIWithOptions("testvmi", vmiOpts, []libvmistatus.Option{})
+			vmi := newTestVmiWithOptions("testvmi", vmiOpts, []libvmistatus.Option{})
 
 			return vmi
 		}
@@ -3409,7 +3409,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmi.WithHyperv(&virtv1.FeatureHyperv{
 					Reenlightenment: &virtv1.FeatureState{Enabled: pointer.P(true)},
 				}))
-			vmi := newTestVMIWithOptions("testvmi", vmiOpts, []libvmistatus.Option{})
+			vmi := newTestVmiWithOptions("testvmi", vmiOpts, []libvmistatus.Option{})
 
 			return vmi
 		}
@@ -3506,7 +3506,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Scheduling),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)}
 
-			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			addVirtualMachine(vmi)
@@ -3528,7 +3528,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				libvmistatus.WithPhase(virtv1.Succeeded),
 				readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason)}
 
-			vmi := newTestVMIWithOptions("testvmi", vmiOptions, vmiStatusOptions)
+			vmi := newTestVmiWithOptions("testvmi", vmiOptions, vmiStatusOptions)
 			Expect(controller.cidsMap.Allocate(vmi)).To(Succeed())
 			addVirtualMachine(vmi)
 
@@ -3548,7 +3548,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					libvmi.WithDataVolume(testDv2, testDv2),
 					libvmi.WithDataVolume(testDv3, testDv3),
 				)
-				vmi := newTestVMIWithOptions("testvmi", vmiOptions, defaultPendingVmiStatusOptions())
+				vmi := newTestVmiWithOptions("testvmi", vmiOptions, defaultPendingVmiStatusOptions())
 
 				dvPVC1 := newPvc(vmi.Namespace, testDv1)
 				dvPVC2 := newPvc(vmi.Namespace, testDv2)
@@ -3810,7 +3810,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						libvmistatus.WithCondition(*existingCondition))
 				}
 
-				vmi := newTestVMIWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
+				vmi := newTestVmiWithOptions("testvmi", defaultPendingVmiOptions(), vmiStatusOptions)
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 				addVirtualMachine(vmi)
@@ -4056,18 +4056,18 @@ func defaultPendingVmiStatusOptions() []libvmistatus.Option {
 func newPendingVirtualMachine(name string, extraVmiOpts ...libvmi.Option) *virtv1.VirtualMachineInstance {
 	vmiOptions := append(defaultPendingVmiOptions(), extraVmiOpts...)
 
-	return newTestVMIWithOptions(name, vmiOptions, defaultPendingVmiStatusOptions())
+	return newTestVmiWithOptions(name, vmiOptions, defaultPendingVmiStatusOptions())
 }
 
-func newPendingVMIWithPhase(name string, phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
+func newTestVmiWithPhase(name string, phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
 	vmiStatusOptions := []libvmistatus.Option{
 		libvmistatus.WithPhase(phase),
 		readyConditionOpt(k8sv1.ConditionFalse, virtv1.PodNotExistsReason),
 	}
-	return newTestVMIWithOptions(name, defaultPendingVmiOptions(), vmiStatusOptions)
+	return newTestVmiWithOptions(name, defaultPendingVmiOptions(), vmiStatusOptions)
 }
 
-func newTestVMIWithOptions(name string, vmiOptions []libvmi.Option, statusOptions []libvmistatus.Option) *virtv1.VirtualMachineInstance {
+func newTestVmiWithOptions(name string, vmiOptions []libvmi.Option, statusOptions []libvmistatus.Option) *virtv1.VirtualMachineInstance {
 	combinedOptions := append(vmiOptions, libvmi.WithName(name),
 		libvmistatus.WithStatus(
 			libvmistatus.New(
