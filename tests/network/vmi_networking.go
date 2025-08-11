@@ -798,7 +798,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(libnet.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1), "-M do")).ToNot(Succeed())
 			},
 				Entry("IPv4", k8sv1.IPv4Protocol),
-				Entry("IPv6", k8sv1.IPv6Protocol),
+				FEntry("IPv6", k8sv1.IPv6Protocol),
 			)
 		})
 	})
