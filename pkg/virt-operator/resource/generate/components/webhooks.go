@@ -307,7 +307,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	VmClusterInstancetypeValidatePath := VMClusterInstancetypeValidatePath
 	vmPreferenceValidatePath := VMPreferenceValidatePath
 	vmClusterPreferenceValidatePath := VMClusterPreferenceValidatePath
-	launcherEvictionValidatePath := LauncherEvictionValidatePath
+	podEvictionValidatePath := PodEvictionValidatePath
 	statusValidatePath := StatusValidatePath
 	migrationPolicyCreateValidatePath := MigrationPolicyCreateValidatePath
 	vmCloneCreateValidatePath := VMCloneCreateValidatePath
@@ -351,13 +351,44 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					Service: &admissionregistrationv1.ServiceReference{
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
-						Path:      &launcherEvictionValidatePath,
+						Path:      &podEvictionValidatePath,
 					},
 				},
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
 						Name:       "only-vms",
 						Expression: `object.metadata.name.startsWith("virt-launcher")`,
+					},
+				},
+			},
+			{
+				Name:                    "hotplug-pod-eviction-interceptor.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				// We don't want to block evictions in the cluster in a case where this webhook is down.
+				FailurePolicy:  &failurePolicy,
+				TimeoutSeconds: &defaultTimeoutSeconds,
+				SideEffects:    &sideEffectNoneOnDryRun,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.OperationAll,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods/eviction"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &podEvictionValidatePath,
+					},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{
+						Name:       "only-hotplug-pods",
+						Expression: `object.metadata.name.startsWith("hp-volume-")`,
 					},
 				},
 			},
@@ -893,7 +924,7 @@ const VMClusterPreferenceValidatePath = "/virtualmachineclusterpreferences-valid
 
 const StatusValidatePath = "/status-validate"
 
-const LauncherEvictionValidatePath = "/launcher-eviction-validate"
+const PodEvictionValidatePath = "/pod-eviction-validate"
 
 const MigrationPolicyCreateValidatePath = "/migration-policy-validate-create"
 
