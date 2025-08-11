@@ -83,6 +83,32 @@ var _ = Describe("Defaults", func() {
 						),
 					)
 				}, Equal(templateProvidedArch)),
+				Entry("referenced DataSource (without namespace) provided architecture label when not provided by user", func() *v1.VirtualMachine {
+					const vmNamespace = "vm-namespace"
+					ds := &cdiv1beta1.DataSource{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "ds",
+							Namespace: vmNamespace,
+							Labels: map[string]string{
+								"template.kubevirt.io/architecture": templateProvidedArch,
+							},
+						},
+						Spec: cdiv1beta1.DataSourceSpec{},
+					}
+					ds, err := virtClient.CdiClient().CdiV1beta1().DataSources(vmNamespace).Create(context.Background(), ds, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return libvmi.NewVirtualMachine(
+						libvmi.New(
+							libvmi.WithNamespace(vmNamespace),
+						),
+						libvmi.WithDataVolumeTemplate(
+							libdv.NewDataVolume(
+								libdv.WithDataVolumeSourceRef("DataSource", "", ds.Name),
+							),
+						),
+					)
+				}, Equal(templateProvidedArch)),
+
 				Entry("referenced nested DataSource provided architecture label when not provided by user", func() *v1.VirtualMachine {
 					nestedDS := &cdiv1beta1.DataSource{
 						ObjectMeta: metav1.ObjectMeta{
