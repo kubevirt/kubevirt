@@ -722,13 +722,28 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+					libvmi.WithLabel("mtu-test-primary", "true"),
 				)
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Create another VMI")
+				By("Create another VMI on same node")
 				anotherVmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
+				anotherVmi.Spec.Affinity = &k8sv1.Affinity{
+					PodAffinity: &k8sv1.PodAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+							{
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"mtu-test-primary": "true",
+									},
+								},
+								TopologyKey: "kubernetes.io/hostname",
+							},
+						},
+					},
+				}
 				anotherVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), anotherVmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
