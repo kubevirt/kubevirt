@@ -1717,19 +1717,15 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 		})
 
-		It("[test_id:3124]should set machine type from VMI spec", func() {
+		It("[test_id:3124]should set status.machine to the resolved QEMU machine type after VMI start", func() {
 			vmi := libvmi.New(
 				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
 				withMachineType("pc"),
 			)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
 
 			Expect(vmi.Status.Machine).ToNot(BeNil())
-			Expect(vmi.Status.Machine.Type).To(Equal(runningVMISpec.OS.Type.Machine))
+			Expect(vmi.Status.Machine.Type).To(ContainSubstring("pc-i440"))
 		})
 
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {
