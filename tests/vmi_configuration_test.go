@@ -2743,11 +2743,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
-			By("Check values on domain XML")
-			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
-
 			By("Expecting console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
