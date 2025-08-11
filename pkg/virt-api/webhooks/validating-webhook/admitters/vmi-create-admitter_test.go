@@ -1134,13 +1134,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.IOThreads = &v1.DiskIOThreads{
 				SupplementalPoolThreadCount: pointer.P(uint32(0)),
 			}
-
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Cores:                 2,
 				DedicatedCPUPlacement: true,
 				IsolateEmulatorThread: true,
 			}
-
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("spec.domain.ioThreads.count"))
