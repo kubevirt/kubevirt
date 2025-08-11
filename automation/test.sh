@@ -81,6 +81,13 @@ elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_STORAGE="rook-ceph-default"
   export KUBEVIRT_DEPLOY_NFS_CSI=true
   export KUBEVIRT_WITH_ETC_CAPACITY="1G"
+
+  # lets test it, do not merge
+  export KUBEVIRT_FLANNEL=true
+  export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+  export KUBEVIRTCI_CONTAINER_ORG=oshoval
+  export KUBEVIRTCI_CONTAINER_SUFFIX=flannel_new
+  export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/oshoval/gocli:$KUBEVIRTCI_CONTAINER_SUFFIX
 elif [[ $TARGET =~ sig-compute-realtime ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
   export KUBEVIRT_HUGEPAGES_2M=512
@@ -94,6 +101,12 @@ elif [[ $TARGET =~ sig-compute-migrations ]]; then
   export KUBEVIRT_NUM_SECONDARY_NICS=1
   export KUBEVIRT_DEPLOY_NFS_CSI=true
   export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
+  # lets test it, do not merge
+  export KUBEVIRT_FLANNEL=true
+  export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+  export KUBEVIRTCI_CONTAINER_ORG=oshoval
+  export KUBEVIRTCI_CONTAINER_SUFFIX=flannel_new
+  export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/oshoval/gocli:$KUBEVIRTCI_CONTAINER_SUFFIX
   source hack/config-default.sh
 elif [[ $TARGET =~ sig-compute-serial ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
@@ -103,6 +116,12 @@ elif [[ $TARGET =~ sig-compute-conformance ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-conformance/}
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
+  # lets test it, do not merge
+  export KUBEVIRT_FLANNEL=true
+  export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+  export KUBEVIRTCI_CONTAINER_ORG=oshoval
+  export KUBEVIRTCI_CONTAINER_SUFFIX=flannel_new
+  export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/oshoval/gocli:$KUBEVIRTCI_CONTAINER_SUFFIX
 elif [[ $TARGET =~ sig-operator ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
   export KUBEVIRT_WITH_CNAO=true
