@@ -69,6 +69,13 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_DEPLOY_CDI=false
   export KUBEVIRT_DEPLOY_ISTIO=true
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+
+  # lets test it, do not merge
+  export KUBEVIRT_FLANNEL=true
+  export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+  export KUBEVIRTCI_CONTAINER_ORG=oshoval
+  export KUBEVIRTCI_CONTAINER_SUFFIX=flannel_new
+  export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/oshoval/gocli:$KUBEVIRTCI_CONTAINER_SUFFIX
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
   export KUBEVIRT_STORAGE="rook-ceph-default"
