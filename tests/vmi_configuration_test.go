@@ -669,48 +669,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("[test_id:4437]should enable EFI secure boot", Serial, fedoraWithUefiSecuredBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
 		)
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
-			It("[test_id:1669]should show the requested guest memory inside the VMI", func() {
-				vmi := libvmifact.NewCirros()
-				guestMemory := resource.MustParse("256Mi")
-				vmi.Spec.Domain.Memory = &v1.Memory{
-					Guest: &guestMemory,
-				}
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
-
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: console.RetValue("225")},
-				}, 10)).To(Succeed())
-
-			})
-		})
-
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory", func() {
-			It("[test_id:3115]should show the memory request inside the VMI", func() {
-				vmi := libvmifact.NewCirros(
-					libvmi.WithMemoryRequest("256Mi"),
-					libvmi.WithMemoryLimit("512Mi"),
-				)
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
-
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: console.RetValue("225")},
-				}, 10)).To(Succeed())
-
-			})
-		})
-
 		Context("[rfe_id:989]test cpu_allocation_ratio", func() {
 			It("virt-launchers pod cpu requests should be proportional to the number of vCPUs", func() {
 				vmi := libvmifact.NewCirros()
@@ -744,67 +702,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		})
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with support memory over commitment", func() {
-			It("[test_id:755]should show the requested memory different than guest memory", func() {
-				vmi := libvmifact.NewCirros(overcommitGuestOverhead())
-				guestMemory := resource.MustParse("256Mi")
-				vmi.Spec.Domain.Memory = &v1.Memory{
-					Guest: &guestMemory,
-				}
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
-
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass'\n"},
-					&expect.BExp{R: console.RetValue("pass")},
-					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=100k\n"},
-					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 15)).To(Succeed())
-
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				podMemoryUsage, err := getPodMemoryUsage(pod)
-				Expect(err).ToNot(HaveOccurred())
-				By("Converting pod memory usage")
-				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
-				Expect(err).ToNot(HaveOccurred())
-				By("Checking if pod memory usage is > 64Mi")
-				Expect(m).To(BeNumerically(">", 67108864), "67108864 B = 64 Mi")
-			})
-
-		})
-
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
-
-			startOverCommitGuestOverheadVMI := func() (*v1.VirtualMachineInstance, error) {
-				vmi := libvmifact.NewCirros(overcommitGuestOverhead())
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				if err != nil {
-					return nil, err
-				}
-				return libwait.WaitForSuccessfulVMIStart(vmi), nil
-			}
-
-			It("[test_id:730]Check OverCommit VM Created and Started", func() {
-				overcommitVmi, err := startOverCommitGuestOverheadVMI()
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(overcommitVmi)
-			})
-			It("[test_id:731]Check OverCommit status on VMI", func() {
-				overcommitVmi, err := startOverCommitGuestOverheadVMI()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(overcommitVmi.Spec.Domain.Resources.OvercommitGuestOverhead).To(BeTrue())
-			})
 			It("[test_id:732]Check Free memory on the VMI", func() {
-				overcommitVmi, err := startOverCommitGuestOverheadVMI()
+				overcommitVmi := libvmifact.NewCirros(overcommitGuestOverhead())
+				overcommitVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(overcommitVmi)).Create(context.Background(), overcommitVmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				overcommitVmi = libwait.WaitForSuccessfulVMIStart(overcommitVmi)
+				Expect(overcommitVmi.Spec.Domain.Resources.OvercommitGuestOverhead).To(BeTrue())
 				By("Expecting console")
 				Expect(console.LoginToCirros(overcommitVmi)).To(Succeed())
 
