@@ -729,6 +729,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.allPodInformer,
 		vca.namespaceInformer,
 		vca.nodeInformer,
+		vca.resourceQuotaInformer,
 	)
 	if err != nil {
 		panic(err)

@@ -162,6 +162,7 @@ var _ = Describe("Application", func() {
 			podInformer,
 			nsInformer,
 			nodeInformer,
+			resourceQuotaInformer,
 		)
 		app.rsController, _ = replicaset.NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController, _ = vm.NewController(vmiInformer,
