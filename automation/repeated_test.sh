@@ -238,6 +238,8 @@ add_to_label_filter '(!no-flake-check)' '&&'
 add_to_label_filter '(!Istio)' '&&'
 add_to_label_filter '(!requireHugepages1Gi)' '&&'
 add_to_label_filter '(!USB)' '&&'
+add_to_label_filter '(!requires-arm64)' '&&'
+add_to_label_filter '(!requires-s390x)' '&&'
 rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
 if [[ "${rwofs_sc}" == "local" ]]; then
     # local is a primitive non CSI storage class that doesn't support expansion
