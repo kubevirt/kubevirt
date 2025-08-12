@@ -185,6 +185,21 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 		pod = patchedPod
 
+		_, podIsMarkedForEviction := pod.GetAnnotations()[descheduler.EvictionInProgressAnnotation]
+		if vmi.IsMarkedForEviction() && !podIsMarkedForEviction {
+			patchedPod, err = descheduler.MarkEvictionInProgress(c.clientset, pod)
+			if err != nil {
+				return common.NewSyncError(err, controller.FailedPodPatchReason), pod
+			}
+		}
+		if !vmi.IsMarkedForEviction() && podIsMarkedForEviction {
+			patchedPod, err = descheduler.MarkEvictionCompleted(c.clientset, pod)
+			if err != nil {
+				return common.NewSyncError(err, controller.FailedPodPatchReason), pod
+			}
+		}
+		pod = patchedPod
+
 		hotplugVolumes := controller.GetHotplugVolumes(vmi, pod)
 		hotplugAttachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
 		if err != nil {
