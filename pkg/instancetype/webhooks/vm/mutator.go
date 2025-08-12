@@ -86,11 +86,11 @@ func mutateMachineType(vm *virtv1.VirtualMachine, preferenceSpec *v1beta1.Virtua
 	if machine := vm.Spec.Template.Spec.Domain.Machine; machine != nil && machine.Type != "" {
 		return
 	}
-	if preferenceSpec != nil && preferenceSpec.Machine != nil {
+	if preferenceSpec != nil && preferenceSpec.Machine != nil && preferenceSpec.Machine.PreferredMachineType != nil {
 		if vm.Spec.Template.Spec.Domain.Machine == nil {
 			vm.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{}
 		}
-		vm.Spec.Template.Spec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
+		vm.Spec.Template.Spec.Domain.Machine.Type = *preferenceSpec.Machine.PreferredMachineType
 	}
 }
 

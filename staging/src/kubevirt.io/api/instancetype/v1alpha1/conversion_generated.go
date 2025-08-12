@@ -404,7 +404,9 @@ func autoConvert_v1alpha1_FirmwarePreferences_To_v1beta1_FirmwarePreferences(in 
 }
 
 func autoConvert_v1beta1_MachinePreferences_To_v1alpha1_MachinePreferences(in *v1beta1.MachinePreferences, out *MachinePreferences, s conversion.Scope) error {
-	out.PreferredMachineType = in.PreferredMachineType
+	if err := v1.Convert_Pointer_string_To_string(&in.PreferredMachineType, &out.PreferredMachineType, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -414,7 +416,9 @@ func Convert_v1beta1_MachinePreferences_To_v1alpha1_MachinePreferences(in *v1bet
 }
 
 func autoConvert_v1alpha1_MachinePreferences_To_v1beta1_MachinePreferences(in *MachinePreferences, out *v1beta1.MachinePreferences, s conversion.Scope) error {
-	out.PreferredMachineType = in.PreferredMachineType
+	if err := v1.Convert_string_To_Pointer_string(&in.PreferredMachineType, &out.PreferredMachineType, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -780,7 +784,15 @@ func autoConvert_v1beta1_VirtualMachinePreferenceSpec_To_v1alpha1_VirtualMachine
 	} else {
 		out.Firmware = nil
 	}
-	out.Machine = (*MachinePreferences)(unsafe.Pointer(in.Machine))
+	if in.Machine != nil {
+		in, out := &in.Machine, &out.Machine
+		*out = new(MachinePreferences)
+		if err := Convert_v1beta1_MachinePreferences_To_v1alpha1_MachinePreferences(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Machine = nil
+	}
 	// WARNING: in.Volumes requires manual conversion: does not exist in peer-type
 	// WARNING: in.PreferredSubdomain requires manual conversion: does not exist in peer-type
 	// WARNING: in.PreferredTerminationGracePeriodSeconds requires manual conversion: does not exist in peer-type
@@ -820,7 +832,15 @@ func autoConvert_v1alpha1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachine
 	} else {
 		out.Firmware = nil
 	}
-	out.Machine = (*v1beta1.MachinePreferences)(unsafe.Pointer(in.Machine))
+	if in.Machine != nil {
+		in, out := &in.Machine, &out.Machine
+		*out = new(v1beta1.MachinePreferences)
+		if err := Convert_v1alpha1_MachinePreferences_To_v1beta1_MachinePreferences(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.Machine = nil
+	}
 	return nil
 }
 

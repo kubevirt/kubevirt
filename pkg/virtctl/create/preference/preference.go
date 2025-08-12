@@ -28,6 +28,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 )
@@ -106,7 +107,7 @@ func (c *createPreference) withVolumeStorageClass(preferenceSpec *instancetypev1
 
 func (c *createPreference) withMachineType(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
 	preferenceSpec.Machine = &instancetypev1beta1.MachinePreferences{
-		PreferredMachineType: c.machineType,
+		PreferredMachineType: pointer.P(c.machineType),
 	}
 	return nil
 }
