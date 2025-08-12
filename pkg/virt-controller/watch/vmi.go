@@ -100,6 +100,7 @@ func NewVMIController(templateService services.TemplateService,
 	allPodInformer cache.SharedIndexInformer,
 	namespaceInformer cache.SharedIndexInformer,
 	nodeInformer cache.SharedIndexInformer,
+	resourceQuotaInformer cache.SharedIndexInformer,
 ) (*VMIController, error) {
 
 	c := &VMIController{
@@ -124,6 +125,8 @@ func NewVMIController(templateService services.TemplateService,
 		allPodIndexer:    allPodInformer.GetIndexer(),
 		namespaceIndexer: namespaceInformer.GetIndexer(),
 		nodeIndexer:      nodeInformer.GetIndexer(),
+
+		resourceQuotaIndexer: resourceQuotaInformer.GetIndexer(),
 	}
 
 	c.hasSynced = func() bool {
@@ -163,6 +166,14 @@ func NewVMIController(templateService services.TemplateService,
 	_, err = pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPVC,
 		UpdateFunc: c.updatePVC,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = resourceQuotaInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateResourceQuota,
+		DeleteFunc: c.deleteResourceQuota,
 	})
 	if err != nil {
 		return nil, err
@@ -238,6 +249,8 @@ type VMIController struct {
 	allPodIndexer    cache.Indexer
 	namespaceIndexer cache.Indexer
 	nodeIndexer      cache.Indexer
+
+	resourceQuotaIndexer cache.Indexer
 }
 
 func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -1459,6 +1472,48 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 	}
 	log.Log.V(4).Object(curPod).Infof("Pod updated")
 	c.enqueueVirtualMachine(vmi)
+	return
+}
+
+// When a resourceQuota is updated, check if there are any VirtualMachineInstances (VMI) in the namespace
+// that have not had their Pods created due to quota limitations.
+// If such VMIs exist, enqueue them to expedite the Pod creation process.
+func (c *VMIController) updateResourceQuota(_, cur interface{}) {
+	curResourceQuota := cur.(*k8sv1.ResourceQuota)
+	log.Log.V(4).Object(curResourceQuota).Infof("ResourceQuota updated")
+	objs, _ := c.vmiIndexer.ByIndex(cache.NamespaceIndex, curResourceQuota.Namespace)
+	for _, obj := range objs {
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+		if vmi.Status.Conditions == nil {
+			continue
+		}
+		for _, cond := range vmi.Status.Conditions {
+			if cond.Type == virtv1.VirtualMachineInstanceSynchronized && cond.Reason == controller.FailedCreatePodReason {
+				c.enqueueVirtualMachine(vmi)
+			}
+		}
+	}
+	return
+}
+
+// When a resourceQuota is deleted, check if there are any VirtualMachineInstances (VMI) in the namespace
+// that have not had their Pods created due to quota limitations.
+// If such VMIs exist, enqueue them to expedite the Pod creation process.
+func (c *VMIController) deleteResourceQuota(obj interface{}) {
+	resourceQuota := obj.(*k8sv1.ResourceQuota)
+	log.Log.V(4).Object(resourceQuota).Infof("ResourceQuota deleted")
+	objs, _ := c.vmiIndexer.ByIndex(cache.NamespaceIndex, resourceQuota.Namespace)
+	for _, obj := range objs {
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+		if vmi.Status.Conditions == nil {
+			continue
+		}
+		for _, cond := range vmi.Status.Conditions {
+			if cond.Type == virtv1.VirtualMachineInstanceSynchronized && cond.Reason == controller.FailedCreatePodReason {
+				c.enqueueVirtualMachine(vmi)
+			}
+		}
+	}
 	return
 }
 

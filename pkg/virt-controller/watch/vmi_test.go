@@ -273,6 +273,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		resourceQuotaInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
@@ -298,6 +299,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podInformer,
 			nsInformer,
 			nodeInformer,
+			resourceQuotaInformer,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -3975,7 +3977,7 @@ func setDataVolumeCondition(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeCondition
 func NewNodeForPod(pod *k8sv1.Pod) *k8sv1.Node {
 	return &k8sv1.Node{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pod.Spec.NodeName,
+			Name: pod.Spec.NodeName,
 		},
 	}
 }

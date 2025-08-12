@@ -145,6 +145,7 @@ var _ = Describe("Application", func() {
 			podInformer,
 			nsInformer,
 			nodeInformer,
+			resourceQuotaInformer,
 		)
 		app.rsController, _ = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController, _ = NewVMController(vmiInformer,
