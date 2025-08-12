@@ -2069,6 +2069,61 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			)
 		})
 
+		Context("Descheduler annotations", func() {
+			It("should add eviction-in-progress annotation in case of VMI marked for eviction", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.EvacuationNodeName = "test"
+				vmi.Status.NodeName = "test"
+
+				sourcePod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				sourcePod.Spec.NodeName = "test"
+				addActivePods(vmi, sourcePod.UID, "")
+
+				targetPod := sourcePod.DeepCopy()
+				targetPod.Name = "targetfailure"
+				targetPod.UID = "123-123-123-123"
+				targetPod.Spec.NodeName = "someothernode"
+
+				Expect(sourcePod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
+				Expect(targetPod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
+
+				addVirtualMachine(vmi)
+				addPod(sourcePod)
+				addPod(targetPod)
+
+				sanityExecute()
+
+				By("Checking that the source/active pod is correctly annotated")
+				updatedSourcePod, err := kubeClient.CoreV1().Pods(sourcePod.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedSourcePod.Annotations).To(HaveKey(descheduler.EvictionInProgressAnnotation))
+
+				By("Checking that a migration target pod is not annotated to prevent double counting")
+				updatedTargetPod, err := kubeClient.CoreV1().Pods(targetPod.Namespace).Get(context.Background(), targetPod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedTargetPod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
+			})
+
+			It("should remove eviction-in-progress annotation in case of VMI not marked for eviction", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.EvacuationNodeName = ""
+
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				pod.ObjectMeta.Annotations[descheduler.EvictionInProgressAnnotation] = "kubevirt"
+				addActivePods(vmi, pod.UID, "")
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+
+				updatedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedPod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
+			})
+		})
+
 		DescribeTable("should set VirtualMachineUnpaused=False pod condition when VMI is paused", func(currUnpausedStatus k8sv1.ConditionStatus) {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Running
