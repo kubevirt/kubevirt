@@ -601,7 +601,7 @@ type MachinePreferences struct {
 	// PreferredMachineType optionally defines the preferred machine type to use.
 	//
 	// +optional
-	PreferredMachineType string `json:"preferredMachineType,omitempty"`
+	PreferredMachineType *string `json:"preferredMachineType,omitempty"`
 }
 
 // ClockPreferences contains various optional defaults for Clock.

@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Preference.Machine", func() {
@@ -48,12 +49,12 @@ var _ = Describe("Preference.Machine", func() {
 	It("should apply to VMI", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Machine: &v1beta1.MachinePreferences{
-				PreferredMachineType: "q35-rhel-8.0",
+				PreferredMachineType: pointer.P("q35-rhel-8.0"),
 			},
 		}
 
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 
-		Expect(vmi.Spec.Domain.Machine.Type).To(Equal(preferenceSpec.Machine.PreferredMachineType))
+		Expect(vmi.Spec.Domain.Machine.Type).To(Equal(*preferenceSpec.Machine.PreferredMachineType))
 	})
 })

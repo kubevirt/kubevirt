@@ -48,6 +48,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	instancetypeVMWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -236,7 +237,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 				Machine: &instancetypev1beta1.MachinePreferences{
-					PreferredMachineType: "pc-q35-4.0",
+					PreferredMachineType: pointer.P("pc-q35-4.0"),
 				},
 			},
 		}
@@ -271,7 +272,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 				Machine: &instancetypev1beta1.MachinePreferences{
-					PreferredMachineType: "pc-q35-4.0",
+					PreferredMachineType: pointer.P("pc-q35-4.0"),
 				},
 			},
 		}
@@ -292,7 +293,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		})
 
 		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
-		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(*preference.Spec.Machine.PreferredMachineType))
 	})
 
 	It("should ignore error looking up preference and apply cluster config on VM create", func() {
@@ -347,7 +348,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 				Machine: &instancetypev1beta1.MachinePreferences{
-					PreferredMachineType: "pc-q35-5.0",
+					PreferredMachineType: pointer.P("pc-q35-5.0"),
 				},
 			},
 		}
@@ -359,7 +360,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		}
 
 		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
-		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(*preference.Spec.Machine.PreferredMachineType))
 	})
 
 	DescribeTable("should admit valid values to InferFromVolumePolicy", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher) {

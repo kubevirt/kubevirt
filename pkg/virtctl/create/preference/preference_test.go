@@ -111,7 +111,7 @@ var _ = Describe("create preference", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			spec := getPreferenceSpec(out)
-			Expect(spec.Machine.PreferredMachineType).To(Equal(machineType))
+			Expect(spec.Machine.PreferredMachineType).To(HaveValue(Equal(machineType)))
 			Expect(validatePreferenceSpec(spec)).To(BeEmpty())
 		},
 			Entry("VirtualMachinePreference", "pc-i440fx-2.10", setFlag(NamespacedFlag, "true")),
