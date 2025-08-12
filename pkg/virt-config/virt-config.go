@@ -82,8 +82,8 @@ const (
 	DefaultVirtHandlerBurst               = 10
 	DefaultVirtControllerQPS      float32 = 200
 	DefaultVirtControllerBurst            = 400
-	DefaultVirtAPIQPS             float32 = 5
-	DefaultVirtAPIBurst                   = 10
+	DefaultVirtAPIQPS             float32 = 200
+	DefaultVirtAPIBurst                   = 400
 	DefaultVirtWebhookClientQPS           = 200
 	DefaultVirtWebhookClientBurst         = 400
 
