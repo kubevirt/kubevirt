@@ -89,7 +89,8 @@ func PodsUsingPVCs(podInformer cache.SharedIndexInformer, namespace string, pvcN
 		}
 
 		for _, volume := range pod.Spec.Volumes {
-			if volume.VolumeSource.PersistentVolumeClaim != nil &&
+			if pod.Status.Phase != corev1.PodSucceeded &&
+				volume.VolumeSource.PersistentVolumeClaim != nil &&
 				pvcNames.Has(volume.PersistentVolumeClaim.ClaimName) {
 				pods = append(pods, *pod)
 			}
