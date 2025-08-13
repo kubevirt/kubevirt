@@ -204,6 +204,7 @@ export KUBEVIRT_STORAGE="rook-ceph-default"
 export KUBEVIRT_DEPLOY_NFS_CSI=true
 export KUBEVIRT_DEPLOY_PROMETHEUS=true
 export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
+export KUBEVIRT_FLANNEL=true
 
 export KUBEVIRT_NFS_DIR=${KUBEVIRT_NFS_DIR:-/var/lib/containers/nfs-data}
 
