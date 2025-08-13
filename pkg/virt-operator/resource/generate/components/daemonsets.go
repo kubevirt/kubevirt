@@ -240,6 +240,22 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 
 	container.Env = append(container.Env, containerEnv...)
 
+	container.StartupProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+				Path: "/healthz",
+			},
+		},
+		InitialDelaySeconds: 15,
+		TimeoutSeconds:      10,
+		PeriodSeconds:       45,
+	}
+
 	container.LivenessProbe = &corev1.Probe{
 		FailureThreshold: 3,
 		ProbeHandler: corev1.ProbeHandler{
