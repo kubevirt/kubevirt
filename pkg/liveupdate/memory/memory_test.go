@@ -75,7 +75,7 @@ var _ = Describe("LiveUpdate Memory", func() {
 					libvmi.WithHugepages("1Gi"),
 				),
 				Entry("architecture is not amd64", "4Gi",
-					libvmi.WithArchitecture("arm64"),
+					libvmi.WithArchitecture("risc-v"),
 					libvmi.WithGuestMemory("1Gi"),
 				),
 				Entry("guest memory is less than 1Gi", "4Gi",
