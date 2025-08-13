@@ -1212,6 +1212,8 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
+	l.syncGracePeriod(vmi)
+
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return oldSpec, nil
 }
@@ -2605,6 +2607,16 @@ func (l *LibvirtDomainManager) linkImageVolumeFilePaths(vmi *v1.VirtualMachineIn
 	}
 
 	return nil
+}
+
+func (l *LibvirtDomainManager) syncGracePeriod(vmi *v1.VirtualMachineInstance) {
+	l.metadataCache.GracePeriod.WithSafeBlock(func(gracePeriodMetadata *api.GracePeriodMetadata, _ bool) {
+		gracePeriod := converter.GracePeriodSeconds(vmi)
+		if gracePeriodMetadata.DeletionGracePeriodSeconds != gracePeriod {
+			gracePeriodMetadata.DeletionGracePeriodSeconds = gracePeriod
+			log.Log.Object(vmi).Infof("Set new termination grace period: %d", gracePeriod)
+		}
+	})
 }
 
 func getDiskTargetPathFromImageVolumeView(volumeIndex int, volumePath string) (*safepath.Path, error) {
