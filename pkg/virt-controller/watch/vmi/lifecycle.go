@@ -59,14 +59,6 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 	key := controller.VirtualMachineInstanceKey(vmi)
 	defer virtControllerVMIWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VMI Name", Value: vmi.Name})
 
-	if vmi.DeletionTimestamp != nil {
-		err := c.deleteAllMatchingPods(vmi)
-		if err != nil {
-			return common.NewSyncError(fmt.Errorf("failed to delete pod: %v", err), controller.FailedDeletePodReason), pod
-		}
-		return nil, pod
-	}
-
 	if vmi.IsFinal() {
 		err := c.deleteAllAttachmentPods(vmi)
 		if err != nil {
