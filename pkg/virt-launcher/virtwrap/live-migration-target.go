@@ -45,8 +45,6 @@ import (
 
 const (
 	containerHotplugDir = "/var/run/kubevirt/hotplug-disks"
-	retryCount          = 20
-	sleepTime           = 500 * time.Millisecond
 )
 
 func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
@@ -258,44 +256,29 @@ func checkIfHotplugDisksReadyToUse(vmi *v1.VirtualMachineInstance) error {
 
 	var entries []os.DirEntry
 	var err error
-	for i := 0; i < retryCount; i++ {
-		entries, err = os.ReadDir(containerHotplugDir)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return nil
-			}
-			return err
+	entries, err = os.ReadDir(containerHotplugDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
 		}
-		logger.Infof("found %d hotplugged disks files, compared to %d from vmi spec", len(entries), vmiHotplugCount)
-		if len(entries) == vmiHotplugCount {
-			break
-		}
-		// Wait some time before checking again
-		time.Sleep(sleepTime)
+		return err
 	}
+	logger.Infof("found %d hotplugged disks files, compared to %d from vmi spec", len(entries), vmiHotplugCount)
 	if len(entries) != vmiHotplugCount {
 		return fmt.Errorf("found %d hotplugged disks files, expected %d", len(entries), vmiHotplugCount)
 	}
 
 	readyCount := 0
-	for i := 0; i < retryCount && readyCount < vmiHotplugCount; i++ {
-		readyCount = 0
-		for _, entry := range entries {
-			logger.Infof("checking if hotplugged disk %s is ready to use", filepath.Join(containerHotplugDir, entry.Name()))
-			ready, err := checkIfDiskReadyToUse(filepath.Join(containerHotplugDir, entry.Name()))
-			if err != nil {
-				return err
-			}
-			if ready {
-				logger.Infof("hotplugged disk %s is ready to use", filepath.Join(containerHotplugDir, entry.Name()))
-				readyCount++
-			}
+	for _, entry := range entries {
+		logger.Infof("checking if hotplugged disk %s is ready to use", filepath.Join(containerHotplugDir, entry.Name()))
+		ready, err := checkIfDiskReadyToUse(filepath.Join(containerHotplugDir, entry.Name()))
+		if err != nil {
+			return err
 		}
-		if readyCount != vmiHotplugCount {
-			logger.Infof("not all hotplugged disks are ready to use, waiting for them to be ready")
+		if ready {
+			logger.Infof("hotplugged disk %s is ready to use", filepath.Join(containerHotplugDir, entry.Name()))
+			readyCount++
 		}
-		// Wait some time before checking again
-		time.Sleep(sleepTime)
 	}
 	if readyCount != vmiHotplugCount {
 		return fmt.Errorf("not all hotplugged disks are ready to use, found %d ready, expected %d", readyCount, vmiHotplugCount)
