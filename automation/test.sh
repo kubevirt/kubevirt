@@ -58,6 +58,7 @@ export KUBEVIRT_DEPLOY_CDI=true
 if [[ ! $TARGET =~ .*kind.* ]]; then
   export FEATURE_GATES="NodeRestriction"
   export KUBEVIRT_PSA="true"
+  export KUBEVIRT_FLANNEL=true
 fi
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
