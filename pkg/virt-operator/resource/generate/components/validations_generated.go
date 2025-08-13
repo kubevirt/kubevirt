@@ -7454,6 +7454,144 @@ var CRDsValidation map[string]string = map[string]string{
                   description: StartStrategy can be set to "Paused" if Virtual Machine
                     should be started in paused state.
                   type: string
+                startupProbe:
+                  description: |-
+                    StartupProbe indicates that the VirtualMachineInstance(VMI) has successfully initialized.
+                    If specified, no other probes are executed until this completes successfully.
+                    If this probe fails, the Pod will be restarted, just as if the livenessProbe failed.
+                    This can be used to provide different probe parameters at the beginning of a Pod's lifecycle,
+                    when it might take a long time to lad data or warm a cache, than during steady-state operation.
+                    This cannot be updated.
+                    More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                  properties:
+                    exec:
+                      description: |-
+                        One and only one of the following should be specified.
+                        Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.
+                        If the guest agent is not available, this probe will fail.
+                      properties:
+                        command:
+                          description: |-
+                            Command is the command line to execute inside the container, the working directory for the
+                            command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                            not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                            a shell, you need to explicitly call out to that shell.
+                            Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      type: object
+                    failureThreshold:
+                      description: |-
+                        Minimum consecutive failures for the probe to be considered failed after having succeeded.
+                        Defaults to 3. Minimum value is 1.
+                      format: int32
+                      type: integer
+                    guestAgentPing:
+                      description: GuestAgentPing contacts the qemu-guest-agent for
+                        availability checks.
+                      type: object
+                    httpGet:
+                      description: HTTPGet specifies the http request to perform.
+                      properties:
+                        host:
+                          description: |-
+                            Host name to connect to, defaults to the pod IP. You probably want to set
+                            "Host" in httpHeaders instead.
+                          type: string
+                        httpHeaders:
+                          description: Custom headers to set in the request. HTTP
+                            allows repeated headers.
+                          items:
+                            description: HTTPHeader describes a custom header to be
+                              used in HTTP probes
+                            properties:
+                              name:
+                                description: |-
+                                  The header field name.
+                                  This will be canonicalized upon output, so case-variant names will be understood as the same header.
+                                type: string
+                              value:
+                                description: The header field value
+                                type: string
+                            required:
+                            - name
+                            - value
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        path:
+                          description: Path to access on the HTTP server.
+                          type: string
+                        port:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: |-
+                            Name or number of the port to access on the container.
+                            Number must be in the range 1 to 65535.
+                            Name must be an IANA_SVC_NAME.
+                          x-kubernetes-int-or-string: true
+                        scheme:
+                          description: |-
+                            Scheme to use for connecting to the host.
+                            Defaults to HTTP.
+                          type: string
+                      required:
+                      - port
+                      type: object
+                    initialDelaySeconds:
+                      description: |-
+                        Number of seconds after the VirtualMachineInstance has started before liveness probes are initiated.
+                        More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                      format: int32
+                      type: integer
+                    periodSeconds:
+                      description: |-
+                        How often (in seconds) to perform the probe.
+                        Default to 10 seconds. Minimum value is 1.
+                      format: int32
+                      type: integer
+                    successThreshold:
+                      description: |-
+                        Minimum consecutive successes for the probe to be considered successful after having failed.
+                        Defaults to 1. Must be 1 for liveness. Minimum value is 1.
+                      format: int32
+                      type: integer
+                    tcpSocket:
+                      description: |-
+                        TCPSocket specifies an action involving a TCP port.
+                        TCP hooks not yet supported
+                      properties:
+                        host:
+                          description: 'Optional: Host name to connect to, defaults
+                            to the pod IP.'
+                          type: string
+                        port:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: |-
+                            Number or name of the port to access on the container.
+                            Number must be in the range 1 to 65535.
+                            Name must be an IANA_SVC_NAME.
+                          x-kubernetes-int-or-string: true
+                      required:
+                      - port
+                      type: object
+                    timeoutSeconds:
+                      description: |-
+                        Number of seconds after which the probe times out.
+                        For exec probes the timeout fails the probe but does not terminate the command running on the guest.
+                        This means a blocking command can result in an increasing load on the guest.
+                        A small buffer will be added to the resulting workload exec probe to compensate for delays
+                        caused by the qemu guest exec mechanism.
+                        Defaults to 1 second. Minimum value is 1.
+                        More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                      format: int32
+                      type: integer
+                  type: object
                 subdomain:
                   description: |-
                     If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
@@ -12893,6 +13031,144 @@ var CRDsValidation map[string]string = map[string]string{
           description: StartStrategy can be set to "Paused" if Virtual Machine should
             be started in paused state.
           type: string
+        startupProbe:
+          description: |-
+            StartupProbe indicates that the VirtualMachineInstance(VMI) has successfully initialized.
+            If specified, no other probes are executed until this completes successfully.
+            If this probe fails, the Pod will be restarted, just as if the livenessProbe failed.
+            This can be used to provide different probe parameters at the beginning of a Pod's lifecycle,
+            when it might take a long time to lad data or warm a cache, than during steady-state operation.
+            This cannot be updated.
+            More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+          properties:
+            exec:
+              description: |-
+                One and only one of the following should be specified.
+                Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.
+                If the guest agent is not available, this probe will fail.
+              properties:
+                command:
+                  description: |-
+                    Command is the command line to execute inside the container, the working directory for the
+                    command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                    not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                    a shell, you need to explicitly call out to that shell.
+                    Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
+              type: object
+            failureThreshold:
+              description: |-
+                Minimum consecutive failures for the probe to be considered failed after having succeeded.
+                Defaults to 3. Minimum value is 1.
+              format: int32
+              type: integer
+            guestAgentPing:
+              description: GuestAgentPing contacts the qemu-guest-agent for availability
+                checks.
+              type: object
+            httpGet:
+              description: HTTPGet specifies the http request to perform.
+              properties:
+                host:
+                  description: |-
+                    Host name to connect to, defaults to the pod IP. You probably want to set
+                    "Host" in httpHeaders instead.
+                  type: string
+                httpHeaders:
+                  description: Custom headers to set in the request. HTTP allows repeated
+                    headers.
+                  items:
+                    description: HTTPHeader describes a custom header to be used in
+                      HTTP probes
+                    properties:
+                      name:
+                        description: |-
+                          The header field name.
+                          This will be canonicalized upon output, so case-variant names will be understood as the same header.
+                        type: string
+                      value:
+                        description: The header field value
+                        type: string
+                    required:
+                    - name
+                    - value
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
+                path:
+                  description: Path to access on the HTTP server.
+                  type: string
+                port:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  description: |-
+                    Name or number of the port to access on the container.
+                    Number must be in the range 1 to 65535.
+                    Name must be an IANA_SVC_NAME.
+                  x-kubernetes-int-or-string: true
+                scheme:
+                  description: |-
+                    Scheme to use for connecting to the host.
+                    Defaults to HTTP.
+                  type: string
+              required:
+              - port
+              type: object
+            initialDelaySeconds:
+              description: |-
+                Number of seconds after the VirtualMachineInstance has started before liveness probes are initiated.
+                More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+              format: int32
+              type: integer
+            periodSeconds:
+              description: |-
+                How often (in seconds) to perform the probe.
+                Default to 10 seconds. Minimum value is 1.
+              format: int32
+              type: integer
+            successThreshold:
+              description: |-
+                Minimum consecutive successes for the probe to be considered successful after having failed.
+                Defaults to 1. Must be 1 for liveness. Minimum value is 1.
+              format: int32
+              type: integer
+            tcpSocket:
+              description: |-
+                TCPSocket specifies an action involving a TCP port.
+                TCP hooks not yet supported
+              properties:
+                host:
+                  description: 'Optional: Host name to connect to, defaults to the
+                    pod IP.'
+                  type: string
+                port:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  description: |-
+                    Number or name of the port to access on the container.
+                    Number must be in the range 1 to 65535.
+                    Name must be an IANA_SVC_NAME.
+                  x-kubernetes-int-or-string: true
+              required:
+              - port
+              type: object
+            timeoutSeconds:
+              description: |-
+                Number of seconds after which the probe times out.
+                For exec probes the timeout fails the probe but does not terminate the command running on the guest.
+                This means a blocking command can result in an increasing load on the guest.
+                A small buffer will be added to the resulting workload exec probe to compensate for delays
+                caused by the qemu guest exec mechanism.
+                Defaults to 1 second. Minimum value is 1.
+                More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+              format: int32
+              type: integer
+          type: object
         subdomain:
           description: |-
             If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
@@ -19090,6 +19366,144 @@ var CRDsValidation map[string]string = map[string]string{
                   description: StartStrategy can be set to "Paused" if Virtual Machine
                     should be started in paused state.
                   type: string
+                startupProbe:
+                  description: |-
+                    StartupProbe indicates that the VirtualMachineInstance(VMI) has successfully initialized.
+                    If specified, no other probes are executed until this completes successfully.
+                    If this probe fails, the Pod will be restarted, just as if the livenessProbe failed.
+                    This can be used to provide different probe parameters at the beginning of a Pod's lifecycle,
+                    when it might take a long time to lad data or warm a cache, than during steady-state operation.
+                    This cannot be updated.
+                    More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                  properties:
+                    exec:
+                      description: |-
+                        One and only one of the following should be specified.
+                        Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.
+                        If the guest agent is not available, this probe will fail.
+                      properties:
+                        command:
+                          description: |-
+                            Command is the command line to execute inside the container, the working directory for the
+                            command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                            not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                            a shell, you need to explicitly call out to that shell.
+                            Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      type: object
+                    failureThreshold:
+                      description: |-
+                        Minimum consecutive failures for the probe to be considered failed after having succeeded.
+                        Defaults to 3. Minimum value is 1.
+                      format: int32
+                      type: integer
+                    guestAgentPing:
+                      description: GuestAgentPing contacts the qemu-guest-agent for
+                        availability checks.
+                      type: object
+                    httpGet:
+                      description: HTTPGet specifies the http request to perform.
+                      properties:
+                        host:
+                          description: |-
+                            Host name to connect to, defaults to the pod IP. You probably want to set
+                            "Host" in httpHeaders instead.
+                          type: string
+                        httpHeaders:
+                          description: Custom headers to set in the request. HTTP
+                            allows repeated headers.
+                          items:
+                            description: HTTPHeader describes a custom header to be
+                              used in HTTP probes
+                            properties:
+                              name:
+                                description: |-
+                                  The header field name.
+                                  This will be canonicalized upon output, so case-variant names will be understood as the same header.
+                                type: string
+                              value:
+                                description: The header field value
+                                type: string
+                            required:
+                            - name
+                            - value
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        path:
+                          description: Path to access on the HTTP server.
+                          type: string
+                        port:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: |-
+                            Name or number of the port to access on the container.
+                            Number must be in the range 1 to 65535.
+                            Name must be an IANA_SVC_NAME.
+                          x-kubernetes-int-or-string: true
+                        scheme:
+                          description: |-
+                            Scheme to use for connecting to the host.
+                            Defaults to HTTP.
+                          type: string
+                      required:
+                      - port
+                      type: object
+                    initialDelaySeconds:
+                      description: |-
+                        Number of seconds after the VirtualMachineInstance has started before liveness probes are initiated.
+                        More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                      format: int32
+                      type: integer
+                    periodSeconds:
+                      description: |-
+                        How often (in seconds) to perform the probe.
+                        Default to 10 seconds. Minimum value is 1.
+                      format: int32
+                      type: integer
+                    successThreshold:
+                      description: |-
+                        Minimum consecutive successes for the probe to be considered successful after having failed.
+                        Defaults to 1. Must be 1 for liveness. Minimum value is 1.
+                      format: int32
+                      type: integer
+                    tcpSocket:
+                      description: |-
+                        TCPSocket specifies an action involving a TCP port.
+                        TCP hooks not yet supported
+                      properties:
+                        host:
+                          description: 'Optional: Host name to connect to, defaults
+                            to the pod IP.'
+                          type: string
+                        port:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: |-
+                            Number or name of the port to access on the container.
+                            Number must be in the range 1 to 65535.
+                            Name must be an IANA_SVC_NAME.
+                          x-kubernetes-int-or-string: true
+                      required:
+                      - port
+                      type: object
+                    timeoutSeconds:
+                      description: |-
+                        Number of seconds after which the probe times out.
+                        For exec probes the timeout fails the probe but does not terminate the command running on the guest.
+                        This means a blocking command can result in an increasing load on the guest.
+                        A small buffer will be added to the resulting workload exec probe to compensate for delays
+                        caused by the qemu guest exec mechanism.
+                        Defaults to 1 second. Minimum value is 1.
+                        More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                      format: int32
+                      type: integer
+                  type: object
                 subdomain:
                   description: |-
                     If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
@@ -23777,6 +24191,144 @@ var CRDsValidation map[string]string = map[string]string{
                           description: StartStrategy can be set to "Paused" if Virtual
                             Machine should be started in paused state.
                           type: string
+                        startupProbe:
+                          description: |-
+                            StartupProbe indicates that the VirtualMachineInstance(VMI) has successfully initialized.
+                            If specified, no other probes are executed until this completes successfully.
+                            If this probe fails, the Pod will be restarted, just as if the livenessProbe failed.
+                            This can be used to provide different probe parameters at the beginning of a Pod's lifecycle,
+                            when it might take a long time to lad data or warm a cache, than during steady-state operation.
+                            This cannot be updated.
+                            More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                          properties:
+                            exec:
+                              description: |-
+                                One and only one of the following should be specified.
+                                Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.
+                                If the guest agent is not available, this probe will fail.
+                              properties:
+                                command:
+                                  description: |-
+                                    Command is the command line to execute inside the container, the working directory for the
+                                    command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                                    not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                                    a shell, you need to explicitly call out to that shell.
+                                    Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                  items:
+                                    type: string
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                              type: object
+                            failureThreshold:
+                              description: |-
+                                Minimum consecutive failures for the probe to be considered failed after having succeeded.
+                                Defaults to 3. Minimum value is 1.
+                              format: int32
+                              type: integer
+                            guestAgentPing:
+                              description: GuestAgentPing contacts the qemu-guest-agent
+                                for availability checks.
+                              type: object
+                            httpGet:
+                              description: HTTPGet specifies the http request to perform.
+                              properties:
+                                host:
+                                  description: |-
+                                    Host name to connect to, defaults to the pod IP. You probably want to set
+                                    "Host" in httpHeaders instead.
+                                  type: string
+                                httpHeaders:
+                                  description: Custom headers to set in the request.
+                                    HTTP allows repeated headers.
+                                  items:
+                                    description: HTTPHeader describes a custom header
+                                      to be used in HTTP probes
+                                    properties:
+                                      name:
+                                        description: |-
+                                          The header field name.
+                                          This will be canonicalized upon output, so case-variant names will be understood as the same header.
+                                        type: string
+                                      value:
+                                        description: The header field value
+                                        type: string
+                                    required:
+                                    - name
+                                    - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                path:
+                                  description: Path to access on the HTTP server.
+                                  type: string
+                                port:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  description: |-
+                                    Name or number of the port to access on the container.
+                                    Number must be in the range 1 to 65535.
+                                    Name must be an IANA_SVC_NAME.
+                                  x-kubernetes-int-or-string: true
+                                scheme:
+                                  description: |-
+                                    Scheme to use for connecting to the host.
+                                    Defaults to HTTP.
+                                  type: string
+                              required:
+                              - port
+                              type: object
+                            initialDelaySeconds:
+                              description: |-
+                                Number of seconds after the VirtualMachineInstance has started before liveness probes are initiated.
+                                More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                              format: int32
+                              type: integer
+                            periodSeconds:
+                              description: |-
+                                How often (in seconds) to perform the probe.
+                                Default to 10 seconds. Minimum value is 1.
+                              format: int32
+                              type: integer
+                            successThreshold:
+                              description: |-
+                                Minimum consecutive successes for the probe to be considered successful after having failed.
+                                Defaults to 1. Must be 1 for liveness. Minimum value is 1.
+                              format: int32
+                              type: integer
+                            tcpSocket:
+                              description: |-
+                                TCPSocket specifies an action involving a TCP port.
+                                TCP hooks not yet supported
+                              properties:
+                                host:
+                                  description: 'Optional: Host name to connect to,
+                                    defaults to the pod IP.'
+                                  type: string
+                                port:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  description: |-
+                                    Number or name of the port to access on the container.
+                                    Number must be in the range 1 to 65535.
+                                    Name must be an IANA_SVC_NAME.
+                                  x-kubernetes-int-or-string: true
+                              required:
+                              - port
+                              type: object
+                            timeoutSeconds:
+                              description: |-
+                                Number of seconds after which the probe times out.
+                                For exec probes the timeout fails the probe but does not terminate the command running on the guest.
+                                This means a blocking command can result in an increasing load on the guest.
+                                A small buffer will be added to the resulting workload exec probe to compensate for delays
+                                caused by the qemu guest exec mechanism.
+                                Defaults to 1 second. Minimum value is 1.
+                                More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                              format: int32
+                              type: integer
+                          type: object
                         subdomain:
                           description: |-
                             If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
@@ -29139,6 +29691,145 @@ var CRDsValidation map[string]string = map[string]string{
                               description: StartStrategy can be set to "Paused" if
                                 Virtual Machine should be started in paused state.
                               type: string
+                            startupProbe:
+                              description: |-
+                                StartupProbe indicates that the VirtualMachineInstance(VMI) has successfully initialized.
+                                If specified, no other probes are executed until this completes successfully.
+                                If this probe fails, the Pod will be restarted, just as if the livenessProbe failed.
+                                This can be used to provide different probe parameters at the beginning of a Pod's lifecycle,
+                                when it might take a long time to lad data or warm a cache, than during steady-state operation.
+                                This cannot be updated.
+                                More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                              properties:
+                                exec:
+                                  description: |-
+                                    One and only one of the following should be specified.
+                                    Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.
+                                    If the guest agent is not available, this probe will fail.
+                                  properties:
+                                    command:
+                                      description: |-
+                                        Command is the command line to execute inside the container, the working directory for the
+                                        command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+                                        not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+                                        a shell, you need to explicitly call out to that shell.
+                                        Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                  type: object
+                                failureThreshold:
+                                  description: |-
+                                    Minimum consecutive failures for the probe to be considered failed after having succeeded.
+                                    Defaults to 3. Minimum value is 1.
+                                  format: int32
+                                  type: integer
+                                guestAgentPing:
+                                  description: GuestAgentPing contacts the qemu-guest-agent
+                                    for availability checks.
+                                  type: object
+                                httpGet:
+                                  description: HTTPGet specifies the http request
+                                    to perform.
+                                  properties:
+                                    host:
+                                      description: |-
+                                        Host name to connect to, defaults to the pod IP. You probably want to set
+                                        "Host" in httpHeaders instead.
+                                      type: string
+                                    httpHeaders:
+                                      description: Custom headers to set in the request.
+                                        HTTP allows repeated headers.
+                                      items:
+                                        description: HTTPHeader describes a custom
+                                          header to be used in HTTP probes
+                                        properties:
+                                          name:
+                                            description: |-
+                                              The header field name.
+                                              This will be canonicalized upon output, so case-variant names will be understood as the same header.
+                                            type: string
+                                          value:
+                                            description: The header field value
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    path:
+                                      description: Path to access on the HTTP server.
+                                      type: string
+                                    port:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: |-
+                                        Name or number of the port to access on the container.
+                                        Number must be in the range 1 to 65535.
+                                        Name must be an IANA_SVC_NAME.
+                                      x-kubernetes-int-or-string: true
+                                    scheme:
+                                      description: |-
+                                        Scheme to use for connecting to the host.
+                                        Defaults to HTTP.
+                                      type: string
+                                  required:
+                                  - port
+                                  type: object
+                                initialDelaySeconds:
+                                  description: |-
+                                    Number of seconds after the VirtualMachineInstance has started before liveness probes are initiated.
+                                    More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                                  format: int32
+                                  type: integer
+                                periodSeconds:
+                                  description: |-
+                                    How often (in seconds) to perform the probe.
+                                    Default to 10 seconds. Minimum value is 1.
+                                  format: int32
+                                  type: integer
+                                successThreshold:
+                                  description: |-
+                                    Minimum consecutive successes for the probe to be considered successful after having failed.
+                                    Defaults to 1. Must be 1 for liveness. Minimum value is 1.
+                                  format: int32
+                                  type: integer
+                                tcpSocket:
+                                  description: |-
+                                    TCPSocket specifies an action involving a TCP port.
+                                    TCP hooks not yet supported
+                                  properties:
+                                    host:
+                                      description: 'Optional: Host name to connect
+                                        to, defaults to the pod IP.'
+                                      type: string
+                                    port:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: |-
+                                        Number or name of the port to access on the container.
+                                        Number must be in the range 1 to 65535.
+                                        Name must be an IANA_SVC_NAME.
+                                      x-kubernetes-int-or-string: true
+                                  required:
+                                  - port
+                                  type: object
+                                timeoutSeconds:
+                                  description: |-
+                                    Number of seconds after which the probe times out.
+                                    For exec probes the timeout fails the probe but does not terminate the command running on the guest.
+                                    This means a blocking command can result in an increasing load on the guest.
+                                    A small buffer will be added to the resulting workload exec probe to compensate for delays
+                                    caused by the qemu guest exec mechanism.
+                                    Defaults to 1 second. Minimum value is 1.
+                                    More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+                                  format: int32
+                                  type: integer
+                              type: object
                             subdomain:
                               description: |-
                                 If specified, the fully qualified vmi hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".

@@ -212,10 +212,12 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
 	causes = append(causes, validateProbe(field.Child("readinessProbe"), spec.ReadinessProbe)...)
 	causes = append(causes, validateProbe(field.Child("livenessProbe"), spec.LivenessProbe)...)
+	causes = append(causes, validateProbe(field.Child("startupProbe"), spec.StartupProbe)...)
 
 	if podNetwork := vmispec.LookupPodNetwork(spec.Networks); podNetwork == nil {
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("readinessProbe"), spec.ReadinessProbe, causes)
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("livenessProbe"), spec.LivenessProbe, causes)
+		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("startupProbe"), spec.StartupProbe, causes)
 	}
 
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)

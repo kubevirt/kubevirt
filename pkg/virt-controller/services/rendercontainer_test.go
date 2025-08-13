@@ -225,6 +225,16 @@ var _ = Describe("Container spec renderer", func() {
 	})
 
 	Context("vmi with probes", func() {
+
+		Context("startup probe", func() {
+			It("its pod should feature the same probe but with an additional 10 seconds initial delay", func() {
+				probe := dummyProbe()
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithStartupProbe(
+					vmiWithStartupProbe(probe)))
+				Expect(specRenderer.Render(exampleCommand).StartupProbe).To(Equal(probeWithDelay(probe)))
+			})
+		})
+
 		Context("readiness probe", func() {
 			It("its pod should feature the same probe but with an additional 10 seconds initial delay", func() {
 				probe := dummyProbe()
@@ -377,6 +387,12 @@ func httpHandler() *k8sv1.HTTPGetAction {
 		Scheme:      "1234",
 		HTTPHeaders: nil,
 	}
+}
+
+func vmiWithStartupProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
+	vmi := simplestVMI()
+	vmi.Spec.StartupProbe = probe
+	return vmi
 }
 
 func vmiWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {

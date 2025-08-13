@@ -686,6 +686,27 @@ spec:
         resourceClaimTemplateName: resourceClaimTemplateNameValue
       schedulerName: schedulerNameValue
       startStrategy: startStrategyValue
+      startupProbe:
+        exec:
+          command:
+          - commandValue
+        failureThreshold: -16
+        guestAgentPing: {}
+        httpGet:
+          host: hostValue
+          httpHeaders:
+          - name: nameValue
+            value: valueValue
+          path: pathValue
+          port: portValue
+          scheme: schemeValue
+        initialDelaySeconds: -19
+        periodSeconds: -13
+        successThreshold: -16
+        tcpSocket:
+          host: hostValue
+          port: portValue
+        timeoutSeconds: -14
       subdomain: subdomainValue
       terminationGracePeriodSeconds: -29
       tolerations:

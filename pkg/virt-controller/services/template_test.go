@@ -3226,6 +3226,23 @@ var _ = Describe("Template", func() {
 						Name: "testvmi", Namespace: "default", UID: "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
+						StartupProbe: &v1.Probe{
+							InitialDelaySeconds: 22,
+							TimeoutSeconds:      23,
+							PeriodSeconds:       24,
+							SuccessThreshold:    25,
+							FailureThreshold:    26,
+							Handler: v1.Handler{
+								TCPSocket: &k8sv1.TCPSocketAction{
+									Port: intstr.Parse("81"),
+									Host: "1234",
+								},
+								HTTPGet: &k8sv1.HTTPGetAction{
+									Path: "test",
+								},
+							},
+						},
+
 						ReadinessProbe: &v1.Probe{
 							InitialDelaySeconds: 2,
 							TimeoutSeconds:      3,
@@ -3271,17 +3288,26 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				livenessProbe := pod.Spec.Containers[0].LivenessProbe
 				readinessProbe := pod.Spec.Containers[0].ReadinessProbe
+				startupProbe := pod.Spec.Containers[0].StartupProbe
 				Expect(livenessProbe.ProbeHandler.TCPSocket).To(Equal(vmi.Spec.LivenessProbe.TCPSocket))
 				Expect(readinessProbe.ProbeHandler.TCPSocket).To(Equal(vmi.Spec.ReadinessProbe.TCPSocket))
+				Expect(startupProbe.ProbeHandler.TCPSocket).To(Equal(vmi.Spec.StartupProbe.TCPSocket))
 
 				Expect(livenessProbe.ProbeHandler.HTTPGet).To(Equal(vmi.Spec.LivenessProbe.HTTPGet))
 				Expect(readinessProbe.ProbeHandler.HTTPGet).To(Equal(vmi.Spec.ReadinessProbe.HTTPGet))
+				Expect(startupProbe.ProbeHandler.HTTPGet).To(Equal(vmi.Spec.StartupProbe.HTTPGet))
 
 				Expect(livenessProbe.PeriodSeconds).To(Equal(vmi.Spec.LivenessProbe.PeriodSeconds))
 				Expect(livenessProbe.InitialDelaySeconds).To(Equal(vmi.Spec.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay))
 				Expect(livenessProbe.TimeoutSeconds).To(Equal(vmi.Spec.LivenessProbe.TimeoutSeconds))
 				Expect(livenessProbe.SuccessThreshold).To(Equal(vmi.Spec.LivenessProbe.SuccessThreshold))
 				Expect(livenessProbe.FailureThreshold).To(Equal(vmi.Spec.LivenessProbe.FailureThreshold))
+
+				Expect(startupProbe.PeriodSeconds).To(Equal(vmi.Spec.StartupProbe.PeriodSeconds))
+				Expect(startupProbe.InitialDelaySeconds).To(Equal(vmi.Spec.StartupProbe.InitialDelaySeconds))
+				Expect(startupProbe.TimeoutSeconds).To(Equal(vmi.Spec.StartupProbe.TimeoutSeconds))
+				Expect(startupProbe.SuccessThreshold).To(Equal(vmi.Spec.StartupProbe.SuccessThreshold))
+				Expect(startupProbe.FailureThreshold).To(Equal(vmi.Spec.StartupProbe.FailureThreshold))
 
 				Expect(readinessProbe.PeriodSeconds).To(Equal(vmi.Spec.ReadinessProbe.PeriodSeconds))
 				Expect(readinessProbe.InitialDelaySeconds).To(Equal(vmi.Spec.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay))

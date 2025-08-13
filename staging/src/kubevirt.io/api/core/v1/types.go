@@ -127,6 +127,15 @@ type VirtualMachineInstanceSpec struct {
 	// List of volumes that can be mounted by disks belonging to the vmi.
 	// +kubebuilder:validation:MaxItems:=256
 	Volumes []Volume `json:"volumes,omitempty"`
+	//StartupProbe indicates that the VirtualMachineInstance(VMI) has successfully initialized.
+	//If specified, no other probes are executed until this completes successfully.
+	//If this probe fails, the Pod will be restarted, just as if the livenessProbe failed.
+	//This can be used to provide different probe parameters at the beginning of a Pod's lifecycle,
+	//when it might take a long time to lad data or warm a cache, than during steady-state operation.
+	//This cannot be updated.
+	//+optional
+	//More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
+	StartupProbe *Probe `json:"startupProbe,omitempty"`
 	// Periodic probe of VirtualMachineInstance liveness.
 	// VirtualmachineInstances will be stopped if the probe fails.
 	// Cannot be updated.

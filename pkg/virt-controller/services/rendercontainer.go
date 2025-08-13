@@ -32,6 +32,7 @@ type ContainerSpecRenderer struct {
 	resources         k8sv1.ResourceRequirements
 	liveninessProbe   *k8sv1.Probe
 	readinessProbe    *k8sv1.Probe
+	startupProbe      *k8sv1.Probe
 	ports             []k8sv1.ContainerPort
 	capabilities      *k8sv1.Capabilities
 	args              []string
@@ -66,6 +67,7 @@ func (csr *ContainerSpecRenderer) Render(cmd []string) k8sv1.Container {
 		Env:                      csr.envVars(),
 		LivenessProbe:            csr.liveninessProbe,
 		ReadinessProbe:           csr.readinessProbe,
+		StartupProbe:             csr.startupProbe,
 		Args:                     csr.args,
 		TerminationMessagePolicy: k8sv1.TerminationMessageFallbackToLogsOnError,
 	}
@@ -170,6 +172,14 @@ func WithArgs(args []string) Option {
 	}
 }
 
+func WithStartupProbe(vmi *v1.VirtualMachineInstance) Option {
+	return func(renderer *ContainerSpecRenderer) {
+		v1.SetDefaults_Probe(vmi.Spec.StartupProbe)
+		renderer.startupProbe = copyProbe(vmi.Spec.StartupProbe)
+		updateStartupProbe(vmi, renderer.startupProbe)
+	}
+}
+
 func WithLivelinessProbe(vmi *v1.VirtualMachineInstance) Option {
 	return func(renderer *ContainerSpecRenderer) {
 		v1.SetDefaults_Probe(vmi.Spec.LivenessProbe)
@@ -248,6 +258,16 @@ func containerPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort
 	}
 
 	return ports
+}
+
+func updateStartupProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {
+	if vmi.Spec.StartupProbe.GuestAgentPing != nil {
+		wrapGuestAgentPingWithVirtProbe(vmi, computeProbe)
+		computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
+		return
+	}
+	wrapExecProbeWithVirtProbe(vmi, computeProbe)
+	computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
 }
 
 func updateReadinessProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {

@@ -768,6 +768,35 @@
         }
       }
     ],
+    "startupProbe": {
+      "exec": {
+        "command": [
+          "commandValue"
+        ]
+      },
+      "guestAgentPing": {},
+      "httpGet": {
+        "path": "pathValue",
+        "port": "portValue",
+        "host": "hostValue",
+        "scheme": "schemeValue",
+        "httpHeaders": [
+          {
+            "name": "nameValue",
+            "value": "valueValue"
+          }
+        ]
+      },
+      "tcpSocket": {
+        "port": "portValue",
+        "host": "hostValue"
+      },
+      "initialDelaySeconds": -19,
+      "timeoutSeconds": -14,
+      "periodSeconds": -13,
+      "successThreshold": -16,
+      "failureThreshold": -16
+    },
     "livenessProbe": {
       "exec": {
         "command": [
