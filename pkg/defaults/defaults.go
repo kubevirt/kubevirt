@@ -72,12 +72,7 @@ func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, v
 	setDefaultCPUArch(clusterConfig, &vmi.Spec)
 	setGuestMemoryStatus(vmi)
 	setCurrentCPUTopologyStatus(vmi)
-
-	// Hotplug needs to be enabled on ARM yet
-	if !IsARM64(&vmi.Spec) {
-		setupHotplug(clusterConfig, vmi)
-	}
-
+	setupHotplug(clusterConfig, vmi)
 	return nil
 }
 
@@ -85,7 +80,9 @@ func setupHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachin
 	if !clusterConfig.IsVMRolloutStrategyLiveUpdate() {
 		return
 	}
-	setupCPUHotplug(clusterConfig, vmi)
+	if !IsARM64(&vmi.Spec) {
+		setupCPUHotplug(clusterConfig, vmi)
+	}
 	setupMemoryHotplug(clusterConfig, vmi)
 }
 
