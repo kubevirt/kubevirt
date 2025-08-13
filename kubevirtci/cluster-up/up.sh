@@ -22,6 +22,18 @@ function validate_single_stack_ipv6() {
     fi
 }
 
+function copy_kubeconfig_to_global() {
+    if [[ -n "$GLOBAL_KUBECONFIG" ]] && [[ "$KUBEVIRT_PROVIDER" != "external" ]]; then
+        local kubeconfig_path="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
+        if [ -f "$kubeconfig_path" ]; then
+            echo "Copying kubeconfig to GLOBAL_KUBECONFIG: $GLOBAL_KUBECONFIG"
+            cp "$kubeconfig_path" "$GLOBAL_KUBECONFIG"
+        else
+            echo "Warning: No kubeconfig found to copy to GLOBAL_KUBECONFIG"
+        fi
+    fi
+}
+
 if [ -z "$KUBEVIRTCI_PATH" ]; then
     KUBEVIRTCI_PATH="$(
         cd "$(dirname "$BASH_SOURCE[0]")/"
@@ -33,6 +45,8 @@ fi
 source ${KUBEVIRTCI_PATH}hack/common.sh
 source ${KUBEVIRTCI_CLUSTER_PATH}/$KUBEVIRT_PROVIDER/provider.sh
 up
+
+copy_kubeconfig_to_global
 
 if [ ${KUBEVIRT_SINGLE_STACK} == true ]; then
     validate_single_stack_ipv6
