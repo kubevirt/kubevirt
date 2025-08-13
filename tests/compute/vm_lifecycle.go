@@ -77,17 +77,15 @@ var _ = SIGDescribe("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		Expect(newVMI.UID).ToNot(Equal(vmi.UID))
 	})
 
-	It("should force stop a VM with terminationGracePeriodSeconds>0", func() {
+	DescribeTable("should force stop a VM with terminationGracePeriodSeconds>0", func(vmiFactory func(...libvmi.Option) *v1.VirtualMachineInstance) {
 		By("getting a VM with high TerminationGracePeriod")
-		vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		vm := libvmi.NewVirtualMachine(vmiFactory(libvmi.WithTerminationGracePeriod(600)), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
-
 		By("setting up a watch for vmi")
 		lw, err := virtClient.VirtualMachineInstance(vm.Namespace).Watch(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
 		terminationGracePeriodUpdated := func(done <-chan bool, events <-chan watch.Event, updated chan<- bool) {
 			GinkgoRecover()
 			for {
@@ -109,17 +107,18 @@ var _ = SIGDescribe("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		done := make(chan bool, 1)
 		updated := make(chan bool, 1)
 		go terminationGracePeriodUpdated(done, lw.ResultChan(), updated)
-
 		By("Stopping the VM")
 		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{GracePeriod: pointer.P(int64(0))})
 		Expect(err).ToNot(HaveOccurred())
-
 		By("Ensuring the VirtualMachineInstance is removed")
 		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(matcher.Exist())
 
 		Expect(updated).To(Receive(), "vmi should be updated")
 		done <- true
-	})
+	},
+		Entry("with Fedora based VMI", libvmifact.NewFedora),
+		Entry("with unresponsive empty-disk VMI", libvmifact.NewGuestless),
+	)
 
 	Context("with paused vmi", func() {
 		It("[test_id:4598][test_id:3060]should signal paused/unpaused state with condition", decorators.Conformance, func() {
