@@ -273,6 +273,9 @@ func checkIfHotplugDisksReadyToUse(vmi *v1.VirtualMachineInstance) error {
 		// Wait some time before checking again
 		time.Sleep(sleepTime)
 	}
+	if len(entries) != vmiHotplugCount {
+		return fmt.Errorf("found %d hotplugged disks files, expected %d", len(entries), vmiHotplugCount)
+	}
 
 	readyCount := 0
 	for i := 0; i < retryCount && readyCount < vmiHotplugCount; i++ {
@@ -294,9 +297,10 @@ func checkIfHotplugDisksReadyToUse(vmi *v1.VirtualMachineInstance) error {
 		// Wait some time before checking again
 		time.Sleep(sleepTime)
 	}
-	if readyCount == vmiHotplugCount {
-		logger.Info("all hotplugged disks are ready to use")
+	if readyCount != vmiHotplugCount {
+		return fmt.Errorf("not all hotplugged disks are ready to use, found %d ready, expected %d", readyCount, vmiHotplugCount)
 	}
+	logger.Info("all hotplugged disks are ready to use")
 	return nil
 }
 
