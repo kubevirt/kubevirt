@@ -591,6 +591,48 @@ var _ = Describe(SIG("Export", func() {
 		Entry("with RAW kubevirt content type block PROXY", decorators.RequiresBlockStorage, populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 	)
 
+	It("should make sure PVC export is Ready when source pod is Completed", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Fail("Fail test when right storage is not present")
+		}
+		By("Creating source DV with a pod that retain after completion")
+		dv := libdv.NewDataVolume(
+			libdv.WithAnnotation("cdi.kubevirt.io/storage.pod.retainAfterCompletion", "true"),
+			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem)),
+			libdv.WithForceBindAnnotation(),
+		)
+
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating the export token, we can export volumes using this token")
+		// For testing the token is the name of the source pvc.
+		token := createExportTokenSecret(dv.Name, dv.Namespace)
+
+		vmExport := &exportv1.VirtualMachineExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("test-export-%s", rand.String(12)),
+				Namespace: dv.Namespace,
+			},
+			Spec: exportv1.VirtualMachineExportSpec{
+				TokenSecretRef: &token.Name,
+				Source: k8sv1.TypedLocalObjectReference{
+					APIGroup: &k8sv1.SchemeGroupVersion.Group,
+					Kind:     "PersistentVolumeClaim",
+					Name:     dv.Name,
+				},
+			},
+		}
+		By("Creating VMExport we can start exporting the volume")
+		export, err := virtClient.VirtualMachineExport(dv.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		export = waitForReadyExport(export)
+		Expect(export).ToNot(BeNil())
+		checkExportSecretRef(export)
+	})
+
 	verifyArchiveContainsDirectories := func(archivePath string, expectedDirs []string, pod *k8sv1.Pod) {
 		command := append([]string{"/usr/bin/tar", "-xvzf", archivePath, "-C", "./data"}, expectedDirs...)
 		time.Sleep(time.Second * 20)
