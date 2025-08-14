@@ -341,7 +341,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 			Eventually(func() error {
 				return virtClient.VirtualMachine(namespace).AddVolume(context.Background(), name, opts)
-			}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 3*time.Second, 1*time.Second).Should(Succeed())
 		}
 
 		It("should live migrate a container disk vm, with an additional hotpluggedPVC mounted, should stay mounted after migration", decorators.RequiresRWXBlock, func() {
@@ -417,7 +417,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				// Verify that the VMI doesn't exist, and that the VM is in the correct state.
 				By("Verifying the VMI doesn't exist")
 				_, err := virtClient.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
-				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				Expect(err).To(MatchError(k8serrors.IsNotFound, "k8serrors.IsNotFound"))
 
 				By("Verifying the VM is in the correct state")
 				Eventually(func() virtv1.VirtualMachineRunStrategy {
