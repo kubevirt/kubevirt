@@ -22,6 +22,7 @@ package cache
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -135,7 +136,7 @@ func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
 	defer ghostRecordGlobalMutex.Unlock()
 
 	for _, record := range ghostRecordGlobalCache {
-		if record.SocketFile == socketFile {
+		if filepath.Clean(record.SocketFile) == socketFile {
 			return record, true
 		}
 	}
@@ -190,7 +191,7 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 		return fmt.Errorf("can not add ghost record when entry already exists with differing UID")
 	}
 
-	if ok && record.SocketFile != socketFile {
+	if ok && filepath.Clean(record.SocketFile) != socketFile {
 		return fmt.Errorf("can not add ghost record when entry already exists with differing socket file location")
 	}
 
