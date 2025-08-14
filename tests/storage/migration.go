@@ -78,7 +78,7 @@ import (
 var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, func() {
 	var virtClient kubecli.KubevirtClient
 	var testSc string
-	getCSIStorageClass := libstorage.GetSnapshotStorageClass
+	getCSIStorageClass := libstorage.GetCSIStorageClass
 	createBlankDV := func(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.DataVolume {
 		dv := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
@@ -118,14 +118,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
 
-		scName, err := getCSIStorageClass(virtClient)
-		Expect(err).ToNot(HaveOccurred())
+		scName, exist := getCSIStorageClass()
 
-		if scName == "" {
-			scName = libstorage.GetAvailableCSIStorageClass()
-		}
-
-		if scName == "" {
+		if !exist {
 			Fail("Fail test when a CSI storage class is not present")
 		}
 
