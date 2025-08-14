@@ -24,17 +24,21 @@ import (
 	k8sworkqueue "k8s.io/client-go/util/workqueue"
 )
 
-type prometheusMetricsProvider struct{}
+type Provider struct{}
 
 func init() {
-	k8sworkqueue.SetProvider(prometheusMetricsProvider{})
+	k8sworkqueue.SetProvider(Provider{})
 }
 
 func SetupMetrics() error {
 	return nil
 }
 
-func (prometheusMetricsProvider) NewDepthMetric(name string) k8sworkqueue.GaugeMetric {
+func NewPrometheusMetricsProvider() Provider {
+	return Provider{}
+}
+
+func (Provider) NewDepthMetric(name string) k8sworkqueue.GaugeMetric {
 	depth := operatormetrics.NewGauge(operatormetrics.MetricOpts{
 		Name:        "kubevirt_workqueue_depth",
 		Help:        "Current depth of workqueue",
@@ -45,7 +49,7 @@ func (prometheusMetricsProvider) NewDepthMetric(name string) k8sworkqueue.GaugeM
 	return depth
 }
 
-func (prometheusMetricsProvider) NewAddsMetric(name string) k8sworkqueue.CounterMetric {
+func (Provider) NewAddsMetric(name string) k8sworkqueue.CounterMetric {
 	adds := operatormetrics.NewCounter(operatormetrics.MetricOpts{
 		Name:        "kubevirt_workqueue_adds_total",
 		Help:        "Total number of adds handled by workqueue",
@@ -56,7 +60,7 @@ func (prometheusMetricsProvider) NewAddsMetric(name string) k8sworkqueue.Counter
 	return adds
 }
 
-func (prometheusMetricsProvider) NewLatencyMetric(name string) k8sworkqueue.HistogramMetric {
+func (Provider) NewLatencyMetric(name string) k8sworkqueue.HistogramMetric {
 	latency := operatormetrics.NewHistogram(
 		operatormetrics.MetricOpts{
 			Name:        "kubevirt_workqueue_queue_duration_seconds",
@@ -72,7 +76,7 @@ func (prometheusMetricsProvider) NewLatencyMetric(name string) k8sworkqueue.Hist
 	return latency
 }
 
-func (prometheusMetricsProvider) NewWorkDurationMetric(name string) k8sworkqueue.HistogramMetric {
+func (Provider) NewWorkDurationMetric(name string) k8sworkqueue.HistogramMetric {
 	workDuration := operatormetrics.NewHistogram(
 		operatormetrics.MetricOpts{
 			Name:        "kubevirt_workqueue_work_duration_seconds",
@@ -88,7 +92,7 @@ func (prometheusMetricsProvider) NewWorkDurationMetric(name string) k8sworkqueue
 	return workDuration
 }
 
-func (prometheusMetricsProvider) NewRetriesMetric(name string) k8sworkqueue.CounterMetric {
+func (Provider) NewRetriesMetric(name string) k8sworkqueue.CounterMetric {
 	retries := operatormetrics.NewCounter(operatormetrics.MetricOpts{
 		Name:        "kubevirt_workqueue_retries_total",
 		Help:        "Total number of retries handled by workqueue",
@@ -99,7 +103,7 @@ func (prometheusMetricsProvider) NewRetriesMetric(name string) k8sworkqueue.Coun
 	return retries
 }
 
-func (prometheusMetricsProvider) NewLongestRunningProcessorSecondsMetric(name string) k8sworkqueue.SettableGaugeMetric {
+func (Provider) NewLongestRunningProcessorSecondsMetric(name string) k8sworkqueue.SettableGaugeMetric {
 	longestRunningProcessor := operatormetrics.NewGauge(operatormetrics.MetricOpts{
 		Name:        "kubevirt_workqueue_longest_running_processor_seconds",
 		Help:        "How many seconds has the longest running processor for workqueue been running.",
@@ -110,7 +114,7 @@ func (prometheusMetricsProvider) NewLongestRunningProcessorSecondsMetric(name st
 	return longestRunningProcessor
 }
 
-func (prometheusMetricsProvider) NewUnfinishedWorkSecondsMetric(name string) k8sworkqueue.SettableGaugeMetric {
+func (Provider) NewUnfinishedWorkSecondsMetric(name string) k8sworkqueue.SettableGaugeMetric {
 	unfinishedWork := operatormetrics.NewGauge(operatormetrics.MetricOpts{
 		Name: "kubevirt_workqueue_unfinished_work_seconds",
 		Help: "How many seconds of work has done that is in progress and hasn't " +

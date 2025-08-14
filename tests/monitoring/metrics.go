@@ -35,10 +35,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
-	virtapi "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
-	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
-	virthandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
-	virtoperator "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -92,23 +88,8 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 		}
 
 		It("should contain virt components metrics", func() {
-			err := virtoperator.SetupMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtoperator.RegisterLeaderMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtapi.SetupMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtcontroller.SetupMetrics(nil, nil, nil, nil, nil, nil, nil)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtcontroller.RegisterLeaderMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virthandler.SetupMetrics("", "", 0, nil)
-			Expect(err).ToNot(HaveOccurred())
+			err := libmonitoring.RegisterAllMetrics()
+			Expect(err).ToNot(HaveOccurred(), "Failed to register all metrics")
 
 			for _, metric := range operatormetrics.ListMetrics() {
 				if excludedMetrics[metric.GetOpts().Name] {
