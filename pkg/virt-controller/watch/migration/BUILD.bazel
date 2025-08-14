@@ -41,6 +41,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "migration_bench_test.go",
         "migration_suite_test.go",
         "migration_test.go",
     ],

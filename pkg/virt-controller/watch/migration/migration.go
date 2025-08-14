@@ -1660,6 +1660,35 @@ func (c *Controller) listMatchingTargetPods(migration *virtv1.VirtualMachineInst
 	return pods, nil
 }
 
+func (c *Controller) listMatchingTargetPods2(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) ([]*k8sv1.Pod, error) {
+
+	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{
+		MatchLabels: map[string]string{
+			virtv1.CreatedByLabel:    string(vmi.UID),
+			virtv1.AppLabel:          "virt-launcher",
+			virtv1.MigrationJobLabel: string(migration.UID),
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	objs, err := c.podIndexer.ByIndex("migrationJobUID", string(migration.UID))
+	if err != nil {
+		return nil, err
+	}
+
+	var pods []*k8sv1.Pod
+	for _, obj := range objs {
+		pod := obj.(*k8sv1.Pod)
+		if selector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
+			pods = append(pods, pod)
+		}
+	}
+
+	return pods, nil
+}
+
 func (c *Controller) addMigration(obj interface{}) {
 	c.enqueueMigration(obj)
 }
