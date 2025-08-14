@@ -27,3 +27,27 @@
  ****************************************************************************/
 
 #pragma once
+
+#if !LIBVIR_CHECK_VERSION(2, 0, 0)
+typedef struct _virAdmClient virAdmClient;
+#endif
+
+#if !LIBVIR_CHECK_VERSION(2, 0, 0)
+typedef struct _virAdmConnect virAdmConnect;
+#endif
+
+#if !LIBVIR_CHECK_VERSION(2, 0, 0)
+typedef struct _virAdmServer virAdmServer;
+#endif
+
+#if !LIBVIR_CHECK_VERSION(2, 0, 0)
+typedef virAdmClient * virAdmClientPtr;
+#endif
+
+#if !LIBVIR_CHECK_VERSION(2, 0, 0)
+typedef virAdmConnect * virAdmConnectPtr;
+#endif
+
+#if !LIBVIR_CHECK_VERSION(2, 0, 0)
+typedef virAdmServer * virAdmServerPtr;
+#endif

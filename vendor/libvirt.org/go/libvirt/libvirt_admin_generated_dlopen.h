@@ -27,3 +27,15 @@
  ****************************************************************************/
 
 #pragma once
+
+#include "libvirt_admin_generated.h"
+
+bool
+libvirtAdminSymbol(const char *name,
+                   void **symbol,
+                   bool *once,
+                   bool *success,
+                   virErrorPtr err);
+
+extern int
+virCopyLastErrorWrapper(virErrorPtr err);
