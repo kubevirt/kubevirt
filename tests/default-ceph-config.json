@@ -6,5 +6,6 @@
     "storageRWOFileSystem":    "local",
     "storageRWOBlock":         "rook-ceph-block",
     "storageSnapshot":         "rook-ceph-block",
-    "storageVMState":          "rook-ceph-block"
+    "storageVMState":          "rook-ceph-block",
+    "storageClassCSI":         "rook-ceph-block"
 }

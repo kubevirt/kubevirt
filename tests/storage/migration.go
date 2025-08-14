@@ -78,7 +78,7 @@ import (
 var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, func() {
 	var virtClient kubecli.KubevirtClient
 	var testSc string
-	getCSIStorageClass := libstorage.GetSnapshotStorageClass
+	getCSIStorageClass := libstorage.GetCSIStorageClass
 	createBlankDV := func(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.DataVolume {
 		dv := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
@@ -118,14 +118,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
 
-		scName, err := getCSIStorageClass(virtClient)
-		Expect(err).ToNot(HaveOccurred())
+		scName, exist := getCSIStorageClass()
 
-		if scName == "" {
-			scName = libstorage.GetAvailableCSIStorageClass()
-		}
-
-		if scName == "" {
+		if !exist {
 			Fail("Fail test when a CSI storage class is not present")
 		}
 
@@ -933,7 +928,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					}
 				}
 				return ""
-			}).WithTimeout(360 * time.Second).WithPolling(2 * time.Second).ShouldNot(Equal(""))
+			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).ShouldNot(Equal(""))
 		}
 
 		DescribeTable("should be able to add and remove a volume with the volume migration feature gate enabled", func(persist bool) {
@@ -1113,7 +1108,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				checkFileOnHotpluggedVol(vmi)
 			})
 
-			DescribeTable("with a datavolume and an hotplugged datavolume migrating", decorators.RequiresBlockStorage, func(srcBlock, dstBlock bool) {
+			DescribeTable("with a datavolume and an hotplugged datavolume migrating", func(srcBlock, dstBlock bool) {
 				ns := testsuite.GetTestNamespace(nil)
 				rootVolName := "root"
 				hpVolName := "hp"
@@ -1221,9 +1216,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				checkFileOnHotpluggedVol(vmi)
 			},
 				Entry("from filesystem to filesystem", false, false),
-				Entry("from filesystem to block", false, true),
-				Entry("from block to filesystem", true, false),
-				Entry("from block to block", true, true),
+				Entry("from filesystem to block", decorators.RequiresBlockStorage, false, true),
+				Entry("from block to filesystem", decorators.RequiresBlockStorage, true, false),
+				Entry("from block to block", decorators.RequiresBlockStorage, true, true),
 			)
 		})
 	})
