@@ -76,15 +76,15 @@ const (
 	DefaultVirtLauncherLogVerbosity                 = 2
 	DefaultVirtOperatorLogVerbosity                 = 2
 
-	// Default REST configuration settings
+	// Default client rate limiting configuration settings
 	DefaultVirtHandlerQPS         float32 = 5
 	DefaultVirtHandlerBurst               = 10
 	DefaultVirtControllerQPS      float32 = 200
 	DefaultVirtControllerBurst            = 400
 	DefaultVirtAPIQPS             float32 = 200
 	DefaultVirtAPIBurst                   = 400
-	DefaultVirtWebhookClientQPS           = 200
-	DefaultVirtWebhookClientBurst         = 400
+	DefaultVirtAPIAuthorizorQPS           = 200
+	DefaultVirtAPIAuthorizorBurst         = 400
 
 	DefaultMaxHotplugRatio   = 4
 	DefaultVMRolloutStrategy = v1.VMRolloutStrategyLiveUpdate
