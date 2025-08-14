@@ -383,6 +383,7 @@ var nodeLabels = map[string]string{
 	"kubernetes.io/os":                                                 "linux",
 	"kubevirt.io/schedulable":                                          "true",
 	"node-role.kubernetes.io/control-plane":                            "",
+	"node-role.kubernetes.io/master":                                   "",
 	"node.kubernetes.io/exclude-from-external-load-balancers":          "",
 	"scheduling.node.kubevirt.io/tsc-frequency-2111998000":             "true",
 }
