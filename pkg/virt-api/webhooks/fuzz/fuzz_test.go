@@ -9,6 +9,7 @@ import (
 	"time"
 
 	gofuzz "github.com/google/gofuzz"
+	"go.uber.org/mock/gomock"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +45,10 @@ func FuzzAdmitter(f *testing.F) {
 	validateNetwork := func(field *field.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 		return netadmitter.Validate(field, vmiSpec, clusterCfg)
 	}
-
+	ctrl := gomock.NewController(f)
+	instancetypeAdmitter := instancetypeWebhooks.NewMockinstancetypeVMsAdmitter(ctrl)
+	instancetypeAdmitter.EXPECT().ApplyToVM(gomock.Any()).Return(nil, nil, nil).AnyTimes()
+	instancetypeAdmitter.EXPECT().Check(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	const kubeVirtNamespace = "kubevirt"
 	kubeVirtServiceAccounts := webhooks.KubeVirtServiceAccounts(kubeVirtNamespace)
 
@@ -85,7 +89,7 @@ func FuzzAdmitter(f *testing.F) {
 				adm := &admitters.VMsAdmitter{
 					ClusterConfig:           config,
 					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
-					InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
+					InstancetypeAdmitter:    instancetypeAdmitter,
 				}
 				return adm.Admit(context.Background(), request)
 			},
@@ -99,7 +103,7 @@ func FuzzAdmitter(f *testing.F) {
 				adm := &admitters.VMsAdmitter{
 					ClusterConfig:           config,
 					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
-					InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
+					InstancetypeAdmitter:    instancetypeAdmitter,
 				}
 				return adm.Admit(context.Background(), request)
 			},

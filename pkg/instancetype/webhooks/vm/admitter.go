@@ -67,6 +67,8 @@ type admitter struct {
 	requirementsChecker
 }
 
+//go:generate mockgen -package=$GOPACKAGE -destination=generated_mock_$GOFILE kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters instancetypeVMsAdmitter
+
 func NewAdmitter(virtClient kubecli.KubevirtClient) *admitter {
 	return &admitter{
 		instancetypeFinder:  find.NewSpecFinder(nil, nil, nil, virtClient),

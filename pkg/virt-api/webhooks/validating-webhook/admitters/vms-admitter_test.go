@@ -118,17 +118,19 @@ var _ = Describe("Validating VM Admitter", func() {
 		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		k8sClient = k8sfake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-
+		instancetypeAdmitter := instancetypeWebhooks.NewMockinstancetypeVMsAdmitter(ctrl)
 		const kubeVirtNamespace = "kubevirt"
 		vmsAdmitter = &VMsAdmitter{
 			VirtClient:              virtClient,
 			DataSourceInformer:      dataSourceInformer,
 			NamespaceInformer:       namespaceInformer,
 			ClusterConfig:           config,
-			InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
+			InstancetypeAdmitter:    instancetypeAdmitter,
 			KubeVirtServiceAccounts: webhooks.KubeVirtServiceAccounts(kubeVirtNamespace),
 		}
 		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
+		instancetypeAdmitter.EXPECT().ApplyToVM(gomock.Any()).Return(nil, nil, nil).AnyTimes()
+		instancetypeAdmitter.EXPECT().Check(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	})
 
 	Context("with an invalid VM", func() {
