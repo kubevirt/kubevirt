@@ -67,6 +67,28 @@ type admitter struct {
 	requirementsChecker
 }
 
+//go:generate mockgen -package=$GOPACKAGE -destination=generated_mock_$GOFILE . InstancetypeVMAdmitter
+type InstancetypeVMAdmitter interface {
+	ApplyToVM(vm *virtv1.VirtualMachine) (
+		*v1beta1.VirtualMachineInstancetypeSpec,
+		*v1beta1.VirtualMachinePreferenceSpec,
+		[]metav1.StatusCause,
+	)
+	ApplyToVMI(
+		*k8sfield.Path,
+		*v1beta1.VirtualMachineInstancetypeSpec,
+		*v1beta1.VirtualMachinePreferenceSpec,
+		*virtv1.VirtualMachineInstanceSpec,
+		*metav1.ObjectMeta,
+	) conflict.Conflicts
+	Check(*v1beta1.VirtualMachineInstancetypeSpec,
+		*v1beta1.VirtualMachinePreferenceSpec,
+		*virtv1.VirtualMachineInstanceSpec,
+	) (conflict.Conflicts, error)
+	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
+	FindPreference(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+}
+
 func NewAdmitter(virtClient kubecli.KubevirtClient) *admitter {
 	return &admitter{
 		instancetypeFinder:  find.NewSpecFinder(nil, nil, nil, virtClient),
