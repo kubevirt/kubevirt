@@ -44,6 +44,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/trace"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -62,6 +63,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
+	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
@@ -102,25 +104,26 @@ const activePriority = 100
 var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 
 type Controller struct {
-	templateService      services.TemplateService
-	clientset            kubecli.KubevirtClient
-	Queue                priorityqueue.PriorityQueue[string]
-	vmiStore             cache.Store
-	podIndexer           cache.Indexer
-	migrationIndexer     cache.Indexer
-	nodeStore            cache.Store
-	pvcStore             cache.Store
-	storageClassStore    cache.Store
-	storageProfileStore  cache.Store
-	migrationPolicyStore cache.Store
-	kubevirtStore        cache.Store
-	resourceQuotaIndexer cache.Indexer
-	recorder             record.EventRecorder
-	podExpectations      *controller.UIDTrackingControllerExpectations
-	pvcExpectations      *controller.UIDTrackingControllerExpectations
-	migrationStartLock   *sync.Mutex
-	clusterConfig        *virtconfig.ClusterConfig
-	hasSynced            func() bool
+	templateService                   services.TemplateService
+	clientset                         kubecli.KubevirtClient
+	Queue                             priorityqueue.PriorityQueue[string]
+	vmiStore                          cache.Store
+	podIndexer                        cache.Indexer
+	migrationIndexer                  cache.Indexer
+	nodeStore                         cache.Store
+	pvcStore                          cache.Store
+	storageClassStore                 cache.Store
+	storageProfileStore               cache.Store
+	migrationPolicyStore              cache.Store
+	kubevirtStore                     cache.Store
+	resourceQuotaIndexer              cache.Indexer
+	recorder                          record.EventRecorder
+	podExpectations                   *controller.UIDTrackingControllerExpectations
+	pvcExpectations                   *controller.UIDTrackingControllerExpectations
+	migrationStartLock                *sync.Mutex
+	clusterConfig                     *virtconfig.ClusterConfig
+	hasSynced                         func() bool
+	virtControllerVMIMWorkQueueTracer *traceUtils.Tracer
 
 	// the set of cancelled migrations before being handed off to virt-handler.
 	// the map keys are migration keys
@@ -175,6 +178,7 @@ func NewController(templateService services.TemplateService,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
 	}
 
+	c.virtControllerVMIMWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 	c.hasSynced = func() bool {
 		return vmiInformer.HasSynced() &&
 			podInformer.HasSynced() &&
@@ -266,7 +270,11 @@ func (c *Controller) Execute() bool {
 	if quit {
 		return false
 	}
+
+	c.virtControllerVMIMWorkQueueTracer.StartTrace(key, "virt-controller VMIM workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer c.virtControllerVMIMWorkQueueTracer.StopTrace(key)
 	defer c.Queue.Done(key)
+
 	err := c.execute(key)
 
 	if err != nil {
