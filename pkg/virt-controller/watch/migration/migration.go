@@ -1979,44 +1979,35 @@ func (c *Controller) garbageCollectFinalizedMigrations(vmi *virtv1.VirtualMachin
 	return nil
 }
 
-func (c *Controller) filterMigrations(namespace string, filter func(*virtv1.VirtualMachineInstanceMigration) bool) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, namespace)
+// takes a namespace and returns all migrations listening for this vmi
+func (c *Controller) listMigrationsMatchingVMI(namespace, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
+	objs, err := c.migrationIndexer.ByIndex(controller.ByVMINameIndex, fmt.Sprintf("%s/%s", namespace, name))
 	if err != nil {
 		return nil, err
 	}
-
 	var migrations []*virtv1.VirtualMachineInstanceMigration
 	for _, obj := range objs {
-		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
-
-		if filter(migration) {
-			migrations = append(migrations, migration)
-		}
+		migrations = append(migrations, obj.(*virtv1.VirtualMachineInstanceMigration))
 	}
 	return migrations, nil
 }
 
-// takes a namespace and returns all migrations listening for this vmi
-func (c *Controller) listMigrationsMatchingVMI(namespace, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	return c.filterMigrations(namespace, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
-		return migration.Spec.VMIName == name
-	})
-}
-
 func (c *Controller) listBackoffEligibleMigrations(namespace string, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	return c.filterMigrations(namespace, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
-		return evacuationMigrationsFilter(migration, name) || workloadUpdaterMigrationsFilter(migration, name)
-	})
-}
+	var eligibleMigrations []*virtv1.VirtualMachineInstanceMigration
+	migrations, err := c.listMigrationsMatchingVMI(namespace, name)
+	if err != nil {
+		return eligibleMigrations, err
+	}
 
-func evacuationMigrationsFilter(migration *virtv1.VirtualMachineInstanceMigration, name string) bool {
-	_, isEvacuation := migration.Annotations[virtv1.EvacuationMigrationAnnotation]
-	return migration.Spec.VMIName == name && isEvacuation
-}
+	for _, m := range migrations {
+		_, isEvacuation := m.Annotations[virtv1.EvacuationMigrationAnnotation]
+		_, isWorkload := m.Annotations[virtv1.WorkloadUpdateMigrationAnnotation]
+		if isEvacuation || isWorkload {
+			eligibleMigrations = append(eligibleMigrations, m)
+		}
+	}
 
-func workloadUpdaterMigrationsFilter(migration *virtv1.VirtualMachineInstanceMigration, name string) bool {
-	_, isWorkloadUpdater := migration.Annotations[virtv1.WorkloadUpdateMigrationAnnotation]
-	return migration.Spec.VMIName == name && isWorkloadUpdater
+	return eligibleMigrations, nil
 }
 
 func (c *Controller) addVMI(obj interface{}) {
