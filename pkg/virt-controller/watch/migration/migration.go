@@ -97,6 +97,12 @@ const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
 // for potential future "semi-low" priority values.
 const lowPriority = -100
 
+const (
+    byVMINameIndex      = "byVMIName"
+    unfinishedIndex     = "unfinished"
+    byMigrationTypeIndex = "byMigrationType"
+)
+
 var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 
 type Controller struct {
@@ -170,6 +176,45 @@ func NewController(templateService services.TemplateService,
 
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
+	}
+
+	// Add custom indexers for optimization
+	err = migrationInformer.GetIndexer().AddIndexers(cache.Indexers{
+		byVMINameIndex: func(obj interface{}) ([]string, error) {
+			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+			if !ok {
+				return nil, nil
+			}
+			return []string{fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName)}, nil
+		},
+		unfinishedIndex: func(obj interface{}) ([]string, error) {
+			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+			if !ok {
+				return nil, nil
+			}
+			if !migration.IsFinal() {
+				return []string{"unfinished"}, nil
+			}
+			return nil, nil
+		},
+		// For evacuation and workload filters
+		unfinishedIndex: func(obj interface{}) ([]string, error) {
+			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+			if !ok {
+				return nil, nil
+			}
+			var keys []string
+			if _, ok := migration.Annotations[virtv1.EvacuationMigrationAnnotation]; ok {
+				keys = append(keys, fmt.Sprintf("%s/evacuation", migration.Namespace))
+			}
+			if _, ok := migration.Annotations[virtv1.WorkloadUpdateMigrationAnnotation]; ok {
+				keys = append(keys, fmt.Sprintf("%s/workload", migration.Namespace))
+			}
+			return keys, nil
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to add custom indexers: %v", err)
 	}
 
 	c.hasSynced = func() bool {
