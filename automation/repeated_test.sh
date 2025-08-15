@@ -235,6 +235,8 @@ add_to_label_filter '(!exclude-native-ssh)' '&&'
 add_to_label_filter '(!no-flake-check)' '&&'
 # check-tests-for-flake does not support Istio tests, remove this filtering once it does.
 add_to_label_filter '(!Istio)' '&&'
+add_to_label_filter '(!requires-arm64)' '&&'
+add_to_label_filter '(!requires-s390x)' '&&'
 rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
 if [[ "${rwofs_sc}" == "local" ]]; then
     # local is a primitive non CSI storage class that doesn't support expansion
