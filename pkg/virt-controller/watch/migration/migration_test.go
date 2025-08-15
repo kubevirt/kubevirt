@@ -48,6 +48,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/api"
@@ -239,7 +240,7 @@ var _ = Describe("Migration watcher", func() {
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
-		migrationInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
+		migrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstanceMigration{}, virtcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pdbInformer, _ := testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		resourceQuotaInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
