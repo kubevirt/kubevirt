@@ -840,7 +840,9 @@ func updateSnapshotIndications(snapshot *snapshotv1.VirtualMachineSnapshot, sour
 		indications := sets.New(snapshot.Status.Indications...)
 		indications = sets.Insert(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
 
-		if source.GuestAgent() {
+		if source.Paused() {
+			indications = sets.Insert(indications, snapshotv1.VMSnapshotPausedIndication)
+		} else if source.GuestAgent() {
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotGuestAgentIndication)
 			snapErr := snapshot.Status.Error
 			if snapErr != nil && snapErr.Message != nil &&
@@ -850,6 +852,7 @@ func updateSnapshotIndications(snapshot *snapshotv1.VirtualMachineSnapshot, sour
 		} else {
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
 		}
+
 		snapshot.Status.Indications = sets.List(indications)
 	}
 }
