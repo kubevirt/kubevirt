@@ -16,6 +16,8 @@ import (
 
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -77,9 +79,15 @@ func ExpectMigrationToSucceedWithDefaultTimeout(virtClient kubecli.KubevirtClien
 
 func ExpectMigrationToSucceedWithOffset(offset int, virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	By("Waiting until the Migration Completes")
+	var err error
+	isDecentralized := migration.IsDecentralized()
 	EventuallyWithOffset(offset, func() error {
-		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+		migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 		if err != nil {
+			if k8serrors.IsNotFound(err) && isDecentralized {
+				migration = nil
+				return nil
+			}
 			return err
 		}
 
@@ -133,8 +141,8 @@ func RunDecentralizedMigrationAndExpectToComplete(virtClient kubecli.KubevirtCli
 	}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
 	targetMigration = RunMigration(virtClient, targetMigration)
 	CheckSynchronizationAddressPopulated(virtClient, targetMigration)
-	sourceMigration = ExpectMigrationToSucceed(virtClient, sourceMigration, timeout)
 	targetMigration = ExpectMigrationToSucceed(virtClient, targetMigration, timeout)
+	sourceMigration = ExpectMigrationToSucceed(virtClient, sourceMigration, timeout)
 	return sourceMigration, targetMigration
 }
 
