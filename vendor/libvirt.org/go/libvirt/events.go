@@ -53,6 +53,10 @@ func EventRegisterDefaultImpl() error {
 	if C.virInitializeWrapper(&err) < 0 {
 		return makeError(&err)
 	}
+	e := adminInitialize()
+	if e != nil {
+		return e
+	}
 	if i := int(C.virEventRegisterDefaultImplWrapper(&err)); i != 0 {
 		return makeError(&err)
 	}

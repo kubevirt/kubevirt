@@ -27,3 +27,9 @@
  ****************************************************************************/
 
 #pragma once
+
+#if !LIBVIR_CHECK_VERSION(2, 0, 0)
+typedef void (*virAdmConnectCloseFunc)(virAdmConnectPtr conn,
+                                       int reason,
+                                       void * opaque);
+#endif
