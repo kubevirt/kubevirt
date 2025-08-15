@@ -707,7 +707,7 @@ func (c *Controller) processMigrationPhase(
 			migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
 		}
 	case virtv1.MigrationPreparingTarget:
-		if (migration.IsLocalOrDecentralizedSource() && vmi.IsMigrationSourceSynchronized()) ||
+		if (migration.IsLocalOrDecentralizedSource() && vmi.IsMigrationSourceSynchronized() && vmi.Status.MigrationState.TargetState.NodeAddress != nil) ||
 			(migration.IsLocalOrDecentralizedTarget() && vmi.Status.MigrationState.TargetNode != "" && vmi.Status.MigrationState.TargetNodeAddress != "") {
 			migrationCopy.Status.Phase = virtv1.MigrationTargetReady
 		}
