@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"time"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -40,13 +41,17 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -442,6 +447,118 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).ShouldNot(BeEmpty())
 			Expect(console.LoginToCirros(targetVMI)).To(Succeed())
 			Expect(console.RunCommand(targetVMI, "cat /home/cirros/test/data.txt", 30*time.Second)).To(Succeed())
+		})
+
+		Context("with RWOFs backend storage class", func() {
+			checkTPM := func(vmi *v1.VirtualMachineInstance) {
+				By("Ensuring the TPM is still functional and its state carried over")
+				ExpectWithOffset(1, console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "tpm2_unseal -Q --object-context=0x81010002\n"},
+					&expect.BExp{R: "MYSECRET"},
+				}, 300)).To(Succeed(), "the state of the TPM did not persist")
+			}
+
+			checkEFI := func(vmi *v1.VirtualMachineInstance) {
+				By("Ensuring the efivar is present")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "hexdump /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc\n"},
+					&expect.BExp{R: "0042"},
+				}, 10)).To(Succeed(), "expected efivar is missing")
+			}
+
+			addDataToTPM := func(vmi *v1.VirtualMachineInstance) {
+				By("Storing a secret into the TPM")
+				// https://www.intel.com/content/www/us/en/developer/articles/code-sample/protecting-secret-data-and-keys-using-intel-platform-trust-technology.html
+				// Not sealing against a set of PCRs, out of scope here, but should work with a carefully selected set (at least PCR1 was seen changing across reboots)
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "tpm2_createprimary -Q --hierarchy=o --key-context=prim.ctx\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "echo MYSECRET | tpm2_create --hash-algorithm=sha256 --public=seal.pub --private=seal.priv --sealing-input=- --parent-context=prim.ctx\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "tpm2_load -Q --parent-context=prim.ctx --public=seal.pub --private=seal.priv --name=seal.name --key-context=seal.ctx\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "tpm2_evictcontrol --hierarchy=o --object-context=seal.ctx 0x81010002\n"},
+					&expect.BExp{R: console.PromptExpression},
+				}, 300)).To(Succeed(), "failed to store secret into the TPM")
+				checkTPM(vmi)
+			}
+
+			addDataToEFI := func(vmi *v1.VirtualMachineInstance) {
+				By("Creating an efivar")
+				cmd := `printf "\x07\x00\x00\x00\x42" > /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc`
+				err := console.RunCommand(vmi, cmd, 10*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+				checkEFI(vmi)
+			}
+
+			var currentBackendStorageClass string
+			BeforeEach(func() {
+				config := getCurrentKvConfig(virtClient)
+				currentBackendStorageClass = config.VMStateStorageClass
+				sc, exist := libstorage.GetRWOFileSystemStorageClass()
+				Expect(exist).To(BeTrue())
+				By(fmt.Sprintf("Changing the backend storage class from %s to %s", currentBackendStorageClass, sc))
+				config.VMStateStorageClass = sc
+				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+			})
+
+			AfterEach(func() {
+				By(fmt.Sprintf("Restoring the backend storage class to %s", currentBackendStorageClass))
+				config := getCurrentKvConfig(virtClient)
+				config.VMStateStorageClass = currentBackendStorageClass
+				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+			})
+
+			// TODO: Remove the RequiresRWOFsVMStateStorageClass once libvirt allows us to tell it to ignore the check
+			// for shared storage.
+			It("should decentralized migrate a VMI with persistent TPM+EFI enabled", decorators.RequiresDecentralizedLiveMigration, decorators.RequiresRWOFsVMStateStorageClass, Serial, func() {
+				migrationID := fmt.Sprintf("mig-%s", rand.String(5))
+				By("Creating a VMI with TPM+EFI enabled")
+				sourceVMI := libvmifact.NewFedora(
+					libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData())), libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithTPM(true),
+					libvmi.WithUefi(false),
+				)
+				sourceVMI.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{SecureBoot: pointer.P(false), Persistent: pointer.P(true)},
+					},
+				}
+				sourceVM := createAndStartVMFromVMISpec(sourceVMI)
+				Expect(sourceVM.Spec.Template.Spec.Domain.Firmware.UUID).ToNot(BeEmpty())
+				targetVMI := sourceVMI.DeepCopy()
+				targetVMI.Namespace = testsuite.NamespaceTestAlternative
+				targetVMI.Spec.Domain.Firmware = sourceVM.Spec.Template.Spec.Domain.Firmware.DeepCopy()
+
+				By("Waiting for agent to connect")
+				Eventually(matcher.ThisVMI(sourceVMI)).WithTimeout(4 * time.Minute).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				sourceVMI = libwait.WaitUntilVMIReady(sourceVMI, console.LoginToFedora)
+
+				addDataToTPM(sourceVMI)
+				addDataToEFI(sourceVMI)
+
+				By("Migrating the VMI")
+				targetVM := createReceiverVMFromVMISpec(targetVMI)
+				sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
+				targetMigration := libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
+				sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
+				libmigration.ConfirmVMIPostMigration(virtClient, targetVMI, targetMigration)
+
+				By("Ensuring the TPM is still functional and its state and EFI vars are carried over")
+				checkTPM(targetVMI)
+				checkEFI(targetVMI)
+				By("Stopping the VM")
+				libvmops.StopVirtualMachine(targetVM)
+				By("Starting the VM")
+				targetVM = libvmops.StartVirtualMachine(targetVM)
+				By("Logging in")
+				Expect(console.LoginToFedora(targetVMI)).To(Succeed())
+				By("Ensuring the TPM and EFI vars contain the same data after stop and start")
+				checkTPM(targetVMI)
+				checkEFI(targetVMI)
+			})
 		})
 	})
 
