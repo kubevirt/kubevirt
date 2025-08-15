@@ -98,9 +98,9 @@ const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
 const lowPriority = -100
 
 const (
-    byVMINameIndex      = "byVMIName"
-    unfinishedIndex     = "unfinished"
-    byMigrationTypeIndex = "byMigrationType"
+	byVMINameIndex       = "byVMIName"
+	unfinishedIndex      = "unfinished"
+	byMigrationTypeIndex = "byMigrationType"
 )
 
 var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
@@ -179,7 +179,7 @@ func NewController(templateService services.TemplateService,
 	}
 
 	// Add custom indexers for optimization
-	err = migrationInformer.GetIndexer().AddIndexers(cache.Indexers{
+	if err := migrationInformer.GetIndexer().AddIndexers(cache.Indexers{
 		byVMINameIndex: func(obj interface{}) ([]string, error) {
 			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
 			if !ok {
@@ -198,7 +198,7 @@ func NewController(templateService services.TemplateService,
 			return nil, nil
 		},
 		// For evacuation and workload filters
-		unfinishedIndex: func(obj interface{}) ([]string, error) {
+		byMigrationTypeIndex: func(obj interface{}) ([]string, error) {
 			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
 			if !ok {
 				return nil, nil
@@ -212,8 +212,7 @@ func NewController(templateService services.TemplateService,
 			}
 			return keys, nil
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, fmt.Errorf("failed to add custom indexers: %v", err)
 	}
 
@@ -2000,44 +1999,54 @@ func (c *Controller) garbageCollectFinalizedMigrations(vmi *virtv1.VirtualMachin
 	return nil
 }
 
-func (c *Controller) filterMigrations(namespace string, filter func(*virtv1.VirtualMachineInstanceMigration) bool) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, namespace)
+// takes a namespace and returns all migrations listening for this vmi
+func (c *Controller) listMigrationsMatchingVMI(namespace, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
+	objs, err := c.migrationIndexer.ByIndex(byVMINameIndex, fmt.Sprintf("%s/%s", namespace, name))
 	if err != nil {
 		return nil, err
 	}
-
 	var migrations []*virtv1.VirtualMachineInstanceMigration
 	for _, obj := range objs {
-		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
-
-		if filter(migration) {
-			migrations = append(migrations, migration)
-		}
+		migrations = append(migrations, obj.(*virtv1.VirtualMachineInstanceMigration))
 	}
 	return migrations, nil
 }
 
-// takes a namespace and returns all migrations listening for this vmi
-func (c *Controller) listMigrationsMatchingVMI(namespace, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	return c.filterMigrations(namespace, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
-		return migration.Spec.VMIName == name
-	})
-}
-
 func (c *Controller) listBackoffEligibleMigrations(namespace string, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	return c.filterMigrations(namespace, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
-		return evacuationMigrationsFilter(migration, name) || workloadUpdaterMigrationsFilter(migration, name)
-	})
-}
+	// get evacuation migrations
+	evacObjs, err := c.migrationIndexer.ByIndex(byMigrationTypeIndex, fmt.Sprintf("%s/evacuation", namespace))
+	if err != nil {
+		return nil, err
+	}
 
-func evacuationMigrationsFilter(migration *virtv1.VirtualMachineInstanceMigration, name string) bool {
-	_, isEvacuation := migration.Annotations[virtv1.EvacuationMigrationAnnotation]
-	return migration.Spec.VMIName == name && isEvacuation
-}
+	// get workload migrations
+	workObjs, err := c.migrationIndexer.ByIndex(byMigrationTypeIndex, fmt.Sprintf("%s/workload", namespace))
+	if err != nil {
+		return nil, err
+	}
 
-func workloadUpdaterMigrationsFilter(migration *virtv1.VirtualMachineInstanceMigration, name string) bool {
-	_, isWorkloadUpdater := migration.Annotations[virtv1.WorkloadUpdateMigrationAnnotation]
-	return migration.Spec.VMIName == name && isWorkloadUpdater
+	// merge migrations into a sigle map (these lists should be distinct, but just in case)
+	migrationMap := make(map[types.UID]*virtv1.VirtualMachineInstanceMigration)
+
+	for _, obj := range evacObjs {
+		m := obj.(*virtv1.VirtualMachineInstanceMigration)
+		migrationMap[m.UID] = m
+	}
+
+	for _, obj := range workObjs {
+		m := obj.(*virtv1.VirtualMachineInstanceMigration)
+		migrationMap[m.UID] = m
+	}
+
+	// filter by VMIName
+	var migrations []*virtv1.VirtualMachineInstanceMigration
+	for _, m := range migrationMap {
+		if m.Spec.VMIName == name {
+			migrations = append(migrations, m)
+		}
+	}
+
+	return migrations, nil
 }
 
 func (c *Controller) addVMI(obj interface{}) {
