@@ -72,9 +72,9 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		Eventually(matcher.ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
 	})
 
-	It("should force stop a VM with terminationGracePeriodSeconds>0", func() {
+	DescribeTable("should force stop a VM with terminationGracePeriodSeconds>0", func(vmiFactory func(...libvmi.Option) *v1.VirtualMachineInstance) {
 		By("getting a VM with high TerminationGracePeriod")
-		vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		vm := libvmi.NewVirtualMachine(vmiFactory(libvmi.WithTerminationGracePeriod(600)), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
@@ -114,7 +114,10 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 
 		Expect(updated).To(Receive(), "vmi should be updated")
 		done <- true
-	})
+	},
+		Entry("with Fedora based VMI", libvmifact.NewFedora),
+		Entry("with unresponsive empty-disk VMI", libvmifact.NewGuestless),
+	)
 
 	Context("with paused vmi", func() {
 		It("[test_id:4598][test_id:3060]should signal paused/unpaused state with condition", decorators.Conformance, func() {
