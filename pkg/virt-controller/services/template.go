@@ -1371,15 +1371,27 @@ func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string, dockerSEL
 
 func matchSELinuxLevelOfVMI(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) error {
 	if vmi.Status.SelinuxContext == "" {
+		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.SourceState != nil && vmi.Status.MigrationState.SourceState.SelinuxContext != "" {
+			selinuxContext := vmi.Status.MigrationState.SourceState.SelinuxContext
+			if selinuxContext != "none" {
+				return setSELinuxContext(selinuxContext, pod)
+			}
+			return nil
+		}
 		return fmt.Errorf("VMI is missing SELinux context")
 	} else if vmi.Status.SelinuxContext != "none" {
-		ctx := strings.Split(vmi.Status.SelinuxContext, ":")
-		if len(ctx) < 4 {
-			return fmt.Errorf("VMI has invalid SELinux context: %s", vmi.Status.SelinuxContext)
-		}
-		pod.Spec.Containers[0].SecurityContext.SELinuxOptions.Level = strings.Join(ctx[3:], ":")
+		return setSELinuxContext(vmi.Status.SelinuxContext, pod)
 	}
 
+	return nil
+}
+
+func setSELinuxContext(selinuxContext string, pod *k8sv1.Pod) error {
+	ctx := strings.Split(selinuxContext, ":")
+	if len(ctx) < 4 {
+		return fmt.Errorf("VMI has invalid SELinux context: %s", selinuxContext)
+	}
+	pod.Spec.Containers[0].SecurityContext.SELinuxOptions.Level = strings.Join(ctx[3:], ":")
 	return nil
 }
 
