@@ -31,10 +31,6 @@ API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineStat
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineStatus,VolumeSnapshotStatuses
 API rule violation: list_type_missing,kubevirt.io/api/export/v1alpha1,VirtualMachineExportList,Items
 API rule violation: list_type_missing,kubevirt.io/api/export/v1beta1,VirtualMachineExportList,Items
-API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha1,VirtualMachineClusterPreferenceList,Items
-API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha1,VirtualMachinePreferenceList,Items
-API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha2,VirtualMachineClusterPreferenceList,Items
-API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha2,VirtualMachinePreferenceList,Items
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1beta1,CPUPreferences,PreferredCPUFeatures
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1beta1,VirtualMachineClusterPreferenceList,Items
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1beta1,VirtualMachinePreferenceList,Items
@@ -146,8 +142,6 @@ API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceNe
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceNetworkInterface,IPs
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceStatus,VSOCKCID
 API rule violation: names_match,kubevirt.io/api/core/v1,WatchdogDevice,I6300ESB
-API rule violation: names_match,kubevirt.io/api/instancetype/v1alpha1,VirtualMachineInstancetypeSpec,GPUs
-API rule violation: names_match,kubevirt.io/api/instancetype/v1alpha2,VirtualMachineInstancetypeSpec,GPUs
 API rule violation: names_match,kubevirt.io/api/instancetype/v1beta1,FirmwarePreferences,DeprecatedPreferredUseEfi
 API rule violation: names_match,kubevirt.io/api/instancetype/v1beta1,FirmwarePreferences,DeprecatedPreferredUseSecureBoot
 API rule violation: names_match,kubevirt.io/api/instancetype/v1beta1,VirtualMachineInstancetypeSpec,GPUs

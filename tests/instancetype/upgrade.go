@@ -3,7 +3,6 @@ package instancetype
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -17,8 +16,6 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
@@ -33,8 +30,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
-	builderv1alpha1 "kubevirt.io/kubevirt/tests/libinstancetype/builder/v1alpha1"
-	builderv1alpha2 "kubevirt.io/kubevirt/tests/libinstancetype/builder/v1alpha2"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -201,58 +196,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			updateInstancetypeMatcher,
 			getInstancetypeRevisionName,
 		),
-		Entry("VirtualMachineInstancetype from v1alpha2 to latest",
-			func() (*appsv1.ControllerRevision, error) {
-				instancetype := builderv1alpha2.NewInstancetype(
-					builderv1alpha2.WithCPUs(1),
-					builderv1alpha2.WithMemory("128Mi"),
-				)
-				return createLegacyControllerRevision(instancetype)
-			},
-			updateInstancetypeMatcher,
-			getInstancetypeRevisionName,
-		),
-		Entry("VirtualMachineInstancetype from v1alpha1 to latest",
-			func() (*appsv1.ControllerRevision, error) {
-				instancetype := builderv1alpha1.NewInstancetype(
-					builderv1alpha1.WithCPUs(1),
-					builderv1alpha1.WithMemory("128Mi"),
-				)
-				return createLegacyControllerRevision(instancetype)
-			},
-			updateInstancetypeMatcher,
-			getInstancetypeRevisionName,
-		),
-		Entry("VirtualMachineInstancetypeSpecRevision v1alpha1 to latest",
-			func() (*appsv1.ControllerRevision, error) {
-				instancetype := builderv1alpha1.NewInstancetype(
-					builderv1alpha1.WithCPUs(1),
-					builderv1alpha1.WithMemory("128Mi"),
-				)
-				specBytes, err := json.Marshal(&instancetype.Spec)
-				Expect(err).ToNot(HaveOccurred())
-
-				specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
-					APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
-					Spec:       specBytes,
-				}
-				specRevisionBytes, err := json.Marshal(specRevision)
-				Expect(err).ToNot(HaveOccurred())
-
-				cr := &appsv1.ControllerRevision{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName:    "specrevision-",
-						OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
-					},
-					Data: runtime.RawExtension{
-						Raw: specRevisionBytes,
-					},
-				}
-				return virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
-			},
-			updateInstancetypeMatcher,
-			getInstancetypeRevisionName,
-		),
 		Entry("VirtualMachineClusterInstancetype from v1beta1 without labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := builder.NewClusterInstancetype(
@@ -275,28 +218,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				instancetype, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return createControllerRevision(instancetype)
-			},
-			updateInstancetypeMatcher,
-			getInstancetypeRevisionName,
-		),
-		Entry("VirtualMachineClusterInstancetype from v1alpha2 to latest",
-			func() (*appsv1.ControllerRevision, error) {
-				instancetype := builderv1alpha2.NewClusterInstancetype(
-					builderv1alpha2.WithCPUs(1),
-					builderv1alpha2.WithMemory("128Mi"),
-				)
-				return createLegacyControllerRevision(instancetype)
-			},
-			updateInstancetypeMatcher,
-			getInstancetypeRevisionName,
-		),
-		Entry("VirtualMachineClusterInstancetype from v1alpha1 to latest",
-			func() (*appsv1.ControllerRevision, error) {
-				instancetype := builderv1alpha1.NewClusterInstancetype(
-					builderv1alpha1.WithCPUs(1),
-					builderv1alpha1.WithMemory("128Mi"),
-				)
-				return createLegacyControllerRevision(instancetype)
 			},
 			updateInstancetypeMatcher,
 			getInstancetypeRevisionName,
@@ -325,55 +246,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			updatePreferenceMatcher,
 			getPreferenceRevisionName,
 		),
-		Entry("VirtualMachinePreference from v1alpha2 to latest",
-			func() (*appsv1.ControllerRevision, error) {
-				preference := builderv1alpha2.NewPreference(
-					builderv1alpha2.WithPreferredCPUTopology(instancetypev1alpha2.PreferSockets),
-				)
-				return createLegacyControllerRevision(preference)
-			},
-			updatePreferenceMatcher,
-			getPreferenceRevisionName,
-		),
-		Entry("VirtualMachinePreference from v1alpha1 to latest",
-			func() (*appsv1.ControllerRevision, error) {
-				preference := builderv1alpha1.NewPreference(
-					builderv1alpha1.WithPreferredCPUTopology(instancetypev1alpha1.PreferSockets),
-				)
-				return createLegacyControllerRevision(preference)
-			},
-			updatePreferenceMatcher,
-			getPreferenceRevisionName,
-		),
-		Entry("VirtualMachinePreferenceSpecRevision v1alpha1 to latest",
-			func() (*appsv1.ControllerRevision, error) {
-				preference := builderv1alpha1.NewPreference(
-					builderv1alpha1.WithPreferredCPUTopology(instancetypev1alpha1.PreferSockets),
-				)
-				specBytes, err := json.Marshal(&preference.Spec)
-				Expect(err).ToNot(HaveOccurred())
-
-				specRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{
-					APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
-					Spec:       specBytes,
-				}
-				specRevisionBytes, err := json.Marshal(specRevision)
-				Expect(err).ToNot(HaveOccurred())
-
-				cr := &appsv1.ControllerRevision{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName:    "specrevision-",
-						OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
-					},
-					Data: runtime.RawExtension{
-						Raw: specRevisionBytes,
-					},
-				}
-				return virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
-			},
-			updatePreferenceMatcher,
-			getPreferenceRevisionName,
-		),
 		Entry("VirtualMachineClusterPreference from v1beta1 without labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				preference := builder.NewClusterPreference(
@@ -394,26 +266,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preference, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return createControllerRevision(preference)
-			},
-			updatePreferenceMatcher,
-			getPreferenceRevisionName,
-		),
-		Entry("VirtualMachineClusterPreference from v1alpha2 to latest",
-			func() (*appsv1.ControllerRevision, error) {
-				preference := builderv1alpha2.NewClusterPreference(
-					builderv1alpha2.WithPreferredCPUTopology(instancetypev1alpha2.PreferSockets),
-				)
-				return createLegacyControllerRevision(preference)
-			},
-			updatePreferenceMatcher,
-			getPreferenceRevisionName,
-		),
-		Entry("VirtualMachineClusterPreference from v1alpha1 to latest",
-			func() (*appsv1.ControllerRevision, error) {
-				preference := builderv1alpha1.NewClusterPreference(
-					builderv1alpha1.WithPreferredCPUTopology(instancetypev1alpha1.PreferSockets),
-				)
-				return createLegacyControllerRevision(preference)
 			},
 			updatePreferenceMatcher,
 			getPreferenceRevisionName,
