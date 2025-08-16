@@ -162,17 +162,18 @@ func (mr *MockDomainManagerMockRecorder) GetFilesystems() *gomock.Call {
 }
 
 // GetGuestInfo mocks base method.
-func (m *MockDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo {
+func (m *MockDomainManager) GetGuestInfo(vmi *v1.VirtualMachineInstance, supportedGuestAgentVersions []string) (*v1.VirtualMachineInstanceGuestAgentInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetGuestInfo")
-	ret0, _ := ret[0].(v1.VirtualMachineInstanceGuestAgentInfo)
-	return ret0
+	ret := m.ctrl.Call(m, "GetGuestInfo", vmi, supportedGuestAgentVersions)
+	ret0, _ := ret[0].(*v1.VirtualMachineInstanceGuestAgentInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // GetGuestInfo indicates an expected call of GetGuestInfo.
-func (mr *MockDomainManagerMockRecorder) GetGuestInfo() *gomock.Call {
+func (mr *MockDomainManagerMockRecorder) GetGuestInfo(vmi, supportedGuestAgentVersions any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfo", reflect.TypeOf((*MockDomainManager)(nil).GetGuestInfo))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfo", reflect.TypeOf((*MockDomainManager)(nil).GetGuestInfo), vmi, supportedGuestAgentVersions)
 }
 
 // GetGuestOSInfo mocks base method.
