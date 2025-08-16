@@ -217,7 +217,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	},
 		Entry("when architecture is amd64", "amd64", v1.DefaultCPUModel, "q35"),
 		Entry("when architecture is arm64", "arm64", v1.CPUModeHostPassthrough, "virt"),
-		Entry("when architecture is ppc64le", "ppc64le", v1.DefaultCPUModel, "pseries"),
 		Entry("when architecture is s390x", "s390x", v1.DefaultCPUModel, "s390-ccw-virtio"),
 	)
 
@@ -235,7 +234,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	},
 		Entry("when architecture is amd64", "amd64", v1.DefaultCPUModel, "q35"),
 		Entry("when architecture is arm64", "arm64", v1.CPUModeHostPassthrough, "virt"),
-		Entry("when architecture is ppc64le", "ppc64le", v1.DefaultCPUModel, "pseries"),
 		Entry("when architecture is s390x", "s390x", v1.DefaultCPUModel, "s390-ccw-virtio"),
 	)
 
@@ -246,10 +244,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					CPUModel:   cpuModelFromConfig,
 					CPURequest: &cpuReq,
 					ArchitectureConfiguration: &v1.ArchConfiguration{
-						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
-						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
-						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
-						S390x:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						Amd64: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						Arm64: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						S390x: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 					},
 				},
 			},
