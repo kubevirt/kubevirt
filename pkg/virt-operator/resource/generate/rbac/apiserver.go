@@ -114,6 +114,13 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 				},
 			},
 			{
+				APIGroups: []string{"k8s.cni.cncf.io"},
+				Resources: []string{"ipamclaims"},
+				Verbs: []string{
+					"list",
+				},
+			},
+			{
 				APIGroups: []string{
 					GroupName,
 				},
