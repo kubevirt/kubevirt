@@ -58,6 +58,13 @@ func main() {
 	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
 	prHelperImage := flag.String("pr-helper-image", "", "custom image for pr-helper. "+customImageExample)
 	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
+	dumpNetworkPolicies := flag.Bool("dump-network-policies", false, "dump Network Policies along with CSV manifests to stdout")
+	apiNamespace := flag.String("api-namespace", "kube-system", "optional - kube-apiserver namespace for the api network policy. Only used in conjunction with the dump-network-policies option")
+	apiLabelKey := flag.String("api-pod-selector-label", "component", "optional - kube-apiserver pod selector label key for the api network policy. Only used in conjunction with the dump-network-policies option")
+	apiLabelValue := flag.String("api-pod-selector-value", "kube-apiserver", "optional - kube-apiserver pod selector label value for the api network policy. Only used in conjunction with the dump-network-policies option")
+	dnsNamespace := flag.String("dns-namespace", "kube-system", "optional - DNS namespace for the DNS network policy. Only used in conjunction with the dump-network-policies option")
+	dnsLabelKey := flag.String("dns-pod-selector-label", "k8s-app", "optional - DNS pod selector label key for the DNS network policy. Only used in conjunction with the dump-network-policies option")
+	dnsLabelValue := flag.String("dns-pod-selector-value", "kube-dns", "optional - DNS pod selector label value for the DNS network policy. Only used in conjunction with the dump-network-policies option")
 
 	flag.Parse()
 
@@ -101,5 +108,20 @@ func main() {
 			panic(err)
 		}
 		util.MarshallObject(kvCRD, os.Stdout)
+	}
+
+	if *dumpNetworkPolicies {
+		kvNPs := components.NewKubeVirtNetworkPolicies(
+			*namespace,
+			*apiNamespace,
+			*apiLabelKey,
+			*apiLabelValue,
+			*dnsNamespace,
+			*dnsLabelKey,
+			*dnsLabelValue,
+		)
+		for _, v := range kvNPs {
+			util.MarshallObject(v, os.Stdout)
+		}
 	}
 }
