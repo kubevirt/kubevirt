@@ -1549,32 +1549,34 @@ func (c *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 // If the grace period has started but not expired, timeLeft represents
 // the time in seconds left until the period expires.
 // If the grace period has not started, timeLeft will be set to -1.
-func (c *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasExpired bool, timeLeft int64) {
+func (c *VirtualMachineController) hasGracePeriodExpired(terminationGracePeriod *int64, dom *api.Domain) (bool, int64) {
+	var hasExpired bool
+	var timeLeft int64
 
-	hasExpired = false
-	timeLeft = 0
-
-	if dom == nil {
-		hasExpired = true
-		return
+	gracePeriod := int64(0)
+	if terminationGracePeriod != nil {
+		gracePeriod = *terminationGracePeriod
+	} else if dom != nil && dom.Spec.Metadata.KubeVirt.GracePeriod != nil {
+		gracePeriod = dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds
 	}
-
-	startTime := int64(0)
-	if dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp != nil {
-		startTime = dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp.UTC().Unix()
-	}
-	gracePeriod := dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds
 
 	// If gracePeriod == 0, then there will be no startTime set, deletion
 	// should occur immediately during shutdown.
 	if gracePeriod == 0 {
 		hasExpired = true
-		return
-	} else if startTime == 0 {
+		return hasExpired, timeLeft
+	}
+
+	startTime := int64(0)
+	if dom != nil && dom.Spec.Metadata.KubeVirt.GracePeriod != nil && dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp != nil {
+		startTime = dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp.UTC().Unix()
+	}
+
+	if startTime == 0 {
 		// If gracePeriod > 0, then the shutdown signal needs to be sent
 		// and the gracePeriod start time needs to be set.
 		timeLeft = -1
-		return
+		return hasExpired, timeLeft
 	}
 
 	now := time.Now().UTC().Unix()
@@ -1582,14 +1584,14 @@ func (c *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 
 	if diff >= gracePeriod {
 		hasExpired = true
-		return
+		return hasExpired, timeLeft
 	}
 
-	timeLeft = int64(gracePeriod - diff)
+	timeLeft = gracePeriod - diff
 	if timeLeft < 1 {
 		timeLeft = 1
 	}
-	return
+	return hasExpired, timeLeft
 }
 
 func (c *VirtualMachineController) helperVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain, tryGracefully bool) error {
@@ -1601,7 +1603,7 @@ func (c *VirtualMachineController) helperVmShutdown(vmi *v1.VirtualMachineInstan
 	}
 
 	if domainHasGracePeriod(domain) && tryGracefully {
-		if expired, timeLeft := c.hasGracePeriodExpired(domain); !expired {
+		if expired, timeLeft := c.hasGracePeriodExpired(vmi.Spec.TerminationGracePeriodSeconds, domain); !expired {
 			return c.handleVMIShutdown(vmi, domain, client, timeLeft)
 		}
 		log.Log.Object(vmi).Infof("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
