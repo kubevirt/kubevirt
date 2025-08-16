@@ -52,8 +52,24 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 		allowedLabelPath         = "/metadata/labels/kubevirt.io~1allowedLabel"
 		allowedAnnotationPath    = "/metadata/annotations/kubevirt.io~1allowedAnnotation"
 	)
-	var virtClient kubecli.KubevirtClient
-	var nodeName string
+	var (
+		virtClient  kubecli.KubevirtClient
+		nodeName    string
+		anotherNode string
+	)
+
+	prepareNode := func(name string) {
+		patchBytes, err := patch.New(
+			patch.WithAdd(notAllowedLabelPath, "value"),
+			patch.WithAdd(notAllowedAnnotationPath, "value"),
+			patch.WithAdd(allowedLabelPath, "value"),
+			patch.WithAdd(allowedAnnotationPath, "value"),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -68,19 +84,12 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 		nodesList := libnode.GetAllSchedulableNodes(virtClient)
 		Expect(nodesList.Items).ToNot(BeEmpty())
 		nodeName = nodesList.Items[0].Name
-		patchBytes, err := patch.New(
-			patch.WithAdd(notAllowedLabelPath, "value"),
-			patch.WithAdd(notAllowedAnnotationPath, "value"),
-			patch.WithAdd(allowedLabelPath, "value"),
-			patch.WithAdd(allowedAnnotationPath, "value"),
-		).GeneratePayload()
-		Expect(err).ToNot(HaveOccurred())
 
-		_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), nodeName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		prepareNode(nodeName)
+
 	})
 
-	AfterEach(func() {
+	cleanup := func(nodeName string) {
 		node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -101,6 +110,10 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 		_, err = virtClient.CoreV1().Nodes().Patch(
 			context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
+	}
+
+	AfterEach(func() {
+		cleanup(nodeName)
 	})
 
 	type testPatchMap struct {
@@ -193,4 +206,69 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("%s should not fail on node specific node restriction", description))
 		}
 	})
+
+	Context("patching another node", func() {
+		BeforeEach(func() {
+			nodesList := libnode.GetAllSchedulableNodes(virtClient)
+			Expect(nodesList.Items).ToNot(BeEmpty())
+			Expect(nodesList.Items).ToNot(HaveLen(1))
+			for _, node := range nodesList.Items {
+				if nodeName != node.Name {
+					anotherNode = node.Name
+					break
+				}
+			}
+
+			prepareNode(anotherNode)
+		})
+
+		AfterEach(func() {
+			cleanup(anotherNode)
+		})
+
+		It("rejects kubevirt related patches", func() {
+			patchSetList := map[string]*patch.PatchSet{
+				"kubevirt.io label addition":      patch.New(patch.WithAdd("/metadata/labels/kubevirt.io~1newAllowedLabel", "value")),
+				"kubevirt.io label update":        patch.New(patch.WithReplace(allowedLabelPath, "other-value")),
+				"kubevirt.io label removal":       patch.New(patch.WithRemove(allowedLabelPath)),
+				"kubevirt.io annotation addition": patch.New(patch.WithAdd("/metadata/annotations/kubevirt.io~1newAllowedAnnotation", "value")),
+				"kubevirt.io annotation update":   patch.New(patch.WithReplace(allowedAnnotationPath, "other-value")),
+				"kubevirt.io annotation removal":  patch.New(patch.WithRemove(allowedAnnotationPath)),
+			}
+			node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			pod, err := libnode.GetVirtHandlerPod(virtClient, node.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			token, err := exec.ExecuteCommandOnPod(
+				pod,
+				"virt-handler",
+				[]string{"cat",
+					"/var/run/secrets/kubernetes.io/serviceaccount/token",
+				},
+			)
+
+			Expect(err).ToNot(HaveOccurred())
+			handlerClient, err := kubecli.GetKubevirtClientFromRESTConfig(&rest.Config{
+				Host: virtClient.Config().Host,
+				TLSClientConfig: rest.TLSClientConfig{
+					Insecure: true,
+				},
+				BearerToken: token,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			otherNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), anotherNode, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			for description, patchSet := range patchSetList {
+				nodePatch, err := patchSet.GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = handlerClient.CoreV1().Nodes().Patch(context.TODO(), otherNode.Name, types.JSONPatchType, nodePatch, metav1.PatchOptions{})
+				Expect(err).To(MatchError(ContainSubstring("this user cannot modify this node")), fmt.Sprintf("%s should fail on node specific node restriction", description))
+			}
+		})
+	})
+
 })
