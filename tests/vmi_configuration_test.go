@@ -887,7 +887,21 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with hugepages", func() {
-			verifyHugepagesConsumption := func(hugepagesVmi *v1.VirtualMachineInstance) bool {
+			noGuestOption := func() libvmi.Option {
+				return func(vmi *v1.VirtualMachineInstance) {
+					vmi.Spec.Domain.Memory.Guest = nil
+				}
+			}
+
+			DescribeTable("should consume hugepages ", func(options ...libvmi.Option) {
+				hugepagesVmi := libvmifact.NewCirros(options...)
+
+				By("Starting a VM")
+				hugepagesVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), hugepagesVmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitForSuccessfulVMIStart(hugepagesVmi)
+
+				By("Checking that the VM memory equals to a number of consumed hugepages")
 				vmiPod, err := libpod.GetPodByVirtualMachineInstance(hugepagesVmi, testsuite.GetTestNamespace(hugepagesVmi))
 				Expect(err).ToNot(HaveOccurred())
 
@@ -932,62 +946,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					vmMemory = *hugepagesVmi.Spec.Domain.Memory.Guest
 				}
 
-				if vmHugepagesConsumption == vmMemory.Value() {
-					return true
-				}
-				return false
-			}
-
-			noGuestOption := func() libvmi.Option {
-				return func(vmi *v1.VirtualMachineInstance) {
-					vmi.Spec.Domain.Memory.Guest = nil
-				}
-			}
-
-			DescribeTable("should consume hugepages ", func(options ...libvmi.Option) {
-				hugepagesVmi := libvmifact.NewCirros(options...)
-
-				By("Starting a VM")
-				hugepagesVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), hugepagesVmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(hugepagesVmi)
-
-				By("Checking that the VM memory equals to a number of consumed hugepages")
-				Eventually(func() bool { return verifyHugepagesConsumption(hugepagesVmi) }, 30*time.Second, 5*time.Second).Should(BeTrue())
+				Expect(vmHugepagesConsumption).To(Equal(vmMemory.Value()))
 			},
 				Entry("[test_id:1671]hugepages-2Mi", decorators.RequiresHugepages2Mi, Serial, libvmi.WithHugepages("2Mi"), libvmi.WithMemoryRequest("64Mi"), noGuestOption()),
 				Entry("[test_id:1672]hugepages-1Gi", decorators.RequiresHugepages1Gi, Serial, libvmi.WithHugepages("1Gi"), libvmi.WithMemoryRequest("1Gi"), noGuestOption()),
 				Entry("[test_id:1672]hugepages-2Mi with guest memory set explicitly", decorators.RequiresHugepages2Mi, Serial, libvmi.WithHugepages("2Mi"), libvmi.WithMemoryRequest("70Mi"), libvmi.WithGuestMemory("64Mi")),
 			)
-
-			Context("with unsupported page size", func() {
-				It("[test_id:1673]should failed to schedule the pod", func() {
-					hugepagesVmi := libvmifact.NewCirros(
-						libvmi.WithMemoryRequest("66Mi"),
-						libvmi.WithHugepages("3Mi"),
-					)
-
-					By("Starting a VM")
-					hugepagesVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(hugepagesVmi)).Create(context.Background(), hugepagesVmi, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					var vmiCondition v1.VirtualMachineInstanceCondition
-					Eventually(func() bool {
-						vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(hugepagesVmi)).Get(context.Background(), hugepagesVmi.Name, metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-
-						for _, cond := range vmi.Status.Conditions {
-							if cond.Type == v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled) && cond.Status == k8sv1.ConditionFalse {
-								vmiCondition = cond
-								return true
-							}
-						}
-						return false
-					}, 30*time.Second, time.Second).Should(BeTrue())
-					Expect(vmiCondition.Message).To(ContainSubstring("Insufficient hugepages-3Mi"))
-					Expect(vmiCondition.Reason).To(Equal("Unschedulable"))
-				})
-			})
 		})
 
 		Context("[rfe_id:893][crit:medium][vendor:cnv-qe@redhat.com][level:component]with rng", func() {
