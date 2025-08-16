@@ -23,7 +23,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
@@ -135,16 +134,65 @@ func (converterAMD64) SupportPCIHole64Disabling() bool {
 }
 
 func (converterAMD64) LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
-	// Set SEV launch security parameters: https://libvirt.org/formatdomain.html#launch-security
-	if util.IsSEVVMI(vmi) {
-		sevPolicyBits := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
-		// Cbitpos and ReducedPhysBits will be filled automatically by libvirt from the domain capabilities
-		return &api.LaunchSecurity{
-			Type:    "sev",
-			Policy:  "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
-			DHCert:  vmi.Spec.Domain.LaunchSecurity.SEV.DHCert,
-			Session: vmi.Spec.Domain.LaunchSecurity.SEV.Session,
+	launchSec := vmi.Spec.Domain.LaunchSecurity
+	if launchSec.SEV == nil && launchSec.SNP != nil {
+		snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
+		domain := &api.LaunchSecurity{
+			Type: "sev-snp",
 		}
+		if launchSec.SNP.Policy != nil {
+			domain.Policy = *launchSec.SNP.Policy
+		} else {
+			// Use default policy
+			domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
+		}
+		// If AuthorKey is set, IDAuth and IDBlock must be provided
+		if launchSec.SNP.AuthorKey != nil && *launchSec.SNP.AuthorKey && launchSec.SNP.IDAuth != nil && launchSec.SNP.IDBlock != nil {
+			domain.AuthorKey = boolToYesNo(launchSec.SNP.AuthorKey, false)
+			domain.IdBlock = *launchSec.SNP.IDBlock
+			domain.IdAuth = *launchSec.SNP.IDAuth
+		}
+		if launchSec.SNP.VCEK != nil {
+			domain.VCEK = boolToYesNo(launchSec.SNP.VCEK, false)
+		}
+		if launchSec.SNP.KernelHashes != nil {
+			domain.KernelHashes = boolToYesNo(launchSec.SNP.KernelHashes, false)
+		}
+		if launchSec.SNP.HostData != nil {
+			domain.HostData = *launchSec.SNP.HostData
+		}
+		return domain
+	} else if launchSec.SEV != nil {
+		sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
+		domain := &api.LaunchSecurity{
+			Type:   "sev",
+			Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
+		}
+		if launchSec.SEV.DHCert != "" {
+			domain.DHCert = launchSec.SEV.DHCert
+		}
+		if launchSec.SEV.Session != "" {
+			domain.Session = launchSec.SEV.Session
+		}
+		return domain
 	}
 	return nil
+}
+
+func boolToYesNo(value *bool, defaultYes bool) string {
+	return boolToString(value, defaultYes, "yes", "no")
+}
+
+func boolToString(value *bool, defaultPositive bool, positive string, negative string) string {
+	toString := func(value bool) string {
+		if value {
+			return positive
+		}
+		return negative
+	}
+
+	if value == nil {
+		return toString(defaultPositive)
+	}
+	return toString(*value)
 }
