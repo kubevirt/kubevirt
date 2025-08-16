@@ -301,6 +301,26 @@ func (mr *MockCmdClientMockRecorder) GetSEVInfo(ctx, in any, opts ...any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSEVInfo", reflect.TypeOf((*MockCmdClient)(nil).GetSEVInfo), varargs...)
 }
 
+// GetScreenshot mocks base method.
+func (m *MockCmdClient) GetScreenshot(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*ScreenshotResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetScreenshot", varargs...)
+	ret0, _ := ret[0].(*ScreenshotResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetScreenshot indicates an expected call of GetScreenshot.
+func (mr *MockCmdClientMockRecorder) GetScreenshot(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetScreenshot", reflect.TypeOf((*MockCmdClient)(nil).GetScreenshot), varargs...)
+}
+
 // GetUsers mocks base method.
 func (m *MockCmdClient) GetUsers(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GuestUserListResponse, error) {
 	m.ctrl.T.Helper()
@@ -898,6 +918,21 @@ func (m *MockCmdServer) GetSEVInfo(arg0 context.Context, arg1 *EmptyRequest) (*S
 func (mr *MockCmdServerMockRecorder) GetSEVInfo(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSEVInfo", reflect.TypeOf((*MockCmdServer)(nil).GetSEVInfo), arg0, arg1)
+}
+
+// GetScreenshot mocks base method.
+func (m *MockCmdServer) GetScreenshot(arg0 context.Context, arg1 *VMIRequest) (*ScreenshotResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetScreenshot", arg0, arg1)
+	ret0, _ := ret[0].(*ScreenshotResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetScreenshot indicates an expected call of GetScreenshot.
+func (mr *MockCmdServerMockRecorder) GetScreenshot(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetScreenshot", reflect.TypeOf((*MockCmdServer)(nil).GetScreenshot), arg0, arg1)
 }
 
 // GetUsers mocks base method.

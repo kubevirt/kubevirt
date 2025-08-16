@@ -44,7 +44,6 @@ go_library(
         "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//vendor/github.com/emicklei/go-restful/v3:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
-        "//vendor/github.com/mitchellh/go-vnc:go_default_library",
         "//vendor/github.com/pkg/errors:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
         "//vendor/k8s.io/api/authorization/v1:go_default_library",
