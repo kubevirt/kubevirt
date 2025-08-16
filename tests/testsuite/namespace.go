@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnamespace"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
 )
@@ -344,7 +344,7 @@ func GetLabelsForNamespace(namespace string) map[string]string {
 }
 
 func resetNamespaceLabelsToDefault(client kubecli.KubevirtClient, namespace string) error {
-	return libnet.PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
+	return libnamespace.PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
 		if ns.Labels == nil {
 			return
 		}
