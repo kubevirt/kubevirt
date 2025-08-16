@@ -3,13 +3,20 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "metrics.go",
         "prometheus.go",
         "scaling.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/libmonitoring",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/monitoring/metrics/common/workqueue:go_default_library",
         "//pkg/monitoring/metrics/testing:go_default_library",
+        "//pkg/monitoring/metrics/virt-api:go_default_library",
+        "//pkg/monitoring/metrics/virt-controller:go_default_library",
+        "//pkg/monitoring/metrics/virt-handler:go_default_library",
+        "//pkg/monitoring/metrics/virt-operator:go_default_library",
+        "//pkg/monitoring/rules:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/clientcmd:go_default_library",
         "//tests/exec:go_default_library",
