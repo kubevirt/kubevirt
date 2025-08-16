@@ -193,3 +193,117 @@ func BenchmarkListMatchingTargetPods2(b *testing.B) {
 	}
 
 }
+
+const migrationCount = 10000
+
+func BenchmarkListMigrationsMatchingVMI(b *testing.B) {
+	informer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+	controller := Controller{
+		migrationIndexer: informer.GetIndexer(),
+	}
+
+	for i := range migrationCount - 10 {
+		migration := v1.VirtualMachineInstanceMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:       types.UID(fmt.Sprintf("something%d", i)),
+				Name:      fmt.Sprintf("name%d", i),
+				Namespace: "vm-debug",
+			},
+			Spec: v1.VirtualMachineInstanceMigrationSpec{
+				VMIName: fmt.Sprintf("%d", i),
+			},
+		}
+		if err := controller.migrationIndexer.Add(&migration); err != nil {
+			b.Fatal(err)
+		}
+	}
+	for i := range 10 {
+		migration := v1.VirtualMachineInstanceMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:       types.UID(fmt.Sprintf("something%d", i)),
+				Name:      fmt.Sprintf("name%d", i),
+				Namespace: "vm-debug",
+			},
+			Spec: v1.VirtualMachineInstanceMigrationSpec{
+				VMIName: "theone",
+			},
+		}
+		if err := controller.migrationIndexer.Add(&migration); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	b.ResetTimer()
+
+	for range b.N {
+		migrations, err := controller.listMigrationsMatchingVMI("vm-debug", "theone")
+		if err != nil {
+			b.Fatal(err)
+		}
+		if len(migrations) != 10 {
+			b.Fatal("wexected 10 migrations")
+		}
+	}
+
+}
+
+func BenchmarkListMigrationsMatchingVMI2(b *testing.B) {
+	informer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+	controller := Controller{
+		migrationIndexer: informer.GetIndexer(),
+	}
+	controller.migrationIndexer.AddIndexers(cache.Indexers{
+		vmiIndex: func(obj interface{}) ([]string, error) {
+			mig, ok := obj.(*v1.VirtualMachineInstanceMigration)
+			if !ok {
+				return []string{}, fmt.Errorf("not migration")
+			}
+			return []string{fmt.Sprintf("%s/%s", mig.Namespace, mig.Spec.VMIName)}, nil
+		},
+	})
+
+	for i := range migrationCount - 10 {
+		migration := v1.VirtualMachineInstanceMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:       types.UID(fmt.Sprintf("something%d", i)),
+				Name:      fmt.Sprintf("name%d", i),
+				Namespace: "vm-debug",
+			},
+			Spec: v1.VirtualMachineInstanceMigrationSpec{
+				VMIName: fmt.Sprintf("%d", i),
+			},
+		}
+		if err := controller.migrationIndexer.Add(&migration); err != nil {
+			b.Fatal(err)
+		}
+	}
+	for i := range 10 {
+		migration := v1.VirtualMachineInstanceMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				UID:       types.UID(fmt.Sprintf("something%d", i)),
+				Name:      fmt.Sprintf("name%d", i),
+				Namespace: "vm-debug",
+			},
+			Spec: v1.VirtualMachineInstanceMigrationSpec{
+				VMIName: "theone",
+			},
+		}
+		if err := controller.migrationIndexer.Add(&migration); err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	b.ResetTimer()
+
+	for range b.N {
+		migrations, err := controller.filterMigrationsByVMI("vm-debug", "theone",
+			func(migration *v1.VirtualMachineInstanceMigration) bool { return true },
+		)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if len(migrations) != 10 {
+			b.Fatal("expected 10 migration")
+		}
+	}
+}

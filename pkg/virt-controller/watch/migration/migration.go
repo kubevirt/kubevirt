@@ -2001,6 +2001,25 @@ func (c *Controller) filterMigrations(namespace string, filter func(*virtv1.Virt
 	return migrations, nil
 }
 
+const vmiIndex = "vmiIndex"
+
+func (c *Controller) filterMigrationsByVMI(namespace, vmiName string, filter func(*virtv1.VirtualMachineInstanceMigration) bool) ([]*virtv1.VirtualMachineInstanceMigration, error) {
+	objs, err := c.migrationIndexer.ByIndex(vmiIndex, fmt.Sprintf("%s/%s", namespace, vmiName))
+	if err != nil {
+		return nil, err
+	}
+
+	var migrations []*virtv1.VirtualMachineInstanceMigration
+	for _, obj := range objs {
+		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
+
+		if filter(migration) {
+			migrations = append(migrations, migration)
+		}
+	}
+	return migrations, nil
+}
+
 // takes a namespace and returns all migrations listening for this vmi
 func (c *Controller) listMigrationsMatchingVMI(namespace, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
 	return c.filterMigrations(namespace, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
