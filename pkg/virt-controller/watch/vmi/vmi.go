@@ -43,6 +43,7 @@ import (
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vsock"
 )
@@ -324,6 +325,22 @@ func (c *Controller) execute(key string) error {
 	err = c.updateStatus(vmi, pod, dataVolumes, syncErr)
 	if err != nil {
 		return err
+	}
+
+	if pod != nil {
+		_, podIsMarkedForEviction := pod.GetAnnotations()[descheduler.EvictionInProgressAnnotation]
+		if vmi.IsMarkedForEviction() && !podIsMarkedForEviction {
+			pod, err = descheduler.MarkEvictionInProgress(c.clientset, pod)
+			if err != nil {
+				return err
+			}
+		}
+		if !vmi.IsMarkedForEviction() && podIsMarkedForEviction {
+			pod, err = descheduler.MarkEvictionCompleted(c.clientset, pod)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	if syncErr != nil && syncErr.RequiresRequeue() {
