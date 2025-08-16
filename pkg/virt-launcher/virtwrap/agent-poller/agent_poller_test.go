@@ -36,6 +36,7 @@ var _ = Describe("Qemu agent poller", func() {
 	var fakeInterfaces []api.InterfaceStatus
 	var fakeFSFreezeStatus api.FSFreeze
 	var fakeInfo api.GuestOSInfo
+	var fakeFileSystemInfo []api.Filesystem
 	var agentStore AsyncAgentStore
 	var ctrl *gomock.Controller
 	var mockLibvirt *testing.Libvirt
@@ -58,6 +59,11 @@ var _ = Describe("Qemu agent poller", func() {
 			KernelVersion: "1.1.0",
 			Machine:       "x86_64",
 			Id:            "testguestos",
+		}
+		fakeFileSystemInfo = []api.Filesystem{
+			{
+				Name: "test",
+			},
 		}
 		agentStore = NewAsyncAgentStore()
 		ctrl = gomock.NewController(GinkgoT())
@@ -208,6 +214,14 @@ var _ = Describe("Qemu agent poller", func() {
 			osInfo := agentStore.GetGuestOSInfo()
 
 			Expect(*osInfo).To(Equal(fakeInfo))
+		})
+
+		It("should not fire an event for a new GET_FILESYSTEM", func() {
+			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_FILESYSTEM, fakeFileSystemInfo)
+
+			Expect(agentStore.AgentUpdated).NotTo(Receive(Equal(AgentUpdatedEvent{
+				DomainInfo: api.DomainGuestInfo{},
+			})))
 		})
 	})
 
