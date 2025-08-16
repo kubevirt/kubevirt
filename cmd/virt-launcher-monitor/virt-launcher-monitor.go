@@ -146,6 +146,13 @@ func RunAndMonitor(containerDiskDir, uid string) (int, error) {
 	}
 
 	dumpLogFile(passtLogFile)
+	entries, err := os.ReadDir("/run/kubevirt-private/libvirt/qemu/log")
+	if err != nil {
+		log.Log.Reason(err).Error("failed to read qemu log directory")
+	}
+	for _, entry := range entries {
+		dumpLogFile(filepath.Join("/run/kubevirt-private/libvirt/qemu/log", entry.Name()))
+	}
 
 	// give qemu some time to shut down in case it survived virt-handler
 	// Most of the time we call `qemu-system=* binaries, but qemu-system-* packages

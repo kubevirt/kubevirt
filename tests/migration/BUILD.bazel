@@ -56,6 +56,7 @@ go_library(
         "//tests/libkubevirt/config:go_default_library",
         "//tests/libmigration:go_default_library",
         "//tests/libnet:go_default_library",
+        "//tests/libnet/cloudinit:go_default_library",
         "//tests/libnet/job:go_default_library",
         "//tests/libnet/service:go_default_library",
         "//tests/libnet/vmnetserver:go_default_library",
