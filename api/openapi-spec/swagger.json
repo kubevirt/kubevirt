@@ -13890,6 +13890,14 @@
       "description": "Memory allow specifying the VMI memory features.",
       "$ref": "#/definitions/v1.Memory"
      },
+     "oemStrings": {
+      "description": "OemStrings represents block 11 of SMBIOS.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      }
+     },
      "resources": {
       "description": "Resources describes the Compute Resources required by this vmi.",
       "default": {},
