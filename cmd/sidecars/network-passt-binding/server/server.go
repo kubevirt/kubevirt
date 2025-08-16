@@ -40,6 +40,7 @@ import (
 
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 type InfoServer struct {
@@ -91,7 +92,17 @@ func (s V1alpha3Server) OnDefineDomain(
 		IstioProxyInjectionEnabled: istioProxyInjectionEnabled,
 	}
 
-	passtConfigurator, err := domain.NewPasstNetworkConfigurator(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, opts, nil)
+	primaryPodIfaceName, err := primaryPodIfaceNameFromVMI(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	passtConfigurator, err := domain.NewPasstNetworkConfigurator(
+		vmi.Spec.Domain.Devices.Interfaces,
+		vmi.Spec.Networks,
+		primaryPodIfaceName,
+		opts,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create passt configurator: %v", err)
 	}
@@ -152,4 +163,23 @@ func Serve(server *grpc.Server, socket net.Listener, shutdownChan <-chan struct{
 	}()
 
 	waitForShutdown(server, errChan, shutdownChan)
+}
+
+func primaryPodIfaceNameFromVMI(vmi *vmschema.VirtualMachineInstance) (string, error) {
+	primaryNet := vmispec.LookupPodNetwork(vmi.Spec.Networks)
+	if primaryNet == nil {
+		return "", fmt.Errorf("primary network was not found")
+	}
+
+	ifaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, primaryNet.Name)
+	if ifaceStatus == nil {
+		return "", fmt.Errorf("primary network interface status was not found")
+	}
+
+	primaryPodIfaceName := ifaceStatus.PodInterfaceName
+	if primaryPodIfaceName == "" {
+		return "", fmt.Errorf("primary pod network interface name was not found")
+	}
+
+	return primaryPodIfaceName, nil
 }
