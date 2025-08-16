@@ -201,9 +201,23 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		return
 	}
 
+	var effectiveGracePeriod *int64
+
+	if hasVMI {
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if condManager.HasConditionWithStatus(vmi, v1.VirtualMachineInstancePaused, k8sv1.ConditionTrue) {
+			log.Log.Object(vmi).V(2).Info("VMI is paused, forcing immediate stop with zero grace period.")
+			effectiveGracePeriod = pointer.P(int64(0))
+		}
+	}
+
+	if effectiveGracePeriod == nil {
+		effectiveGracePeriod = bodyStruct.GracePeriod
+	}
+
 	var oldGracePeriodSeconds int64
 	var patchErr error
-	if hasVMI && !vmi.IsFinal() && bodyStruct.GracePeriod != nil {
+	if hasVMI && !vmi.IsFinal() && effectiveGracePeriod != nil {
 		patchSet := patch.New()
 		// used for stopping a VM with RunStrategyHalted
 		if vmi.Spec.TerminationGracePeriodSeconds != nil {
@@ -213,7 +227,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 			patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", nil))
 		}
 
-		patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", *bodyStruct.GracePeriod))
+		patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", *effectiveGracePeriod))
 		patchBytes, err := patchSet.GeneratePayload()
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
@@ -234,7 +248,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(vmNotRunning)), response)
 			return
 		}
-		if bodyStruct.GracePeriod == nil || (vmi.Spec.TerminationGracePeriodSeconds != nil && *bodyStruct.GracePeriod >= oldGracePeriodSeconds) {
+		if effectiveGracePeriod == nil || (vmi.Spec.TerminationGracePeriodSeconds != nil && *effectiveGracePeriod >= oldGracePeriodSeconds) {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v only supports manual stop requests with a shorter graceperiod", v1.RunStrategyHalted)), response)
 			return
 		}
