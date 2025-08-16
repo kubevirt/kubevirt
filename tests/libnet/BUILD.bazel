@@ -10,7 +10,6 @@ go_library(
         "namespace.go",
         "netattachdef.go",
         "ping.go",
-        "plumbing.go",
         "skips.go",
         "validation.go",
         "vmibuilder.go",
