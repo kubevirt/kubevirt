@@ -179,6 +179,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
 		Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).ToNot(BeNil())
+		Expect(vmSpec.Template.Spec.Domain.Firmware.Serial).ToNot(BeNil())
 	},
 		Entry("ppc64le", "ppc64le", "pseries"),
 		Entry("arm64", "arm64", "virt"),
@@ -710,7 +711,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			})
 		})
 
-		It("should NOT assign new UUID when VM template spec lacks one on update", func() {
+		It("should NOT assign new UUID or Serial when VM template spec lacks them on update", func() {
 			oldVM.Spec.Template.Spec.Domain.Firmware = nil
 			newVM.Spec.Template.Spec.Domain.Firmware = nil
 
@@ -748,6 +749,25 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmSpec.Template.Spec.Domain.Firmware).ToNot(BeNil())
 			Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).To(Equal(newUUID))
+		})
+
+		It("should preserve existing Serial when VM template spec has one", func() {
+			oldVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{Serial: "existing-serial"}
+			newVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{Serial: "new-serial"}
+
+			resp := getResponseFromVMUpdate(oldVM, newVM)
+			Expect(resp.Allowed).To(BeTrue())
+
+			vmSpec := &v1.VirtualMachineSpec{}
+			vmMeta := &k8smetav1.ObjectMeta{}
+			patchOps := []patch.PatchOperation{
+				{Value: vmSpec},
+				{Value: vmMeta},
+			}
+			err := json.Unmarshal(resp.Patch, &patchOps)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmSpec.Template.Spec.Domain.Firmware).ToNot(BeNil())
+			Expect(vmSpec.Template.Spec.Domain.Firmware.Serial).To(Equal("new-serial"))
 		})
 	})
 
