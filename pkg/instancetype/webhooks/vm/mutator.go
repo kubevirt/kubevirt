@@ -156,15 +156,15 @@ func validateInstancetypeMatcher(vm *virtv1.VirtualMachine) []metav1.StatusCause
 	if vm.Spec.Instancetype.InferFromVolume != "" {
 		if vm.Spec.Instancetype.Name != "" {
 			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Name should not be provided when InferFromVolume is used within the InstancetypeMatcher",
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "Name already set, should be cleared before setting inferFromVolume",
 				Field:   k8sfield.NewPath("spec", "instancetype", "name").String(),
 			})
 		}
 		if vm.Spec.Instancetype.Kind != "" {
 			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Kind should not be provided when InferFromVolume is used within the InstancetypeMatcher",
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "Kind already set, should be cleared before setting inferFromVolume",
 				Field:   k8sfield.NewPath("spec", "instancetype", "kind").String(),
 			})
 		}
@@ -198,15 +198,15 @@ func validatePreferenceMatcher(vm *virtv1.VirtualMachine) []metav1.StatusCause {
 	if vm.Spec.Preference.InferFromVolume != "" {
 		if vm.Spec.Preference.Name != "" {
 			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Name should not be provided when InferFromVolume is used within the PreferenceMatcher",
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "Name already set, should be cleared before setting inferFromVolume",
 				Field:   k8sfield.NewPath("spec", "preference", "name").String(),
 			})
 		}
 		if vm.Spec.Preference.Kind != "" {
 			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Kind should not be provided when InferFromVolume is used within the PreferenceMatcher",
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "Kind already set, should be cleared before setting inferFromVolume",
 				Field:   k8sfield.NewPath("spec", "preference", "kind").String(),
 			})
 		}
