@@ -79,6 +79,9 @@ const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 const SevDevice = "devices.kubevirt.io/sev"
+const TdxProvisionDevice = "devices.kubevirt.io/sgx_provision"
+const TdxEnclaveDevice = "devices.kubevirt.io/sgx_enclave"
+const TdxVepcDevice = "devices.kubevirt.io/sgx_vepc"
 const VhostVsockDevice = "devices.kubevirt.io/vhost-vsock"
 const PrDevice = "devices.kubevirt.io/pr-helper"
 
@@ -719,6 +722,11 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 	if util.IsSecureExecutionVMI(vmi) {
 		log.Log.V(4).Info("Add Secure Execution node label selector")
 		opts = append(opts, WithSecureExecutionSelector())
+	}
+
+	if util.IsTDXVMI(vmi) {
+		log.Log.V(4).Info("Add TDX node label selector")
+		opts = append(opts, WithTDXSelector())
 	}
 
 	return NewNodeSelectorRenderer(

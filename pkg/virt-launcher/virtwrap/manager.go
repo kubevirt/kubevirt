@@ -861,7 +861,30 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// expand disk image files if they're too small
 	expandDiskImagesOffline(vmi, domain)
 
+	if err := ensureTDXQuoteGenerationSocket(domain); err != nil {
+		return domain, err
+	}
+
 	return domain, err
+}
+
+func ensureTDXQuoteGenerationSocket(domain *api.Domain) error {
+	if domain.Spec.LaunchSecurity.QGS.SockAddr.Path == "" {
+		return nil
+	}
+
+	qgs_bin, err := exec.LookPath("qgs")
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command(qgs_bin, "-m=0666")
+	_, err = cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
@@ -1035,15 +1058,16 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	if vmi.IsBootloaderEFI() {
 		secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
 		sev := kutil.IsSEVVMI(vmi)
+		tdx := kutil.IsTDXVMI(vmi)
 
-		if !l.efiEnvironment.Bootable(secureBoot, sev) {
-			log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v", secureBoot, sev)
-			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v", secureBoot, sev)
+		if !l.efiEnvironment.Bootable(secureBoot, sev, tdx) {
+			log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v, TDX=%v", secureBoot, sev, tdx)
+			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v, TDX=%v", secureBoot, sev, tdx)
 		}
 
 		efiConf = &converter.EFIConfiguration{
-			EFICode:      l.efiEnvironment.EFICode(secureBoot, sev),
-			EFIVars:      l.efiEnvironment.EFIVars(secureBoot, sev),
+			EFICode:      l.efiEnvironment.EFICode(secureBoot, sev, tdx),
+			EFIVars:      l.efiEnvironment.EFIVars(secureBoot, sev, tdx),
 			SecureLoader: secureBoot,
 		}
 	}
@@ -1060,7 +1084,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:      permanentVolumes,
 		EphemeraldiskCreator:  l.ephemeralDiskCreator,
-		UseLaunchSecurity:     kutil.UseLaunchSecurity(vmi),
+		UseLaunchSecuritySEV:  kutil.IsSEVVMI(vmi),
+		UseLaunchSecurityTDX:  kutil.IsTDXVMI(vmi),
+		UseLaunchSecurityPV:   kutil.IsSecureExecutionVMI(vmi),
 		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
 		SerialConsoleLog:      isSerialConsoleLogEnabled(false, vmi),
 	}
@@ -2493,7 +2519,7 @@ func (l *LibvirtDomainManager) GetLaunchMeasurement(vmi *v1.VirtualMachineInstan
 		sevMeasurementInfo.Policy = domainLaunchSecurityParameters.SEVPolicy
 	}
 
-	loader := l.efiEnvironment.EFICode(false, true) // no secureBoot, with sev
+	loader := l.efiEnvironment.EFICode(false, true, false) // no secureBoot, with sev
 	f, err := os.Open(loader)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Error opening loader binary %s", loader)
