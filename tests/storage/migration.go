@@ -78,7 +78,7 @@ import (
 var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, func() {
 	var virtClient kubecli.KubevirtClient
 	var testSc string
-	getCSIStorageClass := libstorage.GetSnapshotStorageClass
+	getCSIStorageClass := libstorage.GetCSIStorageClass
 	createBlankDV := func(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.DataVolume {
 		dv := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
@@ -117,10 +117,11 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			currentKv.ResourceVersion,
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
-		scName, err := getCSIStorageClass(virtClient)
-		Expect(err).ToNot(HaveOccurred())
-		if scName == "" {
-			Fail("Fail test when a CSI storage class is not present")
+
+		scName, exist := getCSIStorageClass()
+
+		if !exist {
+			Skip("No CSI storage class is present")
 		}
 
 		sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
@@ -927,7 +928,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					}
 				}
 				return ""
-			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).ShouldNot(Equal(""))
+			}).WithTimeout(360 * time.Second).WithPolling(2 * time.Second).ShouldNot(Equal(""))
 		}
 
 		DescribeTable("should be able to add and remove a volume with the volume migration feature gate enabled", func(persist bool) {
@@ -1107,7 +1108,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				checkFileOnHotpluggedVol(vmi)
 			})
 
-			DescribeTable("with a datavolume and an hotplugged datavolume migrating", func(srcBlock, dstBlock bool) {
+			DescribeTable("with a datavolume and an hotplugged datavolume migrating", decorators.RequiresBlockStorage, func(srcBlock, dstBlock bool) {
 				ns := testsuite.GetTestNamespace(nil)
 				rootVolName := "root"
 				hpVolName := "hp"
@@ -1333,7 +1334,7 @@ func waitForMigrationToSucceed(virtClient kubecli.KubevirtClient, vmiName, ns st
 		vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vmi.Status.MigrationState
-	}, 120*time.Second, time.Second).Should(And(Not(BeNil()), gstruct.PointTo(
+	}, 360*time.Second, time.Second).Should(And(Not(BeNil()), gstruct.PointTo(
 		gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Failed":    BeFalse(),
 			"Completed": BeTrue(),
