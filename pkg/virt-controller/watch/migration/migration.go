@@ -44,6 +44,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/trace"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -61,6 +62,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
+	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 
@@ -99,28 +101,35 @@ const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
 // for potential future "semi-low" priority values.
 const lowPriority = -100
 
+const (
+	byVMINameIndex       = "byVMIName"
+	unfinishedIndex      = "unfinished"
+	byMigrationTypeIndex = "byMigrationType"
+)
+
 var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 
 type Controller struct {
-	templateService      services.TemplateService
-	clientset            kubecli.KubevirtClient
-	Queue                priorityqueue.PriorityQueue[string]
-	vmiStore             cache.Store
-	podIndexer           cache.Indexer
-	migrationIndexer     cache.Indexer
-	nodeStore            cache.Store
-	pvcStore             cache.Store
-	storageClassStore    cache.Store
-	storageProfileStore  cache.Store
-	migrationPolicyStore cache.Store
-	kubevirtStore        cache.Store
-	resourceQuotaIndexer cache.Indexer
-	recorder             record.EventRecorder
-	podExpectations      *controller.UIDTrackingControllerExpectations
-	pvcExpectations      *controller.UIDTrackingControllerExpectations
-	migrationStartLock   *sync.Mutex
-	clusterConfig        *virtconfig.ClusterConfig
-	hasSynced            func() bool
+	templateService                   services.TemplateService
+	clientset                         kubecli.KubevirtClient
+	Queue                             priorityqueue.PriorityQueue[string]
+	vmiStore                          cache.Store
+	podIndexer                        cache.Indexer
+	migrationIndexer                  cache.Indexer
+	nodeStore                         cache.Store
+	pvcStore                          cache.Store
+	storageClassStore                 cache.Store
+	storageProfileStore               cache.Store
+	migrationPolicyStore              cache.Store
+	kubevirtStore                     cache.Store
+	resourceQuotaIndexer              cache.Indexer
+	recorder                          record.EventRecorder
+	podExpectations                   *controller.UIDTrackingControllerExpectations
+	pvcExpectations                   *controller.UIDTrackingControllerExpectations
+	migrationStartLock                *sync.Mutex
+	clusterConfig                     *virtconfig.ClusterConfig
+	hasSynced                         func() bool
+	virtControllerVMIMWorkQueueTracer *traceUtils.Tracer
 
 	// the set of cancelled migrations before being handed off to virt-handler.
 	// the map keys are migration keys
@@ -172,6 +181,46 @@ func NewController(templateService services.TemplateService,
 
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
+	}
+
+	c.virtControllerVMIMWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
+
+	// Add custom indexers for optimization
+	if err := migrationInformer.GetIndexer().AddIndexers(cache.Indexers{
+		byVMINameIndex: func(obj interface{}) ([]string, error) {
+			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+			if !ok {
+				return nil, nil
+			}
+			return []string{fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName)}, nil
+		},
+		unfinishedIndex: func(obj interface{}) ([]string, error) {
+			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+			if !ok {
+				return nil, nil
+			}
+			if !migration.IsFinal() {
+				return []string{"unfinished"}, nil
+			}
+			return nil, nil
+		},
+		// For evacuation and workload filters
+		byMigrationTypeIndex: func(obj interface{}) ([]string, error) {
+			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+			if !ok {
+				return nil, nil
+			}
+			var keys []string
+			if _, ok := migration.Annotations[virtv1.EvacuationMigrationAnnotation]; ok {
+				keys = append(keys, fmt.Sprintf("%s/evacuation", migration.Namespace))
+			}
+			if _, ok := migration.Annotations[virtv1.WorkloadUpdateMigrationAnnotation]; ok {
+				keys = append(keys, fmt.Sprintf("%s/workload", migration.Namespace))
+			}
+			return keys, nil
+		},
+	}); err != nil {
+		return nil, fmt.Errorf("failed to add custom indexers: %v", err)
 	}
 
 	c.hasSynced = func() bool {
@@ -262,7 +311,11 @@ func (c *Controller) Execute() bool {
 	if quit {
 		return false
 	}
+
+	c.virtControllerVMIMWorkQueueTracer.StartTrace(key, "virt-controller VMIM workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer c.virtControllerVMIMWorkQueueTracer.StopTrace(key)
 	defer c.Queue.Done(key)
+
 	err := c.execute(key)
 
 	if err != nil {
@@ -1971,44 +2024,54 @@ func (c *Controller) garbageCollectFinalizedMigrations(vmi *virtv1.VirtualMachin
 	return nil
 }
 
-func (c *Controller) filterMigrations(namespace string, filter func(*virtv1.VirtualMachineInstanceMigration) bool) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, namespace)
+// takes a namespace and returns all migrations listening for this vmi
+func (c *Controller) listMigrationsMatchingVMI(namespace, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
+	objs, err := c.migrationIndexer.ByIndex(byVMINameIndex, fmt.Sprintf("%s/%s", namespace, name))
 	if err != nil {
 		return nil, err
 	}
-
 	var migrations []*virtv1.VirtualMachineInstanceMigration
 	for _, obj := range objs {
-		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
-
-		if filter(migration) {
-			migrations = append(migrations, migration)
-		}
+		migrations = append(migrations, obj.(*virtv1.VirtualMachineInstanceMigration))
 	}
 	return migrations, nil
 }
 
-// takes a namespace and returns all migrations listening for this vmi
-func (c *Controller) listMigrationsMatchingVMI(namespace, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	return c.filterMigrations(namespace, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
-		return migration.Spec.VMIName == name
-	})
-}
-
 func (c *Controller) listBackoffEligibleMigrations(namespace string, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	return c.filterMigrations(namespace, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
-		return evacuationMigrationsFilter(migration, name) || workloadUpdaterMigrationsFilter(migration, name)
-	})
-}
+	// get evacuation migrations
+	evacObjs, err := c.migrationIndexer.ByIndex(byMigrationTypeIndex, fmt.Sprintf("%s/evacuation", namespace))
+	if err != nil {
+		return nil, err
+	}
 
-func evacuationMigrationsFilter(migration *virtv1.VirtualMachineInstanceMigration, name string) bool {
-	_, isEvacuation := migration.Annotations[virtv1.EvacuationMigrationAnnotation]
-	return migration.Spec.VMIName == name && isEvacuation
-}
+	// get workload migrations
+	workObjs, err := c.migrationIndexer.ByIndex(byMigrationTypeIndex, fmt.Sprintf("%s/workload", namespace))
+	if err != nil {
+		return nil, err
+	}
 
-func workloadUpdaterMigrationsFilter(migration *virtv1.VirtualMachineInstanceMigration, name string) bool {
-	_, isWorkloadUpdater := migration.Annotations[virtv1.WorkloadUpdateMigrationAnnotation]
-	return migration.Spec.VMIName == name && isWorkloadUpdater
+	// merge migrations into a sigle map (these lists should be distinct, but just in case)
+	migrationMap := make(map[types.UID]*virtv1.VirtualMachineInstanceMigration)
+
+	for _, obj := range evacObjs {
+		m := obj.(*virtv1.VirtualMachineInstanceMigration)
+		migrationMap[m.UID] = m
+	}
+
+	for _, obj := range workObjs {
+		m := obj.(*virtv1.VirtualMachineInstanceMigration)
+		migrationMap[m.UID] = m
+	}
+
+	// filter by VMIName
+	var migrations []*virtv1.VirtualMachineInstanceMigration
+	for _, m := range migrationMap {
+		if m.Spec.VMIName == name {
+			migrations = append(migrations, m)
+		}
+	}
+
+	return migrations, nil
 }
 
 func (c *Controller) addVMI(obj interface{}) {

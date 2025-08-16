@@ -12,8 +12,25 @@ import (
 const CancelMigrationFailedVmiNotMigratingErr = "failed to cancel migration - vmi is not migrating"
 
 func ListUnfinishedMigrations(store cache.Store) []*v1.VirtualMachineInstanceMigration {
-	objs := store.List()
-	migrations := []*v1.VirtualMachineInstanceMigration{}
+	// Try to use the index
+	indexer, ok := store.(cache.Indexer)
+	var objs []interface{}
+	var err error
+	if ok {
+		objs, err = indexer.ByIndex("unfinished", "unfinished")
+	}
+
+	if err != nil {
+		// fallback to full list if index not available
+		log.Log.Reason(err).Warningf("Error using unfinished index, falling back to full list")
+		objs = indexer.List()
+	} else if !ok {
+		// TODO(vladikr): change when the workloadupdater and the evacuation controller will use the new indexer
+		log.Log.Warningf("Store is not an Indexer, using full list")
+		objs = store.List()
+	}
+
+	var migrations []*v1.VirtualMachineInstanceMigration
 	for _, obj := range objs {
 		migration := obj.(*v1.VirtualMachineInstanceMigration)
 		if !migration.IsFinal() {

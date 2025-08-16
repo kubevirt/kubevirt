@@ -59,6 +59,7 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
@@ -266,6 +267,8 @@ var _ = Describe("Migration watcher", func() {
 			TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
 			ObjectMeta: metav1.ObjectMeta{Name: metav1.NamespaceDefault},
 		}
+
+		controller.virtControllerVMIMWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Hour}
 
 		// Set up mock client
 		kubeClient = fake.NewSimpleClientset(&namespace)
