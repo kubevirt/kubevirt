@@ -326,6 +326,51 @@ var _ = Describe(SIG("Export", func() {
 		return pvc, md5sum
 	}
 
+	populateCompletedPod := func(sc string, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolumeClaim {
+		By("Creating source volume")
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeMode(volumeMode)),
+			libdv.WithForceBindAnnotation(),
+		)
+
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		var pvc *k8sv1.PersistentVolumeClaim
+		Eventually(func() error {
+			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			return err
+		}, 60*time.Second, 1*time.Second).Should(Succeed(), "persistent volume associated with DV should be created")
+
+		By("Making sure the DV is successful")
+		libstorage.EventuallyDV(dv, 90, HaveSucceeded())
+
+		volumeName := pvc.GetName()
+		podName := "download-pod"
+
+		// Deploy pod mounted to the PVC and make sure it is completed
+		pod := libpod.RenderPod(podName, []string{"/bin/bash", "-c", "sleep 1"}, []string{})
+		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+			Name: volumeName,
+			VolumeSource: k8sv1.VolumeSource{
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvc.GetName(),
+				},
+			},
+		})
+
+		pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() bool {
+			pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Get(context.Background(), pod.Name, metav1.GetOptions{})
+			return pod.Status.Phase == k8sv1.PodSucceeded
+		}, 30*time.Second, 1*time.Second).Should(BeTrue(), "pod should at phase Succeeded")
+
+		return pvc
+	}
+
 	populateArchiveContent := func(sc string, volumeMode k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string) {
 		pvc, md5sum := populateKubeVirtContent(sc, volumeMode)
 
@@ -590,6 +635,38 @@ var _ = Describe(SIG("Export", func() {
 		Entry("with archive tarred gzipped content type PROXY", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with RAW kubevirt content type block PROXY", decorators.RequiresBlockStorage, populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 	)
+
+	It("should make sure PVC export is Ready when source pod is Completed", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Fail("Fail test when right storage is not present")
+		}
+		pvc := populateCompletedPod(sc, k8sv1.PersistentVolumeFilesystem)
+		By("Creating the export token, we can export volumes using this token")
+		// For testing the token is the name of the source pvc.
+		token := createExportTokenSecret(pvc.Name, pvc.Namespace)
+
+		vmExport := &exportv1.VirtualMachineExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("test-export-%s", rand.String(12)),
+				Namespace: pvc.Namespace,
+			},
+			Spec: exportv1.VirtualMachineExportSpec{
+				TokenSecretRef: &token.Name,
+				Source: k8sv1.TypedLocalObjectReference{
+					APIGroup: &k8sv1.SchemeGroupVersion.Group,
+					Kind:     "PersistentVolumeClaim",
+					Name:     pvc.Name,
+				},
+			},
+		}
+		By("Creating VMExport we can start exporting the volume")
+		export, err := virtClient.VirtualMachineExport(pvc.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		export = waitForReadyExport(export)
+		Expect(export).ToNot(BeNil())
+		checkExportSecretRef(export)
+	})
 
 	verifyArchiveContainsDirectories := func(archivePath string, expectedDirs []string, pod *k8sv1.Pod) {
 		command := append([]string{"/usr/bin/tar", "-xvzf", archivePath, "-C", "./data"}, expectedDirs...)
