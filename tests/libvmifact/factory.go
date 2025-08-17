@@ -42,7 +42,7 @@ const (
 // This image has tooling for the guest agent, stress, SR-IOV and more.
 func NewFedora(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	fedoraOptions := []libvmi.Option{
-		libvmi.WithMemoryRequest("512Mi"),
+		libvmi.WithGuestMemory("512Mi"),
 		libvmi.WithRng(),
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
@@ -54,7 +54,7 @@ func NewFedora(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-		libvmi.WithMemoryRequest(cirrosMemory()),
+		libvmi.WithGuestMemory(cirrosMemory()),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
 	vmi := libvmi.New(cirrosOpts...)
@@ -72,7 +72,7 @@ func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
-		libvmi.WithMemoryRequest(alpineMemory()),
+		libvmi.WithGuestMemory(alpineMemory()),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -83,7 +83,7 @@ func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInst
 	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
-		libvmi.WithMemoryRequest(alpineMemory()),
+		libvmi.WithGuestMemory(alpineMemory()),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -127,7 +127,7 @@ func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	windowsOpts := []libvmi.Option{
 		libvmi.WithTerminationGracePeriod(0),
 		libvmi.WithCPUCount(cpuCount, cpuCount, cpuCount),
-		libvmi.WithMemoryRequest("2048Mi"),
+		libvmi.WithGuestMemory("2048Mi"),
 		libvmi.WithEphemeralPersistentVolumeClaim(windowsDiskName, WindowsPVCName),
 	}
 
