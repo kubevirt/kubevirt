@@ -59,6 +59,12 @@ if [[ ! $TARGET =~ .*kind.* ]]; then
   export FEATURE_GATES="NodeRestriction"
   export KUBEVIRT_PSA="true"
   export KUBEVIRT_FLANNEL=true
+
+  # Do not merge
+  export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+  export KUBEVIRTCI_CONTAINER_ORG=oshoval
+  export KUBEVIRTCI_CONTAINER_SUFFIX=flannel1480
+  export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/oshoval/gocli:$KUBEVIRTCI_CONTAINER_SUFFIX
 fi
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
