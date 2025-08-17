@@ -40,7 +40,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/storage/status"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -93,9 +92,6 @@ type VMSnapshotController struct {
 
 	dynamicInformerMap map[string]*dynamicInformer
 	eventHandlerMap    map[string]cache.ResourceEventHandlerFuncs
-
-	vmSnapshotStatusUpdater        *status.VMSnapshotStatusUpdater
-	vmSnapshotContentStatusUpdater *status.VMSnapshotContentStatusUpdater
 }
 
 var supportedCRDVersions = []string{"v1"}
@@ -224,8 +220,6 @@ func (ctrl *VMSnapshotController) Init() error {
 		return err
 	}
 
-	ctrl.vmSnapshotStatusUpdater = status.NewVMSnapshotStatusUpdater(ctrl.Client)
-	ctrl.vmSnapshotContentStatusUpdater = status.NewVMSnapshotContentStatusUpdater(ctrl.Client)
 	return nil
 }
 

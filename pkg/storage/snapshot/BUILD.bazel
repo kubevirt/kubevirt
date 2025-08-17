@@ -19,7 +19,6 @@ go_library(
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
-        "//pkg/storage/status:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/storage/utils:go_default_library",
         "//pkg/util:go_default_library",
