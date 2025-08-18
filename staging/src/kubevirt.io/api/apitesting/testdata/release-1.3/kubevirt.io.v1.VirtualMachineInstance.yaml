@@ -88,6 +88,10 @@ spec:
               - valuesValue
             matchLabels:
               matchLabelsKey: matchLabelsValue
+          matchLabelKeys:
+          - matchLabelKeysValue
+          mismatchLabelKeys:
+          - mismatchLabelKeysValue
           namespaceSelector:
             matchExpressions:
             - key: keyValue
@@ -109,6 +113,10 @@ spec:
             - valuesValue
           matchLabels:
             matchLabelsKey: matchLabelsValue
+        matchLabelKeys:
+        - matchLabelKeysValue
+        mismatchLabelKeys:
+        - mismatchLabelKeysValue
         namespaceSelector:
           matchExpressions:
           - key: keyValue
@@ -131,6 +139,10 @@ spec:
               - valuesValue
             matchLabels:
               matchLabelsKey: matchLabelsValue
+          matchLabelKeys:
+          - matchLabelKeysValue
+          mismatchLabelKeys:
+          - mismatchLabelKeysValue
           namespaceSelector:
             matchExpressions:
             - key: keyValue
@@ -152,6 +164,10 @@ spec:
             - valuesValue
           matchLabels:
             matchLabelsKey: matchLabelsValue
+        matchLabelKeys:
+        - matchLabelKeysValue
+        mismatchLabelKeys:
+        - mismatchLabelKeysValue
         namespaceSelector:
           matchExpressions:
           - key: keyValue
@@ -309,6 +325,7 @@ spec:
         model: modelValue
         name: nameValue
       tpm:
+        enabled: true
         persistent: true
       useVirtioTransitional: true
       watchdog:
@@ -606,6 +623,30 @@ status:
     guestAtBoot: "0"
     guestCurrent: "0"
     guestRequested: "0"
+  migratedVolumes:
+  - destinationPVCInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    sourcePVCInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    volumeName: volumeNameValue
   migrationMethod: migrationMethodValue
   migrationState:
     abortRequested: true
@@ -675,6 +716,7 @@ status:
       - accessModesValue
       capacity:
         capacityKey: "0"
+      claimName: claimNameValue
       filesystemOverhead: filesystemOverheadValue
       preallocated: true
       requests:
