@@ -49,6 +49,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
+//go:generate mockgen -package=$GOPACKAGE -mock_names=instancetypeHandler=MockInstancetypeVMController -destination=generated_mock_$GOFILE kubevirt.io/kubevirt/pkg/virt-controller/watch/vm instancetypeHandler
+
 type applyVMHandler interface {
 	ApplyToVM(*virtv1.VirtualMachine) error
 }

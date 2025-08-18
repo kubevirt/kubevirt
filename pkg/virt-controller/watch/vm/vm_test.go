@@ -84,7 +84,8 @@ var _ = Describe("VirtualMachine", func() {
 		var dataVolumeInformer cache.SharedIndexInformer
 
 		BeforeEach(func() {
-			virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
+			ctrl := gomock.NewController(GinkgoT())
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
 			virtFakeClient = fake.NewSimpleClientset()
 			// enable /status, this assumes that no other reactor will be prepend.
 			// if you need to prepend reactor it need to not handle the object or use the
@@ -135,7 +136,7 @@ var _ = Describe("VirtualMachine", func() {
 			recorder.IncludeObject = true
 
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-
+			instancetypeVMController := instancetypecontroller.NewMockInstancetypeVMController(ctrl)
 			controller, _ = NewController(vmiInformer,
 				vmInformer,
 				dataVolumeInformer,
@@ -148,7 +149,7 @@ var _ = Describe("VirtualMachine", func() {
 				config,
 				nil,
 				nil,
-				instancetypecontroller.NewMockController(),
+				instancetypeVMController,
 			)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -177,6 +178,13 @@ var _ = Describe("VirtualMachine", func() {
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
+
+			instancetypeVMController.EXPECT().ApplyAutoAttachPreferences(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+			instancetypeVMController.EXPECT().ApplyToVM(gomock.Any()).Return(nil).AnyTimes()
+			instancetypeVMController.EXPECT().ApplyToVMI(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+			instancetypeVMController.EXPECT().Sync(gomock.Any(), gomock.Any()).DoAndReturn(func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
+				return vm, nil
+			}).AnyTimes()
 		})
 
 		// TODO: We need to make sure the action was triggered
