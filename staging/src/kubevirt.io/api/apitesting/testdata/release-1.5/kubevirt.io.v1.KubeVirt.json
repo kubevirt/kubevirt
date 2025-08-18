@@ -125,6 +125,7 @@
         "progressTimeout": -15,
         "unsafeMigrationOverride": true,
         "allowPostCopy": true,
+        "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true
@@ -142,7 +143,15 @@
             "migration": {
               "method": "methodValue"
             },
-            "downwardAPI": "downwardAPIValue"
+            "downwardAPI": "downwardAPIValue",
+            "computeResourceOverhead": {
+              "limits": {
+                "limitsKey": "0"
+              },
+              "requests": {
+                "requestsKey": "0"
+              }
+            }
           }
         }
       },
@@ -191,12 +200,7 @@
             },
             "requests": {
               "requestsKey": "0"
-            },
-            "claims": [
-              {
-                "name": "nameValue"
-              }
-            ]
+            }
           }
         }
       ],
@@ -352,7 +356,13 @@
         "maxCpuSockets": 4294967283,
         "maxGuest": "0"
       },
-      "vmRolloutStrategy": "vmRolloutStrategyValue"
+      "vmRolloutStrategy": "vmRolloutStrategyValue",
+      "commonInstancetypesDeployment": {
+        "enabled": true
+      },
+      "instancetype": {
+        "referencePolicy": "referencePolicyValue"
+      }
     },
     "infra": {
       "nodePlacement": {
@@ -445,7 +455,13 @@
                       ]
                     }
                   ]
-                }
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
               }
             ],
             "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -483,7 +499,13 @@
                         ]
                       }
                     ]
-                  }
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
                 }
               }
             ]
@@ -522,7 +544,13 @@
                       ]
                     }
                   ]
-                }
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
               }
             ],
             "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -560,7 +588,13 @@
                         ]
                       }
                     ]
-                  }
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
                 }
               }
             ]
@@ -669,7 +703,13 @@
                       ]
                     }
                   ]
-                }
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
               }
             ],
             "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -707,7 +747,13 @@
                         ]
                       }
                     ]
-                  }
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
                 }
               }
             ]
@@ -746,7 +792,13 @@
                       ]
                     }
                   ]
-                }
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
               }
             ],
             "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -784,7 +836,13 @@
                         ]
                       }
                     ]
-                  }
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
                 }
               }
             ]

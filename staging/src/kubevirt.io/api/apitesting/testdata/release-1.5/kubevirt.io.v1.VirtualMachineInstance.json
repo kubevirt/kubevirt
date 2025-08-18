@@ -253,6 +253,9 @@
           "name": "nameValue",
           "i6300esb": {
             "action": "actionValue"
+          },
+          "diag288": {
+            "action": "actionValue"
           }
         },
         "interfaces": [
@@ -348,10 +351,14 @@
           "model": "modelValue"
         },
         "tpm": {
+          "enabled": true,
           "persistent": true
         }
       },
       "ioThreadsPolicy": "ioThreadsPolicyValue",
+      "ioThreads": {
+        "supplementalPoolThreadCount": 4294967269
+      },
       "chassis": {
         "manufacturer": "manufacturerValue",
         "version": "versionValue",
@@ -459,7 +466,13 @@
                   ]
                 }
               ]
-            }
+            },
+            "matchLabelKeys": [
+              "matchLabelKeysValue"
+            ],
+            "mismatchLabelKeys": [
+              "mismatchLabelKeysValue"
+            ]
           }
         ],
         "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -497,7 +510,13 @@
                     ]
                   }
                 ]
-              }
+              },
+              "matchLabelKeys": [
+                "matchLabelKeysValue"
+              ],
+              "mismatchLabelKeys": [
+                "mismatchLabelKeysValue"
+              ]
             }
           }
         ]
@@ -536,7 +555,13 @@
                   ]
                 }
               ]
-            }
+            },
+            "matchLabelKeys": [
+              "matchLabelKeysValue"
+            ],
+            "mismatchLabelKeys": [
+              "mismatchLabelKeysValue"
+            ]
           }
         ],
         "preferredDuringSchedulingIgnoredDuringExecution": [
@@ -574,7 +599,13 @@
                     ]
                   }
                 ]
-              }
+              },
+              "matchLabelKeys": [
+                "matchLabelKeysValue"
+              ],
+              "mismatchLabelKeys": [
+                "mismatchLabelKeysValue"
+              ]
             }
           }
         ]
@@ -872,9 +903,11 @@
         "ipAddresses": [
           "ipAddressesValue"
         ],
+        "podInterfaceName": "podInterfaceNameValue",
         "interfaceName": "interfaceNameValue",
         "infoSource": "infoSourceValue",
-        "queueCount": -10
+        "queueCount": -10,
+        "linkState": "linkStateValue"
       }
     ],
     "guestOSInfo": {
@@ -919,6 +952,7 @@
         "progressTimeout": -15,
         "unsafeMigrationOverride": true,
         "allowPostCopy": true,
+        "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true
@@ -926,7 +960,9 @@
       "targetCPUSet": [
         -12
       ],
-      "targetNodeTopology": "targetNodeTopologyValue"
+      "targetNodeTopology": "targetNodeTopologyValue",
+      "sourcePersistentStatePVCName": "sourcePersistentStatePVCNameValue",
+      "targetPersistentStatePVCName": "targetPersistentStatePVCNameValue"
     },
     "migrationMethod": "migrationMethodValue",
     "migrationTransport": "migrationTransportValue",
@@ -944,6 +980,7 @@
         "reason": "reasonValue",
         "message": "messageValue",
         "persistentVolumeClaimInfo": {
+          "claimName": "claimNameValue",
           "accessModes": [
             "accessModesValue"
           ],
@@ -1001,6 +1038,41 @@
       "guestAtBoot": "0",
       "guestCurrent": "0",
       "guestRequested": "0"
-    }
+    },
+    "migratedVolumes": [
+      {
+        "volumeName": "volumeNameValue",
+        "sourcePVCInfo": {
+          "claimName": "claimNameValue",
+          "accessModes": [
+            "accessModesValue"
+          ],
+          "volumeMode": "volumeModeValue",
+          "capacity": {
+            "capacityKey": "0"
+          },
+          "requests": {
+            "requestsKey": "0"
+          },
+          "preallocated": true,
+          "filesystemOverhead": "filesystemOverheadValue"
+        },
+        "destinationPVCInfo": {
+          "claimName": "claimNameValue",
+          "accessModes": [
+            "accessModesValue"
+          ],
+          "volumeMode": "volumeModeValue",
+          "capacity": {
+            "capacityKey": "0"
+          },
+          "requests": {
+            "requestsKey": "0"
+          },
+          "preallocated": true,
+          "filesystemOverhead": "filesystemOverheadValue"
+        }
+      }
+    ]
   }
 }
