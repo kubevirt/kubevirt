@@ -502,7 +502,7 @@ func shouldUpdateError(contentCpy *snapshotv1.VirtualMachineSnapshotContent, err
 
 func (ctrl *VMSnapshotController) updateVmSnapshotContentStatus(oldContent, newContent *snapshotv1.VirtualMachineSnapshotContent) error {
 	if !equality.Semantic.DeepEqual(oldContent.Status, newContent.Status) {
-		if err := ctrl.vmSnapshotContentStatusUpdater.UpdateStatus(newContent); err != nil {
+		if _, err := ctrl.Client.VirtualMachineSnapshotContent(newContent.Namespace).UpdateStatus(context.Background(), newContent, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -826,7 +826,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	}
 
 	if !equality.Semantic.DeepEqual(vmSnapshot.Status, vmSnapshotCpy.Status) {
-		if err := ctrl.vmSnapshotStatusUpdater.UpdateStatus(vmSnapshotCpy); err != nil {
+		if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).UpdateStatus(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
 			return nil, err
 		}
 		return vmSnapshotCpy, nil
