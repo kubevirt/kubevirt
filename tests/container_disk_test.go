@@ -254,8 +254,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			targetPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(targetPod.Spec.InitContainers).To(BeEmpty(), "with ImageVolume should not include container-disk-binary init container")
-
+			Expect(len(targetPod.Spec.Containers)).To(BeNumerically("<", len(sourcePod.Spec.Containers)),
+				"with ImageVolume, the launcher pod should not include the container-disk sidecar containers")
 			By("Expecting to be able to login")
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 		},
