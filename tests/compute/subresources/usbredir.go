@@ -18,7 +18,7 @@ var _ = Describe(compute.SIG("usbredir support", func() {
 
 	It("should fail to connect to VMI's usbredir socket", func() {
 		vmi := libvmi.New(libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation))
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 		virtClient := kubevirt.Client()
 		usbredirVMI, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).USBRedir(vmi.ObjectMeta.Name)
 		Expect(err).To(HaveOccurred())

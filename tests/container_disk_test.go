@@ -131,7 +131,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Context("with disk at /custom-disk/downloaded", func() {
 			It("[test_id:1466]should boot normally", func() {
 				By("Starting the VirtualMachineInstance")
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(overrideCustomLocation), 60)
+				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(overrideCustomLocation), libvmops.StartupTimeoutSecondsSmall)
 
 				By("Verify VMI is booted")
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -146,7 +146,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithEphemeralCDRom("disk4", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskVirtio)),
 				)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 
 				By("Checking whether the second disk really contains virtio drivers")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed(), "expected alpine to login properly")
@@ -171,7 +171,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:4052][crit:high][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", decorators.WgS390x, decorators.WgArm64, func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:4299]should not have world write permissions", func() {
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), 60)
+				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsSmall)
 
 				By("Ensuring VMI is running by logging in")
 				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
@@ -237,7 +237,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		DescribeTable("Migration from a source launcher with the bind mount workaround to a target launcher without the bind mount workaround should succeed when ", func(vmi *v1.VirtualMachineInstance) {
 			config.DisableFeatureGate(featuregate.ImageVolume)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			By("Fetching virt-launcher pod without ImageVolume")
 			sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(sourcePod.Spec.InitContainers).ToNot(BeEmpty(), "without ImageVolume should include container-disk-binary init container to copy the container-disk binary")

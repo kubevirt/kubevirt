@@ -120,7 +120,7 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 						}
 
 						By("Starting the VirtualMachineInstance")
-						vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+						vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 						By("Checking that the VirtualMachineInstance console has expected output")
 						Expect(console.LoginToFedora(vmi)).To(Succeed())

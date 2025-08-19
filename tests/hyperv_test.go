@@ -218,7 +218,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 					EVMCS: featureState,
 				},
 			}
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 
 			var err error
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -249,7 +249,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 	Context("VMI with HyperV passthrough", func() {
 		It("should be usable and non-migratable", func() {
 			vmi := libvmifact.NewCirros(withHypervPassthrough())
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 
 			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())

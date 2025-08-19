@@ -53,7 +53,7 @@ var _ = Describe(SIG("Eviction", func() {
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).NotTo(HaveOccurred())
