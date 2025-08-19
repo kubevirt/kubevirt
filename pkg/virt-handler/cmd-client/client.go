@@ -48,10 +48,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"golang.org/x/sys/unix"
+
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -139,27 +141,36 @@ func SocketsDirectory() string {
 }
 
 func IsSocketUnresponsive(socket string) bool {
-	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
-	exists, _ := diskutils.FileExists(file)
+	dir, err := safepath.NewPathNoFollow(filepath.Dir(socket))
+	fileNotExists := errors.Is(err, unix.ENOENT)
+	if err != nil {
+		return fileNotExists
+	}
+
+	_, err = safepath.JoinNoFollow(dir, StandardLauncherUnresponsiveFileName)
+	unresponsive := !errors.Is(err, unix.ENOENT)
 	// if the unresponsive socket monitor marked this socket
 	// as being unresponsive, return true
-	if exists {
+	if unresponsive {
 		return true
 	}
 
-	exists, _ = diskutils.FileExists(socket)
+	_, err = safepath.JoinNoFollow(dir, filepath.Base(socket))
+	fileNotExists = errors.Is(err, unix.ENOENT)
 	// if the socket file doesn't exist, it's definitely unresponsive as well
-	return !exists
+	return fileNotExists
 }
 
 func MarkSocketUnresponsive(socket string) error {
-	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
-	f, err := os.Create(file)
+	dir, err := safepath.NewPathNoFollow(filepath.Dir(socket))
 	if err != nil {
 		return err
 	}
-	f.Close()
-	return nil
+	err = safepath.TouchAtNoFollow(dir, StandardLauncherUnresponsiveFileName, 0666)
+	if errors.Is(err, unix.EEXIST) {
+		return nil
+	}
+	return err
 }
 
 func SocketDirectoryOnHost(podUID string) string {
@@ -182,8 +193,8 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance, socketDirFunc func(string)
 	for podUID := range vmi.Status.ActivePods {
 		socketPodDir := socketDirFunc(string(podUID))
 		socketDirsForErrorReporting = append(socketDirsForErrorReporting, socketPodDir)
-		exists, _ := diskutils.FileExists(socketPodDir)
-		if exists {
+		_, err := safepath.NewPathNoFollow(socketPodDir)
+		if err == nil {
 			return socketPodDir, nil
 		}
 	}
@@ -207,8 +218,8 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance, host string) (string, erro
 			continue
 		}
 		socket := SocketFilePathOnHost(string(podUID))
-		exists, _ := diskutils.FileExists(socket)
-		if exists {
+		_, err := safepath.NewPathNoFollow(socket)
+		if err == nil {
 			foundSocket = socket
 			socketsFound++
 		}
