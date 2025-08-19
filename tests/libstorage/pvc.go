@@ -50,6 +50,8 @@ const (
 	LabelApplyStorageProfile = "cdi.kubevirt.io/applyStorageProfile"
 )
 
+type Option func(pvc *k8sv1.PersistentVolumeClaim)
+
 func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
 	volumeName := "disk0"
 	nonRootUser := int64(107)
@@ -134,13 +136,19 @@ func addVolumeMounts(volumeName string) []k8sv1.VolumeMount {
 	return volumeMounts
 }
 
-func NewPVC(name, size, storageClass string) *k8sv1.PersistentVolumeClaim {
-	return &k8sv1.PersistentVolumeClaim{
+func WithStorageProfile() Option {
+	return func(pvc *k8sv1.PersistentVolumeClaim) {
+		if pvc.Labels == nil {
+			pvc.Labels = map[string]string{}
+		}
+		pvc.Labels[LabelApplyStorageProfile] = "true"
+	}
+}
+
+func NewPVC(name, size, storageClass string, opts ...Option) *k8sv1.PersistentVolumeClaim {
+	pvc := &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
-			Labels: map[string]string{
-				LabelApplyStorageProfile: "true",
-			},
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
@@ -152,6 +160,12 @@ func NewPVC(name, size, storageClass string) *k8sv1.PersistentVolumeClaim {
 			StorageClassName: &storageClass,
 		},
 	}
+
+	for _, opt := range opts {
+		opt(pvc)
+	}
+
+	return pvc
 }
 
 func createPVC(pvc *k8sv1.PersistentVolumeClaim, namespace string) *k8sv1.PersistentVolumeClaim {
