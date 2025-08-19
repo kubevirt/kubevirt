@@ -43,7 +43,7 @@ require (
 	github.com/opencontainers/selinux v1.11.0
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
-	github.com/openshift/library-go v0.0.0-20211220195323-eca2c467c492
+	github.com/openshift/library-go v0.0.0-20240502143225-f71afde059ac
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc
 	github.com/pkg/errors v0.9.1
 	github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
@@ -70,7 +70,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.32.5
 	k8s.io/apimachinery v0.32.5
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/kube-aggregator v0.26.4
+	k8s.io/kube-aggregator v0.28.2
 	k8s.io/kube-openapi v0.31.0
 	k8s.io/kubectl v0.0.0-00010101000000-000000000000
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738

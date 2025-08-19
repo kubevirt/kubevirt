@@ -398,8 +398,8 @@ github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fa
 # github.com/openshift/custom-resource-status v1.1.2
 ## explicit; go 1.12
 github.com/openshift/custom-resource-status/conditions/v1
-# github.com/openshift/library-go v0.0.0-20211220195323-eca2c467c492
-## explicit; go 1.17
+# github.com/openshift/library-go v0.0.0-20240502143225-f71afde059ac
+## explicit; go 1.20
 github.com/openshift/library-go/pkg/build/naming
 github.com/openshift/library-go/pkg/operator/resource/resourcemerge
 # github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
@@ -1226,7 +1226,7 @@ k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
 k8s.io/klog/v2/internal/sloghandler
-# k8s.io/kube-aggregator v0.26.4 => k8s.io/kube-aggregator v0.32.5
+# k8s.io/kube-aggregator v0.28.2 => k8s.io/kube-aggregator v0.32.5
 ## explicit; go 1.23.0
 k8s.io/kube-aggregator/pkg/apis/apiregistration
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1
