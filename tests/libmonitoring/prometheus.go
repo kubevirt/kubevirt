@@ -230,21 +230,21 @@ func doHttpRequest(url string, endpoint string, token string) *http.Response {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
-	Eventually(func() bool {
+	Eventually(func() error {
 		req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/%s", url, endpoint), nil)
 		if err != nil {
-			return false
+			return err
 		}
 		req.Header.Add("Authorization", "Bearer "+token)
 		resp, err = client.Do(req)
 		if err != nil {
-			return false
+			return err
 		}
 		if resp.StatusCode != http.StatusOK {
-			return false
+			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 		}
-		return true
-	}, 10*time.Second, 1*time.Second).Should(BeTrue())
+		return nil
+	}, 10*time.Second, 1*time.Second).Should(Not(HaveOccurred()))
 
 	return resp
 }
