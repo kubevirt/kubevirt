@@ -48,66 +48,29 @@ var _ = Describe(SIG("[sig-compute]SSH", decorators.SigCompute, Ordered, decorat
 		vmi     *v1.VirtualMachineInstance
 	)
 
-	cmdNative := func(vmiName string) {
-		Expect(newRepeatableVirtctlCommand(
-			"ssh",
-			"--local-ssh=false",
-			"--namespace", testsuite.GetTestNamespace(nil),
-			"--username", "root",
-			"--identity-file", keyFile,
-			"--known-hosts=",
-			"--command", "true",
-			"vmi/"+vmiName,
-		)()).To(Succeed())
-	}
-
-	cmdLocal := func(appendLocalSSH bool) func(vmiName string) {
-		return func(vmiName string) {
-			args := []string{
-				"ssh",
-				"--namespace", testsuite.GetTestNamespace(nil),
-				"--username", "root",
-				"--identity-file", keyFile,
-				"-t", "-o StrictHostKeyChecking=no",
-				"-t", "-o UserKnownHostsFile=/dev/null",
-				"--command", "true",
-			}
-			if appendLocalSSH {
-				args = append(args, "--local-ssh=true")
-			}
-			args = append(args, "vmi/"+vmiName)
-
-			// The virtctl binary needs to run here because of the way local SSH client wrapping works.
-			// Running the command through newRepeatableVirtctlCommand does not suffice.
-			_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.GetTestNamespace(nil), "virtctl", args...)
-			Expect(err).ToNot(HaveOccurred())
-			out, err := cmd.CombinedOutput()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(out).ToNot(BeEmpty())
-		}
-	}
-
 	BeforeAll(func() {
 		vmi, keyFile = createVMWithPublicKey()
 	})
 
-	DescribeTable("[test_id:11661]should succeed to execute a command on the VM", func(cmdFn func(string)) {
-		By("ssh into the VM")
-		cmdFn(vmi.Name)
-	},
-		Entry("using the local ssh method", cmdLocal(false)),
-		Entry("using the local ssh method with --local-ssh=true flag", decorators.NativeSSH, cmdLocal(true)),
-		Entry("using the native ssh method with --local-ssh=false flag", decorators.NativeSSH, cmdNative),
-	)
+	It("[test_id:11661]should succeed to execute a command on the VM", func() {
+		args := []string{
+			"ssh",
+			"--namespace", testsuite.GetTestNamespace(nil),
+			"--username", "root",
+			"--identity-file", keyFile,
+			"-t", "-o StrictHostKeyChecking=no",
+			"-t", "-o UserKnownHostsFile=/dev/null",
+			"--command", "true",
+			"vmi/" + vmi.Name,
+		}
 
-	It("[test_id:11666]local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {
-		// The built virtctl binary should be tested here, therefore clientcmd.CreateCommandWithNS needs to be used.
-		// Running the command through newRepeatableVirtctlCommand would test the test binary instead.
-		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "ssh", "--local-ssh=false")
+		// The virtctl binary needs to run here because of the way local SSH client wrapping works.
+		// Running the command through newRepeatableVirtctlCommand does not suffice.
+		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.GetTestNamespace(nil), "virtctl", args...)
 		Expect(err).ToNot(HaveOccurred())
 		out, err := cmd.CombinedOutput()
-		Expect(err).To(HaveOccurred(), "out[%s]", string(out))
-		Expect(string(out)).To(Equal("unknown flag: --local-ssh\n"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).ToNot(BeEmpty())
 	})
 }))
 

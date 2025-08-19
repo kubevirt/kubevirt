@@ -45,73 +45,25 @@ var _ = Describe(SIG("[sig-compute]SCP", decorators.SigCompute, Ordered, decorat
 		vmi     *v1.VirtualMachineInstance
 	)
 
-	copyNative := func(src, dst string, recursive bool) {
-		args := []string{
-			"scp",
-			"--local-ssh=false",
-			"--namespace", testsuite.GetTestNamespace(nil),
-			"--username", "root",
-			"--identity-file", keyFile,
-			"--known-hosts=",
-		}
-		if recursive {
-			args = append(args, "--recursive")
-		}
-		args = append(args, src, dst)
-		Expect(newRepeatableVirtctlCommand(args...)()).To(Succeed())
-	}
-
-	copyLocal := func(appendLocalSSH bool) func(src, dst string, recursive bool) {
-		return func(src, dst string, recursive bool) {
-			args := []string{
-				"scp",
-				"--namespace", testsuite.GetTestNamespace(nil),
-				"--username", "root",
-				"--identity-file", keyFile,
-				"-t", "-o StrictHostKeyChecking=no",
-				"-t", "-o UserKnownHostsFile=/dev/null",
-			}
-			if appendLocalSSH {
-				args = append(args, "--local-ssh=true")
-			}
-			if recursive {
-				args = append(args, "--recursive")
-			}
-			args = append(args, src, dst)
-
-			// The virtctl binary needs to run here because of the way local SCP client wrapping works.
-			// Running the command through newRepeatableVirtctlCommand does not suffice.
-			_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.GetTestNamespace(nil), "virtctl", args...)
-			Expect(err).ToNot(HaveOccurred())
-			out, err := cmd.CombinedOutput()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(out).ToNot(BeEmpty())
-		}
-	}
-
 	BeforeAll(func() {
 		vmi, keyFile = createVMWithPublicKey()
 	})
 
-	DescribeTable("[test_id:11659]should copy a local file back and forth", func(copyFn func(string, string, bool)) {
+	It("[test_id:11659]should copy a local file back and forth", func() {
 		remoteFile := "vmi/" + vmi.Name + ":./keyfile-" + rand.String(randSuffixLen)
 
 		By("copying a file to the VMI")
-		copyFn(keyFile, remoteFile, false)
+		runSCPCommand(keyFile, remoteFile, keyFile, false)
 
 		By("copying the file back")
 		copyBackFile := filepath.Join(GinkgoT().TempDir(), "remote_id_rsa")
-		copyFn(remoteFile, copyBackFile, false)
+		runSCPCommand(remoteFile, copyBackFile, keyFile, false)
 
 		By("comparing the two files")
 		compareFile(keyFile, copyBackFile)
-	},
-		Entry("using the local scp method", copyLocal(false)),
-		Entry("using the local scp method with --local-ssh=true flag", decorators.NativeSSH, copyLocal(true)),
-		Entry("using the native scp method with --local-ssh=false flag", decorators.NativeSSH, copyNative),
-	)
+	})
 
-	DescribeTable("[test_id:11660]should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
+	It("[test_id:11660]should copy a local directory back and forth", func() {
 		By("creating a few random files")
 		copyFromDir := filepath.Join(GinkgoT().TempDir(), "sourcedir")
 		copyToDir := filepath.Join(GinkgoT().TempDir(), "targetdir")
@@ -127,30 +79,39 @@ var _ = Describe(SIG("[sig-compute]SCP", decorators.SigCompute, Ordered, decorat
 		remoteDir := "vmi/" + vmi.Name + ":./sourcedir-" + rand.String(randSuffixLen)
 
 		By("copying a file to the VMI")
-		copyFn(copyFromDir, remoteDir, true)
+		runSCPCommand(copyFromDir, remoteDir, keyFile, true)
 
 		By("copying the file back")
-		copyFn(remoteDir, copyToDir, true)
+		runSCPCommand(remoteDir, copyToDir, keyFile, true)
 
 		By("comparing the two directories")
 		compareFile(filepath.Join(copyFromDir, "file1"), filepath.Join(copyToDir, "file1"))
 		compareFile(filepath.Join(copyFromDir, "file2"), filepath.Join(copyToDir, "file2"))
-	},
-		Entry("using the local scp method", copyLocal(false)),
-		Entry("using the local scp method with --local-ssh=true flag", decorators.NativeSSH, copyLocal(true)),
-		Entry("using the native scp method with --local-ssh=false flag", decorators.NativeSSH, copyNative),
-	)
-
-	It("[test_id:11665]local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {
-		// The built virtctl binary should be tested here, therefore clientcmd.CreateCommandWithNS needs to be used.
-		// Running the command through newRepeatableVirtctlCommand would test the test binary instead.
-		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "scp", "--local-ssh=false")
-		Expect(err).ToNot(HaveOccurred())
-		out, err := cmd.CombinedOutput()
-		Expect(err).To(HaveOccurred(), "out[%s]", string(out))
-		Expect(string(out)).To(Equal("unknown flag: --local-ssh\n"))
 	})
 }))
+
+func runSCPCommand(src, dst, keyFile string, recursive bool) {
+	args := []string{
+		"scp",
+		"--namespace", testsuite.GetTestNamespace(nil),
+		"--username", "root",
+		"--identity-file", keyFile,
+		"-t", "-o StrictHostKeyChecking=no",
+		"-t", "-o UserKnownHostsFile=/dev/null",
+	}
+	if recursive {
+		args = append(args, "--recursive")
+	}
+	args = append(args, src, dst)
+
+	// The virtctl binary needs to run here because of the way local SCP client wrapping works.
+	// Running the command through newRepeatableVirtctlCommand does not suffice.
+	_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.GetTestNamespace(nil), "virtctl", args...)
+	Expect(err).ToNot(HaveOccurred())
+	out, err := cmd.CombinedOutput()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(out).ToNot(BeEmpty())
+}
 
 func compareFile(file1, file2 string) {
 	expected, err := os.ReadFile(file1)
