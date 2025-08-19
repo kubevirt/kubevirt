@@ -54,12 +54,13 @@ var _ = Describe("SSH", func() {
 		Entry("only username", "user@", "", "", "", "", "expected target after '@'"),
 		Entry("only at", "@", "", "", "", "", "expected username before '@'"),
 		Entry("only at and target", "@vmi/testvmi", "", "", "", "", "expected username before '@'"),
-		// Legacy parsing
-		Entry("name with dots", "vmi/testvmi.with.dots", "dots", "testvmi.with", "vmi", "", ""),
-		Entry("name with dots and username", "user@vmi/testvmi.with.dots", "dots", "testvmi.with", "vmi", "user", ""),
-		Entry("kind vmi with name and namespace (legacy)", "vmi/testvmi.default", "default", "testvmi", "vmi", "", ""),
-		Entry("kind vmi with name and namespace and username (legacy)", "user@vmi/testvmi.default", "default", "testvmi", "vmi", "user", ""),
-		Entry("kind vm with name and namespace (legacy)", "vm/testvm.default", "default", "testvm", "vm", "", ""),
-		Entry("kind vm with name and namespace and username (legacy)", "user@vm/testvm.default", "default", "testvm", "vm", "user", ""),
+		// Before 1.7 these syntaxes resulted in the last part after a dot being parsed as the namespace.
+		// This was changed in 1.7 to not parse as namespace anymore.
+		Entry("name with dots", "vmi/testvmi.with.dots", "", "testvmi.with.dots", "vmi", "", ""),
+		Entry("name with dots and username", "user@vmi/testvmi.with.dots", "", "testvmi.with.dots", "vmi", "user", ""),
+		Entry("kind vmi with name with dot", "vmi/testvmi.default", "", "testvmi.default", "vmi", "", ""),
+		Entry("kind vmi with name with dot and username", "user@vmi/testvmi.default", "", "testvmi.default", "vmi", "user", ""),
+		Entry("kind vm with name with dot", "vm/testvm.default", "", "testvm.default", "vm", "", ""),
+		Entry("kind vm with name with dot and username", "user@vm/testvm.default", "", "testvm.default", "vm", "user", ""),
 	)
 })
