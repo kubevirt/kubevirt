@@ -37,9 +37,9 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	metricsScraper "kubevirt.io/kubevirt/pkg/downwardmetrics/scraper"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	metricsScraper "kubevirt.io/kubevirt/pkg/monitoring/domainstats/downwardmetrics"
 )
 
 const (
