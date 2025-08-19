@@ -52,6 +52,47 @@ function configure_nfs() {
     fi
 }
 
+function add_image_volume_feature_gate () {
+  if [[  ($KUBEVIRT_PROVIDER =~ k8s-1\.1.*) ||  ($KUBEVIRT_PROVIDER =~ k8s-1.29) ||  ($KUBEVIRT_PROVIDER =~ k8s-1.30) ]]; then
+      echo "ImageVolume feature is supported only on Kubernetes version >= 1.31"
+      return
+  fi
+
+    for nodeNum in $(seq -f "%02g" 1 $KUBEVIRT_NUM_NODES); do
+        if ! $ssh node${nodeNum} -- grep -q "feature-gates:" /var/lib/kubelet/config.yaml; then
+          echo "feature-gates section not found, adding it"
+          $ssh node${nodeNum} -- "sudo /bin/su -c \"echo -e 'featureGates:' >> /var/lib/kubelet/config.yaml\""
+        fi
+
+        if ! $ssh node${nodeNum} -- grep -q "  ImageVolume=true" /var/lib/kubelet/config.yaml; then
+          echo "Adding ImageVolume=true under feature-gates"
+          $ssh node${nodeNum} -- "sudo sed -i ':a;N;\$!ba;s/featureGates:/featureGates:\n\ \ ImageVolume: true/g' /var/lib/kubelet/config.yaml"
+        fi
+
+        $ssh node${nodeNum} -- sudo systemctl restart kubelet
+
+        # Check for the existence of the kube-apiserver manifest and modify it
+        if $ssh node${nodeNum} -- test -f /etc/kubernetes/manifests/kube-apiserver.yaml; then
+          echo "Found kube-apiserver.yaml on node${nodeNum}, checking for feature-gates"
+
+          if ! $ssh node${nodeNum} -- grep -q " --feature-gates=ImageVolume=true" /etc/kubernetes/manifests/kube-apiserver.yaml; then
+            echo "Adding --feature-gates=ImageVolume=true to kube-apiserver.yaml on node${nodeNum}"
+            $ssh node${nodeNum} -- "sudo sed -i ':a;N;\$!ba;s/- kube-apiserver/- kube-apiserver\n\ \ \ \ - --feature-gates=ImageVolume=true/g' /etc/kubernetes/manifests/kube-apiserver.yaml"
+            echo "Waiting for the API server to be ready..."
+            until kubectl get pods -n kube-system -l component=kube-apiserver -o jsonpath='{.items[0].spec.containers[0].command}' | grep -q -- '--feature-gates=ImageVolume=true'; do
+              echo "API server is not ready yet or flag is not set, waiting..."
+              sleep 5
+            done
+            echo "API server is ready and feature-gates flag is set."
+            echo "API server is back online."
+          else
+            echo "--feature-gates=ImageVolume=true already present in kube-apiserver.yaml on node${nodeNum}"
+          fi
+        else
+          echo "kube-apiserver.yaml not found on node${nodeNum}, skipping modification"
+        fi
+    done
+}
 
 function up() {
     params=$(_add_common_params)
@@ -84,6 +125,7 @@ function up() {
     fi
     $kubectl label node -l $label node-role.kubernetes.io/worker=''
 
+    add_image_volume_feature_gate
     configure_prometheus
 
     deploy_kwok

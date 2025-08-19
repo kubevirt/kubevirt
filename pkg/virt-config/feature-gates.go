@@ -174,7 +174,7 @@ func (config *ClusterConfig) AlignCPUsEnabled() bool {
 }
 
 func (config *ClusterConfig) ImageVolumeEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.ImageVolume)
+	return true
 }
 
 func (config *ClusterConfig) VideoConfigEnabled() bool {
