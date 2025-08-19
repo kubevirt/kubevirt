@@ -20,22 +20,31 @@
 package virtctl
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libssh"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("[sig-compute]SCP", decorators.SigCompute, Ordered, decorators.OncePerOrderedCleanup, func() {
+var _ = Describe(SIG("[sig-compute]SSH and SCP", decorators.SigCompute, Ordered, decorators.OncePerOrderedCleanup, func() {
 	const (
 		randSuffixLen = 8
 	)
@@ -47,6 +56,10 @@ var _ = Describe(SIG("[sig-compute]SCP", decorators.SigCompute, Ordered, decorat
 
 	BeforeAll(func() {
 		vmi, keyFile = createVMWithPublicKey()
+	})
+
+	It("[test_id:11661]should succeed to execute a command on the VM", func() {
+		runSSHCommand(vmi.Name, "root", keyFile)
 	})
 
 	It("[test_id:11659]should copy a local file back and forth", func() {
@@ -90,7 +103,42 @@ var _ = Describe(SIG("[sig-compute]SCP", decorators.SigCompute, Ordered, decorat
 	})
 }))
 
+func createVMWithPublicKey() (vmi *v1.VirtualMachineInstance, keyFile string) {
+	keyFile = filepath.Join(GinkgoT().TempDir(), "id_rsa")
+
+	priv, pub, err := libssh.NewKeyPair()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
+
+	By("injecting a SSH public key into a VMI")
+	vmi = libvmifact.NewAlpineWithTestTooling(
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
+	)
+	vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).
+		Create(context.Background(), vmi, metav1.CreateOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	return libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine), keyFile
+}
+
+func runSSHCommand(name, user, keyFile string) {
+	libssh.DisableSSHAgent()
+	args := []string{
+		"ssh",
+		"--namespace", testsuite.GetTestNamespace(nil),
+		"--username", user,
+		"--identity-file", keyFile,
+		"-t", "-o StrictHostKeyChecking=no",
+		"-t", "-o UserKnownHostsFile=/dev/null",
+		"--command", "true",
+		"vmi/" + name,
+	}
+
+	runVirtctlBinary(args)
+}
+
 func runSCPCommand(src, dst, keyFile string, recursive bool) {
+	libssh.DisableSSHAgent()
 	args := []string{
 		"scp",
 		"--namespace", testsuite.GetTestNamespace(nil),
@@ -104,7 +152,11 @@ func runSCPCommand(src, dst, keyFile string, recursive bool) {
 	}
 	args = append(args, src, dst)
 
-	// The virtctl binary needs to run here because of the way local SCP client wrapping works.
+	runVirtctlBinary(args)
+}
+
+func runVirtctlBinary(args []string) {
+	// The virtctl binary needs to run here because of the way local client wrapping works.
 	// Running the command through newRepeatableVirtctlCommand does not suffice.
 	_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.GetTestNamespace(nil), "virtctl", args...)
 	Expect(err).ToNot(HaveOccurred())
