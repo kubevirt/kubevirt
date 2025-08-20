@@ -39,10 +39,12 @@ var _ = Describe("SCP", func() {
 		Expect(err).To(MatchError(expectedError))
 	},
 		Entry("when two local locations are specified",
-			"myfile.yaml", "otherfile.yaml", "none of the two provided locations seems to be a remote location: \"myfile.yaml\" to \"otherfile.yaml\"",
+			"myfile.yaml", "otherfile.yaml",
+			"none of the two provided locations seems to be a remote location: \"myfile.yaml\" to \"otherfile.yaml\"",
 		),
 		Entry("when two remote locations are specified",
-			"remotenode:myfile.yaml", "othernode:otherfile.yaml", "copying from a remote location to another remote location is not supported: \"remotenode:myfile.yaml\" to \"othernode:otherfile.yaml\"",
+			"remotenode:myfile.yaml", "othernode:otherfile.yaml",
+			"copying from a remote location to another remote location is not supported: \"remotenode:myfile.yaml\" to \"othernode:otherfile.yaml\"",
 		),
 	)
 
@@ -111,5 +113,4 @@ var _ = Describe("SCP", func() {
 			Expect(scpTarget[1]).To(Equal("fake-kind.fake-name.fake-ns:/remote/fakepath"))
 		})
 	})
-
 })
