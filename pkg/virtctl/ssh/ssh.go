@@ -59,7 +59,6 @@ type SSHOptions struct {
 	KnownHostsFilePath        string
 	KnownHostsFilePathDefault string
 	AdditionalSSHLocalOptions []string
-	LocalClientName           string
 }
 
 func NewSSH(opts *SSHOptions) *ssh {
@@ -89,9 +88,11 @@ func NewCommand() *cobra.Command {
 
 func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 	flagset.StringVarP(&opts.SSHUsername, usernameFlag, usernameFlagShort, opts.SSHUsername,
-		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SSHUsername))
+		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as;"+
+			"If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SSHUsername))
 	flagset.StringVarP(&opts.IdentityFilePath, IdentityFilePathFlag, identityFilePathFlagShort, opts.IdentityFilePath,
-		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", IdentityFilePathFlag))
+		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server;"+
+			"If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", IdentityFilePathFlag))
 	flagset.StringVar(&opts.KnownHostsFilePath, knownHostsFilePathFlag, opts.KnownHostsFilePathDefault,
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
 	flagset.IntVarP(&opts.SSHPort, portFlag, portFlagShort, opts.SSHPort,
@@ -114,10 +115,9 @@ func DefaultSSHOptions() *SSHOptions {
 		KnownHostsFilePath:        "",
 		KnownHostsFilePathDefault: "",
 		AdditionalSSHLocalOptions: []string{},
-		LocalClientName:           "ssh",
 	}
 
-	if len(homeDir) > 0 {
+	if homeDir != "" {
 		options.KnownHostsFilePathDefault = filepath.Join(homeDir, ".ssh", "kubevirt_known_hosts")
 	}
 
@@ -136,12 +136,12 @@ func (o *ssh) run(cmd *cobra.Command, args []string) error {
 	}
 
 	clientArgs := o.BuildSSHTarget(kind, namespace, name)
-	return LocalClientCmd(kind, namespace, name, o.options, clientArgs).Run()
+	return LocalClientCmd("ssh", kind, namespace, name, o.options, clientArgs).Run()
 }
 
 func (o *ssh) BuildSSHTarget(kind, namespace, name string) []string {
 	target := strings.Builder{}
-	if len(o.options.SSHUsername) > 0 {
+	if o.options.SSHUsername != "" {
 		target.WriteString(o.options.SSHUsername)
 		target.WriteRune('@')
 	}
@@ -158,7 +158,12 @@ func (o *ssh) BuildSSHTarget(kind, namespace, name string) []string {
 	return opts
 }
 
-func prepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
+func prepareCommand(
+	cmd *cobra.Command,
+	fallbackNamespace string,
+	opts *SSHOptions,
+	args []string,
+) (kind, namespace, name string, err error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(IdentityFilePathFlag)
 
 	targetUsername := ""
@@ -167,11 +172,11 @@ func prepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptio
 		return "", "", "", err
 	}
 
-	if len(namespace) < 1 {
+	if namespace == "" {
 		namespace = fallbackNamespace
 	}
 
-	if len(targetUsername) > 0 {
+	if targetUsername != "" {
 		opts.SSHUsername = targetUsername
 	}
 
@@ -208,10 +213,9 @@ func DefaultUsername() string {
 	return ""
 }
 
-// ParseTarget SSH Target argument supporting the form of [username@]type/name[/namespace]
-// or the legacy form of [username@]type/name.namespace
-func ParseTarget(arg string) (string, string, string, string, error) {
-	username := ""
+// ParseTarget parse the SSH target argument supporting the form of [username@]type/name[/namespace]
+func ParseTarget(arg string) (kind, namespace, name, username string, err error) {
+	username = ""
 	usernameAndTarget := strings.Split(arg, "@")
 	if len(usernameAndTarget) > 1 {
 		username = usernameAndTarget[0]
@@ -225,7 +229,7 @@ func ParseTarget(arg string) (string, string, string, string, error) {
 		return "", "", "", "", errors.New("expected target after '@'")
 	}
 
-	kind, namespace, name, err := portforward.ParseTarget(arg)
+	kind, namespace, name, err = portforward.ParseTarget(arg)
 	if err != nil {
 		return "", "", "", "", err
 	}
@@ -233,7 +237,7 @@ func ParseTarget(arg string) (string, string, string, string, error) {
 	return kind, namespace, name, username, err
 }
 
-func LocalClientCmd(kind, namespace, name string, options *SSHOptions, clientArgs []string) *exec.Cmd {
+func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, clientArgs []string) *exec.Cmd {
 	args := []string{"-o", BuildProxyCommandOption(kind, namespace, name, options.SSHPort)}
 	if len(options.AdditionalSSHLocalOptions) > 0 {
 		args = append(args, options.AdditionalSSHLocalOptions...)
@@ -243,8 +247,9 @@ func LocalClientCmd(kind, namespace, name string, options *SSHOptions, clientArg
 	}
 	args = append(args, clientArgs...)
 
-	cmd := exec.Command(options.LocalClientName, args...)
-	log.Log.V(3).Infof("running: %v", cmd)
+	cmd := exec.Command(command, args...)
+	const logLevel = 3
+	log.Log.V(logLevel).Infof("running: %v", cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

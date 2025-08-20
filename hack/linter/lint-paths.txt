@@ -36,6 +36,7 @@ pkg/virtctl/create/params
 pkg/virtctl/create/preference
 pkg/virtctl/create/vm
 pkg/virtctl/credentials
+pkg/virtctl/ssh
 pkg/virtctl/testing
 pkg/virtctl/version
 pkg/virt-launcher/virtwrap/agent-poller
