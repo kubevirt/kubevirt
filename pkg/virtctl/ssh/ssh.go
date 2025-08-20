@@ -69,9 +69,11 @@ func NewCommand() *cobra.Command {
 
 func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 	flagset.StringVarP(&opts.SSHUsername, usernameFlag, usernameFlagShort, opts.SSHUsername,
-		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SSHUsername))
+		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as;"+
+			"If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SSHUsername))
 	flagset.StringVarP(&opts.IdentityFilePath, IdentityFilePathFlag, identityFilePathFlagShort, opts.IdentityFilePath,
-		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", IdentityFilePathFlag))
+		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server;"+
+			"If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", IdentityFilePathFlag))
 	flagset.StringVar(&opts.KnownHostsFilePath, knownHostsFilePathFlag, opts.KnownHostsFilePathDefault,
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
 	flagset.IntVarP(&opts.SSHPort, portFlag, portFlagShort, opts.SSHPort,
@@ -96,7 +98,7 @@ func DefaultSSHOptions() SSHOptions {
 		LocalClientName:           "ssh",
 	}
 
-	if len(homeDir) > 0 {
+	if homeDir != "" {
 		options.KnownHostsFilePathDefault = filepath.Join(homeDir, ".ssh", "kubevirt_known_hosts")
 	}
 	return options
@@ -135,7 +137,7 @@ func (o *SSH) run(cmd *cobra.Command, args []string) error {
 
 func (o *SSH) BuildSSHTarget(kind, namespace, name string) (opts []string) {
 	target := strings.Builder{}
-	if len(o.Options.SSHUsername) > 0 {
+	if o.Options.SSHUsername != "" {
 		target.WriteString(o.Options.SSHUsername)
 		target.WriteRune('@')
 	}
@@ -152,7 +154,12 @@ func (o *SSH) BuildSSHTarget(kind, namespace, name string) (opts []string) {
 	return
 }
 
-func prepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
+func prepareCommand(
+	cmd *cobra.Command,
+	fallbackNamespace string,
+	opts *SSHOptions,
+	args []string,
+) (kind, namespace, name string, err error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(IdentityFilePathFlag)
 	var targetUsername string
 	kind, namespace, name, targetUsername, err = ParseTarget(args[0])
@@ -160,11 +167,11 @@ func prepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptio
 		return
 	}
 
-	if len(namespace) < 1 {
+	if namespace == "" {
 		namespace = fallbackNamespace
 	}
 
-	if len(targetUsername) > 0 {
+	if targetUsername != "" {
 		opts.SSHUsername = targetUsername
 	}
 	return
@@ -199,10 +206,9 @@ func defaultUsername() string {
 	return ""
 }
 
-// ParseTarget SSH Target argument supporting the form of [username@]type/name[/namespace]
-// or the legacy form of [username@]type/name.namespace
-func ParseTarget(arg string) (string, string, string, string, error) {
-	username := ""
+// ParseTarget parse the SSH target argument supporting the form of [username@]type/name[/namespace]
+func ParseTarget(arg string) (kind, namespace, name, username string, err error) {
+	username = ""
 
 	usernameAndTarget := strings.Split(arg, "@")
 	if len(usernameAndTarget) > 1 {
@@ -217,7 +223,7 @@ func ParseTarget(arg string) (string, string, string, string, error) {
 		return "", "", "", "", errors.New("expected target after '@'")
 	}
 
-	kind, namespace, name, err := portforward.ParseTarget(arg)
+	kind, namespace, name, err = portforward.ParseTarget(arg)
 	if err != nil {
 		return "", "", "", "", err
 	}
@@ -238,8 +244,10 @@ func LocalClientCmd(kind, namespace, name string, options *SSHOptions, clientArg
 
 	args = append(args, clientArgs...)
 
+	//nolint:gosec
 	cmd := exec.Command(options.LocalClientName, args...)
-	log.Log.V(3).Infof("running: %v", cmd)
+	const logLevel = 3
+	log.Log.V(logLevel).Infof("running: %v", cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
