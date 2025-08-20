@@ -31,17 +31,22 @@ var _ = Describe("SSH", func() {
 		Entry("kind vm with name and username", "user@vm/testvm", "", "testvm", "vm", "user", ""),
 		Entry("kind vm with name and namespace and username", "user@vm/testvm/default", "default", "testvm", "vm", "user", ""),
 		Entry("name with dots and namespace", "vmi/testvmi.with.dots/default", "default", "testvmi.with.dots", "vmi", "", ""),
-		Entry("name with dots and namespace and username", "user@vmi/testvmi.with.dots/default", "default", "testvmi.with.dots", "vmi", "user", ""),
+		Entry("name with dots and namespace and username",
+			"user@vmi/testvmi.with.dots/default", "default", "testvmi.with.dots", "vmi", "user", ""),
 		Entry("name and namespace with dots", "vmi/testvmi/default.with.dots", "default.with.dots", "testvmi", "vmi", "", ""),
-		Entry("name and namespace with dots and username", "user@vmi/testvmi/default.with.dots", "default.with.dots", "testvmi", "vmi", "user", ""),
-		Entry("name with dots and namespace with dots", "vmi/testvmi.with.dots/default.with.dots", "default.with.dots", "testvmi.with.dots", "vmi", "", ""),
-		Entry("name with dots and namespace with dots and username", "user@vmi/testvmi.with.dots/default.with.dots", "default.with.dots", "testvmi.with.dots", "vmi", "user", ""),
+		Entry("name and namespace with dots and username",
+			"user@vmi/testvmi/default.with.dots", "default.with.dots", "testvmi", "vmi", "user", ""),
+		Entry("name with dots and namespace with dots",
+			"vmi/testvmi.with.dots/default.with.dots", "default.with.dots", "testvmi.with.dots", "vmi", "", ""),
+		Entry("name with dots and namespace with dots and username",
+			"user@vmi/testvmi.with.dots/default.with.dots", "default.with.dots", "testvmi.with.dots", "vmi", "user", ""),
 		Entry("no slash", "testvmi", "", "", "", "", "target must contain type and name separated by '/'"),
 		Entry("no slash and username", "user@testvmi", "", "", "", "", "target must contain type and name separated by '/'"),
 		Entry("empty namespace", "vmi/testvmi/", "", "", "", "", "namespace cannot be empty"),
 		Entry("empty namespace and username", "user@vmi/testvmi/", "", "", "", "", "namespace cannot be empty"),
 		Entry("more than tree slashes", "vmi/testvmi/default/something", "", "", "", "", "target is not valid with more than two '/'"),
-		Entry("more than tree slashes and username", "user@vmi/testvmi/default/something", "", "", "", "", "target is not valid with more than two '/'"),
+		Entry("more than tree slashes and username",
+			"user@vmi/testvmi/default/something", "", "", "", "", "target is not valid with more than two '/'"),
 		Entry("invalid type with name", "invalid/testvmi", "", "", "", "", "unsupported resource type 'invalid'"),
 		Entry("invalid type with name and username", "user@invalid/testvmi", "", "", "", "", "unsupported resource type 'invalid'"),
 		Entry("only valid kind", "vmi/", "", "", "", "", "name cannot be empty"),
@@ -94,10 +99,11 @@ var _ = Describe("SSH", func() {
 			opts.SSHPort = 12345
 			c := ssh.NewSSH(opts)
 			clientArgs := c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)
-			cmd := ssh.LocalClientCmd(fakeKind, fakeNamespace, fakeName, opts, clientArgs)
+			const commandSSH = "ssh"
+			cmd := ssh.LocalClientCmd(commandSSH, fakeKind, fakeNamespace, fakeName, opts, clientArgs)
 			Expect(cmd).ToNot(BeNil())
 			Expect(cmd.Args).To(HaveLen(4))
-			Expect(cmd.Args[0]).To(Equal("ssh"))
+			Expect(cmd.Args[0]).To(Equal(commandSSH))
 			Expect(cmd.Args[2]).To(Equal(ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, opts.SSHPort)))
 			Expect(cmd.Args[3]).To(Equal(c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)[0]))
 		})

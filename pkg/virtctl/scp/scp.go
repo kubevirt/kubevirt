@@ -39,7 +39,6 @@ func NewCommand() *cobra.Command {
 	c := &SCP{
 		options: ssh.DefaultSSHOptions(),
 	}
-	c.options.LocalClientName = "scp"
 
 	cmd := &cobra.Command{
 		Use:     "scp (VM|VMI)",
@@ -76,7 +75,7 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	clientArgs := o.buildSCPTarget(local, remote, toRemote)
-	return ssh.LocalClientCmd(remote.Kind, remote.Namespace, remote.Name, o.options, clientArgs).Run()
+	return ssh.LocalClientCmd("scp", remote.Kind, remote.Namespace, remote.Name, o.options, clientArgs).Run()
 }
 
 type LocalArgument struct {
