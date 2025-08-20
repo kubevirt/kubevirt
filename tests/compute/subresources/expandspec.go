@@ -36,13 +36,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/compute"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	instancetypebuilder "kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(compute.SIG("ExpandSpec subresource", func() {
+var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInstancetype, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

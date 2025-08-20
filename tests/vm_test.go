@@ -1129,7 +1129,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
-		It("should be removed when the vm has child resources, such as instance type ControllerRevisions, that have been deleted before the vm - issue #9438", func() {
+		It("should be removed when the vm has child resources, such as instance type ControllerRevisions, that have been deleted before the vm - issue #9438", decorators.SigComputeInstancetype, func() {
 			By("creating a VirtualMachineClusterInstancetype")
 			instancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
 				ObjectMeta: metav1.ObjectMeta{

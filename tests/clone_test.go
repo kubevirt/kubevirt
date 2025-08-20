@@ -499,7 +499,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					expectEqualTemplateAnnotations(targetVM, sourceVM)
 				})
 
-				Context("with instancetype and preferences", func() {
+				Context("with instancetype and preferences", decorators.SigComputeInstancetype, func() {
 					var (
 						instancetype *instancetypev1beta1.VirtualMachineInstancetype
 						preference   *instancetypev1beta1.VirtualMachinePreference
