@@ -2919,7 +2919,7 @@ spec:
 		})
 	})
 
-	Context("[Serial] Seccomp configuration", Serial, func() {
+	Context("[Serial] Seccomp configuration", Serial, decorators.CustomSeccomp, func() {
 
 		Context("Kubevirt profile", func() {
 			var nodeName string
