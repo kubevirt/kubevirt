@@ -681,6 +681,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				Expect(interfaceByIfcName["ep2"].InterfaceName).To(Equal("ep2"))
 				Expect(interfaceByIfcName["ep2"].IP).To(Equal(ep2Ip))
 				Expect(interfaceByIfcName["ep2"].IPs).To(Equal([]string{ep2Ip, ep2IpV6}))
+				Expect(1).To(Equal(2))
 			})
 		})
 	})

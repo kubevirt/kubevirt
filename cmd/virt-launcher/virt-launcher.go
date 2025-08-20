@@ -481,6 +481,8 @@ func main() {
 	// managing virtual machines.
 	markReady()
 
+	log.Log.V(5).Infof("DBG hello world v5")
+
 	standalone.HandleStandaloneMode(domainManager)
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
 	if domain != nil {
