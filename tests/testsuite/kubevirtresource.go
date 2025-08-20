@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	"kubevirt.io/kubevirt/tests/libstorage"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -36,8 +38,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/utils/pointer"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -85,13 +85,6 @@ func AdjustKubeVirtResource() {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{}
 	}
 
-	kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
-		VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
-			CustomProfile: &v1.CustomProfile{
-				LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
-			},
-		},
-	}
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
 		virtconfig.CPUManager,
 		virtconfig.IgnitionGate,
@@ -107,7 +100,6 @@ func AdjustKubeVirtResource() {
 		virtconfig.ExpandDisksGate,
 		virtconfig.WorkloadEncryptionSEV,
 		virtconfig.VMExportGate,
-		virtconfig.KubevirtSeccompProfile,
 		virtconfig.HotplugNetworkIfacesGate,
 		virtconfig.VMPersistentState,
 		virtconfig.VMLiveUpdateFeaturesGate,
@@ -116,6 +108,19 @@ func AdjustKubeVirtResource() {
 	if flags.DisableCustomSELinuxPolicy {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
 			virtconfig.DisableCustomSELinuxPolicy,
+		)
+	}
+
+	if flags.UseCustomSeccompProfile {
+		kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
+			VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
+				CustomProfile: &v1.CustomProfile{
+					LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
+				},
+			},
+		}
+		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+			virtconfig.KubevirtSeccompProfile,
 		)
 	}
 
