@@ -49,7 +49,7 @@ func NewCommand() *cobra.Command {
 		RunE:    c.Run,
 	}
 
-	ssh.AddCommandlineArgs(cmd.Flags(), &c.options)
+	ssh.AddCommandlineArgs(cmd.Flags(), c.options)
 	cmd.Flags().BoolVarP(&c.recursive, recursiveFlag, recursiveFlagShort, c.recursive,
 		"Recursively copy entire directories")
 	cmd.Flags().BoolVar(&c.preserve, preserveFlag, c.preserve,
@@ -59,7 +59,7 @@ func NewCommand() *cobra.Command {
 }
 
 type SCP struct {
-	options   ssh.SSHOptions
+	options   *ssh.SSHOptions
 	recursive bool
 	preserve  bool
 }
@@ -70,13 +70,13 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	local, remote, toRemote, err := PrepareCommand(cmd, namespace, &o.options, args)
+	local, remote, toRemote, err := PrepareCommand(cmd, namespace, o.options, args)
 	if err != nil {
 		return err
 	}
 
 	clientArgs := o.buildSCPTarget(local, remote, toRemote)
-	return ssh.RunLocalClient(remote.Kind, remote.Namespace, remote.Name, &o.options, clientArgs)
+	return ssh.LocalClientCmd(remote.Kind, remote.Namespace, remote.Name, o.options, clientArgs).Run()
 }
 
 type LocalArgument struct {
