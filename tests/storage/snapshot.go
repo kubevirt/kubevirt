@@ -1426,7 +1426,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			})
 		})
 
-		Context("With VM using instancetype and preferences", func() {
+		Context("With VM using instancetype and preferences", decorators.SigComputeInstancetype, func() {
 
 			var instancetype *instancetypev1beta1.VirtualMachineInstancetype
 

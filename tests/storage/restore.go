@@ -557,7 +557,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			})
 		})
-		Context("with instancetype and preferences", decorators.RequiresSnapshotStorageClass, func() {
+		Context("with instancetype and preferences", decorators.SigComputeInstancetype, decorators.RequiresSnapshotStorageClass, func() {
 			var (
 				instancetype *instancetypev1beta1.VirtualMachineInstancetype
 				preference   *instancetypev1beta1.VirtualMachinePreference
