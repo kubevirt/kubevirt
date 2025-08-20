@@ -27,3 +27,21 @@
  ****************************************************************************/
 
 #pragma once
+
+#ifdef LIBVIRT_DLOPEN
+#define LIBVIR_CHECK_VERSION(a,b,c) 0
+#include <stddef.h>
+#else
+#include <libvirt/libvirt-admin.h>
+#include <libvirt/virterror.h>
+#endif
+
+#include "libvirt_generated.h"
+
+#include "libvirt_admin_generated_macros.h"
+#include "libvirt_admin_generated_enums.h"
+#include "libvirt_admin_generated_typedefs.h"
+#include "libvirt_admin_generated_callbacks.h"
+#include "libvirt_admin_generated_structs.h"
+#include "libvirt_admin_generated_variables.h"
+#include "libvirt_admin_generated_functions.h"

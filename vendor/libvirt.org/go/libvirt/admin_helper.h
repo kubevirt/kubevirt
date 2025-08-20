@@ -19,11 +19,32 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * Copyright (C) 2022 Red Hat, Inc.
+ * Copyright (C) 2025 Red Hat, Inc.
  *
  */
-/****************************************************************************
- * THIS CODE HAS BEEN GENERATED. DO NOT CHANGE IT DIRECTLY                  *
- ****************************************************************************/
 
-#pragma once
+#ifndef LIBVIRT_GO_ADMIN_HELPER_H__
+#define LIBVIRT_GO_ADMIN_HELPER_H__
+
+#include "libvirt_admin_generated.h"
+
+
+void
+admCloseCallbackHelper(virAdmConnectPtr conn,
+                       int reason,
+                       void *opaque);
+
+
+int
+virAdmConnectRegisterCloseCallbackHelper(virAdmConnectPtr conn,
+                                         long goCallbackId,
+                                         virErrorPtr err);
+
+
+int
+virAdmConnectUnregisterCloseCallbackHelper(virAdmConnectPtr conn,
+                                           virErrorPtr err);
+
+
+#endif /* LIBVIRT_GO_ADMIN_HELPER_H__ */
+
