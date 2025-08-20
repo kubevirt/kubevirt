@@ -1,6 +1,8 @@
 package ssh_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -63,4 +65,41 @@ var _ = Describe("SSH", func() {
 		Entry("kind vm with name with dot", "vm/testvm.default", "", "testvm.default", "vm", "", ""),
 		Entry("kind vm with name with dot and username", "user@vm/testvm.default", "", "testvm.default", "vm", "user", ""),
 	)
+
+	Context("Wrapped SSH", func() {
+		const (
+			fakeKind      = "fake-kind"
+			fakeNamespace = "fake-ns"
+			fakeName      = "fake-name"
+		)
+
+		DescribeTable("BuildSSHTarget", func(opts ssh.SSHOptions, expected string) {
+			c := ssh.NewSSH(&opts)
+			sshTarget := c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)
+			Expect(sshTarget[0]).To(Equal(expected))
+		},
+			Entry("with SSH username", ssh.SSHOptions{SSHUsername: "testuser"}, "testuser@fake-kind.fake-name.fake-ns"),
+			Entry("without SSH username", ssh.SSHOptions{}, "fake-kind.fake-name.fake-ns"),
+		)
+
+		It("BuildProxyCommandOption", func() {
+			const sshPort = 12345
+			proxyCommand := ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, sshPort)
+			expected := fmt.Sprintf("port-forward --stdio=true fake-kind/fake-name/fake-ns %d", sshPort)
+			Expect(proxyCommand).To(ContainSubstring(expected))
+		})
+
+		It("LocalClientCmd", func() {
+			opts := ssh.DefaultSSHOptions()
+			opts.SSHPort = 12345
+			c := ssh.NewSSH(opts)
+			clientArgs := c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)
+			cmd := ssh.LocalClientCmd(fakeKind, fakeNamespace, fakeName, opts, clientArgs)
+			Expect(cmd).ToNot(BeNil())
+			Expect(cmd.Args).To(HaveLen(4))
+			Expect(cmd.Args[0]).To(Equal("ssh"))
+			Expect(cmd.Args[2]).To(Equal(ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, opts.SSHPort)))
+			Expect(cmd.Args[3]).To(Equal(c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)[0]))
+		})
+	})
 })

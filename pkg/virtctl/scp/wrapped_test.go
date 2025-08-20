@@ -32,7 +32,7 @@ var _ = Describe("Wrapped SCP", func() {
 	Context("buildSCPTarget", func() {
 
 		It("with SCP username", func() {
-			scp.options = ssh.SSHOptions{SSHUsername: "testuser"}
+			scp.options = &ssh.SSHOptions{SSHUsername: "testuser"}
 			scpTarget := scp.buildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
 			Expect(scpTarget[0]).To(Equal("testuser@fake-kind.fake-name.fake-ns:/remote/fakepath"))
 		})
