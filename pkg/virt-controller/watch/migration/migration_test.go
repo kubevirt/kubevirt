@@ -61,7 +61,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 )
 
 var _ = Describe("Migration watcher", func() {
@@ -2121,79 +2120,6 @@ var _ = Describe("Migration watcher", func() {
 			Entry("with evacuation annotation", virtv1.EvacuationMigrationAnnotation),
 			Entry("with workload update annotation", virtv1.WorkloadUpdateMigrationAnnotation),
 		)
-	})
-
-	Context("Descheduler annotations", func() {
-		var vmi *virtv1.VirtualMachineInstance
-
-		It("should not add eviction-in-progress annotation in case of non evacuation migration", func() {
-			vmi = newVirtualMachine("testvmi", virtv1.Running)
-			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-
-			addMigration(migration)
-			addVirtualMachineInstance(vmi)
-			sourcePod := newSourcePodForVirtualMachine(vmi)
-			addPod(sourcePod)
-
-			sanityExecute()
-
-			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
-			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
-			updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedSourcePod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
-		})
-
-		Context("with an evacuation migration", func() {
-			It("should add eviction-in-progress annotation only to source virt-launcher pod", func() {
-				vmi = newVirtualMachine("testvmi", virtv1.Running)
-				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-				setAnnotation(virtv1.EvacuationMigrationAnnotation, migration)
-
-				addMigration(migration)
-				addVirtualMachineInstance(vmi)
-				sourcePod := newSourcePodForVirtualMachine(vmi)
-				addPod(sourcePod)
-
-				sanityExecute()
-
-				testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
-				expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
-				updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(updatedSourcePod.Annotations).To(HaveKeyWithValue(descheduler.EvictionInProgressAnnotation, "kubevirt"))
-
-				pods, err := kubeClient.CoreV1().Pods(migration.Namespace).List(context.Background(), metav1.ListOptions{
-					LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, string(migration.UID), virtv1.CreatedByLabel, string(vmi.UID)),
-				})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(pods.Items).To(HaveLen(1))
-				targetPod := pods.Items[0]
-				Expect(targetPod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
-			})
-
-			It("should remove eviction-in-progress annotation from source virt-launcher pod in case of failure", func() {
-				By("Create a pending migration")
-				vmi = newVirtualMachine("testvmi", virtv1.Running)
-				sourcePod := newSourcePodForVirtualMachine(vmi)
-				sourcePod.Annotations[descheduler.EvictionInProgressAnnotation] = "kubevirt"
-				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
-				migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-					SourcePod: sourcePod.Name,
-				}
-				setAnnotation(virtv1.EvacuationMigrationAnnotation, migration)
-
-				addMigration(migration)
-				addVirtualMachineInstance(vmi)
-				addPod(sourcePod)
-
-				sanityExecute()
-
-				updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(updatedSourcePod.Annotations).ToNot(HaveKeyWithValue(descheduler.EvictionInProgressAnnotation, ""))
-			})
-		})
 	})
 
 	Context("Migration target SELinux level", func() {
