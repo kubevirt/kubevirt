@@ -319,6 +319,8 @@ func (c *VirtualMachineController) execute(key string) error {
 		vmiExists = exists
 	}
 
+	vmiCopy := vmi.DeepCopy()
+
 	if !vmiExists {
 		c.vmiExpectations.DeleteExpectations(key)
 	} else if !c.vmiExpectations.SatisfiedExpectations(key) {
@@ -329,27 +331,27 @@ func (c *VirtualMachineController) execute(key string) error {
 	if err != nil {
 		return err
 	}
-	c.logger.Object(vmi).V(4).Infof("domain exists %v", domainExists)
+	c.logger.Object(vmiCopy).V(4).Infof("domain exists %v", domainExists)
 
 	if !vmiExists && string(domainCachedUID) != "" {
 		// it's possible to discover the UID from cache even if the domain
 		// doesn't technically exist anymore
-		vmi.UID = domainCachedUID
-		c.logger.Object(vmi).Infof("Using cached UID for vmi found in domain cache")
+		vmiCopy.UID = domainCachedUID
+		c.logger.Object(vmiCopy).Infof("Using cached UID for vmi found in domain cache")
 	}
 
 	// As a last effort, if the UID still can't be determined attempt
 	// to retrieve it from the ghost record
-	if string(vmi.UID) == "" {
+	if string(vmiCopy.UID) == "" {
 		uid := virtcache.GhostRecordGlobalStore.LastKnownUID(key)
 		if uid != "" {
-			c.logger.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)
-			vmi.UID = uid
+			c.logger.Object(vmiCopy).V(3).Infof("ghost record cache provided %s as UID", uid)
+			vmiCopy.UID = uid
 		}
 	}
 
-	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
-		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
+	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmiCopy.UID {
+		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmiCopy.Namespace, vmiCopy.Name)
 		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
 		expired, initialized, err := c.launcherClients.IsLauncherClientUnresponsive(oldVMI)
 		if err != nil {
@@ -357,7 +359,7 @@ func (c *VirtualMachineController) execute(key string) error {
 		}
 		// If we found an outdated domain which is also not alive anymore, clean up
 		if !initialized {
-			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmiCopy), time.Second*1)
 			return nil
 		} else if expired {
 			c.logger.Object(oldVMI).Infof("Detected stale vmi %s that still needs cleanup before new vmi %s with identical name/namespace can be processed", oldVMI.UID, vmi.UID)
@@ -367,7 +369,7 @@ func (c *VirtualMachineController) execute(key string) error {
 			}
 			// Make sure we re-enqueue the key to ensure this new VMI is processed
 			// after the stale domain is removed
-			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmiCopy), time.Second*5)
 		}
 
 		return nil
@@ -375,35 +377,35 @@ func (c *VirtualMachineController) execute(key string) error {
 
 	if domainExists &&
 		(domainMigrated(domain) || domain.DeletionTimestamp != nil) {
-		c.logger.Object(vmi).V(4).Info("detected orphan vmi")
-		return c.deleteVM(vmi)
+		c.logger.Object(vmiCopy).V(4).Info("detected orphan vmi")
+		return c.deleteVM(vmiCopy)
 	}
 
-	if migrations.IsMigrating(vmi) && (vmi.Status.Phase == v1.Failed) {
+	if migrations.IsMigrating(vmiCopy) && (vmiCopy.Status.Phase == v1.Failed) {
 		c.logger.V(1).Infof("cleaning up VMI key %v as migration is in progress and the vmi is failed", key)
-		err = c.processVmCleanup(vmi)
+		err = c.processVmCleanup(vmiCopy)
 		if err != nil {
 			return err
 		}
 	}
 
-	if isMigrationInProgress(vmi, domain) {
+	if isMigrationInProgress(vmiCopy, domain) {
 		c.logger.V(4).Infof("ignoring key %v as migration is in progress", key)
 		return nil
 	}
 
-	if vmiExists && !c.isVMIOwnedByNode(vmi) {
-		c.logger.Object(vmi).V(4).Info("ignoring vmi as it is not owned by this node")
+	if vmiExists && !c.isVMIOwnedByNode(vmiCopy) {
+		c.logger.Object(vmiCopy).V(4).Info("ignoring vmi as it is not owned by this node")
 		return nil
 	}
 
-	if vmiExists && vmi.IsMigrationSource() {
-		c.logger.Object(vmi).V(4).Info("ignoring vmi as it is a migration source")
+	if vmiExists && vmiCopy.IsMigrationSource() {
+		c.logger.Object(vmiCopy).V(4).Info("ignoring vmi as it is a migration source")
 		return nil
 	}
 
 	return c.sync(key,
-		vmi.DeepCopy(),
+		vmiCopy,
 		vmiExists,
 		domain,
 		domainExists)
