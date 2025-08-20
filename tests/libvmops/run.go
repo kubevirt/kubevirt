@@ -35,6 +35,16 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+const (
+	StartupTimeoutSecondsTiny   = 30
+	StartupTimeoutSecondsSmall  = 60
+	StartupTimeoutSecondsMedium = 90
+	StartupTimeoutSecondsLarge  = 120
+	StartupTimeoutSecondsXLarge = 180
+	StartupTimeoutSecondsHuge   = 240
+	StartupTimeoutSecondsXHuge  = 360
+)
+
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	return runVMI(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, watcher.WarningsPolicy{FailOnWarnings: true}, timeout)
 }

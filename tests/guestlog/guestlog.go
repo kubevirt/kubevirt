@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const cirrosStartupTimeout = 60
+const cirrosStartupTimeout = libvmops.StartupTimeoutSecondsSmall
 const testString = "GuestConsoleTest3413254123535234523"
 
 var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func() {

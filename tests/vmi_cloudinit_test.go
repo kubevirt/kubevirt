@@ -94,7 +94,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				runningVMI := libvmops.RunVMIAndExpectLaunch(vmi, 60)
+				runningVMI := libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 				runningVMI = libwait.WaitUntilVMIReady(runningVMI, console.LoginToCirros)
 
 				checkCloudInitIsoSize(runningVMI, cloudinit.DataSourceNoCloud)
@@ -118,7 +118,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudEncodedUserData(userData)),
 				)
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -157,7 +157,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := libvmifact.NewCirros(libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveUserData(userData)))
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 

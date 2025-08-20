@@ -209,9 +209,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		vmi := libvmifact.NewAlpine(options...)
 
-		const vmiStartTimeout = 30
-
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiStartTimeout)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
 		nodeName := vmi.Status.NodeName
 
 		By("Expecting the VirtualMachineInstance console")

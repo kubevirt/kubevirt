@@ -53,7 +53,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Starting the VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			setEvacuationAnnotation(migration)
@@ -78,7 +78,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 			It("should remove eviction-in-progress annotation to source virt-launcher pod", func() {
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				// Manually adding the eviction-in-progress annotation to the virt-launcher pod
 				// to avoid flakiness between annotation addition and removal
@@ -104,7 +104,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 			It("retrying immediately should be blocked by the migration backoff", func() {
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Waiting for the migration to fail")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -121,7 +121,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 			It("after a successful migration backoff should be cleared", func() {
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Waiting for the migration to fail")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)

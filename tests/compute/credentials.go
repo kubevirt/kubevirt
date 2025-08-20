@@ -49,7 +49,7 @@ import (
 var _ = Describe(SIG("Guest Access Credentials", func() {
 
 	const (
-		fedoraRunningTimeout     = 120
+		fedoraRunningTimeout     = libvmops.StartupTimeoutSecondsLarge
 		guestAgentConnectTimeout = 2 * time.Minute
 		denyListTimeout          = 2 * time.Minute
 		fedoraPassword           = "fedora"

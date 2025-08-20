@@ -19,7 +19,7 @@ var _ = PDescribe("Ensure stable functionality", func() {
 
 		experiment.Sample(func(idx int) {
 			experiment.MeasureDuration("Create VM", func() {
-				libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), 30)
+				libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), libvmops.StartupTimeoutSecondsTiny)
 			})
 		}, gmeasure.SamplingConfig{N: 15, Duration: 10 * time.Minute})
 	})
