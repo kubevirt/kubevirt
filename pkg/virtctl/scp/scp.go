@@ -76,7 +76,7 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	clientArgs := o.buildSCPTarget(local, remote, toRemote)
-	return ssh.RunLocalClient(remote.Kind, remote.Namespace, remote.Name, &o.options, clientArgs)
+	return ssh.LocalClientCmd(remote.Kind, remote.Namespace, remote.Name, &o.options, clientArgs).Run()
 }
 
 type LocalArgument struct {

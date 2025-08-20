@@ -23,7 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -47,7 +49,7 @@ const (
 func NewCommand() *cobra.Command {
 	log.InitializeLogging("ssh")
 	c := &SSH{
-		options: DefaultSSHOptions(),
+		Options: DefaultSSHOptions(),
 	}
 
 	cmd := &cobra.Command{
@@ -55,10 +57,10 @@ func NewCommand() *cobra.Command {
 		Short:   "Open a SSH connection to a virtual machine instance.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
-		RunE:    c.Run,
+		RunE:    c.run,
 	}
 
-	AddCommandlineArgs(cmd.Flags(), &c.options)
+	AddCommandlineArgs(cmd.Flags(), &c.Options)
 	cmd.Flags().StringVarP(&c.command, commandToExecute, commandToExecuteShort, c.command,
 		fmt.Sprintf(`--%s='ls /': Specify a command to execute in the VM`, commandToExecute))
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -101,7 +103,7 @@ func DefaultSSHOptions() SSHOptions {
 }
 
 type SSH struct {
-	options SSHOptions
+	Options SSHOptions
 	command string
 }
 
@@ -116,22 +118,41 @@ type SSHOptions struct {
 	LocalClientName           string
 }
 
-func (o *SSH) Run(cmd *cobra.Command, args []string) error {
+func (o *SSH) run(cmd *cobra.Command, args []string) error {
 	_, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 
-	kind, namespace, name, err := PrepareCommand(cmd, namespace, &o.options, args)
+	kind, namespace, name, err := prepareCommand(cmd, namespace, &o.Options, args)
 	if err != nil {
 		return err
 	}
 
-	clientArgs := o.buildSSHTarget(kind, namespace, name)
-	return RunLocalClient(kind, namespace, name, &o.options, clientArgs)
+	clientArgs := o.BuildSSHTarget(kind, namespace, name)
+	return LocalClientCmd(kind, namespace, name, &o.Options, clientArgs).Run()
 }
 
-func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
+func (o *SSH) BuildSSHTarget(kind, namespace, name string) (opts []string) {
+	target := strings.Builder{}
+	if len(o.Options.SSHUsername) > 0 {
+		target.WriteString(o.Options.SSHUsername)
+		target.WriteRune('@')
+	}
+	target.WriteString(kind)
+	target.WriteString(".")
+	target.WriteString(name)
+	target.WriteString(".")
+	target.WriteString(namespace)
+
+	opts = append(opts, target.String())
+	if o.command != "" {
+		opts = append(opts, o.command)
+	}
+	return
+}
+
+func prepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(IdentityFilePathFlag)
 	var targetUsername string
 	kind, namespace, name, targetUsername, err = ParseTarget(args[0])
@@ -202,4 +223,39 @@ func ParseTarget(arg string) (string, string, string, string, error) {
 	}
 
 	return kind, namespace, name, username, err
+}
+
+func LocalClientCmd(kind, namespace, name string, options *SSHOptions, clientArgs []string) *exec.Cmd {
+	args := []string{"-o"}
+	args = append(args, BuildProxyCommandOption(kind, namespace, name, options.SSHPort))
+
+	if len(options.AdditionalSSHLocalOptions) > 0 {
+		args = append(args, options.AdditionalSSHLocalOptions...)
+	}
+	if options.IdentityFilePathProvided {
+		args = append(args, "-i", options.IdentityFilePath)
+	}
+
+	args = append(args, clientArgs...)
+
+	cmd := exec.Command(options.LocalClientName, args...)
+	log.Log.V(3).Infof("running: %v", cmd)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	return cmd
+}
+
+func BuildProxyCommandOption(kind, namespace, name string, port int) string {
+	proxyCommand := strings.Builder{}
+	proxyCommand.WriteString("ProxyCommand=")
+	proxyCommand.WriteString(os.Args[0])
+	proxyCommand.WriteString(" port-forward --stdio=true ")
+	proxyCommand.WriteString(fmt.Sprintf("%s/%s/%s", kind, name, namespace))
+	proxyCommand.WriteString(" ")
+
+	proxyCommand.WriteString(strconv.Itoa(port))
+
+	return proxyCommand.String()
 }
