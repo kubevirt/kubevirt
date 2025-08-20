@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
@@ -35,47 +36,10 @@ const (
 	preserveFlag                      = "preserve"
 )
 
-func NewCommand() *cobra.Command {
-	c := &SCP{
-		options: ssh.DefaultSSHOptions(),
-	}
-
-	cmd := &cobra.Command{
-		Use:     "scp (VM|VMI)",
-		Short:   "SCP files from/to a virtual machine instance.",
-		Example: usage(),
-		Args:    cobra.ExactArgs(2),
-		RunE:    c.Run,
-	}
-
-	ssh.AddCommandlineArgs(cmd.Flags(), c.options)
-	cmd.Flags().BoolVarP(&c.recursive, recursiveFlag, recursiveFlagShort, c.recursive,
-		"Recursively copy entire directories")
-	cmd.Flags().BoolVar(&c.preserve, preserveFlag, c.preserve,
-		"Preserves modification times, access times, and modes from the original file.")
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
-}
-
-type SCP struct {
+type scp struct {
 	options   *ssh.SSHOptions
 	recursive bool
 	preserve  bool
-}
-
-func (o *SCP) Run(cmd *cobra.Command, args []string) error {
-	_, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
-	if err != nil {
-		return err
-	}
-
-	local, remote, toRemote, err := PrepareCommand(cmd, namespace, o.options, args)
-	if err != nil {
-		return err
-	}
-
-	clientArgs := o.buildSCPTarget(local, remote, toRemote)
-	return ssh.LocalClientCmd("scp", remote.Kind, remote.Namespace, remote.Name, o.options, clientArgs).Run()
 }
 
 type LocalArgument struct {
@@ -90,7 +54,80 @@ type RemoteArgument struct {
 	Path      string
 }
 
-func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHOptions, args []string) (*LocalArgument, *RemoteArgument, bool, error) {
+func NewSCP(opts *ssh.SSHOptions, recursive, preserve bool) *scp {
+	return &scp{
+		options:   opts,
+		recursive: recursive,
+		preserve:  preserve,
+	}
+}
+
+func NewCommand() *cobra.Command {
+	log.InitializeLogging("scp")
+	c := NewSCP(ssh.DefaultSSHOptions(), false, false)
+
+	cmd := &cobra.Command{
+		Use:     "scp (VM|VMI)",
+		Short:   "SCP files from/to a virtual machine instance.",
+		Example: usage(),
+		Args:    cobra.ExactArgs(2),
+		RunE:    c.run,
+	}
+
+	ssh.AddCommandlineArgs(cmd.Flags(), c.options)
+	cmd.Flags().BoolVarP(&c.recursive, recursiveFlag, recursiveFlagShort, c.recursive,
+		"Recursively copy entire directories")
+	cmd.Flags().BoolVar(&c.preserve, preserveFlag, c.preserve,
+		"Preserves modification times, access times, and modes from the original file.")
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
+}
+
+func (o *scp) run(cmd *cobra.Command, args []string) error {
+	_, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
+
+	local, remote, toRemote, err := prepareCommand(cmd, namespace, o.options, args)
+	if err != nil {
+		return err
+	}
+
+	clientArgs := o.BuildSCPTarget(local, remote, toRemote)
+	return ssh.LocalClientCmd("scp", remote.Kind, remote.Namespace, remote.Name, o.options, clientArgs).Run()
+}
+
+func (o *scp) BuildSCPTarget(local *LocalArgument, remote *RemoteArgument, toRemote bool) []string {
+	target := strings.Builder{}
+	if len(o.options.SSHUsername) > 0 {
+		target.WriteString(o.options.SSHUsername)
+		target.WriteRune('@')
+	}
+	target.WriteString(remote.Kind)
+	target.WriteRune('.')
+	target.WriteString(remote.Name)
+	target.WriteRune('.')
+	target.WriteString(remote.Namespace)
+	target.WriteRune(':')
+	target.WriteString(remote.Path)
+
+	var opts []string
+	if o.recursive {
+		opts = append(opts, "-r")
+	}
+	if o.preserve {
+		opts = append(opts, "-p")
+	}
+	if toRemote {
+		opts = append(opts, local.Path, target.String())
+	} else {
+		opts = append(opts, target.String(), local.Path)
+	}
+	return opts
+}
+
+func prepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHOptions, args []string) (*LocalArgument, *RemoteArgument, bool, error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(ssh.IdentityFilePathFlag)
 
 	local, remote, toRemote, err := ParseTarget(args[0], args[1])
@@ -141,7 +178,7 @@ func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, b
 		)
 	}
 
-	var toRemote bool
+	toRemote := false
 	if strings.Contains(destination, ":") {
 		source, destination = destination, source
 		toRemote = true
