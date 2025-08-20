@@ -4053,22 +4053,6 @@ var _ = Describe("Template", func() {
 				RunAsNonRoot: pointer.P(true),
 				FSGroup:      &nonRootUser,
 			}),
-			Entry("on a passt vmi", func() *v1.VirtualMachineInstance {
-				nonRootUser := util.NonRootUID
-				vmi := api.NewMinimalVMI("fake-vmi")
-				vmi.Status.RuntimeUser = uint64(nonRootUser)
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						DeprecatedPasst: &v1.DeprecatedInterfacePasst{},
-					},
-				}}
-				return vmi
-			}, &k8sv1.PodSecurityContext{
-				RunAsUser:    &nonRootUser,
-				RunAsGroup:   &nonRootUser,
-				RunAsNonRoot: pointer.P(true),
-				FSGroup:      &nonRootUser,
-			}),
 			Entry("on a virtiofs vmi", func() *v1.VirtualMachineInstance {
 				nonRootUser := util.NonRootUID
 				vmi := api.NewMinimalVMI("fake-vmi")
