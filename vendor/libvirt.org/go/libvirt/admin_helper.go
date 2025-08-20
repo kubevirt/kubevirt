@@ -19,11 +19,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * Copyright (C) 2022 Red Hat, Inc.
+ * Copyright (c) 2013 Alex Zorin
+ * Copyright (C) 2016 Red Hat, Inc.
  *
  */
-/****************************************************************************
- * THIS CODE HAS BEEN GENERATED. DO NOT CHANGE IT DIRECTLY                  *
- ****************************************************************************/
 
-#pragma once
+package libvirt
+
+/*
+#cgo !libvirt_dlopen pkg-config: libvirt-admin
+#cgo libvirt_dlopen LDFLAGS: -ldl
+#cgo libvirt_dlopen CFLAGS: -DLIBVIRT_DLOPEN
+#include "libvirt_admin_generated.h"
+#include "callbacks_helper.h"
+
+extern void admCloseCallback(virAdmConnectPtr, int, long);
+void admCloseCallbackHelper(virAdmConnectPtr conn, int reason, void *opaque)
+{
+    admCloseCallback(conn, reason, (long)opaque);
+}
+
+
+int
+virAdmConnectRegisterCloseCallbackHelper(virAdmConnectPtr conn,
+                                         long goCallbackId,
+                                         virErrorPtr err)
+{
+    void *id = (void *)goCallbackId;
+    return virAdmConnectRegisterCloseCallbackWrapper(conn, admCloseCallbackHelper, id,
+                                                     freeGoCallbackHelper, err);
+}
+
+
+int
+virAdmConnectUnregisterCloseCallbackHelper(virAdmConnectPtr conn,
+                                           virErrorPtr err)
+{
+    return virAdmConnectUnregisterCloseCallbackWrapper(conn, admCloseCallbackHelper, err);
+}
+
+*/
+import "C"

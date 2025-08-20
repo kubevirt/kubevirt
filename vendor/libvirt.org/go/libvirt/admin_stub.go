@@ -1,3 +1,6 @@
+//go:build libvirt_without_admin
+// +build libvirt_without_admin
+
 /*
  * This file is part of the libvirt-go-module project
  *
@@ -19,11 +22,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * Copyright (C) 2022 Red Hat, Inc.
+ * Copyright (C) 2025 Red Hat, Inc.
  *
  */
-/****************************************************************************
- * THIS CODE HAS BEEN GENERATED. DO NOT CHANGE IT DIRECTLY                  *
- ****************************************************************************/
 
-#pragma once
+package libvirt
+
+func adminInitialize() error {
+	return nil
+}
