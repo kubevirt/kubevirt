@@ -41,11 +41,12 @@ func NewCommand() *cobra.Command {
 	}
 	c.Options.LocalClientName = "scp"
 
+	const argCount = 2
 	cmd := &cobra.Command{
 		Use:     "scp (VM|VMI)",
 		Short:   "SCP files from/to a virtual machine instance.",
 		Example: usage(),
-		Args:    cobra.ExactArgs(2),
+		Args:    cobra.ExactArgs(argCount),
 		RunE:    c.run,
 	}
 
@@ -88,7 +89,7 @@ func (o *SCP) BuildSCPTarget(local *LocalArgument, remote *RemoteArgument, toRem
 	}
 
 	target := strings.Builder{}
-	if len(o.Options.SSHUsername) > 0 {
+	if o.Options.SSHUsername != "" {
 		target.WriteString(o.Options.SSHUsername)
 		target.WriteRune('@')
 	}
@@ -120,7 +121,12 @@ type RemoteArgument struct {
 	Path      string
 }
 
-func prepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHOptions, args []string) (*LocalArgument, *RemoteArgument, bool, error) {
+func prepareCommand(
+	cmd *cobra.Command,
+	fallbackNamespace string,
+	opts *ssh.SSHOptions,
+	args []string,
+) (*LocalArgument, *RemoteArgument, bool, error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(ssh.IdentityFilePathFlag)
 
 	local, remote, toRemote, err := ParseTarget(args[0], args[1])
@@ -128,11 +134,11 @@ func prepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHO
 		return nil, nil, false, err
 	}
 
-	if len(remote.Namespace) < 1 {
+	if remote.Namespace == "" {
 		remote.Namespace = fallbackNamespace
 	}
 
-	if len(remote.Username) > 0 {
+	if remote.Username != "" {
 		opts.SSHUsername = remote.Username
 	}
 
@@ -177,8 +183,9 @@ func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, b
 		toRemote = true
 	}
 
-	split := strings.SplitN(source, ":", 2)
-	if len(split) != 2 {
+	const partsCount = 2
+	split := strings.SplitN(source, ":", partsCount)
+	if len(split) != partsCount {
 		return nil, nil, toRemote, fmt.Errorf("invalid remote argument format: %q", source)
 	}
 
@@ -190,7 +197,6 @@ func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, b
 	}
 	var err error
 	remote.Kind, remote.Namespace, remote.Name, remote.Username, err = ssh.ParseTarget(split[0])
-
 	if err != nil {
 		return nil, nil, false, err
 	}
