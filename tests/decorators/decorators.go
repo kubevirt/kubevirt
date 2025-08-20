@@ -20,17 +20,18 @@ var (
 
 	/* HW */
 
-	GPU         = Label("GPU")
-	VGPU        = Label("VGPU")
-	SEV         = Label("SEV")
-	SEVES       = Label("SEVES")
-	SRIOV       = Label("SRIOV")
-	StorageReq  = Label("storage-req")
-	Multus      = Label("Multus")
-	Macvtap     = Label("Macvtap")
-	Invtsc      = Label("Invtsc")
-	KSMRequired = Label("KSM-required")
-	ACPI        = Label("ACPI")
+	GPU             = Label("GPU")
+	VGPU            = Label("VGPU")
+	SEV             = Label("SEV")
+	SEVES           = Label("SEVES")
+	SecureExecution = Label("secure-execution")
+	SRIOV           = Label("SRIOV")
+	StorageReq      = Label("storage-req")
+	Multus          = Label("Multus")
+	Macvtap         = Label("Macvtap")
+	Invtsc          = Label("Invtsc")
+	KSMRequired     = Label("KSM-required")
+	ACPI            = Label("ACPI")
 
 	/* Deployment */
 
