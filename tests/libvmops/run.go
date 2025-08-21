@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	StartupTimeoutSecondsTiny   = 30
+	StartupTimeoutSecondsTiny   = 45
 	StartupTimeoutSecondsSmall  = 60
 	StartupTimeoutSecondsMedium = 90
 	StartupTimeoutSecondsLarge  = 120
