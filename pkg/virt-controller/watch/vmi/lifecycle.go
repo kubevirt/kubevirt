@@ -410,7 +410,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return err
 		}
 
-		if allDeleted && (!vmi.IsDecentralizedMigration() || vmi.IsMigrationCompleted()) {
+		if allDeleted {
 			log.Log.V(3).Object(vmi).Infof("all pods have been deleted, removing finalizer")
 			controller.RemoveFinalizer(vmiCopy, virtv1.DeprecatedVirtualMachineInstanceFinalizer)
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
