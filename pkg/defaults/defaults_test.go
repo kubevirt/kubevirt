@@ -16,6 +16,7 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/defaults"
+	"kubevirt.io/kubevirt/pkg/libds"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -53,18 +54,9 @@ var _ = Describe("Defaults", func() {
 				})
 			})
 
-			createDataSource := func() *cdiv1beta1.DataSource {
+			createDataSource := func(options ...libds.Option) *cdiv1beta1.DataSource {
 				GinkgoHelper()
-				ds := &cdiv1beta1.DataSource{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ds",
-						Namespace: "ds-namespace",
-						Labels: map[string]string{
-							"template.kubevirt.io/architecture": templateProvidedArch,
-						},
-					},
-					Spec: cdiv1beta1.DataSourceSpec{},
-				}
+				ds := libds.New(options...)
 				ds, err := virtClient.CdiClient().CdiV1beta1().DataSources(ds.Namespace).Create(context.Background(), ds, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return ds
@@ -76,7 +68,10 @@ var _ = Describe("Defaults", func() {
 				Expect(vm.Spec.Template.Spec.Architecture).To(match)
 			},
 				Entry("user provided value when provided", func() *v1.VirtualMachine {
-					ds := createDataSource()
+					ds := createDataSource(
+						libds.WithNamespace("ds-namespace"),
+						libds.WithTemplateArchLabel(templateProvidedArch),
+					)
 					return libvmi.NewVirtualMachine(
 						libvmi.New(
 							libvmi.WithArchitecture(userProvidedArch),
@@ -89,7 +84,10 @@ var _ = Describe("Defaults", func() {
 					)
 				}, Equal(userProvidedArch)),
 				Entry("referenced DataSource provided architecture label when not provided by user", func() *v1.VirtualMachine {
-					ds := createDataSource()
+					ds := createDataSource(
+						libds.WithNamespace("ds-namespace"),
+						libds.WithTemplateArchLabel(templateProvidedArch),
+					)
 					return libvmi.NewVirtualMachine(
 						libvmi.New(),
 						libvmi.WithDataVolumeTemplate(
@@ -101,18 +99,10 @@ var _ = Describe("Defaults", func() {
 				}, Equal(templateProvidedArch)),
 				Entry("referenced DataSource (without namespace) provided architecture label when not provided by user", func() *v1.VirtualMachine {
 					const vmNamespace = "vm-namespace"
-					ds := &cdiv1beta1.DataSource{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "ds",
-							Namespace: vmNamespace,
-							Labels: map[string]string{
-								"template.kubevirt.io/architecture": templateProvidedArch,
-							},
-						},
-						Spec: cdiv1beta1.DataSourceSpec{},
-					}
-					ds, err := virtClient.CdiClient().CdiV1beta1().DataSources(vmNamespace).Create(context.Background(), ds, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					ds := createDataSource(
+						libds.WithNamespace(vmNamespace),
+						libds.WithTemplateArchLabel(templateProvidedArch),
+					)
 					return libvmi.NewVirtualMachine(
 						libvmi.New(
 							libvmi.WithNamespace(vmNamespace),
@@ -126,36 +116,19 @@ var _ = Describe("Defaults", func() {
 				}, Equal(templateProvidedArch)),
 
 				Entry("referenced nested DataSource provided architecture label when not provided by user", func() *v1.VirtualMachine {
-					nestedDS := &cdiv1beta1.DataSource{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "nested-ds",
-							Namespace: "ds-namespace",
-							Labels: map[string]string{
-								"template.kubevirt.io/architecture": templateProvidedArch,
-							},
-						},
-						Spec: cdiv1beta1.DataSourceSpec{},
-					}
-					nestedDS, err := virtClient.CdiClient().CdiV1beta1().DataSources(nestedDS.Namespace).Create(
-						context.Background(), nestedDS, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					ds := &cdiv1beta1.DataSource{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "ds",
-							Namespace: "ds-namespace",
-						},
-						Spec: cdiv1beta1.DataSourceSpec{
-							Source: cdiv1beta1.DataSourceSource{
-								DataSource: &cdiv1beta1.DataSourceRefSourceDataSource{
-									Name:      nestedDS.Name,
-									Namespace: nestedDS.Namespace,
-								},
-							},
-						},
-					}
-					ds, err = virtClient.CdiClient().CdiV1beta1().DataSources(ds.Namespace).Create(
-						context.Background(), ds, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					nestedDS := createDataSource(
+						libds.WithNamespace("ds-namespace"),
+						libds.WithTemplateArchLabel(templateProvidedArch),
+					)
+					ds := createDataSource(
+						libds.WithNamespace("ds-namespace"),
+						libds.WithDataSourceSource(
+							libds.WithDataSource(
+								nestedDS.Name,
+								nestedDS.Namespace,
+							),
+						),
+					)
 					return libvmi.NewVirtualMachine(
 						libvmi.New(),
 						libvmi.WithDataVolumeTemplate(
