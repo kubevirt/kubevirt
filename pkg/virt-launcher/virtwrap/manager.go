@@ -1172,6 +1172,8 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
+	l.syncGracePeriod(vmi)
+
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return oldSpec, nil
 }
@@ -2391,4 +2393,14 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 		flags |= libvirt.DOMAIN_START_PAUSED
 	}
 	return flags
+}
+
+func (l *LibvirtDomainManager) syncGracePeriod(vmi *v1.VirtualMachineInstance) {
+	l.metadataCache.GracePeriod.WithSafeBlock(func(gracePeriodMetadata *api.GracePeriodMetadata, _ bool) {
+		gracePeriod := converter.GracePeriodSeconds(vmi)
+		if gracePeriodMetadata.DeletionGracePeriodSeconds != gracePeriod {
+			gracePeriodMetadata.DeletionGracePeriodSeconds = gracePeriod
+			log.Log.Object(vmi).Infof("Set new termination grace period: %d", gracePeriod)
+		}
+	})
 }
