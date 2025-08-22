@@ -3308,7 +3308,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		}
 	}
 
-	if cond := conditionManager.GetCondition(vmCopy, virtv1.VirtualMachineRestartRequired); cond != nil && cond.Status == k8score.ConditionTrue {
+	if cond := conditionManager.GetCondition(vmCopy, virtv1.VirtualMachineRestartRequired); cond != nil && cond.Status == k8score.ConditionTrue && vmi != nil {
 		switch vmi.Status.Phase {
 		case virtv1.VmPhaseUnset, virtv1.Pending, virtv1.Scheduling:
 			startExist := false
