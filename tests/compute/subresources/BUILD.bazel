@@ -21,6 +21,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/compute:go_default_library",
         "//tests/console:go_default_library",
+        "//tests/decorators:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/libinstancetype/builder:go_default_library",
         "//tests/libvmifact:go_default_library",
