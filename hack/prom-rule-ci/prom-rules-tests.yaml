@@ -854,3 +854,153 @@ tests:
       - eval_time: 3m
         alertname: GuestVCPUQueueHighCritical
         exp_alerts: []
+
+  # VM Memory Pressure Alert - should not fire when there is headroom and no pressure
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_memory_usable_bytes{name="test-vm-pod", namespace="test-ns"}'
+        values: '134217728+0x15'
+      - series: 'kubevirt_vmi_memory_available_bytes{name="test-vm-pod", namespace="test-ns"}'
+        values: '2147483648+0x15'
+      - series: 'kubevirt_vmi_info{name="test-vm", namespace="test-ns", vmi_pod="test-vm-pod", phase="running"}'
+        values: '1+0x15'
+      - series: 'kubevirt_vmi_memory_pgmajfault_total{name="test-vm-pod", namespace="test-ns"}'
+        values: '0+0x15'
+      - series: 'kubevirt_vmi_memory_swap_in_traffic_bytes{name="test-vm-pod", namespace="test-ns"}'
+        values: '0+0x15'
+      - series: 'kubevirt_vmi_memory_swap_out_traffic_bytes{name="test-vm-pod", namespace="test-ns"}'
+        values: '0+0x15'
+
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: KubeVirtVMGuestMemoryPressure
+        exp_alerts: []
+
+  # VM Memory Pressure Alert - should fire when low headroom and pressure/thrashing present
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_memory_usable_bytes{name="high-memory-vm-pod", namespace="test-namespace"}'
+        values: '10485760+0x15'
+      - series: 'kubevirt_vmi_memory_available_bytes{name="high-memory-vm-pod", namespace="test-namespace"}'
+        values: '1073741824+0x15'
+      - series: 'kubevirt_vmi_info{name="high-memory-vm", namespace="test-namespace", vmi_pod="high-memory-vm-pod", phase="running"}'
+        values: '1+0x11'
+      - series: 'kubevirt_vmi_memory_pgmajfault_total{name="high-memory-vm-pod", namespace="test-namespace"}'
+        values: '0+600x11'
+      - series: 'kubevirt_vmi_memory_swap_in_traffic_bytes{name="high-memory-vm-pod", namespace="test-namespace"}'
+        values: '0+0x11'
+      - series: 'kubevirt_vmi_memory_swap_out_traffic_bytes{name="high-memory-vm-pod", namespace="test-namespace"}'
+        values: '0+0x11'
+      - series: 'kubevirt_vmi_memory_usable_bytes{name="high-memory-vm-pod2", namespace="test-namespace"}'
+        values: '10485760+0x15'
+      - series: 'kubevirt_vmi_memory_available_bytes{name="high-memory-vm-pod2", namespace="test-namespace"}'
+        values: '1073741824+0x15'
+      - series: 'kubevirt_vmi_info{name="high-memory-vm2", namespace="test-namespace", vmi_pod="high-memory-vm-pod2", phase="running"}'
+        values: '1+0x11'
+      - series: 'kubevirt_vmi_memory_pgmajfault_total{name="high-memory-vm-pod2", namespace="test-namespace"}'
+        values: '0+0x11'
+      - series: 'kubevirt_vmi_memory_swap_in_traffic_bytes{name="high-memory-vm-pod2", namespace="test-namespace"}'
+        values: '0+104857600x11'
+      - series: 'kubevirt_vmi_memory_swap_out_traffic_bytes{name="high-memory-vm-pod2", namespace="test-namespace"}'
+        values: '0+0x11'
+
+    alert_rule_test:
+      # Alert should not fire before 5 minutes
+      - eval_time: 4m
+        alertname: KubeVirtVMGuestMemoryPressure
+        exp_alerts: []
+      # Alert should fire at 10 minutes (ample time for rate seeding + 5m For)
+      - eval_time: 10m
+        alertname: KubeVirtVMGuestMemoryPressure
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachine high-memory-vm in namespace test-namespace is under memory pressure: low usable memory with elevated major faults and/or swap IO."
+              summary: "The VirtualMachine is under memory pressure (possible thrashing)"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMGuestMemoryPressure"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "high-memory-vm-pod"
+              namespace: "test-namespace"
+              vm: "high-memory-vm"
+          - exp_annotations:
+              description: "VirtualMachine high-memory-vm2 in namespace test-namespace is under memory pressure: low usable memory with elevated major faults and/or swap IO."
+              summary: "The VirtualMachine is under memory pressure (possible thrashing)"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMGuestMemoryPressure"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "high-memory-vm-pod2"
+              namespace: "test-namespace"
+              vm: "high-memory-vm2"
+
+  # VM Memory Headroom Low (no swap) - should not fire if headroom >= 3% or swap present
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_memory_usable_bytes{name="vm-headroom-ok-pod", namespace="ns"}'
+        values: '67108864+0x31'   # 64 MiB
+      - series: 'kubevirt_vmi_memory_available_bytes{name="vm-headroom-ok-pod", namespace="ns"}'
+        values: '1342177280+0x31' # 1.25 GiB -> ~5% headroom
+      - series: 'kubevirt_vmi_info{name="vm-headroom-ok", namespace="ns", vmi_pod="vm-headroom-ok-pod", phase="running"}'
+        values: '1+0x31'
+      - series: 'kubevirt_vmi_memory_swap_in_traffic_bytes{name="vm-headroom-ok-pod", namespace="ns"}'
+        values: '0+0x31'
+      - series: 'kubevirt_vmi_memory_swap_out_traffic_bytes{name="vm-headroom-ok-pod", namespace="ns"}'
+        values: '0+0x31'
+
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: KubeVirtVMGuestMemoryAvailableLow
+        exp_alerts: []
+
+  # VM Memory Headroom Low (no swap) - should fire when headroom < 3% for 30m and no swap IO
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_memory_usable_bytes{name="vm-headroom-low-pod", namespace="ns"}'
+        values: '10485760+0x31'   # 10 MiB
+      - series: 'kubevirt_vmi_memory_available_bytes{name="vm-headroom-low-pod", namespace="ns"}'
+        values: '1073741824+0x31' # 1 GiB -> ~1% headroom
+      - series: 'kubevirt_vmi_info{name="vm-headroom-low", namespace="ns", vmi_pod="vm-headroom-low-pod", phase="running"}'
+        values: '1+0x31'
+      - series: 'kubevirt_vmi_memory_pgmajfault_total{name="vm-headroom-low-pod", namespace="ns"}'
+        values: '0+0x31'
+      - series: 'kubevirt_vmi_memory_swap_in_traffic_bytes{name="vm-headroom-low-pod", namespace="ns"}'
+        values: '0+0x31'
+      - series: 'kubevirt_vmi_memory_swap_out_traffic_bytes{name="vm-headroom-low-pod", namespace="ns"}'
+        values: '0+0x31'
+      - series: 'kubevirt_vmi_memory_usable_bytes{name="vm-headroom-low-pod2", namespace="ns"}'
+        values: '10485760+0x31'   # 10 MiB
+      - series: 'kubevirt_vmi_memory_available_bytes{name="vm-headroom-low-pod2", namespace="ns"}'
+        values: '1073741824+0x31' # 1 GiB -> ~1% headroom
+      - series: 'kubevirt_vmi_info{name="vm-headroom-low2", namespace="ns", vmi_pod="vm-headroom-low-pod2", phase="running"}'
+        values: '1+0x31'
+      - series: 'kubevirt_vmi_memory_pgmajfault_total{name="vm-headroom-low-pod2", namespace="ns"}'
+        values: '0+0x31'
+      - series: 'kubevirt_vmi_memory_swap_in_traffic_bytes{name="vm-headroom-low-pod2", namespace="ns"}'
+        values: '0+1048576x31'
+      - series: 'kubevirt_vmi_memory_swap_out_traffic_bytes{name="vm-headroom-low-pod2", namespace="ns"}'
+        values: '0+0x31'
+
+    alert_rule_test:
+      - eval_time: 29m
+        alertname: KubeVirtVMGuestMemoryAvailableLow
+        exp_alerts: []
+      - eval_time: 31m
+        alertname: KubeVirtVMGuestMemoryAvailableLow
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachine vm-headroom-low in namespace ns has very low available memory (<3% headroom) for 30 minutes with no meaningful swap IO (likely no swap)."
+              summary: "The VirtualMachine has low available memory without swap"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMGuestMemoryAvailableLow"
+            exp_labels:
+              severity: "info"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-headroom-low-pod"
+              namespace: "ns"
+              vm: "vm-headroom-low"
