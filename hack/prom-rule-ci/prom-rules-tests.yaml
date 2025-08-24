@@ -520,15 +520,15 @@ tests:
         # time:  0          1          2          3
         values: "1073176576 1073176576 1073176576 1273176576"
     promql_expr_test:
-      - expr: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes'
+      - expr: 'kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes'
         eval_time: 1m
         exp_samples:
-          - labels: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
+          - labels: 'kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
             value: 303706112
-      - expr: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes'
+      - expr: 'kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes'
         eval_time: 3m
         exp_samples:
-          - labels: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
+          - labels: 'kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
             value: 103706112
   # VM eviction strategy is set but vm is not migratable
   - interval: 1m
