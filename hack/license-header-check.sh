@@ -36,6 +36,8 @@ TARGET_DIRS=(
     "pkg/virtctl/memorydump"
     "pkg/virtctl/vmexport"
     "pkg/virt-api"
+    "pkg/virt-handler"
+    "pkg/handler-launcher-com"
 )
 
 IGNORE_FILES=(
@@ -43,9 +45,29 @@ IGNORE_FILES=(
     "pkg/network/dhcp/generated_mock_configurator.go"
     "pkg/network/driver/generated_mock_common.go"
     "pkg/virt-api/rest/generated_mock_authorizer.go"
+    "pkg/virt-handler/cgroup/generated_mock_cgroup.go"
+    "pkg/virt-handler/cmd-client/generated_mock_client.go"
+    "pkg/virt-handler/container-disk/generated_mock_mount.go"
+    "pkg/virt-handler/device-manager/deviceplugin/v1beta1/api.pb.go"
+    "pkg/virt-handler/device-manager/generated_mock_common.go"
+    "pkg/virt-handler/device-manager/generated_mock_socket_device.go"
+    "pkg/virt-handler/hotplug-disk/generated_mock_mount.go"
+    "pkg/virt-handler/isolation/generated_mock_detector.go"
+    "pkg/virt-handler/isolation/generated_mock_isolation.go"
+    "pkg/virt-handler/selinux/generated_mock_executor.go"
+    "pkg/virt-handler/selinux/generated_mock_labels.go"
+    "pkg/virt-handler/multipath-monitor/generated_mock_multipath_monitor.go"
+    "pkg/handler-launcher-com/cmd/info/info.pb.go"
+    "pkg/handler-launcher-com/cmd/info/generated_mock_info.go"
+    "pkg/handler-launcher-com/cmd/v1/cmd.pb.go"
+    "pkg/handler-launcher-com/cmd/v1/generated_mock_cmd.go"
+    "pkg/handler-launcher-com/notify/info/generated_mock_info.go"
+    "pkg/handler-launcher-com/notify/info/info.pb.go"
+    "pkg/handler-launcher-com/notify/v1/notify.pb.go"
 
     # K8s files
     "pkg/virt-api/webhooks/validating-webhook/admitters/validate-k8s-utils.go"
+    "pkg/virt-handler/device-manager/deviceplugin/v1beta1/constants.go"
 )
 
 MISSING_LICENSE_FILES=()
