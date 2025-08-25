@@ -50,6 +50,7 @@ var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
 type KernelBootSocketPathGetter func(vmi *v1.VirtualMachineInstance) (string, error)
 
+const LauncherVolume = "launcher-volume"
 const KernelBootName = "kernel-boot"
 const KernelBootVolumeName = KernelBootName + "-volume"
 
@@ -385,7 +386,7 @@ func getContainerDiskSocketBasePath(baseDir, podUID string) string {
 
 // ExtractImageIDsFromSourcePod takes the VMI and its source pod to determine the exact image used by containerdisks and boot container images,
 // which is recorded in the status section of a started pod
-func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kubev1.Pod) (imageIDs map[string]string, err error) {
+func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kubev1.Pod, imageVolumeEnabled bool) (imageIDs map[string]string, err error) {
 	imageIDs = map[string]string{}
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk == nil {
@@ -398,7 +399,12 @@ func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kub
 		imageIDs[KernelBootVolumeName] = vmi.Spec.Domain.Firmware.KernelBoot.Container.Image
 	}
 
-	for _, status := range sourcePod.Status.ContainerStatuses {
+	containersToCheck := sourcePod.Status.ContainerStatuses
+	if imageVolumeEnabled {
+		containersToCheck = append(containersToCheck, sourcePod.Status.InitContainerStatuses...)
+	}
+
+	for _, status := range containersToCheck {
 		if !isImageVolume(status.Name) {
 			continue
 		}

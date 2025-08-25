@@ -119,6 +119,7 @@ func AdjustKubeVirtResource() {
 		featuregate.DeclarativeHotplugVolumesGate,
 		featuregate.NodeRestrictionGate,
 		featuregate.DecentralizedLiveMigration,
+		featuregate.ImageVolume,
 	)
 
 	storageClass, exists := libstorage.GetVMStateStorageClass()

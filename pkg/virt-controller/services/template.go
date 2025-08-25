@@ -25,6 +25,7 @@ import (
 	"maps"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -273,7 +274,7 @@ func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
-	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod)
+	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod, t.clusterConfig.ImageVolumeEnabled())
 	if err != nil {
 		return nil, fmt.Errorf("can not proceed with the migration when no reproducible image digest can be detected: %v", err)
 	}
@@ -444,7 +445,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		command = append(command, "--simulate-crash")
 	}
 
-	volumeRenderer, err := t.newVolumeRenderer(vmi, namespace, requestedHookSidecarList, backendStoragePVCName)
+	volumeRenderer, err := t.newVolumeRenderer(vmi, imageIDs, namespace, requestedHookSidecarList, backendStoragePVCName)
 	if err != nil {
 		return nil, err
 	}
@@ -583,6 +584,68 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		kernelBootInitContainer := containerdisk.GenerateKernelBootInitContainer(vmi, t.clusterConfig, imageIDs, containerDisks, virtBinDir)
 		if kernelBootInitContainer != nil {
 			initContainers = append(initContainers, *kernelBootInitContainer)
+		}
+	} else if t.clusterConfig.ImageVolumeEnabled() {
+		r := k8sv1.ResourceRequirements{
+			Requests: k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("1m"),
+				k8sv1.ResourceMemory: resource.MustParse("40M"),
+			},
+			Limits: k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("1m"),
+				k8sv1.ResourceMemory: resource.MustParse("40M"),
+			},
+		}
+		for _, volume := range vmi.Spec.Volumes {
+			if volume.ContainerDisk == nil {
+				continue
+			}
+			initContainer := &k8sv1.Container{
+				Name:            fmt.Sprintf("volume%s", volume.Name),
+				Image:           volume.ContainerDisk.Image,
+				ImagePullPolicy: volume.ContainerDisk.ImagePullPolicy,
+				Command:         []string{filepath.Join(util.ContainerBinary, "/usr/bin/container-disk")},
+				Args:            []string{"--no-op"},
+				Resources:       r,
+				SecurityContext: &k8sv1.SecurityContext{
+					RunAsUser:                &userId,
+					RunAsNonRoot:             &nonRoot,
+					AllowPrivilegeEscalation: pointer.P(false),
+					Capabilities: &k8sv1.Capabilities{
+						Drop: []k8sv1.Capability{"ALL"},
+					},
+				},
+				VolumeMounts: []k8sv1.VolumeMount{{
+					Name:      containerdisk.LauncherVolume,
+					MountPath: util.ContainerBinary,
+					ReadOnly:  true,
+				}},
+			}
+			initContainers = append(initContainers, *initContainer)
+		}
+		if util.HasKernelBootContainerImage(vmi) {
+			kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
+			initContainer := &k8sv1.Container{
+				Name:            fmt.Sprintf("volume%s", containerdisk.KernelBootVolumeName),
+				Image:           kernelBootContainer.Image,
+				ImagePullPolicy: kernelBootContainer.ImagePullPolicy,
+				Command:         []string{filepath.Join(util.ContainerBinary, "/usr/bin/container-disk")},
+				Args:            []string{"--no-op"}, Resources: r,
+				SecurityContext: &k8sv1.SecurityContext{
+					RunAsUser:                &userId,
+					RunAsNonRoot:             &nonRoot,
+					AllowPrivilegeEscalation: pointer.P(false),
+					Capabilities: &k8sv1.Capabilities{
+						Drop: []k8sv1.Capability{"ALL"},
+					},
+				},
+				VolumeMounts: []k8sv1.VolumeMount{{
+					Name:      containerdisk.LauncherVolume,
+					MountPath: util.ContainerBinary,
+					ReadOnly:  true,
+				}},
+			}
+			initContainers = append(initContainers, *initContainer)
 		}
 	}
 
@@ -823,7 +886,7 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	return containerRenderer
 }
 
-func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
+func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
 	imageVolumeFeatureGateEnabled := t.clusterConfig.ImageVolumeEnabled()
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
@@ -860,7 +923,10 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 	}
 
 	volumeRenderer, err := NewVolumeRenderer(
+		t.clusterConfig,
 		imageVolumeFeatureGateEnabled,
+		t.launcherImage,
+		imageIDs,
 		namespace,
 		t.ephemeralDiskDir,
 		t.containerDiskDir,
