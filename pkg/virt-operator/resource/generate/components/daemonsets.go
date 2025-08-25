@@ -21,7 +21,6 @@ import (
 
 const (
 	VirtHandlerName = "virt-handler"
-	kubeletPodsPath = util.KubeletRoot + "/pods"
 	runtimesPath    = "/var/run/kubevirt-libvirt-runtimes"
 	PrHelperName    = "pr-helper"
 	prVolumeName    = "pr-helper-socket-vol"
@@ -65,7 +64,7 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 	}
 }
 
-func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool) *appsv1.DaemonSet {
+func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, specificHostPath map[string]string, enablePrHelper bool) *appsv1.DaemonSet {
 
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -282,6 +281,26 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	attachCertificateSecret(pod, VirtHandlerServerCertSecretName, "/etc/virt-handler/servercertificates")
 	attachProfileVolume(pod)
 
+	kubeletRootHostPath, ok := specificHostPath["kubelet"]
+	if !ok {
+		kubeletRootHostPath = util.KubeletRoot
+	}
+	kubeletPodsHostPath, ok := specificHostPath["kubelet-pods"]
+	if !ok {
+		kubeletPodsHostPath = kubeletRootHostPath + "/pods"
+	}
+	kubeletDevicePluginsHostPath, ok := specificHostPath["kubelet-device-plugins"]
+	if !ok {
+		kubeletDevicePluginsHostPath = kubeletRootHostPath + "/device-plugins"
+	}
+
+	if kubeletPodsHostPath != util.KubeletPodsDir {
+		// NOTE: if kubeletPodsHostPath is not the same as the default value,
+		// we need to pass it as the `--kubelet-pods-dir` argument to the virt-handler,
+		// so that it can be used by virt-launcher.
+		container.Args = append(container.Args, "--kubelet-pods-dir", kubeletPodsHostPath)
+	}
+
 	bidi := corev1.MountPropagationBidirectional
 	// NOTE: the 'kubelet-pods' volume mount exists because that path holds unix socket files.
 	// Socket files fail when their path is longer than 108 characters,
@@ -291,8 +310,9 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		{"libvirt-runtimes", runtimesPath, runtimesPath, nil},
 		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},
 		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil},
-		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
-		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi},
+		{"kubelet-pods", kubeletPodsHostPath, kubeletPodsHostPath, &bidi},
+		{"kubelet-pods-shortened", kubeletPodsHostPath, "/pods", nil},
+		{"kubelet-device-plugins", kubeletDevicePluginsHostPath, util.KubeletDevicePluginsDir, nil},
 		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
 	}
 
