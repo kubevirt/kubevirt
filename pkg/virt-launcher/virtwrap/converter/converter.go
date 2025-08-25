@@ -1555,6 +1555,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	if vmi.Spec.Domain.OemStrings != nil {
+		oemStrings := make([]string, 0, len(vmi.Spec.Domain.OemStrings))
+		for _, oemString := range vmi.Spec.Domain.OemStrings {
+			oemStrings = append(oemStrings, oemString)
+		}
+		domain.Spec.SysInfo.OemStrings = &api.OemStrings{Entries: oemStrings}
+	}
+
 	if err = setupDomainMemory(vmi, domain); err != nil {
 		return err
 	}
