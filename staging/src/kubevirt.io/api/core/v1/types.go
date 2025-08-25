@@ -2878,10 +2878,11 @@ type KubeVirtConfiguration struct {
 	SupportContainerResources []SupportContainerResources `json:"supportContainerResources,omitempty"`
 
 	// deprecated
-	SupportedGuestAgentVersions    []string                          `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod          *uint32                           `json:"memBalloonStatsPeriod,omitempty"`
-	PermittedHostDevices           *PermittedHostDevices             `json:"permittedHostDevices,omitempty"`
-	MediatedDevicesConfiguration   *MediatedDevicesConfiguration     `json:"mediatedDevicesConfiguration,omitempty"`
+	SupportedGuestAgentVersions  []string                      `json:"supportedGuestAgentVersions,omitempty"`
+	MemBalloonStatsPeriod        *uint32                       `json:"memBalloonStatsPeriod,omitempty"`
+	PermittedHostDevices         *PermittedHostDevices         `json:"permittedHostDevices,omitempty"`
+	MediatedDevicesConfiguration *MediatedDevicesConfiguration `json:"mediatedDevicesConfiguration,omitempty"`
+	// deprecated
 	MinCPUModel                    string                            `json:"minCPUModel,omitempty"`
 	ObsoleteCPUModels              map[string]bool                   `json:"obsoleteCPUModels,omitempty"`
 	VirtualMachineInstancesPerNode *int                              `json:"virtualMachineInstancesPerNode,omitempty"`
