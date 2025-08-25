@@ -20,7 +20,7 @@
   VEP tracking issue if this PR is implementing one.
   For additional info about VEP tracking issue, see https://github.com/kubevirt/enhancements#process
   
-- VEP tracking issue: https://github.com/kubevirt/enhancements/issue/<vep_tracking_issue_number>
+- VEP tracking issue: https://github.com/kubevirt/enhancements/issues/<vep_tracking_issue_number>
 -->
 
 ### Why we need it and why it was done in this way
