@@ -24,7 +24,7 @@ func IsCPUManagerPresent(node *k8sv1.Node) bool {
 	nodeHaveCpuManagerLabel := false
 
 	for label, val := range node.Labels {
-		if label == v1.CPUManager && val == "true" {
+		if label == v1.DeprecatedCPUManager && val == "true" {
 			nodeHaveCpuManagerLabel = true
 			break
 		}
