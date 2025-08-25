@@ -3308,6 +3308,45 @@ var _ = Describe("Converter", func() {
 				Expect(domain.Spec.Memory.Unit).To(Equal("b"))
 				Expect(domain.Spec.Memory.Value).To(Equal(uint64(guestMemory.Value())))
 			})
+
+			DescribeTable("should correctly convert memory configuration from VMI spec to domain",
+				func(expectedMemoryMiB int64, opts ...libvmi.Option) {
+
+					vmi := libvmi.New(opts...)
+
+					v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+					testContext := &ConverterContext{
+						VirtualMachine: vmi,
+						AllowEmulation: true,
+						Architecture:   archconverter.NewConverter(runtime.GOARCH),
+					}
+
+					apiDomainSpec := vmiToDomainXMLToDomainSpec(vmi, testContext)
+
+					expectedBytes := expectedMemoryMiB * 1024 * 1024
+					Expect(apiDomainSpec.Memory.Value).To(Equal(uint64(expectedBytes)),
+						"Memory value should be %d bytes (%d MiB)", expectedBytes, expectedMemoryMiB)
+					Expect(apiDomainSpec.Memory.Unit).To(Equal("b"))
+				},
+				Entry("provided by domain spec directly (guest memory takes precedence over limits)",
+					int64(512),
+					libvmi.WithGuestMemory("512Mi"),
+				),
+				Entry("provided by resources limits (no guest memory, no request)",
+					int64(256),
+					libvmi.WithMemoryLimit("256Mi"),
+				),
+				Entry("provided by resources requests (request takes precedence over limit when both set)",
+					int64(64),
+					libvmi.WithMemoryRequest("64Mi"),
+					libvmi.WithMemoryLimit("256Gi"),
+				),
+				Entry("provided by resources requests only",
+					int64(128),
+					libvmi.WithMemoryRequest("128Mi"),
+				),
+			)
 		})
 	})
 
