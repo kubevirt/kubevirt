@@ -85,6 +85,7 @@ const (
 
 	ClusterProfiler = "ClusterProfiler"
 
+	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
 	VMPersistentState = "VMPersistentState"
 
 	// Owner: @lyarwood
