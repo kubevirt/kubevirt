@@ -35,7 +35,6 @@ go_test(
     embed = [":go_default_library"],
     embedsrcs = [
         "testdata/domain_x86_64.xml.tmpl",
-        "testdata/domain_ppc64le.xml.tmpl",
         "testdata/domain_arm64.xml.tmpl",
         "testdata/domain_numa_topology.xml",
         "testdata/cpu_pinning.xml",

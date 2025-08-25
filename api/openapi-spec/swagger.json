@@ -12838,6 +12838,7 @@
       "type": "string"
      },
      "ppc64le": {
+      "description": "Deprecated: ppc64le architecture is no longer supported.",
       "$ref": "#/definitions/v1.ArchSpecificConfiguration"
      },
      "s390x": {

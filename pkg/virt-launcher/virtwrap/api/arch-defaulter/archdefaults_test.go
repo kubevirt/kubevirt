@@ -30,7 +30,6 @@ var _ = ginkgo.Describe("Arch Defaulter", func() {
 	},
 		ginkgo.Entry("amd64", "amd64", defaulterAMD64{}),
 		ginkgo.Entry("arm64", "arm64", defaulterARM64{}),
-		ginkgo.Entry("ppc64le", "ppc64le", defaulterPPC64{}),
 		ginkgo.Entry("s390x", "s390x", defaulterS390X{}),
 		ginkgo.Entry("unkown", "unknown", defaulterAMD64{}),
 	)
