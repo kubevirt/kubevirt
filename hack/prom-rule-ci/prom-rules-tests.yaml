@@ -572,6 +572,27 @@ tests:
         alertname: VMCannotBeEvicted
         exp_alerts: []
 
+  # Test recording rule for operator memory delta including virt-launcher
+  - interval: 1m
+    input_series:
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-foo-1", namespace="ns-a", container="compute"}'
+        values: '1500 1500'
+      - series: 'container_memory_rss{pod="virt-launcher-foo-1", namespace="ns-a", container="compute"}'
+        values: '1200 1200'
+      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-foo-1", namespace="ns-a", container="compute", resource="memory"}'
+        values: '1000 1000'
+    promql_expr_test:
+      - expr: 'kubevirt_memory_delta_from_requested_bytes{reason="memory_working_set_delta_from_request"}'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'kubevirt_memory_delta_from_requested_bytes{container="compute",namespace="ns-a",pod="virt-launcher-foo-1",reason="memory_working_set_delta_from_request"}'
+            value: 500
+      - expr: 'kubevirt_memory_delta_from_requested_bytes{reason="memory_rss_delta_from_request"}'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'kubevirt_memory_delta_from_requested_bytes{container="compute",namespace="ns-a",pod="virt-launcher-foo-1",reason="memory_rss_delta_from_request"}'
+            value: 200
+
   # Test recording rule
   - interval: 1m
     input_series:
