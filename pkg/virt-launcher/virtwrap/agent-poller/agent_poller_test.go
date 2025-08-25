@@ -209,6 +209,19 @@ var _ = Describe("Qemu agent poller", func() {
 
 			Expect(*osInfo).To(Equal(fakeInfo))
 		})
+
+		It("should not fire an event for a new GET_FILESYSTEM", func() {
+			fakeFileSystemInfo := []api.Filesystem{
+				{
+					Name: "test",
+				},
+			}
+			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_FILESYSTEM, fakeFileSystemInfo)
+
+			Expect(agentStore.AgentUpdated).NotTo(Receive(Equal(AgentUpdatedEvent{
+				DomainInfo: api.DomainGuestInfo{},
+			})))
+		})
 	})
 
 	Context("PollerWorker", func() {
