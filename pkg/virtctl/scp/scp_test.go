@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/scp"
+	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 )
 
 var _ = Describe("SCP", func() {
@@ -38,10 +39,79 @@ var _ = Describe("SCP", func() {
 		Expect(err).To(MatchError(expectedError))
 	},
 		Entry("when two local locations are specified",
-			"myfile.yaml", "otherfile.yaml", "none of the two provided locations seems to be a remote location: \"myfile.yaml\" to \"otherfile.yaml\"",
+			"myfile.yaml", "otherfile.yaml",
+			"none of the two provided locations seems to be a remote location: \"myfile.yaml\" to \"otherfile.yaml\"",
 		),
 		Entry("when two remote locations are specified",
-			"remotenode:myfile.yaml", "othernode:otherfile.yaml", "copying from a remote location to another remote location is not supported: \"remotenode:myfile.yaml\" to \"othernode:otherfile.yaml\"",
+			"remotenode:myfile.yaml", "othernode:otherfile.yaml",
+			"copying from a remote location to another remote location is not supported: \"remotenode:myfile.yaml\" to \"othernode:otherfile.yaml\"",
 		),
 	)
+
+	Context("BuildSCPTarget", func() {
+		var (
+			fakeLocal    *scp.LocalArgument
+			fakeRemote   *scp.RemoteArgument
+			fakeToRemote bool
+			scpObj       *scp.SCP
+		)
+
+		BeforeEach(func() {
+			fakeLocal = &scp.LocalArgument{
+				Path: "/local/fakepath",
+			}
+			fakeRemote = &scp.RemoteArgument{
+				Kind:      "fake-kind",
+				Namespace: "fake-ns",
+				Name:      "fake-name",
+				Path:      "/remote/fakepath",
+			}
+			fakeToRemote = false
+			scpObj = &scp.SCP{}
+		})
+
+		It("with SCP username", func() {
+			scpObj.Options = ssh.SSHOptions{SSHUsername: "testuser"}
+			scpTarget := scpObj.BuildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
+			Expect(scpTarget[0]).To(Equal("testuser@fake-kind.fake-name.fake-ns:/remote/fakepath"))
+		})
+
+		It("without SCP username", func() {
+			scpTarget := scpObj.BuildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
+			Expect(scpTarget[0]).To(Equal("fake-kind.fake-name.fake-ns:/remote/fakepath"))
+		})
+
+		It("with recursive", func() {
+			scpObj.Recursive = true
+			scpTarget := scpObj.BuildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
+			Expect(scpTarget[0]).To(Equal("-r"))
+		})
+
+		It("with preserve", func() {
+			scpObj.Preserve = true
+			scpTarget := scpObj.BuildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
+			Expect(scpTarget[0]).To(Equal("-p"))
+		})
+
+		It("with Recursive and Preserve", func() {
+			scpObj.Recursive = true
+			scpObj.Preserve = true
+			scpTarget := scpObj.BuildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
+			Expect(scpTarget[0]).To(Equal("-r"))
+			Expect(scpTarget[1]).To(Equal("-p"))
+		})
+
+		It("toRemote = false", func() {
+			scpTarget := scpObj.BuildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
+			Expect(scpTarget[0]).To(Equal("fake-kind.fake-name.fake-ns:/remote/fakepath"))
+			Expect(scpTarget[1]).To(Equal("/local/fakepath"))
+		})
+
+		It("toRemote = true", func() {
+			fakeToRemote = true
+			scpTarget := scpObj.BuildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
+			Expect(scpTarget[0]).To(Equal("/local/fakepath"))
+			Expect(scpTarget[1]).To(Equal("fake-kind.fake-name.fake-ns:/remote/fakepath"))
+		})
+	})
 })

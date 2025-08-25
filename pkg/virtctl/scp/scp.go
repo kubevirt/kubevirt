@@ -37,50 +37,76 @@ const (
 
 func NewCommand() *cobra.Command {
 	c := &SCP{
-		options: ssh.DefaultSSHOptions(),
+		Options: ssh.DefaultSSHOptions(),
 	}
-	c.options.LocalClientName = "scp"
+	c.Options.LocalClientName = "scp"
 
+	const argCount = 2
 	cmd := &cobra.Command{
 		Use:     "scp (VM|VMI)",
 		Short:   "SCP files from/to a virtual machine instance.",
 		Example: usage(),
-		Args:    cobra.ExactArgs(2),
-		RunE:    c.Run,
+		Args:    cobra.ExactArgs(argCount),
+		RunE:    c.run,
 	}
 
-	ssh.AddCommandlineArgs(cmd.Flags(), &c.options)
-	cmd.Flags().BoolVarP(&c.recursive, recursiveFlag, recursiveFlagShort, c.recursive,
+	ssh.AddCommandlineArgs(cmd.Flags(), &c.Options)
+	cmd.Flags().BoolVarP(&c.Recursive, recursiveFlag, recursiveFlagShort, c.Recursive,
 		"Recursively copy entire directories")
-	cmd.Flags().BoolVar(&c.preserve, preserveFlag, c.preserve,
+	cmd.Flags().BoolVar(&c.Preserve, preserveFlag, c.Preserve,
 		"Preserves modification times, access times, and modes from the original file.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 type SCP struct {
-	options   ssh.SSHOptions
-	recursive bool
-	preserve  bool
+	Options   ssh.SSHOptions
+	Recursive bool
+	Preserve  bool
 }
 
-func (o *SCP) Run(cmd *cobra.Command, args []string) error {
-	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+func (o *SCP) run(cmd *cobra.Command, args []string) error {
+	_, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 
-	local, remote, toRemote, err := PrepareCommand(cmd, namespace, &o.options, args)
+	local, remote, toRemote, err := prepareCommand(cmd, namespace, &o.Options, args)
 	if err != nil {
 		return err
 	}
 
-	if o.options.WrapLocalSSH {
-		clientArgs := o.buildSCPTarget(local, remote, toRemote)
-		return ssh.RunLocalClient(remote.Kind, remote.Namespace, remote.Name, &o.options, clientArgs)
+	clientArgs := o.BuildSCPTarget(local, remote, toRemote)
+	return ssh.LocalClientCmd(remote.Kind, remote.Namespace, remote.Name, &o.Options, clientArgs).Run()
+}
+
+func (o *SCP) BuildSCPTarget(local *LocalArgument, remote *RemoteArgument, toRemote bool) (opts []string) {
+	if o.Recursive {
+		opts = append(opts, "-r")
+	}
+	if o.Preserve {
+		opts = append(opts, "-p")
 	}
 
-	return o.nativeSCP(local, remote, toRemote, client)
+	target := strings.Builder{}
+	if o.Options.SSHUsername != "" {
+		target.WriteString(o.Options.SSHUsername)
+		target.WriteRune('@')
+	}
+	target.WriteString(remote.Kind)
+	target.WriteString(".")
+	target.WriteString(remote.Name)
+	target.WriteString(".")
+	target.WriteString(remote.Namespace)
+	target.WriteRune(':')
+	target.WriteString(remote.Path)
+
+	if toRemote {
+		opts = append(opts, local.Path, target.String())
+	} else {
+		opts = append(opts, target.String(), local.Path)
+	}
+	return
 }
 
 type LocalArgument struct {
@@ -95,7 +121,12 @@ type RemoteArgument struct {
 	Path      string
 }
 
-func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHOptions, args []string) (*LocalArgument, *RemoteArgument, bool, error) {
+func prepareCommand(
+	cmd *cobra.Command,
+	fallbackNamespace string,
+	opts *ssh.SSHOptions,
+	args []string,
+) (*LocalArgument, *RemoteArgument, bool, error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(ssh.IdentityFilePathFlag)
 
 	local, remote, toRemote, err := ParseTarget(args[0], args[1])
@@ -103,11 +134,11 @@ func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHO
 		return nil, nil, false, err
 	}
 
-	if len(remote.Namespace) < 1 {
+	if remote.Namespace == "" {
 		remote.Namespace = fallbackNamespace
 	}
 
-	if len(remote.Username) > 0 {
+	if remote.Username != "" {
 		opts.SSHUsername = remote.Username
 	}
 
@@ -119,7 +150,7 @@ func usage() string {
   {{ProgramName}} scp myfile.bin jdoe@vmi/testvmi:myfile.bin
 
   # Copy a directory to the remote home folder of user jdoe
-  {{ProgramName}} scp --recursive ~/mydir/ jdoe@vmi/testvmi:./mydir
+  {{ProgramName}} scp --Recursive ~/mydir/ jdoe@vmi/testvmi:./mydir
 
   # Copy a file to the remote home folder of user jdoe without specifying a file name on the target
   {{ProgramName}} scp myfile.bin jdoe@vmi/testvmi:.
@@ -152,8 +183,9 @@ func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, b
 		toRemote = true
 	}
 
-	split := strings.SplitN(source, ":", 2)
-	if len(split) != 2 {
+	const partsCount = 2
+	split := strings.SplitN(source, ":", partsCount)
+	if len(split) != partsCount {
 		return nil, nil, toRemote, fmt.Errorf("invalid remote argument format: %q", source)
 	}
 
@@ -165,7 +197,6 @@ func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, b
 	}
 	var err error
 	remote.Kind, remote.Namespace, remote.Name, remote.Username, err = ssh.ParseTarget(split[0])
-
 	if err != nil {
 		return nil, nil, false, err
 	}

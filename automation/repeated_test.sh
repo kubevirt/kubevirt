@@ -232,7 +232,6 @@ label_filter="${KUBEVIRT_LABEL_FILTER:-}"
 add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU))" "&&"
 
 add_to_label_filter '(!QUARANTINE)' '&&'
-add_to_label_filter '(!exclude-native-ssh)' '&&'
 add_to_label_filter '(!no-flake-check)' '&&'
 # check-tests-for-flake does not support Istio tests, remove this filtering once it does.
 add_to_label_filter '(!Istio)' '&&'
