@@ -2333,8 +2333,11 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			By("Adding the first cert")
 			cm.Data[components.CABundleKey] = string(cert1Encoded)
-			_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(context.Background(), cm, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(context.Background(), cm, metav1.UpdateOptions{})
+				return err
+			}).Should(Succeed())
+
 			Eventually(func(g Gomega) {
 				cm, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
@@ -2347,8 +2350,11 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			By("Adding an invalid string to the configmap, should be ignored and removed from the external CA configmap")
 			cm.Data[components.CABundleKey] = "invalid"
-			_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(context.Background(), cm, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(context.Background(), cm, metav1.UpdateOptions{})
+				return err
+			}).Should(Succeed())
+
 			Eventually(func(g Gomega) {
 				cm, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
@@ -2362,8 +2368,11 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			By("Adding the second cert")
 			cm.Data[components.CABundleKey] = string(cert2Encoded)
-			_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(context.Background(), cm, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(context.Background(), cm, metav1.UpdateOptions{})
+				return err
+			}).Should(Succeed())
+
 			Eventually(func(g Gomega) {
 				kubevirtCAConfigMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
