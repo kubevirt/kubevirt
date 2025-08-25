@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -285,6 +286,9 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 			if request.AddVolumeOptions.Disk != nil {
 				newDisk := request.AddVolumeOptions.Disk.DeepCopy()
 				newDisk.Name = request.AddVolumeOptions.Name
+				if newDisk.Serial == "" {
+					newDisk.Serial = uuid.NewSHA1(uuid.NameSpaceDNS, []byte(newDisk.Name)).String()
+				}
 
 				vmiSpec.Domain.Devices.Disks = append(vmiSpec.Domain.Devices.Disks, *newDisk)
 			}

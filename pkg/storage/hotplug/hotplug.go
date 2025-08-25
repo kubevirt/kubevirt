@@ -22,6 +22,7 @@ package hotplug
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,7 +55,8 @@ func patchHotplugVolumes(client kubecli.KubevirtClient, vm *virtv1.VirtualMachin
 	}
 
 	newVmiVolumes := append(filterHotplugVMIVolumes(vm, vmi), getNewHotplugVMVolumes(vm, vmi)...)
-	newVmiDisks := append(filterHotplugVMIDisks(vm, vmi, newVmiVolumes), getNewHotplugVMDisks(vm, vmi, newVmiVolumes)...)
+	newHotplugVMDisks := defaultSerialHotplugVMIDisks(getNewHotplugVMDisks(vm, vmi, newVmiVolumes))
+	newVmiDisks := append(filterHotplugVMIDisks(vm, vmi, newVmiVolumes), newHotplugVMDisks...)
 
 	if equality.Semantic.DeepEqual(vmi.Spec.Volumes, newVmiVolumes) &&
 		equality.Semantic.DeepEqual(vmi.Spec.Domain.Devices.Disks, newVmiDisks) {
@@ -201,5 +203,14 @@ func getNewHotplugVMDisks(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		}
 	}
 
+	return disks
+}
+
+func defaultSerialHotplugVMIDisks(disks []virtv1.Disk) []virtv1.Disk {
+	for i, disk := range disks {
+		if disk.Serial == "" {
+			disks[i].Serial = uuid.NewSHA1(uuid.NameSpaceDNS, []byte(disk.Name)).String()
+		}
+	}
 	return disks
 }
