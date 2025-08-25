@@ -25,6 +25,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"strconv"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
@@ -48,11 +49,23 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 
 	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
 
+	// Default is false: drops the current VNC session if any
+	preserveSessionParam := false
+
+	// Check the request as QueryParameter assumes them to exist
+	if request.Request != nil && request.Request.URL != nil {
+		val, err := strconv.ParseBool(request.QueryParameter(definitions.PreserveSessionParamName))
+		if err != nil {
+			log.DefaultLogger().Reason(err).Warningf("Failed to parse VNC's query parameter: %s", definitions.PreserveSessionParamName)
+		}
+		preserveSessionParam = val
+	}
+
 	streamer := NewRawStreamer(
 		app.FetchVirtualMachineInstance,
 		validateVMIForVNC,
 		app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-			return conn.VNCURI(vmi)
+			return conn.VNCURI(vmi, preserveSessionParam)
 		}),
 	)
 
@@ -68,11 +81,14 @@ func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Reque
 
 	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
 
+	// Screenshot should not take preference over VNC connection
+	const preserveSessionParam = true
+
 	dialer := NewDirectDialer(
 		app.FetchVirtualMachineInstance,
 		validateVMIForVNC,
 		app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-			return conn.VNCURI(vmi)
+			return conn.VNCURI(vmi, preserveSessionParam)
 		}),
 	)
 	namespace := request.PathParameter(definitions.NamespaceParamName)

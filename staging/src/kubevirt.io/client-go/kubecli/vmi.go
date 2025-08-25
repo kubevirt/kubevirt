@@ -63,8 +63,10 @@ func (v *vmis) USBRedir(name string) (kvcorev1.StreamInterface, error) {
 	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "usbredir", url.Values{})
 }
 
-func (v *vmis) VNC(name string) (kvcorev1.StreamInterface, error) {
-	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", url.Values{})
+func (v *vmis) VNC(name string, preserveSession bool) (kvcorev1.StreamInterface, error) {
+	queryParams := url.Values{}
+	queryParams.Add("preserveSession", strconv.FormatBool(preserveSession))
+	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", queryParams)
 }
 
 func (v *vmis) PortForward(name string, port int, protocol string) (kvcorev1.StreamInterface, error) {

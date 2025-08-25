@@ -221,7 +221,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 		It("VirtApiRESTErrorsBurst should be triggered when requests to virt-api are failing", func() {
 			By("Creating VNC connections to the virt-api")
 			Eventually(func(g Gomega) {
-				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).VNC(rand.String(6))
+				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).VNC(rand.String(6), false)
 				g.Expect(err).To(MatchError(ContainSubstring("not found")))
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtApi.restErrorsBurtsAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
