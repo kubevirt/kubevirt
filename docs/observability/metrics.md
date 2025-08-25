@@ -16,7 +16,7 @@ Amount of active Console connections, broken down by namespace and vmi name. Typ
 Version information. Type: Gauge.
 
 ### kubevirt_memory_delta_from_requested_bytes
-The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api and virt-operator. Type: Gauge.
+The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api, virt-operator and compute(virt-launcher). Type: Gauge.
 
 ### kubevirt_node_deprecated_machine_types
 List of deprecated machine types based on the capabilities of individual nodes, as detected by virt-handler. Type: Gauge.
