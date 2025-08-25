@@ -1505,4 +1505,32 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Entry("s390x", "s390x"),
 		)
 	})
+
+	DescribeTable("should add default serials for disks which are missing it", func(disks []v1.Disk) {
+		vmi.Spec.Domain.Devices.Disks = disks
+
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiSpec.Domain.Devices.Disks).To(HaveLen(len(disks)))
+		for _, disk := range vmiSpec.Domain.Devices.Disks {
+			Expect(disk.Serial).ToNot(BeNil())
+		}
+	},
+		Entry("single volume with no serial", []v1.Disk{
+			{
+				Name: "test",
+			},
+		}),
+		Entry("multiple volumes one with serial, others without", []v1.Disk{
+			{
+				Name: "test-1",
+			},
+			{
+				Name: "test-2",
+			},
+			{
+				Name:   "test-3",
+				Serial: "test-3",
+			},
+		}),
+	)
 })
