@@ -58,6 +58,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/priorityqueue"
 )
 
 var _ = Describe("Migration watcher", func() {
@@ -2270,9 +2271,70 @@ var _ = Describe("Migration watcher", func() {
 			}
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(Equal("default/testmigrationpending"))
-			Expect(priority).To(Equal(-100))
+			Expect(priority).To(Equal(pendingPriority))
 			Expect(shutdown).To(BeFalse())
 		})
+
+		It("existing items should keep low priority after regular Add", func() {
+			controller.Queue.AddWithOpts(priorityqueue.AddOpts{
+				Priority: pendingPriority,
+			}, "default/testmigrationpending")
+
+			// Simulating what we do with informer handler
+			controller.Queue.Add("default/testmigrationpending")
+			item, priority, shutdown := controller.Queue.GetWithPriority()
+			Expect(item).To(Equal("default/testmigrationpending"))
+			Expect(priority).To(BeNumerically("<", activePriority))
+			Expect(shutdown).To(BeFalse())
+		})
+
+		It("new items should have a priority strictly lower than active and higher than pending", func() {
+			controller.Queue.Add("default/testmigrationpending")
+			item, priority, shutdown := controller.Queue.GetWithPriority()
+			Expect(item).To(Equal("default/testmigrationpending"))
+			Expect(priority).To(BeNumerically("<", activePriority))
+			Expect(priority).To(BeNumerically(">", pendingPriority))
+			Expect(shutdown).To(BeFalse())
+		})
+
+		It("should get items in order based on priority", func() {
+			for i := range 5 {
+				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
+					Priority: pendingPriority,
+				}, fmt.Sprintf("default/pending%d", i))
+			}
+			for i := range 5 {
+				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
+					Priority: activePriority,
+				}, fmt.Sprintf("default/active%d", i))
+			}
+			// Add should not change active3's priority
+			controller.Queue.Add("default/active3")
+			// Add should bump pending3 higher than pending but lower than active
+			controller.Queue.Add("default/pending3")
+
+			for i := range 5 {
+				item, priority, shutdown := controller.Queue.GetWithPriority()
+				Expect(item).To(BeEquivalentTo(fmt.Sprintf("default/active%d", i)))
+				Expect(priority).To(Equal(activePriority))
+				Expect(shutdown).To(BeFalse())
+			}
+			item, priority, shutdown := controller.Queue.GetWithPriority()
+			Expect(item).To(BeEquivalentTo("default/pending3"))
+			Expect(priority).To(BeNumerically("<", activePriority))
+			Expect(priority).To(BeNumerically(">", pendingPriority))
+			Expect(shutdown).To(BeFalse())
+			for i := range 5 {
+				if i == 3 {
+					continue
+				}
+				item, priority, shutdown := controller.Queue.GetWithPriority()
+				Expect(item).To(BeEquivalentTo(fmt.Sprintf("default/pending%d", i)))
+				Expect(priority).To(Equal(pendingPriority))
+				Expect(shutdown).To(BeFalse())
+			}
+		})
+
 	})
 })
 
