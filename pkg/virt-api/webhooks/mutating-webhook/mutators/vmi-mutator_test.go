@@ -523,15 +523,15 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		presentVolumeName := "present-vol"
 		missingVolumeName := "missing-vol"
 		vmi.Spec.Domain.Devices.Disks = []v1.Disk{
-			v1.Disk{
+			{
 				Name: presentVolumeName,
 			},
 		}
 		vmi.Spec.Volumes = []v1.Volume{
-			v1.Volume{
+			{
 				Name: presentVolumeName,
 			},
-			v1.Volume{
+			{
 				Name: missingVolumeName,
 			},
 		}
