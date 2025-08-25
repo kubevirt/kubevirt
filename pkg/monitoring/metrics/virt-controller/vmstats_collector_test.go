@@ -205,10 +205,10 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(cr.Labels).To(HaveLen(10))
 			Expect(cr.GetLabelValue("instance_type")).To(Equal(expected))
 		},
-			Entry("with no instance type expect <none>", "VirtualMachineInstancetype", "", "<none>"),
+			Entry("with no instance type expect empty string", "VirtualMachineInstancetype", "", ""),
 			Entry("with managed instance type expect its name", "VirtualMachineInstancetype", "i-managed", "i-managed"),
 			Entry("with custom instance type expect <other>", "VirtualMachineInstancetype", "i-unmanaged", "<other>"),
-			Entry("with no cluster instance type expect <none>", "VirtualMachineClusterInstancetype", "", "<none>"),
+			Entry("with no cluster instance type expect empty string", "VirtualMachineClusterInstancetype", "", ""),
 			Entry("with managed cluster instance type expect its name", "VirtualMachineClusterInstancetype", "ci-managed", "ci-managed"),
 			Entry("with custom cluster instance type expect <other>", "VirtualMachineClusterInstancetype", "ci-unmanaged", "<other>"),
 			Entry("with an instance type which no longer exists expect <other>", "VirtualMachineInstancetype", "i-gone", "<other>"),
@@ -240,10 +240,10 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(cr.Labels).To(HaveLen(10))
 			Expect(cr.GetLabelValue("preference")).To(Equal(expected))
 		},
-			Entry("with no preference expect <none>", "VirtualMachinePreference", "", "<none>"),
+			Entry("with no preference expect empty string", "VirtualMachinePreference", "", ""),
 			Entry("with managed preference expect its name", "VirtualMachinePreference", "p-managed", "p-managed"),
 			Entry("with custom preference expect <other>", "VirtualMachinePreference", "p-unmanaged", "<other>"),
-			Entry("with no cluster preference expect <none>", "VirtualMachineClusterPreference", "", "<none>"),
+			Entry("with no cluster preference expect empty string", "VirtualMachineClusterPreference", "", ""),
 			Entry("with managed cluster preference expect its name", "VirtualMachineClusterPreference", "cp-managed", "cp-managed"),
 			Entry("with custom cluster preference expect <other>", "VirtualMachineClusterPreference", "cp-unmanaged", "<other>"),
 			Entry("with an preference which no longer exists expect <other>", "VirtualMachinePreference", "p-gone", "<other>"),
@@ -555,7 +555,7 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(results).ToNot(BeEmpty())
 			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
 			Expect(results[0].Value).To(Equal(float64(3 * 1024 * 1024 * 1024)))
-			Expect(results[0].Labels).To(Equal([]string{"test-vm-nil-mode", "default", "test-vm-pvc-nil-mode", "<none>", "rootdisk"}))
+			Expect(results[0].Labels).To(Equal([]string{"test-vm-nil-mode", "default", "test-vm-pvc-nil-mode", "", "rootdisk"}))
 		})
 
 		It("should prioritize DataVolume template size over PVC size", func() {

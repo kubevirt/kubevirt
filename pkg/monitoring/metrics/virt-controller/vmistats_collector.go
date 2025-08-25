@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	none  = "<none>"
+	none  = "" // Empty values will be ignored by operator-observability and label will not be created
 	other = "<other>"
 
 	annotationPrefix        = "vm.kubevirt.io/"
