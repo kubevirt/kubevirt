@@ -742,24 +742,21 @@ func (c *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 	}
 }
 
-func (c *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
-
-	// Update the condition when GA is connected
-	channelConnected := false
+func guestAgentConnected(domain *api.Domain) bool {
 	if domain != nil {
 		for _, channel := range domain.Spec.Devices.Channels {
-			if channel.Target != nil {
-				c.logger.V(4).Infof("Channel: %s, %s", channel.Target.Name, channel.Target.State)
-				if channel.Target.Name == "org.qemu.guest_agent.0" {
-					if channel.Target.State == "connected" {
-						channelConnected = true
-					}
-				}
-
+			if channel.Target != nil && channel.Target.Name == "org.qemu.guest_agent.0" &&
+				channel.Target.State == "connected" {
+				return true
 			}
 		}
 	}
+	return false
+}
 
+func (c *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMachineInstance, channelConnected bool, condManager *controller.VirtualMachineInstanceConditionManager) error {
+
+	// Update the condition when GA is connected
 	switch {
 	case channelConnected && !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected):
 		agentCondition := v1.VirtualMachineInstanceCondition{
@@ -1030,7 +1027,7 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
 	c.updateAccessCredentialConditions(vmi, domain, condManager)
 	c.updateLiveMigrationConditions(vmi, condManager)
-	err := c.updateGuestAgentConditions(vmi, domain, condManager)
+	err := c.updateGuestAgentConditions(vmi, guestAgentConnected(domain), condManager)
 	if err != nil {
 		return err
 	}
