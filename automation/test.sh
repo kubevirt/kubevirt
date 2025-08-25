@@ -58,6 +58,13 @@ export KUBEVIRT_DEPLOY_CDI=true
 if [[ ! $TARGET =~ .*kind.* ]]; then
   export FEATURE_GATES="NodeRestriction"
   export KUBEVIRT_PSA="true"
+  export KUBEVIRT_FLANNEL=true
+
+  # Do not merge
+  export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+  export KUBEVIRTCI_CONTAINER_ORG=oshoval
+  export KUBEVIRTCI_CONTAINER_SUFFIX=flannel1480
+  export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/oshoval/gocli:$KUBEVIRTCI_CONTAINER_SUFFIX
 fi
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
@@ -98,6 +105,8 @@ elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
+  export KUBEVIRT_WITH_CNAO=true
+  export KUBEVIRT_NUM_SECONDARY_NICS=1
 elif [[ $TARGET =~ sig-monitoring ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
     export KUBEVIRT_DEPLOY_PROMETHEUS=true
