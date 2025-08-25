@@ -20,11 +20,14 @@
 package virtexportserver
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -768,6 +771,74 @@ var _ = Describe("exportserver", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(list.Items).To(HaveLen(1))
 			verifySecret(string(list.Items[0].Raw))
+		})
+	})
+
+	Context("Exclude map", func() {
+		var tempDir string
+		var testFiles []string
+
+		BeforeEach(func() {
+			var err error
+			tempDir, err = os.MkdirTemp("", "export-test")
+			Expect(err).ToNot(HaveOccurred())
+
+			testFiles = []string{
+				"test",
+				"lost+found/test-file",
+				"disk.img",
+			}
+
+			for _, file := range testFiles {
+				fullPath := filepath.Join(tempDir, file)
+				err = os.MkdirAll(filepath.Dir(fullPath), 0755)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = os.WriteFile(fullPath, []byte("test"), 0644)
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+
+		AfterEach(func() {
+			if tempDir != "" {
+				os.RemoveAll(tempDir)
+			}
+		})
+
+		It("should exclude lost+found directory from tar archive", func() {
+			reader, err := newTarReader(tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			defer reader.Close()
+
+			var buf bytes.Buffer
+			_, err = io.Copy(&buf, reader)
+			Expect(err).ToNot(HaveOccurred())
+
+			tarOutput := buf.String()
+			Expect(tarOutput).To(ContainSubstring("test"))
+			Expect(tarOutput).To(ContainSubstring("disk.img"))
+
+			// Shouldn't include lost+found
+			Expect(tarOutput).ToNot(ContainSubstring("lost+found"))
+		})
+
+		It("should handle directory with only excluded files", func() {
+			// Remove non-excluded files from tempDir
+			Expect(os.Remove(filepath.Join(tempDir, "test"))).To(Succeed())
+			Expect(os.Remove(filepath.Join(tempDir, "disk.img"))).To(Succeed())
+
+			reader, err := newTarReader(tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			defer reader.Close()
+
+			var buf bytes.Buffer
+			_, err = io.Copy(&buf, reader)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(buf.String()).ToNot(ContainSubstring("lost+found"))
+			Expect(buf.String()).ToNot(ContainSubstring("disk.img"))
+			Expect(buf.String()).ToNot(ContainSubstring("test"))
+
 		})
 	})
 })
