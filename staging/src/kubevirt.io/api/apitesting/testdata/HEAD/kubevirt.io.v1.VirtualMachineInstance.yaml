@@ -419,6 +419,7 @@ spec:
         policy:
           encryptedState: true
         session: sessionValue
+      snp: {}
     machine:
       type: typeValue
     memory:

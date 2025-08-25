@@ -406,3 +406,166 @@ var _ = ginkgo.Describe("JSON marshal of the alias of a domain device", func() {
 		Expect(newAlias.IsUserDefined()).To(BeTrue())
 	})
 })
+
+var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
+	ginkgo.Context("XML marshalling and unmarshalling", func() {
+		ginkgo.It("should marshal SEV-SNP launch security with all fields", func() {
+			launchSecurity := &LaunchSecurity{
+				Type:            "sev-snp",
+				Policy:          "0x30000",
+				Cbitpos:         "51",
+				ReducedPhysBits: "1",
+			}
+
+			xmlBytes, err := xml.Marshal(launchSecurity)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Test that XML contains all expected attributes and elements
+			xmlStr := string(xmlBytes)
+			Expect(xmlStr).To(ContainSubstring(`type="sev-snp"`))
+			Expect(xmlStr).To(ContainSubstring(`<policy>0x30000</policy>`))
+			Expect(xmlStr).To(ContainSubstring(`<cbitpos>51</cbitpos>`))
+			Expect(xmlStr).To(ContainSubstring(`<reducedPhysBits>1</reducedPhysBits>`))
+		})
+
+		ginkgo.It("should unmarshal SEV-SNP launch security with all fields", func() {
+			xmlData := `<LaunchSecurity type="sev-snp"><policy>0x30000</policy><cbitpos>51</cbitpos><reducedPhysBits>1</reducedPhysBits></LaunchSecurity>`
+
+			var launchSecurity LaunchSecurity
+			err := xml.Unmarshal([]byte(xmlData), &launchSecurity)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(launchSecurity.Type).To(Equal("sev-snp"))
+			Expect(launchSecurity.Policy).To(Equal("0x30000"))
+			Expect(launchSecurity.Cbitpos).To(Equal("51"))
+			Expect(launchSecurity.ReducedPhysBits).To(Equal("1"))
+		})
+
+		ginkgo.It("should marshal SEV-SNP launch security with minimal fields", func() {
+			launchSecurity := &LaunchSecurity{
+				Type:   "sev-snp",
+				Policy: "0x30000",
+			}
+
+			xmlBytes, err := xml.Marshal(launchSecurity)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedXML := `<LaunchSecurity type="sev-snp"><policy>0x30000</policy></LaunchSecurity>`
+			Expect(string(xmlBytes)).To(Equal(expectedXML))
+		})
+
+		ginkgo.It("should unmarshal SEV-SNP launch security with minimal fields", func() {
+			xmlData := `<LaunchSecurity type="sev-snp"><policy>0x30000</policy></LaunchSecurity>`
+
+			var launchSecurity LaunchSecurity
+			err := xml.Unmarshal([]byte(xmlData), &launchSecurity)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(launchSecurity.Type).To(Equal("sev-snp"))
+			Expect(launchSecurity.Policy).To(Equal("0x30000"))
+		})
+
+		ginkgo.It("should handle empty structure", func() {
+			launchSecurity := &LaunchSecurity{
+				Type: "sev-snp",
+			}
+
+			xmlBytes, err := xml.Marshal(launchSecurity)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedXML := `<LaunchSecurity type="sev-snp"></LaunchSecurity>`
+			Expect(string(xmlBytes)).To(Equal(expectedXML))
+		})
+	})
+
+	ginkgo.Context("Domain with SEV-SNP launch security", func() {
+		ginkgo.It("should marshal domain with SEV-SNP launch security", func() {
+			domain := NewMinimalDomainSpec("test-domain")
+			domain.LaunchSecurity = &LaunchSecurity{
+				Type:   "sev-snp",
+				Policy: "0x30000",
+			}
+
+			xmlBytes, err := xml.Marshal(domain)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify the XML contains the launch security section
+			xmlString := string(xmlBytes)
+			Expect(xmlString).To(ContainSubstring(`<launchSecurity type="sev-snp"`))
+			Expect(xmlString).To(ContainSubstring(`<policy>0x30000</policy>`))
+		})
+
+		ginkgo.It("should unmarshal domain with SEV-SNP launch security", func() {
+			xmlData := `<domain xmlns="http://libvirt.org/schemas/domain/qemu/1.0" type="kvm">
+				<name>test-domain</name>
+				<memory unit="KiB">8388608</memory>
+				<currentMemory unit="KiB">8388608</currentMemory>
+				<vcpu placement="static">2</vcpu>
+				<launchSecurity type="sev-snp" authorKey="yes" vcek="yes">
+					<policy>0x30000</policy>
+					<cbitpos>51</cbitpos>
+					<reducedPhysBits>1</reducedPhysBits>
+				</launchSecurity>
+				<os>
+					<type arch="x86_64" machine="pc-i440fx-2.1">hvm</type>
+				</os>
+				<devices>
+					<emulator>/usr/bin/qemu-system-x86_64</emulator>
+				</devices>
+			</domain>`
+
+			var domain DomainSpec
+			err := xml.Unmarshal([]byte(xmlData), &domain)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(domain.LaunchSecurity).ToNot(BeNil())
+			Expect(domain.LaunchSecurity.Type).To(Equal("sev-snp"))
+			Expect(domain.LaunchSecurity.Policy).To(Equal("0x30000"))
+			Expect(domain.LaunchSecurity.Cbitpos).To(Equal("51"))
+			Expect(domain.LaunchSecurity.ReducedPhysBits).To(Equal("1"))
+		})
+	})
+
+	ginkgo.Context("SEV vs SEV-SNP differentiation", func() {
+		ginkgo.It("should handle regular SEV launch security", func() {
+			launchSecurity := &LaunchSecurity{
+				Type:    "sev",
+				Policy:  "0x0001",
+				DHCert:  "test-dh-cert",
+				Session: "test-session",
+			}
+
+			xmlBytes, err := xml.Marshal(launchSecurity)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Test that XML contains all expected attributes and elements
+			xmlStr := string(xmlBytes)
+			Expect(xmlStr).To(ContainSubstring(`type="sev"`))
+			Expect(xmlStr).To(ContainSubstring(`<policy>0x0001</policy>`))
+			Expect(xmlStr).To(ContainSubstring(`<dhCert>test-dh-cert</dhCert>`))
+			Expect(xmlStr).To(ContainSubstring(`<session>test-session</session>`))
+		})
+
+		ginkgo.It("should differentiate between SEV and SEV-SNP types", func() {
+			sevLaunchSecurity := &LaunchSecurity{
+				Type:   "sev",
+				Policy: "0x0001",
+			}
+
+			sevSnpLaunchSecurity := &LaunchSecurity{
+				Type:   "sev-snp",
+				Policy: "0x30000",
+			}
+
+			sevXML, err := xml.Marshal(sevLaunchSecurity)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(sevXML)).To(ContainSubstring(`type="sev"`))
+			Expect(string(sevXML)).ToNot(ContainSubstring(`type="sev-snp"`))
+
+			sevSnpXML, err := xml.Marshal(sevSnpLaunchSecurity)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(sevSnpXML)).To(ContainSubstring(`type="sev-snp"`))
+			Expect(string(sevSnpXML)).ToNot(ContainSubstring(`type="sev"`))
+		})
+	})
+})
