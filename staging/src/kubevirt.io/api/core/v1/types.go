@@ -2669,6 +2669,12 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	FSFreezeStatus string `json:"fsFreezeStatus,omitempty"`
 	// Load contains the system load averages (1M, 5M, 15M) from the guest agent
 	Load *VirtualMachineInstanceGuestOSLoad `json:"load,omitempty"`
+	// GuestAgentConnected indicates whether the guest agent is connected
+	GuestAgentConnected bool `json:"guestAgentConnected,omitempty"`
+	// GuestAgentSupported indicates whether the guest agent is supported
+	GuestAgentSupported bool `json:"guestAgentSupported,omitempty"`
+	// GuestAgentUnsupportedReason indicates the reason why the guest agent is not supported
+	GuestAgentUnsupportedReason string `json:"guestAgentUnsupportedReason,omitempty"`
 }
 
 // List of commands that QEMU guest agent supports

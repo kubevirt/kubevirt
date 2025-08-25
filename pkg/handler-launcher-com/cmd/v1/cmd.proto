@@ -22,7 +22,7 @@ service Cmd {
   rpc HotplugHostDevices(VMIRequest) returns (Response) {}
   rpc GetDomain(EmptyRequest) returns (DomainResponse) {}
   rpc GetDomainStats(EmptyRequest) returns (DomainStatsResponse) {}
-  rpc GetGuestInfo(EmptyRequest) returns (GuestInfoResponse) {}
+  rpc GetGuestInfo(VMIRequest) returns (GuestInfoResponse) {}
   rpc GetUsers(EmptyRequest) returns (GuestUserListResponse) {}
   rpc GetFilesystems(EmptyRequest) returns (GuestFilesystemsResponse) {}
   rpc Ping(EmptyRequest) returns (Response) {}
@@ -117,6 +117,7 @@ message VirtualMachineOptions {
   ClusterConfig clusterConfig = 7;
   map<string, string> interfaceDomainAttachment = 8;
   map<string, InterfaceBindingMigration> interfaceMigration = 9;
+  repeated string SupportedGuestAgentVersions = 10;
 }
 
 message VMIRequest {
