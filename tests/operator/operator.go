@@ -2043,7 +2043,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context(" Deployment of common-instancetypes", Serial, func() {
+	Context(" Deployment of common-instancetypes", decorators.SigComputeInstancetype, Serial, func() {
 		var (
 			originalConfig *v1.CommonInstancetypesDeployment
 			appComponent   string
