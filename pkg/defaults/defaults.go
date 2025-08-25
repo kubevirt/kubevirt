@@ -22,6 +22,7 @@ package defaults
 import (
 	"strings"
 
+	"github.com/google/uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -247,6 +248,7 @@ func SetDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfi
 		return err
 	}
 	util.SetDefaultVolumeDisk(spec)
+	setDefaultDiskSerials(spec)
 	return nil
 }
 
@@ -406,5 +408,13 @@ func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.Virtua
 func setDefaultArchitecture(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	if spec.Architecture == "" {
 		spec.Architecture = clusterConfig.GetDefaultArchitecture()
+	}
+}
+
+func setDefaultDiskSerials(spec *v1.VirtualMachineInstanceSpec) {
+	for i, disk := range spec.Domain.Devices.Disks {
+		if disk.Serial == "" {
+			spec.Domain.Devices.Disks[i].Serial = uuid.NewSHA1(uuid.NameSpaceDNS, []byte(disk.Name)).String()
+		}
 	}
 }
