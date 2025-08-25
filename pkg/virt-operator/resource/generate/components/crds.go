@@ -791,9 +791,6 @@ func NewMigrationPolicyCrd() (*extv1.CustomResourceDefinition, error) {
 			Plural:   migrations.ResourceMigrationPolicies,
 			Singular: "migrationpolicy",
 			Kind:     migrationsv1.MigrationPolicyKind.Kind,
-			Categories: []string{
-				"all",
-			},
 		},
 	}
 	err := addFieldsToAllVersions(crd, &extv1.CustomResourceSubresources{
