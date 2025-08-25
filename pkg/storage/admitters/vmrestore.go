@@ -109,6 +109,11 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 					if newCauses != nil {
 						causes = append(causes, newCauses...)
 					}
+
+					newCauses = admitter.validateVolumeOwnershipPolicy(ctx, vmRestore)
+					if newCauses != nil {
+						causes = append(causes, newCauses...)
+					}
 				default:
 					causes = []metav1.StatusCause{
 						{
@@ -312,6 +317,32 @@ func (admitter *VMRestoreAdmitter) validateVolumeRestorePolicy(ctx context.Conte
 			Message: fmt.Sprintf("volume restore policy \"%s\" doesn't exist", policy),
 			Field: k8sfield.NewPath("spec").
 				Child("volumeRestorePolicy").
+				String(),
+		})
+	}
+
+	return causes
+}
+
+func (admitter *VMRestoreAdmitter) validateVolumeOwnershipPolicy(ctx context.Context, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause) {
+	// Cancel if there's no volume ownership policy
+	if vmRestore.Spec.VolumeOwnershipPolicy == nil {
+		return nil
+	}
+
+	policy := *vmRestore.Spec.VolumeOwnershipPolicy
+
+	// Verify the policy provided is among the ones that are allowed
+	switch policy {
+	case snapshotv1.VolumeOwnershipPolicyVm:
+	case snapshotv1.VolumeOwnershipPolicyNone:
+		return nil
+	default:
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("volume ownership policy \"%s\" doesn't exist", policy),
+			Field: k8sfield.NewPath("spec").
+				Child("volumeOwnershipPolicy").
 				String(),
 		})
 	}
