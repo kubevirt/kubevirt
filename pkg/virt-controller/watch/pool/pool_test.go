@@ -19,17 +19,19 @@
 package pool
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
 	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -104,6 +106,9 @@ var _ = Describe("Pool", func() {
 		}
 
 		addVM := func(vm *v1.VirtualMachine) {
+			_, err := fakeVirtClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			controller.vmIndexer.Add(vm)
 			key, err := virtcontroller.KeyFunc(vm)
 			Expect(err).To(Not(HaveOccurred()))
@@ -111,6 +116,9 @@ var _ = Describe("Pool", func() {
 		}
 
 		addVMI := func(vm *v1.VirtualMachineInstance) {
+			_, err := fakeVirtClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			controller.vmiStore.Add(vm)
 			key, err := virtcontroller.KeyFunc(vm)
 			Expect(err).To(Not(HaveOccurred()))
@@ -157,11 +165,6 @@ var _ = Describe("Pool", func() {
 
 			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(fakeVirtClient.PoolV1alpha1().VirtualMachinePools(testNamespace)).AnyTimes()
 
-			fakeVirtClient.Fake.PrependReactor("*", "*", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				Expect(action).To(BeNil())
-				return true, nil, nil
-			})
-
 			k8sClient = k8sfake.NewSimpleClientset()
 			k8sClient.Fake.PrependReactor("*", "*", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				Expect(action).To(BeNil())
@@ -171,6 +174,9 @@ var _ = Describe("Pool", func() {
 		})
 
 		addPool := func(pool *poolv1.VirtualMachinePool) {
+			_, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Create(context.TODO(), pool, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			controller.poolIndexer.Add(pool)
 			key, err := virtcontroller.KeyFunc(pool)
 			Expect(err).To(Not(HaveOccurred()))
@@ -189,6 +195,28 @@ var _ = Describe("Pool", func() {
 				},
 				Data:     runtime.RawExtension{Raw: bytes},
 				Revision: pool.Generation,
+			}
+		}
+
+		createVMsWithOrdinal := func(pool *poolv1.VirtualMachinePool, count int, newPoolRevision *appsv1.ControllerRevision, oldPoolRevision *appsv1.ControllerRevision, vm *v1.VirtualMachine) {
+
+			var updatedPoolSpec poolv1.VirtualMachinePoolSpec
+			Expect(json.Unmarshal(newPoolRevision.Data.Raw, &updatedPoolSpec)).To(Succeed())
+
+			for i := range count {
+				vmCopy := vm.DeepCopy()
+				vmCopy.Name = fmt.Sprintf("%s-%d", pool.Name, i)
+				//vmCopy.CreationTimestamp = metav1.Time{Time: metav1.Now().Add(-time.Duration(5-i) * time.Second)}
+
+				vmCopy.Labels = maps.Clone(updatedPoolSpec.VirtualMachineTemplate.ObjectMeta.Labels)
+				vmCopy.Annotations = maps.Clone(updatedPoolSpec.VirtualMachineTemplate.ObjectMeta.Annotations)
+				vmCopy.Spec = *indexVMSpec(&updatedPoolSpec, i)
+				vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, newPoolRevision.Name)
+
+				markVmAsReady(vmCopy)
+				vmi := createReadyVMI(vmCopy, oldPoolRevision)
+				addVM(vmCopy)
+				addVMI(vmi)
 			}
 		}
 
@@ -216,32 +244,6 @@ var _ = Describe("Pool", func() {
 			})
 		}
 
-		expectVMCreationWithValidation := func(nameMatcher types.GomegaMatcher, validateFn func(machine *v1.VirtualMachine)) {
-			fakeVirtClient.Fake.PrependReactor("create", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				created, ok := action.(k8stesting.CreateAction)
-				Expect(ok).To(BeTrue())
-				createObj := created.GetObject().(*v1.VirtualMachine)
-				Expect(createObj.Name).To(nameMatcher)
-				Expect(createObj.GenerateName).To(Equal(""))
-				validateFn(createObj)
-				return true, created.GetObject(), nil
-			})
-		}
-
-		expectVMCreation := func(nameMatcher types.GomegaMatcher) {
-			expectVMCreationWithValidation(nameMatcher, func(_ *v1.VirtualMachine) {})
-		}
-
-		expectVMUpdate := func(revisionName string) {
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				created, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				updateObj := created.GetObject().(*v1.VirtualMachine)
-				Expect(updateObj.Labels).To(HaveKeyWithValue(v1.VirtualMachinePoolRevisionName, revisionName))
-				return true, created.GetObject(), nil
-			})
-		}
-
 		sanityExecute := func() {
 			controllertesting.SanityExecute(controller, []cache.Store{
 				controller.vmiStore, controller.vmIndexer, controller.poolIndexer, controller.revisionIndexer,
@@ -255,7 +257,6 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
-			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -273,22 +274,16 @@ var _ = Describe("Pool", func() {
 			pool.Generation = 123
 			newPoolRevision := createPoolRevision(pool)
 
-			vm.Name = fmt.Sprintf("%s-0", pool.Name)
-			vm = injectPoolRevisionLabelsIntoVM(vm, poolRevision.Name)
-			vmi := createReadyVMI(vm, poolRevision)
-			markVmAsReady(vm)
-			watchtesting.MarkAsReady(vmi)
-			addPool(pool)
-			addVM(vm)
-			addVMI(vmi)
+			createVMsWithOrdinal(pool, 1, poolRevision, poolRevision, vm)
 			addCR(poolRevision)
 			// not expecting vmi to cause enqueue of pool because VMI and VM use the same pool revision
-			controller.vmiStore.Add(vmi)
-
 			expectControllerRevisionCreation(newPoolRevision)
-			expectVMUpdate(newPoolRevision.Name)
 
 			sanityExecute()
+
+			vm, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).Get(context.TODO(), fmt.Sprintf("%s-0", pool.Name), metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vm.Labels).To(HaveKeyWithValue(v1.VirtualMachinePoolRevisionName, poolRevision.Name))
 
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(BeEmpty())
 		})
@@ -320,20 +315,13 @@ var _ = Describe("Pool", func() {
 			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["newkey"] = "newval"
 			newPoolRevision := createPoolRevision(pool)
 
-			vm = injectPoolRevisionLabelsIntoVM(vm, newPoolRevision.Name)
-			vm.Name = fmt.Sprintf("%s-0", pool.Name)
-			markVmAsReady(vm)
-			vmi := createReadyVMI(vm, oldPoolRevision)
 			addPool(pool)
-			addVM(vm)
-			addVMI(vmi)
+
 			addCR(oldPoolRevision)
 			addCR(newPoolRevision)
+			createVMsWithOrdinal(pool, 1, newPoolRevision, oldPoolRevision, vm)
 
 			expectControllerRevisionCreation(newPoolRevision)
-			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				return true, nil, nil
-			})
 
 			sanityExecute()
 
@@ -346,15 +334,11 @@ var _ = Describe("Pool", func() {
 			vm.Name = fmt.Sprintf("%s-0", pool.Name)
 
 			poolRevision := createPoolRevision(pool)
-			vm = injectPoolRevisionLabelsIntoVM(vm, poolRevision.Name)
-			markVmAsReady(vm)
-			vmi := createReadyVMI(vm, poolRevision)
 			pool.Status.Replicas = 1
 			pool.Status.ReadyReplicas = 1
 			addPool(pool)
-			addVM(vm)
-			addVMI(vmi)
 			addCR(poolRevision)
+			createVMsWithOrdinal(pool, 1, poolRevision, poolRevision, vm)
 
 			sanityExecute()
 		})
@@ -369,12 +353,12 @@ var _ = Describe("Pool", func() {
 
 			oldPoolRevision := poolRevision.DeepCopy()
 			oldPoolRevision.Name = "madeup"
-			vmi := createReadyVMI(vm, poolRevision)
 			pool.Status.Replicas = 1
 			pool.Status.ReadyReplicas = 1
 			addPool(pool)
-			addVM(vm)
-			addVMI(vmi)
+
+			createVMsWithOrdinal(pool, 1, poolRevision, poolRevision, vm)
+
 			addCR(poolRevision)
 			addCR(oldPoolRevision)
 
@@ -391,19 +375,14 @@ var _ = Describe("Pool", func() {
 			expectedPool := pool.DeepCopy()
 			expectedPool.Status.Replicas = 0
 
-			// Expect pool to be updated with paused condition
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Replicas).To(Equal(int32(0)))
-				Expect(updateObj.Status.Conditions).To(HaveLen(1))
-				Expect(updateObj.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaPaused))
-				Expect(updateObj.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
-				return true, update.GetObject(), nil
-			})
-
 			sanityExecute()
+
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Replicas).To(Equal(int32(0)))
+			Expect(vmpool.Status.Conditions).To(HaveLen(1))
+			Expect(vmpool.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaPaused))
+			Expect(vmpool.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
 
 			testutils.ExpectEvent(recorder, SuccessfulPausedPoolReason)
 			// Expect pool to be updated with paused condition
@@ -422,22 +401,17 @@ var _ = Describe("Pool", func() {
 				return true, &v1.VirtualMachine{}, fmt.Errorf("error")
 			})
 
-			// Expect pool to be updated with paused condition
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Replicas).To(Equal(int32(0)))
-				Expect(updateObj.Status.Conditions).To(HaveLen(1))
-				Expect(updateObj.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaFailure))
-				Expect(updateObj.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
-				return true, update.GetObject(), nil
-			})
-
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
 			sanityExecute()
+
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Replicas).To(Equal(int32(0)))
+			Expect(vmpool.Status.Conditions).To(HaveLen(1))
+			Expect(vmpool.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaFailure))
+			Expect(vmpool.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
 
 			testutils.ExpectEvent(recorder, common.FailedCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, FailedScaleOutReason)
@@ -445,7 +419,6 @@ var _ = Describe("Pool", func() {
 		})
 
 		It("should remove failed condition when no reconcile error occurs", func() {
-
 			pool, _ := DefaultPool(0)
 			pool.Status.Conditions = append(pool.Status.Conditions,
 				poolv1.VirtualMachinePoolCondition{
@@ -458,19 +431,12 @@ var _ = Describe("Pool", func() {
 
 			addPool(pool)
 
-			expectedPool := pool.DeepCopy()
-			expectedPool.Status.Replicas = 0
-
-			// Expect pool to be updated with paused condition
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Conditions).To(BeEmpty())
-				return true, update.GetObject(), nil
-			})
-
 			sanityExecute()
+
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Replicas).To(Equal(int32(0)))
+			Expect(vmpool.Status.Conditions).To(BeEmpty())
 		})
 
 		It("should create missing VMs when pool is resumed", func() {
@@ -490,21 +456,14 @@ var _ = Describe("Pool", func() {
 			expectedPool := pool.DeepCopy()
 			expectedPool.Status.Replicas = 0
 
-			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
-
-			// Expect pool to be updated with paused condition
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Conditions).To(BeEmpty())
-				return true, update.GetObject(), nil
-			})
-
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
 			sanityExecute()
+
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Conditions).To(BeEmpty())
 
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -517,8 +476,6 @@ var _ = Describe("Pool", func() {
 			pool, _ := DefaultPool(15)
 
 			addPool(pool)
-
-			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
@@ -537,26 +494,16 @@ var _ = Describe("Pool", func() {
 
 			addPool(pool)
 
-			// Add 15 VMs to the informer cache
-			for x := 0; x < 15; x++ {
-				newVM := vm.DeepCopy()
-				newVM.Name = fmt.Sprintf("%s-%d", pool.Name, x)
-				addVM(newVM)
-			}
+			poolRevision := createPoolRevision(pool)
+			expectControllerRevisionCreation(poolRevision)
 
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Replicas).To(Equal(int32(15)))
-				return true, update.GetObject(), nil
-			})
-
-			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				return true, nil, nil
-			})
+			createVMsWithOrdinal(pool, 10, poolRevision, poolRevision, vm)
 
 			sanityExecute()
+
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Replicas).To(Equal(int32(10)))
 
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
@@ -571,30 +518,25 @@ var _ = Describe("Pool", func() {
 
 			addPool(pool)
 
-			// Add 5 VMs to the informer cache
-			for x := 0; x < 5; x++ {
-				newVM := vm.DeepCopy()
-				newVM.Name = fmt.Sprintf("%s-%d", pool.Name, x)
-				addVM(newVM)
-			}
-			for x := 5; x < 10; x++ {
-				newVM := vm.DeepCopy()
-				newVM.Name = fmt.Sprintf("%s-%d", pool.Name, x)
-				newVM.DeletionTimestamp = pointer.P(metav1.Now())
-				addVM(newVM)
+			poolRevision := createPoolRevision(pool)
+			createVMsWithOrdinal(pool, 10, poolRevision, poolRevision, vm)
+
+			vms, err := controller.listVMsFromNamespace(pool.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			for i, vm := range vms {
+				if i >= 5 {
+					break
+				}
+				vm.DeletionTimestamp = pointer.P(metav1.Now())
+				_, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 			}
 
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Replicas).To(Equal(int32(10)))
-				return true, update.GetObject(), nil
-			})
-			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				return true, nil, nil
-			})
 			sanityExecute()
+
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Replicas).To(Equal(int32(10)))
 
 			for x := 0; x < 5; x++ {
 				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
@@ -612,19 +554,25 @@ var _ = Describe("Pool", func() {
 			nonMatchingVM.Labels = map[string]string{"madeup": "value"}
 			nonMatchingVM.OwnerReferences = []metav1.OwnerReference{}
 			controller.vmIndexer.Add(nonMatchingVM)
+			_, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).Create(context.TODO(), nonMatchingVM, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			addPool(pool)
-
-			expectVMCreation(And(HavePrefix(fmt.Sprintf("%s-", pool.Name)), Not(Equal(nonMatchingVM.Name))))
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
 			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(4))
+			Expect(vms.Items[3].Name).To(Equal(fmt.Sprintf("%s-3", pool.Name)))
+
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
-			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(4))
 		})
 
 		It("should ignore orphaned VMs even when selector matches", func() {
@@ -635,20 +583,17 @@ var _ = Describe("Pool", func() {
 			controller.vmIndexer.Add(vm)
 			addPool(pool)
 
-			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
-
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Replicas).To(Equal(int32(0)))
-				return true, update.GetObject(), nil
-			})
-
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
+			createVMsWithOrdinal(pool, 3, poolRevision, poolRevision, vm)
+
 			sanityExecute()
+
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Replicas).To(Equal(int32(0)))
+
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 
@@ -656,33 +601,27 @@ var _ = Describe("Pool", func() {
 
 		It("should detect a VM is detached, then release and replace it", func() {
 			pool, vm := DefaultPool(3)
-			vm.Labels = map[string]string{}
-			vm.Name = fmt.Sprintf("%s-1", pool.Name)
 
 			addPool(pool)
-			addVM(vm)
-
-			fakeVirtClient.Fake.PrependReactor("patch", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				patchAction, ok := action.(k8stesting.PatchAction)
-				Expect(ok).To(BeTrue())
-				Expect(patchAction.GetName()).To(Equal(vm.Name))
-				return true, vm, nil
-			})
-			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
-
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				return true, update.GetObject(), nil
-			})
-
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
+			createVMsWithOrdinal(pool, 3, poolRevision, poolRevision, vm)
+
+			vm, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).Get(context.TODO(), fmt.Sprintf("%s-1", pool.Name), metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.Labels = map[string]string{}
+			_, err = fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).Patch(context.TODO(), vm.Name, k8stypes.MergePatchType, []byte(`{"spec":{"labels":{}}}`), metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			sanityExecute()
-			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Replicas).To(Equal(int32(3)))
+			Expect(vmpool.Status.ReadyReplicas).To(Equal(int32(3)))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "update", "virtualmachinepools")).To(HaveLen(1))
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
 
@@ -700,34 +639,18 @@ var _ = Describe("Pool", func() {
 
 			addPool(pool)
 
-			for x := range 5 {
-				newVM := vm.DeepCopy()
-				newVM.Name = fmt.Sprintf("%s-%d", pool.Name, x)
-				addVM(newVM)
-			}
+			poolRevision := createPoolRevision(pool)
+			expectControllerRevisionCreation(poolRevision)
 
-			var deletedVMs []string
-			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				deleteAction, ok := action.(k8stesting.DeleteAction)
-				Expect(ok).To(BeTrue())
-				deletedVMs = append(deletedVMs, deleteAction.GetName())
-				return true, nil, nil
-			})
-
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Replicas).To(Equal(int32(5)))
-				return true, update.GetObject(), nil
-			})
+			createVMsWithOrdinal(pool, 5, poolRevision, poolRevision, vm)
 
 			sanityExecute()
 
-			Expect(deletedVMs).To(ConsistOf("my-pool-4", "my-pool-3", "my-pool-2"))
-			for range 3 {
-				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
-			}
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Replicas).To(Equal(int32(5)))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(3))
 		})
 
 		DescribeTable("should respect name generation settings", func(appendIndex *bool) {
@@ -762,23 +685,23 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
-			expectVMCreationWithValidation(
-				HavePrefix(fmt.Sprintf("%s-", pool.Name)),
-				func(vm *v1.VirtualMachine) {
-					defer GinkgoRecover()
-					Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cmName))
-					Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(secretName))
-					if appendIndex != nil && *appendIndex {
-						Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(MatchRegexp(fmt.Sprintf("%s-\\d", cmName)))
-						Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Secret.SecretName).To(MatchRegexp(fmt.Sprintf("%s-\\d", secretName)))
-					} else {
-						Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(Equal(cmName))
-						Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Secret.SecretName).To(Equal(secretName))
-					}
-				},
-			)
 
 			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(3))
+
+			for i, vm := range vms.Items {
+				if appendIndex != nil && *appendIndex {
+					Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(MatchRegexp(fmt.Sprintf("%s-%d", cmName, i)))
+					Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Secret.SecretName).To(MatchRegexp(fmt.Sprintf("%s-%d", secretName, i)))
+				} else {
+					Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(Equal(cmName))
+					Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Secret.SecretName).To(Equal(secretName))
+				}
+			}
+
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -805,28 +728,18 @@ var _ = Describe("Pool", func() {
 			newPoolRevision := createPoolRevision(pool)
 
 			addPool(pool)
-			// Create 4 VMs with their VMIs
-			for i := range 4 {
-				vmCopy := vm.DeepCopy()
-				vmCopy.Name = fmt.Sprintf("%s-%d", pool.Name, i)
-				vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, newPoolRevision.Name)
-				markVmAsReady(vmCopy)
-				// Create VMI with old revision to trigger update
-				vmi := createReadyVMI(vmCopy, oldPoolRevision)
-				addVM(vmCopy)
-				addVMI(vmi)
-			}
-
 			addCR(oldPoolRevision)
 			addCR(newPoolRevision)
 			expectControllerRevisionCreation(newPoolRevision)
-			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				return true, nil, nil
-			})
+
+			createVMsWithOrdinal(pool, 4, newPoolRevision, oldPoolRevision, vm)
+
 			sanityExecute()
+
 			testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
 		})
+
 		It("should not trigger proactive update when VMs are not ready", func() {
 			pool, vm := DefaultPool(4)
 			pool.Status.Replicas = 4
@@ -843,44 +756,19 @@ var _ = Describe("Pool", func() {
 			newPoolRevision := createPoolRevision(pool)
 
 			addPool(pool)
-			// Create 4 VMs with their VMIs, but mark one VMI as not ready
-			for i := 0; i < 4; i++ {
-				vmCopy := vm.DeepCopy()
-				vmCopy.Name = fmt.Sprintf("%s-%d", pool.Name, i)
-				vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, newPoolRevision.Name)
-				markVmAsReady(vmCopy)
-				vmi := createReadyVMI(vmCopy, oldPoolRevision)
-				if i == 3 {
-					// Mark the last VMI as not ready
-					vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
-						{
-							Type:   v1.VirtualMachineInstanceReady,
-							Status: k8sv1.ConditionFalse,
-						},
-					}
-				}
-				addVM(vmCopy)
-				addVMI(vmi)
-			}
-
 			addCR(oldPoolRevision)
 			addCR(newPoolRevision)
-
 			expectControllerRevisionCreation(newPoolRevision)
 
-			// Expect pool to be updated with failure condition
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Conditions).To(HaveLen(1))
-				Expect(updateObj.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaFailure))
-				Expect(updateObj.Status.Conditions[0].Reason).To(Equal(FailedUpdateReason))
-				Expect(updateObj.Status.Conditions[0].Message).To(ContainSubstring("timeout occurred while waiting for the VMI to become healthy"))
-				return true, update.GetObject(), nil
-			})
+			createVMsWithOrdinal(pool, 4, newPoolRevision, oldPoolRevision, vm)
+
+			vmi, err := fakeVirtClient.KubevirtV1().VirtualMachineInstances(pool.Namespace).Patch(context.TODO(), fmt.Sprintf("%s-3", pool.Name), k8stypes.MergePatchType, []byte(`{"status":{"conditions":[{"type":"Ready","status":"False","message":"timeout occurred while waiting for the VMI to become healthy"}]}}`), metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			controller.vmiStore.Update(vmi)
 
 			sanityExecute()
+
 			// Should not see any VMI deletions since one VMI is not ready
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(BeEmpty())
 		})
@@ -900,17 +788,7 @@ var _ = Describe("Pool", func() {
 			newPoolRevision := createPoolRevision(pool)
 
 			addPool(pool)
-			// Create 4 VMs with their VMIs
-			for i := 0; i < 4; i++ {
-				vmCopy := vm.DeepCopy()
-				vmCopy.Name = fmt.Sprintf("%s-%d", pool.Name, i)
-				vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, newPoolRevision.Name)
-				markVmAsReady(vmCopy)
-				vmi := createReadyVMI(vmCopy, oldPoolRevision)
-				addVM(vmCopy)
-				addVMI(vmi)
-			}
-
+			createVMsWithOrdinal(pool, 4, newPoolRevision, oldPoolRevision, vm)
 			addCR(oldPoolRevision)
 			addCR(newPoolRevision)
 			expectControllerRevisionCreation(newPoolRevision)
@@ -921,25 +799,19 @@ var _ = Describe("Pool", func() {
 				deleteCount++
 				if deleteCount == 1 {
 					// First deletion fails
-					return true, nil, fmt.Errorf("simulated deletion failure")
+					return true, obj, fmt.Errorf("simulated deletion failure")
 				}
-				return true, nil, nil
-			})
-
-			// Expect pool to be updated with failure condition
-			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(k8stesting.UpdateAction)
-				Expect(ok).To(BeTrue())
-				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
-				Expect(updateObj.Status.Conditions).To(HaveLen(1))
-				Expect(updateObj.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaFailure))
-				Expect(updateObj.Status.Conditions[0].Reason).To(Equal(FailedUpdateReason))
-				return true, update.GetObject(), nil
+				return true, obj, nil
 			})
 
 			sanityExecute()
 
-			// Verify that only one VMI deletion was attempted
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Conditions).To(HaveLen(1))
+			Expect(vmpool.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaFailure))
+			Expect(vmpool.Status.Conditions[0].Reason).To(Equal(FailedUpdateReason))
+
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
 			testutils.ExpectEvent(recorder, common.FailedUpdateVirtualMachineReason)
 		})
