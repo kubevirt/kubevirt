@@ -67,10 +67,11 @@ var (
 		vmSnapshotMetrics,
 	}
 
-	indexers      *Indexers
-	stores        *Stores
-	clusterConfig *virtconfig.ClusterConfig
-	vmApplier     vmApplyHandler
+	indexers       *Indexers
+	stores         *Stores
+	clusterConfig  *virtconfig.ClusterConfig
+	vmApplier      vmApplyHandler
+	kubevirtClient kubecli.KubevirtClient
 )
 
 func SetupMetrics(
@@ -89,6 +90,7 @@ func SetupMetrics(
 	}
 	stores = metricsStores
 	clusterConfig = virtClusterConfig
+	kubevirtClient = clientset
 
 	vmApplier = apply.NewVMApplier(
 		find.NewSpecFinder(
