@@ -91,7 +91,12 @@ func (s V1alpha3Server) OnDefineDomain(
 		IstioProxyInjectionEnabled: istioProxyInjectionEnabled,
 	}
 
-	passtConfigurator, err := domain.NewPasstNetworkConfigurator(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, opts, nil)
+	passtConfigurator, err := domain.NewPasstNetworkConfigurator(
+		vmi.Spec.Domain.Devices.Interfaces,
+		vmi.Spec.Networks,
+		vmi.Status.Interfaces,
+		opts,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create passt configurator: %v", err)
 	}
