@@ -54,41 +54,41 @@ var ErrNoBackendPVC = fmt.Errorf("no backend PVC when there should be one")
 func GetVolumes(obj interface{}, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
 	switch obj := obj.(type) {
 	case *v1.VirtualMachine:
-		return GetVirtualMachineVolumes(obj, client, opts...)
+		return getVirtualMachineVolumes(obj, client, opts...)
 	case *snapshotv1.VirtualMachine:
-		return GetSnapshotVirtualMachineVolumes(obj, client, opts...)
+		return getSnapshotVirtualMachineVolumes(obj, client, opts...)
 	case *v1.VirtualMachineInstance:
-		return GetVirtualMachineInstanceVolumes(obj, opts...)
+		return getVirtualMachineInstanceVolumes(obj, opts...)
 	default:
 		return []v1.Volume{}, fmt.Errorf("unsupported object type: %T", obj)
 	}
 }
 
-// GetVirtualMachineVolumes returns all volumes of a VM except the special ones based on volume options
-func GetVirtualMachineVolumes(vm *v1.VirtualMachine, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
-	return getVolumes(vm, vm.Spec.Template.Spec, client, opts...)
+// getVirtualMachineVolumes returns all volumes of a VM except the special ones based on volume options
+func getVirtualMachineVolumes(vm *v1.VirtualMachine, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
+	return getVolumes(vm, vm.Spec.Template.Spec.Volumes, client, opts...)
 }
 
-// GetSnapshotVirtualMachineVolumes returns all volumes of a Snapshot VM except the special ones based on volume options
-func GetSnapshotVirtualMachineVolumes(vm *snapshotv1.VirtualMachine, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
-	return getVolumes(vm, vm.Spec.Template.Spec, client, opts...)
+// getSnapshotVirtualMachineVolumes returns all volumes of a Snapshot VM except the special ones based on volume options
+func getSnapshotVirtualMachineVolumes(vm *snapshotv1.VirtualMachine, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
+	return getVolumes(vm, vm.Spec.Template.Spec.Volumes, client, opts...)
 }
 
-// GetVirtualMachineInstanceVolumes returns all volumes of a VMI except the special ones based on volume options
-func GetVirtualMachineInstanceVolumes(vmi *v1.VirtualMachineInstance, opts ...VolumeOption) ([]v1.Volume, error) {
-	return getVolumes(vmi, vmi.Spec, nil, opts...)
+// getVirtualMachineInstanceVolumes returns all volumes of a VMI except the special ones based on volume options
+func getVirtualMachineInstanceVolumes(vmi *v1.VirtualMachineInstance, opts ...VolumeOption) ([]v1.Volume, error) {
+	return getVolumes(vmi, vmi.Spec.Volumes, nil, opts...)
 }
 
-func getVolumes(obj metav1.Object, vmiSpec v1.VirtualMachineInstanceSpec, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
+func getVolumes(obj metav1.Object, volumes []v1.Volume, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
 	var enumeratedVolumes []v1.Volume
 
-	if needsRegularVolumes(vmiSpec, opts) {
-		for _, volume := range vmiSpec.Volumes {
+	if needsRegularVolumes(opts) {
+		for _, volume := range volumes {
 			enumeratedVolumes = append(enumeratedVolumes, volume)
 		}
 	}
 
-	if needsBackendPVC(vmiSpec, opts) {
+	if needsBackendPVC(obj, opts) {
 		backendVolumeName, err := getBackendPVCName(obj, client)
 		if err != nil {
 			return enumeratedVolumes, err
@@ -132,16 +132,16 @@ func getBackendPVCName(obj metav1.Object, client kubecli.KubevirtClient) (string
 	}
 }
 
-func needsBackendPVC(vmiSpec v1.VirtualMachineInstanceSpec, opts []VolumeOption) bool {
+func needsBackendPVC(obj metav1.Object, opts []VolumeOption) bool {
 	for _, opt := range opts {
 		if opt == WithBackendVolume || opt == WithAllVolumes {
-			return backendstorage.IsBackendStorageNeededForVMI(&vmiSpec)
+			return backendstorage.IsBackendStorageNeeded(obj)
 		}
 	}
 	return false
 }
 
-func needsRegularVolumes(vmiSpec v1.VirtualMachineInstanceSpec, opts []VolumeOption) bool {
+func needsRegularVolumes(opts []VolumeOption) bool {
 	if len(opts) == 0 {
 		return true
 	}

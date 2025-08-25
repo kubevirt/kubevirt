@@ -725,6 +725,10 @@ type Disk struct {
 	// If specified, it can change the default error policy (stop) for the disk
 	// +optional
 	ErrorPolicy *DiskErrorPolicy `json:"errorPolicy,omitempty"`
+	// ChangedBlockTracking indicates this disk should have CBT option
+	// Defaults to false.
+	// +optional
+	ChangedBlockTracking *bool `json:"changedBlockTracking,omitempty"`
 }
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.
