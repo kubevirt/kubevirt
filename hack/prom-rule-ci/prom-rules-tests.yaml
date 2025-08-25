@@ -12,7 +12,7 @@ tests:
     input_series:
       - series: 'up{namespace="ci", pod="virt-api-1"}'
         values: "_ _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 0 1"
-      - series: 'up{namespace="ci", pod="virt-controller-1"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-controller-1", phase="Running"}'
         values: "_ _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 0 1"
       - series: 'up{namespace="ci", pod="virt-operator-1"}'
         values: "_ _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 0 1"
@@ -197,9 +197,9 @@ tests:
         values: '1+0x11'
       - series: 'kubevirt_virt_controller_ready_status{namespace="ci", pod="virt-controller-2"}'
         values: '0+0x11'
-      - series: 'up{namespace="ci", pod="virt-controller-1"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-controller-1", phase="Running"}'
         values: '1+0x11'
-      - series: 'up{namespace="ci", pod="virt-controller-2"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-controller-2", phase="Running"}'
         values: '1+0x11'
 
     alert_rule_test:
