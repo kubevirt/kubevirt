@@ -20,14 +20,11 @@ package alerts
 
 import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 )
 
 var (
-	fiftyMB = resource.MustParse("50Mi")
-
 	vmsAlerts = []promv1.Rule{
 		{
 			Alert: "OrphanedVirtualMachineInstances",
@@ -99,6 +96,32 @@ var (
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "KubeVirtVMGuestMemoryPressure",
+			Expr:  intstr.FromString("(((sum by (name, namespace) (kubevirt_vmi_memory_usable_bytes) / sum by (name, namespace) (kubevirt_vmi_memory_available_bytes)) < 0.05) and (sum by (name, namespace) (rate(kubevirt_vmi_memory_pgmajfault_total[5m])) > 5 or ((sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_in_traffic_bytes[5m])) + sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_out_traffic_bytes[5m]))) > 1048576)) and (sum by (name, namespace) (kubevirt_vmi_memory_available_bytes) > 0)) * on(name, namespace) group_left(vm) label_replace(label_replace(kubevirt_vmi_info{phase='running'}, 'vm', '$1', 'name', '(.+)'), 'name', '$1', 'vmi_pod', '(.+)')"),
+			For:   ptr.To(promv1.Duration("5m")),
+			Annotations: map[string]string{
+				"description": "VirtualMachine {{ $labels.vm }} in namespace {{ $labels.namespace }} is under memory pressure: low usable memory with elevated major faults and/or swap IO.",
+				"summary":     "The VirtualMachine is under memory pressure (possible thrashing)",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "KubeVirtVMGuestMemoryAvailableLow",
+			Expr:  intstr.FromString("(((sum by (name, namespace) (kubevirt_vmi_memory_usable_bytes) / sum by (name, namespace) (kubevirt_vmi_memory_available_bytes)) < 0.03) and ((sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_in_traffic_bytes[30m])) + sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_out_traffic_bytes[30m]))) < 2048) and (sum by (name, namespace) (rate(kubevirt_vmi_memory_pgmajfault_total[30m])) < 1) and (sum by (name, namespace) (kubevirt_vmi_memory_available_bytes) > 0)) * on(name, namespace) group_left(vm) label_replace(label_replace(kubevirt_vmi_info{phase='running'}, 'vm', '$1', 'name', '(.+)'), 'name', '$1', 'vmi_pod', '(.+)')"),
+			For:   ptr.To(promv1.Duration("30m")),
+			Annotations: map[string]string{
+				"description": "VirtualMachine {{ $labels.vm }} in namespace {{ $labels.namespace }} has very low available memory (<3% headroom) for 30 minutes with no meaningful swap IO (likely no swap).",
+				"summary":     "The VirtualMachine has low available memory without swap",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "info",
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
