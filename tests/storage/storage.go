@@ -508,8 +508,8 @@ var _ = Describe(SIG("Storage", func() {
 						Expect(console.LoginToAlpine(obj)).To(Succeed())
 
 						Expect(console.SafeExpectBatch(obj, []expect.Batcher{
-							&expect.BSnd{S: "blockdev --getsize64 /dev/vdb\n"},
-							&expect.BExp{R: "1013972992"},
+							&expect.BSnd{S: "ls -d /sys/block/vd* | wc -l\n"},
+							&expect.BExp{R: console.RetValue("2")},
 						}, 200)).To(Succeed())
 					}
 

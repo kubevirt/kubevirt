@@ -253,6 +253,13 @@ function setup_kind() {
         _configure_network "$node"
     done
     prepare_config
+
+    if [[ $KUBEVIRT_DEPLOY_CDI == "true" ]]; then
+       KUBEVIRT_CUSTOM_CDI_VERSION=${KUBEVIRT_CUSTOM_CDI_VERSION:-"v1.63.0"}
+      _kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/"$KUBEVIRT_CUSTOM_CDI_VERSION"/cdi-operator.yaml
+      _kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/"$KUBEVIRT_CUSTOM_CDI_VERSION"/cdi-cr.yaml
+    fi
+
 }
 
 function _add_extra_mounts() {
