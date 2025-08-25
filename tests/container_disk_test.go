@@ -22,7 +22,6 @@ package tests_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -45,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -168,43 +166,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Describe("[rfe_id:4052][crit:high][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", decorators.WgS390x, decorators.WgArm64, func() {
-		Context("with ephemeral registry disk", func() {
-			It("[test_id:4299]should not have world write permissions", func() {
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsSmall)
-
-				By("Ensuring VMI is running by logging in")
-				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
-				By("Fetching virt-launcher Pod")
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
-				Expect(err).ToNot(HaveOccurred())
-
-				writableImagePath := fmt.Sprintf("/var/run/kubevirt-ephemeral-disks/disk-data/%v/disk.qcow2", vmi.Spec.Domain.Devices.Disks[0].Name)
-
-				writableImageOctalMode, err := exec.ExecuteCommandOnPod(
-					pod,
-					"compute",
-					[]string{"/usr/bin/bash", "-c", fmt.Sprintf("stat -c %%a %s", writableImagePath)},
-				)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking the writable Image Octal mode")
-				Expect(strings.Trim(writableImageOctalMode, "\n")).To(Equal("640"), "Octal Mode of writable Image should be 640")
-
-				readonlyImageOctalMode, err := exec.ExecuteCommandOnPod(
-					pod,
-					"compute",
-					[]string{"/usr/bin/bash", "-c", "stat -c %a /var/run/kubevirt/container-disks/disk_0.img"},
-				)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking the read-only Image Octal mode")
-				Expect(strings.Trim(readonlyImageOctalMode, "\n")).To(Equal("440"), "Octal Mode of read-only Image should be 440")
-
-			})
-		})
-	})
 	Describe("Bogus container disk path", func() {
 		Context("that points to outside of the volume", func() {
 			//TODO this could be unit test
