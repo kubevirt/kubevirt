@@ -101,6 +101,7 @@ launcherbase_x86_64="
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   seabios-${SEABIOS_VERSION}
+  tdx-qgs
 "
 launcherbase_aarch64="
   edk2-aarch64-${EDK2_VERSION}
