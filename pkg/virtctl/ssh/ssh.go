@@ -37,7 +37,6 @@ import (
 
 const (
 	portFlag, portFlagShort                         = "port", "p"
-	wrapLocalSSHFlag                                = "local-ssh"
 	usernameFlag, usernameFlagShort                 = "username", "l"
 	IdentityFilePathFlag, identityFilePathFlagShort = "identity-file", "i"
 	knownHostsFilePathFlag                          = "known-hosts"
@@ -75,8 +74,8 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
 	flagset.IntVarP(&opts.SSHPort, portFlag, portFlagShort, opts.SSHPort,
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
-
-	addAdditionalCommandlineArgs(flagset, opts)
+	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
+		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh client`, additionalOpts))
 }
 
 func DefaultSSHOptions() SSHOptions {
@@ -92,7 +91,6 @@ func DefaultSSHOptions() SSHOptions {
 		KnownHostsFilePath:        "",
 		KnownHostsFilePathDefault: "",
 		AdditionalSSHLocalOptions: []string{},
-		WrapLocalSSH:              true,
 		LocalClientName:           "ssh",
 	}
 
@@ -115,12 +113,11 @@ type SSHOptions struct {
 	KnownHostsFilePath        string
 	KnownHostsFilePathDefault string
 	AdditionalSSHLocalOptions []string
-	WrapLocalSSH              bool
 	LocalClientName           string
 }
 
 func (o *SSH) Run(cmd *cobra.Command, args []string) error {
-	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	_, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
@@ -130,15 +127,8 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if cmd.Flags().Changed(wrapLocalSSHFlag) {
-		cmd.PrintErrln("The --local-ssh flag is deprecated and now defaults to true.")
-	}
-	if o.options.WrapLocalSSH {
-		clientArgs := o.buildSSHTarget(kind, namespace, name)
-		return RunLocalClient(kind, namespace, name, &o.options, clientArgs)
-	}
-
-	return o.nativeSSH(kind, namespace, name, client, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr())
+	clientArgs := o.buildSSHTarget(kind, namespace, name)
+	return RunLocalClient(kind, namespace, name, &o.options, clientArgs)
 }
 
 func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
@@ -171,7 +161,7 @@ func usage() string {
 		IdentityFilePathFlag,
 		IdentityFilePathFlag,
 		usernameFlag,
-	) + additionalUsage()
+	)
 }
 
 func defaultUsername() string {

@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "native.go",
         "scp.go",
         "wrapped.go",
     ],
@@ -13,8 +12,6 @@ go_library(
         "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/ssh:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//vendor/github.com/povsister/scp:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
     ],
 )
