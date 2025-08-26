@@ -1476,7 +1476,7 @@ func (c *Controller) execute(key string) error {
 		freshPool, err := c.clientset.VirtualMachinePool(pool.Namespace).Get(context.Background(), pool.Name, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				if err := c.cleanupOrphanedVMs(freshPool, vms); err != nil {
+				if err := c.cleanupVMs(vms); err != nil {
 					return err
 				}
 			}
@@ -1573,10 +1573,9 @@ func (c *Controller) removeFinalizer(vm *virtv1.VirtualMachine) error {
 	}
 
 	freshVM, err := c.clientset.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
+	if k8serrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return fmt.Errorf("failed to get VM to remove finalizer: %v", err)
 	}
 
@@ -1637,55 +1636,22 @@ func (c *Controller) removePoolFinalizer(pool *poolv1.VirtualMachinePool) error 
 	return err
 }
 
-func (c *Controller) cleanupOrphanedVMs(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
+func (c *Controller) cleanupVMs(vms []*virtv1.VirtualMachine) error {
 	for _, vm := range vms {
-		if metav1.IsControlledBy(vm, pool) {
-			if err := c.removeFinalizer(vm); err != nil {
-				log.Log.Object(vm).Errorf("Failed to remove finalizer: %v", err)
-			}
+		if err := c.removeFinalizer(vm); err != nil {
+			log.Log.Object(vm).Errorf("Failed to remove finalizer: %v", err)
 		}
 	}
 	return nil
 }
 
 func (c *Controller) handlePoolDeletion(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
-	for _, vm := range vms {
-		if metav1.IsControlledBy(vm, pool) {
-			if err := c.batchCleanupVMs(vms); err != nil {
-				return err
-			}
-		}
+	if err := c.cleanupVMs(vms); err != nil {
+		return err
 	}
 
 	if err := c.removePoolFinalizer(pool); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (c *Controller) batchCleanupVMs(vms []*virtv1.VirtualMachine) error {
-	errChan := make(chan error, len(vms))
-	var wg sync.WaitGroup
-	wg.Add(len(vms))
-
-	for _, vm := range vms {
-		go func(vm *virtv1.VirtualMachine) {
-			defer wg.Done()
-
-			if err := c.removeFinalizer(vm); err != nil {
-				log.Log.Object(vm).Errorf("Failed to remove finalizer: %v", err)
-				errChan <- err
-			}
-		}(vm)
-	}
-
-	wg.Wait()
-
-	select {
-	case err := <-errChan:
-		return err
-	default:
 	}
 
 	return nil
