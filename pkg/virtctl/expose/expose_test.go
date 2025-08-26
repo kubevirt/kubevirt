@@ -422,7 +422,6 @@ var _ = Describe("Expose", func() {
 		)
 
 		It("should create service with correct selector for VM with hostname different from name", func() {
-			// This test verifies the fix for CNV-66616
 			// When VM name differs from hostname, service selector should use VM name
 			vmName := "fedora-test-vm"
 			hostname := "custom-hostname"
