@@ -48,8 +48,6 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const skipIPv6Message = "port-forwarding over ipv6 is not supported yet. Tracking issue https://github.com/kubevirt/kubevirt/issues/7276"
-
 var _ = Describe(SIG("Port-forward", func() {
 	var virtClient kubecli.KubevirtClient
 
@@ -57,7 +55,7 @@ var _ = Describe(SIG("Port-forward", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	Context("VMI With masquerade binding", func() {
+	FContext("VMI With masquerade binding", func() {
 		var (
 			localPort         int
 			portForwardCmd    *exec.Cmd
@@ -67,10 +65,6 @@ var _ = Describe(SIG("Port-forward", func() {
 
 		setup := func(ipFamily k8sv1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
-
-			if ipFamily == k8sv1.IPv6Protocol {
-				Skip(skipIPv6Message)
-			}
 
 			vmi := createCirrosVMIWithPortsAndBlockUntilReady(virtClient, vmiDeclaredPorts)
 			vmnetserver.StartHTTPServerWithSourceIP(vmi, vmiHttpServerPort, getMasqueradeInternalAddress(ipFamily), console.LoginToCirros)
