@@ -476,7 +476,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, 10)).To(Succeed())
 
 				By("Waiting for the vm to be stopped")
-				event := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(15*time.Second).WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
+				ignoreErrors := []string{"server error. command SyncVMI failed"}
+				event := watcher.New(vmi).SetWarningsPolicy(watcher.WarningsPolicy{WarningsIgnoreList: ignoreErrors}).SinceWatchedObjectResourceVersion().Timeout(15*time.Second).WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
 				Expect(event.Message).To(ContainSubstring(`The VirtualMachineInstance crashed`), "VMI should be stopped because of a guest crash")
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")
