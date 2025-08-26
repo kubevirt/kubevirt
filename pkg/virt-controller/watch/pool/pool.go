@@ -1565,7 +1565,7 @@ func (c *Controller) execute(key string) error {
 		freshPool, err := c.clientset.VirtualMachinePool(pool.Namespace).Get(context.Background(), pool.Name, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				if err := c.cleanupOrphanedVMs(freshPool, vms); err != nil {
+				if err := c.cleanupVMs(vms); err != nil {
 					return err
 				}
 			}
@@ -1662,10 +1662,9 @@ func (c *Controller) removeFinalizer(vm *virtv1.VirtualMachine) error {
 	}
 
 	freshVM, err := c.clientset.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
+	if k8serrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return fmt.Errorf("failed to get VM to remove finalizer: %v", err)
 	}
 
@@ -1863,4 +1862,55 @@ func NodeSelectorRequirementsAsSelector(nsm *[]k8score.NodeSelectorRequirement) 
 		}
 	}
 	return selector, nil
+}
+
+func (c *Controller) cleanupVMs(vms []*virtv1.VirtualMachine) error {
+	for _, vm := range vms {
+		if err := c.removeFinalizer(vm); err != nil {
+			log.Log.Object(vm).Errorf("Failed to remove finalizer: %v", err)
+		}
+	}
+	return nil
+}
+
+func (c *Controller) handlePoolDeletion(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
+	if err := c.cleanupVMs(vms); err != nil {
+		return err
+	}
+
+	if err := c.removePoolFinalizer(pool); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Controller) removePoolFinalizer(pool *poolv1.VirtualMachinePool) error {
+	if !controller.HasFinalizer(pool, poolv1.VirtualMachinePoolControllerFinalizer) {
+		return nil
+	}
+
+	patch, err := patchFinalizer(pool.Finalizers, removePoolControllerFinalizer(pool.Finalizers))
+	if err != nil {
+		log.Log.Object(pool).Errorf("Failed to marshal patch: %v", err)
+		return err
+	}
+
+	_, err = c.clientset.VirtualMachinePool(pool.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	return err
+}
+
+func (c *Controller) addPoolFinalizer(pool *poolv1.VirtualMachinePool) error {
+	newPoolFinalizers := make([]string, 0, len(pool.Finalizers)+1)
+	copy(newPoolFinalizers, pool.Finalizers)
+	newPoolFinalizers = append(newPoolFinalizers, poolv1.VirtualMachinePoolControllerFinalizer)
+
+	patch, err := patchFinalizer(pool.Finalizers, newPoolFinalizers)
+	if err != nil {
+		log.Log.Object(pool).Errorf("Failed to marshal patch: %v", err)
+		return err
+	}
+
+	_, err = c.clientset.VirtualMachinePool(pool.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	return err
 }

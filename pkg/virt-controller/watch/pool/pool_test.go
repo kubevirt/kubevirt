@@ -19,6 +19,7 @@
 package pool
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -983,6 +984,27 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, common.FailedUpdateVirtualMachineReason)
 		})
 
+		It("should create VMs with finalizers", func() {
+			pool, _ := DefaultPool(2)
+			pool.Status.Replicas = 2
+			pool.Status.ReadyReplicas = 2
+
+			poolRevision := createPoolRevision(pool)
+			addPool(pool)
+
+			addCR(poolRevision)
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(2))
+			Expect(vms.Items[0].Finalizers).To(ContainElement(poolv1.VirtualMachinePoolControllerFinalizer))
+			Expect(vms.Items[1].Finalizers).To(ContainElement(poolv1.VirtualMachinePoolControllerFinalizer))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(2))
+		})
+
 		It("should remove finalizer from VMs marked for deletion during opportunistic scale in", func() {
 			pool, vm := DefaultPool(2)
 			pool.Status.Replicas = 2
@@ -990,6 +1012,8 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			addPool(pool)
+
+			addCR(poolRevision)
 
 			// Create two VMs with finalizers, mark the first one for deletion
 			vm1 := vm.DeepCopy()
@@ -1024,6 +1048,10 @@ var _ = Describe("Pool", func() {
 			})
 
 			sanityExecute()
+
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Replicas).To(Equal(int32(2)))
 
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "patch", "virtualmachines")).To(HaveLen(1))
 		})
