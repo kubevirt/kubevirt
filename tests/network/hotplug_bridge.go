@@ -313,11 +313,13 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("running a VM")
+			ifaceWithStateDown := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)
+			ifaceWithStateDown.State = v1.InterfaceStateLinkDown
 			vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName1, nadName)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, nadName)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)))
+				libvmi.WithInterface(ifaceWithStateDown))
 			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
