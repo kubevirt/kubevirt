@@ -420,6 +420,34 @@ var _ = Describe("Expose", func() {
 			Entry("with VirtualMachineInstanceReplicaSet and IPFamilyPolicy PreferDualStack", "vmirs", k8sv1.IPFamilyPolicyPreferDualStack),
 			Entry("with VirtualMachineInstanceReplicaSet and IPFamilyPolicy RequireDualStack", "vmirs", k8sv1.IPFamilyPolicyRequireDualStack),
 		)
+
+		It("should create service with correct selector for VM with hostname different from name", func() {
+			// This test verifies the fix for CNV-66616
+			// When VM name differs from hostname, service selector should use VM name
+			vmName := "fedora-test-vm"
+			hostname := "custom-hostname"
+
+			vmi := libvmi.New(
+				libvmi.WithName(vmName),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+			)
+			vmi.Spec.Hostname = hostname
+
+			_, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			serviceName := "test-service"
+			err = runCommand("vmi", vmName, "--name", serviceName, "--port", "80")
+			Expect(err).ToNot(HaveOccurred())
+
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// The service selector should use the VM name, not the hostname
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(v1.VirtualMachineNameLabel, vmName))
+			// Ensure it's not using the hostname
+			Expect(service.Spec.Selector[v1.VirtualMachineNameLabel]).ToNot(Equal(hostname))
+		})
 	})
 })
 

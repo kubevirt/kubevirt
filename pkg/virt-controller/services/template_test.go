@@ -4435,6 +4435,29 @@ var _ = Describe("Template", func() {
 					Expect(vmNameLabel).To(Equal(name[:validation.DNS1123LabelMaxLength]))
 				})
 			})
+
+			Context("with VM hostname different from VM name", func() {
+				It("should use VM name for vm.kubevirt.io/name label, not hostname", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: "default",
+							UID:       "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{
+							Hostname: "custom-hostname",
+						},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
+					Expect(ok).To(BeTrue())
+					Expect(vmNameLabel).To(Equal(vmi.Name), "vm.kubevirt.io/name label should be the VM name, not the hostname")
+					Expect(pod.Spec.Hostname).To(Equal(vmi.Spec.Hostname), "pod hostname should be set to the VMI hostname")
+				})
+			})
 		})
 
 		Context("with guest-to-request memory headroom", func() {
