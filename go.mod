@@ -47,7 +47,7 @@ require (
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc
 	github.com/pkg/errors v0.9.1
 	github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.80.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.55.0
@@ -73,7 +73,7 @@ require (
 	k8s.io/kube-aggregator v0.26.4
 	k8s.io/kube-openapi v0.31.0
 	k8s.io/kubectl v0.0.0-00010101000000-000000000000
-	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
+	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	kubevirt.io/api v0.0.0-00010101000000-000000000000
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer-api v1.60.3-0.20241105012228-50fbed985de9
@@ -82,7 +82,7 @@ require (
 	libvirt.org/go/libvirtxml v1.11000.1
 	mvdan.cc/sh/v3 v3.8.0
 	sigs.k8s.io/controller-runtime v0.20.2
-	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -159,7 +159,7 @@ require (
 	k8s.io/klog/v2 v2.130.1 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
 	mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.3 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.5.0 // indirect
 )
 
 require (
