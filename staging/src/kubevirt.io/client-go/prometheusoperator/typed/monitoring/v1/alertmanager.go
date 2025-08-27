@@ -21,9 +21,9 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -39,33 +39,34 @@ type AlertmanagersGetter interface {
 
 // AlertmanagerInterface has methods to work with Alertmanager resources.
 type AlertmanagerInterface interface {
-	Create(ctx context.Context, alertmanager *v1.Alertmanager, opts metav1.CreateOptions) (*v1.Alertmanager, error)
-	Update(ctx context.Context, alertmanager *v1.Alertmanager, opts metav1.UpdateOptions) (*v1.Alertmanager, error)
+	Create(ctx context.Context, alertmanager *monitoringv1.Alertmanager, opts metav1.CreateOptions) (*monitoringv1.Alertmanager, error)
+	Update(ctx context.Context, alertmanager *monitoringv1.Alertmanager, opts metav1.UpdateOptions) (*monitoringv1.Alertmanager, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, alertmanager *v1.Alertmanager, opts metav1.UpdateOptions) (*v1.Alertmanager, error)
+	UpdateStatus(ctx context.Context, alertmanager *monitoringv1.Alertmanager, opts metav1.UpdateOptions) (*monitoringv1.Alertmanager, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Alertmanager, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.AlertmanagerList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*monitoringv1.Alertmanager, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*monitoringv1.AlertmanagerList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Alertmanager, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *monitoringv1.Alertmanager, err error)
 	AlertmanagerExpansion
 }
 
 // alertmanagers implements AlertmanagerInterface
 type alertmanagers struct {
-	*gentype.ClientWithList[*v1.Alertmanager, *v1.AlertmanagerList]
+	*gentype.ClientWithList[*monitoringv1.Alertmanager, *monitoringv1.AlertmanagerList]
 }
 
 // newAlertmanagers returns a Alertmanagers
 func newAlertmanagers(c *MonitoringV1Client, namespace string) *alertmanagers {
 	return &alertmanagers{
-		gentype.NewClientWithList[*v1.Alertmanager, *v1.AlertmanagerList](
+		gentype.NewClientWithList[*monitoringv1.Alertmanager, *monitoringv1.AlertmanagerList](
 			"alertmanagers",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.Alertmanager { return &v1.Alertmanager{} },
-			func() *v1.AlertmanagerList { return &v1.AlertmanagerList{} }),
+			func() *monitoringv1.Alertmanager { return &monitoringv1.Alertmanager{} },
+			func() *monitoringv1.AlertmanagerList { return &monitoringv1.AlertmanagerList{} },
+		),
 	}
 }

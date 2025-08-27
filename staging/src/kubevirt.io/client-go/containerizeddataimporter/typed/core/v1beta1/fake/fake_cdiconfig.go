@@ -21,120 +21,32 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
+	corev1beta1 "kubevirt.io/client-go/containerizeddataimporter/typed/core/v1beta1"
 	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
-// FakeCDIConfigs implements CDIConfigInterface
-type FakeCDIConfigs struct {
+// fakeCDIConfigs implements CDIConfigInterface
+type fakeCDIConfigs struct {
+	*gentype.FakeClientWithList[*v1beta1.CDIConfig, *v1beta1.CDIConfigList]
 	Fake *FakeCdiV1beta1
 }
 
-var cdiconfigsResource = v1beta1.SchemeGroupVersion.WithResource("cdiconfigs")
-
-var cdiconfigsKind = v1beta1.SchemeGroupVersion.WithKind("CDIConfig")
-
-// Get takes name of the cDIConfig, and returns the corresponding cDIConfig object, and an error if there is any.
-func (c *FakeCDIConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.CDIConfig, err error) {
-	emptyResult := &v1beta1.CDIConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(cdiconfigsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeCDIConfigs(fake *FakeCdiV1beta1) corev1beta1.CDIConfigInterface {
+	return &fakeCDIConfigs{
+		gentype.NewFakeClientWithList[*v1beta1.CDIConfig, *v1beta1.CDIConfigList](
+			fake.Fake,
+			"",
+			v1beta1.SchemeGroupVersion.WithResource("cdiconfigs"),
+			v1beta1.SchemeGroupVersion.WithKind("CDIConfig"),
+			func() *v1beta1.CDIConfig { return &v1beta1.CDIConfig{} },
+			func() *v1beta1.CDIConfigList { return &v1beta1.CDIConfigList{} },
+			func(dst, src *v1beta1.CDIConfigList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.CDIConfigList) []*v1beta1.CDIConfig { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1beta1.CDIConfigList, items []*v1beta1.CDIConfig) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.CDIConfig), err
-}
-
-// List takes label and field selectors, and returns the list of CDIConfigs that match those selectors.
-func (c *FakeCDIConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.CDIConfigList, err error) {
-	emptyResult := &v1beta1.CDIConfigList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(cdiconfigsResource, cdiconfigsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.CDIConfigList{ListMeta: obj.(*v1beta1.CDIConfigList).ListMeta}
-	for _, item := range obj.(*v1beta1.CDIConfigList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested cDIConfigs.
-func (c *FakeCDIConfigs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(cdiconfigsResource, opts))
-}
-
-// Create takes the representation of a cDIConfig and creates it.  Returns the server's representation of the cDIConfig, and an error, if there is any.
-func (c *FakeCDIConfigs) Create(ctx context.Context, cDIConfig *v1beta1.CDIConfig, opts v1.CreateOptions) (result *v1beta1.CDIConfig, err error) {
-	emptyResult := &v1beta1.CDIConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(cdiconfigsResource, cDIConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.CDIConfig), err
-}
-
-// Update takes the representation of a cDIConfig and updates it. Returns the server's representation of the cDIConfig, and an error, if there is any.
-func (c *FakeCDIConfigs) Update(ctx context.Context, cDIConfig *v1beta1.CDIConfig, opts v1.UpdateOptions) (result *v1beta1.CDIConfig, err error) {
-	emptyResult := &v1beta1.CDIConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(cdiconfigsResource, cDIConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.CDIConfig), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCDIConfigs) UpdateStatus(ctx context.Context, cDIConfig *v1beta1.CDIConfig, opts v1.UpdateOptions) (result *v1beta1.CDIConfig, err error) {
-	emptyResult := &v1beta1.CDIConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(cdiconfigsResource, "status", cDIConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.CDIConfig), err
-}
-
-// Delete takes name of the cDIConfig and deletes it. Returns an error if one occurs.
-func (c *FakeCDIConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(cdiconfigsResource, name, opts), &v1beta1.CDIConfig{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeCDIConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(cdiconfigsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.CDIConfigList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched cDIConfig.
-func (c *FakeCDIConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.CDIConfig, err error) {
-	emptyResult := &v1beta1.CDIConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(cdiconfigsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.CDIConfig), err
 }
