@@ -20,10 +20,14 @@
 package multus_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -100,6 +104,154 @@ var _ = Describe("Multus annotations", func() {
 				Entry("name with namespace", "namespace1/my-binding",
 					`[{"namespace": "namespace1", "name": "my-binding", "cni-args": {"logicNetworkName": "default"}}]`),
 			)
+		})
+	})
+
+	Context("Merge Multus annotations", func() {
+		Describe("MergeMultusAnnotations", func() {
+			It("should return new annotation when existing is empty", func() {
+				existing := ""
+				new := `[{"name":"test","namespace":"default"}]`
+
+				result, err := multus.MergeMultusAnnotations(existing, new)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(new))
+			})
+
+			It("should return existing annotation when new is empty", func() {
+				existing := `[{"name":"test","namespace":"default"}]`
+				new := ""
+
+				result, err := multus.MergeMultusAnnotations(existing, new)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(existing))
+			})
+
+			It("should preserve CNI arguments from existing annotation", func() {
+				existing := `[{"name":"ib-pf-network","namespace":"default","cni-args":{"deviceID":"0000:01:00.0","resourceName":"nvidia.com/ib_pf"}}]`
+				new := `[{"name":"ib-pf-network","namespace":"default","interface":"net1"}]`
+
+				result, err := multus.MergeMultusAnnotations(existing, new)
+				Expect(err).ToNot(HaveOccurred())
+
+				var networks []networkv1.NetworkSelectionElement
+				err = json.Unmarshal([]byte(result), &networks)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(networks).To(HaveLen(1))
+
+				network := networks[0]
+				Expect(network.Name).To(Equal("ib-pf-network"))
+				Expect(network.Namespace).To(Equal("default"))
+				Expect(network.InterfaceRequest).To(Equal("net1"))
+				Expect(network.CNIArgs).ToNot(BeNil())
+				Expect((*network.CNIArgs)["deviceID"]).To(Equal("0000:01:00.0"))
+				Expect((*network.CNIArgs)["resourceName"]).To(Equal("nvidia.com/ib_pf"))
+			})
+
+			It("should merge CNI arguments from both annotations", func() {
+				existing := `[{"name":"ib-pf-network","namespace":"default","cni-args":{"deviceID":"0000:01:00.0"}}]`
+				new := `[{"name":"ib-pf-network","namespace":"default","cni-args":{"resourceName":"nvidia.com/ib_pf"}}]`
+
+				result, err := multus.MergeMultusAnnotations(existing, new)
+				Expect(err).ToNot(HaveOccurred())
+
+				var networks []networkv1.NetworkSelectionElement
+				err = json.Unmarshal([]byte(result), &networks)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(networks).To(HaveLen(1))
+
+				network := networks[0]
+				Expect(network.CNIArgs).ToNot(BeNil())
+				Expect((*network.CNIArgs)["deviceID"]).To(Equal("0000:01:00.0"))
+				Expect((*network.CNIArgs)["resourceName"]).To(Equal("nvidia.com/ib_pf"))
+			})
+
+			It("should preserve other fields from existing annotation", func() {
+				existing := `[{"name":"ib-pf-network","namespace":"default","mac":"00:11:22:33:44:55","ips":["192.168.1.100"]}]`
+				new := `[{"name":"ib-pf-network","namespace":"default","interface":"net1"}]`
+
+				result, err := multus.MergeMultusAnnotations(existing, new)
+				Expect(err).ToNot(HaveOccurred())
+
+				var networks []networkv1.NetworkSelectionElement
+				err = json.Unmarshal([]byte(result), &networks)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(networks).To(HaveLen(1))
+
+				network := networks[0]
+				Expect(network.Name).To(Equal("ib-pf-network"))
+				Expect(network.Namespace).To(Equal("default"))
+				Expect(network.InterfaceRequest).To(Equal("net1"))
+				Expect(network.MacRequest).To(Equal("00:11:22:33:44:55"))
+				Expect(network.IPRequest).To(Equal([]string{"192.168.1.100"}))
+			})
+
+			It("should handle multiple networks correctly", func() {
+				existing := `[
+					{"name":"ib-pf-network","namespace":"default","cni-args":{"deviceID":"0000:01:00.0"}},
+					{"name":"gpu-network","namespace":"default","cni-args":{"gpuID":"0"}}
+				]`
+				new := `[
+					{"name":"ib-pf-network","namespace":"default","interface":"net1"},
+					{"name":"gpu-network","namespace":"default","interface":"net2"}
+				]`
+
+				result, err := multus.MergeMultusAnnotations(existing, new)
+				Expect(err).ToNot(HaveOccurred())
+
+				var networks []networkv1.NetworkSelectionElement
+				err = json.Unmarshal([]byte(result), &networks)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(networks).To(HaveLen(2))
+
+				// Check first network
+				ibNetwork := networks[0]
+				Expect(ibNetwork.Name).To(Equal("ib-pf-network"))
+				Expect(ibNetwork.InterfaceRequest).To(Equal("net1"))
+				Expect((*ibNetwork.CNIArgs)["deviceID"]).To(Equal("0000:01:00.0"))
+
+				// Check second network
+				gpuNetwork := networks[1]
+				Expect(gpuNetwork.Name).To(Equal("gpu-network"))
+				Expect(gpuNetwork.InterfaceRequest).To(Equal("net2"))
+				Expect((*gpuNetwork.CNIArgs)["gpuID"]).To(Equal("0"))
+			})
+
+			It("should handle new networks not in existing annotation", func() {
+				existing := `[{"name":"ib-pf-network","namespace":"default","cni-args":{"deviceID":"0000:01:00.0"}}]`
+				new := `[
+					{"name":"ib-pf-network","namespace":"default","interface":"net1"},
+					{"name":"new-network","namespace":"default","interface":"net2"}
+				]`
+
+				result, err := multus.MergeMultusAnnotations(existing, new)
+				Expect(err).ToNot(HaveOccurred())
+
+				var networks []networkv1.NetworkSelectionElement
+				err = json.Unmarshal([]byte(result), &networks)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(networks).To(HaveLen(2))
+
+				// Check existing network is preserved
+				ibNetwork := networks[0]
+				Expect(ibNetwork.Name).To(Equal("ib-pf-network"))
+				Expect(ibNetwork.InterfaceRequest).To(Equal("net1"))
+				Expect((*ibNetwork.CNIArgs)["deviceID"]).To(Equal("0000:01:00.0"))
+
+				// Check new network is added
+				newNetwork := networks[1]
+				Expect(newNetwork.Name).To(Equal("new-network"))
+				Expect(newNetwork.InterfaceRequest).To(Equal("net2"))
+			})
+
+			It("should handle invalid JSON gracefully", func() {
+				existing := `[{"name":"test","namespace":"default"}]`
+				new := `invalid json`
+
+				_, err := multus.MergeMultusAnnotations(existing, new)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("failed to parse new multus annotation"))
+			})
 		})
 	})
 })
