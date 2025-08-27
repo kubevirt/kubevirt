@@ -24,6 +24,7 @@ import (
 	"context"
 
 	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -49,6 +50,9 @@ type PrometheusInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*v1.PrometheusList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Prometheus, err error)
+	GetScale(ctx context.Context, prometheusName string, options metav1.GetOptions) (*autoscalingv1.Scale, error)
+	UpdateScale(ctx context.Context, prometheusName string, scale *autoscalingv1.Scale, opts metav1.UpdateOptions) (*autoscalingv1.Scale, error)
+
 	PrometheusExpansion
 }
 
@@ -68,4 +72,33 @@ func newPrometheuses(c *MonitoringV1Client, namespace string) *prometheuses {
 			func() *v1.Prometheus { return &v1.Prometheus{} },
 			func() *v1.PrometheusList { return &v1.PrometheusList{} }),
 	}
+}
+
+// GetScale takes name of the prometheus, and returns the corresponding autoscalingv1.Scale object, and an error if there is any.
+func (c *prometheuses) GetScale(ctx context.Context, prometheusName string, options metav1.GetOptions) (result *autoscalingv1.Scale, err error) {
+	result = &autoscalingv1.Scale{}
+	err = c.GetClient().Get().
+		Namespace(c.GetNamespace()).
+		Resource("prometheuses").
+		Name(prometheusName).
+		SubResource("scale").
+		VersionedParams(&options, scheme.ParameterCodec).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// UpdateScale takes the top resource name and the representation of a scale and updates it. Returns the server's representation of the scale, and an error, if there is any.
+func (c *prometheuses) UpdateScale(ctx context.Context, prometheusName string, scale *autoscalingv1.Scale, opts metav1.UpdateOptions) (result *autoscalingv1.Scale, err error) {
+	result = &autoscalingv1.Scale{}
+	err = c.GetClient().Put().
+		Namespace(c.GetNamespace()).
+		Resource("prometheuses").
+		Name(prometheusName).
+		SubResource("scale").
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(scale).
+		Do(ctx).
+		Into(result)
+	return
 }
