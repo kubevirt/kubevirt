@@ -28,6 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func (c *FakeKubeVirts) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) (*v1.KubeVirt, error) {
+func (c *fakeKubeVirts) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) (*v1.KubeVirt, error) {
 	return c.Patch(ctx, name, pt, data, patchOptions, "status")
 }
