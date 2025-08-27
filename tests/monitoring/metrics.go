@@ -112,6 +112,38 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			metrics := fetchPrometheusMetrics(virtClient, query)
 			Expect(metrics.Data.Result).To(BeEmpty(), "Expected no workqueue_depth metrics for virt workloads")
 		})
+
+		It("kubevirt workqueue metrics should include controllers names", func() {
+			names := []string{
+				"virt-operator",
+				"virt-handler-node-labeller",
+				"virt-handler-vm",
+				"virt-controller-disruption-budget",
+				"virt-controller-evacuation",
+				"virt-controller-export-vmexport",
+				"virt-controller-node",
+				"virt-controller-pool",
+				"virt-controller-replicaset",
+				"virt-controller-restore-vmrestore",
+				"virt-controller-snapshot-crd",
+				"virt-controller-snapshot-vm",
+				"virt-controller-snapshot-vmsnapshot",
+				"virt-controller-snapshot-vmsnapshotcontent",
+				"virt-controller-snapshot-vmsnashotstatus",
+				"virt-controller-vm",
+				"virt-controller-vmclone",
+				"virt-controller-vmi",
+				"virt-controller-workload-update",
+				"virt-controller-migration",
+			}
+
+			for _, name := range names {
+				By("Checking workqueue metrics for " + name)
+				query := "{__name__=\"kubevirt_workqueue_adds_total\",name=\"" + name + "\"}"
+				metrics := fetchPrometheusMetrics(virtClient, query)
+				Expect(metrics.Data.Result).ToNot(BeEmpty(), "Expected workqueue metrics for "+name)
+			}
+		})
 	})
 })
 
