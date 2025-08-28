@@ -20,6 +20,10 @@
 package annotations
 
 import (
+	"encoding/json"
+	"fmt"
+	"reflect"
+
 	k8scorev1 "k8s.io/api/core/v1"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -125,13 +129,22 @@ func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8
 }
 
 func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) (string, bool) {
+	var currentMultusAnnotationArr, multusAnnotationItemsToRemoveArr, multusAnnotationItemsToModifyArr, updatedMultusAnnotationArr []map[string]interface{}
+	var err error
+
+	currentMultusAnnotation := pod.Annotations[networkv1.NetworkAttachmentAnnot]
+	if currentMultusAnnotationArr, err = parseAnnotation(currentMultusAnnotation); err != nil {
+		log.Log.Errorf("failed to unmarshall current pod annotation: %v", err)
+		panic(err)
+	}
+
 	vmiSpecIfaces, vmiSpecNets, ifaceChangeRequired := ifacesAndNetsForMultusAnnotationUpdate(vmi)
 	if !ifaceChangeRequired {
 		return "", false
 	}
-
 	podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(vmiSpecNets, multus.NetworkStatusesFromPod(pod))
-	updatedMultusAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
+
+	multusAnnotationItemsToModify, err := multus.GenerateCNIAnnotationFromNameScheme(
 		vmi.Namespace,
 		vmiSpecIfaces,
 		vmiSpecNets,
@@ -141,21 +154,74 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 	if err != nil {
 		return "", false
 	}
-
-	currentMultusAnnotation := pod.Annotations[networkv1.NetworkAttachmentAnnot]
-
-	const logLevel = 4
-	log.Log.Object(pod).V(logLevel).Infof(
-		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
-		currentMultusAnnotation,
-		updatedMultusAnnotation,
-	)
-
-	if updatedMultusAnnotation == currentMultusAnnotation {
-		return "", false
+	if multusAnnotationItemsToModifyArr, err = parseAnnotation(multusAnnotationItemsToModify); err != nil {
+		log.Log.Errorf("failed to unmarshall annotation to modify: %v", err)
+		panic(err)
 	}
 
-	return updatedMultusAnnotation, true
+	ifacesToUnplug, nwOfIfacesToUnplug, unplugRequired := ifacesAndNetsToRemoveFromMultusAnnotationUpdate(vmi)
+	if unplugRequired {
+		multusAnnotationItemsToRemove, err := multus.GenerateCNIAnnotationFromNameScheme(
+			vmi.Namespace,
+			ifacesToUnplug,
+			nwOfIfacesToUnplug,
+			podIfaceNamesByNetworkName,
+			g.clusterConfigurer.GetNetworkBindings(),
+		)
+		if err != nil {
+			return "", false
+		}
+		if multusAnnotationItemsToRemoveArr, err = parseAnnotation(multusAnnotationItemsToRemove); err != nil {
+			log.Log.Errorf("failed to unmarshall annotation to remove: %v", err)
+			panic(err)
+		}
+
+		itemsToRemoveSet := makeLookupMap(multusAnnotationItemsToRemoveArr)
+		for _, item := range currentMultusAnnotationArr {
+			key := fmt.Sprintf("%s/%s", item["name"], item["namespace"])
+			if _, exists := itemsToRemoveSet[key]; !exists {
+				updatedMultusAnnotationArr = append(updatedMultusAnnotationArr, item)
+			}
+		}
+	}
+
+	itemsToModifyMap := makeLookupMap(multusAnnotationItemsToModifyArr)
+
+	for index, currentItem := range updatedMultusAnnotationArr {
+		key := fmt.Sprintf("%s/%s", currentItem["name"], currentItem["namespace"])
+		if modifyItem, found := itemsToModifyMap[key]; found {
+			for k, v := range modifyItem {
+				currentItem[k] = v
+			}
+			delete(itemsToModifyMap, key)
+		}
+		updatedMultusAnnotationArr[index] = currentItem
+	}
+	// Add any remaining items
+	for _, newItem := range itemsToModifyMap {
+		updatedMultusAnnotationArr = append(updatedMultusAnnotationArr, newItem)
+	}
+	if len(currentMultusAnnotation) == 0 {
+		updatedMultusAnnotationArr = multusAnnotationItemsToModifyArr
+	}
+
+	var updatedMultusAnnotation []byte
+
+	//Marshall the updatedMultusAnnotationArr
+	if updatedMultusAnnotationArr != nil {
+		updatedMultusAnnotation, err = json.Marshal(updatedMultusAnnotationArr)
+		if err != nil {
+			log.Log.Errorf("failed to marshall updated multus annotation: %v", err)
+			panic(err)
+		}
+	}
+	//Compare updatedMultusAnnotation and currentMultusAnnotation
+	if reflect.DeepEqual(currentMultusAnnotationArr, updatedMultusAnnotationArr) {
+		return "", false
+	} else {
+		return string(updatedMultusAnnotation), true
+	}
+
 }
 
 func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
@@ -205,4 +271,41 @@ func ifacesAndNetsForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v
 		return nil, nil, false
 	}
 	return ifacesToAnnotate, networksToAnnotate, ifaceChangeRequired
+}
+
+func ifacesAndNetsToRemoveFromMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {
+	vmiNonAbsentSpecIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+
+	// find what to unplug
+	ifacesToHotUnplug := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State == v1.InterfaceStateAbsent
+	})
+	networksToUnplug := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToHotUnplug)
+
+	ifacesToHotUnplugExist := len(vmi.Spec.Domain.Devices.Interfaces) > len(vmiNonAbsentSpecIfaces)
+
+	return ifacesToHotUnplug, networksToUnplug, ifacesToHotUnplugExist
+}
+
+func parseAnnotation(s string) ([]map[string]interface{}, error) {
+	var annotation []map[string]interface{}
+	if s == "" {
+		return annotation, nil
+	}
+	if err := json.Unmarshal([]byte(s), &annotation); err != nil {
+		return nil, err
+	}
+	return annotation, nil
+}
+
+func makeLookupMap(annotItemsArr []map[string]interface{}) map[string]map[string]interface{} {
+	// We assume that name+namespace is a unique identifier
+	lookupMap := make(map[string]map[string]interface{})
+	for _, item := range annotItemsArr {
+		key := fmt.Sprintf("%s/%s", item["name"], item["namespace"])
+		lookupMap[key] = item
+	}
+	return lookupMap
 }
