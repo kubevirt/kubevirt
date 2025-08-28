@@ -327,6 +327,27 @@ Returns the timestamp of successful virtual machine snapshot. Type: Gauge.
 ### kubevirt_vnc_active_connections
 Amount of active VNC connections, broken down by namespace and vmi name. Type: Gauge.
 
+### kubevirt_workqueue_adds_total
+Total number of adds handled by workqueue Type: Counter.
+
+### kubevirt_workqueue_depth
+Current depth of workqueue Type: Gauge.
+
+### kubevirt_workqueue_longest_running_processor_seconds
+How many seconds has the longest running processor for workqueue been running. Type: Gauge.
+
+### kubevirt_workqueue_queue_duration_seconds
+How long an item stays in workqueue before being requested. Type: Histogram.
+
+### kubevirt_workqueue_retries_total
+Total number of retries handled by workqueue Type: Counter.
+
+### kubevirt_workqueue_unfinished_work_seconds
+How many seconds of work has done that is in progress and hasn't been observed by work_duration. Large values indicate stuck threads. One can deduce the number of stuck threads by observing the rate at which this increases. Type: Gauge.
+
+### kubevirt_workqueue_work_duration_seconds
+How long in seconds processing an item from workqueue takes. Type: Histogram.
+
 ## Developing new metrics
 
 All metrics documented here are auto-generated and reflect exactly what is being

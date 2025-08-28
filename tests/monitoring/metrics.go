@@ -35,10 +35,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
-	virtapi "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
-	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
-	virthandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
-	virtoperator "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -56,8 +52,6 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		basicVMLifecycle(virtClient)
-		metrics = fetchPrometheusMetrics(virtClient)
 	})
 
 	Context("Prometheus metrics", func() {
@@ -97,24 +91,15 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_dirty_rate_bytes_per_second": true,
 		}
 
+		BeforeEach(func() {
+			basicVMLifecycle(virtClient)
+			metrics = fetchPrometheusKubevirtMetrics(virtClient)
+			Expect(metrics.Data.Result).ToNot(BeEmpty(), "No metrics found")
+		})
+
 		It("should contain virt components metrics", func() {
-			err := virtoperator.SetupMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtoperator.RegisterLeaderMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtapi.SetupMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtcontroller.SetupMetrics(nil, nil, nil, nil)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtcontroller.RegisterLeaderMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virthandler.SetupMetrics("", "", 0, nil, nil)
-			Expect(err).ToNot(HaveOccurred())
+			err := libmonitoring.RegisterAllMetrics()
+			Expect(err).ToNot(HaveOccurred(), "Failed to register all metrics")
 
 			for _, metric := range operatormetrics.ListMetrics() {
 				if excludedMetrics[metric.GetOpts().Name] {
@@ -125,15 +110,27 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			}
 		})
 	})
+
+	Context("Workqueue metrics", func() {
+		It("should not contain controller-runtime workqueue metrics for virt workloads", func() {
+			By("Checking workqueue_depth{container=~\"virt*\"} is not present")
+			query := "{__name__=\"workqueue_depth\",container=~\"virt.*\"}"
+			metrics := fetchPrometheusMetrics(virtClient, query)
+			Expect(metrics.Data.Result).To(BeEmpty(), "Expected no workqueue_depth metrics for virt workloads")
+		})
+	})
 })
 
-func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient) *libmonitoring.QueryRequestResult {
-	metrics, err := libmonitoring.QueryRange(virtClient, "{__name__=~\"kubevirt_.*\"}", time.Now().Add(-1*time.Minute), time.Now(), 15*time.Second)
+func fetchPrometheusKubevirtMetrics(virtClient kubecli.KubevirtClient) *libmonitoring.QueryRequestResult {
+	return fetchPrometheusMetrics(virtClient, "{__name__=~\"kubevirt_.*\"}")
+}
+
+func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient, query string) *libmonitoring.QueryRequestResult {
+	metrics, err := libmonitoring.QueryRange(virtClient, query, time.Now().Add(-1*time.Minute), time.Now(), 15*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(metrics.Status).To(Equal("success"))
 	Expect(metrics.Data.ResultType).To(Equal("matrix"))
-	Expect(metrics.Data.Result).ToNot(BeEmpty(), "No metrics found")
 
 	return metrics
 }
