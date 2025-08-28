@@ -248,6 +248,9 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 		vmi.Status.Phase = v1.Failed
 		vmi.Status.MigrationState.Completed = true
 		vmi.Status.MigrationState.Failed = true
+		if vmi.Status.MigrationState.EndTimestamp == nil {
+			vmi.Status.MigrationState.EndTimestamp = pointer.P(metav1.NewTime(time.Now()))
+		}
 
 		log.Log.Object(vmi).Warning("the vmi migrated to an unknown host")
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to unknown host."))
@@ -256,6 +259,9 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 			vmi.Status.Phase = v1.Failed
 			vmi.Status.MigrationState.Completed = true
 			vmi.Status.MigrationState.Failed = true
+			if vmi.Status.MigrationState.EndTimestamp == nil {
+				vmi.Status.MigrationState.EndTimestamp = pointer.P(metav1.NewTime(time.Now()))
+			}
 
 			log.Log.Object(vmi).Warning("the domain was never observed on the taget after the migration completed within the timeout period")
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance's domain was never observed on the target after the migration completed within the timeout period."))
