@@ -1743,10 +1743,10 @@ rpm(
 )
 
 rpm(
-    name = "fips-provider-next-0__1.2.0-5.el9.aarch64",
-    sha256 = "216cd58e8e9222e696f9fa5607393807c1e55200f47980bd99b3f1326d5961e2",
+    name = "fips-provider-next-0__1.2.0-5.el9.s390x",
+    sha256 = "51bb0013066a0d83f2cc2df63eb2b7d1dcfe5dafb4054f62143768f682df3c1a",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/fips-provider-next-1.2.0-5.el9.aarch64.rpm",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/fips-provider-next-1.2.0-5.el9.s390x.rpm",
     ],
 )
 
@@ -5952,26 +5952,26 @@ rpm(
 )
 
 rpm(
-    name = "passt-0__0__caret__20250415.g8ec1341-1.el9.aarch64",
-    sha256 = "5476728540a2c925918362024905081680f55885e0c5d01658cd36a5a2321085",
+    name = "passt-0__0__caret__20250512.g8ec1341-2.el9.aarch64",
+    sha256 = "b25fd3d6395c66279b57f2c6cafa51d487b40cf7b3caa16915c7e702c5495679",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/passt-0%5E20250415.g8ec1341-1.el9.aarch64.rpm",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/passt-0%5E20250512.g8ec1341-2.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "passt-0__0__caret__20250415.g8ec1341-1.el9.s390x",
-    sha256 = "efe849c9884788bb8bb509bc030a8ec546475bfb32a4f365a4277a938096efd0",
+    name = "passt-0__0__caret__20250512.g8ec1341-2.el9.s390x",
+    sha256 = "ee4e4896389277f09db8e3a112e83e83be80d1401b43a9993137c12c004bdafc",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/passt-0%5E20250415.g8ec1341-1.el9.s390x.rpm",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/passt-0%5E20250512.g8ec1341-2.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "passt-0__0__caret__20250415.g8ec1341-1.el9.x86_64",
-    sha256 = "171bf1df52e67027b9a250c44d2cafa46e0707521861be8a9e1839389ed06a14",
+    name = "passt-0__0__caret__20250512.g8ec1341-2.el9.x86_64",
+    sha256 = "27818a1904c1d1e39890abe239ea156a29c3e548e83941d7696e0cd3113abfdd",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/passt-0%5E20250415.g8ec1341-1.el9.x86_64.rpm",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/passt-0%5E20250512.g8ec1341-2.el9.x86_64.rpm",
     ],
 )
 
