@@ -387,7 +387,7 @@ func (c *VirtualMachineController) execute(key string) error {
 		}
 	}
 
-	if isMigrationInProgress(vmi, domain) {
+	if vmi.DeletionTimestamp == nil && isMigrationInProgress(vmi, domain) {
 		c.logger.V(4).Infof("ignoring key %v as migration is in progress", key)
 		return nil
 	}
