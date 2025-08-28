@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -45,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("GuestAgent", func() {
+var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 	Context("Readiness Probe", func() {
 		const (
 			period         = 5
