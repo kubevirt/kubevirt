@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	workqueuemetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
@@ -150,6 +151,7 @@ func NewController(templateService services.TemplateService,
 		templateService: templateService,
 		Queue: priorityqueue.New[string]("virt-controller-migration", func(o *priorityqueue.Opts[string]) {
 			o.RateLimiter = workqueue.DefaultTypedControllerRateLimiter[string]()
+			o.MetricProvider = workqueuemetrics.NewPrometheusMetricsProvider()
 		}),
 		vmiStore:             vmiInformer.GetStore(),
 		podIndexer:           podInformer.GetIndexer(),
