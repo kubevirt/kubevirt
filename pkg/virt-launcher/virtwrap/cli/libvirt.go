@@ -377,7 +377,10 @@ func (l *LibvirtConnection) GetDomainDirtyRate(calculationDuration time.Duration
 		var dirtyRateStats []*stats.DomainStatsDirtyRate
 		for _, domStat := range domStats {
 			dirtyRateInfo := domStat.DirtyRate
-
+			if dirtyRateInfo == nil {
+				log.Log.Warning("Dirty rate info is nil")
+				continue
+			}
 			// warn if dirty rate calc is not set or not finished
 			if !dirtyRateInfo.CalcStatusSet {
 				return nil, fmt.Errorf("dirty rate stats calculation status is not set")
