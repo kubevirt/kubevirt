@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -81,6 +81,10 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		return response
 	}
 
+	if ar.Request.Operation == admissionv1.Create {
+		setFirmwareDefaultsIfEmpty(vm)
+	}
+
 	// Set VM defaults
 	log.Log.Object(vm).V(4).Info("Apply defaults")
 
@@ -107,5 +111,16 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
+	}
+}
+
+func setFirmwareDefaultsIfEmpty(vm *v1.VirtualMachine) {
+	if vm.Spec.Template.Spec.Domain.Firmware == nil {
+		vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
+	}
+	fw := vm.Spec.Template.Spec.Domain.Firmware
+
+	if fw.Serial == "" {
+		fw.Serial = uuid.New().String()
 	}
 }
