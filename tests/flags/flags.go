@@ -63,6 +63,8 @@ var MigrationNetworkNIC = "eth1"
 
 var DisableCustomSELinuxPolicy bool
 
+var UseCustomSeccompProfile bool
+
 func init() {
 	kubecli.Init()
 	flag.StringVar(&KubeVirtUtilityVersionTag, "utility-container-tag", "", "Set the image tag or digest to use")
@@ -98,6 +100,8 @@ func init() {
 	flag.StringVar(&DNSServiceNamespace, "dns-service-namespace", "kube-system", "cluster DNS service namespace")
 	flag.StringVar(&MigrationNetworkNIC, "migration-network-nic", "eth1", "NIC to use on cluster nodes to access the dedicated migration network")
 	flag.BoolVar(&DisableCustomSELinuxPolicy, "disable-custom-selinux-policy", false, "disables the installation and use of the custom SELinux policy for virt-launcher")
+	flag.BoolVar(&UseCustomSeccompProfile, "use-custom-seccomp-profile", true, "enables the installation and use of the custom custom seccomp profile for virt-launcher")
+
 }
 
 func NormalizeFlags() {

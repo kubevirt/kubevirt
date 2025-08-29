@@ -38,6 +38,7 @@ var (
 	VMX                          = []interface{}{Label("VMX")}
 	Upgrade                      = []interface{}{Label("Upgrade")}
 	CustomSELinux                = []interface{}{Label("CustomSELinux")}
+	CustomSeccomp                = []interface{}{Label("CustomSeccomp")}
 	Istio                        = []interface{}{Label("Istio")}
 	InPlaceHotplugNICs           = []interface{}{Label("in-place-hotplug-NICs")}
 	MigrationBasedHotplugNICs    = []interface{}{Label("migration-based-hotplug-NICs")}
