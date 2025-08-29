@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1alpha2
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,36 @@ type VirtualMachineClusterPreferencesGetter interface {
 
 // VirtualMachineClusterPreferenceInterface has methods to work with VirtualMachineClusterPreference resources.
 type VirtualMachineClusterPreferenceInterface interface {
-	Create(ctx context.Context, virtualMachineClusterPreference *v1alpha2.VirtualMachineClusterPreference, opts v1.CreateOptions) (*v1alpha2.VirtualMachineClusterPreference, error)
-	Update(ctx context.Context, virtualMachineClusterPreference *v1alpha2.VirtualMachineClusterPreference, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineClusterPreference, error)
+	Create(ctx context.Context, virtualMachineClusterPreference *instancetypev1alpha2.VirtualMachineClusterPreference, opts v1.CreateOptions) (*instancetypev1alpha2.VirtualMachineClusterPreference, error)
+	Update(ctx context.Context, virtualMachineClusterPreference *instancetypev1alpha2.VirtualMachineClusterPreference, opts v1.UpdateOptions) (*instancetypev1alpha2.VirtualMachineClusterPreference, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha2.VirtualMachineClusterPreference, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha2.VirtualMachineClusterPreferenceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*instancetypev1alpha2.VirtualMachineClusterPreference, error)
+	List(ctx context.Context, opts v1.ListOptions) (*instancetypev1alpha2.VirtualMachineClusterPreferenceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineClusterPreference, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *instancetypev1alpha2.VirtualMachineClusterPreference, err error)
 	VirtualMachineClusterPreferenceExpansion
 }
 
 // virtualMachineClusterPreferences implements VirtualMachineClusterPreferenceInterface
 type virtualMachineClusterPreferences struct {
-	*gentype.ClientWithList[*v1alpha2.VirtualMachineClusterPreference, *v1alpha2.VirtualMachineClusterPreferenceList]
+	*gentype.ClientWithList[*instancetypev1alpha2.VirtualMachineClusterPreference, *instancetypev1alpha2.VirtualMachineClusterPreferenceList]
 }
 
 // newVirtualMachineClusterPreferences returns a VirtualMachineClusterPreferences
 func newVirtualMachineClusterPreferences(c *InstancetypeV1alpha2Client) *virtualMachineClusterPreferences {
 	return &virtualMachineClusterPreferences{
-		gentype.NewClientWithList[*v1alpha2.VirtualMachineClusterPreference, *v1alpha2.VirtualMachineClusterPreferenceList](
+		gentype.NewClientWithList[*instancetypev1alpha2.VirtualMachineClusterPreference, *instancetypev1alpha2.VirtualMachineClusterPreferenceList](
 			"virtualmachineclusterpreferences",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha2.VirtualMachineClusterPreference { return &v1alpha2.VirtualMachineClusterPreference{} },
-			func() *v1alpha2.VirtualMachineClusterPreferenceList {
-				return &v1alpha2.VirtualMachineClusterPreferenceList{}
-			}),
+			func() *instancetypev1alpha2.VirtualMachineClusterPreference {
+				return &instancetypev1alpha2.VirtualMachineClusterPreference{}
+			},
+			func() *instancetypev1alpha2.VirtualMachineClusterPreferenceList {
+				return &instancetypev1alpha2.VirtualMachineClusterPreferenceList{}
+			},
+		),
 	}
 }

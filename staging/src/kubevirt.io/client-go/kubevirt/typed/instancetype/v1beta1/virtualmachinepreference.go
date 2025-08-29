@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,31 +39,36 @@ type VirtualMachinePreferencesGetter interface {
 
 // VirtualMachinePreferenceInterface has methods to work with VirtualMachinePreference resources.
 type VirtualMachinePreferenceInterface interface {
-	Create(ctx context.Context, virtualMachinePreference *v1beta1.VirtualMachinePreference, opts v1.CreateOptions) (*v1beta1.VirtualMachinePreference, error)
-	Update(ctx context.Context, virtualMachinePreference *v1beta1.VirtualMachinePreference, opts v1.UpdateOptions) (*v1beta1.VirtualMachinePreference, error)
+	Create(ctx context.Context, virtualMachinePreference *instancetypev1beta1.VirtualMachinePreference, opts v1.CreateOptions) (*instancetypev1beta1.VirtualMachinePreference, error)
+	Update(ctx context.Context, virtualMachinePreference *instancetypev1beta1.VirtualMachinePreference, opts v1.UpdateOptions) (*instancetypev1beta1.VirtualMachinePreference, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.VirtualMachinePreference, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.VirtualMachinePreferenceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*instancetypev1beta1.VirtualMachinePreference, error)
+	List(ctx context.Context, opts v1.ListOptions) (*instancetypev1beta1.VirtualMachinePreferenceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.VirtualMachinePreference, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *instancetypev1beta1.VirtualMachinePreference, err error)
 	VirtualMachinePreferenceExpansion
 }
 
 // virtualMachinePreferences implements VirtualMachinePreferenceInterface
 type virtualMachinePreferences struct {
-	*gentype.ClientWithList[*v1beta1.VirtualMachinePreference, *v1beta1.VirtualMachinePreferenceList]
+	*gentype.ClientWithList[*instancetypev1beta1.VirtualMachinePreference, *instancetypev1beta1.VirtualMachinePreferenceList]
 }
 
 // newVirtualMachinePreferences returns a VirtualMachinePreferences
 func newVirtualMachinePreferences(c *InstancetypeV1beta1Client, namespace string) *virtualMachinePreferences {
 	return &virtualMachinePreferences{
-		gentype.NewClientWithList[*v1beta1.VirtualMachinePreference, *v1beta1.VirtualMachinePreferenceList](
+		gentype.NewClientWithList[*instancetypev1beta1.VirtualMachinePreference, *instancetypev1beta1.VirtualMachinePreferenceList](
 			"virtualmachinepreferences",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1beta1.VirtualMachinePreference { return &v1beta1.VirtualMachinePreference{} },
-			func() *v1beta1.VirtualMachinePreferenceList { return &v1beta1.VirtualMachinePreferenceList{} }),
+			func() *instancetypev1beta1.VirtualMachinePreference {
+				return &instancetypev1beta1.VirtualMachinePreference{}
+			},
+			func() *instancetypev1beta1.VirtualMachinePreferenceList {
+				return &instancetypev1beta1.VirtualMachinePreferenceList{}
+			},
+		),
 	}
 }
