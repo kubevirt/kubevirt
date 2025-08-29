@@ -87,7 +87,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	// On update, the mutator does not modify the UUID field to avoid
 	// race conditions with the VM controller.
 	if ar.Request.Operation == admissionv1.Create {
-		setFirmwareUUIDIfEmpty(vm)
+		setFirmwareDefaultsIfEmpty(vm)
 	}
 
 	// Set VM defaults
@@ -119,11 +119,17 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	}
 }
 
-func setFirmwareUUIDIfEmpty(vm *v1.VirtualMachine) {
+func setFirmwareDefaultsIfEmpty(vm *v1.VirtualMachine) {
 	if vm.Spec.Template.Spec.Domain.Firmware == nil {
 		vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
 	}
-	if vm.Spec.Template.Spec.Domain.Firmware.UUID == "" {
-		vm.Spec.Template.Spec.Domain.Firmware.UUID = types.UID(uuid.New().String())
+	fw := vm.Spec.Template.Spec.Domain.Firmware
+
+	if fw.UUID == "" {
+		fw.UUID = types.UID(uuid.New().String())
+	}
+
+	if fw.Serial == "" {
+		fw.Serial = uuid.New().String()
 	}
 }
