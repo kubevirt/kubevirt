@@ -3,11 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "knownhosts.go",
-        "native.go",
         "ssh.go",
-        "terminal_unix.go",
-        "terminal_windows.go",
         "wrapped.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/ssh",
@@ -16,27 +12,15 @@ go_library(
         "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/portforward:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubevirt/typed/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
-        "//vendor/golang.org/x/crypto/ssh:go_default_library",
-        "//vendor/golang.org/x/crypto/ssh/agent:go_default_library",
-        "//vendor/golang.org/x/crypto/ssh/knownhosts:go_default_library",
-        "//vendor/golang.org/x/term:go_default_library",
-    ] + select({
-        "@io_bazel_rules_go//go/platform:windows": [
-            "//vendor/golang.org/x/sys/windows:go_default_library",
-        ],
-        "//conditions:default": [],
-    }),
+    ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
-        "knownhosts_test.go",
         "ssh_suite_test.go",
         "ssh_test.go",
         "wrapped_test.go",
@@ -46,6 +30,5 @@ go_test(
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/golang.org/x/crypto/ssh:go_default_library",
     ],
 )

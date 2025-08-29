@@ -48,8 +48,6 @@ var (
 	Networking                           = Label("Networking")
 	VMIlifecycle                         = Label("VMIlifecycle")
 	Expose                               = Label("Expose")
-	NativeSSH                            = Label("native-ssh")
-	ExcludeNativeSSH                     = Label("exclude-native-ssh")
 	Reenlightenment                      = Label("Reenlightenment")
 	TscFrequencies                       = Label("TscFrequencies")
 	HostDiskGate                         = Label("HostDiskGate")
