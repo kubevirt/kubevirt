@@ -44,6 +44,114 @@ const (
 	ResourceNameAnnotation = "k8s.v1.cni.cncf.io/resourceName"
 )
 
+// MergeMultusAnnotations merges existing Multus annotations with new ones, preserving CNI arguments
+// that may have been added by CNI plugins after the initial annotation was set.
+func MergeMultusAnnotations(existingAnnotation, newAnnotation string) (string, error) {
+	if existingAnnotation == "" {
+		return newAnnotation, nil
+	}
+	if newAnnotation == "" {
+		return existingAnnotation, nil
+	}
+
+	var existingNetworks, newNetworks []networkv1.NetworkSelectionElement
+
+	// Parse existing annotation
+	if err := json.Unmarshal([]byte(existingAnnotation), &existingNetworks); err != nil {
+		return "", fmt.Errorf("failed to parse existing multus annotation: %w", err)
+	}
+
+	// Parse new annotation
+	if err := json.Unmarshal([]byte(newAnnotation), &newNetworks); err != nil {
+		return "", fmt.Errorf("failed to parse new multus annotation: %w", err)
+	}
+
+	// Create a map of existing networks by name for quick lookup
+	existingNetworksMap := make(map[string]networkv1.NetworkSelectionElement)
+	for _, network := range existingNetworks {
+		key := fmt.Sprintf("%s/%s", network.Namespace, network.Name)
+		existingNetworksMap[key] = network
+	}
+
+	// Merge networks, preserving existing CNI arguments
+	mergedNetworks := make([]networkv1.NetworkSelectionElement, 0, len(newNetworks))
+	for _, newNetwork := range newNetworks {
+		key := fmt.Sprintf("%s/%s", newNetwork.Namespace, newNetwork.Name)
+		if existingNetwork, exists := existingNetworksMap[key]; exists {
+			// Merge the networks, preserving existing CNI arguments
+			mergedNetwork := mergeNetworkSelectionElements(existingNetwork, newNetwork)
+			mergedNetworks = append(mergedNetworks, mergedNetwork)
+		} else {
+			// New network, add as-is
+			mergedNetworks = append(mergedNetworks, newNetwork)
+		}
+	}
+
+	// Marshal the merged result
+	mergedAnnotation, err := json.Marshal(mergedNetworks)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal merged multus annotation: %w", err)
+	}
+
+	return string(mergedAnnotation), nil
+}
+
+// mergeNetworkSelectionElements merges two NetworkSelectionElement objects,
+// preserving CNI arguments from the existing element while updating other fields from the new element.
+func mergeNetworkSelectionElements(existing, new networkv1.NetworkSelectionElement) networkv1.NetworkSelectionElement {
+	merged := new // Start with the new network as base
+
+	// Preserve existing CNI arguments if they exist
+	if existing.CNIArgs != nil {
+		if merged.CNIArgs == nil {
+			merged.CNIArgs = &map[string]interface{}{}
+		}
+		// Merge CNI arguments, preserving existing ones
+		for key, value := range *existing.CNIArgs {
+			if _, exists := (*merged.CNIArgs)[key]; !exists {
+				(*merged.CNIArgs)[key] = value
+			}
+		}
+	}
+
+	// Preserve other fields that might have been set by CNI plugins
+	if len(existing.IPRequest) > 0 {
+		if merged.IPRequest == nil {
+			merged.IPRequest = existing.IPRequest
+		}
+	}
+
+	if existing.MacRequest != "" && merged.MacRequest == "" {
+		merged.MacRequest = existing.MacRequest
+	}
+
+	if existing.InfinibandGUIDRequest != "" && merged.InfinibandGUIDRequest == "" {
+		merged.InfinibandGUIDRequest = existing.InfinibandGUIDRequest
+	}
+
+	if existing.InterfaceRequest != "" && merged.InterfaceRequest == "" {
+		merged.InterfaceRequest = existing.InterfaceRequest
+	}
+
+	if len(existing.PortMappingsRequest) > 0 {
+		if merged.PortMappingsRequest == nil {
+			merged.PortMappingsRequest = existing.PortMappingsRequest
+		}
+	}
+
+	if existing.BandwidthRequest != nil && merged.BandwidthRequest == nil {
+		merged.BandwidthRequest = existing.BandwidthRequest
+	}
+
+	if len(existing.GatewayRequest) > 0 {
+		if merged.GatewayRequest == nil {
+			merged.GatewayRequest = existing.GatewayRequest
+		}
+	}
+
+	return merged
+}
+
 func GenerateCNIAnnotation(
 	namespace string,
 	interfaces []v1.Interface,

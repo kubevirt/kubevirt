@@ -136,18 +136,30 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 
 	currentMultusAnnotation := pod.Annotations[networkv1.NetworkAttachmentAnnot]
 
-	const logLevel = 4
+	const logLevel = 2
 	log.Log.Object(pod).V(logLevel).Infof(
-		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
+		"current multus annotation for pod: %s; new multus annotation: %s",
 		currentMultusAnnotation,
 		updatedMultusAnnotation,
 	)
 
-	if updatedMultusAnnotation == currentMultusAnnotation {
+	// Use merge logic instead of complete overwrite
+	mergedAnnotation, err := multus.MergeMultusAnnotations(currentMultusAnnotation, updatedMultusAnnotation)
+	if err != nil {
+		log.Log.Object(pod).Errorf("failed to merge multus annotations: %v", err)
 		return "", false
 	}
 
-	return updatedMultusAnnotation, true
+	if mergedAnnotation == currentMultusAnnotation {
+		return "", false
+	}
+
+	log.Log.Object(pod).V(logLevel).Infof(
+		"merged multus annotation: %s",
+		mergedAnnotation,
+	)
+
+	return mergedAnnotation, true
 }
 
 func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
