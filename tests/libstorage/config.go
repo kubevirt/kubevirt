@@ -46,6 +46,8 @@ type KubeVirtTestsConfiguration struct {
 	StorageSnapshot string `json:"storageSnapshot"`
 	// StorageVMState is the storage class for backend PVCs (TPM/EFI)
 	StorageVMState string `json:"storageVMState"`
+	// StorageClass supporting CSI
+	StorageClassCSI string `json:"storageClassCSI"`
 }
 
 const kubevirtIoTest = "kubevirt.io/test"
