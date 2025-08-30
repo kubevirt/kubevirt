@@ -24,6 +24,7 @@ import (
 	"context"
 
 	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	types "k8s.io/apimachinery/pkg/types"
@@ -146,4 +147,28 @@ func (c *FakePrometheuses) Patch(ctx context.Context, name string, pt types.Patc
 		return emptyResult, err
 	}
 	return obj.(*v1.Prometheus), err
+}
+
+// GetScale takes name of the prometheus, and returns the corresponding scale object, and an error if there is any.
+func (c *FakePrometheuses) GetScale(ctx context.Context, prometheusName string, options metav1.GetOptions) (result *autoscalingv1.Scale, err error) {
+	emptyResult := &autoscalingv1.Scale{}
+	obj, err := c.Fake.
+		Invokes(testing.NewGetSubresourceActionWithOptions(prometheusesResource, c.ns, "scale", prometheusName, options), emptyResult)
+
+	if obj == nil {
+		return emptyResult, err
+	}
+	return obj.(*autoscalingv1.Scale), err
+}
+
+// UpdateScale takes the representation of a scale and updates it. Returns the server's representation of the scale, and an error, if there is any.
+func (c *FakePrometheuses) UpdateScale(ctx context.Context, prometheusName string, scale *autoscalingv1.Scale, opts metav1.UpdateOptions) (result *autoscalingv1.Scale, err error) {
+	emptyResult := &autoscalingv1.Scale{}
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(prometheusesResource, "scale", c.ns, scale, opts), &autoscalingv1.Scale{})
+
+	if obj == nil {
+		return emptyResult, err
+	}
+	return obj.(*autoscalingv1.Scale), err
 }
