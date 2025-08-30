@@ -32,6 +32,7 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -127,6 +128,9 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		return &readCloserWrapper{bytes.NewReader(optsJson)}
 	}
 
+	const diskName = "vol1"
+	expectedDiskSerial := uuid.NewSHA1(uuid.NameSpaceDNS, []byte(diskName)).String()
+
 	VolumeUpdateTests := func(featureGate string) {
 		DescribeTable("Should succeed with add/volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int, enableGate bool) {
 			if enableGate {
@@ -218,12 +222,12 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			Expect(response.StatusCode()).To(Equal(code))
 		},
 			Entry("VM with a valid add volume request", &v1.AddVolumeOptions{
-				Name:         "vol1",
+				Name:         diskName,
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 			}, nil, true, http.StatusAccepted, true),
 			Entry("VMI with a valid add volume request", &v1.AddVolumeOptions{
-				Name:         "vol1",
+				Name:         diskName,
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 			}, nil, false, http.StatusAccepted, true),
@@ -232,11 +236,11 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 				Disk:         &v1.Disk{},
 			}, nil, false, http.StatusBadRequest, true),
 			Entry("VMI with an invalid add volume request that's missing a disk", &v1.AddVolumeOptions{
-				Name:         "vol1",
+				Name:         diskName,
 				VolumeSource: &v1.HotplugVolumeSource{},
 			}, nil, false, http.StatusBadRequest, true),
 			Entry("VMI with an invalid add volume request that's missing a volume", &v1.AddVolumeOptions{
-				Name: "vol1",
+				Name: diskName,
 				Disk: &v1.Disk{},
 			}, nil, false, http.StatusBadRequest, true),
 			Entry("VM with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
@@ -250,18 +254,18 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 				Name: "existingvol",
 			}, false, http.StatusBadRequest, false),
 			Entry("VM with a valid add volume request but no feature gate", &v1.AddVolumeOptions{
-				Name:         "vol1",
+				Name:         diskName,
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 			}, nil, true, http.StatusBadRequest, false),
 			Entry("VM with a valid add volume request with DryRun", &v1.AddVolumeOptions{
-				Name:         "vol1",
+				Name:         diskName,
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 				DryRun:       withDryRun(),
 			}, nil, true, http.StatusAccepted, true),
 			Entry("VMI with a valid add volume request with DryRun", &v1.AddVolumeOptions{
-				Name:         "vol1",
+				Name:         diskName,
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 				DryRun:       withDryRun(),
@@ -272,12 +276,12 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 				DryRun:       withDryRun(),
 			}, nil, false, http.StatusBadRequest, true),
 			Entry("VMI with an invalid add volume request that's missing a disk with DryRun", &v1.AddVolumeOptions{
-				Name:         "vol1",
+				Name:         diskName,
 				VolumeSource: &v1.HotplugVolumeSource{},
 				DryRun:       withDryRun(),
 			}, nil, false, http.StatusBadRequest, true),
 			Entry("VMI with an invalid add volume request that's missing a volume with DryRun", &v1.AddVolumeOptions{
-				Name:   "vol1",
+				Name:   diskName,
 				Disk:   &v1.Disk{},
 				DryRun: withDryRun(),
 			}, nil, false, http.StatusBadRequest, true),
@@ -297,7 +301,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 				DryRun: withDryRun(),
 			}, false, http.StatusBadRequest, false),
 			Entry("VM with a valid add volume request but no feature gate with DryRun", &v1.AddVolumeOptions{
-				Name:         "vol1",
+				Name:         diskName,
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 				DryRun:       withDryRun(),
@@ -354,17 +358,17 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		Expect(response.StatusCode()).To(Equal(code))
 	},
 		Entry("Reject Add with DeclarativeHotplugVolumes", &v1.AddVolumeOptions{
-			Name:         "vol1",
+			Name:         diskName,
 			Disk:         &v1.Disk{},
 			VolumeSource: &v1.HotplugVolumeSource{},
 		}, nil, http.StatusBadRequest, featuregate.DeclarativeHotplugVolumesGate),
 		Entry("Accept Add with HotplugVolumes", &v1.AddVolumeOptions{
-			Name:         "vol1",
+			Name:         diskName,
 			Disk:         &v1.Disk{},
 			VolumeSource: &v1.HotplugVolumeSource{},
 		}, nil, http.StatusAccepted, featuregate.HotplugVolumesGate),
 		Entry("Accept Add with both featuregates", &v1.AddVolumeOptions{
-			Name:         "vol1",
+			Name:         diskName,
 			Disk:         &v1.Disk{},
 			VolumeSource: &v1.HotplugVolumeSource{},
 		}, nil, http.StatusAccepted, featuregate.HotplugVolumesGate, featuregate.DeclarativeHotplugVolumesGate),
@@ -406,7 +410,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		Entry("add volume request",
 			&v1.VirtualMachineVolumeRequest{
 				AddVolumeOptions: &v1.AddVolumeOptions{
-					Name:         "vol1",
+					Name:         diskName,
 					Disk:         &v1.Disk{},
 					VolumeSource: &v1.HotplugVolumeSource{},
 				},
@@ -430,9 +434,9 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 							}},
 						},
 					},
-					{Name: "vol1"},
+					{Name: diskName},
 				}),
-				patch.WithReplace("/spec/domain/devices/disks", []v1.Disk{{Name: "existingvol"}, {Name: "vol1"}}),
+				patch.WithReplace("/spec/domain/devices/disks", []v1.Disk{{Name: "existingvol"}, {Name: diskName, Serial: expectedDiskSerial}}),
 			),
 		),
 		Entry("remove volume request",
@@ -480,7 +484,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		Entry("add volume request with no existing volumes",
 			&v1.VirtualMachineVolumeRequest{
 				AddVolumeOptions: &v1.AddVolumeOptions{
-					Name:         "vol1",
+					Name:         diskName,
 					Disk:         &v1.Disk{},
 					VolumeSource: &v1.HotplugVolumeSource{},
 				},
@@ -490,7 +494,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 				patch.WithTest("/status/volumeRequests", nil),
 				patch.WithAdd("/status/volumeRequests", []v1.VirtualMachineVolumeRequest{{
 					AddVolumeOptions: &v1.AddVolumeOptions{
-						Name:         "vol1",
+						Name:         diskName,
 						Disk:         &v1.Disk{},
 						VolumeSource: &v1.HotplugVolumeSource{},
 					},
@@ -500,14 +504,14 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		Entry("add volume request that already exists should fail",
 			&v1.VirtualMachineVolumeRequest{
 				AddVolumeOptions: &v1.AddVolumeOptions{
-					Name:         "vol1",
+					Name:         diskName,
 					Disk:         &v1.Disk{},
 					VolumeSource: &v1.HotplugVolumeSource{},
 				},
 			},
 			[]v1.VirtualMachineVolumeRequest{{
 				AddVolumeOptions: &v1.AddVolumeOptions{
-					Name:         "vol1",
+					Name:         diskName,
 					Disk:         &v1.Disk{},
 					VolumeSource: &v1.HotplugVolumeSource{},
 				},
@@ -516,7 +520,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			true),
 		Entry("add volume request when volume requests alread exist",
 			&v1.VirtualMachineVolumeRequest{AddVolumeOptions: &v1.AddVolumeOptions{
-				Name:         "vol1",
+				Name:         diskName,
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 			}},
@@ -545,7 +549,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 					},
 					{
 						AddVolumeOptions: &v1.AddVolumeOptions{
-							Name:         "vol1",
+							Name:         diskName,
 							Disk:         &v1.Disk{},
 							VolumeSource: &v1.HotplugVolumeSource{},
 						},
@@ -555,13 +559,13 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			false),
 		Entry("remove volume request with no existing volume request", &v1.VirtualMachineVolumeRequest{
 			RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-				Name: "vol1",
+				Name: diskName,
 			}},
 			nil,
 			patch.New(
 				patch.WithTest("/status/volumeRequests", nil),
 				patch.WithAdd("/status/volumeRequests", []v1.VirtualMachineVolumeRequest{
-					{RemoveVolumeOptions: &v1.RemoveVolumeOptions{Name: "vol1"}},
+					{RemoveVolumeOptions: &v1.RemoveVolumeOptions{Name: diskName}},
 				}),
 			),
 			false),
@@ -632,7 +636,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		Entry("add volume request",
 			&v1.VirtualMachineVolumeRequest{
 				AddVolumeOptions: &v1.AddVolumeOptions{
-					Name:         "vol1",
+					Name:         diskName,
 					Disk:         &v1.Disk{},
 					VolumeSource: &v1.HotplugVolumeSource{},
 				},
@@ -656,9 +660,9 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 							}},
 						},
 					},
-					{Name: "vol1"},
+					{Name: diskName},
 				}),
-				patch.WithReplace("/spec/template/spec/domain/devices/disks", []v1.Disk{{Name: "existingvol"}, {Name: "vol1"}}),
+				patch.WithReplace("/spec/template/spec/domain/devices/disks", []v1.Disk{{Name: "existingvol"}, {Name: diskName, Serial: expectedDiskSerial}}),
 			),
 		),
 		Entry("remove volume request",
@@ -694,14 +698,14 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		Entry("add volume name which already exists should fail",
 			&v1.VirtualMachineVolumeRequest{
 				AddVolumeOptions: &v1.AddVolumeOptions{
-					Name:         "vol1",
+					Name:         diskName,
 					Disk:         &v1.Disk{},
 					VolumeSource: &v1.HotplugVolumeSource{},
 				},
 			},
 			[]v1.Volume{
 				{
-					Name: "vol1",
+					Name: diskName,
 					VolumeSource: v1.VolumeSource{
 						DataVolume: &v1.DataVolumeSource{
 							Name: "dv1",
@@ -724,7 +728,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			},
 			[]v1.Volume{
 				{
-					Name: "vol1",
+					Name: diskName,
 					VolumeSource: v1.VolumeSource{
 						DataVolume: &v1.DataVolumeSource{
 							Name: "dv1",
@@ -747,7 +751,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			},
 			[]v1.Volume{
 				{
-					Name: "vol1",
+					Name: diskName,
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "pvc1",
@@ -759,7 +763,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		Entry("remove volume which doesnt exist should fail",
 			&v1.VirtualMachineVolumeRequest{
 				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-					Name: "vol1",
+					Name: diskName,
 				},
 			},
 			[]v1.Volume{},
@@ -772,7 +776,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			},
 			[]v1.Volume{
 				{
-					Name: "vol1",
+					Name: diskName,
 					VolumeSource: v1.VolumeSource{
 						DataVolume: &v1.DataVolumeSource{
 							Name: "dv1",
