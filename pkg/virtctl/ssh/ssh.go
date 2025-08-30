@@ -23,7 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -44,64 +46,8 @@ const (
 	additionalOpts, additionalOptsShort             = "local-ssh-opts", "t"
 )
 
-func NewCommand() *cobra.Command {
-	log.InitializeLogging("ssh")
-	c := &SSH{
-		options: DefaultSSHOptions(),
-	}
-
-	cmd := &cobra.Command{
-		Use:     "ssh (VM|VMI)",
-		Short:   "Open a SSH connection to a virtual machine instance.",
-		Example: usage(),
-		Args:    cobra.ExactArgs(1),
-		RunE:    c.Run,
-	}
-
-	AddCommandlineArgs(cmd.Flags(), &c.options)
-	cmd.Flags().StringVarP(&c.command, commandToExecute, commandToExecuteShort, c.command,
-		fmt.Sprintf(`--%s='ls /': Specify a command to execute in the VM`, commandToExecute))
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
-}
-
-func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
-	flagset.StringVarP(&opts.SSHUsername, usernameFlag, usernameFlagShort, opts.SSHUsername,
-		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as; If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SSHUsername))
-	flagset.StringVarP(&opts.IdentityFilePath, IdentityFilePathFlag, identityFilePathFlagShort, opts.IdentityFilePath,
-		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server; If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", IdentityFilePathFlag))
-	flagset.StringVar(&opts.KnownHostsFilePath, knownHostsFilePathFlag, opts.KnownHostsFilePathDefault,
-		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
-	flagset.IntVarP(&opts.SSHPort, portFlag, portFlagShort, opts.SSHPort,
-		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
-	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
-		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh client`, additionalOpts))
-}
-
-func DefaultSSHOptions() SSHOptions {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		log.Log.Warningf("failed to determine user home directory: %v", err)
-	}
-	options := SSHOptions{
-		SSHPort:                   22,
-		SSHUsername:               defaultUsername(),
-		IdentityFilePath:          filepath.Join(homeDir, ".ssh", "id_rsa"),
-		IdentityFilePathProvided:  false,
-		KnownHostsFilePath:        "",
-		KnownHostsFilePathDefault: "",
-		AdditionalSSHLocalOptions: []string{},
-		LocalClientName:           "ssh",
-	}
-
-	if len(homeDir) > 0 {
-		options.KnownHostsFilePathDefault = filepath.Join(homeDir, ".ssh", "kubevirt_known_hosts")
-	}
-	return options
-}
-
-type SSH struct {
-	options SSHOptions
+type ssh struct {
+	options *SSHOptions
 	command string
 }
 
@@ -113,40 +59,128 @@ type SSHOptions struct {
 	KnownHostsFilePath        string
 	KnownHostsFilePathDefault string
 	AdditionalSSHLocalOptions []string
-	LocalClientName           string
 }
 
-func (o *SSH) Run(cmd *cobra.Command, args []string) error {
+func NewSSH(opts *SSHOptions) *ssh {
+	return &ssh{
+		options: opts,
+	}
+}
+
+func NewCommand() *cobra.Command {
+	log.InitializeLogging("ssh")
+	c := NewSSH(DefaultSSHOptions())
+
+	cmd := &cobra.Command{
+		Use:     "ssh (VM|VMI)",
+		Short:   "Open a SSH connection to a virtual machine instance.",
+		Example: usage(),
+		Args:    cobra.ExactArgs(1),
+		RunE:    c.run,
+	}
+
+	AddCommandlineArgs(cmd.Flags(), c.options)
+	cmd.Flags().StringVarP(&c.command, commandToExecute, commandToExecuteShort, c.command,
+		fmt.Sprintf(`--%s='ls /': Specify a command to execute in the VM`, commandToExecute))
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
+}
+
+func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
+	flagset.StringVarP(&opts.SSHUsername, usernameFlag, usernameFlagShort, opts.SSHUsername,
+		fmt.Sprintf("--%s=%s: Set this to the user you want to open the SSH connection as;"+
+			"If unassigned, this will be empty and the SSH default will apply", usernameFlag, opts.SSHUsername))
+	flagset.StringVarP(&opts.IdentityFilePath, IdentityFilePathFlag, identityFilePathFlagShort, opts.IdentityFilePath,
+		fmt.Sprintf("--%s=/home/jdoe/.ssh/id_rsa: Set the path to a private key used for authenticating to the server;"+
+			"If not provided, the client will try to use the local ssh-agent at $SSH_AUTH_SOCK", IdentityFilePathFlag))
+	flagset.StringVar(&opts.KnownHostsFilePath, knownHostsFilePathFlag, opts.KnownHostsFilePathDefault,
+		fmt.Sprintf("--%s=/home/jdoe/.ssh/kubevirt_known_hosts: Set the path to the known_hosts file.", knownHostsFilePathFlag))
+	flagset.IntVarP(&opts.SSHPort, portFlag, portFlagShort, opts.SSHPort,
+		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
+	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
+		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh client`, additionalOpts))
+}
+
+func DefaultSSHOptions() *SSHOptions {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Log.Warningf("failed to determine user home directory: %v", err)
+	}
+
+	options := &SSHOptions{
+		SSHPort:                   22,
+		SSHUsername:               DefaultUsername(),
+		IdentityFilePath:          filepath.Join(homeDir, ".ssh", "id_rsa"),
+		IdentityFilePathProvided:  false,
+		KnownHostsFilePath:        "",
+		KnownHostsFilePathDefault: "",
+		AdditionalSSHLocalOptions: []string{},
+	}
+
+	if homeDir != "" {
+		options.KnownHostsFilePathDefault = filepath.Join(homeDir, ".ssh", "kubevirt_known_hosts")
+	}
+
+	return options
+}
+
+func (o *ssh) run(cmd *cobra.Command, args []string) error {
 	_, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 
-	kind, namespace, name, err := PrepareCommand(cmd, namespace, &o.options, args)
+	kind, namespace, name, err := prepareCommand(cmd, namespace, o.options, args)
 	if err != nil {
 		return err
 	}
 
-	clientArgs := o.buildSSHTarget(kind, namespace, name)
-	return RunLocalClient(kind, namespace, name, &o.options, clientArgs)
+	clientArgs := o.BuildSSHTarget(kind, namespace, name)
+	return LocalClientCmd("ssh", kind, namespace, name, o.options, clientArgs).Run()
 }
 
-func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
+func (o *ssh) BuildSSHTarget(kind, namespace, name string) []string {
+	target := strings.Builder{}
+	if o.options.SSHUsername != "" {
+		target.WriteString(o.options.SSHUsername)
+		target.WriteRune('@')
+	}
+	target.WriteString(kind)
+	target.WriteString(".")
+	target.WriteString(name)
+	target.WriteString(".")
+	target.WriteString(namespace)
+
+	opts := []string{target.String()}
+	if o.command != "" {
+		opts = append(opts, o.command)
+	}
+	return opts
+}
+
+func prepareCommand(
+	cmd *cobra.Command,
+	fallbackNamespace string,
+	opts *SSHOptions,
+	args []string,
+) (kind, namespace, name string, err error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(IdentityFilePathFlag)
-	var targetUsername string
+
+	targetUsername := ""
 	kind, namespace, name, targetUsername, err = ParseTarget(args[0])
 	if err != nil {
-		return
+		return "", "", "", err
 	}
 
-	if len(namespace) < 1 {
+	if namespace == "" {
 		namespace = fallbackNamespace
 	}
 
-	if len(targetUsername) > 0 {
+	if targetUsername != "" {
 		opts.SSHUsername = targetUsername
 	}
-	return
+
+	return kind, namespace, name, nil
 }
 
 func usage() string {
@@ -164,7 +198,7 @@ func usage() string {
 	)
 }
 
-func defaultUsername() string {
+func DefaultUsername() string {
 	vars := []string{
 		"USER",     // linux
 		"USERNAME", // linux, windows
@@ -175,14 +209,13 @@ func defaultUsername() string {
 			return v
 		}
 	}
+
 	return ""
 }
 
-// ParseTarget SSH Target argument supporting the form of [username@]type/name[/namespace]
-// or the legacy form of [username@]type/name.namespace
-func ParseTarget(arg string) (string, string, string, string, error) {
-	username := ""
-
+// ParseTarget parse the SSH target argument supporting the form of [username@]type/name[/namespace]
+func ParseTarget(arg string) (kind, namespace, name, username string, err error) {
+	username = ""
 	usernameAndTarget := strings.Split(arg, "@")
 	if len(usernameAndTarget) > 1 {
 		username = usernameAndTarget[0]
@@ -196,10 +229,45 @@ func ParseTarget(arg string) (string, string, string, string, error) {
 		return "", "", "", "", errors.New("expected target after '@'")
 	}
 
-	kind, namespace, name, err := portforward.ParseTarget(arg)
+	kind, namespace, name, err = portforward.ParseTarget(arg)
 	if err != nil {
 		return "", "", "", "", err
 	}
 
 	return kind, namespace, name, username, err
+}
+
+func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, clientArgs []string) *exec.Cmd {
+	args := []string{"-o", BuildProxyCommandOption(kind, namespace, name, options.SSHPort)}
+	if len(options.AdditionalSSHLocalOptions) > 0 {
+		args = append(args, options.AdditionalSSHLocalOptions...)
+	}
+	if options.IdentityFilePathProvided {
+		args = append(args, "-i", options.IdentityFilePath)
+	}
+	args = append(args, clientArgs...)
+
+	cmd := exec.Command(command, args...)
+	const logLevel = 3
+	log.Log.V(logLevel).Infof("running: %v", cmd)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	return cmd
+}
+
+func BuildProxyCommandOption(kind, namespace, name string, port int) string {
+	proxyCommand := strings.Builder{}
+	proxyCommand.WriteString("ProxyCommand=")
+	proxyCommand.WriteString(os.Args[0])
+	proxyCommand.WriteString(" port-forward --stdio=true ")
+	proxyCommand.WriteString(kind)
+	proxyCommand.WriteRune('/')
+	proxyCommand.WriteString(name)
+	proxyCommand.WriteRune('/')
+	proxyCommand.WriteString(namespace)
+	proxyCommand.WriteRune(' ')
+	proxyCommand.WriteString(strconv.Itoa(port))
+	return proxyCommand.String()
 }
