@@ -61,8 +61,6 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 
 		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
 	},
-		Entry("with v1alpha1 version", instancetypev1beta1.SchemeGroupVersion.Version),
-		Entry("with v1alpha2 version", instancetypev1beta1.SchemeGroupVersion.Version),
 		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
 	)
 
@@ -132,8 +130,6 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 
 		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
 	},
-		Entry("with v1alpha1 version", instancetypev1beta1.SchemeGroupVersion.Version),
-		Entry("with v1alpha2 version", instancetypev1beta1.SchemeGroupVersion.Version),
 		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
 	)
 	It("should reject specs with memory overcommit and hugepages", func() {
