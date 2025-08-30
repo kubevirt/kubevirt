@@ -51,7 +51,11 @@ const (
 	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
 	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
 	PersistentReservation = "PersistentReservation"
-	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
+
+	// Owner: sig-compute / @lyarwood
+	// Alpha: v1.0.0
+	//
+	// MultiArchitecture allows VM/VMIs to request and schedule to an architecture other than that of control plane
 	MultiArchitecture = "MultiArchitecture"
 
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
