@@ -103,7 +103,7 @@ func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, e
 			continue
 		}
 
-		volumeInfo := paths.GetVolumeInfo(pvc.Name)
+		volumeInfo := paths.GetVolumeInfo(&pvc.UID)
 		if volumeInfo == nil {
 			log.Log.Warningf("Volume %s not found in paths", pvc.Name)
 			continue
