@@ -24,6 +24,8 @@ package isolation
 import (
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -80,7 +82,7 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 }
 
 func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
-	pid, err := s.getPid(socket)
+	pid, err := GetPeerPid(socket)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
 		return nil, err
@@ -208,7 +210,29 @@ func setProcessMemoryLockRLimit(pid int, size int64) error {
 	return nil
 }
 
-func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
+// GetPeerPid Returns the PID of the peer process connected to the socket
+func GetPeerPid(socket string) (int, error) {
+	// If the socket path is longer than 107 char then the connection will fail,
+	// on linux the limit is 108, but go 'net.Dial' fails if the socket name is >= 108.
+	// Reduce the length of the entire path by changing the directory where the file is located
+	if len(socket) > 107 {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return -1, err
+		}
+		defer func(dir string) {
+			if err := os.Chdir(dir); err != nil {
+				log.Log.Errorf("changing back to %s: %v", dir, err)
+			}
+		}(cwd)
+
+		dir := filepath.Dir(socket)
+		if err := os.Chdir(dir); err != nil {
+			return -1, err
+		}
+		socket = filepath.Base(socket)
+	}
+
 	sock, err := net.DialTimeout("unix", socket, time.Duration(isolationDialTimeout)*time.Second)
 	if err != nil {
 		return -1, err
