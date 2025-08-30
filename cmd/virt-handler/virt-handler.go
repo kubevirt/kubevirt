@@ -264,7 +264,7 @@ func (app *virtHandlerApp) Run() {
 		os.Exit(2)
 	}
 
-	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
+	podIsolationDetector := isolation.NewSocketBasedIsolationDetector()
 	app.clusterConfig, err = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
 	if err != nil {
 		panic(err)

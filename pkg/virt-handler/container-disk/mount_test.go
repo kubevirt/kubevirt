@@ -82,15 +82,15 @@ var _ = Describe("ContainerDisk", func() {
 	})
 
 	detectsSocket := func(detector *isolation.MockPodIsolationDetector) {
-		detector.EXPECT().DetectForSocket(vmi, "someting").Return(nil, nil)
+		detector.EXPECT().DetectForSocket("someting").Return(nil, nil)
 	}
 
 	noSocketDetected := func(detector *isolation.MockPodIsolationDetector) {
-		detector.EXPECT().DetectForSocket(vmi, "someting").Return(nil, fmt.Errorf("Not Found"))
+		detector.EXPECT().DetectForSocket("someting").Return(nil, fmt.Errorf("Not Found"))
 	}
 
 	detectForSocketNotCalled := func(detector *isolation.MockPodIsolationDetector) {
-		detector.EXPECT().DetectForSocket(gomock.Any(), gomock.Any()).Times(0)
+		detector.EXPECT().DetectForSocket(gomock.Any()).Times(0)
 	}
 
 	Context("checking if containerDisks are ready", func() {
