@@ -75,6 +75,8 @@ const (
 	sriovnet3           = "sriov3"
 	sriovnet4           = "sriov4"
 	sriovnetLinkEnabled = "sriov-linked"
+
+	expectedIfaceUnknown = "unknown"
 )
 
 var pciAddressRegex = regexp.MustCompile(hardware.PCI_ADDRESS_PATTERN)
@@ -230,7 +232,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			DeferCleanup(deleteVMI, vmi)
 
 			By("checking virtual machine instance has an interface with the requested MAC address")
-			ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 140*time.Second)
+			ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, expectedIfaceUnknown, 140*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -253,7 +255,10 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 
 			var vmi *v1.VirtualMachineInstance
 
-			const mac = "de:ad:00:00:be:ef"
+			const (
+				mac                 = "de:ad:00:00:be:ef"
+				ifaceAfterMigration = "eth9"
+			)
 
 			BeforeEach(func() {
 				// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
@@ -265,14 +270,23 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(deleteVMI, vmi)
 
-				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 30*time.Second)
+				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, expectedIfaceUnknown, 30*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(libnet.CheckMacAddress(vmi, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
 			})
 
-			It("[QUARANTINE]should be successful with a running VMI on the target", decorators.Quarantine, func() {
+			It("should be successful with a running VMI on the target", func() {
+				By("writing systemd network configuration file for eth9")
+				networkConfigCmd := fmt.Sprintf(`sudo tee /etc/systemd/network/10-eth9.link <<EOF
+[Match]
+MACAddress=%s
+[Link]
+Name=%s
+EOF`, mac, ifaceAfterMigration)
+				Expect(console.RunCommand(vmi, networkConfigCmd, 30*time.Second)).To(Succeed())
+
 				By("starting the migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
@@ -280,11 +294,8 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 
 				// It may take some time for the VMI interface status to be updated with the information reported by
 				// the guest-agent.
-				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 5*time.Minute)
+				_, err := findIfaceByMAC(virtClient, vmi, mac, ifaceAfterMigration, 5*time.Minute)
 				Expect(err).NotTo(HaveOccurred())
-				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(libnet.CheckMacAddress(updatedVMI, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
 			})
 		})
 	})
@@ -350,7 +361,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				if iface.SRIOV == nil {
 					continue
 				}
-				guestInterfaceName, err := findIfaceByMAC(virtClient, vmi, iface.MacAddress, 30*time.Second)
+				guestInterfaceName, err := findIfaceByMAC(virtClient, vmi, iface.MacAddress, expectedIfaceUnknown, 30*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pciAddressExistsInGuestInterface(vmi, iface.PciAddress, guestInterfaceName)).To(Succeed())
 			}
@@ -531,7 +542,7 @@ func defaultCloudInitNetworkData() string {
 	return networkData
 }
 
-func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, mac string, timeout time.Duration) (string, error) {
+func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, mac string, expectedIfaceName string, timeout time.Duration) (string, error) {
 	var ifaceName string
 	err := virtwait.PollImmediately(5*time.Second, timeout, func(ctx context.Context) (done bool, err error) {
 		vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(ctx, vmi.GetName(), k8smetav1.GetOptions{})
@@ -544,6 +555,9 @@ func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineIns
 			return false, nil
 		}
 		if ifaceName == "" {
+			return false, nil
+		}
+		if expectedIfaceName != expectedIfaceUnknown && ifaceName != expectedIfaceName {
 			return false, nil
 		}
 		return true, nil
