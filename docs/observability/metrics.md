@@ -75,11 +75,11 @@ Indication for a virt-operator that is ready to take the lead. Type: Gauge.
 ### kubevirt_virt_operator_up
 The number of virt-operator pods that are up. Type: Gauge.
 
-### kubevirt_vm_container_free_memory_bytes_based_on_rss
-The current available memory of the VM containers based on the rss. Type: Gauge.
+### kubevirt_vm_container_memory_request_margin_based_on_rss_bytes
+Difference between requested memory and rss for VM containers (request margin). Can be negative when usage exceeds request. Type: Gauge.
 
-### kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes
-The current available memory of the VM containers based on the working set. Type: Gauge.
+### kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes
+Difference between requested memory and working set for VM containers (request margin). Can be negative when usage exceeds request. Type: Gauge.
 
 ### kubevirt_vm_create_date_timestamp_seconds
 Virtual Machine creation timestamp. Type: Gauge.
