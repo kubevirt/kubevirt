@@ -74,6 +74,33 @@ var _ = Describe("Annotations Generator", func() {
 			clusterConfig = newClusterConfig(kv)
 		})
 
+		It("Should preserve added elements added by external entities", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			const multusNetworkStatusWithPrimaryNet = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}}` +
+				`]`
+			// TODO: Look at preserving orders and spaces
+			const multusNetworksAnnotationWithPasstAndIstio = `[{"name":"netbindingpasst","namespace":"default","cni-args":{"logicNetworkName":"default"}}, {"name": "istio-cni", "namespace": "default"}]`
+			const expectedValue = `[{"cni-args":{"logicNetworkName":"default"},"name":"netbindingpasst","namespace":"default"},{"name":"istio-cni","namespace":"default"}]`
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotationWithPasstAndIstio,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryNet,
+			}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations).To(HaveKeyWithValue(networkv1.NetworkAttachmentAnnot, expectedValue))
+		})
+
+		// TODO: Add a test to cover hotplug/unplug
+
 		It("should generate the Multus networks annotation", func() {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
@@ -482,6 +509,10 @@ var _ = Describe("Annotations Generator", func() {
 
 			multusOrdinalNetworksAnnotation = `[{"name":"some-net","namespace":"default","interface":"net1"}]`
 
+			multusNetworksAnnotationWithPasstAndIstio = `[` +
+				`{"name":"netbindingpasst","namespace":"default","cni-args":{"logicNetworkName":"default"}},` +
+				`{"name": "istio-cni", "namespace": "default"}]`
+
 			multusNetworksAnnotationWithTwoNets = `[` +
 				`{"name":"some-net","namespace":"default","interface":"podb1f51a511f1"},` +
 				`{"name":"other-net","namespace":"default","interface":"pod16477688c0e"}` +
@@ -518,8 +549,63 @@ var _ = Describe("Annotations Generator", func() {
 		BeforeEach(func() {
 			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
 			kv.Namespace = kubevirtNamespace
+			kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
+				Binding: map[string]v1.InterfaceBindingPlugin{
+					"passt": {
+						NetworkAttachmentDefinition: "default/passt",
+					},
+				},
+			}
 
 			clusterConfig = newClusterConfig(kv)
+		})
+
+		It("Should preserve added elements added by external entities", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotationWithPasstAndIstio,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryNet,
+			}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations).To(HaveKey(networkv1.NetworkAttachmentAnnot))
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(multusNetworksAnnotationWithPasstAndIstio))
+		})
+
+		It("Should preserve added elements added by external entities in case of hot unplug", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network1Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+					),
+				),
+			)
+
+			expected := `[` +
+				`{"name":"netbindingpasst","namespace":"default","cni-args":{"logicNetworkName":"default"}},` +
+				`{"name": "istio-cni", "namespace": "default"}]`
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotationWithPasstAndIstio,
+			}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations).To(HaveKey(networkv1.NetworkAttachmentAnnot))
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expected))
 		})
 
 		It("Should not generate network attachment annotation when there are no networks", func() {
