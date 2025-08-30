@@ -38,10 +38,6 @@ var (
 	exampleXML                   string
 	exampleXMLwithNoneMemballoon string
 
-	//go:embed testdata/domain_ppc64le.xml.tmpl
-	exampleXMLppc64le                   string
-	exampleXMLppc64lewithNoneMemballoon string
-
 	//go:embed testdata/domain_arm64.xml.tmpl
 	exampleXMLarm64                   string
 	exampleXMLarm64withNoneMemballoon string
@@ -72,9 +68,6 @@ var _ = ginkgo.Describe("Schema", func() {
 
 	exampleXMLwithNoneMemballoon = templateToString(exampleXML, argNoMemBalloon)
 	exampleXML = templateToString(exampleXML, argMemBalloonVirtio)
-
-	exampleXMLppc64lewithNoneMemballoon = templateToString(exampleXMLppc64le, argNoMemBalloon)
-	exampleXMLppc64le = templateToString(exampleXMLppc64le, argMemBalloonVirtio)
 
 	exampleXMLarm64withNoneMemballoon = templateToString(exampleXMLarm64, argNoMemBalloon)
 	exampleXMLarm64 = templateToString(exampleXMLarm64, argMemBalloonVirtio)
@@ -231,14 +224,12 @@ var _ = ginkgo.Describe("Schema", func() {
 		ginkgo.DescribeTable("Unmarshal into struct", func(arch string, domainStr string) {
 			unmarshalTest(arch, domainStr, exampleDomain)
 		},
-			ginkgo.Entry("for ppc64le", "ppc64le", exampleXMLppc64le),
 			ginkgo.Entry("for arm64", "arm64", exampleXMLarm64),
 			ginkgo.Entry("for amd64", "amd64", exampleXML),
 		)
 		ginkgo.DescribeTable("Marshal into xml", func(arch string, domainStr string) {
 			marshalTest(arch, domainStr, exampleDomain)
 		},
-			ginkgo.Entry("for ppc64le", "ppc64le", exampleXMLppc64le),
 			ginkgo.Entry("for arm64", "arm64", exampleXMLarm64),
 			ginkgo.Entry("for amd64", "amd64", exampleXML),
 		)
@@ -246,14 +237,12 @@ var _ = ginkgo.Describe("Schema", func() {
 		ginkgo.DescribeTable("Unmarshal into struct", func(arch string, domainStr string) {
 			unmarshalTest(arch, domainStr, exampleDomainWithMemballonDevice)
 		},
-			ginkgo.Entry("for ppc64le and Memballoon device is specified", "ppc64le", exampleXMLppc64lewithNoneMemballoon),
 			ginkgo.Entry("for arm64 and Memballoon device is specified", "arm64", exampleXMLarm64withNoneMemballoon),
 			ginkgo.Entry("for amd64 and Memballoon device is specified", "amd64", exampleXMLwithNoneMemballoon),
 		)
 		ginkgo.DescribeTable("Marshal into xml", func(arch string, domainStr string) {
 			marshalTest(arch, domainStr, exampleDomainWithMemballonDevice)
 		},
-			ginkgo.Entry("for ppc64le and Memballoon device is specified", "ppc64le", exampleXMLppc64lewithNoneMemballoon),
 			ginkgo.Entry("for arm64 and Memballoon device is specified", "arm64", exampleXMLarm64withNoneMemballoon),
 			ginkgo.Entry("for amd64 and Memballoon device is specified", "amd64", exampleXMLwithNoneMemballoon),
 		)
