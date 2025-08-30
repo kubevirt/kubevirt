@@ -4,7 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "client.go",
+        "errors.go",
         "generated_mock_client.go",
+        "guest.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client",
     visibility = ["//visibility:public"],
