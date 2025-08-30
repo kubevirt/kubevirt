@@ -55,7 +55,6 @@ generate:
 	hack/dockerized hack/build-ginkgo.sh
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh && hack/bazel-fmt.sh"
-	hack/dockerized hack/sync-kubevirtci.sh
 	hack/dockerized hack/common-instancetypes/sync.sh
 	./hack/update-generated-api-testdata.sh
 
