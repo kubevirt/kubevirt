@@ -1893,7 +1893,7 @@ var _ = Describe(SIG("Export", func() {
 				// TODO: Rendering this VM with more size than usual as fully expanded images are likely
 				// to leave scratch space PVC without space if files such as lost+found exist.
 				// More info in https://issues.redhat.com/browse/CNV-51575.
-				libdv.StorageWithVolumeSize("1024Mi")),
+				libdv.StorageWithVolumeSize("512Mi")),
 		))
 
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
