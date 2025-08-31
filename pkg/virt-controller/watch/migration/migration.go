@@ -101,8 +101,15 @@ const lowPriority = -100
 
 var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 
+type templateService interface {
+	RenderMigrationManifest(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
+	RenderLaunchManifest(vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volumes []*virtv1.Volume, ownerPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
+	GetLauncherImage() string
+}
+
 type Controller struct {
-	templateService      services.TemplateServiceInterface
+	templateService      templateService
 	clientset            kubecli.KubevirtClient
 	Queue                priorityqueue.PriorityQueue[string]
 	vmiStore             cache.Store
@@ -131,7 +138,7 @@ type Controller struct {
 	catchAllPendingTimeoutSeconds      int64
 }
 
-func NewController(templateService services.TemplateServiceInterface,
+func NewController(templateService templateService,
 	vmiInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
