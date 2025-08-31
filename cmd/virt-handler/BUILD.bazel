@@ -1,3 +1,4 @@
+load("@bazeldnf//:deps.bzl", "tar2files")
 load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
@@ -138,6 +139,21 @@ pkg_tar(
     package_dir = "/etc",
 )
 
+tar2files(
+    name = "passt_repair_binary",
+    files = {
+        "/usr/bin": ["passt-repair"],
+    },
+    tar = "//rpm:passt_tree",
+)
+
+pkg_tar(
+    name = "passt_repair_tar",
+    srcs = [":passt_repair_binary/usr/bin/passt-repair"],
+    mode = "0744",
+    package_dir = "/usr/bin",
+)
+
 container_image(
     name = "version-container",
     directory = "/",
@@ -159,6 +175,7 @@ container_image(
             ":passwd-tar",
             ":nsswitch-tar",
             "//rpm:handlerbase_x86_64",
+            ":passt_repair_tar",
         ],
     }),
 )
