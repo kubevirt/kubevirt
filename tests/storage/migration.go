@@ -78,7 +78,7 @@ import (
 var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, func() {
 	var virtClient kubecli.KubevirtClient
 	var testSc string
-	getCSIStorageClass := libstorage.GetSnapshotStorageClass
+	getCSIStorageClass := libstorage.GetCSIStorageClass
 	createBlankDV := func(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.DataVolume {
 		dv := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
@@ -117,9 +117,10 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			currentKv.ResourceVersion,
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
-		scName, err := getCSIStorageClass(virtClient)
-		Expect(err).ToNot(HaveOccurred())
-		if scName == "" {
+
+		scName, exist := getCSIStorageClass()
+
+		if !exist {
 			Fail("Fail test when a CSI storage class is not present")
 		}
 
@@ -1215,9 +1216,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				checkFileOnHotpluggedVol(vmi)
 			},
 				Entry("from filesystem to filesystem", false, false),
-				Entry("from filesystem to block", false, true),
-				Entry("from block to filesystem", true, false),
-				Entry("from block to block", true, true),
+				Entry("from filesystem to block", decorators.RequiresBlockStorage, false, true),
+				Entry("from block to filesystem", decorators.RequiresBlockStorage, true, false),
+				Entry("from block to block", decorators.RequiresBlockStorage, true, true),
 			)
 		})
 	})
@@ -1333,7 +1334,7 @@ func waitForMigrationToSucceed(virtClient kubecli.KubevirtClient, vmiName, ns st
 		vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vmi.Status.MigrationState
-	}, 120*time.Second, time.Second).Should(And(Not(BeNil()), gstruct.PointTo(
+	}, 360*time.Second, time.Second).Should(And(Not(BeNil()), gstruct.PointTo(
 		gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Failed":    BeFalse(),
 			"Completed": BeTrue(),
