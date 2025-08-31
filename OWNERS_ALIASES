@@ -46,6 +46,7 @@ aliases:
     - xpivarc
     - 0xFelix
   sig-test-approvers:
+    - akalenyu
     - kbidarkar
     - phoracek
     - enp0s3
