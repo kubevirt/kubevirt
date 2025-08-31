@@ -52,7 +52,7 @@ const (
 	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 )
 
-func NewController(templateService services.TemplateService,
+func NewController(templateService services.TemplateServiceInterface,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
@@ -182,7 +182,7 @@ type migrationEvaluator interface {
 }
 
 type Controller struct {
-	templateService         services.TemplateService
+	templateService         services.TemplateServiceInterface
 	clientset               kubecli.KubevirtClient
 	Queue                   workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer              cache.Indexer

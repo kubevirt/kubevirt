@@ -35,7 +35,7 @@ import (
 var _ = Describe("Container disk", func() {
 	Context("image pull policy", func() {
 
-		var svc TemplateService
+		var svc TemplateServiceInterface
 
 		BeforeEach(func() {
 			ctrl := gomock.NewController(GinkgoT())

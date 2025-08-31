@@ -135,7 +135,7 @@ type targetAnnotationsGenerator interface {
 	GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (map[string]string, error)
 }
 
-type TemplateService interface {
+type TemplateServiceInterface interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
@@ -1276,7 +1276,7 @@ func NewTemplateService(launcherImage string,
 	resourceQuotaStore cache.Store,
 	namespaceStore cache.Store,
 	opts ...templateServiceOption,
-) TemplateService {
+) TemplateServiceInterface {
 
 	precond.MustNotBeEmpty(launcherImage)
 	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)

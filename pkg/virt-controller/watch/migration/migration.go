@@ -102,7 +102,7 @@ const lowPriority = -100
 var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 
 type Controller struct {
-	templateService      services.TemplateService
+	templateService      services.TemplateServiceInterface
 	clientset            kubecli.KubevirtClient
 	Queue                priorityqueue.PriorityQueue[string]
 	vmiStore             cache.Store
@@ -131,7 +131,7 @@ type Controller struct {
 	catchAllPendingTimeoutSeconds      int64
 }
 
-func NewController(templateService services.TemplateService,
+func NewController(templateService services.TemplateServiceInterface,
 	vmiInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
