@@ -127,7 +127,6 @@ launcherbase_extra="
 
 handlerbase_main="
   qemu-img-${QEMU_VERSION}
-  passt-${PASST_VERSION}
 "
 handlerbase_extra="
   findutils
@@ -244,6 +243,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $handlerbase_extra
 
     bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name passt_tree_x86_64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        passt-${PASST_VERSION}
+
+    bazel run \
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name libguestfs-tools_x86_64 \
@@ -345,6 +353,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_main \
         $centos_extra \
         $sandboxroot_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name passt_tree_aarch64 --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        passt-${PASST_VERSION}
 
     bazel run \
         --config=${ARCHITECTURE} \
@@ -474,6 +491,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $launcherbase_main \
         $launcherbase_s390x \
         $launcherbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name passt_tree_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        passt-${PASST_VERSION}
 
     # create a rpmtree for virt-handler
     bazel run \
