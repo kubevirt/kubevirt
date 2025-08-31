@@ -144,7 +144,7 @@ type VirtControllerApp struct {
 	service.ServiceListen
 
 	clientSet             kubecli.KubevirtClient
-	templateService       services.TemplateServiceInterface
+	templateService       *services.TemplateService
 	restClient            *clientrest.RESTClient
 	informerFactory       controller.KubeInformerFactory
 	kvPodInformer         cache.SharedIndexInformer
