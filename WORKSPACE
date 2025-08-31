@@ -1743,11 +1743,18 @@ rpm(
 )
 
 rpm(
-    name = "fips-provider-next-0__1.2.0-5.el9.aarch64",
-    sha256 = "216cd58e8e9222e696f9fa5607393807c1e55200f47980bd99b3f1326d5961e2",
+    name = "fips-provider-next-0__1.2.0-5.el9.s390x",
+    sha256 = "51bb0013066a0d83f2cc2df63eb2b7d1dcfe5dafb4054f62143768f682df3c1a",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/fips-provider-next-1.2.0-5.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/216cd58e8e9222e696f9fa5607393807c1e55200f47980bd99b3f1326d5961e2",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/fips-provider-next-1.2.0-5.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "fips-provider-next-0__1.2.0-5.el9.x86_64",
+    sha256 = "efb7823a54b75b86faf6344f8ddf7da965f35b16e5d40c2032e6d75d4fbc6897",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/fips-provider-next-1.2.0-5.el9.x86_64.rpm",
     ],
 )
 
@@ -2120,6 +2127,22 @@ rpm(
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/glibc-headers-2.34-228.el9.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/da78004d35082a90c31fe5c4362cedd60a674b6cbf90144d772c3d1fa6f7691d",
+    ],
+)
+
+rpm(
+    name = "glibc-langpack-ak-0__2.34-228.el9.x86_64",
+    sha256 = "2d727314ffa9869cc3f32cf6c62571df7d6a94e2fc61efc01f71690c19b0936c",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-ak-2.34-228.el9.x86_64.rpm",
+    ],
+)
+
+rpm(
+    name = "glibc-langpack-lv-0__2.34-228.el9.x86_64",
+    sha256 = "0f955322d97605d037627c0d02125f5ec7ac1fe6ecd28d21b050a52b2ec35ab9",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-lv-2.34-228.el9.x86_64.rpm",
     ],
 )
 
