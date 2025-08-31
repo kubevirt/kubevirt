@@ -68,12 +68,12 @@ import (
 var testHookSidecar = hooks.HookSidecar{Image: "test-image", ImagePullPolicy: "test-policy"}
 
 var _ = Describe("Template", func() {
-	var configFactory func(string) (*virtconfig.ClusterConfig, cache.Store, TemplateServiceInterface)
+	var configFactory func(string) (*virtconfig.ClusterConfig, cache.Store, *TemplateService)
 	var qemuGid int64 = 107
 	var defaultArch = "amd64"
 
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	var svc TemplateServiceInterface
+	var svc *TemplateService
 
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
@@ -117,7 +117,7 @@ var _ = Describe("Template", func() {
 	})
 
 	BeforeEach(func() {
-		configFactory = func(cpuArch string) (*virtconfig.ClusterConfig, cache.Store, TemplateServiceInterface) {
+		configFactory = func(cpuArch string) (*virtconfig.ClusterConfig, cache.Store, *TemplateService) {
 			config, _, kvStore := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
 
 			svc = NewTemplateService("kubevirt/virt-launcher",
