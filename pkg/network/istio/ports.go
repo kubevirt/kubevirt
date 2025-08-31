@@ -33,8 +33,8 @@ const (
 	SSHPort                            = 22
 )
 
-func ReservedPorts() []int {
-	return []int{
+func ReservedPorts() []uint {
+	return []uint{
 		EnvoyAdminPort,
 		EnvoyOutboundPort,
 		EnvoyDebugPort,

@@ -200,7 +200,7 @@ func (p PasstNetworkConfigurator) generatePortForward() []domainschema.Interface
 
 	if p.options.IstioProxyInjectionEnabled {
 		for _, port := range istio.ReservedPorts() {
-			tcpPortsRange = append(tcpPortsRange, domainschema.InterfacePortForwardRange{Start: uint(port), Exclude: "yes"})
+			tcpPortsRange = append(tcpPortsRange, domainschema.InterfacePortForwardRange{Start: port, Exclude: "yes"})
 		}
 	}
 
