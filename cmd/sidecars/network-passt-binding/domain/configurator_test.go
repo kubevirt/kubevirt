@@ -190,10 +190,12 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("tcp ports (should forward tcp ports only)",
-				&vmschema.Interface{
-					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					Ports: []vmschema.Port{{Protocol: "TCP", Port: 1}, {Protocol: "TCP", Port: 4}},
-				},
+				newInterface(
+					"default",
+					withPasstBindingPlugin(),
+					withOpenPort("TCP", 1),
+					withOpenPort("TCP", 4),
+				),
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
 					Type:    ifaceTypeVhostUser,
@@ -211,10 +213,12 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("udp ports (should forward udp ports only)",
-				&vmschema.Interface{
-					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					Ports: []vmschema.Port{{Protocol: "UDP", Port: 2}, {Protocol: "UDP", Port: 3}},
-				},
+				newInterface(
+					"default",
+					withPasstBindingPlugin(),
+					withOpenPort("UDP", 2),
+					withOpenPort("UDP", 3),
+				),
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
 					Type:    ifaceTypeVhostUser,
@@ -232,10 +236,14 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("both tcp and udp ports",
-				&vmschema.Interface{
-					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					Ports: []vmschema.Port{{Port: 1}, {Protocol: "UdP", Port: 2}, {Protocol: "UDP", Port: 3}, {Protocol: "tcp", Port: 4}},
-				},
+				newInterface(
+					"default",
+					withPasstBindingPlugin(),
+					withOpenPort("", 1),
+					withOpenPort("UDP", 2),
+					withOpenPort("UDP", 3),
+					withOpenPort("TCP", 4),
+				),
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
 					Type:    ifaceTypeVhostUser,
@@ -465,3 +473,34 @@ var _ = Describe("pod network configurator", func() {
 		})
 	})
 })
+
+type option func(p *vmschema.Interface)
+
+func newInterface(name string, options ...option) *vmschema.Interface {
+	newIface := &vmschema.Interface{
+		Name: name,
+	}
+
+	for _, option := range options {
+		option(newIface)
+	}
+
+	return newIface
+}
+
+func withPasstBindingPlugin() option {
+	return func(iface *vmschema.Interface) {
+		iface.Binding = &vmschema.PluginBinding{
+			Name: "passt",
+		}
+	}
+}
+
+func withOpenPort(protocol string, portNumber int32) option {
+	return func(iface *vmschema.Interface) {
+		iface.Ports = append(iface.Ports, vmschema.Port{
+			Protocol: protocol,
+			Port:     portNumber,
+		})
+	}
+}
