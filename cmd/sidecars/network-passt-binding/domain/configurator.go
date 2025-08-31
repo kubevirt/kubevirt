@@ -174,8 +174,8 @@ func (p PasstNetworkConfigurator) generateInterface() (*domainschema.Interface, 
 	}
 
 	var acpi *domainschema.ACPI
-	if p.vmiSpecIface.ACPIIndex > 0 {
-		acpi = &domainschema.ACPI{Index: uint(p.vmiSpecIface.ACPIIndex)}
+	if acpiIndex := p.vmiSpecIface.ACPIIndex; acpiIndex > 0 {
+		acpi = &domainschema.ACPI{Index: uint(acpiIndex)}
 	}
 
 	const (
@@ -210,10 +210,17 @@ func (p PasstNetworkConfigurator) generatePortForward() []domainschema.Interface
 	)
 
 	for _, port := range p.vmiSpecIface.Ports {
+		portNumber := port.Port
+		if portNumber < 0 {
+			// This path is unreachable, as the port number is validated by webhooks.
+			// https://github.com/kubevirt/kubevirt/blob/e36bb0bd799764901e5dade8e4b2a5e906230d15/pkg/network/admitter/netiface.go#L200
+			log.Log.Errorf("port %d is illegal", portNumber)
+			continue
+		}
 		if strings.EqualFold(port.Protocol, protoTCP) || port.Protocol == "" {
-			tcpPortsRange = append(tcpPortsRange, domainschema.InterfacePortForwardRange{Start: uint(port.Port)})
+			tcpPortsRange = append(tcpPortsRange, domainschema.InterfacePortForwardRange{Start: uint(portNumber)})
 		} else if strings.EqualFold(port.Protocol, protoUDP) {
-			udpPortsRange = append(udpPortsRange, domainschema.InterfacePortForwardRange{Start: uint(port.Port)})
+			udpPortsRange = append(udpPortsRange, domainschema.InterfacePortForwardRange{Start: uint(portNumber)})
 		} else {
 			log.Log.Errorf("protocol %s is not supported by passt", port.Protocol)
 		}
