@@ -2699,7 +2699,7 @@ var _ = Describe("Template", func() {
 			It("should not run privileged", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.IsPPC64() {
+				if svc.isPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
@@ -3303,7 +3303,7 @@ var _ = Describe("Template", func() {
 			It("should not run privileged", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.IsPPC64() {
+				if svc.isPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				vmi := v1.VirtualMachineInstance{
@@ -3380,7 +3380,7 @@ var _ = Describe("Template", func() {
 			It("should not run privileged", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.IsPPC64() {
+				if svc.isPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				vmi := v1.VirtualMachineInstance{
