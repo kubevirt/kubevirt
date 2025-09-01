@@ -82,6 +82,7 @@ go_test(
     ],
     data = glob(["testdata/**"]),
     embedsrcs = ["testdata/sidecar-hook-configmap.sh"],
+    race = "on",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
