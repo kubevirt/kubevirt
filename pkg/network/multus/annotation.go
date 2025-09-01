@@ -28,7 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
-	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -72,7 +71,11 @@ func GenerateCNIAnnotationFromNameScheme(
 		if config != nil {
 			if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
 				bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
-					config.GetConfig(), iface.Binding.Name, namespace, network.Name)
+					config.GetNetworkBindings(),
+					iface.Binding.Name,
+					namespace,
+					network.Name,
+				)
 				if err != nil {
 					return "", err
 				}
@@ -130,11 +133,13 @@ func newAnnotationData(
 }
 
 func newBindingPluginAnnotationData(
-	kvConfig *v1.KubeVirtConfiguration,
-	pluginName, namespace, networkName string,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
+	pluginName,
+	namespace,
+	networkName string,
 ) (*networkv1.NetworkSelectionElement, error) {
-	plugin := netbinding.ReadNetBindingPluginConfiguration(kvConfig, pluginName)
-	if plugin == nil {
+	plugin, exists := registeredBindingPlugins[pluginName]
+	if !exists {
 		return nil, fmt.Errorf("unable to find the network binding plugin '%s' in Kubevirt configuration", pluginName)
 	}
 
