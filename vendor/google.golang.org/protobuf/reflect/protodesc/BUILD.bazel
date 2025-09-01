@@ -7,6 +7,7 @@ go_library(
         "desc_init.go",
         "desc_resolve.go",
         "desc_validate.go",
+        "editions.go",
         "proto.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/protobuf/reflect/protodesc",
@@ -14,6 +15,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/google.golang.org/protobuf/encoding/protowire:go_default_library",
+        "//vendor/google.golang.org/protobuf/internal/editiondefaults:go_default_library",
         "//vendor/google.golang.org/protobuf/internal/encoding/defval:go_default_library",
         "//vendor/google.golang.org/protobuf/internal/errors:go_default_library",
         "//vendor/google.golang.org/protobuf/internal/filedesc:go_default_library",
@@ -25,5 +27,6 @@ go_library(
         "//vendor/google.golang.org/protobuf/reflect/protoreflect:go_default_library",
         "//vendor/google.golang.org/protobuf/reflect/protoregistry:go_default_library",
         "//vendor/google.golang.org/protobuf/types/descriptorpb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/gofeaturespb:go_default_library",
     ],
 )
