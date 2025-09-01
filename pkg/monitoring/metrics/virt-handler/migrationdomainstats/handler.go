@@ -41,6 +41,7 @@ func newHandler(vmiInformer cache.SharedIndexInformer) (*handler, error) {
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    h.handleVmiAdd,
 		UpdateFunc: h.handleVmiUpdate,
 	})
 
@@ -73,6 +74,16 @@ func (h *handler) handleVmiUpdate(_oldObj, newObj interface{}) {
 	}
 
 	h.addMigration(newVmi)
+}
+
+func (h *handler) handleVmiAdd(obj interface{}) {
+	vmi := obj.(*v1.VirtualMachineInstance)
+
+	if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.Completed {
+		return
+	}
+
+	h.addMigration(vmi)
 }
 
 func (h *handler) addMigration(vmi *v1.VirtualMachineInstance) {
