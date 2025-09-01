@@ -54,7 +54,7 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 
 	BeforeEach(func() {
 		const macvtapBindingName = "macvtap"
-		err := config.WithNetBindingPlugin(macvtapBindingName, v1.InterfaceBindingPlugin{
+		err := config.WithNetBindingPluginNoOverride(macvtapBindingName, v1.InterfaceBindingPlugin{
 			DomainAttachmentType: v1.Tap,
 		})
 		Expect(err).NotTo(HaveOccurred())

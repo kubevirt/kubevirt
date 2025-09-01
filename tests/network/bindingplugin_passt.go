@@ -66,7 +66,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 
 		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
-		err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
+		err := config.WithNetBindingPluginNoOverride(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
 			NetworkAttachmentDefinition: passtNetAttDefName,
 			Migration:                   &v1.InterfaceBindingMigration{},
