@@ -58,7 +58,8 @@ var _ = Describe(SIG("Slirp", decorators.Networking, decorators.NetCustomBinding
 		err := config.RegisterKubevirtConfigChange(
 			config.WithNetBindingPlugin(slirpBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage: slirpSidecarImage,
-			}),
+			},
+				false),
 		)
 		Expect(err).ToNot(HaveOccurred())
 	})

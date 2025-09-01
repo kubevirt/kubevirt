@@ -29,7 +29,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
-func WithNetBindingPlugin(name string, netBindingPlugin v1.InterfaceBindingPlugin) KvChangeOption {
+func WithNetBindingPlugin(name string, netBindingPlugin v1.InterfaceBindingPlugin, overrideExistingRegistration bool) KvChangeOption {
 	return func(kv *v1.KubeVirt) *patch.PatchSet {
 		patchSet := patch.New()
 		config := kv.Spec.Configuration
@@ -39,6 +39,8 @@ func WithNetBindingPlugin(name string, netBindingPlugin v1.InterfaceBindingPlugi
 			patchSet.AddOption(patch.WithAdd("/spec/configuration/network/binding", map[string]v1.InterfaceBindingPlugin{}))
 		} else if config.NetworkConfiguration.Binding == nil {
 			patchSet.AddOption(patch.WithAdd("/spec/configuration/network/binding", map[string]v1.InterfaceBindingPlugin{}))
+		} else if _, exists := config.NetworkConfiguration.Binding[name]; exists && !overrideExistingRegistration {
+			return &patch.PatchSet{}
 		}
 
 		patchSet.AddOption(patch.WithAdd(fmt.Sprintf("/spec/configuration/network/binding/%s", name), netBindingPlugin))
