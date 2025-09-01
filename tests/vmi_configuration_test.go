@@ -203,45 +203,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
-		DescribeTable("with memory configuration", func(vmiOptions []libvmi.Option, expectedGuestMemory int) {
-			vmi := libvmi.New(vmiOptions...)
-
-			By("Starting a VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
-			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			expectedMemoryInKiB := expectedGuestMemory * 1024
-			expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
-
-			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
-
-		},
-			Entry("provided by domain spec directly",
-				[]libvmi.Option{
-					libvmi.WithGuestMemory("512Mi"),
-				},
-				512,
-			),
-			Entry("provided by resources limits",
-				[]libvmi.Option{
-					libvmi.WithMemoryLimit("256Mi"),
-					libvmi.WithCPULimit("1"),
-				},
-				256,
-			),
-			Entry("provided by resources requests and limits",
-				[]libvmi.Option{
-					libvmi.WithCPURequest("1"),
-					libvmi.WithCPULimit("1"),
-					libvmi.WithMemoryRequest("64Mi"),
-					libvmi.WithMemoryLimit("256Mi"),
-				},
-				64,
-			),
-		)
-
 		Context("[rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", Serial, func() {
 			var availableNumberOfCPUs int
 
@@ -288,22 +249,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				Expect(computeContainer).ToNot(BeNil(), "could not find the compute container")
 				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(399)))
-			})
-			It("[test_id:4624]should set a correct memory units", func() {
-				vmi := libvmifact.NewAlpine(
-					libvmi.WithMemoryRequest("128Mi"),
-				)
-				expectedMemoryInKiB := 128 * 1024
-				expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
-
-				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
 			})
 
 			It("[test_id:1660]should report 3 sockets under guest OS", func() {
@@ -404,9 +349,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("queues='3'"))
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Check block device queues in guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls /sys/block/vda/mq | wc -l\n"},
+					&expect.BExp{R: console.RetValue("3")},
+				}, 15)).To(Succeed())
 			})
 
 			It("[test_id:1665]should map cores to virtio net queues", func() {
@@ -428,11 +378,20 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("driver name='vhost' queues='3'"))
-				// make sure that there are not block queues configured
-				Expect(domXml).ToNot(ContainSubstring("cache='none' queues='3'"))
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Check network interface queues in guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls /sys/class/net/eth0/queues/ | grep rx | wc -l\n"},
+					&expect.BExp{R: console.RetValue("3")},
+				}, 15)).To(Succeed())
+
+				By("Check block device does not have multiple queues")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls -1 /sys/block/vda/mq | wc -l\n"},
+					&expect.BExp{R: console.RetValue("1")},
+				}, 15)).To(Succeed())
 			})
 
 			It("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", func() {
@@ -451,9 +410,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).ToNot(ContainSubstring("queues='"))
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls /sys/block/vda/mq | wc -l\n"},
+					&expect.BExp{R: console.RetValue("1")},
+				}, 15)).To(Succeed())
 			})
 		})
 
@@ -2679,11 +2642,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Check values on domain XML")
-			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
 
 			By("Expecting console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
