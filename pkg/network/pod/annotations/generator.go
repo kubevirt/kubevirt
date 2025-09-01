@@ -53,7 +53,7 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := multus.GenerateCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, g.clusterConfig)
+	multusAnnotation, err := multus.GenerateCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, g.clusterConfig.GetNetworkBindings())
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod 
 		vmi.Spec.Domain.Devices.Interfaces,
 		vmi.Spec.Networks,
 		ordinalNameScheme,
-		g.clusterConfig,
+		g.clusterConfig.GetNetworkBindings(),
 	)
 	if err != nil {
 		return nil, err
@@ -128,7 +128,7 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 		vmiSpecIfaces,
 		vmiSpecNets,
 		podIfaceNamesByNetworkName,
-		g.clusterConfig,
+		g.clusterConfig.GetNetworkBindings(),
 	)
 	if err != nil {
 		return "", false

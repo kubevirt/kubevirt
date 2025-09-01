@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -47,9 +46,15 @@ func GenerateCNIAnnotation(
 	namespace string,
 	interfaces []v1.Interface,
 	networks []v1.Network,
-	config *virtconfig.ClusterConfig,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
 ) (string, error) {
-	return GenerateCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks), config)
+	return GenerateCNIAnnotationFromNameScheme(
+		namespace,
+		interfaces,
+		networks,
+		namescheme.CreateHashedNetworkNameScheme(networks),
+		registeredBindingPlugins,
+	)
 }
 
 func GenerateCNIAnnotationFromNameScheme(
@@ -57,7 +62,7 @@ func GenerateCNIAnnotationFromNameScheme(
 	interfaces []v1.Interface,
 	networks []v1.Network,
 	networkNameScheme map[string]string,
-	config *virtconfig.ClusterConfig,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
 ) (string, error) {
 	multusNetworkAnnotationPool := networkAnnotationPool{}
 
@@ -68,20 +73,18 @@ func GenerateCNIAnnotationFromNameScheme(
 				newAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
 
-		if config != nil {
-			if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
-				bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
-					config.GetNetworkBindings(),
-					iface.Binding.Name,
-					namespace,
-					network.Name,
-				)
-				if err != nil {
-					return "", err
-				}
-				if bindingPluginAnnotationData != nil {
-					multusNetworkAnnotationPool.Add(*bindingPluginAnnotationData)
-				}
+		if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
+			bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
+				registeredBindingPlugins,
+				iface.Binding.Name,
+				namespace,
+				network.Name,
+			)
+			if err != nil {
+				return "", err
+			}
+			if bindingPluginAnnotationData != nil {
+				multusNetworkAnnotationPool.Add(*bindingPluginAnnotationData)
 			}
 		}
 	}
