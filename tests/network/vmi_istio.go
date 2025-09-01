@@ -457,7 +457,7 @@ var istioTestsWithPasstBinding = func() {
 		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 		err := config.RegisterKubevirtConfigChange(
-			config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
+			config.WithNetBindingPluginNoOverride(passtBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage:                passtSidecarImage,
 				NetworkAttachmentDefinition: passtNetAttDefName,
 				Migration:                   &v1.InterfaceBindingMigration{},
