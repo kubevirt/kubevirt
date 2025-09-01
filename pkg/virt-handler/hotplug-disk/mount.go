@@ -113,8 +113,8 @@ var (
 		return isolation.IsBlockDevice(path)
 	}
 
-	isolationDetector = func(path string) isolation.PodIsolationDetector {
-		return isolation.NewSocketBasedIsolationDetector(path)
+	isolationDetector = func() isolation.PodIsolationDetector {
+		return isolation.NewSocketBasedIsolationDetector()
 	}
 
 	parentPathForMount = func(
@@ -553,8 +553,8 @@ func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid
 }
 
 func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.VirtualMachineInstance, volume string) (*safepath.Path, error) {
-	iso := isolationDetector("/path")
-	isoRes, err := iso.DetectForSocket(vmi, socketPath(sourceUID))
+	iso := isolationDetector()
+	isoRes, err := iso.DetectForSocket(socketPath(sourceUID))
 	if err != nil {
 		return nil, err
 	}

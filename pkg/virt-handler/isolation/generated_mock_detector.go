@@ -70,16 +70,16 @@ func (mr *MockPodIsolationDetectorMockRecorder) Detect(vm any) *gomock.Call {
 }
 
 // DetectForSocket mocks base method.
-func (m *MockPodIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
+func (m *MockPodIsolationDetector) DetectForSocket(socket string) (IsolationResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DetectForSocket", vm, socket)
+	ret := m.ctrl.Call(m, "DetectForSocket", socket)
 	ret0, _ := ret[0].(IsolationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DetectForSocket indicates an expected call of DetectForSocket.
-func (mr *MockPodIsolationDetectorMockRecorder) DetectForSocket(vm, socket any) *gomock.Call {
+func (mr *MockPodIsolationDetectorMockRecorder) DetectForSocket(socket any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetectForSocket", reflect.TypeOf((*MockPodIsolationDetector)(nil).DetectForSocket), vm, socket)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetectForSocket", reflect.TypeOf((*MockPodIsolationDetector)(nil).DetectForSocket), socket)
 }
