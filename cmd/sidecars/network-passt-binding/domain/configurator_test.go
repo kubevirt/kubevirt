@@ -82,8 +82,10 @@ var _ = Describe("pod network configurator", func() {
 		)
 
 		It("should fail given interface with invalid PCI address", func() {
-			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-				PciAddress: "invalid-pci-address"}}
+			ifaces := []vmschema.Interface{{
+				Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+				PciAddress: "invalid-pci-address",
+			}}
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
 			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
 
@@ -129,8 +131,10 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("PCI address",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					PciAddress: "0000:02:02.0"},
+				&vmschema.Interface{
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+					PciAddress: "0000:02:02.0",
+				},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
 					Type:        ifaceTypeVhostUser,
@@ -142,8 +146,10 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("MAC address",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					MacAddress: "02:02:02:02:02:02"},
+				&vmschema.Interface{
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+					MacAddress: "02:02:02:02:02:02",
+				},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
 					Type:        ifaceTypeVhostUser,
@@ -155,8 +161,10 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("ACPI address",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					ACPIIndex: 2},
+				&vmschema.Interface{
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+					ACPIIndex: 2,
+				},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
 					Type:        ifaceTypeVhostUser,
@@ -168,7 +176,8 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("non virtio model",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+				&vmschema.Interface{
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
 					Model: "e1000",
 				},
 				&domainschema.Interface{
@@ -181,9 +190,12 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("tcp ports (should forward tcp ports only)",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					Ports: []vmschema.Port{{Protocol: "TCP", Port: 1}, {Protocol: "TCP", Port: 4}},
-				},
+				newInterface(
+					"default",
+					withPasstBindingPlugin(),
+					withOpenPort("TCP", 1),
+					withOpenPort("TCP", 4),
+				),
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
 					Type:    ifaceTypeVhostUser,
@@ -201,9 +213,12 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("udp ports (should forward udp ports only)",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					Ports: []vmschema.Port{{Protocol: "UDP", Port: 2}, {Protocol: "UDP", Port: 3}},
-				},
+				newInterface(
+					"default",
+					withPasstBindingPlugin(),
+					withOpenPort("UDP", 2),
+					withOpenPort("UDP", 3),
+				),
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
 					Type:    ifaceTypeVhostUser,
@@ -221,9 +236,14 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("both tcp and udp ports",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					Ports: []vmschema.Port{{Port: 1}, {Protocol: "UdP", Port: 2}, {Protocol: "UDP", Port: 3}, {Protocol: "tcp", Port: 4}},
-				},
+				newInterface(
+					"default",
+					withPasstBindingPlugin(),
+					withOpenPort("", 1),
+					withOpenPort("UDP", 2),
+					withOpenPort("UDP", 3),
+					withOpenPort("TCP", 4),
+				),
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
 					Type:    ifaceTypeVhostUser,
@@ -282,12 +302,18 @@ var _ = Describe("pod network configurator", func() {
 					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
 					PortForward: []domainschema.InterfacePortForward{
 						{Proto: "tcp", Ranges: []domainschema.InterfacePortForwardRange{
-							{Start: 15000, Exclude: "yes"}, {Start: 15001, Exclude: "yes"},
-							{Start: 15004, Exclude: "yes"}, {Start: 15006, Exclude: "yes"},
-							{Start: 15008, Exclude: "yes"}, {Start: 15009, Exclude: "yes"},
-							{Start: 15020, Exclude: "yes"}, {Start: 15021, Exclude: "yes"},
-							{Start: 15053, Exclude: "yes"}, {Start: 15090, Exclude: "yes"},
-						}}},
+							{Start: 15000, Exclude: "yes"},
+							{Start: 15001, Exclude: "yes"},
+							{Start: 15004, Exclude: "yes"},
+							{Start: 15006, Exclude: "yes"},
+							{Start: 15008, Exclude: "yes"},
+							{Start: 15009, Exclude: "yes"},
+							{Start: 15020, Exclude: "yes"},
+							{Start: 15021, Exclude: "yes"},
+							{Start: 15053, Exclude: "yes"},
+							{Start: 15090, Exclude: "yes"},
+						}},
+					},
 				},
 			),
 		)
@@ -324,7 +350,9 @@ var _ = Describe("pod network configurator", func() {
 			existingIface := &domainschema.Interface{Alias: domainschema.NewUserDefinedAlias("existing-iface")}
 			testDomSpec := &domainschema.DomainSpec{
 				Devices: domainschema.Devices{
-					Interfaces: []domainschema.Interface{*existingIface}}}
+					Interfaces: []domainschema.Interface{*existingIface},
+				},
+			}
 
 			mutatedDomSpec, err := testMutator.Mutate(testDomSpec)
 			Expect(err).ToNot(HaveOccurred())
@@ -445,3 +473,34 @@ var _ = Describe("pod network configurator", func() {
 		})
 	})
 })
+
+type option func(p *vmschema.Interface)
+
+func newInterface(name string, options ...option) *vmschema.Interface {
+	newIface := &vmschema.Interface{
+		Name: name,
+	}
+
+	for _, option := range options {
+		option(newIface)
+	}
+
+	return newIface
+}
+
+func withPasstBindingPlugin() option {
+	return func(iface *vmschema.Interface) {
+		iface.Binding = &vmschema.PluginBinding{
+			Name: "passt",
+		}
+	}
+}
+
+func withOpenPort(protocol string, portNumber int32) option {
+	return func(iface *vmschema.Interface) {
+		iface.Ports = append(iface.Ports, vmschema.Port{
+			Protocol: protocol,
+			Port:     portNumber,
+		})
+	}
+}

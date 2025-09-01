@@ -49,6 +49,7 @@ type PasstNetworkConfigurator struct {
 const (
 	// PasstPluginName passt binding plugin name should be registered to Kubevirt through Kubevirt CR
 	PasstPluginName = "passt"
+	//nolint:gosec
 	// PasstLogFilePath passt log file path Kubevirt consume and record
 	PasstLogFilePath = "/var/run/kubevirt/passt.log"
 )
@@ -94,7 +95,9 @@ func (p PasstNetworkConfigurator) Mutate(domainSpec *domainschema.DomainSpec) (*
 		memfdMemoryBackingSourceType  = "memfd"
 	)
 
-	if domainSpec.MemoryBacking != nil && domainSpec.MemoryBacking.Access != nil && domainSpec.MemoryBacking.Access.Mode != sharedMemoryBackingAccessMode {
+	if domainSpec.MemoryBacking != nil &&
+		domainSpec.MemoryBacking.Access != nil &&
+		domainSpec.MemoryBacking.Access.Mode != sharedMemoryBackingAccessMode {
 		return nil, fmt.Errorf("memory backing access mode must be 'shared'; cannot override existing mode: %q",
 			domainSpec.MemoryBacking.Access.Mode)
 	}
@@ -171,8 +174,8 @@ func (p PasstNetworkConfigurator) generateInterface() (*domainschema.Interface, 
 	}
 
 	var acpi *domainschema.ACPI
-	if p.vmiSpecIface.ACPIIndex > 0 {
-		acpi = &domainschema.ACPI{Index: uint(p.vmiSpecIface.ACPIIndex)}
+	if acpiIndex := p.vmiSpecIface.ACPIIndex; acpiIndex > 0 {
+		acpi = &domainschema.ACPI{Index: uint(acpiIndex)}
 	}
 
 	const (
@@ -197,7 +200,7 @@ func (p PasstNetworkConfigurator) generatePortForward() []domainschema.Interface
 
 	if p.options.IstioProxyInjectionEnabled {
 		for _, port := range istio.ReservedPorts() {
-			tcpPortsRange = append(tcpPortsRange, domainschema.InterfacePortForwardRange{Start: uint(port), Exclude: "yes"})
+			tcpPortsRange = append(tcpPortsRange, domainschema.InterfacePortForwardRange{Start: port, Exclude: "yes"})
 		}
 	}
 
@@ -207,10 +210,17 @@ func (p PasstNetworkConfigurator) generatePortForward() []domainschema.Interface
 	)
 
 	for _, port := range p.vmiSpecIface.Ports {
+		portNumber := port.Port
+		if portNumber < 0 {
+			// This path is unreachable, as the port number is validated by webhooks.
+			// https://github.com/kubevirt/kubevirt/blob/e36bb0bd799764901e5dade8e4b2a5e906230d15/pkg/network/admitter/netiface.go#L200
+			log.Log.Errorf("port %d is illegal", portNumber)
+			continue
+		}
 		if strings.EqualFold(port.Protocol, protoTCP) || port.Protocol == "" {
-			tcpPortsRange = append(tcpPortsRange, domainschema.InterfacePortForwardRange{Start: uint(port.Port)})
+			tcpPortsRange = append(tcpPortsRange, domainschema.InterfacePortForwardRange{Start: uint(portNumber)})
 		} else if strings.EqualFold(port.Protocol, protoUDP) {
-			udpPortsRange = append(udpPortsRange, domainschema.InterfacePortForwardRange{Start: uint(port.Port)})
+			udpPortsRange = append(udpPortsRange, domainschema.InterfacePortForwardRange{Start: uint(portNumber)})
 		} else {
 			log.Log.Errorf("protocol %s is not supported by passt", port.Protocol)
 		}
@@ -218,8 +228,11 @@ func (p PasstNetworkConfigurator) generatePortForward() []domainschema.Interface
 
 	var portsFwd []domainschema.InterfacePortForward
 	if len(udpPortsRange) == 0 && len(tcpPortsRange) == 0 {
-		portsFwd = append(portsFwd, domainschema.InterfacePortForward{Proto: protoTCP})
-		portsFwd = append(portsFwd, domainschema.InterfacePortForward{Proto: protoUDP})
+		portsFwd = append(
+			portsFwd,
+			domainschema.InterfacePortForward{Proto: protoTCP},
+			domainschema.InterfacePortForward{Proto: protoUDP},
+		)
 	}
 	if len(tcpPortsRange) > 0 {
 		portsFwd = append(portsFwd, domainschema.InterfacePortForward{Proto: protoTCP, Ranges: tcpPortsRange})

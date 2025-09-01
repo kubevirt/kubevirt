@@ -1,6 +1,5 @@
 cmd/cniplugins
-cmd/sidecars/network-passt-binding/callback
-cmd/sidecars/network-passt-binding/server
+cmd/sidecars/network-passt-binding
 cmd/sidecars/network-slirp-binding/callback
 cmd/virtctl
 pkg/instancetype
