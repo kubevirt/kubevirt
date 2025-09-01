@@ -26,6 +26,8 @@ EOF
     trap collect_results EXIT
 fi
 
+ulimit -u
+
 bazel test \
     --config=${ARCHITECTURE} \
     --features race \
