@@ -455,13 +455,7 @@ func (n *Notifier) StartDomainNotifier(
 				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
 				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
-				if event.AgentEvent != nil {
-					if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
-						agentPoller.Start()
-					} else if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED {
-						agentPoller.Stop()
-					}
-				}
+				agentPoller.UpdateFromEvent(event.Event, event.AgentEvent)
 			case agentUpdate := <-agentStore.AgentUpdated:
 				metadataCache.ResetNotification()
 				interfaceStatuses = agentUpdate.DomainInfo.Interfaces

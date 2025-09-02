@@ -257,6 +257,130 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
 	})
+
+	Context("UpdateFromEvent", func() {
+		var agentPoller *AgentPoller
+
+		BeforeEach(func() {
+			agentPoller = &AgentPoller{
+				Connection: mockLibvirt.VirtConnection,
+				domainName: "test-domain",
+				agentStore: &agentStore,
+			}
+		})
+
+		It("should stop agent poller on domain suspend event", func() {
+			agentPoller.Start()
+			Expect(agentPoller.agentDone).ToNot(BeNil())
+
+			domainEvent := &libvirt.DomainEventLifecycle{
+				Event:  libvirt.DOMAIN_EVENT_SUSPENDED,
+				Detail: int(libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED),
+			}
+			agentPoller.UpdateFromEvent(domainEvent, nil)
+
+			Expect(agentPoller.agentDone).To(BeNil())
+		})
+
+		It("should start agent poller on domain resume event when agent is connected", func() {
+			Expect(agentPoller.agentDone).To(BeNil())
+
+			agentConnectEvent := &libvirt.DomainEventAgentLifecycle{
+				State:  libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED,
+				Reason: libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL,
+			}
+			agentPoller.UpdateFromEvent(nil, agentConnectEvent)
+
+			// Stop to simulate domain suspend
+			agentPoller.Stop()
+			Expect(agentPoller.agentDone).To(BeNil())
+
+			domainEvent := &libvirt.DomainEventLifecycle{
+				Event:  libvirt.DOMAIN_EVENT_RESUMED,
+				Detail: int(libvirt.DOMAIN_EVENT_RESUMED_UNPAUSED),
+			}
+			agentPoller.UpdateFromEvent(domainEvent, nil)
+
+			Expect(agentPoller.agentDone).ToNot(BeNil())
+		})
+
+		It("should not start agent poller on domain resume event when agent is not connected", func() {
+			Expect(agentPoller.agentDone).To(BeNil())
+
+			Expect(agentPoller.agentConnected).To(BeFalse())
+
+			domainEvent := &libvirt.DomainEventLifecycle{
+				Event:  libvirt.DOMAIN_EVENT_RESUMED,
+				Detail: int(libvirt.DOMAIN_EVENT_RESUMED_UNPAUSED),
+			}
+			agentPoller.UpdateFromEvent(domainEvent, nil)
+
+			Expect(agentPoller.agentDone).To(BeNil())
+		})
+
+		It("should stop agent poller on agent disconnect event", func() {
+			agentConnectEvent := &libvirt.DomainEventAgentLifecycle{
+				State:  libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED,
+				Reason: libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL,
+			}
+			agentPoller.UpdateFromEvent(nil, agentConnectEvent)
+			Expect(agentPoller.agentDone).ToNot(BeNil())
+			Expect(agentPoller.agentConnected).To(BeTrue())
+
+			agentDisconnectEvent := &libvirt.DomainEventAgentLifecycle{
+				State:  libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED,
+				Reason: libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL,
+			}
+			agentPoller.UpdateFromEvent(nil, agentDisconnectEvent)
+
+			Expect(agentPoller.agentDone).To(BeNil())
+			Expect(agentPoller.agentConnected).To(BeFalse())
+		})
+
+		It("should start agent poller on agent connect event", func() {
+			Expect(agentPoller.agentDone).To(BeNil())
+			Expect(agentPoller.agentConnected).To(BeFalse())
+
+			agentEvent := &libvirt.DomainEventAgentLifecycle{
+				State:  libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED,
+				Reason: libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL,
+			}
+			agentPoller.UpdateFromEvent(nil, agentEvent)
+
+			Expect(agentPoller.agentDone).ToNot(BeNil())
+			Expect(agentPoller.agentConnected).To(BeTrue())
+		})
+
+		It("should not start or stop agent poller on unrelated events", func() {
+			agentPoller.Start()
+			originalState := agentPoller.agentDone
+			Expect(originalState).ToNot(BeNil())
+
+			unrelatedDomainEvent := &libvirt.DomainEventLifecycle{
+				Event:  libvirt.DOMAIN_EVENT_STARTED, // Different event
+				Detail: int(libvirt.DOMAIN_EVENT_STARTED_BOOTED),
+			}
+			agentPoller.UpdateFromEvent(unrelatedDomainEvent, nil)
+
+			// State should remain unchanged
+			Expect(agentPoller.agentDone).To(Equal(originalState))
+
+			anotherUnrelatedEvent := &libvirt.DomainEventLifecycle{
+				Event:  libvirt.DOMAIN_EVENT_STOPPED,
+				Detail: int(libvirt.DOMAIN_EVENT_STOPPED_SHUTDOWN),
+			}
+			agentPoller.UpdateFromEvent(anotherUnrelatedEvent, nil)
+
+			// State should still remain unchanged
+			Expect(agentPoller.agentDone).To(Equal(originalState))
+
+			// Test with completely empty events
+			agentPoller.UpdateFromEvent(nil, nil)
+
+			// State should still remain unchanged
+			Expect(agentPoller.agentDone).To(Equal(originalState))
+		})
+	})
 })
 
 // runPollAndCountCommandExecution runs a PollerWorker with the specified polling interval
