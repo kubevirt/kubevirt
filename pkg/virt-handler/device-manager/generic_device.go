@@ -52,6 +52,7 @@ type Device interface {
 
 type GenericDevicePlugin struct {
 	*DevicePluginBase
+	deviceName  string
 	preOpen     bool
 	permissions string
 }
@@ -63,13 +64,13 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 			devs:         []*pluginapi.Device{},
 			socketPath:   serverSock,
 			health:       make(chan deviceHealth),
-			deviceName:   deviceName,
 			devicePath:   devicePath,
 			deviceRoot:   util.HostRootMount,
 			resourceName: fmt.Sprintf("%s/%s", DeviceNamespace, deviceName),
 			initialized:  false,
 			lock:         &sync.Mutex{},
 		},
+		deviceName:  deviceName,
 		preOpen:     preOpen,
 		permissions: permissions,
 	}

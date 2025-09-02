@@ -49,7 +49,6 @@ type DevicePluginBase struct {
 	deregistered chan struct{}
 	devicePath   string
 	deviceRoot   string
-	deviceName   string
 }
 
 func (dpi *DevicePluginBase) GetDeviceName() string {
@@ -134,14 +133,14 @@ func (dpi *DevicePluginBase) healthCheck() error {
 			if event.Name == devicePath {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.deviceName)
+					logger.Infof("monitored device %s appeared", dpi.GetDeviceName())
 					dpi.health <- deviceHealth{Health: pluginapi.Healthy}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.deviceName)
+					logger.Infof("monitored device %s disappeared", dpi.GetDeviceName())
 					dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
-				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.deviceName)
+				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.GetDeviceName())
 				return nil
 			}
 		}
@@ -161,7 +160,7 @@ func (dpi *DevicePluginBase) GetDevicePluginOptions(_ context.Context, _ *plugin
 }
 
 func (dpi *DevicePluginBase) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.deviceName)
+	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
 	response := pluginapi.AllocateResponse{}
 	containerResponse := new(pluginapi.ContainerAllocateResponse)
