@@ -44,7 +44,7 @@ func SetupMetrics(virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInf
 	SetVersionInfo()
 	ReportDeprecatedMachineTypes(machines, nodeName)
 
-	domainstats.SetupDomainStatsCollector(virtShareDir, nodeName, MaxRequestsInFlight, vmiInformer)
+	domainstats.SetupDomainStatsCollector(MaxRequestsInFlight, vmiInformer)
 
 	if err := migrationdomainstats.SetupMigrationStatsCollector(vmiInformer); err != nil {
 		return err
