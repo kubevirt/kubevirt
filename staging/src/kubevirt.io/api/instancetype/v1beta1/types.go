@@ -394,6 +394,7 @@ type SpreadOptions struct {
 	// Default: 2
 	//
 	//+optional
+	//+kubebuilder:validation:Minimum=1
 	Ratio *uint32 `json:"ratio,omitempty"`
 }
 
