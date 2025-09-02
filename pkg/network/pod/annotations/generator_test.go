@@ -705,7 +705,7 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
 		})
 
-		It("Should generate network attachment annotation when a secondary interface is hot unplugged", func() {
+		FIt("Should generate network attachment annotation when a secondary interface is hot unplugged", func() {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
