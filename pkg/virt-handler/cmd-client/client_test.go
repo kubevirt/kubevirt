@@ -138,6 +138,10 @@ var _ = Describe("Virt remote commands", func() {
 
 			// unresponsive is true when marked as unresponsive
 			MarkSocketUnresponsive(sock)
+			Expect(IsSocketUnresponsive(sock)).To(BeTrue())
+
+			// Next invocation should not produce error
+			Expect(MarkSocketUnresponsive(sock)).To(Succeed())
 			unresponsive = IsSocketUnresponsive(sock)
 			Expect(unresponsive).To(BeTrue())
 		})
