@@ -36,6 +36,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -1419,19 +1420,49 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 	}
 
 	logger.V(1).Infof("Allocating %d hotplug ports", count)
-
-	setDomainFn := func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
-		return l.setDomainSpecWithHooks(v, s)
-	}
-
-	// leverage existing hotplug nic code to allocate ports
-	// should work for disks and any other devices as well
-	dom, err := withNetworkIfacesResources(vmi, domainSpec, count, setDomainFn)
+	dom, err := l.addHotPlugPorts(vmi, domainSpec, count)
 	if err != nil {
 		return nil, err
 	}
 
 	return dom, nil
+}
+
+func (l *LibvirtDomainManager) addHotPlugPorts(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int) (cli.VirDomain, error) {
+	if count == 0 {
+		return nil, nil
+	}
+	domainSpecWithHotPlugPorts := appendHotPlugPorts(domainSpec, count)
+	dom, err := l.setDomainSpecWithHooks(vmi, domainSpecWithHotPlugPorts)
+	if err != nil {
+		return nil, err
+	}
+	return dom, nil
+}
+
+// Follow https://libvirt.org/pci-hotplug.html to add a pcie-root and pcie-root-ports
+func appendHotPlugPorts(domainSpec *api.DomainSpec, numHotPlugPorts int) *api.DomainSpec {
+	controllers := append(make([]api.Controller, 0, len(domainSpec.Devices.Controllers)), domainSpec.Devices.Controllers...)
+	rootControllers := slices.DeleteFunc(controllers, func(c api.Controller) bool {
+		return c.Model != "pcie-root"
+	})
+	domainSpecWithHotPlugPorts := domainSpec.DeepCopy()
+	if len(rootControllers) == 0 {
+		domainSpecWithHotPlugPorts.Devices.Controllers = append(
+			domainSpecWithHotPlugPorts.Devices.Controllers,
+			api.Controller{
+				Type:  "pci",
+				Model: "pcie-root",
+			})
+	}
+	for i := 0; i < numHotPlugPorts; i++ {
+		domainSpecWithHotPlugPorts.Devices.Controllers = append(
+			domainSpecWithHotPlugPorts.Devices.Controllers, api.Controller{
+				Type:  "pci",
+				Model: "pcie-root-port",
+			})
+	}
+	return domainSpecWithHotPlugPorts
 }
 
 func getSourceFile(disk api.Disk) string {

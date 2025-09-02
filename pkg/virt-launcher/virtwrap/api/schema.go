@@ -650,7 +650,7 @@ type HostDeviceSource struct {
 // Controller represens libvirt controller element https://libvirt.org/formatdomain.html#elementsControllers
 type Controller struct {
 	Type      string            `xml:"type,attr"`
-	Index     string            `xml:"index,attr"`
+	Index     string            `xml:"index,attr,omitempty"`
 	Model     string            `xml:"model,attr,omitempty"`
 	Driver    *ControllerDriver `xml:"driver,omitempty"`
 	Alias     *Alias            `xml:"alias,omitempty"`
