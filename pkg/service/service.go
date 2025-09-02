@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -70,9 +70,6 @@ func (service *ServiceLibvirt) AddLibvirtFlags() {
 
 func Setup(service Service) {
 	service.AddFlags()
-
-	// set new default verbosity, was set to 0 by glog
-	flag.Set("v", "2")
 
 	flag.Parse()
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -21,6 +21,7 @@ package types
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 
@@ -331,4 +332,26 @@ func (d *DataVolumeConditionManager) HasConditionWithStatus(dv *cdiv1.DataVolume
 func (d *DataVolumeConditionManager) HasConditionWithStatusAndReason(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeConditionType, status v1.ConditionStatus, reason string) bool {
 	c := d.GetCondition(dv, cond)
 	return c != nil && c.Status == status && c.Reason == reason
+}
+
+var ErrDVNotFound = errors.New("Datavolume not found")
+
+type DVNotFoundError struct {
+	DVName string
+	Err    error
+}
+
+func NewDVNotFoundError(name string) error {
+	return &DVNotFoundError{DVName: name, Err: ErrDVNotFound}
+}
+
+func (e *DVNotFoundError) Error() string {
+	if e.DVName == "" {
+		return "datavolume not defined"
+	}
+	return fmt.Sprintf("the datavolume %s doesn't exist", e.DVName)
+}
+
+func (e *DVNotFoundError) Unwrap() error {
+	return e.Err
 }

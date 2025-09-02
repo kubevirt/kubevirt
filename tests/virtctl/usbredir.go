@@ -67,14 +67,13 @@ const connectedKey ctxKeyType = "connected"
 var _ = Describe(SIG("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] usbredir", decorators.SigCompute, func() {
 	const (
 		enoughMemForSafeBiosEmulation = "32Mi"
-		vmiRunTimeout                 = 90
 	)
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		// A VMI for each test to have fresh stack on server side
-		vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation), withClientPassthrough())
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiRunTimeout)
+		vmi = libvmi.New(libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation), withClientPassthrough())
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 	})
 
 	It("Should fail when limit is reached", func() {
@@ -162,7 +161,7 @@ func runConnectGoroutine(cmd *cobra.Command, errch chan error) {
 	cmd.SetErr(wErr)
 	defer rErr.Close()
 
-	// Make remote bufferred to not block select
+	// Make remote buffer non-blocking for select
 	remote := make(chan error, 1)
 	go func() {
 		defer GinkgoRecover()
@@ -194,7 +193,7 @@ func runConnectGoroutine(cmd *cobra.Command, errch chan error) {
 		// Ends when PipeWritter closes or after find ip.
 	}(rOut)
 
-	// Make local bufferred to not block select
+	// Make local buffer non-blocking for select
 	local := make(chan error, 1)
 	go func() {
 		defer GinkgoRecover()

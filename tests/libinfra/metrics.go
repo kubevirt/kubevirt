@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -132,14 +132,4 @@ func GetKeysFromMetrics(metrics map[string]float64) []string {
 	// we sort keys only to make debug of test failures easier
 	sort.Strings(keys)
 	return keys
-}
-
-func GetMetricKeyForVmiDisk(keys []string, vmiName string, diskName string) string {
-	for _, key := range keys {
-		if strings.Contains(key, "name=\""+vmiName+"\"") &&
-			strings.Contains(key, "drive=\""+diskName+"\"") {
-			return key
-		}
-	}
-	return ""
 }

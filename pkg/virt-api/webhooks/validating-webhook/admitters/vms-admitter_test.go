@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -24,12 +24,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	rt "runtime"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -55,7 +54,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 )
 
 var _ = Describe("Validating VM Admitter", func() {
@@ -486,6 +484,28 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			true),
+		Entry("with valid request to add volume (virtio)", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testdisk2",
+					Disk: &v1.Disk{
+						Name: "testdisk2",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "virtio",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "madeup",
+						},
+						},
+					},
+				},
+			},
+		},
+			true),
 		Entry("with valid request to add volume to a LUN disk", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
@@ -508,6 +528,28 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			true),
+		Entry("with invalid request to add volume to a LUN disk (virtio bus)", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testlun2",
+					Disk: &v1.Disk{
+						Name: "testlun2",
+						DiskDevice: v1.DiskDevice{
+							LUN: &v1.LunTarget{
+								Bus: "virtio",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "madeupLUN",
+						},
+						},
+					},
+				},
+			},
+		},
+			false),
 		Entry("with invalid request to add volume with invalid disk/bus combination", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
@@ -572,6 +614,29 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			false),
+		Entry("with valid request to add volume with dedicated IOThreads snd virtio bus", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testdisk2",
+					Disk: &v1.Disk{
+						Name: "testdisk",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "virtio",
+							},
+						},
+						DedicatedIOThread: pointer.P(true),
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "madeup",
+						},
+						},
+					},
+				},
+			},
+		},
+			true),
 		Entry("with invalid request to add volume that conflicts with running vmi", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
@@ -1311,10 +1376,12 @@ var _ = Describe("Validating VM Admitter", func() {
 			disableFeatureGates()
 		})
 
-		Context("CPU", func() {
+		DescribeTableSubtree("CPU on supported arch", func(arch string) {
 			const maximumSockets uint32 = 24
 
 			BeforeEach(func() {
+				enableFeatureGate(featuregate.MultiArchitecture)
+				vm.Spec.Template.Spec.Architecture = arch
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					MaxSockets: maximumSockets,
 				}
@@ -1333,13 +1400,15 @@ var _ = Describe("Validating VM Admitter", func() {
 					vm.Status.Ready = true
 				})
 			})
-		})
+		},
+			Entry("amd64", "amd64"),
+			Entry("s390x", "s390x"),
+		)
 
-		Context("Memory", func() {
+		DescribeTableSubtree("Memory on supported arch", func(arch string) {
 			var maxGuest resource.Quantity
 
 			BeforeEach(func() {
-				checks.SkipIfS390X(rt.GOARCH, "Memory hotplug is not supported for s390x")
 				guest := resource.MustParse("1Gi")
 				maxGuest = resource.MustParse("4Gi")
 
@@ -1347,7 +1416,8 @@ var _ = Describe("Validating VM Admitter", func() {
 					Guest:    &guest,
 					MaxGuest: &maxGuest,
 				}
-				vm.Spec.Template.Spec.Architecture = rt.GOARCH
+				enableFeatureGate(featuregate.MultiArchitecture)
+				vm.Spec.Template.Spec.Architecture = arch
 				vm.Spec.Template.Spec.Domain.Resources.Limits = nil
 				vm.Spec.Template.Spec.Domain.Resources.Requests = nil
 				vm.Status.Ready = true
@@ -1441,13 +1511,13 @@ var _ = Describe("Validating VM Admitter", func() {
 					Field:   "spec.template.spec.domain.memory.guest",
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(memory.Hotplug1GHugePagesBlockAlignmentBytes, resource.BinarySI)),
 				}),
-				Entry("architecture is not amd64 or arm64", func(vm *v1.VirtualMachine) {
+				Entry("architecture is not amd64", func(vm *v1.VirtualMachine) {
 					enableFeatureGate(featuregate.MultiArchitecture)
-					vm.Spec.Template.Spec.Architecture = "risc-v"
+					vm.Spec.Template.Spec.Architecture = "arm64"
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Field:   "spec.template.spec.domain.memory.guest",
-					Message: "Memory hotplug is only available for x86_64 and arm64 VMs",
+					Message: "Memory hotplug is only available for x86_64 VMs",
 				}),
 				Entry("guest memory is less than 1Gi", func(vm *v1.VirtualMachine) {
 					vm.Spec.Template.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("512Mi"))
@@ -1457,7 +1527,9 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is only available for VMs with at least 1Gi of guest memory",
 				}),
 			)
-		})
+		},
+			Entry("amd64", "amd64"),
+		)
 
 	})
 
@@ -1518,6 +1590,36 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal(fgMessage))
+	})
+
+	Context("run strategy", func() {
+		AfterEach(func() {
+			disableFeatureGates()
+		})
+
+		DescribeTable("validate should", func(runStrategy v1.VirtualMachineRunStrategy, featureGate string, accepted bool) {
+			vmi := api.NewMinimalVMI("testvmi")
+			vm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: &runStrategy,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: vmi.Spec,
+					},
+				},
+			}
+			enableFeatureGate(featureGate)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(Equal(accepted))
+		},
+			Entry("allow runstrategy halted", v1.RunStrategyHalted, "", true),
+			Entry("allow runstrategy manual", v1.RunStrategyManual, "", true),
+			Entry("allow runstrategy always", v1.RunStrategyAlways, "", true),
+			Entry("allow runstrategy rerun on failure", v1.RunStrategyRerunOnFailure, "", true),
+			Entry("allow runstrategy once", v1.RunStrategyOnce, "", true),
+			Entry("allow runstrategy wait as receiver", v1.RunStrategyWaitAsReceiver, featuregate.DecentralizedLiveMigration, true),
+			Entry("reject runstrategy wait as receiver, if feature gate not enabled", v1.RunStrategyWaitAsReceiver, "", false),
+			Entry("reject invalid runstrategy", v1.VirtualMachineRunStrategy("invalid"), "", false),
+		)
 	})
 })
 

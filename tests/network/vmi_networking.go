@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -47,12 +47,12 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -74,8 +74,8 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 	Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
 		var inboundVMI *v1.VirtualMachineInstance
 		var outboundVMI *v1.VirtualMachineInstance
-		var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
 		var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
+		var inboundVMIWithMultiQueueSingleCPU *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
@@ -84,8 +84,8 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			BeforeEach(func() {
 				inboundVMI = libvmifact.NewCirros()
 				outboundVMI = libvmifact.NewCirros()
-				inboundVMIWithPodNetworkSet = vmiWithPodNetworkSet()
 				inboundVMIWithCustomMacAddress = vmiWithCustomMacAddress("de:ad:00:00:be:af")
+				inboundVMIWithMultiQueueSingleCPU = vmiWithMultiQueue()
 
 				outboundVMI = runVMI(outboundVMI)
 			})
@@ -162,8 +162,8 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(libnet.CheckMacAddress(vmi, "eth0", vmi.Status.Interfaces[0].MAC)).To(Succeed())
 			},
 				Entry("[test_id:1539]the Inbound VirtualMachineInstance with default (implicit) binding", &inboundVMI),
-				Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
 				Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
+				Entry("[test_id:1542]the Inbound VirtualMachineInstance with muti-queue and a single CPU", &inboundVMIWithMultiQueueSingleCPU),
 			)
 		})
 
@@ -439,7 +439,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			}
 		}
 
-		Context("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func() {
+		Context("[test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", decorators.Conformance, func() {
 			// This CIDR tests backwards compatibility of the "vmNetworkCIDR" field.
 			// The leading zero is intentional.
 			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
@@ -584,19 +584,15 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				return libnet.PingFromVMConsole(vmi, ipAddr, "-c 1", "-w 2")
 			}
 
-			getVirtHandlerPod := func() (*k8sv1.Pod, error) {
-				node := vmi.Status.NodeName
-				pod, err := libnode.GetVirtHandlerPod(virtClient, node)
-				if err != nil {
-					return nil, fmt.Errorf("failed to get virt-handler pod on node %s: %v", node, err)
-				}
-				return pod, nil
-			}
-
-			DescribeTable("[Conformance] preserves connectivity - IPv4", func(ports []v1.Port) {
+			DescribeTable("preserves connectivity - IPv4", decorators.Conformance, func(ports []v1.Port) {
 				libnet.SkipWhenClusterNotSupportIpv4()
 
 				var err error
+
+				By("Create client pod")
+				clientPod := libpod.RenderPod("test-conn", []string{"/bin/sh", "-c", "sleep 360"}, []string{})
+				clientPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientPod, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Create VMI")
 				vmi = masqueradeVMI(ports, "")
@@ -604,11 +600,13 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
-				virtHandlerPod, err := getVirtHandlerPod()
+
+				Eventually(matcher.ThisPod(clientPod)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
+				clientPod, err = virtClient.CoreV1().Pods(clientPod.Namespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Check connectivity")
-				podIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
+				podIP := libnet.GetPodIPByFamily(clientPod, k8sv1.IPv4Protocol)
 				Expect(ping(podIP)).To(Succeed())
 
 				By("starting the migration")
@@ -632,10 +630,15 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Entry("with explicit ports used by live migration", portsUsedByLiveMigration()),
 			)
 
-			It("[Conformance] should preserve connectivity - IPv6", func() {
+			It("should preserve connectivity - IPv6", decorators.Conformance, func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
 				var err error
+
+				By("Create client pod")
+				clientPod := libpod.RenderPod("test-conn", []string{"/bin/sh", "-c", "sleep 360"}, []string{})
+				clientPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientPod, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Create VMI")
 				vmi, err = fedoraMasqueradeVMI([]v1.Port{}, "")
@@ -644,11 +647,13 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
-				virtHandlerPod, err := getVirtHandlerPod()
+
+				Eventually(matcher.ThisPod(clientPod)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
+				clientPod, err = virtClient.CoreV1().Pods(clientPod.Namespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Check connectivity")
-				podIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv6Protocol)
+				podIP := libnet.GetPodIPByFamily(clientPod, k8sv1.IPv6Protocol)
 				Expect(ping(podIP)).To(Succeed())
 
 				By("starting the migration")
@@ -787,7 +792,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		It("[test_id:1781]should have tx checksumming disabled on interface serving dhcp", func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
 				context.Background(),
-				libvmifact.NewAlpine(libvmi.WithResourceMemory("1024M")),
+				libvmifact.NewAlpine(libvmi.WithMemoryRequest("1024M")),
 				metav1.CreateOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -850,15 +855,16 @@ func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func vmiWithPodNetworkSet() *v1.VirtualMachineInstance {
-	return libvmifact.NewCirros(
-		libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()))
-}
-
 func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmifact.NewCirros(
 		libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultBridgeNetworkInterface(), mac)),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+}
+
+func vmiWithMultiQueue() *v1.VirtualMachineInstance {
+	return libvmifact.NewCirros(
+		libvmi.WithNetworkInterfaceMultiQueue(true),
+		libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 

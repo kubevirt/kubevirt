@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -27,9 +27,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	"github.com/emicklei/go-restful/v3"
 	appsv1 "k8s.io/api/apps/v1"
@@ -97,6 +97,7 @@ var _ = Describe("Application", func() {
 		recorder := record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		app.clusterConfig = config
 
 		pdbInformer, _ := testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		migrationPolicyInformer, _ := testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
@@ -133,7 +134,7 @@ var _ = Describe("Application", func() {
 		app.nodeTopologyUpdater = topologyUpdater
 		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, "test")
 		app.evacuationController, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
-		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
+		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient)
 		app.nodeController, _ = node.NewController(virtClient, nodeInformer, vmiInformer, recorder)
 		app.vmiController, _ = vmi.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
@@ -155,6 +156,7 @@ var _ = Describe("Application", func() {
 			func(_ *k8sfield.Path, _ *v1.VirtualMachineInstanceSpec, _ *virtconfig.ClusterConfig) []metav1.StatusCause {
 				return nil
 			},
+			stubMigrationEvaluator{},
 		)
 		app.rsController, _ = replicaset.NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController, _ = vm.NewController(vmiInformer,
@@ -168,6 +170,7 @@ var _ = Describe("Application", func() {
 			virtClient,
 			config,
 			nil,
+			nil,
 			instancetypecontroller.NewMockController(),
 		)
 		app.migrationController, _ = migration.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
@@ -178,9 +181,9 @@ var _ = Describe("Application", func() {
 			pvcInformer,
 			storageClassInformer,
 			storageProfileInformer,
-			pdbInformer,
 			migrationPolicyInformer,
 			resourceQuotaInformer,
+			kvInformer,
 			recorder,
 			virtClient,
 			config,
@@ -358,3 +361,9 @@ var _ = Describe("Application", func() {
 		})
 	})
 })
+
+type stubMigrationEvaluator struct{}
+
+func (e stubMigrationEvaluator) Evaluate(_ *v1.VirtualMachineInstance) k8sv1.ConditionStatus {
+	return k8sv1.ConditionUnknown
+}

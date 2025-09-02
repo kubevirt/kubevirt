@@ -43,7 +43,7 @@ import (
 
 const timeout = 300 * time.Second
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype and Preferences", decorators.SigCompute, func() {
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype and Preferences", decorators.SigCompute, decorators.SigComputeInstancetype, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -212,16 +212,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preference := builder.NewPreference()
-
-			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
-				Create(context.Background(), preference, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
 			// Remove any requested resources from the VMI before generating the VM
 			vm := libvmi.NewVirtualMachine(vmi,
 				libvmi.WithInstancetype(instancetype.Name),
-				libvmi.WithPreference(preference.Name),
 				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -913,7 +906,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry(", DataVolumeSourceRef and DataSource with labels",
 				func() []virtv1.DataVolumeTemplateSpec {
-					By("Createing a blank DV and PVC without labels")
+					By("Creating a blank DV and PVC without labels")
 					blankDV := libdv.NewDataVolume(
 						libdv.WithNamespace(namespace),
 						libdv.WithForceBindAnnotation(),
@@ -1018,7 +1011,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating the VirtualMachine")
 			_, err := virtClient.VirtualMachine(namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(MatchError("admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: VM field(s) spec.template.spec.domain.memory conflicts with selected instance type"))
+			Expect(err).To(MatchError("admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: VM field(s) spec.template.spec.domain.memory.guest conflicts with selected instance type"))
 		},
 			Entry("with explicitly setting RejectInferFromVolumeFailure", true),
 			Entry("with implicitly setting RejectInferFromVolumeFailure (default)", false),
@@ -1656,7 +1649,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				"insufficient CPU resources",
 			),
-			Entry("VirtualMachine meets Memory requirements",
+			Entry("VirtualMachine does not meet Memory requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1686,6 +1679,38 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 										Guest: &guestMemory1GB,
 									},
 								},
+							},
+						},
+					},
+				},
+				"insufficient Memory resources",
+			),
+			Entry("VirtualMachine does not meet Memory requirements or provide any guest visible memory - bug #14551",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+								Guest: resource.MustParse("2Gi"),
+							},
+						},
+					},
+				},
+				&virtv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: virtv1.VirtualMachineSpec{
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+						Preference: &virtv1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{},
 							},
 						},
 					},

@@ -24,6 +24,7 @@ func (VirtualMachineCloneSpec) SwaggerDoc() map[string]string {
 		"template":          "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.\n+optional",
 		"newMacAddresses":   "NewMacAddresses manually sets that target interfaces' mac addresses. The key is the interface name and the\nvalue is the new mac address. If this field is not specified, a new MAC address will\nbe generated automatically, as for any interface that is not included in this map.\n+optional",
 		"newSMBiosSerial":   "NewSMBiosSerial manually sets that target's SMbios serial. If this field is not specified, a new serial will\nbe generated automatically.\n+optional",
+		"patches":           "Patches holds JSON patches to apply to target. Patches should fit the target's Kind.\nExample: '{\"op\": \"add\", \"path\": \"/spec/template/metadata/labels/example\", \"value\": \"new-label\"}'\n+optional\n+listType=atomic",
 	}
 }
 

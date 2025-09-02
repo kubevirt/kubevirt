@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -113,18 +113,6 @@ const (
 	// and virt-controller is backing off before retrying.
 	MigrationBackoffReason = "MigrationBackoff"
 )
-
-type PodCacheStore struct {
-	indexer cache.Indexer
-}
-
-func NewPodCacheStore(indexer cache.Indexer) *PodCacheStore {
-	return &PodCacheStore{indexer: indexer}
-}
-
-func (p *PodCacheStore) CurrentPod(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
-	return CurrentVMIPod(vmi, p.indexer)
-}
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, kubevirtNamespace and field selector.
 func NewListWatchFromClient(c cache.Getter, resource string, namespace string, fieldSelector fields.Selector, labelSelector labels.Selector) *cache.ListWatch {
@@ -392,18 +380,18 @@ func GeneratePatchBytes(ops []string) []byte {
 	return []byte(fmt.Sprintf("[%s]", strings.Join(ops, ", ")))
 }
 
-func SetVMIPhaseTransitionTimestamp(oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
-	if oldVMI.Status.Phase != newVMI.Status.Phase {
-		for _, transitionTimeStamp := range newVMI.Status.PhaseTransitionTimestamps {
-			if transitionTimeStamp.Phase == newVMI.Status.Phase {
+func SetVMIPhaseTransitionTimestamp(oldStatus *v1.VirtualMachineInstanceStatus, newStatus *v1.VirtualMachineInstanceStatus) {
+	if oldStatus.Phase != newStatus.Phase {
+		for _, transitionTimeStamp := range newStatus.PhaseTransitionTimestamps {
+			if transitionTimeStamp.Phase == newStatus.Phase {
 				// already exists.
 				return
 			}
 		}
 
 		now := metav1.NewTime(time.Now())
-		newVMI.Status.PhaseTransitionTimestamps = append(newVMI.Status.PhaseTransitionTimestamps, v1.VirtualMachineInstancePhaseTransitionTimestamp{
-			Phase:                    newVMI.Status.Phase,
+		newStatus.PhaseTransitionTimestamps = append(newStatus.PhaseTransitionTimestamps, v1.VirtualMachineInstancePhaseTransitionTimestamp{
+			Phase:                    newStatus.Phase,
 			PhaseTransitionTimestamp: now,
 		})
 	}

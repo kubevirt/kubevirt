@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -25,9 +25,9 @@ import (
 	"os"
 	"path/filepath"
 
-	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gomock "go.uber.org/mock/gomock"
 
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"
@@ -57,6 +57,7 @@ var _ = Describe("Virt remote commands", func() {
 		vmi.Status = v1.VirtualMachineInstanceStatus{
 			ActivePods: map[types.UID]string{
 				types.UID(podUID): host,
+				types.UID("NA"):   host,
 			},
 		}
 
@@ -87,7 +88,7 @@ var _ = Describe("Virt remote commands", func() {
 
 	Context("client", func() {
 		It("socket from UID", func() {
-			sock, err := FindSocketOnHost(vmi)
+			sock, err := FindSocket(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sock).To(Equal(podSocketFile))
 
@@ -95,19 +96,8 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", StandardLauncherSocketFileName)))
 		})
 
-		It("Listing all sockets", func() {
-			sockets, err := ListAllSockets()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(sockets).To(HaveLen(1))
-			By("Expecting to only find cmd socket in launcher's context")
-			Expect(sockets[0]).To(And(
-				HaveSuffix("launcher-sock"),
-				ContainSubstring(podUID),
-			))
-		})
-
 		It("Detect unresponsive socket", func() {
-			sock, err := FindSocketOnHost(vmi)
+			sock, err := FindSocket(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(IsSocketUnresponsive(sock)).To(BeFalse())
@@ -127,6 +117,21 @@ var _ = Describe("Virt remote commands", func() {
 			// unresponsive is true when marked as unresponsive
 			MarkSocketUnresponsive(sock)
 			Expect(IsSocketUnresponsive(sock)).To(BeTrue())
+
+			// Next invocation should not produce error
+			Expect(MarkSocketUnresponsive(sock)).To(Succeed())
+		})
+
+		It("socket dir from UID and file path provider func", func() {
+			path, err := FindPodDirOnHost(vmi, SocketFilePathOnHost)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(path).To(Equal(podSocketFile))
+		})
+
+		It("negative test socket dir not found", func() {
+			_, err := FindPodDirOnHost(vmi, func(string) string { return "no-such-dir" })
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no-such-dir"))
 		})
 
 		Context("exec", func() {

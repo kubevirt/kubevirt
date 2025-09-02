@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -77,14 +77,14 @@ var _ = Describe(SIG("K8s IO events", Serial, func() {
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
-			libvmi.WithResourceMemory("128Mi"),
+			libvmi.WithMemoryRequest("128Mi"),
 		)
 
 		Eventually(func() error {
 			var err error
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			return err
-		}, 100*time.Second, time.Second).Should(BeNil(), "Failed to create vmi")
+		}, 100*time.Second, time.Second).Should(Succeed(), "Failed to create vmi")
 
 		libwait.WaitForSuccessfulVMIStart(vmi,
 			libwait.WithFailOnWarnings(false),

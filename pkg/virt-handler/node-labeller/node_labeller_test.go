@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -48,7 +48,7 @@ var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
 	var kubeClient *fake.Clientset
 	var cpuCounter *libvirtxml.CapsHostCPUCounter
-	var guestsCaps []libvirtxml.CapsGuest
+	var supportedMachines []libvirtxml.CapsGuestMachine
 
 	initNodeLabeller := func(kubevirt *v1.KubeVirt) {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kubevirt)
@@ -56,7 +56,7 @@ var _ = Describe("Node-labeller ", func() {
 		recorder.IncludeObject = true
 
 		var err error
-		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter, guestsCaps)
+		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter, supportedMachines)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -67,16 +67,7 @@ var _ = Describe("Node-labeller ", func() {
 			Scaling:   "no",
 		}
 
-		guestsCaps = []libvirtxml.CapsGuest{
-			{
-				OSType: "test",
-				Arch: libvirtxml.CapsGuestArch{
-					Machines: []libvirtxml.CapsGuestMachine{
-						{Name: "testmachine"},
-					},
-				},
-			},
-		}
+		supportedMachines = []libvirtxml.CapsGuestMachine{{Name: "testmachine"}}
 
 		node := newNode(nodeName)
 		kubeClient = fake.NewSimpleClientset(node)
@@ -162,6 +153,28 @@ var _ = Describe("Node-labeller ", func() {
 
 		node := retrieveNode(kubeClient)
 		Expect(node.Labels).To(HaveKey(v1.SEVESLabel))
+	})
+
+	It("should not add SecureExecution label", func() {
+		nlController.volumePath = "testdata/s390x"
+		Expect(nlController.loadAll()).Should(Succeed())
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(Not(HaveKey(v1.SecureExecutionLabel)))
+	})
+
+	It("should  add SecureExecution label", func() {
+		nlController.domCapabilitiesFileName = "s390x/domcapabilities_s390-pv.xml"
+		Expect(nlController.loadAll()).Should(Succeed())
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(v1.SecureExecutionLabel))
 	})
 
 	It("should add usable cpu model labels for the host cpu model", func() {
@@ -289,15 +302,32 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(HaveKey("INeedToBeHere"))
 	})
 
-	DescribeTable("should only label arches that support it", func(arch string, shouldLabel bool) {
+	DescribeTable("should add machine type labels", func(machines []libvirtxml.CapsGuestMachine, arch string) {
+		supportedMachines = machines
+
+		initNodeLabeller(&v1.KubeVirt{})
 		nlController.arch = newArchLabeller(arch)
-		Expect(nlController.ShouldLabelNodes()).To(Equal(shouldLabel))
+		mockQueue := testutils.NewMockWorkQueue(nlController.queue)
+		nlController.queue = mockQueue
+
+		mockQueue.ExpectAdds(1)
+		nlController.queue.Add(nodeName)
+		mockQueue.Wait()
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue(), "labeller should complete successfully")
+
+		node := retrieveNode(kubeClient)
+
+		for _, machine := range machines {
+			expectedLabelKey := v1.SupportedMachineTypeLabel + machine.Name
+			Expect(node.Labels).To(HaveKey(expectedLabelKey), "expected machine type label %s to be present", expectedLabelKey)
+		}
 	},
-		Entry(amd64, amd64, true),
-		Entry(arm64, arm64, false),
-		Entry(s390x, s390x, true),
-		Entry("unknown", "unknown", false),
+		Entry("for amd64", []libvirtxml.CapsGuestMachine{{Name: "q35"}, {Name: "q35-rhel9.6.0"}}, amd64),
+		Entry("for arm64", []libvirtxml.CapsGuestMachine{{Name: "virt"}, {Name: "virt-rhel9.6.0"}}, arm64),
 	)
+
 })
 
 func newNode(name string) *k8sv1.Node {

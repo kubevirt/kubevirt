@@ -68,14 +68,21 @@ if [ $# -eq 0 ]; then
             # Skip fuzz tests, as they are not part of regular unit testing
             go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" -race -skip FuzzAdmitter -timeout 15m ./pkg/...
         )
+    elif [ "${target}" = "clean" ]; then
+        # Remove -mod=vendor
+        flags=$(echo "$GOFLAGS" | sed 's/-mod=vendor//g' | xargs)
+        GOFLAGS=$flags go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./pkg/... ./tests/...
+        (
+            cd ./staging/src/kubevirt.io/client-go/
+            GOFLAGS=$flags go $target ./...
+        )
+        (
+            cd ./staging/src/kubevirt.io/api/
+            GOFLAGS=$flags go $target ./...
+        )
+    # go generate and others
     else
-        (
-            go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./pkg/...
-            GO111MODULE=off go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./staging/src/kubevirt.io/...
-        )
-        (
-            go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./tests/...
-        )
+        go $target -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" ./pkg/... ./staging/src/kubevirt.io/client-go/... ./staging/src/kubevirt.io/api/... ./tests/...
     fi
 fi
 
@@ -109,6 +116,11 @@ for arg in $args; do
         (
             # Skip fuzz tests, as they are not part of regular unit testing
             go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" -race -skip FuzzAdmitter -timeout 15m ./$arg/...
+        )
+    elif [ "${target}" = "clean" ]; then
+        (
+            cd $arg
+            GOFLAGS=$flags go $target ./...
         )
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"

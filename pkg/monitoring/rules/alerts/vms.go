@@ -1,18 +1,20 @@
 /*
-Copyright 2023 The KubeVirt Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ */
 
 package alerts
 
@@ -41,7 +43,7 @@ var (
 		},
 		{
 			Alert: "VMCannotBeEvicted",
-			Expr:  intstr.FromString("kubevirt_vmi_non_evictable > 0"),
+			Expr:  intstr.FromString("kubevirt_vmi_non_evictable * on(name, namespace) group_left() kubevirt_vmi_info{phase='running'} == 1"),
 			For:   ptr.To(promv1.Duration("1m")),
 			Annotations: map[string]string{
 				"description": "Eviction policy for VirtualMachine {{ $labels.name }} in namespace {{ $labels.namespace }} (on node {{ $labels.node }}) is set to Live Migration but the VM is not migratable",
@@ -70,6 +72,56 @@ var (
 			For:   ptr.To(promv1.Duration("24h")),
 			Annotations: map[string]string{
 				"summary": "Some running VMIs are still active in outdated pods after KubeVirt control plane update has completed.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "GuestVCPUQueueHighWarning",
+			Expr:  intstr.FromString("kubevirt_vmi_guest_vcpu_queue > 10"),
+			Annotations: map[string]string{
+				"description": "VirtualMachineInstance {{ $labels.name }} CPU queue length > 10",
+				"summary":     "Guest vCPU Queue within collection cycle > 10",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "GuestVCPUQueueHighCritical",
+			Expr:  intstr.FromString("kubevirt_vmi_guest_vcpu_queue > 20"),
+			Annotations: map[string]string{
+				"description": "VirtualMachineInstance {{ $labels.name }} CPU queue length > 20",
+				"summary":     "Guest vCPU Queue within collection cycle > 20",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "VirtualMachineStuckInUnhealthyState",
+			Expr:  intstr.FromString("sum by (name, namespace, status)(kubevirt_vm_info{status='provisioning'}==1 or kubevirt_vm_info{status='starting'} == 1 or kubevirt_vm_info{status='terminating'} == 1 or kubevirt_vm_info{status_group='error'} == 1) unless on(name, namespace) kubevirt_vmi_info"),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				"summary":     "Virtual machine in {{ $labels.status }} state for more than 10 minutes",
+				"description": "Virtual machine {{ $labels.name }} in namespace {{ $labels.namespace }} has been in {{ $labels.status }} state for more than 10 minutes.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "VirtualMachineStuckOnNode",
+			Expr:  intstr.FromString("sum by (name, namespace, status, node)((kubevirt_vm_info{status='starting'} == 1 or kubevirt_vm_info{status='stopping'} == 1 or kubevirt_vm_info{status='terminating'} == 1 or (kubevirt_vm_info{status_group='error'} == 1 and on(name, namespace) kubevirt_vmi_info) ) * on(name, namespace) group_left(node) kubevirt_vmi_info)"),
+			For:   ptr.To(promv1.Duration("5m")),
+			Annotations: map[string]string{
+				"summary":     "Virtual machine stuck in unhealthy state for more than 5 minutes",
+				"description": "Virtual machine {{ $labels.name }} in namespace {{ $labels.namespace }} on node {{ $labels.node }} has been in {{ $labels.status }} state for more than 5 minutes. This may indicate issues with the VM lifecycle on the target node.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",

@@ -42,6 +42,7 @@ const DefaultGracePeriodSeconds int64 = 30
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
+// +genclient:noStatus
 type VirtualMachineInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -114,7 +115,7 @@ type VirtualMachineInstanceSpec struct {
 	// - "None": No action will be taken, according to the specified 'RunStrategy' the VirtualMachine will be restarted or shutdown.
 	// - "LiveMigrate": the VirtualMachineInstance will be migrated instead of being shutdown.
 	// - "LiveMigrateIfPossible": the same as "LiveMigrate" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as "None".
-	// - "External": the VirtualMachineInstance will be protected by a PDB and `vmi.Status.EvacuationNodeName` will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.
+	// - "External": the VirtualMachineInstance will be protected and `vmi.Status.EvacuationNodeName` will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.
 	// +optional
 	EvictionStrategy *EvictionStrategy `json:"evictionStrategy,omitempty"`
 	// StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
@@ -170,6 +171,21 @@ type VirtualMachineInstanceSpec struct {
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
 	// Specifies the architecture of the vm guest you are attempting to run. Defaults to the compiled architecture of the KubeVirt components
 	Architecture string `json:"architecture,omitempty"`
+	// ResourceClaims define which ResourceClaims must be allocated
+	// and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources
+	// will be made available to the domain which consumes them
+	// by name.
+	//
+	// This is an alpha field and requires enabling the
+	// DynamicResourceAllocation feature gate in kubernetes
+	//  https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
+	// This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+	// This feature is in alpha.
+	//
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	ResourceClaims []k8sv1.PodResourceClaim `json:"resourceClaims,omitempty"`
 }
 
 func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {
@@ -257,8 +273,9 @@ type VirtualMachineInstanceStatus struct {
 	// +optional
 	KernelBootStatus *KernelBootStatus `json:"kernelBootStatus,omitempty"`
 
-	// FSFreezeStatus is the state of the fs of the guest
-	// it can be either frozen or thawed
+	// FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem.
+	// It will be set to "frozen" if the request was made, or unset otherwise.
+	// This does not reflect the actual state of the guest filesystem.
 	// +optional
 	FSFreezeStatus string `json:"fsFreezeStatus,omitempty"`
 
@@ -299,6 +316,57 @@ type VirtualMachineInstanceStatus struct {
 	// +listType=atomic
 	// +optional
 	MigratedVolumes []StorageMigratedVolumeInfo `json:"migratedVolumes,omitempty"`
+	// DeviceStatus reflects the state of devices requested in spec.domain.devices. This is an optional field available
+	// only when DRA feature gate is enabled
+	// This field will only be populated if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+	// This feature is in alpha.
+	// +optional
+	DeviceStatus *DeviceStatus `json:"deviceStatus,omitempty"`
+}
+
+// DeviceStatus has the information of all devices allocated spec.domain.devices
+// +k8s:openapi-gen=true
+type DeviceStatus struct {
+	// GPUStatuses reflects the state of GPUs requested in spec.domain.devices.gpus
+	// +listType=atomic
+	// +optional
+	GPUStatuses []DeviceStatusInfo `json:"gpuStatuses,omitempty"`
+	// HostDeviceStatuses reflects the state of GPUs requested in spec.domain.devices.hostDevices
+	// DRA
+	// +listType=atomic
+	// +optional
+	HostDeviceStatuses []DeviceStatusInfo `json:"hostDeviceStatuses,omitempty"`
+}
+
+type DeviceStatusInfo struct {
+	// Name of the device as specified in spec.domain.devices.gpus.name or spec.domain.devices.hostDevices.name
+	Name string `json:"name"`
+	// DeviceResourceClaimStatus reflects the DRA related information for the device
+	DeviceResourceClaimStatus *DeviceResourceClaimStatus `json:"deviceResourceClaimStatus,omitempty"`
+}
+
+// DeviceResourceClaimStatus has to be before SyncVMI call from virt-handler to virt-launcher
+type DeviceResourceClaimStatus struct {
+	// Name is the name of actual device on the host provisioned by the driver as reflected in resourceclaim.status
+	// +optional
+	Name *string `json:"name,omitempty"`
+	// ResourceClaimName is the name of the resource claims object used to provision this resource
+	// +optional
+	ResourceClaimName *string `json:"resourceClaimName,omitempty"`
+	// Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more
+	// about the device, like pciAddress or mdevUUID
+	// +optional
+	Attributes *DeviceAttribute `json:"attributes,omitempty"`
+}
+
+// DeviceAttribute must have exactly one field set.
+type DeviceAttribute struct {
+	// PCIAddress is the PCIe bus address of the allocated device
+	// +optional
+	PCIAddress *string `json:"pciAddress,omitempty"`
+	//MDevUUID is the mediated device uuid of the allocated device
+	// +optional
+	MDevUUID *string `json:"mDevUUID,omitempty"`
 }
 
 // StorageMigratedVolumeInfo tracks the information about the source and destination volumes during the volume migration
@@ -535,6 +603,74 @@ func (v *VirtualMachineInstance) IsHighPerformanceVMI() bool {
 	return false
 }
 
+func (v *VirtualMachineInstance) IsMigrationSource() bool {
+	// Can use this after being fully synchronized.
+	return v.Status.MigrationState != nil && v.Status.MigrationState.TargetState != nil && v.Status.MigrationState.TargetState.SyncAddress != nil && v.Status.MigrationState.TargetState.NodeAddress != nil
+}
+
+func (v *VirtualMachineInstance) IsMigrationTarget() bool {
+	return v.GetAnnotations()[CreateMigrationTarget] == "true"
+}
+
+func (v *VirtualMachineInstance) IsWaitingForSync() bool {
+	return v.Status.Phase == WaitingForSync
+}
+
+// Is set to true after the VMI is fully synced
+func (v *VirtualMachineInstance) IsMigrationTargetNodeLabelSet() bool {
+	_, ok := v.Labels[MigrationTargetNodeNameLabel]
+	return ok
+}
+
+// Assume that this only called when in decentralized live migration
+func (v *VirtualMachineInstance) IsMigrationSourceSynchronized() bool {
+	return v.Status.MigrationState != nil && v.Status.MigrationState.SourceState != nil &&
+		v.Status.MigrationState.TargetState != nil &&
+		v.Status.MigrationState.SourceState.MigrationUID != "" &&
+		v.Status.MigrationState.SourceState.Pod != "" &&
+		v.Status.MigrationState.SourceState.NodeSelectors != nil &&
+		v.Status.MigrationState.SourceState.Node != ""
+}
+
+func (v *VirtualMachineInstance) IsMigrationCompleted() bool {
+	return v.Status.MigrationState != nil && v.Status.MigrationState.Completed
+}
+
+// IsMigrationSynchronized is true after a decentralized migration VMI has sync with the other side. It
+// checks if the SourceState and TargetState are not nil, and the migrationUIDs are set. This can only
+// happen when both sides have synchronized at least once. For 'local' migrations this returns true if the
+// migration state is not nil. Essentially this happens after the migration resource is created.
+func (v *VirtualMachineInstance) IsMigrationSynchronized(migration *VirtualMachineInstanceMigration) bool {
+
+	if migration.IsDecentralized() {
+		return v.Status.MigrationState != nil && v.Status.MigrationState.SourceState != nil &&
+			v.Status.MigrationState.TargetState != nil &&
+			v.Status.MigrationState.SourceState.MigrationUID != "" &&
+			v.Status.MigrationState.TargetState.MigrationUID != ""
+	} else {
+		return v.Status.MigrationState != nil
+	}
+}
+
+func (v *VirtualMachineInstance) IsTargetPreparing(migration *VirtualMachineInstanceMigration) bool {
+	if migration.IsDecentralized() {
+		return v.IsMigrationSynchronized(migration) &&
+			v.Status.MigrationState.TargetState.Pod != "" &&
+			v.Status.MigrationState.TargetState.Node != ""
+	} else {
+		return v.Status.MigrationState != nil && v.Status.MigrationState.MigrationUID == migration.UID &&
+			v.Status.MigrationState.TargetNode != ""
+	}
+}
+
+func (v *VirtualMachineInstance) IsDecentralizedMigration() bool {
+	return v.Status.MigrationState != nil &&
+		v.Status.MigrationState.TargetState != nil &&
+		v.Status.MigrationState.SourceState != nil &&
+		((v.Status.MigrationState.SourceState.SyncAddress == nil && v.Status.MigrationState.TargetState.SyncAddress != nil) ||
+			(v.Status.MigrationState.SourceState.SyncAddress != nil && v.Status.MigrationState.TargetState.SyncAddress == nil))
+}
+
 type VirtualMachineInstanceConditionType string
 
 // These are valid conditions of VMIs.
@@ -580,6 +716,9 @@ const (
 
 	// Indicates whether the VMI is live migratable
 	VirtualMachineInstanceIsStorageLiveMigratable VirtualMachineInstanceConditionType = "StorageLiveMigratable"
+
+	// VirtualMachineInstanceMigrationRequired Indicates that an automatic migration is required
+	VirtualMachineInstanceMigrationRequired VirtualMachineInstanceConditionType = "MigrationRequired"
 )
 
 // These are valid reasons for VMI conditions.
@@ -598,6 +737,8 @@ const (
 	VirtualMachineInstanceReasonHostDeviceNotMigratable = "HostDeviceNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses Secure Encrypted Virtualization (SEV)
 	VirtualMachineInstanceReasonSEVNotMigratable = "SEVNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses IBM Secure Execution
+	VirtualMachineInstanceReasonSecureExecutionNotMigratable = "SecureExecutionNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
 	VirtualMachineInstanceReasonNoTSCFrequencyMigratable = "NoTSCFrequencyNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
@@ -606,12 +747,18 @@ const (
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
 	// Reason means that not all of the VMI's DVs are ready
 	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
-	// Reason means that all of the VMI's DVs are bound and not running
+	// Reason means that all of the VMI's DVs are bound and ready
 	VirtualMachineInstanceReasonAllDVsReady = "AllDVsReady"
 	// Indicates a generic reason that the VMI isn't migratable and more details are spiecified in the condition message.
 	VirtualMachineInstanceReasonNotMigratable = "NotMigratable"
 	// Reason means that the volume update change was cancelled
 	VirtualMachineInstanceReasonVolumesChangeCancellation = "VolumesChangeCancellation"
+
+	// Indicates that automatic migration is required due to a change made to a running VM
+	VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate = "AutoMigrationDueToLiveUpdate"
+
+	// Indicates that automatic migration is pending
+	VirtualMachineInstanceReasonAutoMigrationPending = "AutoMigrationPending"
 )
 
 const (
@@ -666,7 +813,7 @@ func (m *VirtualMachineInstanceMigration) IsFinal() bool {
 
 func (m *VirtualMachineInstanceMigration) IsRunning() bool {
 	switch m.Status.Phase {
-	case MigrationFailed, MigrationPending, MigrationPhaseUnset, MigrationSucceeded:
+	case MigrationFailed, MigrationPending, MigrationPhaseUnset, MigrationSucceeded, MigrationWaitingForSync, MigrationSynchronizing:
 		return false
 	}
 	return true
@@ -675,7 +822,9 @@ func (m *VirtualMachineInstanceMigration) IsRunning() bool {
 // The migration phase indicates that the target pod should have already been created
 func (m *VirtualMachineInstanceMigration) TargetIsCreated() bool {
 	return m.Status.Phase != MigrationPhaseUnset &&
-		m.Status.Phase != MigrationPending
+		m.Status.Phase != MigrationPending &&
+		m.Status.Phase != MigrationWaitingForSync &&
+		m.Status.Phase != MigrationSynchronizing
 }
 
 // The migration phase indicates that job has been handed off to the VMI controllers to complete.
@@ -683,7 +832,9 @@ func (m *VirtualMachineInstanceMigration) TargetIsHandedOff() bool {
 	return m.Status.Phase != MigrationPhaseUnset &&
 		m.Status.Phase != MigrationPending &&
 		m.Status.Phase != MigrationScheduling &&
-		m.Status.Phase != MigrationScheduled
+		m.Status.Phase != MigrationScheduled &&
+		m.Status.Phase != MigrationWaitingForSync &&
+		m.Status.Phase != MigrationSynchronizing
 }
 
 type VirtualMachineInstanceNetworkInterface struct {
@@ -725,6 +876,69 @@ type VirtualMachineInstanceGuestOSInfo struct {
 	Machine string `json:"machine,omitempty"`
 	// Guest OS Id
 	ID string `json:"id,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type MigrationNetworkType string
+
+// +k8s:openapi-gen=true
+const (
+	// PodNetworkMigration indicates the migration will happen over the pod network
+	Pod MigrationNetworkType = "Pod"
+	// MigrationNetworkMigration indicates the migration will happen over a dedicated migration network
+	Migration MigrationNetworkType = "Migration"
+)
+
+type VirtualMachineInstanceCommonMigrationState struct {
+	// The source node that the VMI originated on
+	Node string `json:"node,omitempty"`
+	// The source pod that the VMI is originated on
+	Pod string `json:"pod,omitempty"`
+	// The Source VirtualMachineInstanceMigration object associated with this migration
+	MigrationUID types.UID `json:"migrationUID,omitempty"`
+	// The name of the domain on the source libvirt domain
+	DomainName *string `json:"domainName,omitempty"`
+	// Namespace used in the name of the source libvirt domain. Can be used to find and modify paths in the domain
+	DomainNamespace *string `json:"domainNamespace,omitempty"`
+	// The ip address/fqdn:port combination to use to synchronize the VMI with the target.
+	SyncAddress *string `json:"syncAddress,omitempty"`
+	// If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here
+	PersistentStatePVCName *string `json:"persistentStatePVCName,omitempty"`
+	// SELinuxContext is the actual SELinux context of the pod
+	SelinuxContext string `json:"selinuxContext,omitempty"`
+	// VirtualMachineInstanceUID is the UID of the target virtual machine instance
+	VirtualMachineInstanceUID *types.UID `json:"virtualMachineInstanceUID,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationSourceState struct {
+	VirtualMachineInstanceCommonMigrationState `json:",inline"`
+
+	// Node selectors needed by the target to start the receiving pod.
+	NodeSelectors map[string]string `json:"nodeSelectors,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationTargetState struct {
+	VirtualMachineInstanceCommonMigrationState `json:",inline"`
+
+	// The timestamp at which the target node detects the domain is active
+	DomainReadyTimestamp *metav1.Time `json:"domainReadyTimestamp,omitempty"`
+	// The Target Node has seen the Domain Start Event
+	DomainDetected bool `json:"domainDetected,omitempty"`
+	// The address of the target node to use for the migration
+	NodeAddress *string `json:"nodeAddress,omitempty"`
+	// The list of ports opened for live migration on the destination node
+	DirectMigrationNodePorts map[string]int `json:"directMigrationNodePorts,omitempty"`
+	// The UID of the target attachment pod for hotplug volumes
+	AttachmentPodUID *types.UID `json:"attachmentPodUID,omitempty"`
+	// If the VMI requires dedicated CPUs, this field will
+	// hold the dedicated CPU set on the target node
+	// +listType=atomic
+	CPUSet []int `json:"cpuSet,omitempty"`
+	// If the VMI requires dedicated CPUs, this field will
+	// hold the numa topology on the target node
+	NodeTopology *string `json:"nodeTopology,omitempty"`
 }
 
 // MigrationConfigSource indicates the source of migration configuration.
@@ -790,6 +1004,12 @@ type VirtualMachineInstanceMigrationState struct {
 	SourcePersistentStatePVCName string `json:"sourcePersistentStatePVCName,omitempty"`
 	// If the VMI being migrated uses persistent features (backend-storage), its target PVC name is saved here
 	TargetPersistentStatePVCName string `json:"targetPersistentStatePVCName,omitempty"`
+	// SourceState contains migration state managed by the source virt handler
+	SourceState *VirtualMachineInstanceMigrationSourceState `json:"sourceState,omitempty"`
+	// TargetState contains migration state managed by the target virt handler
+	TargetState *VirtualMachineInstanceMigrationTargetState `json:"targetState,omitempty"`
+	// The type of migration network, either 'pod' or 'migration'
+	MigrationNetworkType MigrationNetworkType `json:"migrationNetworkType,omitempty"`
 }
 
 type MigrationAbortStatus string
@@ -851,6 +1071,8 @@ const (
 	Succeeded VirtualMachineInstancePhase = "Succeeded"
 	// Failed means that the vmi crashed, disappeared unexpectedly or got deleted from the cluster before it was ever started.
 	Failed VirtualMachineInstancePhase = "Failed"
+	// WaitingForSync means that the vmi is waiting for synchronization from another VMI
+	WaitingForSync VirtualMachineInstancePhase = "WaitingForSync"
 	// Unknown means that for some reason the state of the VirtualMachineInstance could not be obtained, typically due
 	// to an error in communicating with the host of the VirtualMachineInstance.
 	Unknown VirtualMachineInstancePhase = "Unknown"
@@ -969,7 +1191,8 @@ const (
 	VirtOperatorComponentFinalizer string = "kubevirt.io/virtOperatorFinalizer"
 
 	// Set by VMI controller to ensure VMIs are processed during deletion
-	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
+	VirtualMachineInstanceFinalizer           string = "kubevirt.io/foregroundDeleteVirtualMachine"
+	DeprecatedVirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 	// Set By VM controller on VMIs to ensure VMIs are processed by VM controller during deletion
 	VirtualMachineControllerFinalizer        string = "kubevirt.io/virtualMachineControllerFinalize"
 	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
@@ -1005,10 +1228,14 @@ const (
 	MemfdMemoryBackend         string = "kubevirt.io/memfd"
 
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
+	// RestoreRunStrategy is how to restore the run strategy of the VMI
+	RestoreRunStrategy = "kubevirt.io/restore-run-strategy"
 
 	// This annotation represents vmi running nonroot implementation
 	DeprecatedNonRootVMIAnnotation = "kubevirt.io/nonroot"
 
+	// This annotation is used to mark a VMI as a migration target, and to start a receiver pod.
+	CreateMigrationTarget = "kubevirt.io/create-migration-target"
 	// This annotation is to keep virt launcher container alive when an VMI encounters a failure for debugging purpose
 	KeepLauncherAfterFailureAnnotation string = "kubevirt.io/keep-launcher-alive-after-failure"
 
@@ -1040,6 +1267,9 @@ const (
 
 	// SEVESLabel marks the node as capable of running workloads with SEV-ES
 	SEVESLabel string = "kubevirt.io/sev-es"
+
+	// SecureExecutionLabel marks the node as capable of running workloads with IBM Secure Execution
+	SecureExecutionLabel string = "kubevirt.io/s390-pv"
 
 	// KSMEnabledLabel marks the node as KSM-handling enabled
 	KSMEnabledLabel string = "kubevirt.io/ksm-enabled"
@@ -1126,6 +1356,10 @@ const (
 	// ImmediateDataVolumeCreation indicates that the data volumes should be created immediately
 	// Even if the VM is halted
 	ImmediateDataVolumeCreation string = "kubevirt.io/immediate-data-volume-creation"
+
+	// DisablePCIHole64 indicates that the 64-Bit PCI hole should be disabled on a VirtualMachineInstance.
+	// This annotation might be deprecated in the future if we decided to add a struct for it.
+	DisablePCIHole64 string = "kubevirt.io/disablePCIHole64"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1394,6 +1628,23 @@ type VirtualMachineInstanceMigrationSpec struct {
 	// can only restrict but not bypass constraints already set on the VM object.
 	// +optional
 	AddedNodeSelector map[string]string `json:"addedNodeSelector,omitempty"`
+
+	// If sendTo is specified, this VirtualMachineInstanceMigration will be considered the source
+	SendTo *VirtualMachineInstanceMigrationSource `json:"sendTo,omitempty"`
+	// If receieve is specified, this VirtualMachineInstanceMigration will be considered the target
+	Receive *VirtualMachineInstanceMigrationTarget `json:"receive,omitempty"`
+}
+
+type VirtualMachineInstanceMigrationSource struct {
+	// A unique identifier to identify this migration.
+	MigrationID string `json:"migrationID"`
+	// The synchronization controller URL to connect to.
+	ConnectURL string `json:"connectURL"`
+}
+
+type VirtualMachineInstanceMigrationTarget struct {
+	// A unique identifier to identify this migration.
+	MigrationID string `json:"migrationID"`
 }
 
 // VirtualMachineInstanceMigrationPhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi
@@ -1414,6 +1665,11 @@ type VirtualMachineInstanceMigrationStatus struct {
 	PhaseTransitionTimestamps []VirtualMachineInstanceMigrationPhaseTransitionTimestamp `json:"phaseTransitionTimestamps,omitempty"`
 	// Represents the status of a live migration
 	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
+	// The synchronization addresses one can use to connect to the synchronization controller, includes the port, if multiple
+	// addresses are available, the first one is reported in the synchronizationAddress field.
+	// +optional
+	// +listType=atomic
+	SynchronizationAddresses []string `json:"synchronizationAddresses,omitempty" optional:"true"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.
@@ -1438,7 +1694,32 @@ const (
 	MigrationSucceeded VirtualMachineInstanceMigrationPhase = "Succeeded"
 	// The migration failed
 	MigrationFailed VirtualMachineInstanceMigrationPhase = "Failed"
+	// The migration is waiting for the VMI to synchronize
+	MigrationWaitingForSync VirtualMachineInstanceMigrationPhase = "WaitingForSync"
+	// The migration is actively synchronizing the VMI with the target
+	MigrationSynchronizing VirtualMachineInstanceMigrationPhase = "Synchronizing"
 )
+
+func (m *VirtualMachineInstanceMigration) IsLocalOrDecentralizedSource() bool {
+	return !m.IsDecentralized() || m.Spec.SendTo != nil
+}
+
+func (m *VirtualMachineInstanceMigration) IsDecentralizedSource() bool {
+	return m.IsDecentralized() && m.Spec.SendTo != nil
+}
+
+func (m *VirtualMachineInstanceMigration) IsLocalOrDecentralizedTarget() bool {
+	return !m.IsDecentralized() || m.Spec.Receive != nil
+}
+
+func (m *VirtualMachineInstanceMigration) IsDecentralizedTarget() bool {
+	return m.IsDecentralized() && m.Spec.Receive != nil
+}
+
+func (m *VirtualMachineInstanceMigration) IsDecentralized() bool {
+	return (m.Spec.SendTo != nil && m.Spec.Receive == nil) ||
+		(m.Spec.SendTo == nil && m.Spec.Receive != nil)
+}
 
 // Deprecated for removal in v2, please use VirtualMachineInstanceType and VirtualMachinePreference instead.
 //
@@ -1554,6 +1835,9 @@ const (
 	// VMI will run once and not be restarted upon completion regardless
 	// if the completion is of phase Failure or Success
 	RunStrategyOnce VirtualMachineRunStrategy = "Once"
+	// Receiver pod will be created waiting for an incoming migration. Switch after to expected
+	// RunStrategy.
+	RunStrategyWaitAsReceiver VirtualMachineRunStrategy = "WaitAsReceiver"
 )
 
 type UpdateVolumesStrategy string
@@ -1647,6 +1931,9 @@ const (
 	// VirtualMachineStatusWaitingForVolumeBinding indicates that some PersistentVolumeClaims backing
 	// the virtual machine volume are still not bound.
 	VirtualMachineStatusWaitingForVolumeBinding VirtualMachinePrintableStatus = "WaitingForVolumeBinding"
+	// VirtualMachineStatusWaitingForReceiver indicates that this virtual machine is a receiver VM and
+	// migration should start next.
+	VirtualMachineStatusWaitingForReceiver VirtualMachinePrintableStatus = "WaitingForReceiver"
 )
 
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully
@@ -2074,6 +2361,9 @@ type KubeVirtSpec struct {
 	// If ProductComponent is not specified, the component label default value is kubevirt.
 	ProductComponent string `json:"productComponent,omitempty"`
 
+	// Specify the port to listen on for VMI status synchronization traffic. Default is 9185
+	SynchronizationPort string `json:"synchronizationPort,omitempty"`
+
 	// holds kubevirt configurations.
 	// same as the virt-configMap
 	Configuration KubeVirtConfiguration `json:"configuration,omitempty"`
@@ -2167,6 +2457,9 @@ type KubeVirtStatus struct {
 	DefaultArchitecture                     string              `json:"defaultArchitecture,omitempty"`
 	// +listType=atomic
 	Generations []GenerationStatus `json:"generations,omitempty" optional:"true"`
+	// +optional
+	// +listType=atomic
+	SynchronizationAddresses []string `json:"synchronizationAddresses,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.
@@ -2334,6 +2627,22 @@ type MigrateOptions struct {
 	AddedNodeSelector map[string]string `json:"addedNodeSelector,omitempty"`
 }
 
+// VirtualMachineInstanceGuestOSLoad represents the system load averages from the guest agent
+type VirtualMachineInstanceGuestOSLoad struct {
+	// Load1mSet indicates whether the 1 minute load average is set
+	Load1mSet bool `json:"load1mSet,omitempty"`
+	// Load average over 1 minute
+	Load1m float64 `json:"load1m,omitempty"`
+	// Load5mSet indicates whether the 5 minute load average is set
+	Load5mSet bool `json:"load5mSet,omitempty"`
+	// Load average over 5 minutes
+	Load5m float64 `json:"load5m,omitempty"`
+	// Load15mSet indicates whether the 15 minute load average is set
+	Load15mSet bool `json:"load15mSet,omitempty"`
+	// Load average over 15 minutes
+	Load15m float64 `json:"load15m,omitempty"`
+}
+
 // VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -2354,9 +2663,12 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	UserList []VirtualMachineInstanceGuestOSUser `json:"userList,omitempty"`
 	// FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage
 	FSInfo VirtualMachineInstanceFileSystemInfo `json:"fsInfo,omitempty"`
-	// FSFreezeStatus is the state of the fs of the guest
-	// it can be either frozen or thawed
+	// FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem.
+	// It will be set to "frozen" if the request was made, or unset otherwise.
+	// This does not reflect the actual state of the guest filesystem.
 	FSFreezeStatus string `json:"fsFreezeStatus,omitempty"`
+	// Load contains the system load averages (1M, 5M, 15M) from the guest agent
+	Load *VirtualMachineInstanceGuestOSLoad `json:"load,omitempty"`
 }
 
 // List of commands that QEMU guest agent supports
@@ -2376,8 +2688,10 @@ type VirtualMachineInstanceGuestOSUserList struct {
 
 // VirtualMachineGuestOSUser is the single user of the guest os
 type VirtualMachineInstanceGuestOSUser struct {
-	UserName  string  `json:"userName"`
-	Domain    string  `json:"domain,omitempty"`
+	UserName string `json:"userName"`
+	Domain   string `json:"domain,omitempty"`
+
+	// Time of login of this user on the computer. If multiple instances of the user are logged in, the earliest login time is reported. The value is in fractional seconds since epoch time.
 	LoginTime float64 `json:"loginTime,omitempty"`
 }
 
@@ -2648,6 +2962,7 @@ type ArchConfiguration struct {
 	Amd64               *ArchSpecificConfiguration `json:"amd64,omitempty"`
 	Arm64               *ArchSpecificConfiguration `json:"arm64,omitempty"`
 	Ppc64le             *ArchSpecificConfiguration `json:"ppc64le,omitempty"`
+	S390x               *ArchSpecificConfiguration `json:"s390x,omitempty"`
 	DefaultArchitecture string                     `json:"defaultArchitecture,omitempty"`
 }
 
@@ -2852,11 +3167,12 @@ type DeveloperConfiguration struct {
 
 // LogVerbosity sets log verbosity level of  various components
 type LogVerbosity struct {
-	VirtAPI        uint `json:"virtAPI,omitempty"`
-	VirtController uint `json:"virtController,omitempty"`
-	VirtHandler    uint `json:"virtHandler,omitempty"`
-	VirtLauncher   uint `json:"virtLauncher,omitempty"`
-	VirtOperator   uint `json:"virtOperator,omitempty"`
+	VirtAPI                       uint `json:"virtAPI,omitempty"`
+	VirtController                uint `json:"virtController,omitempty"`
+	VirtHandler                   uint `json:"virtHandler,omitempty"`
+	VirtLauncher                  uint `json:"virtLauncher,omitempty"`
+	VirtOperator                  uint `json:"virtOperator,omitempty"`
+	VirtSynchronizationController uint `json:"virtSynchronizationController,omitempty"`
 	// NodeVerbosity represents a map of nodes with a specific verbosity level
 	NodeVerbosity map[string]uint `json:"nodeVerbosity,omitempty"`
 }
@@ -3246,4 +3562,26 @@ type SEVSecretOptions struct {
 	Header string `json:"header,omitempty"`
 	// Base64 encoded encrypted launch secret.
 	Secret string `json:"secret,omitempty"`
+}
+
+// ObjectGraphNode represents an individual node in the graph.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ObjectGraphNode struct {
+	metav1.TypeMeta `json:",inline"`
+	ObjectReference k8sv1.TypedObjectReference `json:"objectReference"`
+	Labels          map[string]string          `json:"labels,omitempty"`
+	// +optional
+	Optional *bool `json:"optional,omitempty"`
+	// +listType=atomic
+	Children []ObjectGraphNode `json:"children,omitempty"`
+}
+
+// ObjectGraphOptions holds options for the object graph.
+type ObjectGraphOptions struct {
+	// IncludeOptionalNodes indicates whether to include optional nodes in the graph.
+	// True by default.
+	IncludeOptionalNodes *bool `json:"includeOptionalNodes,omitempty"`
+	// LabelSelector is used to filter nodes in the graph based on their labels.
+	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -67,4 +67,25 @@ func LookupNetworkByName(networks []v1.Network, name string) *v1.Network {
 	}
 
 	return nil
+}
+
+func NewLinkStateAssersionCmd(mac string, desiredLinkState v1.InterfaceState) string {
+	const (
+		linkStateUPRegex   = "'state[[:space:]]+UP'"
+		linkStateDOWNRegex = "'NO-CARRIER.+state[[:space:]]+DOWN'"
+		ipLinkTemplate     = "ip -one link | grep %s | grep -E %s\n"
+	)
+
+	var linkStateRegex string
+
+	switch desiredLinkState {
+	case v1.InterfaceStateLinkUp:
+		linkStateRegex = linkStateUPRegex
+	case v1.InterfaceStateLinkDown:
+		linkStateRegex = linkStateDOWNRegex
+	case v1.InterfaceStateAbsent:
+		// noop
+	}
+
+	return fmt.Sprintf(ipLinkTemplate, mac, linkStateRegex)
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -37,7 +37,6 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/storage/status"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -60,8 +59,6 @@ type VMRestoreController struct {
 	Recorder record.EventRecorder
 
 	vmRestoreQueue workqueue.TypedRateLimitingInterface[string]
-
-	VMRestoreStatusUpdater *status.VMRestoreStatusUpdater
 }
 
 // Init initializes the restore controller
@@ -113,7 +110,6 @@ func (ctrl *VMRestoreController) Init() error {
 		return err
 	}
 
-	ctrl.VMRestoreStatusUpdater = status.NewVMRestoreStatusUpdater(ctrl.Client)
 	return nil
 }
 

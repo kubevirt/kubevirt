@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
 package virt_controller
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	ioprometheusclient "github.com/prometheus/client_model/go"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 )
 
 var (

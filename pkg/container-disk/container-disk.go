@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -132,20 +132,6 @@ func SetKubeletPodsDirectory(dir string) {
 func setPodsDirectory(dir string) error {
 	podsBaseDir = dir
 	return os.MkdirAll(dir, 0750)
-}
-
-// GetDiskTargetPartFromLauncherView returns (path to disk image, image type, and error)
-func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
-
-	path := GetDiskTargetPathFromLauncherView(volumeIndex)
-	exists, err := diskutils.FileExists(path)
-	if err != nil {
-		return "", err
-	} else if exists {
-		return path, nil
-	}
-
-	return "", fmt.Errorf("no supported file disk found for volume with index %d", volumeIndex)
 }
 
 // NewSocketPathGetter get the socket pat of a containerDisk. For testing a baseDir
@@ -368,7 +354,7 @@ func CreateEphemeralImages(
 	disksInfo map[string]*disk.DiskInfo,
 ) error {
 	// The domain is setup to use the COW image instead of the base image. What we have
-	// to do here is only create the image where the domain expects it (GetDiskTargetPartFromLauncherView)
+	// to do here is only create the image where the domain expects it (GetDiskTargetPathFromLauncherView)
 	// for each disk that requires it.
 
 	for i, volume := range vmi.Spec.Volumes {
@@ -377,9 +363,14 @@ func CreateEphemeralImages(
 			if info == nil {
 				return fmt.Errorf("no disk info provided for volume %s", volume.Name)
 			}
-			if backingFile, err := GetDiskTargetPartFromLauncherView(i); err != nil {
+			backingFile := GetDiskTargetPathFromLauncherView(i)
+			exists, err := diskutils.FileExists(backingFile)
+			if err != nil {
 				return err
-			} else if err := diskCreator.CreateBackedImageForVolume(volume, backingFile, info.Format); err != nil {
+			} else if !exists {
+				return fmt.Errorf("no supported file disk found for volume found in: %s", backingFile)
+			}
+			if err := diskCreator.CreateBackedImageForVolume(volume, backingFile, info.Format); err != nil {
 				return err
 			}
 		}

@@ -20,6 +20,7 @@ import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
+	ocpv1 "github.com/openshift/api/route/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -32,7 +33,7 @@ import (
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
 type AlertRequestResult struct {
@@ -186,7 +187,7 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 		sourcePort := 4321 + rand.Intn(6000)
 		targetPort := 9090
 		Eventually(func() error {
-			_, cmd, err := clientcmd.CreateCommandWithNS(monitoringNs, clientcmd.GetK8sCmdClient(),
+			_, cmd, err := clientcmd.CreateCommandWithNS(monitoringNs, "kubectl",
 				"port-forward", "service/prometheus-k8s", fmt.Sprintf("%d:%d", sourcePort, targetPort))
 			if err != nil {
 				return err
@@ -212,19 +213,14 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 }
 
 func getPrometheusURLForOpenShift() string {
-	var host string
-
+	var route *ocpv1.Route
 	Eventually(func() error {
-		var stderr string
 		var err error
-		host, stderr, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), clientcmd.GetK8sCmdClient(), "-n", "openshift-monitoring", "get", "route", "prometheus-k8s", "--template", "{{.spec.host}}")
-		if err != nil {
-			return fmt.Errorf("error while getting route. err:'%v', stderr:'%v'", err, stderr)
-		}
-		return nil
-	}, 10*time.Second, time.Second).Should(BeTrue())
+		route, err = kubevirt.Client().RouteClient().Routes("openshift-monitoring").Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
+		return err
+	}, 10*time.Second, time.Second).Should(Succeed())
 
-	return fmt.Sprintf("https://%s", host)
+	return fmt.Sprintf("https://%s", route.Spec.Host)
 }
 
 func doHttpRequest(url string, endpoint string, token string) *http.Response {
@@ -234,21 +230,21 @@ func doHttpRequest(url string, endpoint string, token string) *http.Response {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
-	Eventually(func() bool {
+	Eventually(func() error {
 		req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/%s", url, endpoint), nil)
 		if err != nil {
-			return false
+			return err
 		}
 		req.Header.Add("Authorization", "Bearer "+token)
 		resp, err = client.Do(req)
 		if err != nil {
-			return false
+			return err
 		}
 		if resp.StatusCode != http.StatusOK {
-			return false
+			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 		}
-		return true
-	}, 10*time.Second, 1*time.Second).Should(BeTrue())
+		return nil
+	}, 10*time.Second, 1*time.Second).Should(Not(HaveOccurred()))
 
 	return resp
 }

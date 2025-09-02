@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 package agentpoller
 
 import (
+	"math"
 	"sync"
 	"time"
 
@@ -73,18 +74,19 @@ func NewAsyncAgentStore() AsyncAgentStore {
 // it fires up updated event
 func (s *AsyncAgentStore) Store(key, value any) {
 	oldData, _ := s.store.Load(key)
-	updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
 
 	s.store.Store(key, value)
 
-	if updated {
-		domainInfo := api.DomainGuestInfo{}
-		switch key {
-		case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GetFSFreezeStatus:
-			domainInfo.OSInfo = s.GetGuestOSInfo()
-			domainInfo.Interfaces = s.GetInterfaceStatus()
-			domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
+	domainInfo := api.DomainGuestInfo{}
+	switch key {
+	case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GetFSFreezeStatus:
+		updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
+		if !updated {
+			return
 		}
+		domainInfo.OSInfo = s.GetGuestOSInfo()
+		domainInfo.Interfaces = s.GetInterfaceStatus()
+		domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
 
 		s.AgentUpdated <- AgentUpdatedEvent{
 			DomainInfo: domainInfo,
@@ -116,10 +118,17 @@ func (s *AsyncAgentStore) GetSysInfo() api.DomainSysInfo {
 		timezone = data.(api.Timezone)
 	}
 
+	data, ok = s.store.Load(libvirt.DOMAIN_GUEST_INFO_LOAD)
+	load := api.Load{}
+	if ok {
+		load = data.(api.Load)
+	}
+
 	return api.DomainSysInfo{
 		Hostname: hostname,
 		OSInfo:   osinfo,
 		Timezone: timezone,
+		Load:     load,
 	}
 }
 
@@ -306,6 +315,10 @@ func CreatePoller(
 				CallTick:  qemuAgentUserInterval,
 				InfoTypes: libvirt.DOMAIN_GUEST_INFO_USERS,
 			},
+			{
+				CallTick:  qemuAgentSysInterval,
+				InfoTypes: libvirt.DOMAIN_GUEST_INFO_LOAD,
+			},
 		},
 	}
 }
@@ -424,6 +437,10 @@ func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, agentPoller 
 		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_TIMEZONE, convertToTimezone(guestInfo))
 	}
 
+	if infoTypes&libvirt.DOMAIN_GUEST_INFO_LOAD != 0 {
+		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_LOAD, convertToLoad(guestInfo))
+	}
+
 	if infoTypes&libvirt.DOMAIN_GUEST_INFO_USERS != 0 {
 		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, convertToUsers(guestInfo))
 	}
@@ -499,6 +516,21 @@ func convertToTimezone(guestInfo *libvirt.DomainGuestInfo) api.Timezone {
 	return timezone
 }
 
+func convertToLoad(guestInfo *libvirt.DomainGuestInfo) api.Load {
+	load := api.Load{}
+	if guestInfo.Load != nil {
+		load = api.Load{
+			Load1mSet:  guestInfo.Load.Load1MSet,
+			Load1m:     guestInfo.Load.Load1M,
+			Load5mSet:  guestInfo.Load.Load5MSet,
+			Load5m:     guestInfo.Load.Load5M,
+			Load15mSet: guestInfo.Load.Load15MSet,
+			Load15m:    guestInfo.Load.Load15M,
+		}
+	}
+	return load
+}
+
 func convertToUsers(guestInfo *libvirt.DomainGuestInfo) []api.User {
 	var users []api.User
 	if guestInfo.Users != nil {
@@ -506,9 +538,17 @@ func convertToUsers(guestInfo *libvirt.DomainGuestInfo) []api.User {
 			users = append(users, api.User{
 				Name:      user.Name,
 				Domain:    user.Domain,
-				LoginTime: float64(user.LoginTime),
+				LoginTime: (time.Duration(safeConvertToInt64(user.LoginTime)) * time.Millisecond).Seconds(),
 			})
 		}
 	}
 	return users
+}
+
+func safeConvertToInt64(value uint64) int64 {
+	if value > math.MaxInt64 {
+		log.Log.Errorf("Conversion overflow detected: %v", value)
+		return 0
+	}
+	return int64(value)
 }

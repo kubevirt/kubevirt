@@ -237,6 +237,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+
   # All virt controllers are not ready (ImagePullBackOff)
   - interval: 1m
     input_series:
@@ -449,78 +450,6 @@ tests:
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
-  # values: '0+10x100' == values: "0 10 20 30 40 ... 990"
-  # values: '0+5x100' == values :"0 5 10 .... 495"
-  # so now for EACH POD the total requests should be 10+20+30+..+990+5+10+15+...+495
-  # and the number of requests with error code should be 5+10+15+...+495 which is more than 5% of the total requests
-  # the error condition(more than 5% of the requests has error code) is true which should fire an alert for EACH POD
-  # High REST errors
-  # values : '0+5x90 0+5x10'  ==  :"0 5 10 .... 445  0 5 10 ... 45"  we should treat values : '0+5x100' and
-  # values : '0+5x90 0+5x10'  the same way because prometheus counters might reset
-  - interval: 1m
-    input_series:
-      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
-        values: '0+10x100'
-      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
-        values: '0+5x90 0+5x10'
-      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
-        values: '0+10x100'
-      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
-        values: '0+5x90 0+5x10'
-      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
-        values: '0+10x100'
-      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
-        values: '0+5x90 0+5x10'
-      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
-        values: '0+10x100'
-      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
-        values: '0+5x90 0+5x10'
-
-    alert_rule_test:
-      - eval_time: 100m
-        alertname: VirtControllerRESTErrorsHigh
-        exp_alerts:
-          - exp_annotations:
-              summary: "More than 5% of the rest calls failed in virt-controller for the last hour"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerRESTErrorsHigh"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "warning"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-      - eval_time: 100m
-        alertname: VirtOperatorRESTErrorsHigh
-        exp_alerts:
-          - exp_annotations:
-              summary: "More than 5% of the rest calls failed in virt-operator for the last hour"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorRESTErrorsHigh"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "warning"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-      - eval_time: 100m
-        alertname: VirtHandlerRESTErrorsHigh
-        exp_alerts:
-          - exp_annotations:
-              summary: "More than 5% of the rest calls failed in virt-handler for the last hour"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerRESTErrorsHigh"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "warning"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-      - eval_time: 100m
-        alertname: VirtApiRESTErrorsHigh
-        exp_alerts:
-          - exp_annotations:
-              summary: "More than 5% of the rest calls failed in virt-api for the last hour"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtApiRESTErrorsHigh"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "warning"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
 
   # Some nodes without KVM resources
   - interval: 1m
@@ -605,11 +534,17 @@ tests:
   # VM eviction strategy is set but vm is not migratable
   - interval: 1m
     input_series:
+      - series: 'kubevirt_vmi_info{phase="running", node="node1", namespace="ns-test", name="vm-evict-nonmigratable"}'
+        values: "0 0 0 0 1 1 1 1"
       - series: 'kubevirt_vmi_non_evictable{node="node1", namespace="ns-test", name="vm-evict-nonmigratable"}'
         values: "1 1 1 1 1 1 1 1"
 
     alert_rule_test:
       - eval_time: 1m
+        alertname: VMCannotBeEvicted
+        exp_alerts: []
+
+      - eval_time: 5m
         alertname: VMCannotBeEvicted
         exp_alerts:
           - exp_annotations:
@@ -628,6 +563,8 @@ tests:
   # VM eviction strategy is set and vm is migratable
   - interval: 1m
     input_series:
+      - series: 'kubevirt_vmi_info{phase="running", node="node1", namespace="ns-test", name="vm-evict-migratable"}'
+        values: "1 1 1 1 1 1 1 1"
       - series: 'kubevirt_vmi_non_evictable{node="node1", namespace="ns-test", name="vm-evict-migratable"}'
         values: "0 0 0 0 0 0 0 0 "
 
@@ -635,6 +572,27 @@ tests:
       - eval_time: 1m
         alertname: VMCannotBeEvicted
         exp_alerts: []
+
+  # Test recording rule for operator memory delta including virt-launcher
+  - interval: 1m
+    input_series:
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-foo-1", namespace="ns-a", container="compute"}'
+        values: '1500 1500'
+      - series: 'container_memory_rss{pod="virt-launcher-foo-1", namespace="ns-a", container="compute"}'
+        values: '1200 1200'
+      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-foo-1", namespace="ns-a", container="compute", resource="memory"}'
+        values: '1000 1000'
+    promql_expr_test:
+      - expr: 'kubevirt_memory_delta_from_requested_bytes{reason="memory_working_set_delta_from_request"}'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'kubevirt_memory_delta_from_requested_bytes{container="compute",namespace="ns-a",pod="virt-launcher-foo-1",reason="memory_working_set_delta_from_request"}'
+            value: 500
+      - expr: 'kubevirt_memory_delta_from_requested_bytes{reason="memory_rss_delta_from_request"}'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'kubevirt_memory_delta_from_requested_bytes{container="compute",namespace="ns-a",pod="virt-launcher-foo-1",reason="memory_rss_delta_from_request"}'
+            value: 200
 
   # Test recording rule
   - interval: 1m
@@ -878,3 +836,223 @@ tests:
       - eval_time: 13m
         alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts: []
+
+
+  # VMI CPU Queue higher than 20
+  - interval: 1m
+    input_series:
+      # time:   0   1   2   3
+      - series: 'kubevirt_vmi_guest_load_1m{namespace="testns",name="vm1"}'
+        values: '0  12  25  5'
+      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",id="0"}'
+        values: '0  0   0   0'
+      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",id="1"}'
+        values: '0  0   0   0'   # values irrelevant. only series presence counts
+
+    alert_rule_test:
+      # at 1m: queue = 12 – 2 = 10  -> below 20
+      - eval_time: 1m
+        alertname: GuestVCPUQueueHighCritical
+        exp_alerts: []
+
+      # at 2m: queue = 25 – 2 = 23  -> alert fires
+      - eval_time: 2m
+        alertname: GuestVCPUQueueHighCritical
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachineInstance vm1 CPU queue length > 20"
+              summary: "Guest vCPU Queue within collection cycle > 20"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/GuestVCPUQueueHighCritical"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "testns"
+              name: "vm1"
+
+
+      # at3m: queue = 5 – 2 = 3 -> alert clears
+      - eval_time: 3m
+        alertname: GuestVCPUQueueHighCritical
+        exp_alerts: []
+
+  # VM stuck without VMI (early lifecycle states and errors)
+  - interval: 1m
+    input_series:
+      # VMs that SHOULD alert (in problematic states without VMI)
+      - series: 'kubevirt_vm_info{name="vm-stuck-provisioning", namespace="test-ns", status="provisioning", status_group="starting"}'
+        values: "1x16"
+      - series: 'kubevirt_vm_info{name="vm-stuck-starting-no-vmi", namespace="test-ns", status="starting", status_group="starting"}'
+        values: "1x16"
+      - series: 'kubevirt_vm_info{name="vm-unschedulable", namespace="test-ns", status="ErrorUnschedulable", status_group="error"}'
+        values: "1x16"
+      - series: 'kubevirt_vm_info{name="vm-pvc-missing", namespace="test-ns", status="ErrorPvcNotFound", status_group="error"}'
+        values: "1x16"
+      - series: 'kubevirt_vm_info{name="vm-terminating-no-vmi", namespace="test-ns", status="terminating", status_group="non_running"}'
+        values: "1x16"
+      # VMs that should NOT alert (in healthy states without VMI)
+      - series: 'kubevirt_vm_info{name="vm-stopped", namespace="test-ns", status="stopped", status_group="non_running"}'
+        values: "1x16"
+
+    alert_rule_test:
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: VirtualMachineStuckInUnhealthyState
+        exp_alerts: []
+      # alert should fire after 10 minutes only for VMs in problematic states
+      - eval_time: 10m
+        alertname: VirtualMachineStuckInUnhealthyState
+        exp_alerts:
+          - exp_annotations:
+              summary: "Virtual machine in provisioning state for more than 10 minutes"
+              description: "Virtual machine vm-stuck-provisioning in namespace test-ns has been in provisioning state for more than 10 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckInUnhealthyState"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-stuck-provisioning"
+              namespace: "test-ns"
+              status: "provisioning"
+          - exp_annotations:
+              summary: "Virtual machine in starting state for more than 10 minutes"
+              description: "Virtual machine vm-stuck-starting-no-vmi in namespace test-ns has been in starting state for more than 10 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckInUnhealthyState"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-stuck-starting-no-vmi"
+              namespace: "test-ns"
+              status: "starting"
+          - exp_annotations:
+              summary: "Virtual machine in ErrorUnschedulable state for more than 10 minutes"
+              description: "Virtual machine vm-unschedulable in namespace test-ns has been in ErrorUnschedulable state for more than 10 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckInUnhealthyState"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-unschedulable"
+              namespace: "test-ns"
+              status: "ErrorUnschedulable"
+          - exp_annotations:
+              summary: "Virtual machine in ErrorPvcNotFound state for more than 10 minutes"
+              description: "Virtual machine vm-pvc-missing in namespace test-ns has been in ErrorPvcNotFound state for more than 10 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckInUnhealthyState"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-pvc-missing"
+              namespace: "test-ns"
+              status: "ErrorPvcNotFound"
+          - exp_annotations:
+              summary: "Virtual machine in terminating state for more than 10 minutes"
+              description: "Virtual machine vm-terminating-no-vmi in namespace test-ns has been in terminating state for more than 10 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckInUnhealthyState"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-terminating-no-vmi"
+              namespace: "test-ns"
+              status: "terminating"
+
+  # VM stuck with VMI (runtime states and errors)
+  - interval: 1m
+    input_series:
+      # VMs that SHOULD alert (in problematic states with VMI)
+      - series: 'kubevirt_vm_info{name="vm-stuck-starting", namespace="test-ns", status="starting", status_group="starting"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-stuck-starting", namespace="test-ns", node="worker-node-1"}'
+        values: "1x11"
+      - series: 'kubevirt_vm_info{name="vm-image-error", namespace="test-ns", status="ErrImagePull", status_group="error"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-image-error", namespace="test-ns", node="worker-node-2"}'
+        values: "1x11"
+      - series: 'kubevirt_vm_info{name="vm-stuck-stopping", namespace="test-ns", status="stopping", status_group="non_running"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-stuck-stopping", namespace="test-ns", node="worker-node-3"}'
+        values: "1x11"
+      - series: 'kubevirt_vm_info{name="vm-terminating-with-vmi", namespace="test-ns", status="terminating", status_group="non_running"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-terminating-with-vmi", namespace="test-ns", node="worker-node-4"}'
+        values: "1x11"
+      # VMs that should NOT alert (in healthy states with VMI)
+      - series: 'kubevirt_vm_info{name="vm-running", namespace="test-ns", status="running", status_group="running"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-running", namespace="test-ns", node="worker-node-5"}'
+        values: "1x11"
+      - series: 'kubevirt_vm_info{name="vm-paused", namespace="test-ns", status="paused", status_group="running"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-paused", namespace="test-ns", node="worker-node-6"}'
+        values: "1x11"
+
+    alert_rule_test:
+      # no alert before 5 minutes
+      - eval_time: 4m
+        alertname: VirtualMachineStuckOnNode
+        exp_alerts: []
+      # alerts should fire after 5 minutes only for VMs in problematic states
+      - eval_time: 5m
+        alertname: VirtualMachineStuckOnNode
+        exp_alerts:
+          - exp_annotations:
+              summary: "Virtual machine stuck in unhealthy state for more than 5 minutes"
+              description: "Virtual machine vm-stuck-starting in namespace test-ns on node worker-node-1 has been in starting state for more than 5 minutes. This may indicate issues with the VM lifecycle on the target node."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckOnNode"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-stuck-starting"
+              namespace: "test-ns"
+              status: "starting"
+              node: "worker-node-1"
+          - exp_annotations:
+              summary: "Virtual machine stuck in unhealthy state for more than 5 minutes"
+              description: "Virtual machine vm-image-error in namespace test-ns on node worker-node-2 has been in ErrImagePull state for more than 5 minutes. This may indicate issues with the VM lifecycle on the target node."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckOnNode"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-image-error"
+              namespace: "test-ns"
+              status: "ErrImagePull"
+              node: "worker-node-2"
+          - exp_annotations:
+              summary: "Virtual machine stuck in unhealthy state for more than 5 minutes"
+              description: "Virtual machine vm-stuck-stopping in namespace test-ns on node worker-node-3 has been in stopping state for more than 5 minutes. This may indicate issues with the VM lifecycle on the target node."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckOnNode"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-stuck-stopping"
+              namespace: "test-ns"
+              status: "stopping"
+              node: "worker-node-3"
+          - exp_annotations:
+              summary: "Virtual machine stuck in unhealthy state for more than 5 minutes"
+              description: "Virtual machine vm-terminating-with-vmi in namespace test-ns on node worker-node-4 has been in terminating state for more than 5 minutes. This may indicate issues with the VM lifecycle on the target node."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckOnNode"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-terminating-with-vmi"
+              namespace: "test-ns"
+              status: "terminating"
+              node: "worker-node-4"

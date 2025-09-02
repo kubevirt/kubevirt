@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -563,6 +563,20 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"create",
 					"get",
 					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					"resource.k8s.io",
+				},
+				Resources: []string{
+					"resourceslices",
+					"resourceclaims",
+				},
+				Verbs: []string{
+					"list",
+					"watch",
+					"get",
 				},
 			},
 		},

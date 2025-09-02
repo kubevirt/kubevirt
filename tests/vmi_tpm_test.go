@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -45,7 +45,7 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
 				libnet.WithMasqueradeNetworking(),
 				libvmi.WithTPM(false),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 
 			By("Logging in")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())

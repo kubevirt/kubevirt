@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -84,14 +84,15 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
 			} else if arch.NewConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
-				// s390x does not support setting ROM tuning, as it is for PCI Devices only
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
 		}
 
 		if c.UseLaunchSecurity {
-			// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
-			domainIface.Rom = &api.Rom{Enabled: "no"}
+			if arch.NewConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
+				// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
+				domainIface.Rom = &api.Rom{Enabled: "no"}
+			}
 			if ifaceType == v1.VirtIO {
 				if domainIface.Driver != nil {
 					domainIface.Driver.IOMMU = "on"

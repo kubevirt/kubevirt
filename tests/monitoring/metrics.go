@@ -26,8 +26,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/onsi/gomega/types"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -35,10 +35,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
-	virtapi "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
-	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
-	virthandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
-	virtoperator "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -56,8 +52,6 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		basicVMLifecycle(virtClient)
-		metrics = fetchPrometheusMetrics(virtClient)
 	})
 
 	Context("Prometheus metrics", func() {
@@ -73,41 +67,45 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			// needs a snapshot - ignoring since already tested in - VM Monitoring, VM snapshot metrics
 			"kubevirt_vmsnapshot_succeeded_timestamp_seconds": true,
 
+			// needs a machines variable - ignoring since already tested in - tests/infrastructure/prometheus
+			"kubevirt_node_deprecated_machine_types": true,
+
 			// migration metrics
 			// needs a migration - ignoring since already tested in - VM Monitoring, VM migration metrics
 			"kubevirt_vmi_migration_phase_transition_time_from_creation_seconds": true,
 			"kubevirt_vmi_migrations_in_pending_phase":                           true,
 			"kubevirt_vmi_migrations_in_scheduling_phase":                        true,
+			"kubevirt_vmi_migrations_in_unset_phase":                             true,
 			"kubevirt_vmi_migrations_in_running_phase":                           true,
 			"kubevirt_vmi_migration_succeeded":                                   true,
 			"kubevirt_vmi_migration_failed":                                      true,
 			"kubevirt_vmi_migration_data_remaining_bytes":                        true,
 			"kubevirt_vmi_migration_data_processed_bytes":                        true,
 			"kubevirt_vmi_migration_dirty_memory_rate_bytes":                     true,
-			"kubevirt_vmi_migration_disk_transfer_rate_bytes":                    true,
+			"kubevirt_vmi_migration_memory_transfer_rate_bytes":                  true,
 			"kubevirt_vmi_migration_data_total_bytes":                            true,
 			"kubevirt_vmi_migration_start_time_seconds":                          true,
 			"kubevirt_vmi_migration_end_time_seconds":                            true,
+
+			// This metric is using a dedicated collector and is being tested separately
+			"kubevirt_vmi_dirty_rate_bytes_per_second": true,
+
+			// CPU load metrics need an updated libvirt version running on the nodes
+			// that exposes the CPU load information
+			"kubevirt_vmi_guest_load_1m":  true,
+			"kubevirt_vmi_guest_load_5m":  true,
+			"kubevirt_vmi_guest_load_15m": true,
 		}
 
+		BeforeEach(func() {
+			basicVMLifecycle(virtClient)
+			metrics = fetchPrometheusKubevirtMetrics(virtClient)
+			Expect(metrics.Data.Result).ToNot(BeEmpty(), "No metrics found")
+		})
+
 		It("should contain virt components metrics", func() {
-			err := virtoperator.SetupMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtoperator.RegisterLeaderMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtapi.SetupMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtcontroller.SetupMetrics(nil, nil, nil, nil)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtcontroller.RegisterLeaderMetrics()
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virthandler.SetupMetrics("", "", 0, nil)
-			Expect(err).ToNot(HaveOccurred())
+			err := libmonitoring.RegisterAllMetrics()
+			Expect(err).ToNot(HaveOccurred(), "Failed to register all metrics")
 
 			for _, metric := range operatormetrics.ListMetrics() {
 				if excludedMetrics[metric.GetOpts().Name] {
@@ -118,15 +116,61 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			}
 		})
 	})
+
+	Context("Workqueue metrics", func() {
+		It("should not contain controller-runtime workqueue metrics for virt workloads", func() {
+			By("Checking workqueue_depth{container=~\"virt*\"} is not present")
+			query := "{__name__=\"workqueue_depth\",container=~\"virt.*\"}"
+			metrics := fetchPrometheusMetrics(virtClient, query)
+			Expect(metrics.Data.Result).To(BeEmpty(), "Expected no workqueue_depth metrics for virt workloads")
+		})
+
+		It("kubevirt workqueue metrics should include controllers names", func() {
+			names := []string{
+				"virt-operator",
+				"virt-handler-node-labeller",
+				"virt-handler-source",
+				"virt-handler-target",
+				"virt-handler-vm",
+				"virt-controller-disruption-budget",
+				"virt-controller-evacuation",
+				"virt-controller-export-vmexport",
+				"virt-controller-migration",
+				"virt-controller-node",
+				"virt-controller-pool",
+				"virt-controller-replicaset",
+				"virt-controller-restore-vmrestore",
+				"virt-controller-snapshot-crd",
+				"virt-controller-snapshot-vm",
+				"virt-controller-snapshot-vmsnapshot",
+				"virt-controller-snapshot-vmsnapshotcontent",
+				"virt-controller-snapshot-vmsnashotstatus",
+				"virt-controller-vm",
+				"virt-controller-vmclone",
+				"virt-controller-vmi",
+				"virt-controller-workload-update",
+			}
+
+			for _, name := range names {
+				By("Checking workqueue metrics for " + name)
+				query := "{__name__=\"kubevirt_workqueue_adds_total\",name=\"" + name + "\"}"
+				metrics := fetchPrometheusMetrics(virtClient, query)
+				Expect(metrics.Data.Result).ToNot(BeEmpty(), "Expected workqueue metrics for "+name)
+			}
+		})
+	})
 })
 
-func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient) *libmonitoring.QueryRequestResult {
-	metrics, err := libmonitoring.QueryRange(virtClient, "{__name__=~\"kubevirt_.*\"}", time.Now().Add(-1*time.Minute), time.Now(), 15*time.Second)
+func fetchPrometheusKubevirtMetrics(virtClient kubecli.KubevirtClient) *libmonitoring.QueryRequestResult {
+	return fetchPrometheusMetrics(virtClient, "{__name__=~\"kubevirt_.*\"}")
+}
+
+func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient, query string) *libmonitoring.QueryRequestResult {
+	metrics, err := libmonitoring.QueryRange(virtClient, query, time.Now().Add(-1*time.Minute), time.Now(), 15*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(metrics.Status).To(Equal("success"))
 	Expect(metrics.Data.ResultType).To(Equal("matrix"))
-	Expect(metrics.Data.Result).ToNot(BeEmpty(), "No metrics found")
 
 	return metrics
 }
@@ -187,7 +231,7 @@ func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 
 	vmi := libvmifact.NewFedora(
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-		libvmi.WithLimitMemory("512Mi"),
+		libvmi.WithMemoryLimit("512Mi"),
 		libvmi.WithPersistentVolumeClaim("testdisk", pvc.Name),
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),

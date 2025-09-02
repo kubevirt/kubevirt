@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2024 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -189,5 +189,11 @@ func WithPreferenceRevision(revisionName string) VMOption {
 			Name:         "unused",
 			RevisionName: revisionName,
 		}
+	}
+}
+
+func WithUpdateVolumeStrategy(strategy v1.UpdateVolumesStrategy) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.UpdateVolumesStrategy = pointer.P(strategy)
 	}
 }

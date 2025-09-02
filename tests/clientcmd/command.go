@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -29,36 +29,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/onsi/ginkgo/v2"
-
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/tests/flags"
 )
-
-func GetK8sCmdClient() string {
-	// use oc if it exists, otherwise use kubectl
-	if flags.KubeVirtOcPath != "" {
-		return "oc"
-	}
-
-	return "kubectl"
-}
-
-func FailIfNoCmd(cmdName string) {
-	var cmdPath string
-	switch strings.ToLower(cmdName) {
-	case "oc":
-		cmdPath = flags.KubeVirtOcPath
-	case "kubectl":
-		cmdPath = flags.KubeVirtKubectlPath
-	case "virtctl":
-		cmdPath = flags.KubeVirtVirtctlPath
-	}
-	if cmdPath == "" {
-		ginkgo.Fail(fmt.Sprintf("Test requires %s binary", cmdName))
-	}
-}
 
 func RunCommand(namespace string, cmdName string, args ...string) (string, string, error) {
 	return RunCommandWithNSAndInput(namespace, nil, cmdName, args...)
@@ -102,8 +76,6 @@ func CreateCommandWithNS(namespace string, cmdName string, args ...string) (stri
 
 	cmdName = strings.ToLower(cmdName)
 	switch cmdName {
-	case "oc":
-		cmdPath = flags.KubeVirtOcPath
 	case "kubectl":
 		cmdPath = flags.KubeVirtKubectlPath
 	case "virtctl":

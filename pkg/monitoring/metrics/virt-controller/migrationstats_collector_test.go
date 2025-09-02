@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 )
@@ -74,6 +74,7 @@ var _ = Describe("Migration Stats Collector", func() {
 		Entry("Running migration", k6tv1.MigrationRunning, runningMigrations),
 		Entry("Scheduling migration", k6tv1.MigrationScheduling, schedulingMigrations),
 		Entry("Succeeded migration", k6tv1.MigrationSucceeded, succeededMigration),
+		Entry("Undefined migration", k6tv1.MigrationPhaseUnset, unsetMigration),
 	)
 
 	It("should set succeeded and pending to 1 and others to 0 with 1 successful and 1 pending", func() {

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -56,7 +56,7 @@ var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", d
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
 		Context("when virt-handler is responsive", func() {
-			DescribeTable("VMIs shouldn't fail after the kubelet restarts", func(bridgeNetworking bool) {
+			DescribeTable("VMIs shouldn't fail after the kubelet restarts", decorators.Disruptive, func(bridgeNetworking bool) {
 				var vmiOptions []libvmi.Option
 
 				if bridgeNetworking {

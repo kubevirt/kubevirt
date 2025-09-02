@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -170,8 +170,8 @@ func (app *SubresourceAPIApp) MemoryDumpVMRequestHandler(request *restful.Reques
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
-	if !app.clusterConfig.HotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest("Unable to memory dump because HotplugVolumes feature gate is not enabled."), response)
+	if !app.clusterConfig.DeclarativeHotplugVolumesEnabled() && !app.clusterConfig.HotplugVolumesEnabled() {
+		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
 		return
 	}
 

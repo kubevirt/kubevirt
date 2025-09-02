@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -87,7 +87,7 @@ var _ = Describe(SIG("Control Plane Performance Density Testing", func() {
 		vmBatchStartupLimit := 5 * time.Minute
 
 		Context(fmt.Sprintf("[small] create a batch of %d VMIs", vmCount), func() {
-			It("should sucessfully create all VMIS", func() {
+			It("should successfully create all VMIS", func() {
 				By("Creating a batch of VMIs")
 				createBatchVMIWithRateControl(virtClient, vmCount)
 
@@ -98,7 +98,7 @@ var _ = Describe(SIG("Control Plane Performance Density Testing", func() {
 		})
 
 		Context(fmt.Sprintf("[small] create a batch of %d running VMs", vmCount), func() {
-			It("should sucessfully create all VMS", func() {
+			It("should successfully create all VMS", func() {
 				By("Creating a batch of VMs")
 				createBatchRunningVMWithResourcesWithRateControl(virtClient, vmCount)
 
@@ -109,7 +109,7 @@ var _ = Describe(SIG("Control Plane Performance Density Testing", func() {
 		})
 
 		Context(fmt.Sprintf("[small] create a batch of %d running VMs using a single instancetype and preference", vmCount), func() {
-			It("should sucessfully create all VMS with instancetype and preference", func() {
+			It("should successfully create all VMS with instancetype and preference", func() {
 				By("Creating an instancetype and preference for the test")
 				instancetype := createInstancetype(virtClient)
 				preference := createPreference(virtClient)
@@ -252,10 +252,10 @@ func createVMISpecWithResources() *kvv1.VirtualMachineInstance {
 	vmi := libvmifact.NewCirros(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(kvv1.DefaultPodNetwork()),
-		libvmi.WithResourceMemory(memLimit),
-		libvmi.WithLimitMemory(memLimit),
-		libvmi.WithResourceCPU(cpuLimit),
-		libvmi.WithLimitCPU(cpuLimit),
+		libvmi.WithMemoryRequest(memLimit),
+		libvmi.WithMemoryLimit(memLimit),
+		libvmi.WithCPURequest(cpuLimit),
+		libvmi.WithCPULimit(cpuLimit),
 	)
 	return vmi
 }

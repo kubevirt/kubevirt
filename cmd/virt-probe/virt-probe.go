@@ -33,9 +33,6 @@ import (
 )
 
 func main() {
-	// set new default verbosity, was set to 0 by glog
-	goflag.Set("v", "2")
-
 	socket := pflag.String("socket", cmdclient.SocketOnGuest(), "Socket for connecting to the cmd server")
 	domainName := pflag.String("domainName", "", "Domain Name of the Virtual Machine to connect the agent to. Usually namespace_vmname")
 	command := pflag.String("command", "", "Command to execute on the guest")

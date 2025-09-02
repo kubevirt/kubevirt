@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  */
 
 package nodelabeller
@@ -32,8 +32,9 @@ type hostCPUModel struct {
 
 // HostDomCapabilities represents structure for parsing output of virsh capabilities
 type HostDomCapabilities struct {
-	CPU CPU              `xml:"cpu"`
-	SEV SEVConfiguration `xml:"features>sev"`
+	CPU             CPU                          `xml:"cpu"`
+	SEV             SEVConfiguration             `xml:"features>sev"`
+	SecureExecution SecureExecutionConfiguration `xml:"features>s390-pv"`
 }
 
 // CPU represents slice of cpu modes
@@ -91,4 +92,8 @@ type SEVConfiguration struct {
 	MaxGuests       uint   `xml:"maxGuests"`
 	MaxESGuests     uint   `xml:"maxESGuests"`
 	SupportedES     string `xml:"-"`
+}
+
+type SecureExecutionConfiguration struct {
+	Supported string `xml:"supported,attr"`
 }

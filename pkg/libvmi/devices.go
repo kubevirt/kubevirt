@@ -19,7 +19,11 @@
 
 package libvmi
 
-import v1 "kubevirt.io/api/core/v1"
+import (
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
+)
 
 // WithTablet adds tablet device with given name and bus
 func WithTablet(name string, bus v1.InputBus) Option {
@@ -37,5 +41,84 @@ func WithTablet(name string, bus v1.InputBus) Option {
 func WithAutoattachGraphicsDevice(enable bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &enable
+	}
+}
+
+// WithRng adds `rng` to the vmi devices.
+func WithRng() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+	}
+}
+
+// WithWatchdog adds a watchdog to the vmi devices.
+func WithWatchdog(action v1.WatchdogAction, arch string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		watchdog := &v1.Watchdog{
+			Name: "watchdog",
+		}
+		if arch == "s390x" {
+			watchdog.WatchdogDevice.Diag288 = &v1.Diag288Watchdog{Action: action}
+		} else {
+			watchdog.WatchdogDevice.I6300ESB = &v1.I6300ESBWatchdog{Action: action}
+		}
+
+		vmi.Spec.Domain.Devices.Watchdog = watchdog
+	}
+}
+
+func WithDownwardMetricsVolume(volumeName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: volumeName,
+			VolumeSource: v1.VolumeSource{
+				DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
+			},
+		})
+
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: volumeName,
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusVirtio,
+				},
+			},
+		})
+	}
+}
+
+func WithDownwardMetricsChannel() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.DownwardMetrics = &v1.DownwardMetrics{}
+	}
+}
+
+func WithoutSerialConsole() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		enabled := false
+		vmi.Spec.Domain.Devices.AutoattachSerialConsole = &enabled
+	}
+}
+
+func WithTPM(persistent bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
+			Persistent: pointer.P(persistent),
+		}
+	}
+}
+
+func WithVideo(videoType string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Video = &v1.VideoDevice{
+			Type: videoType,
+		}
+	}
+}
+
+// WithPanicDevice adds a panic device with the given model
+func WithPanicDevice(model v1.PanicDeviceModel) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.PanicDevices = append(vmi.Spec.Domain.Devices.PanicDevices, v1.PanicDevice{Model: &model})
 	}
 }

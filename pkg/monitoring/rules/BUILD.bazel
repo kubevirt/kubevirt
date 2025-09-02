@@ -8,8 +8,8 @@ go_library(
     deps = [
         "//pkg/monitoring/rules/alerts:go_default_library",
         "//pkg/monitoring/rules/recordingrules:go_default_library",
-        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatorrules:go_default_library",
         "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatorrules:go_default_library",
     ],
 )
 
@@ -21,8 +21,8 @@ go_test(
     ],
     deps = [
         ":go_default_library",
-        "//vendor/github.com/machadovilaca/operator-observability/pkg/testutil:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/testutil:go_default_library",
     ],
 )

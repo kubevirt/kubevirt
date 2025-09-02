@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -42,8 +42,6 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const startupTimeout = 60
-
 var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", func() {
 
 	expectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
@@ -58,7 +56,7 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 		Context("with a serial console", func() {
 			It("[test_id:1588]should return OS login", func() {
 				vmi := libvmifact.NewCirros()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 				expectConsoleOutput(
 					vmi,
 					"login as 'cirros' user",
@@ -66,7 +64,7 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 			})
 			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
 				vmi := libvmifact.NewAlpine()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 
 				for i := 0; i < 5; i++ {
 					expectConsoleOutput(vmi, "login")
@@ -74,7 +72,7 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 			})
 
 			It("[test_id:1591]should close console connection when new console connection is opened", decorators.Conformance, func() {
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
+				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsSmall)
 				expectConsoleOutput(vmi, "login")
 
 				By("opening 1st console connection")
@@ -130,7 +128,7 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 		Context("without a serial console", func() {
 			It("[test_id:4118]should run but not be connectable via the serial console", decorators.Conformance, func() {
 				vmi := libvmifact.NewAlpine(libvmi.WithoutSerialConsole())
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 
 				By("failing to connect to serial console")
 				_, err := kubevirt.Client().VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kvcorev1.SerialConsoleOptions{})

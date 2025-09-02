@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
@@ -35,52 +36,10 @@ const (
 	preserveFlag                      = "preserve"
 )
 
-func NewCommand() *cobra.Command {
-	c := &SCP{
-		options: ssh.DefaultSSHOptions(),
-	}
-	c.options.LocalClientName = "scp"
-
-	cmd := &cobra.Command{
-		Use:     "scp (VM|VMI)",
-		Short:   "SCP files from/to a virtual machine instance.",
-		Example: usage(),
-		Args:    cobra.ExactArgs(2),
-		RunE:    c.Run,
-	}
-
-	ssh.AddCommandlineArgs(cmd.Flags(), &c.options)
-	cmd.Flags().BoolVarP(&c.recursive, recursiveFlag, recursiveFlagShort, c.recursive,
-		"Recursively copy entire directories")
-	cmd.Flags().BoolVar(&c.preserve, preserveFlag, c.preserve,
-		"Preserves modification times, access times, and modes from the original file.")
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
-}
-
-type SCP struct {
-	options   ssh.SSHOptions
+type scp struct {
+	options   *ssh.SSHOptions
 	recursive bool
 	preserve  bool
-}
-
-func (o *SCP) Run(cmd *cobra.Command, args []string) error {
-	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
-	if err != nil {
-		return err
-	}
-
-	local, remote, toRemote, err := PrepareCommand(cmd, namespace, &o.options, args)
-	if err != nil {
-		return err
-	}
-
-	if o.options.WrapLocalSSH {
-		clientArgs := o.buildSCPTarget(local, remote, toRemote)
-		return ssh.RunLocalClient(remote.Kind, remote.Namespace, remote.Name, &o.options, clientArgs)
-	}
-
-	return o.nativeSCP(local, remote, toRemote, client)
 }
 
 type LocalArgument struct {
@@ -95,7 +54,86 @@ type RemoteArgument struct {
 	Path      string
 }
 
-func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHOptions, args []string) (*LocalArgument, *RemoteArgument, bool, error) {
+func NewSCP(opts *ssh.SSHOptions, recursive, preserve bool) *scp {
+	return &scp{
+		options:   opts,
+		recursive: recursive,
+		preserve:  preserve,
+	}
+}
+
+func NewCommand() *cobra.Command {
+	log.InitializeLogging("scp")
+	c := NewSCP(ssh.DefaultSSHOptions(), false, false)
+
+	const argCount = 2
+	cmd := &cobra.Command{
+		Use:     "scp (VM|VMI)",
+		Short:   "SCP files from/to a virtual machine instance.",
+		Example: usage(),
+		Args:    cobra.ExactArgs(argCount),
+		RunE:    c.run,
+	}
+
+	ssh.AddCommandlineArgs(cmd.Flags(), c.options)
+	cmd.Flags().BoolVarP(&c.recursive, recursiveFlag, recursiveFlagShort, c.recursive,
+		"Recursively copy entire directories")
+	cmd.Flags().BoolVar(&c.preserve, preserveFlag, c.preserve,
+		"Preserves modification times, access times, and modes from the original file.")
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
+}
+
+func (o *scp) run(cmd *cobra.Command, args []string) error {
+	_, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
+
+	local, remote, toRemote, err := prepareCommand(cmd, namespace, o.options, args)
+	if err != nil {
+		return err
+	}
+
+	clientArgs := o.BuildSCPTarget(local, remote, toRemote)
+	return ssh.LocalClientCmd("scp", remote.Kind, remote.Namespace, remote.Name, o.options, clientArgs).Run()
+}
+
+func (o *scp) BuildSCPTarget(local *LocalArgument, remote *RemoteArgument, toRemote bool) []string {
+	target := strings.Builder{}
+	if o.options.SSHUsername != "" {
+		target.WriteString(o.options.SSHUsername)
+		target.WriteRune('@')
+	}
+	target.WriteString(remote.Kind)
+	target.WriteRune('.')
+	target.WriteString(remote.Name)
+	target.WriteRune('.')
+	target.WriteString(remote.Namespace)
+	target.WriteRune(':')
+	target.WriteString(remote.Path)
+
+	var opts []string
+	if o.recursive {
+		opts = append(opts, "-r")
+	}
+	if o.preserve {
+		opts = append(opts, "-p")
+	}
+	if toRemote {
+		opts = append(opts, local.Path, target.String())
+	} else {
+		opts = append(opts, target.String(), local.Path)
+	}
+	return opts
+}
+
+func prepareCommand(
+	cmd *cobra.Command,
+	fallbackNamespace string,
+	opts *ssh.SSHOptions,
+	args []string,
+) (*LocalArgument, *RemoteArgument, bool, error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(ssh.IdentityFilePathFlag)
 
 	local, remote, toRemote, err := ParseTarget(args[0], args[1])
@@ -103,11 +141,11 @@ func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHO
 		return nil, nil, false, err
 	}
 
-	if len(remote.Namespace) < 1 {
+	if remote.Namespace == "" {
 		remote.Namespace = fallbackNamespace
 	}
 
-	if len(remote.Username) > 0 {
+	if remote.Username != "" {
 		opts.SSHUsername = remote.Username
 	}
 
@@ -146,14 +184,15 @@ func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, b
 		)
 	}
 
-	var toRemote bool
+	toRemote := false
 	if strings.Contains(destination, ":") {
 		source, destination = destination, source
 		toRemote = true
 	}
 
-	split := strings.SplitN(source, ":", 2)
-	if len(split) != 2 {
+	const partsCount = 2
+	split := strings.SplitN(source, ":", partsCount)
+	if len(split) != partsCount {
 		return nil, nil, toRemote, fmt.Errorf("invalid remote argument format: %q", source)
 	}
 
@@ -165,7 +204,6 @@ func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, b
 	}
 	var err error
 	remote.Kind, remote.Namespace, remote.Name, remote.Username, err = ssh.ParseTarget(split[0])
-
 	if err != nil {
 		return nil, nil, false, err
 	}

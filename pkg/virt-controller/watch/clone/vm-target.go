@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -48,6 +48,8 @@ func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clone.VirtualMachi
 		return nil, err
 	}
 
+	patches = append(patches, cloneSpec.Patches...)
+
 	log.Log.V(defaultVerbosityLevel).Object(source).Infof("patches generated for vm %s clone: %v", source.Name, patches)
 	return patches, nil
 }
@@ -61,6 +63,7 @@ func generateStringPatchOperations(set *patch.PatchSet) ([]string, error) {
 		}
 		patches = append(patches, string(payloadBytes))
 	}
+
 	return patches, nil
 }
 

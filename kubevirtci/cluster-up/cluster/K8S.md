@@ -51,10 +51,19 @@ export KUBEVIRT_CGROUPV2=true
 make cluster-up
 ```
 
+In order to bring up the cluster with v1, please ensure it's set to false: `export KUBEVIRT_CGROUPV2=false`. 
+
 ## Use slim provider (without pre-pulled images of the optional components such as CDI, CNAO etc)
 
 ```bash
 export KUBEVIRT_SLIM=true
+make cluster-up
+```
+
+## Start only if nested virtualization is enabled
+
+```bash
+export KUBEVIRT_NESTED_VIRTUALIZATION_REQUIRED=true
 make cluster-up
 ```
 

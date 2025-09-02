@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -32,7 +32,8 @@ type DomainIdentifier interface {
 	GetUUIDString() (string, error)
 }
 
-func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, inDomInfo *libvirt.DomainInfo, devAliasMap map[string]string, inJobInfo *stats.DomainJobInfo, out *stats.DomainStats) error {
+func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat,
+	inDomInfo *libvirt.DomainInfo, devAliasMap map[string]string, inJobInfo *stats.DomainJobInfo, dirtyRate *libvirt.DomainStatsDirtyRate, out *stats.DomainStats) error {
 	name, err := ident.GetName()
 	if err != nil {
 		return err
@@ -54,6 +55,7 @@ func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in
 	out.Vcpu = Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in.Vcpu)
 	out.Net = Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in.Net, devAliasMap)
 	out.Block = Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in.Block, devAliasMap)
+	out.DirtyRate = Convert_libvirt_DomainStatsDirtyRate_To_stats_DomainStatsDirtyRate(dirtyRate)
 	out.MigrateDomainJobInfo = inJobInfo
 
 	return nil
@@ -231,5 +233,22 @@ func Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(info *libvirt.DomainJo
 		DataRemaining:    info.DataRemaining,
 		MemDirtyRateSet:  info.MemDirtyRateSet && info.MemPageSizeSet,
 		MemDirtyRate:     info.MemDirtyRate * info.MemPageSize,
+	}
+}
+
+func Convert_libvirt_DomainStatsDirtyRate_To_stats_DomainStatsDirtyRate(in *libvirt.DomainStatsDirtyRate) *stats.DomainStatsDirtyRate {
+	if in == nil {
+		return &stats.DomainStatsDirtyRate{}
+	}
+
+	return &stats.DomainStatsDirtyRate{
+		CalcStatusSet:         in.CalcStatusSet,
+		CalcStatus:            in.CalcStatus,
+		CalcStartTimeSet:      in.CalcStartTimeSet,
+		CalcStartTime:         in.CalcStartTime,
+		CalcPeriodSet:         in.CalcPeriodSet,
+		CalcPeriod:            in.CalcPeriod,
+		MegabytesPerSecondSet: in.MegabytesPerSecondSet,
+		MegabytesPerSecond:    in.MegabytesPerSecond,
 	}
 }

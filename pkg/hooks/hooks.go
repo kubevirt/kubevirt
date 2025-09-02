@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -29,6 +29,8 @@ import (
 
 const HookSidecarListAnnotationName = "hooks.kubevirt.io/hookSidecars"
 const HookSocketsSharedDirectory = "/var/run/kubevirt-hooks"
+
+const ContainerNameEnvVar = "CONTAINER_NAME"
 
 type HookSidecarList []HookSidecar
 

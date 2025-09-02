@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -22,6 +22,7 @@ package cache
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -133,7 +134,7 @@ func (store *GhostRecordStore) findBySocket(socketFile string) (ghostRecord, boo
 	defer store.Unlock()
 
 	for _, record := range store.cache {
-		if record.SocketFile == socketFile {
+		if filepath.Clean(record.SocketFile) == socketFile {
 			return record, true
 		}
 	}
@@ -188,7 +189,7 @@ func (store *GhostRecordStore) Add(namespace string, name string, socketFile str
 		return fmt.Errorf("can not add ghost record when entry already exists with differing UID")
 	}
 
-	if ok && record.SocketFile != socketFile {
+	if ok && filepath.Clean(record.SocketFile) != socketFile {
 		return fmt.Errorf("can not add ghost record when entry already exists with differing socket file location")
 	}
 

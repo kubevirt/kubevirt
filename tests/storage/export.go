@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -218,6 +218,10 @@ var _ = Describe(SIG("Export", func() {
 			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
 		}
 		pod.Spec.SecurityContext.FSGroup = &qemuGid
+		// Drop this when we stop testing "local"
+		// The in tree driver for local PVs skips chown/chmod if two pods using the volume overlap
+		// https://github.com/kubernetes/kubernetes/blob/0d9dccfc6bc22f2370650cf5b8ad99cbba74ea23/pkg/volume/local/local.go#L611
+		pod.Spec.SecurityContext.RunAsUser = &qemuGid
 
 		volumeMode := pvc.Spec.VolumeMode
 		if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
@@ -290,13 +294,14 @@ var _ = Describe(SIG("Export", func() {
 		Eventually(func() error {
 			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
-		}, 60*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
+		}, 60*time.Second, 1*time.Second).Should(Succeed(), "persistent volume associated with DV should be created")
 
 		By("Making sure the DV is successful")
 		libstorage.EventuallyDV(dv, 90, HaveSucceeded())
 
 		pod, err := createSourcePodChecker(pvc)
 		Expect(err).ToNot(HaveOccurred())
+		Eventually(ThisPod(pod), 30*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
 
 		fileName := filepath.Join(dataPath, diskImage)
 		if volumeMode == k8sv1.PersistentVolumeBlock {
@@ -306,7 +311,11 @@ var _ = Describe(SIG("Export", func() {
 		Eventually(func() error {
 			out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, md5Command(fileName))
 			return err
-		}, 15*time.Second, 1*time.Second).Should(BeNil(), "md5sum command should succeed; out: %s stderr: %s", out, stderr)
+		}, 15*time.Second, 1*time.Second).Should(Succeed(), func() string {
+			permissionsCmd := []string{"ls", "-laZ", fileName}
+			lsout, lserr, _ := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, permissionsCmd)
+			return fmt.Sprintf("md5sum command should succeed; out: %s stderr: %s\npermissions ATM lsout: %s lserr: %s", out, stderr, lsout, lserr)
+		})
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
 
@@ -399,7 +408,7 @@ var _ = Describe(SIG("Export", func() {
 		Eventually(func() error {
 			pod, err = virtClient.CoreV1().Pods(vmExport.Namespace).Get(context.TODO(), fmt.Sprintf("virt-export-%s", vmExport.Name), metav1.GetOptions{})
 			return err
-		}, 30*time.Second, 1*time.Second).Should(BeNil(), "unable to find pod %s", fmt.Sprintf("virt-export-%s", vmExport.Name))
+		}, 30*time.Second, 1*time.Second).Should(Succeed(), "unable to find pod %s", fmt.Sprintf("virt-export-%s", vmExport.Name))
 		return pod
 	}
 
@@ -409,7 +418,7 @@ var _ = Describe(SIG("Export", func() {
 		Eventually(func() error {
 			service, err = virtClient.CoreV1().Services(vmExport.Namespace).Get(context.TODO(), fmt.Sprintf("virt-export-%s", vmExport.Name), metav1.GetOptions{})
 			return err
-		}, 30*time.Second, 1*time.Second).Should(BeNil(), "unable to find service %s", fmt.Sprintf("virt-export-%s", vmExport.Name))
+		}, 30*time.Second, 1*time.Second).Should(Succeed(), "unable to find service %s", fmt.Sprintf("virt-export-%s", vmExport.Name))
 		return service
 	}
 
@@ -614,7 +623,7 @@ var _ = Describe(SIG("Export", func() {
 			}
 			pvc = backendPVC.Items[0]
 			return nil
-		}, 15*time.Second, 1*time.Second).Should(BeNil(), "Backend PVC should be created")
+		}, 15*time.Second, 1*time.Second).Should(Succeed(), "Backend PVC should be created")
 
 		// Stop the VM and prepare the source for export
 		Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
@@ -927,7 +936,7 @@ var _ = Describe(SIG("Export", func() {
 		Eventually(func() error {
 			_, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
-		}, 60*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
+		}, 60*time.Second, 1*time.Second).Should(Succeed(), "persistent volume associated with DV should be created")
 
 		By("Making sure the DV is successful")
 		libstorage.EventuallyDV(dv, 90, HaveSucceeded())
@@ -938,7 +947,7 @@ var _ = Describe(SIG("Export", func() {
 		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
 	})
 
-	It("should be possibe to observe exportserver pod exiting", func() {
+	It("should be possible to observe exportserver pod exiting", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
 			Fail("Fail test when Filesystem storage is not present")
@@ -1596,7 +1605,7 @@ var _ = Describe(SIG("Export", func() {
 			Eventually(func() error {
 				lr, err = virtClient.CoreV1().LimitRanges(namespace).Get(context.Background(), lr.Name, metav1.GetOptions{})
 				return err
-			}, 30*time.Second, 1*time.Second).Should(BeNil())
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
 		}
 
 		removeLimitRangeFromNamespace := func() {

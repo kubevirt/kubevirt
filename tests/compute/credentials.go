@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -49,7 +49,7 @@ import (
 var _ = Describe(SIG("Guest Access Credentials", func() {
 
 	const (
-		fedoraRunningTimeout     = 120
+		fedoraRunningTimeout     = libvmops.StartupTimeoutSecondsLarge
 		guestAgentConnectTimeout = 2 * time.Minute
 		denyListTimeout          = 2 * time.Minute
 		fedoraPassword           = "fedora"

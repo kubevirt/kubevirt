@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2019 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -21,6 +21,7 @@ package tls
 
 import (
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -40,6 +41,11 @@ type ClientCAManager interface {
 	GetCurrentRaw() ([]byte, error)
 }
 
+type KubernetesCAManager interface {
+	ClientCAManager
+	GetCNs() ([]string, error)
+}
+
 type manager struct {
 	store        cache.Store
 	lock         *sync.Mutex
@@ -52,14 +58,61 @@ type manager struct {
 	lastRaw  []byte
 }
 
-func NewKubernetesClientCAManager(configMapCache cache.Store) ClientCAManager {
-	return &manager{
-		store:        configMapCache,
-		lock:         &sync.Mutex{},
-		namespace:    metav1.NamespaceSystem,
-		name:         util.ExtensionAPIServerAuthenticationConfigMap,
-		secretKey:    util.RequestHeaderClientCAFileKey,
-		lastRevision: "-1",
+type kubeManager struct {
+	manager
+	lastCNs        []string
+	lastCNRevision string
+}
+
+func (m *kubeManager) GetCNs() ([]string, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	obj, exists, err := m.store.GetByKey(m.namespace + "/" + m.name)
+
+	if err != nil {
+		return nil, err
+	} else if !exists {
+		if m.lastPool != nil {
+			return m.lastCNs, nil
+		}
+
+		return nil, fmt.Errorf("configmap %s not found. Unable to detect request header CA", m.name)
+	}
+
+	configMap := obj.(*k8sv1.ConfigMap)
+
+	// no change detected.
+	if m.lastCNRevision == configMap.ResourceVersion {
+		return m.lastCNs, nil
+	}
+
+	CNstring, ok := configMap.Data["requestheader-allowed-names"]
+	if !ok {
+		return nil, fmt.Errorf("requestheader-allowed-names not found in configmap %s/%s", m.namespace, m.name)
+	}
+	CNs := []string{}
+	if CNstring != "" {
+		err = json.Unmarshal([]byte(CNstring), &CNs)
+		if err != nil {
+			return CNs, err
+		}
+	}
+
+	m.lastCNs = CNs
+	m.lastCNRevision = configMap.ResourceVersion
+	return CNs, nil
+}
+
+func NewKubernetesClientCAManager(configMapCache cache.Store) *kubeManager {
+	return &kubeManager{
+		manager: manager{
+			store:        configMapCache,
+			lock:         &sync.Mutex{},
+			namespace:    metav1.NamespaceSystem,
+			name:         util.ExtensionAPIServerAuthenticationConfigMap,
+			secretKey:    util.RequestHeaderClientCAFileKey,
+			lastRevision: "-1",
+		},
 	}
 }
 

@@ -49,6 +49,14 @@ const (
 	DiskErrorPolicyEnospace DiskErrorPolicy = "enospace"
 )
 
+type PanicDeviceModel string
+
+const (
+	Hyperv  PanicDeviceModel = "hyperv"
+	Isa     PanicDeviceModel = "isa"
+	Pvpanic PanicDeviceModel = "pvpanic"
+)
+
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
@@ -361,7 +369,7 @@ type NUMAGuestMappingPassthrough struct {
 type NUMA struct {
 	// GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod.
 	// The created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.
-	// +opitonal
+	// +optional
 	GuestMappingPassthrough *NUMAGuestMappingPassthrough `json:"guestMappingPassthrough,omitempty"`
 }
 
@@ -440,6 +448,9 @@ type ACPI struct {
 	// be a binary blob that follows the ACPI SLIC standard, see:
 	// https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)
 	SlicNameRef string `json:"slicNameRef,omitempty"`
+	// Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.
+	// The above points to the spec of MSDM too.
+	MsdmNameRef string `json:"msdmNameRef,omitempty"`
 }
 
 type Devices struct {
@@ -501,6 +512,10 @@ type Devices struct {
 	// DownwardMetrics creates a virtio serials for exposing the downward metrics to the vmi.
 	// +optional
 	DownwardMetrics *DownwardMetrics `json:"downwardMetrics,omitempty"`
+	// PanicDevices provides additional crash information when a guest crashes.
+	// +optional
+	// +listtype=atomic
+	PanicDevices []PanicDevice `json:"panicDevices,omitempty"`
 	// Filesystems describes filesystem which is connected to the vmi.
 	// +optional
 	// +listType=atomic
@@ -518,6 +533,9 @@ type Devices struct {
 	// Whether to emulate a TPM device.
 	// +optional
 	TPM *TPMDevice `json:"tpm,omitempty"`
+	// Video describes the video device configuration for the vmi.
+	// +optional
+	Video *VideoDevice `json:"video,omitempty"`
 }
 
 // Represent a subset of client devices that can be accessed by VMI. At the
@@ -547,12 +565,19 @@ type SoundDevice struct {
 }
 
 type TPMDevice struct {
-	// Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+	// Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
 	// Defaults to True
 	Enabled *bool `json:"enabled,omitempty"`
 	// Persistent indicates the state of the TPM device should be kept accross reboots
 	// Defaults to false
 	Persistent *bool `json:"persistent,omitempty"`
+}
+
+type VideoDevice struct {
+	// Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+	// If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+	// +optional
+	Type string `json:"type,omitempty"`
 }
 
 type InputBus string
@@ -593,12 +618,29 @@ type DownwardMetrics struct{}
 
 type GPU struct {
 	// Name of the GPU device as exposed by a device plugin
-	Name              string       `json:"name"`
-	DeviceName        string       `json:"deviceName"`
+	Name string `json:"name"`
+	// DeviceName is the name of the device provisioned by device-plugins
+	DeviceName string `json:"deviceName,omitempty"`
+	// ClaimRequest provides the ClaimName from vmi.spec.resourceClaims[].name and
+	// requestName from resourceClaim.spec.devices.requests[].name
+	// This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+	// This feature is in alpha.
+	*ClaimRequest     `json:",inline"`
 	VirtualGPUOptions *VGPUOptions `json:"virtualGPUOptions,omitempty"`
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
 	Tag string `json:"tag,omitempty"`
+}
+
+type ClaimRequest struct {
+	// ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
+	// device is allocated
+	// +optional
+	ClaimName *string `json:"claimName,omitempty"`
+	// RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
+	// device is requested
+	// +optional
+	RequestName *string `json:"requestName,omitempty"`
 }
 
 type VGPUOptions struct {
@@ -616,10 +658,24 @@ type VGPUDisplayOptions struct {
 	RamFB *FeatureState `json:"ramFB,omitempty"`
 }
 
+type PanicDevice struct {
+	// Model specifies what type of panic device is provided.
+	// The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+	// One of: isa, hyperv, pvpanic.
+	// +optional
+	Model *PanicDeviceModel `json:"model,omitempty"`
+}
+
 type HostDevice struct {
 	Name string `json:"name"`
-	// DeviceName is the resource name of the host device exposed by a device plugin
-	DeviceName string `json:"deviceName"`
+	// DeviceName is the name of the device provisioned by device-plugins
+	DeviceName string `json:"deviceName,omitempty"`
+	// ClaimRequest provides the ClaimName from vmi.spec.resourceClaims[].name and
+	// requestName from resourceClaim.spec.devices.requests[].name
+	// this fields requires DRA feature gate enabled
+	// This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+	// This feature is in alpha.
+	*ClaimRequest `json:",inline"`
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
 	Tag string `json:"tag,omitempty"`
@@ -646,7 +702,11 @@ type Disk struct {
 	// +optional
 	DedicatedIOThread *bool `json:"dedicatedIOThread,omitempty"`
 	// Cache specifies which kvm disk cache mode should be used.
-	// Supported values are: CacheNone, CacheWriteThrough.
+	// Supported values are:
+	// none: Guest I/O not cached on the host, but may be kept in a disk cache.
+	// writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
+	// writeback: Guest I/O cached on the host.
+	// Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
 	// IO specifies which QEMU disk IO mode should be used.
@@ -722,7 +782,7 @@ type SEV struct {
 	// Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.
 	Policy *SEVPolicy `json:"policy,omitempty"`
 	// If specified, run the attestation process for a vmi.
-	// +opitonal
+	// +optional
 	Attestation *SEVAttestation `json:"attestation,omitempty"`
 	// Base64 encoded session blob.
 	Session string `json:"session,omitempty"`
@@ -1233,10 +1293,21 @@ type WatchdogDevice struct {
 	// i6300esb watchdog device.
 	// +optional
 	I6300ESB *I6300ESBWatchdog `json:"i6300esb,omitempty"`
+
+	// diag288 watchdog device (specific to s390x architecture).
+	// +optional
+	Diag288 *Diag288Watchdog `json:"diag288,omitempty"`
 }
 
 // i6300esb watchdog device.
 type I6300ESBWatchdog struct {
+	// The action to take. Valid values are poweroff, reset, shutdown.
+	// Defaults to reset.
+	Action WatchdogAction `json:"action,omitempty"`
+}
+
+// diag288 watchdog device.
+type Diag288Watchdog struct {
 	// The action to take. Valid values are poweroff, reset, shutdown.
 	// Defaults to reset.
 	Action WatchdogAction `json:"action,omitempty"`

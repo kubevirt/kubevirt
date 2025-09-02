@@ -13,7 +13,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 *
-* Copyright 2022 Red Hat, Inc.
+* Copyright The KubeVirt Authors.
 *
  */
 
@@ -30,7 +30,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubevirt/fake"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,6 +44,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -414,6 +415,26 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		Entry("valid mac address", "00:00:00:00:00:00", true),
 		Entry("invalid mac address", "00:00:00:00:00", false),
 	)
+
+	Context("Custom patches", func() {
+		It("Should accept valid JSON patches", func() {
+			validPatch := patch.New(patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "DE-AD-00-FF-FF-FF"))
+
+			var err error
+			vmClone.Spec.Patches, err = validPatch.ToSlice()
+			Expect(err).NotTo(HaveOccurred())
+
+			admitter.admitAndExpect(vmClone, true)
+		})
+
+		It("Should reject invalid JSON patches", func() {
+			vmClone.Spec.Patches = []string{ // Missing comma after "replace"
+				`{"op": "replace" "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "DE-AD-00-FF-FF-FF"}`,
+			}
+
+			admitter.admitAndExpect(vmClone, false)
+		})
+	})
 
 })
 

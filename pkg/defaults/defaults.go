@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -117,7 +117,12 @@ func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, v
 	setDefaultCPUArch(clusterConfig, &vmi.Spec)
 	setGuestMemoryStatus(vmi)
 	setCurrentCPUTopologyStatus(vmi)
-	setupHotplug(clusterConfig, vmi)
+
+	// Hotplug needs to be enabled on ARM yet
+	if !IsARM64(&vmi.Spec) {
+		setupHotplug(clusterConfig, vmi)
+	}
+
 	return nil
 }
 
@@ -139,7 +144,16 @@ func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMac
 	}
 
 	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		// Each machine type will have different maximum for vcpus,
+		// lets choose 512 as upper bound
+		const maxVCPUs = 512
+
 		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * clusterConfig.GetMaxHotplugRatio()
+		totalVCPUs := vmi.Spec.Domain.CPU.MaxSockets * vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads
+		if totalVCPUs > maxVCPUs {
+			adjustedSockets := maxVCPUs / (vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads)
+			vmi.Spec.Domain.CPU.MaxSockets = max(adjustedSockets, vmi.Spec.Domain.CPU.Sockets)
+		}
 	}
 }
 

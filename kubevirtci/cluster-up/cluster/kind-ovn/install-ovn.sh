@@ -17,7 +17,7 @@
 # Copyright 2024 Red Hat, Inc.
 #
 
-export OVNK_COMMIT=c77ee8c38c6a6d9e55131a1272db5fad5b606e44
+export OVNK_COMMIT=5b4cd1e52958dd47a6880accac2e2aa2a33d4ffc
 
 OVNK_REPO='https://github.com/ovn-org/ovn-kubernetes.git'
 CLUSTER_PATH=${CLUSTER_PATH:-"${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/_ovnk"}

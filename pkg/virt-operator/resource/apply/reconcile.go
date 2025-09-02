@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2019 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -55,13 +55,6 @@ import (
 
 const Duration7d = time.Hour * 24 * 7
 const Duration1d = time.Hour * 24
-
-type DefaultInfraComponentsNodePlacement int
-
-const (
-	AnyNode DefaultInfraComponentsNodePlacement = iota
-	RequireControlPlanePreferNonWorker
-)
 
 func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry, id string, generation int64) bool {
 	if objectMeta.Annotations == nil {
@@ -116,175 +109,6 @@ func GetAppComponent(kv *v1.KubeVirt) string {
 		return kv.Spec.ProductComponent
 	}
 	return v1.AppComponent
-}
-
-const (
-	kubernetesOSLabel = corev1.LabelOSStable
-	kubernetesOSLinux = "linux"
-)
-
-// Merge all Tolerations, Affinity and NodeSelectos from NodePlacement into pod spec
-func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec, nodePlacementOption DefaultInfraComponentsNodePlacement) {
-	if podSpec == nil {
-		podSpec = &corev1.PodSpec{}
-	}
-
-	if componentConfig == nil || componentConfig.NodePlacement == nil {
-		switch nodePlacementOption {
-		case AnyNode:
-			componentConfig = &v1.ComponentConfig{NodePlacement: &v1.NodePlacement{}}
-
-		case RequireControlPlanePreferNonWorker:
-			componentConfig = &v1.ComponentConfig{
-				NodePlacement: &v1.NodePlacement{
-					Affinity: &corev1.Affinity{
-						NodeAffinity: &corev1.NodeAffinity{
-							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-								NodeSelectorTerms: []corev1.NodeSelectorTerm{
-									{
-										MatchExpressions: []corev1.NodeSelectorRequirement{
-											{
-												Key:      "node-role.kubernetes.io/control-plane",
-												Operator: corev1.NodeSelectorOpExists,
-											},
-										},
-									},
-									{
-										MatchExpressions: []corev1.NodeSelectorRequirement{
-											{
-												Key:      "node-role.kubernetes.io/master",
-												Operator: corev1.NodeSelectorOpExists,
-											},
-										},
-									},
-								},
-							},
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-								{
-									Weight: 100,
-									Preference: corev1.NodeSelectorTerm{
-										MatchExpressions: []corev1.NodeSelectorRequirement{
-											{
-												Key:      "node-role.kubernetes.io/worker",
-												Operator: corev1.NodeSelectorOpDoesNotExist,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					Tolerations: []corev1.Toleration{
-						{
-							Key:      "node-role.kubernetes.io/control-plane",
-							Operator: corev1.TolerationOpExists,
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-						{
-							Key:      "node-role.kubernetes.io/master",
-							Operator: corev1.TolerationOpExists,
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-					},
-				},
-			}
-
-		default:
-			log.Log.Errorf("Unknown nodePlacementOption %d provided to InjectPlacementMetadata. Falling back to the AnyNode option", nodePlacementOption)
-			componentConfig = &v1.ComponentConfig{NodePlacement: &v1.NodePlacement{}}
-		}
-	}
-
-	nodePlacement := componentConfig.NodePlacement
-	if len(nodePlacement.NodeSelector) == 0 {
-		nodePlacement.NodeSelector = make(map[string]string)
-	}
-	if _, ok := nodePlacement.NodeSelector[kubernetesOSLabel]; !ok {
-		nodePlacement.NodeSelector[kubernetesOSLabel] = kubernetesOSLinux
-	}
-	if len(podSpec.NodeSelector) == 0 {
-		podSpec.NodeSelector = make(map[string]string, len(nodePlacement.NodeSelector))
-	}
-	// podSpec.NodeSelector
-	for nsKey, nsVal := range nodePlacement.NodeSelector {
-		// Favor podSpec over NodePlacement. This prevents cluster admin from clobbering
-		// node selectors that KubeVirt intentionally set.
-		if _, ok := podSpec.NodeSelector[nsKey]; !ok {
-			podSpec.NodeSelector[nsKey] = nsVal
-		}
-	}
-
-	// podSpec.Affinity
-	if nodePlacement.Affinity != nil {
-		if podSpec.Affinity == nil {
-			podSpec.Affinity = nodePlacement.Affinity.DeepCopy()
-		} else {
-			// podSpec.Affinity.NodeAffinity
-			if nodePlacement.Affinity.NodeAffinity != nil {
-				if podSpec.Affinity.NodeAffinity == nil {
-					podSpec.Affinity.NodeAffinity = nodePlacement.Affinity.NodeAffinity.DeepCopy()
-				} else {
-					// need to copy all affinity terms one by one
-					if nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
-						if podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
-							podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
-						} else {
-							// merge the list of terms from NodePlacement into podSpec
-							for _, term := range nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
-								podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, term)
-							}
-						}
-					}
-
-					//PreferredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
-					}
-
-				}
-			}
-			// podSpec.Affinity.PodAffinity
-			if nodePlacement.Affinity.PodAffinity != nil {
-				if podSpec.Affinity.PodAffinity == nil {
-					podSpec.Affinity.PodAffinity = nodePlacement.Affinity.PodAffinity.DeepCopy()
-				} else {
-					//RequiredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
-					}
-					//PreferredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
-					}
-				}
-			}
-			// podSpec.Affinity.PodAntiAffinity
-			if nodePlacement.Affinity.PodAntiAffinity != nil {
-				if podSpec.Affinity.PodAntiAffinity == nil {
-					podSpec.Affinity.PodAntiAffinity = nodePlacement.Affinity.PodAntiAffinity.DeepCopy()
-				} else {
-					//RequiredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
-					}
-					//PreferredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
-					}
-				}
-			}
-		}
-	}
-
-	//podSpec.Tolerations
-	if len(nodePlacement.Tolerations) != 0 {
-		if len(podSpec.Tolerations) == 0 {
-			podSpec.Tolerations = []corev1.Toleration{}
-		}
-		for _, toleration := range nodePlacement.Tolerations {
-			podSpec.Tolerations = append(podSpec.Tolerations, toleration)
-		}
-	}
 }
 
 func createLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta) []patch.PatchOption {
@@ -354,6 +178,18 @@ func haveControllerDeploymentsRolledOver(targetStrategy install.StrategyInterfac
 
 func haveExportProxyDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range targetStrategy.ExportProxyDeployments() {
+		if !util.DeploymentIsReady(kv, deployment, stores) {
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			// not rolled out yet
+			return false
+		}
+	}
+
+	return true
+}
+
+func haveSynchronizationControllerDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
+	for _, deployment := range targetStrategy.SynchronizationControllerDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
 			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
 			// not rolled out yet
@@ -545,12 +381,13 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 
 	exportProxyEnabled := r.exportProxyEnabled()
 	exportProxyDeploymentsRolledOver := !exportProxyEnabled || haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
+	synchronizationControllerEnabled := r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
+	synchronizationControllerDeploymentRolledOver := !synchronizationControllerEnabled || haveSynchronizationControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	daemonSetsRolledOver := haveDaemonSetsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	infrastructureRolledOver := false
-	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver && exportProxyDeploymentsRolledOver && daemonSetsRolledOver {
-
+	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver && exportProxyDeploymentsRolledOver && daemonSetsRolledOver && synchronizationControllerDeploymentRolledOver {
 		// infrastructure has rolled over and is available
 		infrastructureRolledOver = true
 	} else if (targetVersion == observedVersion) && (targetImageRegistry == observedImageRegistry) {
@@ -684,6 +521,9 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 		return false, err
 	}
 
+	if err := r.updateSynchronizationAddress(); err != nil {
+		return false, err
+	}
 	if r.commonInstancetypesDeploymentEnabled() {
 		if err := r.createOrUpdateInstancetypes(); err != nil {
 			return false, err
@@ -742,6 +582,22 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	// create/update ExportProxy Deployments
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
 		if r.exportProxyEnabled() {
+			deployment, err := r.syncDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+			err = r.syncPodDisruptionBudgetForDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+		} else if err := r.deleteDeployment(deployment); err != nil {
+			return false, err
+		}
+	}
+
+	// create/update Synchronization controller Deployments
+	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
+		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
 				return false, err

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -345,6 +345,38 @@ var _ = Describe("netstat", func() {
 					LinkState:     linkStateUp,
 				},
 			}), "the pod IP/s should be reported in the status")
+
+			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
+		})
+
+		It("run status and given interface with IPv4 and no IPv6 on the pod, vice versa from the guest-agent", func() {
+			Expect(
+				setup.addNetworkInterface(
+					newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+					newVMISpecPodNetwork(primaryNetworkName),
+					newDomainSpecIface(primaryNetworkName, primaryMAC),
+					primaryPodIPv4,
+				),
+			).To(Succeed())
+
+			setup.addGuestAgentInterfaces(
+				newDomainStatusIface([]string{primaryGaIPv6}, primaryMAC, primaryIfaceName),
+			)
+
+			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name:          primaryNetworkName,
+					InterfaceName: primaryIfaceName,
+					IP:            primaryGaIPv6,
+					IPs:           []string{primaryGaIPv6},
+					MAC:           primaryMAC,
+					InfoSource:    netvmispec.InfoSourceDomainAndGA,
+					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
+				},
+			}), "the guest-agent IP/s should be reported in the status")
 
 			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
 		})

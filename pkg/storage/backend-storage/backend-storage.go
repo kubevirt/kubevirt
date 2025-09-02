@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -49,6 +49,10 @@ import (
 const (
 	PVCPrefix = "persistent-state-for"
 	PVCSize   = "10Mi"
+
+	// LabelApplyStorageProfile is a label used by the CDI mutating webhook
+	// to modify the PVC according to the storage profile.
+	LabelApplyStorageProfile = "cdi.kubevirt.io/applyStorageProfile"
 )
 
 func basePVC(vmi *corev1.VirtualMachineInstance) string {
@@ -260,8 +264,8 @@ func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name str
 
 func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
 	for _, volume := range vmi.Status.VolumeStatus {
-		if strings.HasPrefix(volume.Name, basePVC(vmi)) {
-			return volume.Name
+		if strings.Contains(volume.Name, basePVC(vmi)) {
+			return volume.PersistentVolumeClaimInfo.ClaimName
 		}
 	}
 
@@ -291,7 +295,7 @@ func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 // It labels the target backend-storage PVC as current for the VM and deletes the source backend-storage PVC.
 func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) error {
 	if migration == nil || migration.Status.MigrationState == nil ||
-		migration.Status.MigrationState.SourcePersistentStatePVCName == "" ||
+		(migration.Status.MigrationState.SourcePersistentStatePVCName == "" && !migration.IsDecentralized()) ||
 		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
 		return fmt.Errorf("missing source and/or target PVC name(s)")
 	}
@@ -336,9 +340,11 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 		}
 	}
 
-	err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete PVC: %v", err)
+	if sourcePVC != "" {
+		err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete PVC: %v", err)
+		}
 	}
 
 	return nil
@@ -499,6 +505,15 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 			*metav1.NewControllerRef(vmi, corev1.VirtualMachineInstanceGroupVersionKind),
 		}
 	}
+
+	// Adding this label to allow the PVC to be processed by the CDI WebhookPvcRendering mutating webhook,
+	// which must be enabled in the CDI CR via feature gate.
+	// This mutating webhook processes the PVC based on its associated StorageProfile.
+	// For example, a profile can define a minimum supported volume size via the annotation:
+	// cdi.kubevirt.io/minimumSupportedPvcSize: 4Gi
+	// This helps avoid issues with provisioners that reject the hardcoded 10Mi PVC size used here.
+	labels[LabelApplyStorageProfile] = "true"
+
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName:    basePVC(vmi) + "-",
@@ -538,10 +553,11 @@ func (bs *BackendStorage) CreatePVCForVMI(vmi *corev1.VirtualMachineInstance) (*
 
 func (bs *BackendStorage) CreatePVCForMigrationTarget(vmi *corev1.VirtualMachineInstance, migrationName string) (*v1.PersistentVolumeClaim, error) {
 	pvc := PVCForVMI(bs.pvcStore, vmi)
-
-	if len(pvc.Status.AccessModes) > 0 && pvc.Status.AccessModes[0] == v1.ReadWriteMany {
-		// The source PVC is RWX, so it can be used for the target too
-		return pvc, nil
+	if pvc != nil {
+		if len(pvc.Status.AccessModes) > 0 && pvc.Status.AccessModes[0] == v1.ReadWriteMany {
+			// The source PVC is RWX, so it can be used for the target too
+			return pvc, nil
+		}
 	}
 
 	return bs.createPVC(vmi, map[string]string{corev1.MigrationNameLabel: migrationName})

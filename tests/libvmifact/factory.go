@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -42,7 +42,7 @@ const (
 // This image has tooling for the guest agent, stress, SR-IOV and more.
 func NewFedora(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	fedoraOptions := []libvmi.Option{
-		libvmi.WithResourceMemory("512Mi"),
+		libvmi.WithMemoryRequest("512Mi"),
 		libvmi.WithRng(),
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
@@ -54,7 +54,7 @@ func NewFedora(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-		libvmi.WithResourceMemory(cirrosMemory()),
+		libvmi.WithMemoryRequest(cirrosMemory()),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
 	vmi := libvmi.New(cirrosOpts...)
@@ -72,7 +72,7 @@ func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
-		libvmi.WithResourceMemory(alpineMemory()),
+		libvmi.WithMemoryRequest(alpineMemory()),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -83,7 +83,7 @@ func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInst
 	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
-		libvmi.WithResourceMemory(alpineMemory()),
+		libvmi.WithMemoryRequest(alpineMemory()),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -99,7 +99,7 @@ func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInst
 
 func NewGuestless(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	opts = append(
-		[]libvmi.Option{libvmi.WithResourceMemory(qemuMinimumMemory())},
+		[]libvmi.Option{libvmi.WithMemoryRequest(qemuMinimumMemory())},
 		opts...)
 	return libvmi.New(opts...)
 }
@@ -127,7 +127,7 @@ func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	windowsOpts := []libvmi.Option{
 		libvmi.WithTerminationGracePeriod(0),
 		libvmi.WithCPUCount(cpuCount, cpuCount, cpuCount),
-		libvmi.WithResourceMemory("2048Mi"),
+		libvmi.WithMemoryRequest("2048Mi"),
 		libvmi.WithEphemeralPersistentVolumeClaim(windowsDiskName, WindowsPVCName),
 	}
 

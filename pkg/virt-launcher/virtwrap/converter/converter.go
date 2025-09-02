@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017, 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
 */
 
@@ -64,7 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
 const (
@@ -375,13 +374,16 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 	mode := v1.DriverCache(disk.Driver.Cache)
 	isBlockDev := false
 
-	if disk.Source.File != "" {
+	switch {
+	case disk.Source.File != "":
 		path = disk.Source.File
-	} else if disk.Source.Dev != "" {
+	case disk.Source.Dev != "":
 		path = disk.Source.Dev
-		isBlockDev = true
-	} else {
-		return fmt.Errorf("Unable to set a driver cache mode, disk is neither a block device nor a file")
+	// handle empty cdrom
+	case disk.Device == "cdrom":
+		return nil
+	default:
+		return fmt.Errorf("unable to set a driver cache mode, disk is neither a block device nor a file")
 	}
 
 	if mode == "" || mode == v1.CacheNone {
@@ -614,6 +616,14 @@ func Convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c 
 		return Convert_v1_Hotplug_DataVolume_To_api_Disk(source.Name, disk, c)
 	}
 	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.GetName())
+}
+
+// Convert_v1_Missing_Volume_To_api_Disk sets defaults when no volume for disk (cdrom, floppy, etc) is provided
+func Convert_v1_Missing_Volume_To_api_Disk(disk *api.Disk) error {
+	disk.Type = "block"
+	disk.Driver.Type = "raw"
+	disk.Driver.Discard = "unmap"
+	return nil
 }
 
 func Convert_v1_Config_To_api_Disk(volumeName string, disk *api.Disk, configType config.Type) error {
@@ -855,16 +865,6 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	return nil
 }
 
-func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watchdog, _ *ConverterContext) error {
-	watchdog.Alias = api.NewUserDefinedAlias(source.Name)
-	if source.I6300ESB != nil {
-		watchdog.Model = "i6300esb"
-		watchdog.Action = string(source.I6300ESB.Action)
-		return nil
-	}
-	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
-}
-
 func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) error {
 
 	// default rng model for KVM/QEMU virtualization
@@ -912,6 +912,16 @@ func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainD
 	}
 	domainDevices.Redirs = redirectDevices
 	return nil
+}
+
+func convertPanicDevices(panicDevices []v1.PanicDevice) []api.PanicDevice {
+	var domainPanicDevices []api.PanicDevice
+
+	for _, panicDevice := range panicDevices {
+		domainPanicDevices = append(domainPanicDevices, api.PanicDevice{Model: panicDevice.Model})
+	}
+
+	return domainPanicDevices
 }
 
 func Convert_v1_Sound_To_api_Sound(vmi *v1.VirtualMachineInstance, domainDevices *api.Devices, _ *ConverterContext) {
@@ -1177,7 +1187,7 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 		},
 	}
 
-	if isEFIVMI(vmi) {
+	if vmi.IsBootloaderEFI() {
 		domain.Spec.OS.BootLoader = &api.Loader{
 			Path:     c.EFIConfiguration.EFICode,
 			ReadOnly: "yes",
@@ -1230,41 +1240,67 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 		domain.Spec.OS.KernelArgs = firmware.KernelBoot.KernelArgs
 	}
 
-	if firmware.ACPI != nil {
-		path, err := getSlicMountedPath(vmi.Spec.Volumes, firmware.ACPI.SlicNameRef)
-		if err != nil {
-			log.Log.Object(vmi).Warningf("Failed to get supported path for Volume: %s", firmware.ACPI.SlicNameRef)
-			return err
-		}
-
-		domain.Spec.OS.ACPI = &api.OSACPI{
-			Table: api.ACPITable{
-				Type: "slic",
-				Path: path,
-			},
-		}
+	if err := Convert_v1_Firmware_ACPI_To_related_apis(firmware, domain, vmi.Spec.Volumes); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func getSlicMountedPath(volumes []v1.Volume, name string) (string, error) {
-	// We need to know the the volume type referred by @name
+func Convert_v1_Firmware_ACPI_To_related_apis(firmware *v1.Firmware, domain *api.Domain, volumes []v1.Volume) error {
+	if firmware.ACPI == nil {
+		return nil
+	}
+
+	if firmware.ACPI.SlicNameRef == "" && firmware.ACPI.MsdmNameRef == "" {
+		return fmt.Errorf("No ACPI tables were set. Expecting at least one.")
+	}
+
+	if domain.Spec.OS.ACPI == nil {
+		domain.Spec.OS.ACPI = &api.OSACPI{}
+	}
+
+	if val, err := createACPITable("slic", firmware.ACPI.SlicNameRef, volumes); err != nil {
+		return err
+	} else if val != nil {
+		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table, *val)
+	}
+
+	if val, err := createACPITable("msdm", firmware.ACPI.MsdmNameRef, volumes); err != nil {
+		return err
+	} else if val != nil {
+		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table, *val)
+	}
+
+	// if field was set but volume was not found, helper function will return error
+	return nil
+}
+
+func createACPITable(source, volumeName string, volumes []v1.Volume) (*api.ACPITable, error) {
+	if volumeName == "" {
+		return nil, nil
+	}
+
 	for _, volume := range volumes {
-		if volume.Name != name {
+		if volume.Name != volumeName {
 			continue
 		}
 
 		if volume.Secret == nil {
-			return "", fmt.Errorf("Firmware's slic volume type is unsupported")
+			// Unsupported. This should have been blocked by webhook, so warn user.
+			return nil, fmt.Errorf("Firmware's volume type is unsupported for %s", source)
 		}
 
-		// Return path to slic binary data
-		sourcePath := config.GetSecretSourcePath(name)
-		return filepath.Join(sourcePath, "slic.bin"), nil
+		// Return path to table's binary data
+		sourcePath := config.GetSecretSourcePath(volumeName)
+		sourcePath = filepath.Join(sourcePath, fmt.Sprintf("%s.bin", source))
+		return &api.ACPITable{
+			Type: source,
+			Path: sourcePath,
+		}, nil
 	}
 
-	return "", fmt.Errorf("Firmware's slic volume type not found")
+	return nil, fmt.Errorf("Firmware's volume for %s was not found", source)
 }
 
 func hasIOThreads(vmi *v1.VirtualMachineInstance) bool {
@@ -1455,20 +1491,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	// Set SEV launch security parameters: https://libvirt.org/formatdomain.html#launch-security
 	if c.UseLaunchSecurity {
-		sevPolicyBits := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
-		// Cbitpos and ReducedPhysBits will be filled automatically by libvirt from the domain capabilities
-		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
-			Type:    "sev",
-			Policy:  "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
-			DHCert:  vmi.Spec.Domain.LaunchSecurity.SEV.DHCert,
-			Session: vmi.Spec.Domain.LaunchSecurity.SEV.Session,
-		}
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
 		}
+		domain.Spec.LaunchSecurity = c.Architecture.LaunchSecurity(vmi)
 	}
+
 	if c.SMBios != nil {
 		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
 			api.Entry{
@@ -1596,6 +1625,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
+		emptyCDRom := false
 
 		err := Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
 		if err != nil {
@@ -1603,14 +1633,22 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 		volume := volumes[disk.Name]
 		if volume == nil {
-			return fmt.Errorf("no matching volume with name %s found", disk.Name)
+			if disk.CDRom == nil {
+				return fmt.Errorf("no matching volume with name %s found", disk.Name)
+			}
+			emptyCDRom = true
 		}
 
-		if _, ok := c.HotplugVolumes[disk.Name]; !ok {
-			err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
-		} else {
+		hpStatus, hpOk := c.HotplugVolumes[disk.Name]
+		switch {
+		case emptyCDRom:
+			err = Convert_v1_Missing_Volume_To_api_Disk(&newDisk)
+		case hpOk:
 			err = Convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, c)
+		default:
+			err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
 		}
+
 		if err != nil {
 			return err
 		}
@@ -1619,9 +1657,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			return err
 		}
 
-		hpStatus, hpOk := c.HotplugVolumes[disk.Name]
+		_, isPermVolume := c.PermanentVolumes[disk.Name]
 		// if len(c.PermanentVolumes) == 0, it means the vmi is not ready yet, add all disks
-		if _, ok := c.PermanentVolumes[disk.Name]; ok || len(c.PermanentVolumes) == 0 || (hpOk && (hpStatus.Phase == v1.HotplugVolumeMounted || hpStatus.Phase == v1.VolumeReady)) {
+		permReady := isPermVolume || len(c.PermanentVolumes) == 0
+		hotplugReady := hpOk && (hpStatus.Phase == v1.HotplugVolumeMounted || hpStatus.Phase == v1.VolumeReady)
+
+		if permReady || hotplugReady || emptyCDRom {
 			domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 		}
 		if err := setErrorPolicy(&disk, &newDisk); err != nil {
@@ -1631,11 +1672,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	// Handle virtioFS
 	domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, convertFileSystems(vmi.Spec.Domain.Devices.Filesystems)...)
 
+	domain.Spec.Devices.PanicDevices = append(domain.Spec.Devices.PanicDevices, convertPanicDevices(vmi.Spec.Domain.Devices.PanicDevices)...)
+
 	Convert_v1_Sound_To_api_Sound(vmi, &domain.Spec.Devices, c)
 
 	if vmi.Spec.Domain.Devices.Watchdog != nil {
 		newWatchdog := &api.Watchdog{}
-		err := Convert_v1_Watchdog_To_api_Watchdog(vmi.Spec.Domain.Devices.Watchdog, newWatchdog, c)
+		err := c.Architecture.ConvertWatchdog(vmi.Spec.Domain.Devices.Watchdog, newWatchdog)
 		if err != nil {
 			return err
 		}
@@ -1686,6 +1729,20 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if needsSCSIController(vmi) {
 		scsiController := c.Architecture.ScsiController(InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
+	}
+
+	if c.Architecture.SupportPCIHole64Disabling() && shouldDisablePCIHole64(vmi) {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers,
+			api.Controller{
+				Type:  "pci",
+				Index: "0",
+				Model: "pcie-root",
+				PCIHole64: &api.PCIHole64{
+					Value: 0,
+					Unit:  "KiB",
+				},
+			},
+		)
 	}
 
 	if vmi.Spec.Domain.Clock != nil {
@@ -1831,7 +1888,17 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
-		c.Architecture.AddGraphicsDevice(vmi, domain, c.BochsForEFIGuests && isEFIVMI(vmi))
+		c.Architecture.AddGraphicsDevice(vmi, domain, c.BochsForEFIGuests && vmi.IsBootloaderEFI())
+		if vmi.Spec.Domain.Devices.Video != nil {
+			video := api.Video{
+				Model: api.VideoModel{
+					Type:  vmi.Spec.Domain.Devices.Video.Type,
+					VRam:  pointer.P(uint(16384)),
+					Heads: pointer.P(uint(1)),
+				},
+			}
+			domain.Spec.Devices.Video = []api.Video{video}
+		}
 		domain.Spec.Devices.Graphics = []api.Graphics{
 			{
 				Listen: &api.GraphicsListen{
@@ -1955,6 +2022,13 @@ func needsSCSIController(vmi *v1.VirtualMachineInstance) bool {
 	return !vmi.Spec.Domain.Devices.DisableHotplug
 }
 
+func shouldDisablePCIHole64(vmi *v1.VirtualMachineInstance) bool {
+	if val, ok := vmi.Annotations[v1.DisablePCIHole64]; ok {
+		return strings.EqualFold(val, "true")
+	}
+	return false
+}
+
 func getBusFromDisk(disk v1.Disk) v1.DiskBus {
 	if disk.LUN != nil {
 		return disk.LUN.Bus
@@ -2061,10 +2135,4 @@ func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Do
 		Placement: "static",
 		CPUs:      cpuCount,
 	}
-}
-
-func isEFIVMI(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Domain.Firmware != nil &&
-		vmi.Spec.Domain.Firmware.Bootloader != nil &&
-		vmi.Spec.Domain.Firmware.Bootloader.EFI != nil
 }

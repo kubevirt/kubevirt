@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -69,6 +69,7 @@ type snapshotSource interface {
 	Lock() (bool, error)
 	Unlock() (bool, error)
 	Online() bool
+	Paused() bool
 	GuestAgent() bool
 	Frozen() bool
 	Freeze() error
@@ -79,6 +80,7 @@ type snapshotSource interface {
 
 type sourceState struct {
 	online     bool
+	paused     bool
 	guestAgent bool
 	frozen     bool
 	locked     bool
@@ -101,6 +103,7 @@ func (s *vmSnapshotSource) UpdateSourceState() error {
 	online := exists
 
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	paused := exists && condManager.HasConditionWithStatus(vmi, kubevirtv1.VirtualMachineInstancePaused, corev1.ConditionTrue)
 	guestAgent := exists && condManager.HasCondition(vmi, kubevirtv1.VirtualMachineInstanceAgentConnected)
 
 	locked := s.vm.Status.SnapshotInProgress != nil &&
@@ -114,6 +117,7 @@ func (s *vmSnapshotSource) UpdateSourceState() error {
 
 	s.state = &sourceState{
 		online:     online,
+		paused:     paused,
 		guestAgent: guestAgent,
 		locked:     locked,
 		frozen:     frozen,
@@ -392,6 +396,7 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 
 		vmCpy.Spec.Template.Spec.Volumes = s.vm.Spec.Template.Spec.Volumes
 		vmCpy.Spec.Template.Spec.Domain.Devices.Disks = s.vm.Spec.Template.Spec.Domain.Devices.Disks
+		vmCpy.Spec.DataVolumeTemplates = s.vm.Spec.DataVolumeTemplates
 	} else {
 		vmCpy.ObjectMeta = metaObj
 		vmCpy.Spec = *s.vm.Spec.DeepCopy()
@@ -411,6 +416,10 @@ func (s *vmSnapshotSource) Online() bool {
 	return s.state.online
 }
 
+func (s *vmSnapshotSource) Paused() bool {
+	return s.state.paused
+}
+
 func (s *vmSnapshotSource) GuestAgent() bool {
 	return s.state.guestAgent
 }
@@ -427,6 +436,11 @@ func (s *vmSnapshotSource) Freeze() error {
 		return nil
 	}
 
+	if s.Paused() {
+		log.Log.Warningf("VM %s is paused - taking snapshot without filesystem freeze. Paused VMs cannot flush memory buffers to disk, which may result in inconsistent snapshots.", s.vm.Name)
+		return nil
+	}
+
 	if !s.GuestAgent() {
 		if s.Online() {
 			log.Log.Warningf("Guest agent does not exist and VM %s is running. Snapshoting without freezing FS. This can result in inconsistent snapshot!", s.vm.Name)
@@ -440,8 +454,9 @@ func (s *vmSnapshotSource) Freeze() error {
 	err := s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
-		log.Log.Errorf("%s %s: %v", failedFreezeMsg, s.vm.Name, err.Error())
-		return err
+		formattedErr := fmt.Errorf("%s %s: %v", failedFreezeMsg, s.vm.Name, err)
+		log.Log.Errorf(formattedErr.Error())
+		return formattedErr
 	}
 	s.state.frozen = true
 
@@ -449,7 +464,7 @@ func (s *vmSnapshotSource) Freeze() error {
 }
 
 func (s *vmSnapshotSource) Unfreeze() error {
-	if !s.Locked() || !s.GuestAgent() {
+	if !s.Locked() || !s.GuestAgent() || s.Paused() {
 		return nil
 	}
 

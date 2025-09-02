@@ -20,8 +20,11 @@
 package utils
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -32,8 +35,11 @@ var _ = Describe("GetVolumes", func() {
 
 	const backendVolume = "persistent-state-for-"
 
-	createVMI := func(hasEFI, hasTPM bool) *v1.VirtualMachineInstance {
+	createVMI := func(hasEFI, hasTPM bool, name string) *v1.VirtualMachineInstance {
 		vmi := &v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
 			Spec: v1.VirtualMachineInstanceSpec{
 				Volumes: []v1.Volume{
 					{Name: "rootdisk"},
@@ -52,7 +58,10 @@ var _ = Describe("GetVolumes", func() {
 			Status: v1.VirtualMachineInstanceStatus{
 				VolumeStatus: []v1.VolumeStatus{
 					{
-						Name: backendVolume,
+						Name: backendVolume + name,
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+							ClaimName: backendVolume,
+						},
 					},
 				},
 			},
@@ -75,7 +84,7 @@ var _ = Describe("GetVolumes", func() {
 
 	DescribeTable("should handle volume exclusions based on flags",
 		func(hasEFI, hasTPM bool, expectedVolumes []string, opts ...VolumeOption) {
-			vmi := createVMI(hasEFI, hasTPM)
+			vmi := createVMI(hasEFI, hasTPM, "")
 			client := kubecli.NewMockKubevirtClient(nil) // Mock client for testing
 			volumes, _ := GetVolumes(vmi, client, opts...)
 
@@ -120,4 +129,13 @@ var _ = Describe("GetVolumes", func() {
 			WithAllVolumes,
 		),
 	)
+
+	It("should trim backend volume name", func() {
+		vmi := createVMI(true, true, strings.Repeat("a", 63))
+		client := kubecli.NewMockKubevirtClient(nil)
+		volumes, err := GetVolumes(vmi, client, WithBackendVolume)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(volumes).To(HaveLen(1))
+		Expect(len(volumes[0].Name)).To(BeNumerically("<", 63))
+	})
 })

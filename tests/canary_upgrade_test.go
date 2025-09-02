@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -22,6 +22,7 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
@@ -51,6 +53,7 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 	var dsInformer cache.SharedIndexInformer
 	var stopCh chan struct{}
 	var lastObservedEvent string
+	var updateTimeout time.Duration
 
 	const (
 		e2eCanaryTestAnnotation = "e2e-canary-test"
@@ -69,6 +72,12 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 			opts.LabelSelector = "kubevirt.io=virt-handler"
 		}))
 		dsInformer = informerFactory.Apps().V1().DaemonSets().Informer()
+
+		ds, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		nodesToUpdate := ds.Status.DesiredNumberScheduled
+		Expect(nodesToUpdate).To(BeNumerically(">", 0))
+		updateTimeout = time.Duration(canaryTestNodeTimeout * nodesToUpdate)
 	})
 
 	AfterEach(func() {
@@ -78,18 +87,13 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 		_, err = virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), originalKV.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		Eventually(func() bool {
+		Eventually(func(g Gomega) {
 			ds, err := virtCli.AppsV1().DaemonSets(originalKV.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady && ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable.IntValue() == 1
-		}, 60*time.Second, 1*time.Second).Should(BeTrue(), "waiting for virt-handler to be ready")
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(ds.Status.DesiredNumberScheduled).To(Equal(ds.Status.NumberReady))
+			g.Expect(ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
+		}, updateTimeout*time.Second, 1*time.Second).Should(Succeed(), "waiting for virt-handler to be ready")
 	})
-
-	getVirtHandler := func() *appsv1.DaemonSet {
-		daemonSet, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-		ExpectWithOffset(1, err).NotTo(HaveOccurred())
-		return daemonSet
-	}
 
 	updateVirtHandler := func() error {
 		testPatch := fmt.Sprintf(`{"spec": { "template": {"metadata": {"annotations": {"%s": "test"}}}}}`,
@@ -112,11 +116,6 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 		}
 		_, err = virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), originalKV.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
 		return err
-	}
-
-	isVirtHandlerUpdated := func(ds *appsv1.DaemonSet) bool {
-		_, exists := ds.Spec.Template.Annotations[e2eCanaryTestAnnotation]
-		return exists
 	}
 
 	removeExpectedAtHead := func(eventsQueue []string, expectedEvent string) []string {
@@ -146,26 +145,13 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 		}
 
 		if maxUnavailable.String() == "10%" {
-			eventsQueue = removeExpectedAtHead(eventsQueue, "maxUnavailable=10%")
+			return removeExpectedAtHead(eventsQueue, "maxUnavailable=10%")
 		}
+
 		if maxUnavailable.IntValue() == 1 {
-			eventsQueue = removeExpectedAtHead(eventsQueue, "maxUnavailable=1")
+			return removeExpectedAtHead(eventsQueue, "maxUnavailable=1")
 		}
-		if ds.Status.DesiredNumberScheduled == ds.Status.NumberReady {
-			pods, err := virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
-			Expect(err).ToNot(HaveOccurred())
 
-			var updatedPods int32
-			for i := range pods.Items {
-				if _, exists := pods.Items[i].Annotations[e2eCanaryTestAnnotation]; exists {
-					updatedPods++
-				}
-			}
-
-			if updatedPods > 0 && updatedPods == ds.Status.DesiredNumberScheduled {
-				eventsQueue = removeExpectedAtHead(eventsQueue, "virt-handler=ready")
-			}
-		}
 		return eventsQueue
 	}
 
@@ -174,14 +160,8 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 		expectedEvents := []string{
 			"maxUnavailable=1",
 			"maxUnavailable=10%",
-			"virt-handler=ready",
 			"maxUnavailable=1",
 		}
-
-		ds, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		nodesToUpdate := ds.Status.DesiredNumberScheduled
-		Expect(nodesToUpdate).To(BeNumerically(">", 0))
 
 		go dsInformer.Run(stopCh)
 		cache.WaitForCacheSync(stopCh, dsInformer.HasSynced)
@@ -195,16 +175,29 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 			},
 		})
 
-		err = updateVirtHandler()
+		err := updateVirtHandler()
 		Expect(err).ToNot(HaveOccurred())
 
-		updateTimeout := time.Duration(canaryTestNodeTimeout * nodesToUpdate)
-		Eventually(func() bool {
+		Eventually(func(g Gomega) {
 			expectedEventsLock.Lock()
 			defer expectedEventsLock.Unlock()
-			return len(expectedEvents) == 0
-		}, updateTimeout*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("events %v were expected but did not occur", expectedEvents))
+			g.Expect(expectedEvents).To(BeEmpty())
+		}, updateTimeout*time.Second, 1*time.Second).Should(Succeed(), fmt.Sprintf("events %v were expected but did not occur", expectedEvents))
 
-		Expect(isVirtHandlerUpdated(getVirtHandler())).To(BeTrue())
+		Eventually(func(g Gomega) {
+			ds, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(ds.Status.DesiredNumberScheduled).To(Equal(ds.Status.NumberReady))
+			g.Expect(ds.Spec.Template.Annotations).To(HaveKey(e2eCanaryTestAnnotation))
+
+			podList, err := virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
+			g.Expect(err).ToNot(HaveOccurred())
+
+			updatedPods := slices.DeleteFunc(podList.Items, func(pod corev1.Pod) bool {
+				_, exists := pod.Annotations[e2eCanaryTestAnnotation]
+				return !exists
+			})
+			g.Expect(updatedPods).To(HaveLen(int(ds.Status.DesiredNumberScheduled)))
+		}, updateTimeout*time.Second, 1*time.Second).Should(Succeed())
 	})
 })

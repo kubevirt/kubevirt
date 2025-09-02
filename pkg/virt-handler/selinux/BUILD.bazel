@@ -6,6 +6,7 @@ go_library(
         "context_executor.go",
         "executor.go",
         "generated_mock_executor.go",
+        "generated_mock_labels.go",
         "labels.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/selinux",
@@ -13,13 +14,12 @@ go_library(
     deps = [
         "//pkg/safepath:go_default_library",
         "//pkg/unsafepath:go_default_library",
-        "//pkg/util:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/virt-chroot:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
+        "//vendor/go.uber.org/mock/gomock:go_default_library",
     ],
 )
 
@@ -33,8 +33,8 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/go.uber.org/mock/gomock:go_default_library",
     ],
 )

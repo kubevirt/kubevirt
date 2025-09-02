@@ -35,6 +35,7 @@ type ContainerSpecRenderer struct {
 	ports             []k8sv1.ContainerPort
 	capabilities      *k8sv1.Capabilities
 	args              []string
+	extraEnvVars      []k8sv1.EnvVar
 }
 
 type Option func(*ContainerSpecRenderer)
@@ -53,19 +54,20 @@ func NewContainerSpecRenderer(containerName string, launcherImg string, imgPullP
 
 func (csr *ContainerSpecRenderer) Render(cmd []string) k8sv1.Container {
 	return k8sv1.Container{
-		Name:            csr.name,
-		Image:           csr.launcherImg,
-		ImagePullPolicy: csr.imgPullPolicy,
-		SecurityContext: securityContext(csr.userID, csr.isPrivileged, csr.capabilities),
-		Command:         cmd,
-		VolumeDevices:   csr.volumeDevices,
-		VolumeMounts:    csr.volumeMounts,
-		Resources:       csr.resources,
-		Ports:           csr.ports,
-		Env:             csr.envVars(),
-		LivenessProbe:   csr.liveninessProbe,
-		ReadinessProbe:  csr.readinessProbe,
-		Args:            csr.args,
+		Name:                     csr.name,
+		Image:                    csr.launcherImg,
+		ImagePullPolicy:          csr.imgPullPolicy,
+		SecurityContext:          securityContext(csr.userID, csr.isPrivileged, csr.capabilities),
+		Command:                  cmd,
+		VolumeDevices:            csr.volumeDevices,
+		VolumeMounts:             csr.volumeMounts,
+		Resources:                csr.resources,
+		Ports:                    csr.ports,
+		Env:                      csr.envVars(),
+		LivenessProbe:            csr.liveninessProbe,
+		ReadinessProbe:           csr.readinessProbe,
+		Args:                     csr.args,
+		TerminationMessagePolicy: k8sv1.TerminationMessageFallbackToLogsOnError,
 	}
 }
 
@@ -82,6 +84,8 @@ func (csr *ContainerSpecRenderer) envVars() []k8sv1.EnvVar {
 			Value: strings.Join(csr.sharedFilesystems, ":"),
 		})
 	}
+
+	env = append(env, csr.extraEnvVars...)
 
 	return env
 }
@@ -182,6 +186,12 @@ func WithReadinessProbe(vmi *v1.VirtualMachineInstance) Option {
 	}
 }
 
+func WithExtraEnvVars(envVars []k8sv1.EnvVar) Option {
+	return func(renderer *ContainerSpecRenderer) {
+		renderer.extraEnvVars = append(renderer.extraEnvVars, envVars...)
+	}
+}
+
 func xdgEnvironmentVariables() []k8sv1.EnvVar {
 	const varRun = "/var/run"
 	return []k8sv1.EnvVar{
@@ -212,6 +222,11 @@ func securityContext(userId int64, privileged bool, requiredCapabilities *k8sv1.
 	if isNonRoot {
 		context.RunAsGroup = &userId
 		context.AllowPrivilegeEscalation = pointer.P(false)
+	}
+	// As privileged is already the highest privilege, allowPrivilegeEscalation makes no sense.
+	// Therefore kubernetes enforces that a pod can only have one of those attributes.
+	if context.AllowPrivilegeEscalation != nil && privileged {
+		context.AllowPrivilegeEscalation = &privileged
 	}
 
 	return context

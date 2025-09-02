@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -75,6 +75,10 @@ func (ins *FakeStrategy) ControllerDeployments() []*appsv1.Deployment {
 }
 
 func (ins *FakeStrategy) ExportProxyDeployments() []*appsv1.Deployment {
+	return nil
+}
+
+func (ins *FakeStrategy) SynchronizationControllerDeployments() []*appsv1.Deployment {
 	return nil
 }
 

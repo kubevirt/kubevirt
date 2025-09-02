@@ -3,10 +3,17 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "applyconfiguration.go",
         "auditannotation.go",
         "expressionwarning.go",
+        "jsonpatch.go",
         "matchcondition.go",
         "matchresources.go",
+        "mutatingadmissionpolicy.go",
+        "mutatingadmissionpolicybinding.go",
+        "mutatingadmissionpolicybindingspec.go",
+        "mutatingadmissionpolicyspec.go",
+        "mutation.go",
         "namedrulewithoperations.go",
         "paramkind.go",
         "paramref.go",

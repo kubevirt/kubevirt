@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -21,8 +21,10 @@ package virtwrap
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -41,6 +43,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
+const (
+	containerHotplugDir = "/var/run/kubevirt/hotplug-disks"
+)
+
 func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
 	interfacesToReconnect := interfacesToReconnect(options)
 	if len(interfacesToReconnect) != 0 {
@@ -49,10 +55,7 @@ func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineIns
 		}
 	}
 
-	if err := l.setGuestTime(vmi); err != nil {
-		return err
-	}
-
+	l.setGuestTime(vmi)
 	return nil
 }
 
@@ -147,6 +150,13 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	options *cmdv1.VirtualMachineOptions,
 ) error {
 	logger := log.Log.Object(vmi)
+	if l.imageVolumeFeatureGateEnabled {
+		err := l.linkImageVolumeFilePaths(vmi)
+		if err != nil {
+			logger.Reason(err).Error("failed link ImageVolumeFilePaths")
+			return err
+		}
+	}
 
 	c, err := l.generateConverterContext(vmi, allowEmulation, options, true)
 	if err != nil {
@@ -207,6 +217,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 			curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
 			unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
+			logger.V(2).Infof("Creating socketpath for unix migration/tcp %s", unixSocketPath)
 			migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, nil, string(vmi.UID))
 
 			err := migrationProxy.Start()
@@ -218,6 +229,12 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		}
 	}
 
+	if vmi.IsDecentralizedMigration() {
+		if err := checkIfHotplugDisksReadyToUse(vmi); err != nil {
+			return err
+		}
+	}
+
 	// since the source vmi is paused, add the vmi uuid to the pausedVMIs as
 	// after the migration this vmi should remain paused.
 	if vmiHasCondition(vmi, v1.VirtualMachineInstancePaused) {
@@ -226,4 +243,58 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	}
 
 	return nil
+}
+
+func checkIfHotplugDisksReadyToUse(vmi *v1.VirtualMachineInstance) error {
+	logger := log.Log.Object(vmi)
+
+	vmiHotplugCount := getVMIHotplugCount(vmi)
+	if vmiHotplugCount == 0 {
+		logger.Info("no hotplugged disks to check")
+		return nil
+	}
+
+	var entries []os.DirEntry
+	var err error
+	entries, err = os.ReadDir(containerHotplugDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	logger.Infof("found %d hotplugged disks files, compared to %d from vmi spec", len(entries), vmiHotplugCount)
+	if len(entries) != vmiHotplugCount {
+		return fmt.Errorf("found %d hotplugged disks files, expected %d", len(entries), vmiHotplugCount)
+	}
+
+	readyCount := 0
+	for _, entry := range entries {
+		logger.Infof("checking if hotplugged disk %s is ready to use", filepath.Join(containerHotplugDir, entry.Name()))
+		ready, err := checkIfDiskReadyToUse(filepath.Join(containerHotplugDir, entry.Name()))
+		if err != nil {
+			return err
+		}
+		if ready {
+			logger.Infof("hotplugged disk %s is ready to use", filepath.Join(containerHotplugDir, entry.Name()))
+			readyCount++
+		}
+	}
+	if readyCount != vmiHotplugCount {
+		return fmt.Errorf("not all hotplugged disks are ready to use, found %d ready, expected %d", readyCount, vmiHotplugCount)
+	}
+	logger.Info("all hotplugged disks are ready to use")
+	return nil
+}
+
+func getVMIHotplugCount(vmi *v1.VirtualMachineInstance) int {
+	hotplugCount := 0
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+			hotplugCount++
+		} else if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
+			hotplugCount++
+		}
+	}
+	return hotplugCount
 }

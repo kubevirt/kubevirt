@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -34,11 +34,49 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validating MigrationCreate Admitter", func() {
+	const (
+		vmiRefName        = "vmiName"
+		testMigrationName = "testMigration"
+	)
+
+	kv := &v1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
+		},
+		Spec: v1.KubeVirtSpec{
+			Configuration: v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{},
+			},
+		},
+		Status: v1.KubeVirtStatus{
+			Phase:               v1.KubeVirtPhaseDeploying,
+			DefaultArchitecture: "amd64",
+		},
+	}
+	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
+
+	enableFeatureGate := func(featureGate string) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+	}
+
+	disableFeatureGates := func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+	}
+
+	AfterEach(func() {
+		disableFeatureGates()
+	})
+
 	It("should reject Migration spec on create when another VMI migration is in-flight", func() {
 		vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 		inFlightMigration := &v1.VirtualMachineInstanceMigration{
@@ -51,16 +89,9 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			},
 		}
 
-		migration := &v1.VirtualMachineInstanceMigration{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: vmi.Namespace,
-			},
-			Spec: v1.VirtualMachineInstanceMigrationSpec{
-				VMIName: vmi.Name,
-			},
-		}
+		migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
 		virtClient := kubevirtfake.NewSimpleClientset(vmi, inFlightMigration)
-		migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
+		migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
 		ar, err := newAdmissionReviewForVMIMCreation(migration)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -70,17 +101,10 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 
 	Context("with no conflicting migration", func() {
 		It("should reject invalid Migration spec on create", func() {
-			migration := &v1.VirtualMachineInstanceMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "default",
-				},
-				Spec: v1.VirtualMachineInstanceMigrationSpec{
-					VMIName: "",
-				},
-			}
+			migration := createMigration("default", testMigrationName, "")
 
 			virtClient := kubevirtfake.NewSimpleClientset()
-			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -93,16 +117,9 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		It("should accept valid Migration spec on create", func() {
 			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 
-			migration := &v1.VirtualMachineInstanceMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-				},
-				Spec: v1.VirtualMachineInstanceMigrationSpec{
-					VMIName: vmi.Name,
-				},
-			}
+			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -118,17 +135,9 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				Failed:       false,
 			}
 
-			migration := &v1.VirtualMachineInstanceMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-				},
-				Spec: v1.VirtualMachineInstanceMigrationSpec{
-					VMIName: vmi.Name,
-				},
-			}
-
+			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -140,17 +149,9 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			vmi.Status.Phase = v1.Succeeded
 
-			migration := &v1.VirtualMachineInstanceMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-				},
-				Spec: v1.VirtualMachineInstanceMigrationSpec{
-					VMIName: vmi.Name,
-				},
-			}
-
+			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -174,16 +175,9 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				},
 			}
 
-			migration := &v1.VirtualMachineInstanceMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-				},
-				Spec: v1.VirtualMachineInstanceMigrationSpec{
-					VMIName: vmi.Name,
-				},
-			}
+			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
 
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
@@ -213,14 +207,82 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
-				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset()).Admit,
+				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset(), config).Admit,
 			),
 			Entry("Migration update",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
-				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset()).Admit,
+				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset(), config).Admit,
 			),
+		)
+	})
+
+	Context("feature gate", func() {
+		DescribeTable("should handle migration correctly based on featuregate", func(modifyMigration func(*v1.VirtualMachineInstanceMigration), featureGateEnabled, expectAllow bool) {
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			vmi.Status.Phase = v1.Running
+			virtClient := kubevirtfake.NewSimpleClientset(vmi)
+			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
+			modifyMigration(migration)
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
+			if featureGateEnabled {
+				enableFeatureGate(featuregate.DecentralizedLiveMigration)
+			}
+			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
+			resp := admitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(Equal(featureGateEnabled && expectAllow))
+			if !featureGateEnabled {
+				Expect(resp.Result.Message).To(ContainSubstring("DecentralizedLiveMigration feature gate is not enabled in kubevirt resource"))
+			}
+		},
+			Entry("reject vmim with sendTo if featuregate is disabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+						MigrationID: "migrationID",
+						ConnectURL:  "1.1.1.1:12345",
+					}
+				}, false, false),
+			Entry("reject vmim with receive if featuregate is disabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
+						MigrationID: "migrationID",
+					}
+				}, false, false),
+			Entry("allow vmim with sendTo if featuregate is enabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+						MigrationID: "migrationID",
+						ConnectURL:  "1.1.1.1:12345",
+					}
+				}, true, true),
+			Entry("allow vmim with receive if featuregate is enabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
+						MigrationID: "migrationID",
+					}
+				}, true, true),
+			Entry("allow vmim with sendTo and receiver if featuregate is enabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+						MigrationID: "migrationID",
+						ConnectURL:  "1.1.1.1:12345",
+					}
+					migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
+						MigrationID: "migrationID",
+					}
+				}, true, true),
+			Entry("reject vmim with sendTo and receiver if migrationID does not match if featuregate is enabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+						MigrationID: "migrationID",
+						ConnectURL:  "1.1.1.1:12345",
+					}
+					migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
+						MigrationID: "migrationID2",
+					}
+				}, true, false),
 		)
 	})
 })
@@ -240,4 +302,16 @@ func newAdmissionReviewForVMIMCreation(migration *v1.VirtualMachineInstanceMigra
 			Operation: admissionv1.Create,
 		},
 	}, nil
+}
+
+func createMigration(namespace, name, vmiRef string) *v1.VirtualMachineInstanceMigration {
+	return &v1.VirtualMachineInstanceMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1.VirtualMachineInstanceMigrationSpec{
+			VMIName: vmiRef,
+		},
+	}
 }

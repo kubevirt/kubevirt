@@ -58,10 +58,12 @@ var _ = Describe(SIGSerial("changes to the kubernetes client", func() {
 			start := metav1.Time{}
 			stop := metav1.Time{}
 			for _, timestamp := range vmi.Status.PhaseTransitionTimestamps {
-				if timestamp.Phase == v1.Scheduled {
+				switch timestamp.Phase {
+				case v1.Scheduled:
 					start = timestamp.PhaseTransitionTimestamp
-				} else if timestamp.Phase == v1.Running {
+				case v1.Running:
 					stop = timestamp.PhaseTransitionTimestamp
+				case v1.VmPhaseUnset, v1.Pending, v1.Scheduling, v1.Succeeded, v1.Failed, v1.WaitingForSync, v1.Unknown:
 				}
 			}
 			duration += stop.Sub(start.Time)
@@ -71,7 +73,7 @@ var _ = Describe(SIGSerial("changes to the kubernetes client", func() {
 
 	It("on the controller rate limiter should lead to delayed VMI starts", func() {
 		By("first getting the basetime for a replicaset")
-		replicaset := replicaset.New(libvmifact.NewCirros(libvmi.WithResourceMemory("1Mi")), 0)
+		replicaset := replicaset.New(libvmifact.NewCirros(libvmi.WithMemoryRequest("1Mi")), 0)
 		replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(context.Background(), replicaset, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		start := time.Now()
@@ -104,7 +106,7 @@ var _ = Describe(SIGSerial("changes to the kubernetes client", func() {
 		By("first getting the basetime for a replicaset")
 		targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
 		vmi := libvmi.New(
-			libvmi.WithResourceMemory("1Mi"),
+			libvmi.WithMemoryRequest("1Mi"),
 			libvmi.WithNodeSelectorFor(targetNode.Name),
 		)
 

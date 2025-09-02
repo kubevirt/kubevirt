@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -51,6 +52,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+	firmware "kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 )
 
 const (
@@ -75,13 +77,22 @@ const (
 	restoreVMNotReadyEvent = "RestoreTargetNotReady"
 
 	restoreDataVolumeCreateErrorEvent = "RestoreDataVolumeCreateError"
+
+	defaultPvcRestorePrefix = "restore"
+
+	waitEventuallyMessage = "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore"
+	stopTargetMessage     = "Automatically stopping restore target for restore operation"
+
+	vmiExistsEventMessage        = "Restore target VMI still exists, please stop the restore target to proceed with restore"
+	targetNotReadyFailureMessage = "Restore target VMI must be powered off before restore operation"
+
+	restoreFailedEvent           = "Operation failed"
+	errorRestoreToExistingTarget = "restore source and restore target are different but restore target already exists"
 )
 
 var (
-	restoreGracePeriodExceededError = fmt.Sprintf("Restore target failed to be ready within %s", snapshotv1.DefaultGracePeriod)
-	restoreTargetNotReady           = "Restore target not ready"
-	restoredFailed                  = "Operation failed"
-	errorRestoreToExistingTarget    = "restore source and restore target are different but restore target already exists"
+	restoreGracePeriodExceededError = fmt.Sprintf("Restore target failed to be ready within %s. Please power off the target VM before attempting restore", snapshotv1.DefaultGracePeriod)
+	waitGracePeriodMessage          = fmt.Sprintf("Waiting for target VM to be powered off. Please stop the restore target to proceed with restore, or the operation will fail after %s", snapshotv1.DefaultGracePeriod)
 )
 
 type restoreTarget interface {
@@ -113,12 +124,48 @@ var restoreAnnotationsToDelete = []string{
 	"k8s.io/CloneOf",
 }
 
-func restorePVCName(vmRestore *snapshotv1.VirtualMachineRestore, name string) string {
-	return fmt.Sprintf("restore-%s-%s", vmRestore.UID, name)
+// getRestoreNameOverride returns the overridden name for a volume restore
+func getRestoreNameOverride(vmRestore *snapshotv1.VirtualMachineRestore, volumeName string) string {
+	for _, override := range vmRestore.Spec.VolumeRestoreOverrides {
+		// User has specified their own destination restore name, use it
+		if override.VolumeName == volumeName && override.RestoreName != "" {
+			return override.RestoreName
+		}
+	}
+
+	return ""
 }
 
-func restoreDVName(vmRestore *snapshotv1.VirtualMachineRestore, name string) string {
-	return restorePVCName(vmRestore, name)
+// restoreVolumeName computes the name of the restored volume for a given volume within a backup
+// volumeName is the original name of the volume being restored
+// claimName is the name of the original claim for that same volume (a PVC or a DataVolume)
+func restoreVolumeName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, claimName string) string {
+	// Check if the user is overriding the restore name
+	if restoreOverride := getRestoreNameOverride(vmRestore, volumeName); restoreOverride != "" {
+		return restoreOverride
+	}
+
+	// If the policy is to overwrite the volume, we must return the same backendName name as the source
+	if isVolumeRestorePolicyInPlace(vmRestore) {
+		return claimName
+	}
+
+	// Auto-compute the name of the restored backendName from the VMRestore ID and from the original volume name
+	return fmt.Sprintf("%s-%s-%s", defaultPvcRestorePrefix, vmRestore.UID, volumeName)
+}
+
+// restorePVCName computes the name of the restored PVC for a given volume within a backup
+// volumeName is the name of the volume being restored
+// pvcName is the name of the original PVC for that same volume
+func restorePVCName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, pvcName string) string {
+	return restoreVolumeName(vmRestore, volumeName, pvcName)
+}
+
+// restoreDVName computes the name of a restored DataVolume for a given volume within a backup
+// volumeName is the name of the volume being restored
+// dvName is the name of the dataVolume being restored
+func restoreDVName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, dvName string) string {
+	return restoreVolumeName(vmRestore, volumeName, dvName)
 }
 
 func vmRestoreFailed(vmRestore *snapshotv1.VirtualMachineRestore) bool {
@@ -263,28 +310,40 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 }
 
 func (ctrl *VMRestoreController) doUpdateError(restore *snapshotv1.VirtualMachineRestore, err error) error {
-	ctrl.Recorder.Eventf(
-		restore,
-		corev1.EventTypeWarning,
-		restoreErrorEvent,
-		"VirtualMachineRestore encountered error %s",
-		err.Error(),
-	)
-
-	updated := restore.DeepCopy()
-
-	updateRestoreCondition(updated, newProgressingCondition(corev1.ConditionFalse, err.Error()))
-	updateRestoreCondition(updated, newReadyCondition(corev1.ConditionFalse, err.Error()))
-	if err2 := ctrl.doUpdateStatus(restore, updated); err2 != nil {
-		return err2
+	if updateErr := ctrl.doUpdateErrorWithFailure(restore, err.Error(), false); updateErr != nil {
+		return updateErr
 	}
 
 	return err
 }
 
+func (ctrl *VMRestoreController) doUpdateErrorWithFailure(restore *snapshotv1.VirtualMachineRestore, errMsg string, fail bool) error {
+	updated := restore.DeepCopy()
+
+	eventReason := restoreErrorEvent
+	eventMsg := fmt.Sprintf("VirtualMachineRestore encountered error %s", errMsg)
+
+	updateRestoreCondition(updated, newProgressingCondition(corev1.ConditionFalse, errMsg))
+	updateRestoreCondition(updated, newReadyCondition(corev1.ConditionFalse, errMsg))
+	if fail {
+		eventReason = restoreFailedEvent
+		eventMsg = fmt.Sprintf("VirtualMachineRestore failed %s", errMsg)
+		updateRestoreCondition(updated, newFailureCondition(corev1.ConditionTrue, errMsg))
+	}
+
+	ctrl.Recorder.Eventf(
+		restore,
+		corev1.EventTypeWarning,
+		eventReason,
+		eventMsg,
+	)
+
+	return ctrl.doUpdateStatus(restore, updated)
+}
+
 func (ctrl *VMRestoreController) doUpdateStatus(original, updated *snapshotv1.VirtualMachineRestore) error {
 	if !equality.Semantic.DeepEqual(original.Status, updated.Status) {
-		if err := ctrl.VMRestoreStatusUpdater.UpdateStatus(updated); err != nil {
+		if _, err := ctrl.Client.VirtualMachineRestore(updated.Namespace).UpdateStatus(context.Background(), updated, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -327,37 +386,53 @@ func (ctrl *VMRestoreController) handleVMRestoreDeletion(vmRestore *snapshotv1.V
 func (ctrl *VMRestoreController) handleVMRestoreTargetNotReady(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
 	vmRestoreCpy := vmRestore.DeepCopy()
 
-	// default policy is having a grace period for the user the make
+	// Default targetReadinessPolicy is having a grace period for the user the make
 	// the target ready
-	policy := snapshotv1.VirtualMachineRestoreWaitGracePeriodAndFail
+	targetReadinessPolicy := snapshotv1.VirtualMachineRestoreWaitGracePeriodAndFail
 	if vmRestore.Spec.TargetReadinessPolicy != nil {
-		policy = *vmRestore.Spec.TargetReadinessPolicy
+		targetReadinessPolicy = *vmRestore.Spec.TargetReadinessPolicy
 	}
 
-	eventMsg := "Restore target VMI still exists"
-	ctrl.Recorder.Event(vmRestoreCpy, corev1.EventTypeNormal, restoreVMNotReadyEvent, eventMsg)
-	reason := "Waiting for target to be ready"
+	var reason, eventMsg string
+
+	switch targetReadinessPolicy {
+	case snapshotv1.VirtualMachineRestoreWaitEventually:
+		reason = waitEventuallyMessage
+		eventMsg = vmiExistsEventMessage
+	case snapshotv1.VirtualMachineRestoreStopTarget:
+		return ctrl.stopTarget(vmRestore, target)
+	case snapshotv1.VirtualMachineRestoreWaitGracePeriodAndFail:
+		if vmRestoreTargetReadyGracePeriodExceeded(vmRestore) {
+			return ctrl.doUpdateErrorWithFailure(vmRestore, restoreGracePeriodExceededError, true)
+		}
+
+		reason = waitGracePeriodMessage
+		eventMsg = vmiExistsEventMessage
+	case snapshotv1.VirtualMachineRestoreFailImmediate:
+		return ctrl.doUpdateErrorWithFailure(vmRestore, targetNotReadyFailureMessage, true)
+	default:
+		return fmt.Errorf("unknown targetReadinessPolicy: %v", targetReadinessPolicy)
+	}
+
+	ctrl.Recorder.Event(vmRestoreCpy, corev1.EventTypeWarning, restoreVMNotReadyEvent, eventMsg)
 	updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, reason))
 	updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, reason))
 
-	switch policy {
-	case snapshotv1.VirtualMachineRestoreWaitEventually:
-	case snapshotv1.VirtualMachineRestoreStopTarget:
-		err := target.Stop()
-		if err != nil {
-			return ctrl.doUpdateError(vmRestore, err)
-		}
-	case snapshotv1.VirtualMachineRestoreWaitGracePeriodAndFail:
-		if vmRestoreTargetReadyGracePeriodExceeded(vmRestore) {
-			updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, restoredFailed))
-			updateRestoreCondition(vmRestoreCpy, newFailureCondition(corev1.ConditionTrue, restoreGracePeriodExceededError))
-			updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, restoredFailed))
-		}
-	case snapshotv1.VirtualMachineRestoreFailImmediate:
-		updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, restoredFailed))
-		updateRestoreCondition(vmRestoreCpy, newFailureCondition(corev1.ConditionTrue, restoreTargetNotReady))
-		updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, restoredFailed))
+	return ctrl.doUpdateStatus(vmRestore, vmRestoreCpy)
+}
+
+func (ctrl *VMRestoreController) stopTarget(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
+	vmRestoreCpy := vmRestore.DeepCopy()
+	ctrl.Recorder.Event(vmRestoreCpy, corev1.EventTypeWarning, restoreVMNotReadyEvent, stopTargetMessage)
+	updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, stopTargetMessage))
+	updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, stopTargetMessage))
+
+	// Stop the restore target
+	err := target.Stop()
+	if err != nil {
+		return ctrl.doUpdateError(vmRestoreCpy, err)
 	}
+
 	return ctrl.doUpdateStatus(vmRestore, vmRestoreCpy)
 }
 
@@ -397,11 +472,13 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 				return false, fmt.Errorf("VolumeSnapshotName missing %+v", vb)
 			}
 
+			pvcName := restorePVCName(vmRestore, vb.VolumeName, vb.PersistentVolumeClaim.Name)
 			vr := snapshotv1.VolumeRestore{
 				VolumeName:                vb.VolumeName,
-				PersistentVolumeClaimName: restorePVCName(vmRestore, vb.VolumeName),
+				PersistentVolumeClaimName: pvcName,
 				VolumeSnapshotName:        *vb.VolumeSnapshotName,
 			}
+
 			restores = append(restores, vr)
 		}
 	}
@@ -416,8 +493,11 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 	}
 
 	createdPVC := false
+	deletedPVC := false
 	waitingPVC := false
-	for _, restore := range restores {
+	waitingDVNameUpdate := false
+
+	for i, restore := range restores {
 		pvc, err := ctrl.getPVC(vmRestore.Namespace, restore.PersistentVolumeClaimName)
 		if err != nil {
 			return false, err
@@ -428,10 +508,52 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			if err != nil {
 				return false, err
 			}
-			if err = ctrl.createRestorePVC(vmRestore, target, backup, &restore, content.Spec.Source.VirtualMachine.Name, content.Spec.Source.VirtualMachine.Namespace); err != nil {
+
+			var dvOwner string
+			if restore.DataVolumeName != nil {
+				dvOwner = *restore.DataVolumeName
+			}
+
+			if err = ctrl.createRestorePVC(vmRestore, target, backup, &restore, content.Spec.Source.VirtualMachine.Name, content.Spec.Source.VirtualMachine.Namespace, dvOwner); err != nil {
 				return false, err
 			}
 			createdPVC = true
+		} else if isVolumeRestorePolicyInPlace(vmRestore) && !hasLastRestoreAnnotation(vmRestore, pvc) {
+			// This volume is backed by a DataVolume, and we're about to delete the PVC of that DV. This PVC will be re-created shortly after
+			// from a VolumeSnapshot, and the DV should rebind to its PVC. But that leaves the DV with no PVC for a short amount of time.
+			// To prevent race conditions and possible reconciles of the DV during the PVC restore, we mark it as prePopulated to prevent any
+			// accidental creation of a PVC by the DataVolume.
+			var ownerDV string
+			ownerReference := metav1.GetControllerOf(pvc)
+			if ownerReference != nil && ownerReference.Kind == "DataVolume" {
+				ownerDV = ownerReference.Name
+			}
+
+			if ownerDV != "" {
+				log.Log.Object(vmRestore).Infof("marking datavolume %s/%s as prepopulated before deleting its PVC", vmRestore.Namespace, ownerDV)
+
+				// We update the status of the volume to note that it belongs to a DataVolume.
+				// We'll need this information later to restore the PVC with annotations to rebind it
+				// to the DV.
+				if vmRestore.Status.Restores[i].DataVolumeName == nil {
+					vmRestore.Status.Restores[i].DataVolumeName = &ownerDV
+					waitingDVNameUpdate = true
+					continue
+				}
+
+				if err := ctrl.prepopulateDataVolume(vmRestore.Namespace, ownerDV, vmRestore.Name); err != nil {
+					return false, err
+				}
+			}
+
+			// If we're here, the PVC associated with that volume exists, and needs to be wiped before we restore in its place
+			log.Log.Object(vmRestore).Infof("deleting %s/%s to replace volume due to policy InPlace", vmRestore.Namespace, pvc.Name)
+			if err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).
+				Delete(context.Background(), pvc.Name, metav1.DeleteOptions{}); err != nil {
+				return false, err
+			}
+
+			deletedPVC = true
 		} else if pvc.Status.Phase == corev1.ClaimPending {
 			bindingMode, err := ctrl.getBindingMode(pvc)
 			if err != nil {
@@ -445,7 +567,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 			return false, fmt.Errorf("PVC %s/%s in status %q", pvc.Namespace, pvc.Name, pvc.Status.Phase)
 		}
 	}
-	return createdPVC || waitingPVC, nil
+	return createdPVC || deletedPVC || waitingPVC || waitingDVNameUpdate, nil
 }
 
 func (ctrl *VMRestoreController) getBindingMode(pvc *corev1.PersistentVolumeClaim) (*storagev1.VolumeBindingMode, error) {
@@ -727,7 +849,7 @@ func (t *vmRestoreTarget) updateVMRestoreRestores(snapshotVM *snapshotv1.Virtual
 			if volume.DataVolume != nil {
 				templateIndex := findDVTemplateIndex(volume.DataVolume.Name, snapshotVM)
 				if templateIndex >= 0 {
-					dvName := restoreDVName(t.vmRestore, restore.VolumeName)
+					dvName := restoreDVName(t.vmRestore, restore.VolumeName, volume.DataVolume.Name)
 					pvc, err := t.controller.getPVC(t.vmRestore.Namespace, restore.PersistentVolumeClaimName)
 					if err != nil {
 						return false, err
@@ -855,6 +977,9 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 	newVM.Spec.DataVolumeTemplates = newTemplates
 	newVM.Spec.Template.Spec.Volumes = newVolumes
 	setLastRestoreAnnotation(t.vmRestore, newVM)
+	if snapshotVM.Name == newVM.Name {
+		setLegacyFirmwareUUID(newVM)
+	}
 
 	return newVM, nil
 }
@@ -1141,7 +1266,6 @@ func (ctrl *VMRestoreController) deleteObsoleteVolumes(vmRestore *snapshotv1.Vir
 		if err != nil {
 			return err
 		}
-
 		if exists {
 			err = ctrl.Client.CdiClient().CdiV1beta1().DataVolumes(vmRestore.Namespace).
 				Delete(context.Background(), dvName, metav1.DeleteOptions{})
@@ -1339,7 +1463,7 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	target restoreTarget,
 	volumeBackup *snapshotv1.VolumeBackup,
 	volumeRestore *snapshotv1.VolumeRestore,
-	sourceVmName, sourceVmNamespace string,
+	sourceVmName, sourceVmNamespace, dvOwner string,
 ) error {
 	if volumeBackup == nil || volumeBackup.VolumeSnapshotName == nil {
 		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
@@ -1360,11 +1484,21 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	if volumeRestore == nil {
 		return fmt.Errorf("missing volumeRestore")
 	}
-	pvc, err := CreateRestorePVCDefFromVMRestore(vmRestore.Name, volumeRestore.PersistentVolumeClaimName, volumeSnapshot, volumeBackup, sourceVmName, sourceVmNamespace)
+	pvc, err := CreateRestorePVCDefFromVMRestore(vmRestore, volumeRestore.PersistentVolumeClaimName, volumeSnapshot, volumeBackup, sourceVmName, sourceVmNamespace)
 	if err != nil {
 		return err
 	}
-	target.Own(pvc)
+
+	if dvOwner != "" { // PVC is owned by a DV
+		if pvc.Annotations == nil {
+			pvc.Annotations = make(map[string]string)
+		}
+
+		// By setting this annotation, the CDI will set ownership of the PVC to the DV
+		pvc.Annotations[populatedForPVCAnnotation] = dvOwner
+	} else { // PVC is owned by the VM
+		target.Own(pvc)
+	}
 
 	_, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
@@ -1457,7 +1591,7 @@ func getFilteredLabels(labels map[string]string) map[string]string {
 	return filteredLabels
 }
 
-func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup, sourceVmName, sourceVmNamespace string) (*corev1.PersistentVolumeClaim, error) {
+func CreateRestorePVCDefFromVMRestore(vmRestore *snapshotv1.VirtualMachineRestore, restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup, sourceVmName, sourceVmNamespace string) (*corev1.PersistentVolumeClaim, error) {
 	pvc, err := CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
 	if err != nil {
 		return nil, err
@@ -1468,9 +1602,19 @@ func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volu
 	if pvc.Annotations == nil {
 		pvc.Annotations = make(map[string]string)
 	}
+
 	pvc.Labels[restoreSourceNameLabel] = sourceVmName
 	pvc.Labels[restoreSourceNamespaceLabel] = sourceVmNamespace
-	pvc.Annotations[RestoreNameAnnotation] = vmRestoreName
+	pvc.Annotations[RestoreNameAnnotation] = vmRestore.Name
+
+	// Mark the ID of the restore job on the PVC
+	// Used to determine if the PVC has already been deleted for InPlace restores
+	setLastRestoreAnnotation(vmRestore, pvc)
+
+	if err := applyVolumeRestoreOverride(pvc, volumeBackup, vmRestore.Spec.VolumeRestoreOverrides); err != nil {
+		return nil, err
+	}
+
 	return pvc, nil
 }
 
@@ -1504,4 +1648,84 @@ func getRestoreVolumeBackup(volName string, content *snapshotv1.VirtualMachineSn
 		}
 	}
 	return &snapshotv1.VolumeBackup{}, fmt.Errorf("volume backup for volume %s not found", volName)
+}
+
+// Apply the VolumeRestoreOverride corresponding to a PVC, if it exists
+// This applies every override except changing the name, which has to be handled separately because it is used
+// to track if the VolumeRestore has happened correctly or not
+func applyVolumeRestoreOverride(restorePVC *corev1.PersistentVolumeClaim, volumeBackup *snapshotv1.VolumeBackup, overrides []snapshotv1.VolumeRestoreOverride) error {
+	if overrides == nil {
+		return nil
+	}
+
+	if restorePVC == nil {
+		return fmt.Errorf("missing PersistentVolumeClaim when applying VolumeRestoreOverride")
+	}
+
+	if volumeBackup == nil {
+		return fmt.Errorf("missing VolumeBackup when applying VolumeRestoreOverride")
+	}
+
+	for _, override := range overrides {
+		// The volume we're trying to restore has a matching override
+		if override.VolumeName == volumeBackup.VolumeName {
+			// Override labels/annotations
+			if restorePVC.Labels != nil && override.Labels != nil {
+				maps.Copy(restorePVC.Labels, override.Labels)
+			}
+
+			if restorePVC.Annotations != nil && override.Annotations != nil {
+				maps.Copy(restorePVC.Annotations, override.Annotations)
+			}
+			break
+		}
+	}
+
+	return nil
+}
+
+// isVolumeRestorePolicyInPlace determines if the VolumeRestorePolicy is set to "InPlace"
+// If this is the case, we'll have to try to restore the volumes over the original ones, which means
+// deleting the original volumes first, if they already exist.
+func isVolumeRestorePolicyInPlace(vmRestore *snapshotv1.VirtualMachineRestore) bool {
+	if vmRestore.Spec.VolumeRestorePolicy == nil {
+		return false
+	}
+
+	return *vmRestore.Spec.VolumeRestorePolicy == snapshotv1.VolumeRestorePolicyInPlace
+}
+
+// prepopulateDataVolume marks a DataVolume as already populated, effectively blocking it
+// from creating new PVCs. This function is useful when deleting the PVCs associated with DVs
+// during a restore process, as we want to create the new PVCs ourselves and don't want the CDI
+// to start reconciliation.
+func (ctrl *VMRestoreController) prepopulateDataVolume(namespace, dataVolume, restoreName string) error {
+	// Mark the DV as being part of a restore
+	restoreNameAnnotation := fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(RestoreNameAnnotation))
+	restoreNamePatch := patch.WithAdd(restoreNameAnnotation, restoreName)
+
+	// Set the DV as prepopulated so that it doesn't reconcile itself
+	// As long as the annotation is present (no matter the value), the population process is blocked
+	prePopulatedAnnotation := fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(cdiv1.AnnPrePopulated))
+	prePopulatedPatch := patch.WithAdd(prePopulatedAnnotation, dataVolume)
+
+	// Craft the patch payload
+	dvPatch := patch.New(restoreNamePatch, prePopulatedPatch)
+	patchBytes, err := dvPatch.GeneratePayload()
+	if err != nil {
+		return err
+	}
+
+	// Patch the DataVolume
+	_, err = ctrl.Client.CdiClient().CdiV1beta1().DataVolumes(namespace).Patch(context.Background(), dataVolume, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	return err
+}
+
+func setLegacyFirmwareUUID(vm *kubevirtv1.VirtualMachine) {
+	if vm.Spec.Template.Spec.Domain.Firmware == nil {
+		vm.Spec.Template.Spec.Domain.Firmware = &kubevirtv1.Firmware{}
+	}
+	if vm.Spec.Template.Spec.Domain.Firmware.UUID == "" {
+		vm.Spec.Template.Spec.Domain.Firmware.UUID = firmware.CalculateLegacyUUID(vm.Name)
+	}
 }

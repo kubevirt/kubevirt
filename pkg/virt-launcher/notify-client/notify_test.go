@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -25,9 +25,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	"libvirt.org/go/libvirt"
 
 	api2 "kubevirt.io/client-go/api"
@@ -44,38 +44,31 @@ import (
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 var _ = Describe("Notify", func() {
 
 	Describe("Domain Events", func() {
-		var err error
-		var shareDir string
-		var stop chan struct{}
-		var stopped bool
+
 		var eventChan chan watch.Event
 		var deleteNotificationSent chan watch.Event
 		var client *Notifier
-		var metadataCache *metadata.Cache
 
-		var mockDomain *cli.MockVirDomain
-		var mockCon *cli.MockConnection
-		var ctrl *gomock.Controller
+		var mockLibvirt *testing.Libvirt
 		var e *eventCaller
 
 		BeforeEach(func() {
-			ctrl = gomock.NewController(GinkgoT())
-			mockCon = cli.NewMockConnection(ctrl)
-			mockDomain = cli.NewMockVirDomain(ctrl)
-			mockCon.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).AnyTimes()
+			ctrl := gomock.NewController(GinkgoT())
+			mockLibvirt = testing.NewLibvirt(ctrl)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(mockLibvirt.VirtDomain, nil).AnyTimes()
 
-			stop = make(chan struct{})
+			stop := make(chan struct{})
 			eventChan = make(chan watch.Event, 100)
 			deleteNotificationSent = make(chan watch.Event, 100)
-			stopped = false
-			shareDir, err = os.MkdirTemp("", "kubevirt-share")
+			stopped := false
+			shareDir, err := os.MkdirTemp("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
 			e = &eventCaller{}
 
@@ -83,20 +76,20 @@ var _ = Describe("Notify", func() {
 				notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
 			}()
 
-			time.Sleep(1 * time.Second)
-
 			client = NewNotifier(shareDir)
 
-			metadataCache = metadata.NewCache()
+			DeferCleanup(
+				func() {
+					if stopped == false {
+						close(stop)
+					}
+					client.Close()
+					os.RemoveAll(shareDir)
+				},
+			)
 		})
 
-		AfterEach(func() {
-			if stopped == false {
-				close(stop)
-			}
-			client.Close()
-			os.RemoveAll(shareDir)
-		})
+		metadataCache := func() *metadata.Cache { return metadata.NewCache() }
 
 		Context("server", func() {
 			DescribeTable("should accept Domain notify events", func(state libvirt.DomainState, event libvirt.DomainEventType, kubevirtState api.LifeCycle, kubeEventType watch.EventType) {
@@ -104,12 +97,12 @@ var _ = Describe("Notify", func() {
 				x, err := xml.Marshal(domain.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
-				mockDomain.EXPECT().GetState().Return(state, -1, nil)
-				mockDomain.EXPECT().Free()
-				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
-				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+				mockLibvirt.DomainEXPECT().GetState().Return(state, -1, nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
+				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 
-				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache)
+				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache())
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -135,12 +128,12 @@ var _ = Describe("Notify", func() {
 
 		It("should receive a delete event when a VirtualMachineInstance is undefined",
 			func() {
-				mockDomain.EXPECT().Free()
-				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+				mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
 
-				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache)
+				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache())
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -169,10 +162,10 @@ var _ = Describe("Notify", func() {
 				domain := api.NewMinimalDomain("test")
 				x, err := xml.Marshal(domain.Spec)
 				Expect(err).ToNot(HaveOccurred())
-				mockDomain.EXPECT().Free()
-				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
-				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
-				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
+				mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
+				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 
 				interfaceStatus := []api.InterfaceStatus{
 					{
@@ -180,7 +173,7 @@ var _ = Describe("Notify", func() {
 					},
 				}
 
-				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil, nil, nil, metadataCache)
+				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil, nil, nil, metadataCache())
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -201,17 +194,17 @@ var _ = Describe("Notify", func() {
 				domain := api.NewMinimalDomain("test")
 				x, err := xml.Marshal(domain.Spec)
 				Expect(err).ToNot(HaveOccurred())
-				mockDomain.EXPECT().Free()
-				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
-				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
-				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
+				mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
+				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 
 				guestOsName := "TestGuestOS"
 				osInfoStatus := api.GuestOSInfo{
 					Name: guestOsName,
 				}
 
-				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, &osInfoStatus, nil, nil, metadataCache)
+				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, &osInfoStatus, nil, nil, metadataCache())
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -231,17 +224,17 @@ var _ = Describe("Notify", func() {
 				domain := api.NewMinimalDomain("test")
 				x, err := xml.Marshal(domain.Spec)
 				Expect(err).ToNot(HaveOccurred())
-				mockDomain.EXPECT().Free()
-				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
-				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
-				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
+				mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
+				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 
 				fsFrozenStatus := "frozen"
 				fsFreezeStatus := api.FSFreeze{
 					Status: fsFrozenStatus,
 				}
 
-				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, &fsFreezeStatus, metadataCache)
+				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, &fsFreezeStatus, metadataCache())
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -330,13 +323,12 @@ var _ = Describe("Notify", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			ctrl := gomock.NewController(GinkgoT())
-			mockCon := cli.NewMockConnection(ctrl)
-			mockDomain := cli.NewMockVirDomain(ctrl)
-			mockCon.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).AnyTimes()
-			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_IOERROR), nil)
-			mockDomain.EXPECT().Free()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
-			mockDomain.EXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
+			mockLibvirt := testing.NewLibvirt(ctrl)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(mockLibvirt.VirtDomain, nil).AnyTimes()
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_IOERROR), nil)
+			mockLibvirt.DomainEXPECT().Free()
+			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+			mockLibvirt.DomainEXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
 
 			vmi := api2.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
@@ -345,7 +337,7 @@ var _ = Describe("Notify", func() {
 			eventReason := "IOerror"
 			eventMessage := "VM Paused due to not enough space on volume: "
 			metadataCache := metadata.NewCache()
-			e.eventCallback(mockCon, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi, nil, metadataCache)
+			e.eventCallback(mockLibvirt.VirtConnection, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi, nil, metadataCache)
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 		})

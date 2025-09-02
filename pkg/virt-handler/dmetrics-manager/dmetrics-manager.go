@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -108,7 +108,7 @@ func (m *DownwardMetricsManager) StartServer(vmi *v1.VirtualMachineInstance, pid
 		return nil
 	}
 
-	launcherSocketPath, err := cmdclient.FindSocketOnHost(vmi)
+	launcherSocketPath, err := cmdclient.FindSocket(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to get the launcher socket for VMI [%s], error: %v", vmi.GetName(), err)
 	}

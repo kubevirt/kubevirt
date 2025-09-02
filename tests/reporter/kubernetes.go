@@ -457,9 +457,8 @@ func (r *KubernetesReporter) logVMICommands(virtCli kubecli.KubevirtClient, vmiN
 	}
 
 	for _, vmi := range runningVMIs {
-		vmiType, err := getVmiType(vmi)
-		if err != nil {
-			printError("skipping vmi %s/%s: failed to get vmi type: %v", vmi.Namespace, vmi.Name, err)
+		vmiType := getVmiType(vmi)
+		if vmiType == "" {
 			continue
 		}
 
@@ -481,9 +480,8 @@ func (r *KubernetesReporter) logCloudInit(virtCli kubecli.KubevirtClient, vmiNam
 	}
 
 	for _, vmi := range runningVMIs {
-		vmiType, err := getVmiType(vmi)
-		if err != nil {
-			printError("skipping vmi %s/%s: failed to get vmi type: %v", vmi.Namespace, vmi.Name, err)
+		vmiType := getVmiType(vmi)
+		if vmiType == "" {
 			continue
 		}
 
@@ -554,7 +552,7 @@ func (r *KubernetesReporter) logVirtLauncherCommands(virtCli kubecli.KubevirtCli
 		}
 
 		if !isContainerReady(pod.Status.ContainerStatuses, computeContainer) {
-			printError("could not find healty compute container for pod %s", pod.ObjectMeta.Name)
+			printError("could not find healthy compute container for pod %s", pod.ObjectMeta.Name)
 			continue
 		}
 
@@ -899,7 +897,8 @@ func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, logsdir str
 	}
 
 	for _, pod := range pods.Items {
-		for _, container := range pod.Spec.Containers {
+		allContainers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
+		for _, container := range allContainers {
 			current, err := os.OpenFile(filepath.Join(logsdir, fmt.Sprintf("%d_%s_%s-%s.log", r.failureCount, pod.Namespace, pod.Name, container.Name)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				printError(failedOpenFileFmt, err)
@@ -989,14 +988,9 @@ func getRunningVMIs(virtCli kubecli.KubevirtClient, namespace []string) []v12.Vi
 				continue
 			}
 
-			vmiType, err := getVmiType(vmi)
-			if err != nil {
-				printError("skipping vmi %s/%s: failed to get vmi type: %v", vmi.Namespace, vmi.Name, err)
-				continue
-			}
+			vmiType := getVmiType(vmi)
 
-			if err := prepareVmiConsole(vmi, vmiType); err != nil {
-				printError("skipping vmi %s/%s: failed to login: %v", vmi.Namespace, vmi.Name, err)
+			if vmiType == "" || prepareVmiConsole(vmi, vmiType) != nil {
 				continue
 			}
 			runningVMIs = append(runningVMIs, vmi)
@@ -1129,16 +1123,7 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 }
 
 func (r *KubernetesReporter) logClusterOverview() {
-	binary := ""
-	if flags.KubeVirtKubectlPath != "" {
-		binary = "kubectl"
-	} else if flags.KubeVirtOcPath != "" {
-		binary = "oc"
-	} else {
-		return
-	}
-
-	stdout, stderr, err := clientcmd.RunCommand("", binary, "get", "all", "--all-namespaces", "-o", "wide")
+	stdout, stderr, err := clientcmd.RunCommand("", "kubectl", "get", "all", "--all-namespaces", "-o", "wide")
 	if err != nil {
 		printError("failed to fetch cluster overview: %v, %s", err, stderr)
 		return
@@ -1187,7 +1172,7 @@ func writeStringToFile(filePath string, data string) error {
 	return err
 }
 
-func getVmiType(vmi v12.VirtualMachineInstance) (string, error) {
+func getVmiType(vmi v12.VirtualMachineInstance) string {
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.ContainerDisk == nil {
 			continue
@@ -1195,19 +1180,15 @@ func getVmiType(vmi v12.VirtualMachineInstance) (string, error) {
 
 		image := volume.VolumeSource.ContainerDisk.Image
 		if strings.Contains(image, "fedora") {
-			return "fedora", nil
+			return "fedora"
 		} else if strings.Contains(image, "cirros") {
-			return "cirros", nil
+			return "cirros"
 		} else if strings.Contains(image, "alpine") {
-			return "alpine", nil
+			return "alpine"
 		}
 	}
 
-	if vmiJson, err := json.Marshal(vmi); err == nil {
-		return "", fmt.Errorf("unknown type, vmi %s", vmiJson)
-	} else {
-		return "", fmt.Errorf("%w: unknown type, vmi %s", err, vmi.ObjectMeta.Name)
-	}
+	return ""
 }
 
 func prepareVmiConsole(vmi v12.VirtualMachineInstance, vmiType string) error {

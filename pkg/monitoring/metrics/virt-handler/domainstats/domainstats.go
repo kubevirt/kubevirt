@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright the KubeVirt Authors.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -22,7 +22,7 @@ package domainstats
 import (
 	"strings"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	k6tv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -43,8 +43,9 @@ type VirtualMachineInstanceReport struct {
 }
 
 type VirtualMachineInstanceStats struct {
-	DomainStats *stats.DomainStats
-	FsStats     k6tv1.VirtualMachineInstanceFileSystemList
+	DomainStats    *stats.DomainStats
+	FsStats        k6tv1.VirtualMachineInstanceFileSystemList
+	GuestAgentInfo *k6tv1.VirtualMachineInstanceGuestAgentInfo
 }
 
 func newVirtualMachineInstanceReport(vmi *k6tv1.VirtualMachineInstance, vmiStats *VirtualMachineInstanceStats) *VirtualMachineInstanceReport {

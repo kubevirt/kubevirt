@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017, 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -260,6 +260,11 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 				OVMFPath:         DefaultARCHOVMFPath,
 				EmulatedMachines: strings.Split(DefaultPPC64LEEmulatedMachines, ","),
 				MachineType:      DefaultPPC64LEMachineType,
+			},
+			S390x: &v1.ArchSpecificConfiguration{
+				OVMFPath:         DefaultS390xOVMFPath,
+				EmulatedMachines: strings.Split(DefaultS390XEmulatedMachines, ","),
+				MachineType:      DefaultS390XMachineType,
 			},
 			DefaultArchitecture: runtime.GOARCH,
 		},

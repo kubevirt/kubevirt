@@ -9,14 +9,15 @@ var (
 
 	/* SIGs */
 
-	SigCompute           = Label("sig-compute")
-	SigOperator          = Label("sig-operator")
-	SigNetwork           = Label("sig-network")
-	SigStorage           = Label("sig-storage")
-	SigComputeRealtime   = Label("sig-compute-realtime")
-	SigComputeMigrations = Label("sig-compute-migrations")
-	SigMonitoring        = Label("sig-monitoring")
-	SigPerformance       = Label("sig-performance")
+	SigCompute             = Label("sig-compute")
+	SigOperator            = Label("sig-operator")
+	SigNetwork             = Label("sig-network")
+	SigStorage             = Label("sig-storage")
+	SigComputeInstancetype = Label("sig-compute-instancetype")
+	SigComputeRealtime     = Label("sig-compute-realtime")
+	SigComputeMigrations   = Label("sig-compute-migrations")
+	SigMonitoring          = Label("sig-monitoring")
+	SigPerformance         = Label("sig-performance")
 
 	/* HW */
 
@@ -47,8 +48,6 @@ var (
 	Networking                           = Label("Networking")
 	VMIlifecycle                         = Label("VMIlifecycle")
 	Expose                               = Label("Expose")
-	NativeSSH                            = Label("native-ssh")
-	ExcludeNativeSSH                     = Label("exclude-native-ssh")
 	Reenlightenment                      = Label("Reenlightenment")
 	TscFrequencies                       = Label("TscFrequencies")
 	HostDiskGate                         = Label("HostDiskGate")
@@ -67,6 +66,7 @@ var (
 	RequiresDualStackCluster             = Label("requires-dual-stack-cluster")
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
+	GuestAgentProbes                     = Label("guest-agent-probes")
 
 	/* Storage classes */
 
@@ -89,6 +89,8 @@ var (
 	StorageCritical = Label("StorageCritical")
 	// RequiresVolumeExpansion requires a storage class with volume expansion support
 	RequiresVolumeExpansion = Label("RequiresVolumeExpansion")
+	// RequiresDecentralizedLiveMigration request the feature gate is enabled
+	RequiresDecentralizedLiveMigration = Label("RequiresDecentralizedLiveMigration")
 
 	/* Provisioner */
 
@@ -100,6 +102,10 @@ var (
 	WgS390x = Label("wg-s390x")
 	WgArm64 = Label("wg-arm64")
 
+	RequiresAMD64 = Label("requires-amd64")
+	RequiresS390X = Label("requires-s390x")
+	RequiresARM64 = Label("requires-arm64")
+
 	// Virtctl related tests
 	Virtctl = Label("virtctl")
 
@@ -109,9 +115,18 @@ var (
 	// FlakeCheck decorates tests that are dedicated to the check-tests-for-flakes test lane.
 	FlakeCheck = Label("flake-check")
 
-	/* Potentially disruptive tests */
+	// Disruptive indicates that the test may cause a disruption to the cluster's normal operation
+	Disruptive = Label("disruptive")
 
 	// LargeStoragePoolRequired indicates that the test may fail in a cluster with a low storage pool capacity.
 	// This decorator can be used to skip the test as the failure might not indicate a functional problem.
 	LargeStoragePoolRequired = Label("large-storage-pool-required")
+
+	// OncePerOrderedCleanup decorates Ordered tests to only cleanup after the last
+	// test in an Ordered container.
+	// Currently, in pilot mode, restricted to SIG-Network and virtctl only.
+	OncePerOrderedCleanup = Label("OncePerOrderedCleanup")
+
+	// Swap decorator is used in case a swap is required on a node.
+	Swap = Label("SwapTest")
 )

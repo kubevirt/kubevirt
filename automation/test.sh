@@ -22,6 +22,7 @@ set -ex
 export TIMESTAMP=${TIMESTAMP:-1}
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
+export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
@@ -30,7 +31,7 @@ source hack/config-default.sh
 
 # Skip if it's docs changes only
 # Only if we are in CI, and this is a non-batch change
-if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" && "$JOB_NAME" != *"rehearsal"* ]]; then
+if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" && "$JOB_NAME" != *"rehearsal"* && "$JOB_NAME" != *"test-subset"* ]]; then
     SKIP_PATTERN="^(docs/|\.github/)|(OWNERS|OWNERS_ALIASES|.*\.(md|txt))$"
     CI_GIT_ALL_CHANGES=$(git diff --name-only ${PULL_BASE_SHA}...${PULL_PULL_SHA})
     CI_GIT_NO_DOCS_CHANGES=$(cat <<<$CI_GIT_ALL_CHANGES | grep -vE "$SKIP_PATTERN" || :)
@@ -61,7 +62,7 @@ fi
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
 elif [[ $TARGET =~ sig-network ]]; then
-  export KUBEVIRT_WITH_MULTUS_V3="${KUBEVIRT_WITH_MULTUS_V3:-true}"
+  export KUBEVIRT_WITH_DYN_NET_CTRL="${KUBEVIRT_WITH_DYN_NET_CTRL:-false}"
   export KUBEVIRT_NUM_NODES=3
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
@@ -97,8 +98,6 @@ elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
-  export KUBEVIRT_WITH_CNAO=true
-  export KUBEVIRT_NUM_SECONDARY_NICS=1
 elif [[ $TARGET =~ sig-monitoring ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
     export KUBEVIRT_DEPLOY_PROMETHEUS=true
@@ -106,6 +105,8 @@ elif [[ $TARGET =~ wg-s390x ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-wg-s390x}
 elif [[ $TARGET =~ wg-arm64 ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
+elif [[ $TARGET =~ sev ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-sev}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -125,6 +126,7 @@ if [[ $TARGET =~ sriov.* ]]; then
     export KUBEVIRT_NUM_NODES=3
   fi
   export KUBEVIRT_DEPLOY_CDI="false"
+  export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
 elif [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
 else
@@ -140,6 +142,7 @@ export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/
 export WINDOWS_LOCK_PATH=${WINDOWS_LOCK_PATH:-/var/lib/stdci/shared/download_windows_image.lock}
 export WINDOWS_SYSPREP_NFS_DIR=${WINDOWS_SYSPREP_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2012_syspreped}
 export WINDOWS_SYSPREP_LOCK_PATH=${WINDOWS_SYSPREP_LOCK_PATH:-/var/lib/stdci/shared/download_windows_syspreped_image.lock}
+export KUBEVIRT_NFS_DIR=${KUBEVIRT_NFS_DIR:-/var/lib/containers/nfs-data}
 
 wait_for_download_lock() {
   local max_lock_attempts=60
@@ -421,19 +424,21 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-network,netCustomBindingPlugins)'
     # SR-IOV tests runs on dedicated lane (matching the pattern: *kind-sriov*)
     add_to_label_filter "(!SRIOV)" "&&"
-    if [[ $KUBEVIRT_WITH_MULTUS_V3 == "true" ]]; then
-      add_to_label_filter "(!in-place-hotplug-NICs)" "&&"
-    else
+    if [[ $KUBEVIRT_WITH_DYN_NET_CTRL == "true" ]]; then
       add_to_label_filter "(!migration-based-hotplug-NICs)" "&&"
+    else
+      add_to_label_filter "(!in-place-hotplug-NICs)" "&&"
     fi
   elif [[ $TARGET =~ sig-storage ]]; then
     label_filter='(sig-storage)'
   elif [[ $TARGET =~ wg-s390x ]]; then
-    label_filter='(wg-s390x)'
+    label_filter='(wg-s390x) && !(requires-amd64)'
   elif [[ $TARGET =~ wg-arm64 ]]; then
-    label_filter='(wg-arm64 && !(ACPI,requires-two-schedulable-nodes,cpumodel))'
+    label_filter='(wg-arm64 && !(ACPI,requires-two-schedulable-nodes,cpumodel,requires-two-worker-nodes-with-cpu-manager,requires-amd64))'
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='(VGPU)'
+  elif [[ $TARGET =~ sev.* ]]; then
+    label_filter='(SEV)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     label_filter='(sig-compute-realtime) && !(SEV, SEVES)'
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
@@ -475,6 +480,14 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     add_to_label_filter "(!Sysprep)" "&&"
   fi
 
+  if [[ ! $TARGET =~ wg-s390x ]]; then
+    add_to_label_filter "(!requires-s390x)" "&&"
+  fi
+
+  if [[ ! $TARGET =~ wg-arm64 ]]; then
+    add_to_label_filter "(!requires-arm64)" "&&"
+  fi
+
   rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
   if [[ "${rwofs_sc}" == "local" ]]; then
     # local is a primitive non CSI storage class that doesn't support expansion
@@ -488,9 +501,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   fi
 
 fi
-
-# We do not want to run tests which exclude native SSH functionality
-add_to_label_filter '(!exclude-native-ssh)' '&&'
 
 # Single-node single-replica test lanes obviously can't run live migrations,
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
@@ -523,6 +533,10 @@ fi
 # Always override as we want to fail if anything is requiring special handling
 if [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
+fi
+
+if [[ -z "$KUBEVIRT_SWAP_ON" || "$KUBEVIRT_SWAP_ON" == "false" ]]; then
+  add_to_label_filter '(!SwapTest)' '&&'
 fi
 
 # Prepare RHEL PV for Template testing

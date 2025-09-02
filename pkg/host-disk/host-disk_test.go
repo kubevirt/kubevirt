@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -24,24 +24,23 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
-
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/safepath"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
-
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -56,11 +55,16 @@ var _ = Describe("HostDisk", func() {
 	createTempDiskImg := func(volumeName string) os.FileInfo {
 		imgPath := path.Join(tempDir, volumeName, "disk.img")
 
-		err := os.Mkdir(path.Join(tempDir, volumeName), 0755)
+		// 67108864 = 64Mi
+		dir := filepath.Dir(imgPath)
+
+		err := os.Mkdir(dir, 0755)
 		Expect(err).NotTo(HaveOccurred())
 
-		// 67108864 = 64Mi
-		err = createSparseRaw(imgPath, 67108864)
+		sDir, err := safepath.JoinAndResolveWithRelativeRoot(tempDir, volumeName)
+		Expect(err).To(Not(HaveOccurred()))
+
+		err = createSparseRaw(sDir, filepath.Base(imgPath), 67108864)
 		Expect(err).NotTo(HaveOccurred())
 
 		file, err := os.Stat(imgPath)
@@ -70,7 +74,12 @@ var _ = Describe("HostDisk", func() {
 
 	BeforeEach(func() {
 		tempDir = GinkgoT().TempDir()
-		Expect(setDiskDirectory(tempDir)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(tempDir, "run", "kubevirt-private", "vmi-disks"), 0777)).To(Succeed())
+		Expect(os.Mkdir(filepath.Join(tempDir, "var"), 0777)).To(Succeed())
+		Expect(os.Symlink(filepath.Join(tempDir, "run"), filepath.Join(tempDir, "var", "run"))).To(Succeed())
+		tempDir = filepath.Join(tempDir, "/var/run/kubevirt-private/vmi-disks")
+
+		pvcBaseDir = tempDir
 
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
@@ -289,7 +298,14 @@ var _ = Describe("HostDisk", func() {
 			})
 		})
 		Context("With existing disk.img", func() {
-			It("Should not re-create disk.img", func() {
+			AfterEach(func() {
+				By("Switching back to the regular mock ownership manager")
+				ephemeraldiskutils.MockDefaultOwnershipManager()
+			})
+
+			It("Should not re-create or chown disk.img", func() {
+				By("Switching to an ownership manager that panics when called")
+				ephemeraldiskutils.MockDefaultOwnershipManagerWithFailure()
 				By("Creating a disk.img before adding a HostDisk volume")
 				tmpDiskImg := createTempDiskImg("volume1")
 				By("Creating a new VMI with a HostDisk volumes")

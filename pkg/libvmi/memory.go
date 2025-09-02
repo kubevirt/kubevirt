@@ -13,14 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
 package libvmi
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -50,5 +52,37 @@ func WithMaxGuest(memory string) Option {
 		}
 		quantity := resource.MustParse(memory)
 		vmi.Spec.Domain.Memory.MaxGuest = &quantity
+	}
+}
+
+// Deprecated: Use WithMemoryRequest instead
+// WithResourceMemory specifies the vmi memory resource.
+func WithResourceMemory(value string) Option {
+	return WithMemoryRequest(value)
+}
+
+// Deprecated: Use WithMemoryLimit instead
+// WithLimitMemory specifies the VMI memory limit.
+func WithLimitMemory(value string) Option {
+	return WithMemoryLimit(value)
+}
+
+// WithMemoryRequest specifies the vmi memory resource.
+func WithMemoryRequest(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Requests == nil {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(value)
+	}
+}
+
+// WithMemoryLimit specifies the VMI memory limit.
+func WithMemoryLimit(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Limits == nil {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse(value)
 	}
 }

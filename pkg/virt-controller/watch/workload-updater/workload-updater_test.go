@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -693,7 +693,7 @@ func newVirtualMachineInstance(name string, isMigratable bool, image string) *v1
 	}
 
 	vmi := libvmi.New(
-		libvmi.WithResourceMemory("8192Ki"),
+		libvmi.WithMemoryRequest("8192Ki"),
 		libvmi.WithNamespace(k8sv1.NamespaceDefault),
 		libvmi.WithName(name),
 		libvmistatus.WithStatus(libvmistatus.New(statusOpts...)),

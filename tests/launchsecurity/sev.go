@@ -315,7 +315,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES bool, sevstr string) {
 				vmi := newSEVFedora(withES)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -337,7 +337,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, "SEV SEV-ES"),
 		)
 
-		It("should run guest attestation", func() {
+		It("[QUARANTINE] should run guest attestation", decorators.Quarantine, func() {
 			var (
 				expectedSEVPlatformInfo    v1.SEVPlatformInfo
 				expectedSEVMeasurementInfo v1.SEVMeasurementInfo

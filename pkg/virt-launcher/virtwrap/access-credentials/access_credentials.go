@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -285,16 +285,12 @@ func (l *AccessCredentialManager) agentSetFilePermissions(domName string, filePa
 }
 
 func (l *AccessCredentialManager) agentSetUserPassword(domName string, user string, password string) error {
-
-	base64Str := base64.StdEncoding.EncodeToString([]byte(password))
-
-	cmdSetPassword := fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
-
-	_, err := l.virConn.QemuAgentCommand(cmdSetPassword, domName)
+	domain, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
-		return err
+		return fmt.Errorf("domain lookup failed: %w", err)
 	}
-	return nil
+	defer domain.Free()
+	return domain.SetUserPassword(user, password, 0)
 }
 
 func (l *AccessCredentialManager) pingAgent(domName string) error {

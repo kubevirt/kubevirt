@@ -1,3 +1,21 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ */
+
 //nolint:dupl
 package find_test
 
@@ -17,7 +35,7 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
@@ -36,6 +54,7 @@ import (
 var _ = Describe("Instance Type SpecFinder", func() {
 	const (
 		nonExistingResourceName = "non-existing-resource"
+		storedName              = "stored"
 	)
 
 	type instancetypeSpecFinder interface {
@@ -295,6 +314,36 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(foundInstancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
 		})
+
+		It("find returns only referenced object - bug #14595", func() {
+			// Make a slightly altered copy of the object already present in the client and store it in a CR
+			stored := clusterInstancetype.DeepCopy()
+			stored.ObjectMeta.Name = storedName
+			stored.Spec.CPU.Guest = uint32(99)
+
+			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), controllerRevision, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Assert that the spec points to the original clusterInstancetype
+			Expect(vm.Spec.Instancetype.Name).To(Equal(clusterInstancetype.Name))
+
+			// Reference this stored version from the VM status
+			vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+				Name: stored.Name,
+				Kind: stored.Kind,
+				ControllerRevisionRef: &v1.ControllerRevisionRef{
+					Name: controllerRevision.Name,
+				},
+			}
+
+			foundInstancetypeSpec, err := finder.Find(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(foundInstancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
+		})
 	})
 
 	Context("Using namespaced Instancetype", func() {
@@ -470,6 +519,36 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+				ControllerRevisionRef: &v1.ControllerRevisionRef{
+					Name: controllerRevision.Name,
+				},
+			}
+
+			foundInstancetypeSpec, err := finder.Find(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(foundInstancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
+		})
+
+		It("find returns only referenced object - bug #14595", func() {
+			// Make a slightly altered copy of the object already present in the client and store it in a CR
+			stored := fakeInstancetype.DeepCopy()
+			stored.ObjectMeta.Name = storedName
+			stored.Spec.CPU.Guest = uint32(99)
+
+			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), controllerRevision, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Assert that the spec points to the original clusterInstancetype
+			Expect(vm.Spec.Instancetype.Name).To(Equal(fakeInstancetype.Name))
+
+			// Reference this stored version from the VM status
+			vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+				Name: stored.Name,
+				Kind: stored.Kind,
 				ControllerRevisionRef: &v1.ControllerRevisionRef{
 					Name: controllerRevision.Name,
 				},

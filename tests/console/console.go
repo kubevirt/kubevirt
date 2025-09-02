@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -264,7 +264,7 @@ func NewExpecter(
 	}, timeout, opts...)
 }
 
-// ExpectBatchWithValidatedSend adds the expect.BSnd command to the exect.BExp expression.
+// ExpectBatchWithValidatedSend adds the expect.BSnd command to the expect.BExp expression.
 // It is done to make sure the match was found in the result of the expect.BSnd
 // command and not in a leftover that wasn't removed from the buffer.
 // NOTE: the method contains the following limitations:

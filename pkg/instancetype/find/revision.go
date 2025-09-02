@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors
+ * Copyright The KubeVirt Authors.
  *
  */
 package find
@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/kubecli"
 )
 
@@ -47,10 +48,17 @@ func (f *revisionFinder) Find(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevi
 	}
 	ref := vm.Status.InstancetypeRef
 	if ref != nil && ref.ControllerRevisionRef != nil && ref.ControllerRevisionRef.Name != "" {
-		return f.controllerRevisionFinder.Find(types.NamespacedName{
+		cr, err := f.controllerRevisionFinder.Find(types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      ref.ControllerRevisionRef.Name,
 		})
+		if err != nil {
+			return nil, err
+		}
+		// Only return the found CR if it is for the referenced instance type
+		if label, ok := cr.Labels[instancetypeapi.ControllerRevisionObjectNameLabel]; ok && label == vm.Spec.Instancetype.Name {
+			return cr, nil
+		}
 	}
 	return nil, nil
 }

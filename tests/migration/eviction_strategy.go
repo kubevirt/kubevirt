@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -84,7 +84,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 		Context("[ref_id:2293] with a VMI running with an eviction strategy set", func() {
 
 			It("[test_id:3242]should block the eviction api and migrate", decorators.Conformance, func() {
-				vmi := libvmops.RunVMIAndExpectLaunch(alpineVMIWithEvictionStrategy(), 180)
+				vmi := libvmops.RunVMIAndExpectLaunch(alpineVMIWithEvictionStrategy(), libvmops.StartupTimeoutSecondsXLarge)
 
 				originalNode := vmi.Status.NodeName
 
@@ -107,47 +107,6 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						))),
 					),
 				)
-			})
-
-			It("[sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
-				vmi := alpineVMIWithEvictionStrategy()
-				for x := 0; x < 3; x++ {
-					By("creating the VMI")
-					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					By("checking that the PDB appeared")
-					Eventually(matcher.AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
-
-					By("waiting for VMI")
-					libwait.WaitForSuccessfulVMIStart(vmi,
-						libwait.WithTimeout(60),
-					)
-					By("deleting the VMI")
-					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-					By("checking that the PDB disappeared")
-					Eventually(matcher.AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
-					Eventually(matcher.ThisVMI(vmi), 60*time.Second, 500*time.Millisecond).Should(matcher.BeGone())
-				}
-			})
-
-			It("should create the PDB if VMI is live-migratable and has the LiveMigrateIfPossible strategy set", func() {
-				By("creating the VMI")
-				vmi := alpineVMIWithEvictionStrategy(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrateIfPossible))
-				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("checking that the PDB appeared, with extra time since schedulability needs to be determined first in the cluster")
-				Eventually(matcher.AllPDBs(vmi.Namespace), 60*time.Second, 500*time.Millisecond).Should(HaveLen(1))
-				By("waiting for VMI")
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithTimeout(60),
-				)
-
-				By("deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-				By("checking that the PDB disappeared")
-				Eventually(matcher.AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
 			})
 
 			It("[sig-compute][test_id:7680]should delete PDBs created by an old virt-controller", func() {
@@ -188,7 +147,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 			It("[test_id:3244]should block the eviction api while a slow migration is in progress", func() {
 				By("Starting the VirtualMachineInstance")
-				vmi := libvmops.RunVMIAndExpectLaunch(fedoraVMIWithEvictionStrategy(), 240)
+				vmi := libvmops.RunVMIAndExpectLaunch(fedoraVMIWithEvictionStrategy(), libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -297,7 +256,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -323,7 +282,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -348,7 +307,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					config.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					By("Starting the VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 					node := vmi.Status.NodeName
 					libnode.TemporaryNodeDrain(node)
@@ -462,7 +421,6 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 			})
 		})
 		Context("with multiple VMIs with eviction policies set", Serial, func() {
-
 			It("[release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
 				var vmis []*v1.VirtualMachineInstance
 				for i := 0; i < 4; i++ {
@@ -566,7 +524,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
 
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 					vmiNodeOrig := vmi.Status.NodeName
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
@@ -607,7 +565,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
 					)
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
 					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
@@ -621,7 +579,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 	return libvmifact.NewFedora(libnet.WithMasqueradeNetworking(),
-		libvmi.WithResourceMemory(fedoraVMSize),
+		libvmi.WithMemoryRequest(fedoraVMSize),
 		libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
 }

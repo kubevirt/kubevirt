@@ -3,6 +3,7 @@ package hotplug
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,11 +18,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -60,7 +60,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 		createHotplugVM := func(sockets *uint32, maxSockets uint32, opts ...libvmi.Option) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 			vmiOpts := append([]libvmi.Option{},
 				libnet.WithMasqueradeNetworking(),
-				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithMemoryRequest("1Gi"),
 			)
 			vmiOpts = append(vmiOpts, opts...)
 			vmi := libvmifact.NewAlpine(vmiOpts...)
@@ -87,19 +87,14 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			return vm, vmi
 		}
 
-		parseCurrentDomainMemory := func(spec *api.DomainSpec) *resource.Quantity {
-			ExpectWithOffset(1, spec.CurrentMemory).NotTo(BeNil())
-			memory, err := resource.ParseQuantity(fmt.Sprintf("%vKi", spec.CurrentMemory.Value))
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-			return &memory
-		}
-
 		DescribeTable("[test_id:10823]should successfully hotplug memory", func(opts ...libvmi.Option) {
 			By("Creating a VM")
 			guest := resource.MustParse("1Gi")
 			vm, vmi := createHotplugVM(nil, 0, opts...)
 
-			By("Limiting the bandwidth of migrations in the test namespace")
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+			By("Limiting the bandwidth of migrations for the created VM")
 			migrationBandwidthLimit := resource.MustParse("1Ki")
 			migration.CreateMigrationPolicy(virtClient, migration.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
@@ -110,6 +105,9 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqMemory := compute.Resources.Requests.Memory().Value()
 			Expect(reqMemory).To(BeNumerically(">=", guest.Value()))
+
+			guestMemoryBeforeHotplug, err := getGuestMemory(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Hotplug additional memory")
 			newGuestMemory := resource.MustParse("1042Mi")
@@ -125,16 +123,6 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			migration := getVMIMigration(virtClient, vmi)
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
-			By("Ensuring the libvirt domain has more available guest memory")
-			Eventually(func(g Gomega) int64 {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				spec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-				g.Expect(err).To(Not(HaveOccurred()))
-				return parseCurrentDomainMemory(spec).Value()
-			}, 240*time.Second, time.Second).Should(BeNumerically(">", guest.Value()))
-
 			By("Ensuring the VMI has more available guest memory")
 			Eventually(func() int64 {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
@@ -148,6 +136,16 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqMemory = compute.Resources.Requests.Memory().Value()
 			Expect(reqMemory).To(BeNumerically(">=", newGuestMemory.Value()))
+
+			Eventually(func() error {
+				guestMemoryAfterHotplug, err := getGuestMemory(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				if guestMemoryBeforeHotplug.Cmp(*guestMemoryAfterHotplug) != -1 {
+					return fmt.Errorf("guest memory after hotplug %s should be greater than original guest memory %s", guestMemoryAfterHotplug.String(), guestMemoryBeforeHotplug.String())
+				}
+				return nil
+			}).WithPolling(2 * time.Second).WithTimeout(30 * time.Second).Should(Succeed())
 		},
 			Entry("with a common VM"),
 			Entry("with 2Mi pagesize hugepages VM", decorators.RequiresHugepages2Mi, libvmi.WithHugepages("2Mi")),
@@ -234,7 +232,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 		It("should successfully hotplug memory when adding guest.memory to a VM", func() {
 			By("Creating a VM")
 			guest := resource.MustParse("1Gi")
-			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(guest.String()))
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(guest.String()))
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{}
 
@@ -270,16 +268,6 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			By("Ensuring live-migration started")
 			migration := getVMIMigration(virtClient, vmi)
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
-
-			By("Ensuring the libvirt domain has more available guest memory")
-			Eventually(func(g Gomega) int64 {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				spec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-				g.Expect(err).To(Not(HaveOccurred()))
-				return parseCurrentDomainMemory(spec).Value()
-			}, 240*time.Second, time.Second).Should(BeNumerically(">", guest.Value()))
 
 			By("Ensuring the VMI has more available guest memory")
 			Eventually(func() int64 {
@@ -331,16 +319,6 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 				migration := getVMIMigration(virtClient, vmi)
 				libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
-				By("Ensuring the libvirt domain has more available guest memory")
-				Eventually(func(g Gomega) int64 {
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-
-					spec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-					g.Expect(err).To(Not(HaveOccurred()))
-					return parseCurrentDomainMemory(spec).Value()
-				}, 240*time.Second, time.Second).Should(BeNumerically(">", oldGuestMemory.Value()))
-
 				By("Ensuring the VMI has more available guest memory")
 				Eventually(func() int64 {
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
@@ -363,7 +341,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			vmi := libvmifact.NewAlpine(
 				libnet.WithMasqueradeNetworking(),
 				libvmi.WithAnnotation(v1.FuncTestMemoryHotplugFailAnnotation, ""),
-				libvmi.WithResourceMemory(guest.String()),
+				libvmi.WithMemoryRequest(guest.String()),
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guest}
@@ -413,4 +391,19 @@ func getVMIMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 		return false
 	}, 30*time.Second, time.Second).Should(BeTrue(), "A migration should be created")
 	return migration
+}
+
+// The VMI is assumed to be already logged-in.
+func getGuestMemory(vmi *v1.VirtualMachineInstance) (*resource.Quantity, error) {
+	res, err := console.RunCommandAndStoreOutput(vmi, "free -b | awk '/^Mem:/{print $2}'", time.Second*30)
+	if err != nil {
+		return nil, err
+	}
+
+	guestBytes, err := strconv.Atoi(res)
+	if err != nil {
+		return nil, err
+	}
+
+	return resource.NewQuantity(int64(guestBytes), resource.BinarySI), nil
 }

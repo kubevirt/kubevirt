@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/workqueue"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
@@ -57,7 +58,6 @@ import (
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
-	"kubevirt.io/kubevirt/pkg/storage/status"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	kutil "kubevirt.io/kubevirt/pkg/util"
@@ -100,7 +100,9 @@ const (
 	caCertFile    = caDefaultPath + "/tls.crt"
 	caKeyFile     = caDefaultPath + "/tls.key"
 	// name of certificate secret volume in pod
-	certificates = "certificates"
+	certificatesVolName = "certificates"
+	// name of token secret volume in pod
+	tokenVolName = "token"
 
 	exporterPodFailedOrCompletedEvent     = "ExporterPodFailedOrCompleted"
 	exporterPodCreatedEvent               = "ExporterPodCreated"
@@ -219,13 +221,11 @@ type VMExportController struct {
 
 	vmExportQueue workqueue.TypedRateLimitingInterface[string]
 
-	caCertManager *bootstrap.FileCertificateManager
+	caCertManager certificate.Manager
 
 	clusterConfig *virtconfig.ClusterConfig
 
 	instancetypeHandler instancetypeVMHandler
-
-	statusUpdater *status.VMExportStatusUpdater
 }
 
 type CertParams struct {
@@ -366,8 +366,6 @@ func (ctrl *VMExportController) Init() error {
 			ctrl.Client,
 		),
 	)
-
-	ctrl.statusUpdater = status.NewVMExportStatusUpdater(ctrl.Client)
 
 	initCert(ctrl)
 	return nil
@@ -780,7 +778,7 @@ func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMa
 func (ctrl *VMExportController) getExportSecretName(ownerPod *corev1.Pod) string {
 	var certSecretName string
 	for _, volume := range ownerPod.Spec.Volumes {
-		if volume.Name == certificates {
+		if volume.Name == certificatesVolName {
 			certSecretName = volume.Secret.SecretName
 		}
 	}
@@ -793,11 +791,28 @@ func getDefaultTokenSecretName(vme *exportv1.VirtualMachineExport) string {
 }
 
 func (ctrl *VMExportController) getExportServiceName(vmExport *exportv1.VirtualMachineExport) string {
-	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
+	// get rid of dots which are not allowed in DNS1035 labels
+	sanitizedSuffix := strings.ReplaceAll(vmExport.Name, ".", "-")
+	// super unlikely special case where svc name would begin with "-" instead of alphabetic char
+	// https://github.com/openshift/library-go/blob/cd26fa5a3d88178cb8f753c52c80ea2edd3f9349/pkg/build/naming/namer.go#L24
+	// (baseLength = 0)
+	if len(sanitizedSuffix) == validation.DNS1035LabelMaxLength-10 {
+		sanitizedSuffix = sanitizedSuffix[:len(sanitizedSuffix)-1]
+	}
+	return naming.GetName(exportPrefix, sanitizedSuffix, validation.DNS1035LabelMaxLength)
 }
 
 func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachineExport) string {
 	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
+}
+
+func (ctrl *VMExportController) getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim) string {
+	pvcName := strings.ReplaceAll(pvc.Name, ".", "-")
+	// Using the formatted PVC name if it's under the max length.
+	if len(pvcName) <= validation.DNS1035LabelMaxLength {
+		return pvcName
+	}
+	return naming.GetName(exportPrefix, pvcName, validation.DNS1035LabelMaxLength)
 }
 
 // getExportLabelValue will return the virtual machine's name if it is under the
@@ -933,7 +948,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	}
 	for i, pvc := range pvcs {
 		var mountPoint string
-		volumeName := strings.ReplaceAll(pvc.Name, ".", "-")
+		volumeName := ctrl.getExportPodVolumeName(pvc)
 		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
 			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
@@ -987,14 +1002,14 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 
 	secretName := fmt.Sprintf("secret-%s", rand.String(10))
 	podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
-		Name: certificates,
+		Name: certificatesVolName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: secretName,
 			},
 		},
 	}, corev1.Volume{
-		Name: tokenSecretRef,
+		Name: tokenVolName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: tokenSecretRef,
@@ -1003,10 +1018,10 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	})
 
 	podManifest.Spec.Containers[0].VolumeMounts = append(podManifest.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-		Name:      certificates,
+		Name:      certificatesVolName,
 		MountPath: "/cert",
 	}, corev1.VolumeMount{
-		Name:      tokenSecretRef,
+		Name:      tokenVolName,
 		MountPath: "/token",
 	})
 
@@ -1261,7 +1276,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 
 func (ctrl *VMExportController) updateVMExportStatus(vmExport, vmExportCopy *exportv1.VirtualMachineExport) error {
 	if !equality.Semantic.DeepEqual(vmExport.Status, vmExportCopy.Status) {
-		if err := ctrl.statusUpdater.UpdateStatus(vmExportCopy); err != nil {
+		if _, err := ctrl.Client.VirtualMachineExport(vmExportCopy.Namespace).UpdateStatus(context.Background(), vmExportCopy, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}

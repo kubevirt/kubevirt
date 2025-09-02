@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -255,6 +255,15 @@ func StorageWithVolumeSize(size string) storageOption {
 		}
 
 		storage.Resources.Requests = corev1.ResourceList{"storage": resource.MustParse(size)}
+	}
+}
+
+// StorageWithoutVolumeSize removes the default volume size, useful for clones
+func StorageWithoutVolumeSize() storageOption {
+	return func(storage *v1beta1.StorageSpec) {
+		if storage != nil {
+			storage.Resources.Requests = nil
+		}
 	}
 }
 

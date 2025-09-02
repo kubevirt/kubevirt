@@ -40,6 +40,8 @@ func (VirtualMachinePoolSpec) SwaggerDoc() map[string]string {
 		"virtualMachineTemplate": "Template describes the VM that will be created.",
 		"paused":                 "Indicates that the pool is paused.\n+optional",
 		"nameGeneration":         "Options for the name generation in a pool.\n+optional",
+		"maxUnavailable":         "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.\n+optional",
+		"scaleInStrategy":        "ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool\n+optional",
 	}
 }
 
@@ -52,5 +54,26 @@ func (VirtualMachinePoolNameGeneration) SwaggerDoc() map[string]string {
 func (VirtualMachinePoolList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "VirtualMachinePoolList is a list of VirtualMachinePool resources.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
+	}
+}
+
+func (VirtualMachinePoolScaleInStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "VirtualMachinePoolScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool\n+k8s:openapi-gen=true",
+		"proactive": "Proactive scale-in by forcing VMs to shutdown during scale-in (Default)\n+optional",
+	}
+}
+
+func (VirtualMachinePoolProactiveScaleInStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                "VirtualMachinePoolProactiveScaleInStrategy represents proactive scale-in strategy\n+k8s:openapi-gen=true",
+		"selectionPolicy": "SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in\nDefaults to \"Random\" base policy when no SelectionPolicy is configured\n+optional",
+	}
+}
+
+func (VirtualMachinePoolSelectionPolicy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for scale-in\n+k8s:openapi-gen=true",
+		"basePolicy": "BasePolicy is a catch-all policy [Random|DescendingOrder]\n+optional\n+kubebuilder:validation:Enum=Random;DescendingOrder",
 	}
 }

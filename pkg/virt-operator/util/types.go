@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2019 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 package util
@@ -170,6 +170,7 @@ type Informers struct {
 	ValidatingAdmissionPolicy        cache.SharedIndexInformer
 	ClusterInstancetype              cache.SharedIndexInformer
 	ClusterPreference                cache.SharedIndexInformer
+	Leases                           cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {

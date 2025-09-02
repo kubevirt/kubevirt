@@ -34,6 +34,7 @@ set -euo pipefail
 KUBEVIRT_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 
 # include defaults for retrieving proper vendored cluster-up version
+export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 export DOCKER_TAG_ALT=''
 export IMAGE_PREFIX=''
 export IMAGE_PREFIX_ALT=''
@@ -149,20 +150,7 @@ if (($# > 0)); then
 else
     # We only want to use stable providers for flake testing, thus we fetch the k8s version file from kubevirtci.
     # we stop at the first provider that is stable (aka doesn't have an rc or beta or alpha version)
-    for k8s_provider in $(cd kubevirtci/cluster-up/cluster && ls -rd k8s-[0-9]\.[0-9][0-9]); do
-        # shellcheck disable=SC2154
-        k8s_provider_version=$(curl --fail "https://raw.githubusercontent.com/kubevirt/kubevirtci/${kubevirtci_git_hash}/cluster-provision/k8s/${k8s_provider#"k8s-"}/version")
-        if [[ "${k8s_provider_version}" =~ -(rc|alpha|beta) ]]; then
-            echo "Skipping ${k8s_provider_version}"
-        else
-            TEST_LANE="${k8s_provider}"
-            break
-        fi
-    done
-    if [[ ${TEST_LANE} == "" ]]; then
-        echo "No stable provider found"
-        exit 1
-    fi
+    TEST_LANE="$(<./kubevirtci/stable_provider.txt)"
 fi
 echo "Test lane: ${TEST_LANE}"
 [ -d "kubevirtci/cluster-up/cluster/${TEST_LANE}" ] || (
@@ -217,6 +205,8 @@ export KUBEVIRT_DEPLOY_NFS_CSI=true
 export KUBEVIRT_DEPLOY_PROMETHEUS=true
 export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
 
+export KUBEVIRT_NFS_DIR=${KUBEVIRT_NFS_DIR:-/var/lib/containers/nfs-data}
+
 export KUBEVIRT_PROVIDER="${TEST_LANE}"
 
 # add_to_label_filter appends the given label and separator to
@@ -242,10 +232,13 @@ label_filter="${KUBEVIRT_LABEL_FILTER:-}"
 add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU))" "&&"
 
 add_to_label_filter '(!QUARANTINE)' '&&'
-add_to_label_filter '(!exclude-native-ssh)' '&&'
 add_to_label_filter '(!no-flake-check)' '&&'
 # check-tests-for-flake does not support Istio tests, remove this filtering once it does.
 add_to_label_filter '(!Istio)' '&&'
+add_to_label_filter '(!requireHugepages1Gi)' '&&'
+add_to_label_filter '(!USB)' '&&'
+add_to_label_filter '(!requires-arm64)' '&&'
+add_to_label_filter '(!requires-s390x)' '&&'
 rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
 if [[ "${rwofs_sc}" == "local" ]]; then
     # local is a primitive non CSI storage class that doesn't support expansion

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
+	k8swatch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -99,7 +100,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("256Mi"),
+				libvmi.WithMemoryRequest("256Mi"),
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				libvmi.WithTerminationGracePeriod(30),
@@ -107,15 +108,16 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		newVirtualMachineInstanceWithFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
+			sc, foundSC := libstorage.GetAvailableRWFileSystemStorageClass()
 			Expect(foundSC).To(BeTrue(), "Filesystem storage is not present")
+
 			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), sc, k8sv1.PersistentVolumeFilesystem)
 		}
 
 		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			sc, foundSC := libstorage.GetRWOBlockStorageClass()
+			sc, foundSC := libstorage.GetAvailableRWBlockStorageClass()
 			if !foundSC {
-				Skip("Skip test when Block storage is not present")
+				Skip("Block storage is not present")
 			}
 			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), sc, k8sv1.PersistentVolumeBlock)
 		}
@@ -489,14 +491,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Entry("[test_id:6867] when VM scheduling error occurs with unsatisfiable resource requirements",
 				libvmi.New(
 					// This may stop working sometime around 2040
-					libvmi.WithResourceMemory("1Ei"),
-					libvmi.WithResourceCPU("1M"),
+					libvmi.WithMemoryRequest("1Ei"),
+					libvmi.WithCPURequest("1M"),
 				),
 				v1.VirtualMachineStatusUnschedulable,
 			),
 			Entry("[test_id:6868] when VM scheduling error occurs with unsatisfiable scheduling constraints",
 				libvmi.New(
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithNodeSelectorFor("that-doesnt-exist"),
 				),
 				v1.VirtualMachineStatusUnschedulable,
@@ -505,7 +507,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				"[test_id:7596] when a VM with a missing PVC is started",
 				libvmi.New(
 					libvmi.WithPersistentVolumeClaim("disk0", "missing-pvc"),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 				),
 				v1.VirtualMachineStatusPvcNotFound,
 			),
@@ -513,26 +515,31 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				"[test_id:7597] when a VM with a missing DV is started",
 				libvmi.New(
 					libvmi.WithDataVolume("disk0", "missing-datavolume"),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 				),
 				v1.VirtualMachineStatusPvcNotFound,
 			),
 		)
 
-		It("[test_id:6869]should report an error status when image pull error occurs", decorators.Conformance, func() {
+		It("[test_id:6869][QUARANTINE]should report an error status when image pull error occurs", decorators.Conformance, decorators.Quarantine, func() {
 			vmi := libvmi.New(
 				libvmi.WithContainerDisk("disk0", "no-such-image"),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 			)
 
 			vm := createRunningVM(virtClient, vmi)
 
 			By("Verifying that the status toggles between ErrImagePull and ImagePullBackOff")
-			const times = 2
-			for i := 0; i < times; i++ {
-				Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusErrImagePull))
-				Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusImagePullBackOff))
+			expectedStates := []v1.VirtualMachinePrintableStatus{
+				// State transitions two toggles of the VM state b/w ErrImagePull and ImagePullBackOff
+				v1.VirtualMachineStatusErrImagePull,
+				v1.VirtualMachineStatusImagePullBackOff,
+				v1.VirtualMachineStatusErrImagePull,
+				v1.VirtualMachineStatusImagePullBackOff,
 			}
+			// Timeout is set to 660 seconds to allow for states to toggle twice, i.e.,
+			// 2 worst-case backoff grace periods (5 mins each), and 2 image pull attempts (30 secs each).
+			waitForVMStateTransition(vm, expectedStates, 660*time.Second)
 		})
 
 		It("[test_id:7679]should report an error status when data volume error occurs", func() {
@@ -541,7 +548,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			_, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
-				Skip("Skipping since required StorageClass is not configured")
+				Fail(fmt.Sprintf(`StorageClass "%s" is not configured`, storageClassName))
 			}
 			Expect(err).ToNot(HaveOccurred())
 
@@ -766,9 +773,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			It("[test_id:4119]should migrate a running VM", func() {
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
-				if len(nodes.Items) < 2 {
-					Skip("Migration tests require at least 2 nodes")
-				}
+
+				Expect(len(nodes.Items)).To(BeNumerically(">", 1), "Migration tests require at least 2 nodes")
+
 				By("Creating a VM with RunStrategyAlways")
 				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -785,17 +792,18 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Ensuring the VirtualMachineInstance is migrated")
-				Eventually(func() bool {
+				Eventually(func(g Gomega) {
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed
-				}, 240*time.Second, 1*time.Second).Should(BeTrue())
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(vmi.Status.MigrationState).ToNot(BeNil(), "vmi.Status.MigrationState should not be nil")
+					g.Expect(vmi.Status.MigrationState.Completed).To(BeTrueBecause("migration should be completed"))
+				}, 240*time.Second, 1*time.Second).Should(Succeed())
 			})
 
 			It("[test_id:7743]should not migrate a running vm if dry-run option is passed", func() {
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				if len(nodes.Items) < 2 {
-					Skip("Migration tests require at least 2 nodes")
+					Fail("Migration tests require at least 2 nodes")
 				}
 				By("Creating a VM with RunStrategyAlways")
 				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
@@ -1007,7 +1015,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			maxExpectedFailCount := 3
 			Consistently(func() error {
 				// get the VM and verify the failure count is less than 4 over a minute,
-				// indicating that backoff is occuring
+				// indicating that backoff is occurring
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
@@ -1020,7 +1028,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}
 
 				return nil
-			}, 1*time.Minute, 5*time.Second).Should(BeNil())
+			}, 1*time.Minute, 5*time.Second).Should(Succeed())
 
 			By("Updating the VMI template to correct the crash loop")
 			Eventually(func() error {
@@ -1121,7 +1129,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
-		It("should be removed when the vm has child resources, such as instance type ControllerRevisions, that have been deleted before the vm - issue #9438", func() {
+		It("should be removed when the vm has child resources, such as instance type ControllerRevisions, that have been deleted before the vm - issue #9438", decorators.SigComputeInstancetype, func() {
 			By("creating a VirtualMachineClusterInstancetype")
 			instancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1157,6 +1165,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeTrue())
 				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
+				g.Expect(vm.Status.InstancetypeRef).ToNot(BeNil())
+				g.Expect(vm.Status.InstancetypeRef.ControllerRevisionRef).ToNot(BeNil())
 				g.Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(BeEmpty())
 			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 
@@ -1266,4 +1276,26 @@ func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMach
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return vm
+}
+
+func waitForVMStateTransition(vm *v1.VirtualMachine, expectedStates []v1.VirtualMachinePrintableStatus, timeoutDuration time.Duration) {
+	// Setting up a watch on the VM resource
+	virtClient := kubevirt.Client()
+	watch, err := virtClient.VirtualMachine(vm.Namespace).Watch(context.Background(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("metadata.name=%s", vm.Name),
+	})
+	Expect(err).ToNot(HaveOccurred())
+	defer watch.Stop()
+
+	getPrintableStatus := func(e k8swatch.Event) v1.VirtualMachinePrintableStatus {
+		updatedVM, ok := e.Object.(*v1.VirtualMachine)
+		if !ok {
+			Fail("Received unexpected object type")
+		}
+		return updatedVM.Status.PrintableStatus
+	}
+
+	for i, expectedState := range expectedStates {
+		Eventually(watch.ResultChan()).WithPolling(1*time.Second).WithTimeout(timeoutDuration).Should(Receive(WithTransform(getPrintableStatus, Equal(expectedState))), fmt.Sprintf("Failed watching the vm status moving to %s in the iteration number %d", expectedState, i))
+	}
 }

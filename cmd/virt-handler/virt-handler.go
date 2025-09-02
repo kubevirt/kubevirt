@@ -32,11 +32,11 @@ import (
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 
 	"github.com/emicklei/go-restful/v3"
-	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -71,6 +71,7 @@ import (
 	metricshandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/handler"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
+	"kubevirt.io/kubevirt/pkg/network/passt"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -155,6 +156,7 @@ type virtHandlerApp struct {
 	clusterConfig         *virtconfig.ClusterConfig
 	reloadableRateLimiter *ratelimiter.ReloadableRateLimiter
 	caManager             kvtls.ClientCAManager
+	enableNodeLabeller    bool
 }
 
 var (
@@ -210,7 +212,8 @@ func (app *virtHandlerApp) Run() {
 
 	app.namespace, err = clientutil.GetNamespace()
 	if err != nil {
-		glog.Fatalf("Error searching for namespace: %v", err)
+		logger.Criticalf("Error searching for namespace: %v", err)
+		os.Exit(2)
 	}
 
 	go func() {
@@ -233,11 +236,12 @@ func (app *virtHandlerApp) Run() {
 	// Wire VirtualMachineInstance controller
 	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, nil, app.namespace)
 
+	vmiInformer := factory.VMI()
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 
 	// Wire Domain controller
-	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiSourceInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
+	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
 	if err != nil {
 		panic(err)
 	}
@@ -256,10 +260,11 @@ func (app *virtHandlerApp) Run() {
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
 
 	if err := app.prepareCertManager(); err != nil {
-		glog.Fatalf("Error preparing the certificate manager: %v", err)
+		logger.Criticalf("Error preparing the certificate manager: %v", err)
+		os.Exit(2)
 	}
 
-	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
+	podIsolationDetector := isolation.NewSocketBasedIsolationDetector()
 	app.clusterConfig, err = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
 	if err != nil {
 		panic(err)
@@ -268,9 +273,17 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
+	go func() {
+		forceUpdateKSM := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, true) }
+		handleKSMUpdate := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, false) }
+
+		forceUpdateKSM()
+		app.clusterConfig.SetConfigModifiedCallback(handleKSMUpdate)
+	}()
 
 	if err := app.setupTLS(factory); err != nil {
-		glog.Fatalf("Error constructing migration tls config: %v", err)
+		logger.Criticalf("Error constructing migration tls config: %v", err)
+		os.Exit(2)
 	}
 	vsockMgr := vsock.NewVSOCKHypervisorService(1, app.caManager)
 
@@ -300,21 +313,23 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	machines := getMachines(capabilities)
+
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
 	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
 		app.virtCli.CoreV1().Nodes(),
 		app.HostOverride,
 		nodeLabellerrecorder,
 		capabilities.Host.CPU.Counter,
-		capabilities.Guests,
+		machines,
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	if nodeLabellerController.ShouldLabelNodes() {
-		hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
+	hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
 
+	if app.enableNodeLabeller {
 		go nodeLabellerController.Run(10, stop)
 	}
 
@@ -326,16 +341,63 @@ func (app *virtHandlerApp) Run() {
 
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
-	vmController, err := virthandler.NewController(
+	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
+
+	netConf := netsetup.NewNetConf(app.clusterConfig)
+	netStat := netsetup.NewNetStat()
+	passtRepairHandler := passt.NewRepairManager(app.clusterConfig)
+
+	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
 		app.virtCli,
 		app.HostOverride,
-		migrationIpAddress,
-		app.VirtShareDir,
+		launcherClientsManager,
+		vmiSourceInformer,
+		domainSharedInformer,
+		app.clusterConfig,
+		podIsolationDetector,
+		migrationProxy,
+		"/proc/%d/root/var/run",
+		netStat,
+		passtRepairHandler,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	migrationTargetController, err := virthandler.NewMigrationTargetController(
+		recorder,
+		app.virtCli,
+		app.HostOverride,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
-		vmiSourceInformer,
+		migrationIpAddress,
+		launcherClientsManager,
 		vmiTargetInformer,
+		domainSharedInformer,
+		app.clusterConfig,
+		podIsolationDetector,
+		migrationProxy,
+		"/proc/%d/root/var/run",
+		&capabilities,
+		netConf,
+		netStat,
+		netbinding.MemoryCalculator{},
+		passtRepairHandler,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	vmController, err := virthandler.NewVirtualMachineController(
+		recorder,
+		app.virtCli,
+		app.HostOverride,
+		app.VirtPrivateDir,
+		app.KubeletPodsDir,
+		launcherClientsManager,
+		vmiSourceInformer,
+		vmiInformer.GetStore(),
 		domainSharedInformer,
 		app.MaxDevices,
 		app.clusterConfig,
@@ -344,9 +406,8 @@ func (app *virtHandlerApp) Run() {
 		downwardMetricsManager,
 		&capabilities,
 		hostCpuModel,
-		netsetup.NewNetConf(app.clusterConfig),
-		netsetup.NewNetStat(),
-		netbinding.MemoryCalculator{},
+		netConf,
+		netStat,
 	)
 	if err != nil {
 		panic(err)
@@ -390,9 +451,17 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced, factory.KubeVirt().HasSynced)
+	cache.WaitForCacheSync(
+		stop,
+		vmiInformer.HasSynced,
+		vmiSourceInformer.HasSynced,
+		vmiTargetInformer.HasSynced,
+		domainSharedInformer.HasSynced,
+		factory.CRD().HasSynced,
+		factory.KubeVirt().HasSynced,
+	)
 
-	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer); err != nil {
+	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
 		panic(err)
 	}
 
@@ -400,6 +469,8 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
 	}
 
+	go migrationSourceController.Run(5, stop)
+	go migrationTargetController.Run(5, stop)
 	go vmController.Run(10, stop)
 
 	doneCh := make(chan string)
@@ -518,7 +589,8 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.ConsoleHandler, lifecycleHandler *rest.LifecycleHandler) {
 	ws := new(restful.WebService)
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console").To(consoleHandler.SerialHandler))
-	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc").To(consoleHandler.VNCHandler))
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc").To(consoleHandler.VNCHandler).
+		Param(restful.QueryParameter("preserveSession", "Connect only if ongoing session is not disturbed")))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/usbredir").To(consoleHandler.USBRedirHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/pause").To(lifecycleHandler.PauseHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unpause").To(lifecycleHandler.UnpauseHandler))
@@ -608,6 +680,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.IntVar(&app.gracefulShutdownSeconds, "graceful-shutdown-seconds", defaultGracefulShutdownSeconds,
 		"The number of seconds to wait for existing migration connections to close before shutting down virt-handler.")
+
+	flag.BoolVar(&app.enableNodeLabeller, "enable-node-labeller", true,
+		"Enable Node Labeller controller.")
 }
 
 func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {
@@ -623,6 +698,14 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 	app.clientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
 
 	return nil
+}
+
+func getMachines(capabilities libvirtxml.Caps) []libvirtxml.CapsGuestMachine {
+	var machines []libvirtxml.CapsGuestMachine
+	for _, guest := range capabilities.Guests {
+		machines = append(machines, guest.Arch.Machines...)
+	}
+	return machines
 }
 
 func main() {

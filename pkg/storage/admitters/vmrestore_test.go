@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -23,9 +23,9 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -426,6 +426,83 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
+			It("should reject volume overrides if no parameter is specified", func() {
+				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     vmName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+						VolumeRestoreOverrides: []snapshotv1.VolumeRestoreOverride{
+							{}, // Nothing specified in the override
+						},
+					},
+				}
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(HaveLen(2))
+				Expect(resp.Result.Details.Causes).ToNot(BeNil())
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.volumeRestoreOverrides[0].volumeName"))
+				Expect(resp.Result.Details.Causes[1].Field).To(Equal("spec.volumeRestoreOverrides[0]"))
+			})
+
+			It("should accept correct volume restore policy", func() {
+				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     vmName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+						VolumeRestorePolicy:        pointer.P(snapshotv1.VolumeRestorePolicyInPlace),
+					},
+				}
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+
+			It("should reject invalid volume restore policy", func() {
+				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     vmName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+						VolumeRestorePolicy:        pointer.P(snapshotv1.VolumeRestorePolicy("invalid")),
+					},
+				}
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
+				Expect(resp.Result.Details.Causes).ToNot(BeNil())
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.volumeRestorePolicy"))
+			})
+
 			DescribeTable("Should reject restore when using backend storage and restoring to different VM", func(doesTargetExist bool) {
 				const targetVMName = "new-test-vm"
 				targetVM := &v1.VirtualMachine{}
@@ -487,7 +564,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
-				Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("Restore to a different VM not supported when using backend storage"))
+				Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("Restore to a different VM is not supported when snapshotted VM has backend storage (persistent TPM or EFI)"))
 			},
 				Entry("target doesn't exist", false),
 				Entry("target exists", true),

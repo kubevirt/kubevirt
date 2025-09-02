@@ -11,10 +11,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/go-kit/kit/log"
-	"github.com/golang/mock/gomock"
+	"github.com/go-kit/log"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
@@ -25,9 +25,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
 const (
@@ -213,8 +213,7 @@ var _ = Describe("LibvirtHelper", func() {
 		vmiNamespace := "test-namespace"
 		vmiName := "test-vmi"
 		ctrl := gomock.NewController(GinkgoT())
-		mockConn := cli.NewMockConnection(ctrl)
-		mockDomain := cli.NewMockVirDomain(ctrl)
+		mockLibvirt := testing.NewLibvirt(ctrl)
 
 		vmi := api2.NewMinimalVMIWithNS(vmiNamespace, vmiName)
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -266,10 +265,12 @@ var _ = Describe("LibvirtHelper", func() {
 			getHookManager = hooks.GetManager
 		}()
 		mockHookManager.EXPECT().OnDefineDomain(wantedSpec, vmi).Return(string(mutatedSpecXml), nil)
-		mockConn.EXPECT().DomainDefineXML(string(mutatedSpecXml)).Return(mockDomain, nil)
+		mockLibvirt.ConnectionEXPECT().DomainDefineXML(string(mutatedSpecXml)).Return(mockLibvirt.VirtDomain, nil)
+		mockLibvirt.DomainEXPECT().Free()
 
-		_, err = SetDomainSpecStrWithHooks(mockConn, vmi, wantedSpec)
+		dom, err := SetDomainSpecStrWithHooks(mockLibvirt.VirtConnection, vmi, wantedSpec)
 		Expect(err).NotTo(HaveOccurred())
+		dom.Free()
 
 		Expect(wantedSpec.Devices.Disks).To(Equal(mutatedSpec.Devices.Disks))
 	})

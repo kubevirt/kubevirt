@@ -4,8 +4,8 @@ import (
 	"errors"
 	goflag "flag"
 
-	"github.com/golang/mock/gomock"
 	"github.com/spf13/pflag"
+	"go.uber.org/mock/gomock"
 
 	"kubevirt.io/client-go/log"
 
@@ -16,9 +16,6 @@ import (
 )
 
 func main() {
-	// set new default verbosity, was set to 0 by glog
-	goflag.Set("v", "2")
-
 	socket := pflag.String("socket", cmdclient.SocketOnGuest(), "Socket for the cmd server")
 
 	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 package export
@@ -24,17 +24,15 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/uuid"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	"go.uber.org/mock/gomock"
 
 	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -66,8 +64,8 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
@@ -103,6 +101,7 @@ var (
 			Name:  "TOKEN_FILE",
 			Value: "/token/token",
 		}}
+	tokenSecretName = "my-secret-token"
 )
 
 var _ = Describe("Export controller", func() {
@@ -135,12 +134,10 @@ var _ = Describe("Export controller", func() {
 		virtClient                  *kubecli.MockKubevirtClient
 		vmExportClient              *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider  *MockVolumeSnapshotProvider
+		fakeCertManager             *MockCertManager
 		mockVMExportQueue           *testutils.MockWorkQueue[string]
 		routeCache                  cache.Store
 		ingressCache                cache.Store
-		certDir                     string
-		certFilePath                string
-		keyFilePath                 string
 		stop                        chan struct{}
 	)
 
@@ -193,12 +190,6 @@ var _ = Describe("Export controller", func() {
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
-		var err error
-		certDir, err = os.MkdirTemp("", "certs")
-		Expect(err).ToNot(HaveOccurred())
-		certFilePath = filepath.Join(certDir, "tls.crt")
-		keyFilePath = filepath.Join(certDir, "tls.key")
-		writeCertsToDir(certDir)
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
@@ -227,6 +218,7 @@ var _ = Describe("Export controller", func() {
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 			volumeSnapshots: []*vsv1.VolumeSnapshot{},
 		}
+		fakeCertManager = &MockCertManager{}
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		k8sClient = k8sfake.NewSimpleClientset()
@@ -248,7 +240,7 @@ var _ = Describe("Export controller", func() {
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
 			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
-			caCertManager:               bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
+			caCertManager:               fakeCertManager,
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,
 			RouteConfigMapInformer:      cmInformer,
@@ -267,11 +259,8 @@ var _ = Describe("Export controller", func() {
 			ControllerRevisionInformer:  controllerRevisionInformer,
 		}
 		initCert = func(ctrl *VMExportController) {
-			go controller.caCertManager.Start()
-			// Give the thread time to read the certs.
-			Eventually(func() *tls.Certificate {
-				return controller.caCertManager.Current()
-			}, time.Second, time.Millisecond).ShouldNot(BeNil())
+			ctrl.caCertManager.Start()
+			Expect(ctrl.caCertManager.Current()).ToNot(BeNil())
 		}
 
 		controller.Init()
@@ -315,11 +304,6 @@ var _ = Describe("Export controller", func() {
 				},
 			}),
 		).To(Succeed())
-	})
-
-	AfterEach(func() {
-		controller.caCertManager.Stop()
-		Expect(os.RemoveAll(certDir)).To(Succeed())
 	})
 
 	generateCertFromTime := func(cn string, before, after *time.Time) string {
@@ -752,7 +736,7 @@ var _ = Describe("Export controller", func() {
 			Expect(ok).To(BeTrue())
 			service.Status.Conditions = make([]metav1.Condition, 1)
 			service.Status.Conditions[0].Type = "test"
-			Expect(service.GetName()).To(Equal(controller.getExportServiceName(testVMExport)))
+			Expect(service.GetName()).To(Equal("virt-export-test"))
 			Expect(service.GetNamespace()).To(Equal(testNamespace))
 			Expect(service.Labels).To(And(
 				HaveKeyWithValue(virtv1.AppLabel, "virt-exporter"),
@@ -886,7 +870,7 @@ var _ = Describe("Export controller", func() {
 		Expect(pod.Spec.Volumes).To(HaveLen(numberOfVolumes), "There should be 3/4 volumes, one pvc, and two secrets (token and certs) (and vm def manifest if VM)")
 		certSecretName := ""
 		for _, volume := range pod.Spec.Volumes {
-			if volume.Name == certificates {
+			if volume.Name == certificatesVolName {
 				certSecretName = volume.Secret.SecretName
 			}
 		}
@@ -899,7 +883,7 @@ var _ = Describe("Export controller", func() {
 			},
 		}))
 		Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
-			Name: certificates,
+			Name: certificatesVolName,
 			VolumeSource: k8sv1.VolumeSource{
 				Secret: &k8sv1.SecretVolumeSource{
 					SecretName: certSecretName,
@@ -907,21 +891,22 @@ var _ = Describe("Export controller", func() {
 			},
 		}))
 		Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
-			Name: "token",
+			Name: tokenVolName,
 			VolumeSource: k8sv1.VolumeSource{
 				Secret: &k8sv1.SecretVolumeSource{
-					SecretName: "token",
+					SecretName: tokenSecretName,
 				},
 			},
 		}))
 		Expect(pod.Spec.Containers).To(HaveLen(1))
+		Expect(pod.Spec.Containers[0].Name).To(Equal("exporter"))
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(numberOfVolumes - 1)) // The other is a block Volume
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
-			Name:      certificates,
+			Name:      certificatesVolName,
 			MountPath: "/cert",
 		}))
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
-			Name:      *testVMExport.Status.TokenSecretRef,
+			Name:      tokenVolName,
 			MountPath: "/token",
 		}))
 		Expect(pod.Spec.Containers[0].VolumeDevices).To(HaveLen(1))
@@ -955,6 +940,96 @@ var _ = Describe("Export controller", func() {
 		Entry("Snapshot", populateVmExportVMSnapshot, controller.getPVCFromSourceVMSnapshot, 4),
 	)
 
+	DescribeTable("Volumemount names should be trimmed depending on the PVC name", func(pvcName string) {
+		testVMExport := createPVCVMExportWithName(pvcName)
+		testPVC := &k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pvcName,
+				Namespace: testNamespace,
+			},
+			Spec: k8sv1.PersistentVolumeClaimSpec{
+				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.P(string(k8sv1.PersistentVolumeBlock))),
+			},
+		}
+		populateInitialVMExportStatus(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, controller.getPVCFromSourceVMSnapshot)
+		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			pod, ok := create.GetObject().(*k8sv1.Pod)
+			Expect(ok).To(BeTrue())
+			Expect(pod.GetName()).To(Equal(controller.getExportPodName(testVMExport)))
+			Expect(len(pod.GetName())).To(BeNumerically("<=", validation.DNS1035LabelMaxLength))
+			Expect(pod.GetNamespace()).To(Equal(testNamespace))
+			return true, pod, nil
+		})
+		var service *k8sv1.Service
+		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			service, ok = create.GetObject().(*k8sv1.Service)
+			Expect(ok).To(BeTrue())
+			service.Status.Conditions = make([]metav1.Condition, 1)
+			service.Status.Conditions[0].Type = "test"
+			Expect(service.GetName()).To(Equal(controller.getExportServiceName(testVMExport)))
+			Expect(service.GetNamespace()).To(Equal(testNamespace))
+			return true, service, nil
+		})
+		service, err = controller.getOrCreateExportService(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		pod, err := controller.createExporterPod(testVMExport, service, []*k8sv1.PersistentVolumeClaim{testPVC})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod).ToNot(BeNil())
+		Expect(pod.Spec.Containers).To(HaveLen(1))
+		Expect(pod.Spec.Containers[0].VolumeDevices).To(HaveLen(1))
+		Expect(pod.Spec.Containers[0].VolumeDevices).To(ContainElement(k8sv1.VolumeDevice{
+			Name:       controller.getExportPodVolumeName(testPVC),
+			DevicePath: fmt.Sprintf("%s/%s", blockVolumeMountPath, controller.getExportPodVolumeName(testPVC)),
+		}))
+		if len(pvcName) > validation.DNS1035LabelMaxLength {
+			Expect(len(pod.Spec.Containers[0].VolumeDevices[0].Name)).To(BeNumerically("<", 63))
+		} else {
+			Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(pvcName))
+		}
+	},
+		Entry("PVC name within limit", "pvc-name-within-limit"),
+		Entry("PVC name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
+		Entry("PVC name with same length as limit", strings.Repeat("a", validation.DNS1035LabelMaxLength)),
+	)
+
+	DescribeTable("service name should be sanitized", func(exportName, expectedServiceName string) {
+		var service *k8sv1.Service
+		testVMExport := createPVCVMExport()
+		testVMExport.Name = exportName
+		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			service, ok = create.GetObject().(*k8sv1.Service)
+			Expect(ok).To(BeTrue())
+			service.Status.Conditions = make([]metav1.Condition, 1)
+			service.Status.Conditions[0].Type = "test"
+			Expect(service.GetName()).To(Equal(expectedServiceName))
+			Expect(service.GetName()).ToNot(ContainSubstring("."))
+			Expect(service.GetName()).ToNot(HavePrefix("-"))
+			Expect(service.GetNamespace()).To(Equal(testNamespace))
+			Expect(service.Labels).To(And(
+				HaveKeyWithValue(virtv1.AppLabel, "virt-exporter"),
+				HaveKeyWithValue(labelKey, labelValue)))
+			Expect(service.Annotations).To(HaveKeyWithValue(annotationKey, annotationValue))
+			return true, service, nil
+		})
+
+		service, err := controller.getOrCreateExportService(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(service).ToNot(BeNil())
+		Expect(service.Status.Conditions[0].Type).To(Equal("test"))
+	},
+		Entry("with dots", fmt.Sprintf("%s.com", vmExportName), "virt-export-test-com"),
+		Entry("special case with - prefix", strings.Repeat("a", validation.DNS1035LabelMaxLength-10), "v-efa2f187-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+	)
+
 	It("Should create a secret based on the vm export", func() {
 		cp := &CertParams{Duration: 24 * time.Hour, RenewBefore: 2 * time.Hour}
 		scp, err := serializeCertParams(cp)
@@ -973,7 +1048,7 @@ var _ = Describe("Export controller", func() {
 			Spec: k8sv1.PodSpec{
 				Volumes: []k8sv1.Volume{
 					{
-						Name: certificates,
+						Name: certificatesVolName,
 						VolumeSource: k8sv1.VolumeSource{
 							Secret: &k8sv1.SecretVolumeSource{
 								SecretName: "test-secret",
@@ -1564,14 +1639,6 @@ func verifyArchiveExternal(vmExport *exportv1.VirtualMachineExport, exportName, 
 		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.tar.gz", currentVersion, namespace, exportName, volumeName))
 }
 
-func writeCertsToDir(dir string) {
-	caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
-	crt := certutil.EncodeCertPEM(caKeyPair.Cert)
-	key := certutil.EncodePrivateKeyPEM(caKeyPair.Key)
-	Expect(os.WriteFile(filepath.Join(dir, bootstrap.CertBytesValue), crt, 0777)).To(Succeed())
-	Expect(os.WriteFile(filepath.Join(dir, bootstrap.KeyBytesValue), key, 0777)).To(Succeed())
-}
-
 func createVMExportMeta(name string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:              name,
@@ -1600,7 +1667,7 @@ func createPVCVMExportWithName(name string) *exportv1.VirtualMachineExport {
 				Kind:     "PersistentVolumeClaim",
 				Name:     testPVCName,
 			},
-			TokenSecretRef: pointer.P("token"),
+			TokenSecretRef: &tokenSecretName,
 		},
 	}
 }
@@ -1627,7 +1694,7 @@ func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachineSnapshot",
 				Name:     testVmsnapshotName,
 			},
-			TokenSecretRef: pointer.P("token"),
+			TokenSecretRef: &tokenSecretName,
 		},
 	}
 }
@@ -1641,7 +1708,7 @@ func createVMVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachine",
 				Name:     testVmName,
 			},
-			TokenSecretRef: pointer.P("token"),
+			TokenSecretRef: &tokenSecretName,
 		},
 	}
 }
@@ -1739,4 +1806,34 @@ func (v *MockVolumeSnapshotProvider) GetVolumeSnapshot(namespace, name string) (
 
 func (v *MockVolumeSnapshotProvider) Add(s *vsv1.VolumeSnapshot) {
 	v.volumeSnapshots = append(v.volumeSnapshots, s)
+}
+
+// A mock to implement the certificate.Manager interface for the export controller
+type MockCertManager struct {
+	crt *tls.Certificate
+}
+
+func (f *MockCertManager) Start() {
+	caKeyPair, _ := triple.NewCA("test.kubevirt.io", time.Hour)
+
+	encodedCert := cert.EncodeCertPEM(caKeyPair.Cert)
+	encodedKey := cert.EncodePrivateKeyPEM(caKeyPair.Key)
+
+	crt, err := tls.X509KeyPair(encodedCert, encodedKey)
+	Expect(err).ToNot(HaveOccurred())
+	leaf, err := cert.ParseCertsPEM(encodedCert)
+	Expect(err).ToNot(HaveOccurred())
+	crt.Leaf = leaf[0]
+	f.crt = &crt
+}
+
+func (f *MockCertManager) Stop() {
+}
+
+func (f *MockCertManager) Current() *tls.Certificate {
+	return f.crt
+}
+
+func (f *MockCertManager) ServerHealthy() bool {
+	return true
 }

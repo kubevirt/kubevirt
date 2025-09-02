@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -22,14 +22,14 @@ package agentpoller
 import (
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
 var _ = Describe("Qemu agent poller", func() {
@@ -38,8 +38,7 @@ var _ = Describe("Qemu agent poller", func() {
 	var fakeInfo api.GuestOSInfo
 	var agentStore AsyncAgentStore
 	var ctrl *gomock.Controller
-	var mockConnection *cli.MockConnection
-	var mockDomain *cli.MockVirDomain
+	var mockLibvirt *testing.Libvirt
 
 	BeforeEach(func() {
 		fakeInterfaces = []api.InterfaceStatus{
@@ -62,9 +61,8 @@ var _ = Describe("Qemu agent poller", func() {
 		}
 		agentStore = NewAsyncAgentStore()
 		ctrl = gomock.NewController(GinkgoT())
-		mockConnection = cli.NewMockConnection(ctrl)
-		mockDomain = cli.NewMockVirDomain(ctrl)
-		mockConnection.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).AnyTimes()
+		mockLibvirt = testing.NewLibvirt(ctrl)
+		mockLibvirt.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(mockLibvirt.VirtDomain, nil).AnyTimes()
 	})
 
 	Context("with libvirt API", func() {
@@ -77,7 +75,7 @@ var _ = Describe("Qemu agent poller", func() {
 				Users:      []libvirt.DomainGuestInfoUser{{Name: "admin"}},
 			}
 			agentPoller := &AgentPoller{
-				Connection: mockConnection,
+				Connection: mockLibvirt.VirtConnection,
 				domainName: "fake",
 				agentStore: &agentStore,
 			}
@@ -87,8 +85,8 @@ var _ = Describe("Qemu agent poller", func() {
 				libvirt.DOMAIN_GUEST_INFO_TIMEZONE |
 				libvirt.DOMAIN_GUEST_INFO_USERS
 
-			mockDomain.EXPECT().Free()
-			mockDomain.EXPECT().GetGuestInfo(libvirtTypes, uint32(0)).Return(guestInfo, nil)
+			mockLibvirt.DomainEXPECT().Free()
+			mockLibvirt.DomainEXPECT().GetGuestInfo(libvirtTypes, uint32(0)).Return(guestInfo, nil)
 
 			fetchAndStoreGuestInfo(libvirtTypes, agentPoller)
 
@@ -210,6 +208,19 @@ var _ = Describe("Qemu agent poller", func() {
 			osInfo := agentStore.GetGuestOSInfo()
 
 			Expect(*osInfo).To(Equal(fakeInfo))
+		})
+
+		It("should not fire an event for a new GET_FILESYSTEM", func() {
+			fakeFileSystemInfo := []api.Filesystem{
+				{
+					Name: "test",
+				},
+			}
+			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_FILESYSTEM, fakeFileSystemInfo)
+
+			Expect(agentStore.AgentUpdated).NotTo(Receive(Equal(AgentUpdatedEvent{
+				DomainInfo: api.DomainGuestInfo{},
+			})))
 		})
 	})
 

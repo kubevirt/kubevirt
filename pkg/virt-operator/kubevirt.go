@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -182,7 +182,8 @@ func NewKubeVirtController(
 			informers.Secrets.HasSynced() &&
 			informers.ConfigMap.HasSynced() &&
 			informers.ValidatingAdmissionPolicyBinding.HasSynced() &&
-			informers.ValidatingAdmissionPolicy.HasSynced()
+			informers.ValidatingAdmissionPolicy.HasSynced() &&
+			informers.Leases.HasSynced()
 	}
 
 	_, err := informers.KubeVirt.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -589,6 +590,20 @@ func NewKubeVirtController(
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.genericUpdateHandler(oldObj, newObj, nil)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	_, err = informers.Leases.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.ServiceAccount)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.ServiceAccount)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.ServiceAccount)
 		},
 	})
 	if err != nil {

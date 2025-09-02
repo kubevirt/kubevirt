@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -33,10 +33,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -68,7 +68,7 @@ type IgnoreDeprecationWarningsLogger struct{}
 
 func (IgnoreDeprecationWarningsLogger) HandleWarningHeader(code int, agent string, message string) {
 	if !strings.Contains(message, "VirtualMachineInstancePresets is now deprecated and will be removed in v2") {
-		klog.Warning(message)
+		log.Log.Warning(message)
 	}
 }
 
@@ -140,7 +140,7 @@ func CleanNamespaces() {
 		vmis, err := virtCli.VirtualMachineInstance(namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		for _, vmi := range vmis.Items {
-			if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
+			if controller.HasFinalizer(&vmi, v1.DeprecatedVirtualMachineInstanceFinalizer) || controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
 				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
 				Expect(err).To(Or(
 					Not(HaveOccurred()),

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -173,9 +173,6 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
 
-			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
-			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
-
 			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
 
 			By("checking virtual machine instance has two interfaces")
@@ -194,9 +191,6 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
-
-			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
-			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
 
 			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
 
@@ -220,9 +214,6 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
-
-			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
-			Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, sriovnet1, sriovResourceName)).To(Succeed())
 
 			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
 
@@ -281,7 +272,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				Expect(libnet.CheckMacAddress(vmi, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
 			})
 
-			It("should be successful with a running VMI on the target", func() {
+			It("[QUARANTINE]should be successful with a running VMI on the target", decorators.Quarantine, func() {
 				By("starting the migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
@@ -289,7 +280,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 
 				// It may take some time for the VMI interface status to be updated with the information reported by
 				// the guest-agent.
-				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 2*time.Minute+10*time.Second)
+				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 5*time.Minute)
 				Expect(err).NotTo(HaveOccurred())
 				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
@@ -320,11 +311,6 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
-
-			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
-			for _, name := range sriovNetworks {
-				Expect(validatePodKubevirtResourceNameByVMI(virtClient, vmi, name, sriovResourceName)).To(Succeed())
-			}
 
 			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
 
@@ -538,27 +524,6 @@ func getNodesWithAllocatedResource(resourceName string) []k8sv1.Node {
 	}
 
 	return filteredNodes
-}
-
-func validatePodKubevirtResourceNameByVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, networkName, sriovResourceName string) error {
-	pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-	Expect(err).NotTo(HaveOccurred())
-
-	out, err := exec.ExecuteCommandOnPod(
-		pod,
-		"compute",
-		[]string{"sh", "-c", fmt.Sprintf("echo $KUBEVIRT_RESOURCE_NAME_%s", networkName)},
-	)
-	if err != nil {
-		return err
-	}
-
-	out = strings.TrimSuffix(out, "\n")
-	if out != sriovResourceName {
-		return fmt.Errorf("env settings %s didnt match %s", out, sriovResourceName)
-	}
-
-	return nil
 }
 
 func defaultCloudInitNetworkData() string {

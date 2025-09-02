@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -117,7 +118,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 					assertIPsNotEmptyForVMI(clientVMI)
 				})
 
-				It("[Conformance][test_id:1513] should succeed pinging between two VMI/s in the same namespace", func() {
+				It("[test_id:1513] should succeed pinging between two VMI/s in the same namespace", decorators.Conformance, func() {
 					assertPingSucceed(clientVMI, serverVMI)
 				})
 			})
@@ -132,7 +133,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
 				})
 
-				It("[Conformance][test_id:1514] should fail pinging between two VMI/s each on different namespaces", func() {
+				It("[test_id:1514] should fail pinging between two VMI/s each on different namespaces", decorators.Conformance, func() {
 					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
 				})
 			})
@@ -387,7 +388,7 @@ func checkHTTPPing(vmi *v1.VirtualMachineInstance, ip string, port int) error {
 }
 
 func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
-	ExpectWithOffset(1, vmi.Status.Interfaces[0].IPs).ToNot(BeEmpty(), "should contain a not empy list of ip addresses")
+	ExpectWithOffset(1, vmi.Status.Interfaces[0].IPs).ToNot(BeEmpty(), "should contain a not empty list of ip addresses")
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {

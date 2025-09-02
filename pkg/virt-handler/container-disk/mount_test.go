@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -28,13 +28,14 @@ import (
 	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
-	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomega_types "github.com/onsi/gomega/types"
+	gomock "go.uber.org/mock/gomock"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 
@@ -56,12 +57,14 @@ var _ = Describe("ContainerDisk", func() {
 		Expect(err).ToNot(HaveOccurred())
 		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		m = &mounter{
 			mountRecords:           make(map[types.UID]*vmiMountTargetRecord),
 			checkpointManager:      checkpoint.NewSimpleCheckpointManager(tmpDir),
 			suppressWarningTimeout: 1 * time.Minute,
 			socketPathGetter:       containerdisk.NewSocketPathGetter(""),
+			clusterConfig:          config,
 		}
 	})
 
@@ -79,15 +82,15 @@ var _ = Describe("ContainerDisk", func() {
 	})
 
 	detectsSocket := func(detector *isolation.MockPodIsolationDetector) {
-		detector.EXPECT().DetectForSocket(vmi, "someting").Return(nil, nil)
+		detector.EXPECT().DetectForSocket("someting").Return(nil, nil)
 	}
 
 	noSocketDetected := func(detector *isolation.MockPodIsolationDetector) {
-		detector.EXPECT().DetectForSocket(vmi, "someting").Return(nil, fmt.Errorf("Not Found"))
+		detector.EXPECT().DetectForSocket("someting").Return(nil, fmt.Errorf("Not Found"))
 	}
 
 	detectForSocketNotCalled := func(detector *isolation.MockPodIsolationDetector) {
-		detector.EXPECT().DetectForSocket(gomock.Any(), gomock.Any()).Times(0)
+		detector.EXPECT().DetectForSocket(gomock.Any()).Times(0)
 	}
 
 	Context("checking if containerDisks are ready", func() {
@@ -229,6 +232,38 @@ var _ = Describe("ContainerDisk", func() {
 					false,
 				),
 			)
+		})
+
+		Context("with ImageVolume", func() {
+			BeforeEach(func() {
+				m.clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(
+					&v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{"ImageVolume"},
+						},
+					})
+			})
+
+			It("should always be ready", func() {
+				m.needsBindMountFunc = func(vmi *v1.VirtualMachineInstance) (bool, error) {
+					return false, nil
+				}
+				m.socketPathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+					return "", fmt.Errorf("fake error")
+				}
+				ready, err := m.ContainerDisksReady(libvmi.New(libvmi.WithContainerDisk("r0", "someImage")), time.Time{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ready).To(BeTrue())
+			})
+
+			It("should return an error if detection of bind mount requirement", func() {
+				m.needsBindMountFunc = func(vmi *v1.VirtualMachineInstance) (bool, error) {
+					return true, fmt.Errorf("fake error")
+				}
+				_, err := m.ContainerDisksReady(libvmi.New(libvmi.WithContainerDisk("r0", "someImage")), time.Time{})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("fail to detect if bind mount needed"))
+			})
 		})
 	})
 

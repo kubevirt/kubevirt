@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2019 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -34,7 +34,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	virtutil "kubevirt.io/kubevirt/pkg/util"
 	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
@@ -139,7 +138,7 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 }
 
 func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string) (Manager, error) {
-	isolationRes, err := detectVMIsolation(vmi, "")
+	isolationRes, err := detectVMIsolation(vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -177,15 +176,11 @@ func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {
 
 // detectVMIsolation detects VM's IsolationResult, which can then be useful for receiving information such as PID.
 // Socket is optional and makes the execution faster
-func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationRes isolation.IsolationResult, err error) {
+func detectVMIsolation(vm *v1.VirtualMachineInstance) (isolationRes isolation.IsolationResult, err error) {
 	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
-	detector := isolation.NewSocketBasedIsolationDetector(virtutil.VirtShareDir)
+	detector := isolation.NewSocketBasedIsolationDetector()
 
-	if socket == "" {
-		isolationRes, err = detector.Detect(vm)
-	} else {
-		isolationRes, err = detector.DetectForSocket(vm, socket)
-	}
+	isolationRes, err = detector.Detect(vm)
 
 	if err != nil {
 		return nil, fmt.Errorf(detectionErrFormat, vm.Name, err)

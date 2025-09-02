@@ -19,7 +19,7 @@ function deploy_kwok() {
 function copy_istio_cni_conf_files() {
     if [ "$KUBEVIRT_DEPLOY_ISTIO" == "true" ] && [ "$KUBEVIRT_WITH_CNAO" == "true" ]; then
         for nodeNum in $(seq -f "%02g" 1 $KUBEVIRT_NUM_NODES); do
-            $ssh node${nodeNum} -- "until ls /etc/cni/multus > /dev/null 2>&1; do sleep 1; done"
+            $ssh node${nodeNum} -- "until ls /etc/cni/multus/net.d/*istio*.conf > /dev/null 2>&1; do sleep 1; done"
             $ssh node${nodeNum} -- sudo cp -uv /etc/cni/multus/net.d/*istio*.conf /etc/cni/net.d/
         done
     fi
@@ -38,6 +38,20 @@ function wait_for_kwok_ready() {
         $kubectl wait deployment -n kube-system kwok-controller --for condition=Available --timeout=200s
     fi
 }
+
+function configure_nfs() {
+    if [[ "$KUBEVIRT_DEPLOY_NFS_CSI" == "true" ]] && [[ -n "$KUBEVIRT_NFS_DIR" ]]; then
+        ${_cri_bin} run --privileged --rm -v /:/hostroot \
+            --entrypoint /bin/sh ${_cli_container} \
+            -c "mkdir -p /hostroot/${KUBEVIRT_NFS_DIR} && chmod 777 /hostroot/${KUBEVIRT_NFS_DIR}"
+
+        ${_cri_bin} run --privileged --rm -v $KUBEVIRT_NFS_DIR:/nfsdir \
+            --entrypoint /bin/sh ${_cli_container} \
+            -c 'for disk in disk1 disk2 disk3 disk4 disk5 disk6 disk7 disk8 disk9 disk10 extraDisk1 extraDisk2; do \
+            mkdir -p /nfsdir/${disk} && chmod 777 /nfsdir/${disk}; done'
+    fi
+}
+
 
 function up() {
     params=$(_add_common_params)
@@ -83,6 +97,8 @@ function up() {
     # [1] https://github.com/kubevirt/kubevirtci/issues/906
     # [2] https://github.com/k8snetworkplumbingwg/multus-cni/issues/982
     copy_istio_cni_conf_files
+
+    configure_nfs
 }
 
 # The scp command for docker and podman is different, in order to avoid segmentation fault
@@ -98,13 +114,11 @@ function cli_scp_command() {
 }
 
 function change_permissions() {
-    if [[ ${_cri_bin} = podman* ]]; then
-        args="-v ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER:/kubevirtci_config"
-        ${_cri_bin} run --privileged --rm $args \
-            --entrypoint /bin/sh ${_cli_container} \
-            -c "chmod 755 /kubevirtci_config/.kubectl"
-        ${_cri_bin} run --privileged --rm $args \
-            --entrypoint /bin/sh ${_cli_container} \
-            -c "chmod 766 /kubevirtci_config/.kubeconfig"
-    fi
+    args="-v ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER:/kubevirtci_config"
+    ${_cri_bin} run --privileged --rm $args \
+        --entrypoint /bin/sh ${_cli_container} \
+        -c "chmod 755 /kubevirtci_config/.kubectl"
+    ${_cri_bin} run --privileged --rm $args \
+        --entrypoint /bin/sh ${_cli_container} \
+        -c "chmod 766 /kubevirtci_config/.kubeconfig"
 }

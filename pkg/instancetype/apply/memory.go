@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors
+ * Copyright The KubeVirt Authors.
  *
  */
 package apply
@@ -33,22 +33,17 @@ func applyMemory(
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) conflict.Conflicts {
-	if vmiSpec.Domain.Memory != nil {
-		return conflict.Conflicts{baseConflict.NewChild("domain", "memory")}
+	if vmiSpec.Domain.Memory == nil {
+		vmiSpec.Domain.Memory = &virtv1.Memory{}
 	}
 
-	if _, hasMemoryRequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory]; hasMemoryRequests {
-		return conflict.Conflicts{baseConflict.NewChild("domain", "resources", "requests", string(k8sv1.ResourceMemory))}
-	}
-
-	if _, hasMemoryLimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceMemory]; hasMemoryLimits {
-		return conflict.Conflicts{baseConflict.NewChild("domain", "resources", "limits", string(k8sv1.ResourceMemory))}
+	// If we have any conflicts return as there's no need to apply
+	if conflicts := validateMemory(baseConflict, instancetypeSpec, vmiSpec); len(conflicts) > 0 {
+		return conflicts
 	}
 
 	instancetypeMemory := instancetypeSpec.Memory.Guest.DeepCopy()
-	vmiSpec.Domain.Memory = &virtv1.Memory{
-		Guest: &instancetypeMemory,
-	}
+	vmiSpec.Domain.Memory.Guest = &instancetypeMemory
 
 	// If memory overcommit has been requested, set the memory requests to be
 	// lower than the guest memory by the requested percent.
@@ -73,4 +68,32 @@ func applyMemory(
 	}
 
 	return nil
+}
+
+func validateMemory(
+	baseConflict *conflict.Conflict,
+	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+) (conflicts conflict.Conflicts) {
+	if vmiSpec.Domain.Memory.Guest != nil {
+		return conflict.Conflicts{baseConflict.NewChild("domain", "memory", "guest")}
+	}
+
+	if vmiSpec.Domain.Memory.Hugepages != nil && instancetypeSpec.Memory.Hugepages != nil {
+		return conflict.Conflicts{baseConflict.NewChild("domain", "memory", "hugepages")}
+	}
+
+	if vmiSpec.Domain.Memory.MaxGuest != nil && instancetypeSpec.Memory.MaxGuest != nil {
+		return conflict.Conflicts{baseConflict.NewChild("domain", "memory", "maxGuest")}
+	}
+
+	if _, hasMemoryRequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory]; hasMemoryRequests {
+		return conflict.Conflicts{baseConflict.NewChild("domain", "resources", "requests", string(k8sv1.ResourceMemory))}
+	}
+
+	if _, hasMemoryLimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceMemory]; hasMemoryLimits {
+		return conflict.Conflicts{baseConflict.NewChild("domain", "resources", "limits", string(k8sv1.ResourceMemory))}
+	}
+
+	return conflicts
 }

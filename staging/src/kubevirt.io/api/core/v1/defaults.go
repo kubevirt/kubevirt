@@ -74,12 +74,6 @@ func SetDefaults_DiskDevice(obj *DiskDevice) {
 	}
 }
 
-func SetDefaults_Watchdog(obj *Watchdog) {
-	if obj.I6300ESB == nil {
-		obj.I6300ESB = &I6300ESBWatchdog{}
-	}
-}
-
 func SetDefaults_CDRomTarget(obj *CDRomTarget) {
 	if obj.ReadOnly == nil {
 		obj.ReadOnly = _true
@@ -95,12 +89,6 @@ func SetDefaults_FeatureSpinlocks(obj *FeatureSpinlocks) {
 	}
 	if *obj.Enabled == *_true && obj.Retries == nil {
 		obj.Retries = ui32(4096)
-	}
-}
-
-func SetDefaults_I6300ESBWatchdog(obj *I6300ESBWatchdog) {
-	if obj.Action == "" {
-		obj.Action = WatchdogActionReset
 	}
 }
 

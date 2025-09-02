@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	storageAdmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
+	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
 	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -152,7 +152,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes, err = storageAdmitters.Admit(admitter.VirtClient, ctx, ar.Request, &vm, admitter.ClusterConfig)
+	causes, err = storageadmitters.Admit(admitter.VirtClient, ctx, ar.Request, &vm, admitter.ClusterConfig)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -196,7 +196,7 @@ func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.Ad
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes = storageAdmitters.AdmitStatus(admitter.VirtClient, ctx, ar.Request, vm, admitter.ClusterConfig)
+	causes = storageadmitters.AdmitStatus(admitter.VirtClient, ctx, ar.Request, vm, admitter.ClusterConfig)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -220,14 +220,14 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(field.Child("template", "metadata"), &spec.Template.ObjectMeta, config, isKubeVirtServiceAccount)...)
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
-	causes = append(causes, storageAdmitters.ValidateDataVolumeTemplate(field, spec)...)
-	causes = append(causes, validateRunStrategy(field, spec)...)
+	causes = append(causes, storageadmitters.ValidateDataVolumeTemplate(field, spec)...)
+	causes = append(causes, validateRunStrategy(field, spec, config)...)
 	causes = append(causes, validateLiveUpdateFeatures(field, spec, config)...)
 
 	return causes
 }
 
-func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (causes []metav1.StatusCause) {
+func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if spec.Running != nil && spec.RunStrategy != nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -245,19 +245,31 @@ func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (cau
 	}
 
 	if spec.RunStrategy != nil {
-		validRunStrategy := false
-		for _, strategy := range validRunStrategies {
-			if *spec.RunStrategy == strategy {
-				validRunStrategy = true
-				break
+		if *spec.RunStrategy == v1.RunStrategyWaitAsReceiver {
+			if config.DecentralizedLiveMigrationEnabled() {
+				// Only allow wait as receiver if feature gate is set.
+				return
 			}
-		}
-		if !validRunStrategy {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Invalid RunStrategy (%s)", *spec.RunStrategy),
+				Message: fmt.Sprintf("Invalid RunStrategy (%s), %s feature gate is not enabled in kubevirt resource", *spec.RunStrategy, featuregate.DecentralizedLiveMigration),
 				Field:   field.Child("runStrategy").String(),
 			})
+		} else {
+			validRunStrategy := false
+			for _, strategy := range validRunStrategies {
+				if *spec.RunStrategy == strategy {
+					validRunStrategy = true
+					break
+				}
+			}
+			if !validRunStrategy {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("Invalid RunStrategy (%s)", *spec.RunStrategy),
+					Field:   field.Child("runStrategy").String(),
+				})
+			}
 		}
 	}
 	return causes
@@ -357,7 +369,11 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 			}
 
 			// Validate the disk is configured properly
-			invalidDiskStatusCause := validateDiskConfiguration(volumeRequest.AddVolumeOptions.Disk, name)
+			invalidDiskStatusCause := storageadmitters.ValidateHotplugDiskConfiguration(
+				volumeRequest.AddVolumeOptions.Disk, name,
+				"AddVolume request",
+				k8sfield.NewPath("Status", "volumeRequests").String(),
+			)
 			if invalidDiskStatusCause != nil {
 				return invalidDiskStatusCause, nil
 			}
@@ -441,44 +457,4 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 
 	return nil, nil
 
-}
-
-func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause {
-	var bus v1.DiskBus
-	// Validate the disk is configured properly
-	if disk == nil {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("AddVolume request for [%s] requires the disk field to be set.", name),
-			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
-		}}
-	}
-	if disk.DiskDevice.Disk == nil && disk.DiskDevice.LUN == nil {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("AddVolume request for [%s] requires diskDevice of type 'disk' or 'lun' to be used.", name),
-			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
-		}}
-	}
-	if disk.DiskDevice.Disk != nil {
-		bus = disk.DiskDevice.Disk.Bus
-	} else {
-		bus = disk.DiskDevice.LUN.Bus
-	}
-	if bus != "scsi" {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("AddVolume request for [%s] requires disk bus to be 'scsi'. [%s] is not permitted", name, bus),
-			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
-		}}
-	}
-	if disk.DedicatedIOThread != nil && *disk.DedicatedIOThread {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "IOThreads are not supported by scsi bus.",
-			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
-		}}
-	}
-
-	return nil
 }

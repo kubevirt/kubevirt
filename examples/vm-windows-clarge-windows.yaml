@@ -25,6 +25,8 @@ spec:
             name: pvcdisk
         firmware:
           uuid: 5d307ca9-b3ef-428c-8861-06e72d69f223
+        memory:
+          guest: 128Mi
         resources: {}
       terminationGracePeriodSeconds: 0
       volumes:

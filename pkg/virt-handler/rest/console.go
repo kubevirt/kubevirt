@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -77,8 +77,8 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiS
 
 func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiStore)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return
 	}
@@ -138,20 +138,40 @@ func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *res
 	t.stream(vmi, request, response, unixSocketDialer(vmi, unixSocketPath), stopChan)
 }
 
+func (t *ConsoleHandler) vncInUse(uid types.UID) bool {
+	t.vncLock.Lock()
+	defer t.vncLock.Unlock()
+	_, inUse := t.vncStopChans[uid]
+	return inUse
+}
+
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiStore)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return
 	}
+
+	uid := vmi.GetUID()
+	preserveSessionParam, err := strconv.ParseBool(request.QueryParameter("preserveSession"))
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Warningf("VNC's query parameter preserveSession")
+	}
+
+	if t.vncInUse(uid) && preserveSessionParam {
+		err = fmt.Errorf("%s", "Active VNC connection. Request denied.")
+		log.Log.Object(vmi).Reason(err).Error("Already has an active connection. Preserve it.")
+		response.WriteError(http.StatusServiceUnavailable, err)
+		return
+	}
+
 	unixSocketPath, err := t.getUnixSocketPath(vmi, "virt-vnc")
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed finding unix socket for VNC console")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
-	uid := vmi.GetUID()
 	stopChn := newStopChan(uid, t.vncLock, t.vncStopChans)
 	defer deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
 	t.stream(vmi, request, response, unixSocketDialer(vmi, unixSocketPath), stopChn)
@@ -159,8 +179,8 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiStore)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return
 	}
@@ -178,8 +198,8 @@ func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restf
 
 func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiStore)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return
 	}

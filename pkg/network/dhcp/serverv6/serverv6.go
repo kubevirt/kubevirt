@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -40,7 +40,7 @@ type DHCPv6Handler struct {
 	modifiers []dhcpv6.Modifier
 }
 
-func SingleClientDHCPv6Server(clientIP net.IP, serverIfaceName string) error {
+func SingleClientDHCPv6Server(clientIP net.IP, serverIfaceName string, ipv6Nameservers [][]byte) error {
 	log.Log.Info("Starting SingleClientDHCPv6Server")
 
 	iface, err := net.InterfaceByName(serverIfaceName)
@@ -48,7 +48,7 @@ func SingleClientDHCPv6Server(clientIP net.IP, serverIfaceName string) error {
 		return fmt.Errorf("couldn't create DHCPv6 server, couldn't get the dhcp6 server interface: %v", err)
 	}
 
-	modifiers := prepareDHCPv6Modifiers(clientIP, iface.HardwareAddr)
+	modifiers := prepareDHCPv6Modifiers(clientIP, iface.HardwareAddr, ipv6Nameservers)
 
 	handler := &DHCPv6Handler{
 		clientIP:  clientIP,
@@ -121,9 +121,19 @@ func (h *DHCPv6Handler) buildResponse(msg dhcpv6.DHCPv6) (*dhcpv6.Message, error
 	return response, nil
 }
 
-func prepareDHCPv6Modifiers(clientIP net.IP, serverInterfaceMac net.HardwareAddr) []dhcpv6.Modifier {
+func prepareDHCPv6Modifiers(clientIP net.IP, serverInterfaceMac net.HardwareAddr, ipv6Nameservers [][]byte) []dhcpv6.Modifier {
 	optIAAddress := dhcpv6.OptIAAddress{IPv6Addr: clientIP, PreferredLifetime: infiniteLease, ValidLifetime: infiniteLease}
 	duid := &dhcpv6.DUIDLL{HWType: iana.HWTypeEthernet, LinkLayerAddr: serverInterfaceMac}
 
-	return []dhcpv6.Modifier{dhcpv6.WithIANA(optIAAddress), dhcpv6.WithServerID(duid)}
+	modifiers := []dhcpv6.Modifier{dhcpv6.WithIANA(optIAAddress), dhcpv6.WithServerID(duid)}
+
+	if len(ipv6Nameservers) > 0 {
+		var dnsServers []net.IP
+		for _, nameserver := range ipv6Nameservers {
+			dnsServers = append(dnsServers, net.IP(nameserver))
+		}
+		modifiers = append(modifiers, dhcpv6.WithDNS(dnsServers...))
+	}
+
+	return modifiers
 }

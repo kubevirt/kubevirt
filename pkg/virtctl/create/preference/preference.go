@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -33,11 +33,12 @@ import (
 )
 
 const (
-	CPUTopologyFlag        = "cpu-topology"
-	VolumeStorageClassFlag = "volume-storage-class"
-	MachineTypeFlag        = "machine-type"
-	NameFlag               = "name"
-	NamespacedFlag         = "namespaced"
+	CPUTopologyFlag         = "cpu-topology"
+	VolumeStorageClassFlag  = "volume-storage-class"
+	MachineTypeFlag         = "machine-type"
+	NameFlag                = "name"
+	NamespacedFlag          = "namespaced"
+	defaultNameSuffixLength = 5
 )
 
 type createPreference struct {
@@ -57,7 +58,10 @@ func NewCommand() *cobra.Command {
 		Example: c.usage(),
 		RunE:    c.run,
 	}
-	cmd.Flags().BoolVar(&c.namespaced, NamespacedFlag, c.namespaced, "Specify if VirtualMachinePreference should be created. By default VirtualMachineClusterPreference is created.")
+	cmd.Flags().BoolVar(&c.namespaced,
+		NamespacedFlag,
+		c.namespaced,
+		"Specify if VirtualMachinePreference should be created. By default VirtualMachineClusterPreference is created.")
 	cmd.Flags().StringVar(&c.name, NameFlag, c.name, "Specify the name of the Preference.")
 	cmd.Flags().StringVar(&c.preferredStorageClass, VolumeStorageClassFlag, c.preferredStorageClass, "Defines the preferred storage class")
 	cmd.Flags().StringVar(&c.machineType, MachineTypeFlag, c.machineType, "Defines the preferred machine type to use.")
@@ -81,9 +85,9 @@ func (c *createPreference) setDefaults(cmd *cobra.Command) error {
 	}
 
 	if c.namespaced {
-		c.name = "preference-" + rand.String(5)
+		c.name = "preference-" + rand.String(defaultNameSuffixLength)
 	} else {
-		c.name = "clusterpreference-" + rand.String(5)
+		c.name = "clusterpreference-" + rand.String(defaultNameSuffixLength)
 	}
 
 	return nil
@@ -188,7 +192,8 @@ func (c *createPreference) run(cmd *cobra.Command, _ []string) error {
 	if c.namespaced {
 		preference := c.newPreference()
 
-		if err := c.applyFlags(cmd, &preference.Spec); err != nil {
+		err = c.applyFlags(cmd, &preference.Spec)
+		if err != nil {
 			return err
 		}
 
@@ -199,7 +204,8 @@ func (c *createPreference) run(cmd *cobra.Command, _ []string) error {
 	} else {
 		clusterPreference := c.newClusterPreference()
 
-		if err := c.applyFlags(cmd, &clusterPreference.Spec); err != nil {
+		err = c.applyFlags(cmd, &clusterPreference.Spec)
+		if err != nil {
 			return err
 		}
 

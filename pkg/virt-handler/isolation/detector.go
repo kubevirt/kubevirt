@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -36,6 +36,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -48,7 +49,7 @@ type PodIsolationDetector interface {
 	// It returns an IsolationResult containing all isolation information
 	Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error)
 
-	DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error)
+	DetectForSocket(socket string) (IsolationResult, error)
 
 	// Adjust system resources to run the passed VM
 	AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error
@@ -57,38 +58,33 @@ type PodIsolationDetector interface {
 const isolationDialTimeout = 5
 
 type socketBasedIsolationDetector struct {
-	socketDir string
 }
 
 // NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
-func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
-	return &socketBasedIsolationDetector{
-		socketDir: socketDir,
-	}
+func NewSocketBasedIsolationDetector() PodIsolationDetector {
+	return &socketBasedIsolationDetector{}
 }
 
 func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error) {
 	// Look up the socket of the virt-launcher Pod which was created for that VM, and extract the PID from it
-	socket, err := cmdclient.FindSocketOnHost(vm)
+	socket, err := cmdclient.FindSocket(vm)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.DetectForSocket(vm, socket)
+	return s.DetectForSocket(socket)
 }
 
-func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
+func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (IsolationResult, error) {
 	pid, err := s.getPid(socket)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
-		return nil, err
+		return nil, fmt.Errorf("Could not get owner Pid of socket %s: %w", socket, err)
 	}
 
 	ppid, err := getPPid(pid)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("Could not get owner PPid of socket %s", socket)
-		return nil, err
+		return nil, fmt.Errorf("Could not get owner PPid of socket %s: %w", socket, err)
 	}
 
 	return NewIsolationResult(pid, ppid), nil
@@ -214,6 +210,10 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 	}
 	defer sock.Close()
 
+	_, err = safepath.NewPathNoFollow(socket)
+	if err != nil {
+		return -1, err
+	}
 	ufile, err := sock.(*net.UnixConn).File()
 	if err != nil {
 		return -1, err

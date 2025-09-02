@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright the KubeVirt Authors.
+ * Copyright The KubeVirt Authors.
  */
 
 package domainstats
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	"k8s.io/client-go/tools/cache"
 	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	rms = []resourceMetrics{
+	domainStatsResourceMetrics = []resourceMetrics{
 		memoryMetrics{},
 		cpuMetrics{},
 		vcpuMetrics{},
@@ -43,7 +43,7 @@ var (
 	}
 
 	Collector = operatormetrics.Collector{
-		Metrics:         domainStatsMetrics(rms...),
+		Metrics:         domainStatsMetrics(domainStatsResourceMetrics...),
 		CollectCallback: domainStatsCollectorCallback,
 	}
 
@@ -95,17 +95,17 @@ func domainStatsCollectorCallback() []operatormetrics.CollectorResult {
 	}
 
 	concCollector := collector.NewConcurrentCollector(settings.maxRequestsInFlight)
-	return execCollector(concCollector, vmis)
+	return execDomainStatsCollector(concCollector, vmis)
 }
 
-func execCollector(concCollector collector.Collector, vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+func execDomainStatsCollector(concCollector collector.Collector, vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
 	scraper := NewDomainstatsScraper(len(vmis))
 	go concCollector.Collect(vmis, scraper, PrometheusCollectionTimeout)
 
 	var crs []operatormetrics.CollectorResult
 
 	for vmiReport := range scraper.ch {
-		for _, rm := range rms {
+		for _, rm := range domainStatsResourceMetrics {
 			crs = append(crs, rm.Collect(vmiReport)...)
 		}
 	}

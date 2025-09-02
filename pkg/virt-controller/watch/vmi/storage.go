@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -62,7 +62,7 @@ func (c *Controller) addPVC(obj interface{}) {
 	}
 }
 
-// updatePVC handles updates to a PVC, enqueuing affected VMIs if capacity changes.
+// updatePVC handles updates to a PVC, enqueuing affected VMIs if capacity or requested size changes.
 func (c *Controller) updatePVC(old, cur interface{}) {
 	curPVC := cur.(*k8sv1.PersistentVolumeClaim)
 	oldPVC := old.(*k8sv1.PersistentVolumeClaim)
@@ -75,8 +75,9 @@ func (c *Controller) updatePVC(old, cur interface{}) {
 	if curPVC.DeletionTimestamp != nil {
 		return
 	}
-	if equality.Semantic.DeepEqual(curPVC.Status.Capacity, oldPVC.Status.Capacity) {
-		// We only do something when the capacity changes
+	if equality.Semantic.DeepEqual(curPVC.Status.Capacity, oldPVC.Status.Capacity) &&
+		equality.Semantic.DeepEqual(curPVC.Spec.Resources.Requests, oldPVC.Spec.Resources.Requests) {
+		// We only do something when the capacity or the requested size changes.
 		return
 	}
 	vmis, err := c.listVMIsMatchingDV(curPVC.Namespace, curPVC.Name)
@@ -183,6 +184,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 					// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
 					phase, reason, message := c.getVolumePhaseMessageReason(&vmi.Spec.Volumes[i], vmi.Namespace)
 					status.Phase = phase
+					log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volume.Name)
 					status.Message = message
 					status.Reason = reason
 				}
@@ -196,6 +198,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 				}
 				if canMoveToAttachedPhase(status.Phase) {
 					status.Phase = virtv1.HotplugVolumeAttachedToNode
+					log.Log.V(3).Infof("Setting phase %s for volume %s", status.Phase, volume.Name)
 					status.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volume.Name)
 					status.Reason = controller.SuccessfulCreatePodReason
 					c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, status.Reason, status.Message)
@@ -235,14 +238,17 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		if attachmentPod != nil {
 			status.HotplugVolume.AttachPodName = attachmentPod.Name
 			status.HotplugVolume.AttachPodUID = attachmentPod.UID
-			status.Phase = virtv1.HotplugVolumeDetaching
-			if attachmentPod.DeletionTimestamp != nil {
+			status.Phase = phaseForUnpluggedVolume(status.Phase)
+			log.Log.V(3).Infof("Setting phase %s for volume %s", status.Phase, volumeName)
+			if status.Phase == virtv1.HotplugVolumeDetaching && attachmentPod.DeletionTimestamp != nil {
 				status.Message = fmt.Sprintf("Deleted hotplug attachment pod %s, for volume %s", attachmentPod.Name, volumeName)
 				status.Reason = controller.SuccessfulDeletePodReason
 				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, status.Reason, status.Message)
 			}
 			// If the pod exists, we keep the status.
 			newStatus = append(newStatus, status)
+		} else {
+			log.Log.Object(vmi).V(3).Infof("Deleted status for volume %s", volumeName)
 		}
 	}
 
@@ -251,6 +257,16 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 	})
 	vmi.Status.VolumeStatus = newStatus
 	return nil
+}
+
+func phaseForUnpluggedVolume(phase virtv1.VolumePhase) virtv1.VolumePhase {
+	switch phase {
+	case virtv1.VolumeReady:
+		return virtv1.VolumeReady
+	case virtv1.HotplugVolumeMounted:
+		return virtv1.HotplugVolumeMounted
+	}
+	return virtv1.HotplugVolumeDetaching
 }
 
 // volumeReady checks if a volume is in a ready state.

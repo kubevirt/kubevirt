@@ -35,7 +35,7 @@ var _ = Describe("Existence matchers", func() {
 		Entry("a pod", &v1.Pod{}, false),
 	)
 
-	It("formating", func() {
+	It("formatting", func() {
 		obj := &v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "HI",

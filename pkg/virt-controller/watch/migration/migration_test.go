@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -28,11 +28,11 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	gomegaTypes "github.com/onsi/gomega/types"
+	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -61,7 +61,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 )
 
 var _ = Describe("Migration watcher", func() {
@@ -118,17 +117,6 @@ var _ = Describe("Migration watcher", func() {
 		Expect(pods.Items[0].Spec.Affinity).ToNot(BeNil())
 		Expect(pods.Items[0].Spec.Affinity.NodeAffinity).ToNot(BeNil())
 		Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
-	}
-
-	expectPDB := func(namespace, migrationName, vmiUID string) {
-		pdbList, err := kubeClient.PolicyV1().PodDisruptionBudgets(namespace).List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", virtv1.MigrationNameLabel, migrationName),
-		})
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pdbList.Items).To(HaveLen(1))
-		Expect(pdbList.Items[0].Spec.MinAvailable.String()).To(Equal("2"))
-		Expect(pdbList.Items[0].Spec.Selector).ToNot(BeNil())
-		Expect(pdbList.Items[0].Spec.Selector.MatchLabels).To(HaveKeyWithValue(virtv1.CreatedByLabel, vmiUID))
 	}
 
 	expectPodAnnotationTimestamp := func(namespace, name, expectedTimestamp string) {
@@ -241,7 +229,6 @@ var _ = Describe("Migration watcher", func() {
 		vmiInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
 		migrationInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		pdbInformer, _ := testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		resourceQuotaInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		migrationPolicyInformer, _ := testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
@@ -252,7 +239,7 @@ var _ = Describe("Migration watcher", func() {
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
-
+		kubevirtInformer, _ := testutils.NewFakeInformerFor(&virtv1.KubeVirt{})
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		controller, _ = NewController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
@@ -263,9 +250,9 @@ var _ = Describe("Migration watcher", func() {
 			pvcInformer,
 			storageClassInformer,
 			storageProfileInformer,
-			pdbInformer,
 			migrationPolicyInformer,
 			resourceQuotaInformer,
+			kubevirtInformer,
 			recorder,
 			virtClient,
 			config,
@@ -335,12 +322,6 @@ var _ = Describe("Migration watcher", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	addPDB := func(pdb *policyv1.PodDisruptionBudget) {
-		Expect(controller.pdbIndexer.Add(pdb)).To(Succeed())
-		_, err := kubeClient.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Create(context.Background(), pdb, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-	}
-
 	addMigrationPolicies := func(policies ...migrationsv1.MigrationPolicy) {
 		for _, policy := range policies {
 			Expect(controller.migrationPolicyStore.Add(&policy)).To(Succeed())
@@ -367,8 +348,8 @@ var _ = Describe("Migration watcher", func() {
 	sanityExecute := func() {
 		controllertesting.SanityExecute(controller, []cache.Store{
 			controller.vmiStore, controller.podIndexer, controller.migrationIndexer, controller.nodeStore,
-			controller.pvcStore, controller.pdbIndexer, controller.migrationPolicyStore, controller.resourceQuotaIndexer,
-			controller.storageClassStore, controller.storageProfileStore,
+			controller.pvcStore, controller.migrationPolicyStore, controller.resourceQuotaIndexer,
+			controller.storageClassStore, controller.storageProfileStore, controller.kubevirtStore,
 		}, Default)
 	}
 
@@ -797,28 +778,45 @@ var _ = Describe("Migration watcher", func() {
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
 		})
 
-		It("should not overload the node and only run 2 outbound migrations in parallel", func() {
-			// It should create a pod for this one if we would not limit migrations
-			vmi := newVirtualMachine("testvmi", virtv1.Running)
-			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-
-			addMigration(migration)
-			addVirtualMachineInstance(vmi)
-			addPod(newSourcePodForVirtualMachine(vmi))
-
-			// Ensure that 5 migrations are there which are in non-final state
-			for i := 0; i < 2; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvmi%v", i), virtv1.Running)
-				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, virtv1.MigrationScheduling)
+		DescribeTable("should not overload the node and only run 2 outbound migrations in parallel",
+			func(generateVMIandMigration func(int)) {
+				// It should create a pod for this one if we would not limit migrations
+				vmi := newVirtualMachine("testvmi", virtv1.Running)
+				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
 
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
-			}
+				addPod(newSourcePodForVirtualMachine(vmi))
 
-			sanityExecute()
+				const defaultMaxOutboundMigrationsPerNode = 2
+				for i := 0; i < defaultMaxOutboundMigrationsPerNode; i++ {
+					generateVMIandMigration(i)
+				}
+				sanityExecute()
 
-			expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("testvmi"), "testmigration")
-		})
+				expectPodDoesNotExist(vmi.Namespace, "testvmi", "testmigration")
+			},
+			Entry("with 2 active migrations scheduling",
+				func(count int) {
+					migratingVMI := newVirtualMachine(fmt.Sprintf("testvmi%v", count), virtv1.Running)
+					activeMigration := newMigration(fmt.Sprintf("testmigration%v", count), migratingVMI.Name, virtv1.MigrationScheduling)
+					addMigration(activeMigration)
+					addVirtualMachineInstance(migratingVMI)
+				},
+			),
+			Entry("with 2 active migrations running but virt-handler having ACKed the VMI on the target - bug #14979",
+				func(count int) {
+					migratingVMI := newVirtualMachine(fmt.Sprintf("testvmi%v", count), virtv1.Running)
+					migratingVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+						SourceNode: migratingVMI.Status.NodeName,
+					}
+					migratingVMI.Status.NodeName = "target"
+					activeMigration := newMigration(fmt.Sprintf("testmigration%v", count), migratingVMI.Name, virtv1.MigrationRunning)
+					addMigration(activeMigration)
+					addVirtualMachineInstance(migratingVMI)
+				},
+			),
+		)
 
 		It("should create target pod and not override existing affinity rules", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
@@ -1768,70 +1766,6 @@ var _ = Describe("Migration watcher", func() {
 		)
 	})
 
-	Context("Migration with protected VMI (PDB)", func() {
-		It("should update PDB before starting the migration", func() {
-			vmi := newVirtualMachine("testvmi", virtv1.Running)
-			vmi.Spec.EvictionStrategy = pointer.P(virtv1.EvictionStrategyLiveMigrate)
-			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-			pdb := newPDB("pdb-test", vmi, 1)
-
-			addMigration(migration)
-			addVirtualMachineInstance(vmi)
-			addPod(newSourcePodForVirtualMachine(vmi))
-			addPDB(pdb)
-
-			sanityExecute()
-
-			testutils.ExpectEvents(recorder, successfulUpdatePodDisruptionBudgetReason)
-			expectPDB(migration.Namespace, migration.Name, string(vmi.UID))
-		})
-
-		It("should create the target Pod after the k8s PDB controller processed the PDB mutation", func() {
-			vmi := newVirtualMachine("testvmi", virtv1.Running)
-			vmi.Spec.EvictionStrategy = pointer.P(virtv1.EvictionStrategyLiveMigrate)
-			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-			pdb := newPDB("pdb-test", vmi, 2)
-			pdb.Generation = 42
-			pdb.Status.DesiredHealthy = int32(pdb.Spec.MinAvailable.IntValue())
-			pdb.Status.ObservedGeneration = pdb.Generation
-			pdb.Labels = map[string]string{
-				virtv1.MigrationNameLabel: migration.Name,
-			}
-
-			addMigration(migration)
-			addVirtualMachineInstance(vmi)
-			addPod(newSourcePodForVirtualMachine(vmi))
-			addPDB(pdb)
-
-			sanityExecute()
-
-			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
-			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
-		})
-
-		Context("when cluster EvictionStrategy is set to 'LiveMigrate'", func() {
-			BeforeEach(func() {
-				setConfig(&virtv1.KubeVirtConfiguration{EvictionStrategy: pointer.P(virtv1.EvictionStrategyLiveMigrate)})
-			})
-
-			It("should update PDB", func() {
-				vmi := newVirtualMachine("testvmi", virtv1.Running)
-				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-				pdb := newPDB("pdb-test", vmi, 1)
-
-				addMigration(migration)
-				addVirtualMachineInstance(vmi)
-				addPod(newSourcePodForVirtualMachine(vmi))
-				addPDB(pdb)
-
-				sanityExecute()
-
-				testutils.ExpectEvents(recorder, successfulUpdatePodDisruptionBudgetReason)
-				expectPDB(migration.Namespace, migration.Name, string(vmi.UID))
-			})
-		})
-	})
-
 	Context("Migration policy", func() {
 		var vmi *virtv1.VirtualMachineInstance
 		var stubNumber int64
@@ -2186,79 +2120,6 @@ var _ = Describe("Migration watcher", func() {
 			Entry("with evacuation annotation", virtv1.EvacuationMigrationAnnotation),
 			Entry("with workload update annotation", virtv1.WorkloadUpdateMigrationAnnotation),
 		)
-	})
-
-	Context("Descheduler annotations", func() {
-		var vmi *virtv1.VirtualMachineInstance
-
-		It("should not add eviction-in-progress annotation in case of non evacuation migration", func() {
-			vmi = newVirtualMachine("testvmi", virtv1.Running)
-			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-
-			addMigration(migration)
-			addVirtualMachineInstance(vmi)
-			sourcePod := newSourcePodForVirtualMachine(vmi)
-			addPod(sourcePod)
-
-			sanityExecute()
-
-			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
-			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
-			updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedSourcePod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
-		})
-
-		Context("with an evacuation migration", func() {
-			It("should add eviction-in-progress annotation only to source virt-launcher pod", func() {
-				vmi = newVirtualMachine("testvmi", virtv1.Running)
-				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-				setAnnotation(virtv1.EvacuationMigrationAnnotation, migration)
-
-				addMigration(migration)
-				addVirtualMachineInstance(vmi)
-				sourcePod := newSourcePodForVirtualMachine(vmi)
-				addPod(sourcePod)
-
-				sanityExecute()
-
-				testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
-				expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
-				updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(updatedSourcePod.Annotations).To(HaveKeyWithValue(descheduler.EvictionInProgressAnnotation, "kubevirt"))
-
-				pods, err := kubeClient.CoreV1().Pods(migration.Namespace).List(context.Background(), metav1.ListOptions{
-					LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, string(migration.UID), virtv1.CreatedByLabel, string(vmi.UID)),
-				})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(pods.Items).To(HaveLen(1))
-				targetPod := pods.Items[0]
-				Expect(targetPod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
-			})
-
-			It("should remove eviction-in-progress annotation from source virt-launcher pod in case of failure", func() {
-				By("Create a pending migration")
-				vmi = newVirtualMachine("testvmi", virtv1.Running)
-				sourcePod := newSourcePodForVirtualMachine(vmi)
-				sourcePod.Annotations[descheduler.EvictionInProgressAnnotation] = "kubevirt"
-				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
-				migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-					SourcePod: sourcePod.Name,
-				}
-				setAnnotation(virtv1.EvacuationMigrationAnnotation, migration)
-
-				addMigration(migration)
-				addVirtualMachineInstance(vmi)
-				addPod(sourcePod)
-
-				sanityExecute()
-
-				updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(updatedSourcePod.Annotations).ToNot(HaveKeyWithValue(descheduler.EvictionInProgressAnnotation, ""))
-			})
-		})
 	})
 
 	Context("Migration target SELinux level", func() {

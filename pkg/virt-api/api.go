@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -363,7 +363,9 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("vnc")).
 			To(subresourceApp.VNCRequestHandler).
-			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Param(definitions.NamespaceParam(subws)).
+			Param(definitions.NameParam(subws)).
+			Param(definitions.PreserveSessionParam(subws)).
 			Operation(version.Version + "VNC").
 			Doc("Open a websocket connection to connect to VNC on the specified VirtualMachineInstance."))
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("vnc/screenshot")).
@@ -483,6 +485,28 @@ func (app *virtAPIApp) composeSubresources() {
 			Doc("Get list of active filesystems on guest machine via guest agent").
 			Writes(v1.VirtualMachineInstanceFileSystemList{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceFileSystemList{}))
+
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("objectgraph")).
+			To(subresourceApp.VMIObjectGraph).
+			Consumes(restful.MIME_JSON).
+			Reads(v1.ObjectGraphOptions{}).
+			Produces(restful.MIME_JSON).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vmi-objectgraph").
+			Doc("Get graph of objects related to a Virtual Machine Instance").
+			Writes(v1.ObjectGraphNode{}).
+			Returns(http.StatusOK, "OK", v1.ObjectGraphNode{}))
+
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("objectgraph")).
+			To(subresourceApp.VMObjectGraph).
+			Consumes(restful.MIME_JSON).
+			Reads(v1.ObjectGraphOptions{}).
+			Produces(restful.MIME_JSON).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vm-objectgraph").
+			Doc("Get graph of objects related to a Virtual Machine").
+			Writes(v1.ObjectGraphNode{}).
+			Returns(http.StatusOK, "OK", v1.ObjectGraphNode{}))
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("addvolume")).
 			To(subresourceApp.VMIAddVolumeRequestHandler).
@@ -658,6 +682,10 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
+						Name:       "virtualmachines/objectgraph",
+						Namespaced: true,
+					},
+					{
 						Name:       "virtualmachineinstances/guestosinfo",
 						Namespaced: true,
 					},
@@ -675,6 +703,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/removevolume",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/objectgraph",
 						Namespaced: true,
 					},
 					{
@@ -904,7 +936,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVMIPreset(w, r)
 	})
 	http.HandleFunc(components.MigrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationCreate(w, r, app.virtCli)
+		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.MigrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationUpdate(w, r)
@@ -933,7 +965,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers, app.kubeVirtServiceAccounts)
 	})
-	http.HandleFunc(components.LauncherEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(components.PodEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.MigrationPolicyCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
@@ -960,7 +992,7 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 	})
 }
 
-func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.ClientCAManager, kubevirtCAManager kvtls.ClientCAManager) {
+func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.KubernetesCAManager, kubevirtCAManager kvtls.ClientCAManager) {
 
 	// A VerifyClientCertIfGiven request means we're not guaranteed
 	// a client has been authenticated unless they provide a peer
@@ -1221,7 +1253,6 @@ func (app *virtAPIApp) GetGsInfo() func(_ *restful.Request, response *restful.Re
 		response.WriteAsJson(kubecli.GuestfsInfo{
 			Registry:    kv.Status.ObservedKubeVirtRegistry,
 			Tag:         kv.Status.ObservedKubeVirtVersion,
-			Digest:      kvConfig.GsSha,
 			ImagePrefix: kvConfig.GetImagePrefix(),
 			GsImage:     kvConfig.GsImage,
 		})

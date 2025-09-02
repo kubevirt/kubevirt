@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -319,7 +319,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				denyModificationsFor("view"),
 				// instancetype:view only provides access to the cluster-scoped resources
 				denyAllFor("instancetype:view"),
-				denyAllFor("default")),
+				denyAllFor("default"),
+				decorators.SigComputeInstancetype,
+			),
 			Entry("[test_id:TODO]given a virtualmachinepreference",
 				instancetypeapi.GroupName,
 				instancetypeapi.PluralPreferenceResourceName,
@@ -329,7 +331,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				denyModificationsFor("view"),
 				// instancetype:view only provides access to the cluster-scoped resources
 				denyAllFor("instancetype:view"),
-				denyAllFor("default")),
+				denyAllFor("default"),
+				decorators.SigComputeInstancetype,
+			),
 			Entry("[test_id:TODO]given a virtualmachineclusterinstancetype",
 				instancetypeapi.GroupName,
 				instancetypeapi.ClusterPluralResourceName,
@@ -339,7 +343,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				denyAllFor("edit"),
 				denyAllFor("view"),
 				denyModificationsFor("instancetype:view"),
-				denyModificationsFor("default")),
+				denyModificationsFor("default"),
+				decorators.SigComputeInstancetype,
+			),
 			Entry("[test_id:TODO]given a virtualmachineclusterpreference",
 				instancetypeapi.GroupName,
 				instancetypeapi.ClusterPluralPreferenceResourceName,
@@ -349,7 +355,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				denyAllFor("edit"),
 				denyAllFor("view"),
 				denyModificationsFor("instancetype:view"),
-				denyModificationsFor("default")),
+				denyModificationsFor("default"),
+				decorators.SigComputeInstancetype,
+			),
 		)
 
 		DescribeTable("should verify permissions on subresources are correct for view, edit, admin, migrate and default", func(resource string, subresource string, accessRights ...rights) {

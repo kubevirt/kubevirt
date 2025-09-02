@@ -8376,6 +8376,52 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine Instance",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1vmi-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/pause": {
     "put": {
      "description": "Pause a VirtualMachineInstance object.",
@@ -8951,6 +8997,9 @@
      },
      {
       "$ref": "#/parameters/namespace-nfszEHZ0"
+     },
+     {
+      "$ref": "#/parameters/preserveSession-FJbSIuEU"
      }
     ]
    },
@@ -9192,6 +9241,52 @@
        "schema": {
         "type": "string"
        }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1vm-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
       }
      }
     },
@@ -9880,6 +9975,52 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine Instance",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1alpha3vmi-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/pause": {
     "put": {
      "description": "Pause a VirtualMachineInstance object.",
@@ -10455,6 +10596,9 @@
      },
      {
       "$ref": "#/parameters/namespace-nfszEHZ0"
+     },
+     {
+      "$ref": "#/parameters/preserveSession-FJbSIuEU"
      }
     ]
    },
@@ -10696,6 +10840,52 @@
        "schema": {
         "type": "string"
        }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/objectgraph": {
+    "get": {
+     "description": "Get graph of objects related to a Virtual Machine",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1alpha3vm-objectgraph",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.ObjectGraphNode"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
       }
      }
     },
@@ -11583,10 +11773,33 @@
     "type": "object",
     "properties": {
      "name": {
-      "description": "Required.",
+      "description": "Name is this DNS resolver option's name. Required.",
       "type": "string"
      },
      "value": {
+      "description": "Value is this DNS resolver option's value.",
+      "type": "string"
+     }
+    }
+   },
+   "k8s.io.api.core.v1.PodResourceClaim": {
+    "description": "PodResourceClaim references exactly one ResourceClaim, either directly or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim for the pod.\n\nIt adds a name to it that uniquely identifies the ResourceClaim inside the Pod. Containers that need access to the ResourceClaim reference it with this name.",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name uniquely identifies this resource claim inside the pod. This must be a DNS_LABEL.",
+      "type": "string",
+      "default": ""
+     },
+     "resourceClaimName": {
+      "description": "ResourceClaimName is the name of a ResourceClaim object in the same namespace as this pod.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
+      "type": "string"
+     },
+     "resourceClaimTemplateName": {
+      "description": "ResourceClaimTemplateName is the name of a ResourceClaimTemplate object in the same namespace as this pod.\n\nThe template will be used to create a new ResourceClaim, which will be bound to this pod. When this pod is deleted, the ResourceClaim will also be deleted. The pod name and resource name, along with a generated component, will be used to form a unique name for the ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.\n\nThis field is immutable and no changes will be made to the corresponding ResourceClaim by the control plane after creating the ResourceClaim.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
       "type": "string"
      }
     }
@@ -11782,6 +11995,7 @@
     "x-kubernetes-map-type": "atomic"
    },
    "k8s.io.api.core.v1.TypedObjectReference": {
+    "description": "TypedObjectReference contains enough information to let you locate the typed referenced object",
     "type": "object",
     "required": [
      "kind",
@@ -12053,6 +12267,10 @@
       "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
       "type": "integer",
       "format": "int64"
+     },
+     "ignoreStoreReadErrorWithClusterBreakingPotential": {
+      "description": "if set to true, it will trigger an unsafe deletion of the resource in case the normal deletion flow fails with a corrupt object error. A resource is considered corrupt if it can not be retrieved from the underlying storage successfully because of a) its data can not be transformed e.g. decryption failure, or b) it fails to decode into an object. NOTE: unsafe deletion ignores finalizer constraints, skips precondition checks, and removes the object from the storage. WARNING: This may potentially break the cluster if the workload associated with the resource being unsafe-deleted relies on normal deletion flow. Use only if you REALLY know what you are doing. The default value is false, and the user must opt in to enable it",
+      "type": "boolean"
      },
      "kind": {
       "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
@@ -12537,6 +12755,10 @@
    "v1.ACPI": {
     "type": "object",
     "properties": {
+     "msdmNameRef": {
+      "description": "Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions. The above points to the spec of MSDM too.",
+      "type": "string"
+     },
      "slicNameRef": {
       "description": "SlicNameRef should match the volume name of a secret object. The data in the secret should be a binary blob that follows the ACPI SLIC standard, see: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)",
       "type": "string"
@@ -12616,6 +12838,9 @@
       "type": "string"
      },
      "ppc64le": {
+      "$ref": "#/definitions/v1.ArchSpecificConfiguration"
+     },
+     "s390x": {
       "$ref": "#/definitions/v1.ArchSpecificConfiguration"
      }
     }
@@ -13272,6 +13497,79 @@
      }
     }
    },
+   "v1.DeviceAttribute": {
+    "description": "DeviceAttribute must have exactly one field set.",
+    "type": "object",
+    "properties": {
+     "mDevUUID": {
+      "description": "MDevUUID is the mediated device uuid of the allocated device",
+      "type": "string"
+     },
+     "pciAddress": {
+      "description": "PCIAddress is the PCIe bus address of the allocated device",
+      "type": "string"
+     }
+    }
+   },
+   "v1.DeviceResourceClaimStatus": {
+    "description": "DeviceResourceClaimStatus has to be before SyncVMI call from virt-handler to virt-launcher",
+    "type": "object",
+    "properties": {
+     "attributes": {
+      "description": "Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more about the device, like pciAddress or mdevUUID",
+      "$ref": "#/definitions/v1.DeviceAttribute"
+     },
+     "name": {
+      "description": "Name is the name of actual device on the host provisioned by the driver as reflected in resourceclaim.status",
+      "type": "string"
+     },
+     "resourceClaimName": {
+      "description": "ResourceClaimName is the name of the resource claims object used to provision this resource",
+      "type": "string"
+     }
+    }
+   },
+   "v1.DeviceStatus": {
+    "description": "DeviceStatus has the information of all devices allocated spec.domain.devices",
+    "type": "object",
+    "properties": {
+     "gpuStatuses": {
+      "description": "GPUStatuses reflects the state of GPUs requested in spec.domain.devices.gpus",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.DeviceStatusInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "hostDeviceStatuses": {
+      "description": "HostDeviceStatuses reflects the state of GPUs requested in spec.domain.devices.hostDevices DRA",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.DeviceStatusInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.DeviceStatusInfo": {
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "deviceResourceClaimStatus": {
+      "description": "DeviceResourceClaimStatus reflects the DRA related information for the device",
+      "$ref": "#/definitions/v1.DeviceResourceClaimStatus"
+     },
+     "name": {
+      "description": "Name of the device as specified in spec.domain.devices.gpus.name or spec.domain.devices.hostDevices.name",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1.Devices": {
     "type": "object",
     "properties": {
@@ -13374,6 +13672,14 @@
       "description": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.",
       "type": "boolean"
      },
+     "panicDevices": {
+      "description": "PanicDevices provides additional crash information when a guest crashes.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.PanicDevice"
+      }
+     },
      "rng": {
       "description": "Whether to have random number generator from host",
       "$ref": "#/definitions/v1.Rng"
@@ -13390,9 +13696,23 @@
       "description": "Fall back to legacy virtio 0.9 support if virtio bus is selected on devices. This is helpful for old machines like CentOS6 or RHEL6 which do not understand virtio_non_transitional (virtio 1.0).",
       "type": "boolean"
      },
+     "video": {
+      "description": "Video describes the video device configuration for the vmi.",
+      "$ref": "#/definitions/v1.VideoDevice"
+     },
      "watchdog": {
       "description": "Watchdog describes a watchdog device which can be added to the vmi.",
       "$ref": "#/definitions/v1.Watchdog"
+     }
+    }
+   },
+   "v1.Diag288Watchdog": {
+    "description": "diag288 watchdog device.",
+    "type": "object",
+    "properties": {
+     "action": {
+      "description": "The action to take. Valid values are poweroff, reset, shutdown. Defaults to reset.",
+      "type": "string"
      }
     }
    },
@@ -13418,7 +13738,7 @@
       "format": "int32"
      },
      "cache": {
-      "description": "Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.",
+      "description": "Cache specifies which kvm disk cache mode should be used. Supported values are: none: Guest I/O not cached on the host, but may be kept in a disk cache. writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees. writeback: Guest I/O cached on the host. Defaults to none if the storage supports O_DIRECT, otherwise writethrough.",
       "type": "string"
      },
      "cdrom": {
@@ -13887,18 +14207,25 @@
    "v1.GPU": {
     "type": "object",
     "required": [
-     "name",
-     "deviceName"
+     "name"
     ],
     "properties": {
+     "claimName": {
+      "description": "ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this device is allocated",
+      "type": "string"
+     },
      "deviceName": {
-      "type": "string",
-      "default": ""
+      "description": "DeviceName is the name of the device provisioned by device-plugins",
+      "type": "string"
      },
      "name": {
       "description": "Name of the GPU device as exposed by a device plugin",
       "type": "string",
       "default": ""
+     },
+     "requestName": {
+      "description": "RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this device is requested",
+      "type": "string"
      },
      "tag": {
       "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
@@ -13986,18 +14313,24 @@
    "v1.HostDevice": {
     "type": "object",
     "required": [
-     "name",
-     "deviceName"
+     "name"
     ],
     "properties": {
+     "claimName": {
+      "description": "ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this device is allocated",
+      "type": "string"
+     },
      "deviceName": {
-      "description": "DeviceName is the resource name of the host device exposed by a device plugin",
-      "type": "string",
-      "default": ""
+      "description": "DeviceName is the name of the device provisioned by device-plugins",
+      "type": "string"
      },
      "name": {
       "type": "string",
       "default": ""
+     },
+     "requestName": {
+      "description": "RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this device is requested",
+      "type": "string"
      },
      "tag": {
       "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
@@ -14770,6 +15103,10 @@
       "description": "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
       "type": "string"
      },
+     "synchronizationPort": {
+      "description": "Specify the port to listen on for VMI status synchronization traffic. Default is 9185",
+      "type": "string"
+     },
      "uninstallStrategy": {
       "description": "Specifies if kubevirt can be deleted if workloads are still present. This is mainly a precaution to avoid accidental data loss",
       "type": "string"
@@ -14833,6 +15170,14 @@
      },
      "phase": {
       "type": "string"
+     },
+     "synchronizationAddresses": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "targetDeploymentConfig": {
       "type": "string"
@@ -14930,6 +15275,10 @@
       "format": "int32"
      },
      "virtOperator": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "virtSynchronizationController": {
       "type": "integer",
       "format": "int32"
      }
@@ -15300,6 +15649,59 @@
      }
     }
    },
+   "v1.ObjectGraphNode": {
+    "description": "ObjectGraphNode represents an individual node in the graph.",
+    "type": "object",
+    "required": [
+     "objectReference"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "children": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.ObjectGraphNode"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "labels": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "objectReference": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.api.core.v1.TypedObjectReference"
+     },
+     "optional": {
+      "type": "boolean"
+     }
+    }
+   },
+   "v1.ObjectGraphOptions": {
+    "description": "ObjectGraphOptions holds options for the object graph.",
+    "type": "object",
+    "properties": {
+     "includeOptionalNodes": {
+      "description": "IncludeOptionalNodes indicates whether to include optional nodes in the graph. True by default.",
+      "type": "boolean"
+     },
+     "labelSelector": {
+      "description": "LabelSelector is used to filter nodes in the graph based on their labels.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     }
+    }
+   },
    "v1.PITTimer": {
     "type": "object",
     "properties": {
@@ -15309,6 +15711,15 @@
      },
      "tickPolicy": {
       "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest. One of \"delay\", \"catchup\", \"discard\".",
+      "type": "string"
+     }
+    }
+   },
+   "v1.PanicDevice": {
+    "type": "object",
+    "properties": {
+     "model": {
+      "description": "Model specifies what type of panic device is provided. The panic model used when this attribute is missing depends on the hypervisor and guest arch. One of: isa, hyperv, pvpanic.",
       "type": "string"
      }
     }
@@ -16156,7 +16567,7 @@
     "type": "object",
     "properties": {
      "enabled": {
-      "description": "Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine Defaults to True",
+      "description": "Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine Defaults to True",
       "type": "boolean"
      },
      "persistent": {
@@ -16344,6 +16755,15 @@
     "properties": {
      "display": {
       "$ref": "#/definitions/v1.VGPUDisplayOptions"
+     }
+    }
+   },
+   "v1.VideoDevice": {
+    "type": "object",
+    "properties": {
+     "type": {
+      "description": "Type specifies the video device type (e.g., virtio, vga, bochs, ramfb). If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).",
+      "type": "string"
      }
     }
    },
@@ -16590,7 +17010,7 @@
       "type": "string"
      },
      "fsFreezeStatus": {
-      "description": "FSFreezeStatus is the state of the fs of the guest it can be either frozen or thawed",
+      "description": "FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem. It will be set to \"frozen\" if the request was made, or unset otherwise. This does not reflect the actual state of the guest filesystem.",
       "type": "string"
      },
      "fsInfo": {
@@ -16609,6 +17029,10 @@
      "kind": {
       "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
       "type": "string"
+     },
+     "load": {
+      "description": "Load contains the system load averages (1M, 5M, 15M) from the guest agent",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSLoad"
      },
      "os": {
       "description": "OS contains the guest operating system information",
@@ -16675,6 +17099,39 @@
      }
     }
    },
+   "v1.VirtualMachineInstanceGuestOSLoad": {
+    "description": "VirtualMachineInstanceGuestOSLoad represents the system load averages from the guest agent",
+    "type": "object",
+    "properties": {
+     "load15m": {
+      "description": "Load average over 15 minutes",
+      "type": "number",
+      "format": "double"
+     },
+     "load15mSet": {
+      "description": "Load15mSet indicates whether the 15 minute load average is set",
+      "type": "boolean"
+     },
+     "load1m": {
+      "description": "Load average over 1 minute",
+      "type": "number",
+      "format": "double"
+     },
+     "load1mSet": {
+      "description": "Load1mSet indicates whether the 1 minute load average is set",
+      "type": "boolean"
+     },
+     "load5m": {
+      "description": "Load average over 5 minutes",
+      "type": "number",
+      "format": "double"
+     },
+     "load5mSet": {
+      "description": "Load5mSet indicates whether the 5 minute load average is set",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.VirtualMachineInstanceGuestOSUser": {
     "description": "VirtualMachineGuestOSUser is the single user of the guest os",
     "type": "object",
@@ -16686,6 +17143,7 @@
       "type": "string"
      },
      "loginTime": {
+      "description": "Time of login of this user on the computer. If multiple instances of the user are logged in, the earliest login time is reported. The value is in fractional seconds since epoch time.",
       "type": "number",
       "format": "double"
      },
@@ -16857,6 +17315,74 @@
      }
     }
    },
+   "v1.VirtualMachineInstanceMigrationSource": {
+    "type": "object",
+    "required": [
+     "migrationID",
+     "connectURL"
+    ],
+    "properties": {
+     "connectURL": {
+      "description": "The synchronization controller URL to connect to.",
+      "type": "string",
+      "default": ""
+     },
+     "migrationID": {
+      "description": "A unique identifier to identify this migration.",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceMigrationSourceState": {
+    "type": "object",
+    "properties": {
+     "domainName": {
+      "description": "The name of the domain on the source libvirt domain",
+      "type": "string"
+     },
+     "domainNamespace": {
+      "description": "Namespace used in the name of the source libvirt domain. Can be used to find and modify paths in the domain",
+      "type": "string"
+     },
+     "migrationUID": {
+      "description": "The Source VirtualMachineInstanceMigration object associated with this migration",
+      "type": "string"
+     },
+     "node": {
+      "description": "The source node that the VMI originated on",
+      "type": "string"
+     },
+     "nodeSelectors": {
+      "description": "Node selectors needed by the target to start the receiving pod.",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "persistentStatePVCName": {
+      "description": "If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here",
+      "type": "string"
+     },
+     "pod": {
+      "description": "The source pod that the VMI is originated on",
+      "type": "string"
+     },
+     "selinuxContext": {
+      "description": "SELinuxContext is the actual SELinux context of the pod",
+      "type": "string"
+     },
+     "syncAddress": {
+      "description": "The ip address/fqdn:port combination to use to synchronize the VMI with the target.",
+      "type": "string"
+     },
+     "virtualMachineInstanceUID": {
+      "description": "VirtualMachineInstanceUID is the UID of the target virtual machine instance",
+      "type": "string"
+     }
+    }
+   },
    "v1.VirtualMachineInstanceMigrationSpec": {
     "type": "object",
     "properties": {
@@ -16867,6 +17393,14 @@
        "type": "string",
        "default": ""
       }
+     },
+     "receive": {
+      "description": "If receieve is specified, this VirtualMachineInstanceMigration will be considered the target",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationTarget"
+     },
+     "sendTo": {
+      "description": "If sendTo is specified, this VirtualMachineInstanceMigration will be considered the source",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationSource"
      },
      "vmiName": {
       "description": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
@@ -16905,6 +17439,10 @@
       "description": "Migration configurations to apply",
       "$ref": "#/definitions/v1.MigrationConfiguration"
      },
+     "migrationNetworkType": {
+      "description": "The type of migration network, either 'pod' or 'migration'",
+      "type": "string"
+     },
      "migrationPolicyName": {
       "description": "Name of the migration policy. If string is empty, no policy is matched",
       "type": "string"
@@ -16927,6 +17465,10 @@
      },
      "sourcePod": {
       "type": "string"
+     },
+     "sourceState": {
+      "description": "SourceState contains migration state managed by the source virt handler",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationSourceState"
      },
      "startTimestamp": {
       "description": "The time the migration action began",
@@ -16982,6 +17524,10 @@
      "targetPod": {
       "description": "The target pod that the VMI is moving to",
       "type": "string"
+     },
+     "targetState": {
+      "description": "TargetState contains migration state managed by the target virt handler",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationTargetState"
      }
     }
    },
@@ -17012,6 +17558,108 @@
        "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp"
       },
       "x-kubernetes-list-type": "atomic"
+     },
+     "synchronizationAddresses": {
+      "description": "The synchronization addresses one can use to connect to the synchronization controller, includes the port, if multiple addresses are available, the first one is reported in the synchronizationAddress field.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceMigrationTarget": {
+    "type": "object",
+    "required": [
+     "migrationID"
+    ],
+    "properties": {
+     "migrationID": {
+      "description": "A unique identifier to identify this migration.",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceMigrationTargetState": {
+    "type": "object",
+    "properties": {
+     "attachmentPodUID": {
+      "description": "The UID of the target attachment pod for hotplug volumes",
+      "type": "string"
+     },
+     "cpuSet": {
+      "description": "If the VMI requires dedicated CPUs, this field will hold the dedicated CPU set on the target node",
+      "type": "array",
+      "items": {
+       "type": "integer",
+       "format": "int32",
+       "default": 0
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "directMigrationNodePorts": {
+      "description": "The list of ports opened for live migration on the destination node",
+      "type": "object",
+      "additionalProperties": {
+       "type": "integer",
+       "format": "int32",
+       "default": 0
+      }
+     },
+     "domainDetected": {
+      "description": "The Target Node has seen the Domain Start Event",
+      "type": "boolean"
+     },
+     "domainName": {
+      "description": "The name of the domain on the source libvirt domain",
+      "type": "string"
+     },
+     "domainNamespace": {
+      "description": "Namespace used in the name of the source libvirt domain. Can be used to find and modify paths in the domain",
+      "type": "string"
+     },
+     "domainReadyTimestamp": {
+      "description": "The timestamp at which the target node detects the domain is active",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "migrationUID": {
+      "description": "The Source VirtualMachineInstanceMigration object associated with this migration",
+      "type": "string"
+     },
+     "node": {
+      "description": "The source node that the VMI originated on",
+      "type": "string"
+     },
+     "nodeAddress": {
+      "description": "The address of the target node to use for the migration",
+      "type": "string"
+     },
+     "nodeTopology": {
+      "description": "If the VMI requires dedicated CPUs, this field will hold the numa topology on the target node",
+      "type": "string"
+     },
+     "persistentStatePVCName": {
+      "description": "If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here",
+      "type": "string"
+     },
+     "pod": {
+      "description": "The source pod that the VMI is originated on",
+      "type": "string"
+     },
+     "selinuxContext": {
+      "description": "SELinuxContext is the actual SELinux context of the pod",
+      "type": "string"
+     },
+     "syncAddress": {
+      "description": "The ip address/fqdn:port combination to use to synchronize the VMI with the target.",
+      "type": "string"
+     },
+     "virtualMachineInstanceUID": {
+      "description": "VirtualMachineInstanceUID is the UID of the target virtual machine instance",
+      "type": "string"
      }
     }
    },
@@ -17343,7 +17991,7 @@
       "$ref": "#/definitions/v1.DomainSpec"
      },
      "evictionStrategy": {
-      "description": "EvictionStrategy describes the strategy to follow when a node drain occurs. The possible options are: - \"None\": No action will be taken, according to the specified 'RunStrategy' the VirtualMachine will be restarted or shutdown. - \"LiveMigrate\": the VirtualMachineInstance will be migrated instead of being shutdown. - \"LiveMigrateIfPossible\": the same as \"LiveMigrate\" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as \"None\". - \"External\": the VirtualMachineInstance will be protected by a PDB and `vmi.Status.EvacuationNodeName` will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.",
+      "description": "EvictionStrategy describes the strategy to follow when a node drain occurs. The possible options are: - \"None\": No action will be taken, according to the specified 'RunStrategy' the VirtualMachine will be restarted or shutdown. - \"LiveMigrate\": the VirtualMachineInstance will be migrated instead of being shutdown. - \"LiveMigrateIfPossible\": the same as \"LiveMigrate\" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as \"None\". - \"External\": the VirtualMachineInstance will be protected and `vmi.Status.EvacuationNodeName` will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.",
       "type": "string"
      },
      "hostname": {
@@ -17377,6 +18025,18 @@
      "readinessProbe": {
       "description": "Periodic probe of VirtualMachineInstance service readiness. VirtualmachineInstances will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
       "$ref": "#/definitions/v1.Probe"
+     },
+     "resourceClaims": {
+      "description": "ResourceClaims define which ResourceClaims must be allocated and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources will be made available to the domain which consumes them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nThis field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled. This feature is in alpha.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/k8s.io.api.core.v1.PodResourceClaim"
+      },
+      "x-kubernetes-list-map-keys": [
+       "name"
+      ],
+      "x-kubernetes-list-type": "map"
      },
      "schedulerName": {
       "description": "If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.",
@@ -17458,12 +18118,16 @@
       "description": "CurrentCPUTopology specifies the current CPU topology used by the VM workload. Current topology may differ from the desired topology in the spec while CPU hotplug takes place.",
       "$ref": "#/definitions/v1.CPUTopology"
      },
+     "deviceStatus": {
+      "description": "DeviceStatus reflects the state of devices requested in spec.domain.devices. This is an optional field available only when DRA feature gate is enabled This field will only be populated if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled. This feature is in alpha.",
+      "$ref": "#/definitions/v1.DeviceStatus"
+     },
      "evacuationNodeName": {
       "description": "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.",
       "type": "string"
      },
      "fsFreezeStatus": {
-      "description": "FSFreezeStatus is the state of the fs of the guest it can be either frozen or thawed",
+      "description": "FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem. It will be set to \"frozen\" if the request was made, or unset otherwise. This does not reflect the actual state of the guest filesystem.",
       "type": "string"
      },
      "guestOSInfo": {
@@ -18038,6 +18702,10 @@
      "name"
     ],
     "properties": {
+     "diag288": {
+      "description": "diag288 watchdog device (specific to s390x architecture).",
+      "$ref": "#/definitions/v1.Diag288Watchdog"
+     },
      "i6300esb": {
       "description": "i6300esb watchdog device.",
       "$ref": "#/definitions/v1.I6300ESBWatchdog"
@@ -18260,6 +18928,36 @@
      }
     }
    },
+   "v1alpha1.VirtualMachinePoolProactiveScaleInStrategy": {
+    "description": "VirtualMachinePoolProactiveScaleInStrategy represents proactive scale-in strategy",
+    "type": "object",
+    "properties": {
+     "selectionPolicy": {
+      "description": "SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in Defaults to \"Random\" base policy when no SelectionPolicy is configured",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolSelectionPolicy"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachinePoolScaleInStrategy": {
+    "description": "VirtualMachinePoolScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool",
+    "type": "object",
+    "properties": {
+     "proactive": {
+      "description": "Proactive scale-in by forcing VMs to shutdown during scale-in (Default)",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolProactiveScaleInStrategy"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachinePoolSelectionPolicy": {
+    "description": "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for scale-in",
+    "type": "object",
+    "properties": {
+     "basePolicy": {
+      "description": "BasePolicy is a catch-all policy [Random|DescendingOrder]",
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.VirtualMachinePoolSpec": {
     "type": "object",
     "required": [
@@ -18267,6 +18965,10 @@
      "virtualMachineTemplate"
     ],
     "properties": {
+     "maxUnavailable": {
+      "description": "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.util.intstr.IntOrString"
+     },
      "nameGeneration": {
       "description": "Options for the name generation in a pool.",
       "$ref": "#/definitions/v1alpha1.VirtualMachinePoolNameGeneration"
@@ -18279,6 +18981,10 @@
       "description": "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
       "type": "integer",
       "format": "int32"
+     },
+     "scaleInStrategy": {
+      "description": "ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolScaleInStrategy"
      },
      "selector": {
       "description": "Label selector for pods. Existing Poolss whose pods are selected by this will be the ones affected by this deployment.",
@@ -18871,6 +19577,10 @@
       "description": "PreferredNetworkInterfaceMultiQueue optionally enables the vhost multiqueue feature for virtio interfaces.",
       "type": "boolean"
      },
+     "preferredPanicDeviceModel": {
+      "description": "PreferredPanicDeviceModel optionally defines the preferred panic device model to use with panic devices.",
+      "type": "string"
+     },
      "preferredRng": {
       "description": "PreferredRng optionally defines the preferred rng device to be used.",
       "$ref": "#/definitions/v1.Rng"
@@ -19248,6 +19958,15 @@
      "newSMBiosSerial": {
       "description": "NewSMBiosSerial manually sets that target's SMbios serial. If this field is not specified, a new serial will be generated automatically.",
       "type": "string"
+     },
+     "patches": {
+      "description": "Patches holds JSON patches to apply to target. Patches should fit the target's Kind. Example: '{\"op\": \"add\", \"path\": \"/spec/template/metadata/labels/example\", \"value\": \"new-label\"}'",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "source": {
       "description": "Source is the object that would be cloned. Currently supported source types are: VirtualMachine of kubevirt.io API group, VirtualMachineSnapshot of snapshot.kubevirt.io API group",
@@ -19949,7 +20668,7 @@
     }
    },
    "v1beta1.VirtualMachineRestoreSpec": {
-    "description": "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource",
+    "description": "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore resource",
     "type": "object",
     "required": [
      "target",
@@ -19976,11 +20695,23 @@
      "virtualMachineSnapshotName": {
       "type": "string",
       "default": ""
+     },
+     "volumeRestoreOverrides": {
+      "description": "VolumeRestoreOverrides gives the option to change properties of each restored volume For example, specifying the name of the restored volume, or adding labels/annotations to it",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VolumeRestoreOverride"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "volumeRestorePolicy": {
+      "type": "string"
      }
     }
    },
    "v1beta1.VirtualMachineRestoreStatus": {
-    "description": "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
+    "description": "VirtualMachineRestoreStatus is the status for a VirtualMachineRestore resource",
     "type": "object",
     "nullable": true,
     "properties": {
@@ -20273,7 +21004,7 @@
     }
    },
    "v1beta1.VolumeRestore": {
-    "description": "VolumeRestore contains the data neeed to restore a PVC",
+    "description": "VolumeRestore contains the data needed to restore a PVC",
     "type": "object",
     "required": [
      "volumeName",
@@ -20295,6 +21026,32 @@
      "volumeSnapshotName": {
       "type": "string",
       "default": ""
+     }
+    }
+   },
+   "v1beta1.VolumeRestoreOverride": {
+    "description": "VolumeRestoreOverride specifies how a volume should be restored from a VirtualMachineSnapshot",
+    "type": "object",
+    "properties": {
+     "annotations": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "labels": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "restoreName": {
+      "type": "string"
+     },
+     "volumeName": {
+      "type": "string"
      }
     }
    },
@@ -20415,6 +21172,13 @@
     "name": "port",
     "in": "query",
     "required": true
+   },
+   "preserveSession-FJbSIuEU": {
+    "uniqueItems": true,
+    "type": "boolean",
+    "description": "Connect only if ongoing session is not disturbed.",
+    "name": "preserveSession",
+    "in": "query"
    },
    "propagationPolicy-6jk3prlO": {
     "uniqueItems": true,

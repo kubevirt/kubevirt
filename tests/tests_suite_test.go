@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -104,8 +105,27 @@ var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite
 var _ = SynchronizedAfterSuite(testsuite.AfterTestSuiteCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
 
 var _ = AfterEach(func() {
-	testCleanup()
+	if !hasOncePerOrderedCleanupLabel() {
+		testCleanup()
+	}
 })
+
+var _ = AfterEach(OncePerOrdered, func() {
+	if hasOncePerOrderedCleanupLabel() {
+		testCleanup()
+	}
+})
+
+func hasOncePerOrderedCleanupLabel() bool {
+	oncePerOrderedCleanupText := decorators.OncePerOrderedCleanup[0]
+	oncePerOrderedCleanup, err := CurrentSpecReport().MatchesLabelFilter(oncePerOrderedCleanupText)
+	if err != nil {
+		fmt.Printf("Failed to parse labels %q\n", err)
+		return false
+	}
+
+	return oncePerOrderedCleanup
+}
 
 func getMaxFailsFromEnv() int {
 	maxFailsEnv := os.Getenv("REPORTER_MAX_FAILS")
@@ -161,7 +181,7 @@ func testCleanup() {
 // propagated if the current config in use does not match the original one.
 func resetToDefaultConfig() {
 	if !CurrentSpecReport().IsSerial {
-		// Tests which alter the global kubevirt config must be run serial, therefor, if we run in parallel
+		// Tests which alter the global kubevirt config must be run serial, therefore, if we run in parallel
 		// we can just skip the restore step.
 		return
 	}

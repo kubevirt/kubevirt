@@ -38,7 +38,7 @@ func (c *FakeVirtualMachineInstances) USBRedir(vmiName string) (kvcorev1.StreamI
 	return nil, nil
 }
 
-func (c *FakeVirtualMachineInstances) VNC(name string) (kvcorev1.StreamInterface, error) {
+func (c *FakeVirtualMachineInstances) VNC(name string, preserveSession bool) (kvcorev1.StreamInterface, error) {
 	return nil, nil
 }
 
@@ -158,4 +158,11 @@ func (c *FakeVirtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context,
 		Invokes(fake2.NewPutSubresourceAction(virtualmachineinstancesResource, c.ns, "sev/injectlaunchsecret", name, sevSecretOptions), nil)
 
 	return err
+}
+
+func (c *FakeVirtualMachineInstances) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error) {
+	obj, err := c.Fake.
+		Invokes(fake2.NewGetSubresourceAction(virtualmachineinstancesResource, c.ns, "objectgraph", name, objectGraphOptions), nil)
+
+	return *obj.(*v1.ObjectGraphNode), err
 }

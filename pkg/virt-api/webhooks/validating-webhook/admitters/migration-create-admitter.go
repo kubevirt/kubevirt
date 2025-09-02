@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -36,22 +36,31 @@ import (
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 type MigrationCreateAdmitter struct {
-	virtClient kubevirt.Interface
+	virtClient    kubevirt.Interface
+	clusterConfig *virtconfig.ClusterConfig
 }
 
-func NewMigrationCreateAdmitter(virtClient kubevirt.Interface) *MigrationCreateAdmitter {
+func NewMigrationCreateAdmitter(virtClient kubevirt.Interface, clusterConfig *virtconfig.ClusterConfig) *MigrationCreateAdmitter {
 	return &MigrationCreateAdmitter{
-		virtClient: virtClient,
+		virtClient:    virtClient,
+		clusterConfig: clusterConfig,
 	}
 }
 
-func isMigratable(vmi *v1.VirtualMachineInstance) error {
+func isMigratable(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) error {
 	for _, c := range vmi.Status.Conditions {
 		if c.Type == v1.VirtualMachineInstanceIsMigratable &&
 			c.Status == k8sv1.ConditionFalse {
+			// Allow cross namespace/cluster migrations with non migratable disks.
+			// TODO: this is fragile since there could be other reasons for the VMI to be non migratable.
+			if c.Reason == v1.VirtualMachineInstanceReasonDisksNotMigratable && migration.IsDecentralized() {
+				continue
+			}
 			return fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s", c.Reason, c.Message)
 		}
 	}
@@ -110,7 +119,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 	}
 
 	// Reject migration jobs for non-migratable VMIs
-	err = isMigratable(vmi)
+	err = isMigratable(vmi, migration)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -120,6 +129,24 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 	err = ensureNoMigrationConflict(ctx, admitter.virtClient, migration.Spec.VMIName, migration.Namespace)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	if migration.Spec.SendTo != nil || migration.Spec.Receive != nil {
+		config := admitter.clusterConfig
+		// Ensure the feature gate is enabled before allowing.
+		if !config.DecentralizedLiveMigrationEnabled() {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt resource", featuregate.DecentralizedLiveMigration),
+			}})
+		}
+		// Check to make sure if both sendTo and receive are set, that the migrationID matches in both.
+		if migration.Spec.SendTo != nil && migration.Spec.Receive != nil && migration.Spec.SendTo.MigrationID != migration.Spec.Receive.MigrationID {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("sendTo migrationID %s does not match receive migrationID %s", migration.Spec.SendTo.MigrationID, migration.Spec.Receive.MigrationID),
+			}})
+		}
 	}
 
 	reviewResponse := admissionv1.AdmissionResponse{}

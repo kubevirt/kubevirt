@@ -13,13 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
 package libvmi
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -40,6 +43,19 @@ func WithCPUModel(model string) Option {
 			vmi.Spec.Domain.CPU = &v1.CPU{}
 		}
 		vmi.Spec.Domain.CPU.Model = model
+	}
+}
+
+func WithCPUFeature(featureName, policy string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.CPU == nil {
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+		}
+
+		vmi.Spec.Domain.CPU.Features = append(vmi.Spec.Domain.CPU.Features, v1.CPUFeature{
+			Name:   featureName,
+			Policy: policy,
+		})
 	}
 }
 
@@ -73,5 +89,46 @@ func WithNUMAGuestMappingPassthrough() Option {
 func WithArchitecture(arch string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Architecture = arch
+	}
+}
+
+// Deprecated: Use WithCPURequest instead
+// WithResourceCPU specifies the vmi CPU resource.
+func WithResourceCPU(value string) Option {
+	return WithCPURequest(value)
+}
+
+// Deprecated: Use WithCPULimit instead
+// WithLimitCPU specifies the VMI CPU limit.
+func WithLimitCPU(value string) Option {
+	return WithCPULimit(value)
+}
+
+// WithCPURequest specifies the vmi CPU resource.
+func WithCPURequest(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Requests == nil {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(value)
+	}
+}
+
+// WithCPULimit specifies the VMI CPU limit.
+func WithCPULimit(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Limits == nil {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse(value)
+	}
+}
+
+func WithIsolateEmulatorThread() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.CPU == nil {
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+		}
+		vmi.Spec.Domain.CPU.IsolateEmulatorThread = true
 	}
 }

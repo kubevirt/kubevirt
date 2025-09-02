@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 package components
@@ -596,7 +596,6 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 		{Name: "TargetName", Type: "string", JSONPath: ".spec.target.name"},
 		{Name: "Complete", Type: "boolean", JSONPath: ".status.complete"},
 		{Name: "RestoreTime", Type: "date", JSONPath: ".status.restoreTime"},
-		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},
 	})
 	if err != nil {
 		return nil, err
@@ -846,9 +845,6 @@ func NewMigrationPolicyCrd() (*extv1.CustomResourceDefinition, error) {
 			Plural:   migrations.ResourceMigrationPolicies,
 			Singular: "migrationpolicy",
 			Kind:     migrationsv1.MigrationPolicyKind.Kind,
-			Categories: []string{
-				"all",
-			},
 		},
 	}
 	err := addFieldsToAllVersions(crd, &extv1.CustomResourceSubresources{

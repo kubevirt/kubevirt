@@ -134,9 +134,6 @@
     <console type="pty">
       <target type="serial" port="0"></target>
     </console>
-    <watchdog model="i6300esb" action="poweroff">
-      <alias name="ua-mywatchdog"></alias>
-    </watchdog>
     <rng model="virtio-non-transitional">
       <backend model="random">/dev/urandom</backend>
     </rng>

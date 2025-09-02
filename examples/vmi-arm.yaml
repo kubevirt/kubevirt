@@ -18,9 +18,9 @@ spec:
       - disk:
           bus: virtio
         name: emptydisk
-    resources:
-      requests:
-        memory: 256Mi
+    memory:
+      guest: 256Mi
+    resources: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

@@ -1,4 +1,7 @@
-/* Licensed under the Apache License, Version 2.0 (the "License");
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -10,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -21,6 +24,9 @@
 package webhooks
 
 import (
+	"fmt"
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -35,7 +41,25 @@ func ValidateVirtualMachineInstanceArm64Setting(field *k8sfield.Path, spec *v1.V
 	validateDiskBus(field, spec, &statusCauses)
 	validateWatchdog(field, spec, &statusCauses)
 	validateSoundDevice(field, spec, &statusCauses)
+	validateVideoTypeArm64(field, spec, &statusCauses)
 	return statusCauses
+}
+
+func validateVideoTypeArm64(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, statusCauses *[]metav1.StatusCause) {
+	if spec.Domain.Devices.Video == nil {
+		return
+	}
+
+	videoType := spec.Domain.Devices.Video.Type
+
+	validTypes := []string{"virtio", "ramfb"}
+	if !slices.Contains(validTypes, videoType) {
+		*statusCauses = append(*statusCauses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("video model '%s' is not supported on arm64 architecture", videoType),
+			Field:   field.Child("domain", "devices", "video").Child("type").String(),
+		})
+	}
 }
 
 func validateBootOptions(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, statusCauses *[]metav1.StatusCause) {
@@ -63,10 +87,10 @@ func validateBootOptions(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 }
 
 func validateCPUModel(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, statusCauses *[]metav1.StatusCause) {
-	if spec.Domain.CPU != nil && (&spec.Domain.CPU.Model != nil) && spec.Domain.CPU.Model == "host-model" {
+	if spec.Domain.CPU != nil && (&spec.Domain.CPU.Model != nil) && spec.Domain.CPU.Model != "" && spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 		*statusCauses = append(*statusCauses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: "Arm64 not support CPU host-model",
+			Message: fmt.Sprintf("currently, %v is the only model supported on Arm64", v1.CPUModeHostPassthrough),
 			Field:   field.Child("domain", "cpu", "model").String(),
 		})
 	}

@@ -81,7 +81,7 @@ var _ = Describe("[sig-compute]virt-handler", decorators.SigCompute, func() {
 					expectNoErr(err)
 				},
 				func() {
-					_, err := vmiInterface.VNC(vmi.Name)
+					_, err := vmiInterface.VNC(vmi.Name, false)
 					expectNoErr(err)
 				},
 				func() {
@@ -93,7 +93,7 @@ var _ = Describe("[sig-compute]virt-handler", decorators.SigCompute, func() {
 
 		By("Running the VMI")
 		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachGraphicsDevice(true))
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
 
 		By("VMI has the guest agent connected condition")
 		Eventually(matcher.ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected), "should have agent connected condition")

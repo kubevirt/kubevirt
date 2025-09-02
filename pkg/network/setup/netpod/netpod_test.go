@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  */
 
 package netpod_test
@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"sync"
 
 	vishnetlink "github.com/vishvananda/netlink"
@@ -43,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/driver/procsys"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 const (
@@ -1118,6 +1120,71 @@ var _ = Describe("netpod", func() {
 			PodIP:  primaryIPv4Address,
 			PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
 		}))
+	})
+
+	It("should preserve network queue count if interface is already in the domain", func() {
+		const (
+			previousQueueCount = 1
+			currentQueueCount  = 2
+		)
+
+		vmiIface := v1.Interface{
+			Name:                   defaultPodNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+		}
+
+		vmiIfaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:             defaultPodNetworkName,
+				PodInterfaceName: "eth0",
+				QueueCount:       previousQueueCount,
+				InfoSource:       vmispec.InfoSourceDomain,
+			},
+		}
+
+		nmstatestub := nmstateStub{status: nmstate.Status{
+			Interfaces: []nmstate.Interface{{
+				Name:       "eth0",
+				Index:      0,
+				TypeName:   nmstate.TypeVETH,
+				State:      nmstate.IfaceStateUp,
+				MacAddress: "12:34:56:78:90:ab",
+				MTU:        1500,
+				IPv4: nmstate.IP{
+					Enabled: pointer.P(true),
+					Address: []nmstate.IPAddress{{
+						IP:        primaryIPv4Address,
+						PrefixLen: 30,
+					}},
+				},
+			}},
+			Routes: nmstate.Routes{Running: []nmstate.Route{
+				// Default Route
+				{
+					Destination:      "0.0.0.0/0",
+					NextHopInterface: "eth0",
+					NextHopAddress:   "10.0.0.1",
+					TableID:          0,
+				},
+			}},
+		}}
+
+		netPod := netpod.NewNetPod(
+			[]v1.Network{*v1.DefaultPodNetwork()},
+			[]v1.Interface{vmiIface},
+			vmiUID, 0, 0, currentQueueCount, state,
+			netpod.WithNMStateAdapter(&nmstatestub),
+			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(vmiIfaceStatuses),
+		)
+		Expect(netPod.Setup()).To(Succeed())
+
+		index := slices.IndexFunc(nmstatestub.spec.Interfaces, func(iface nmstate.Interface) bool {
+			return iface.Name == "tap0"
+		})
+		Expect(index).To(BeNumerically(">=", 0))
+
+		Expect(nmstatestub.spec.Interfaces[index].Tap.Queues).To(Equal(previousQueueCount))
 	})
 
 	DescribeTable("setup unhandled bindings", func(binding v1.InterfaceBindingMethod, expNmstateSpec nmstate.Spec) {

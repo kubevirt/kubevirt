@@ -56,14 +56,15 @@ func newKubeVirtCR(namespace string, pullPolicy v1.PullPolicy, featureGates stri
 		},
 		Spec: virtv1.KubeVirtSpec{
 			ImagePullPolicy: pullPolicy,
+			Configuration: virtv1.KubeVirtConfiguration{
+				ImagePullPolicy: pullPolicy,
+			},
 		},
 	}
 
 	if featureGates != "" {
-		cr.Spec.Configuration = virtv1.KubeVirtConfiguration{
-			DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-				FeatureGates: strings.Split(featureGates, ","),
-			},
+		cr.Spec.Configuration.DeveloperConfiguration = &virtv1.DeveloperConfiguration{
+			FeatureGates: strings.Split(featureGates, ","),
 		}
 	}
 

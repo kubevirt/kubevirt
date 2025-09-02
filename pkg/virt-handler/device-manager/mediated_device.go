@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -108,8 +108,6 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 	serverSock := SocketPath(mdevTypeName)
 	iommuToMDEVMap := make(map[string]string)
 
-	initHandler()
-
 	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap)
 
 	dpi := &MediatedDevicePlugin{
@@ -200,8 +198,6 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 }
 
 func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) map[string][]*MDEV {
-	initHandler()
-
 	mdevsMap := make(map[string][]*MDEV)
 	files, err := os.ReadDir(mdevBasePath)
 	for _, info := range files {
@@ -219,15 +215,15 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 				typeName: mdevTypeName,
 				UUID:     info.Name(),
 			}
-			parentPCIAddr, err := Handler.GetMdevParentPCIAddr(info.Name())
+			parentPCIAddr, err := handler.GetMdevParentPCIAddr(info.Name())
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("failed parent PCI address for mdev: %s", info.Name())
 				continue
 			}
 			mdev.parentPciAddress = parentPCIAddr
 
-			mdev.numaNode = Handler.GetDeviceNumaNode(pciBasePath, parentPCIAddr)
-			iommuGroup, err := Handler.GetDeviceIOMMUGroup(mdevBasePath, info.Name())
+			mdev.numaNode = handler.GetDeviceNumaNode(pciBasePath, parentPCIAddr)
+			iommuGroup, err := handler.GetDeviceIOMMUGroup(mdevBasePath, info.Name())
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("failed to get iommu group of mdev: %s", info.Name())
 				continue

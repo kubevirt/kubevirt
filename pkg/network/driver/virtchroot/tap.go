@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -30,17 +30,17 @@ type VirtCHRoot struct{}
 
 const virtChrootBin = "virt-chroot"
 
-func (v VirtCHRoot) AddTapDevice(name string, mtu int, queues int, ownerID int) error {
+func (v VirtCHRoot) AddTapDevice(name string, mtu, queues, ownerID int) error {
 	cmd := v.addTapDeviceCmd(name, mtu, queues, ownerID)
 	return cmd.Run()
 }
 
-func (v VirtCHRoot) AddTapDeviceWithSELinuxLabel(name string, mtu int, queues int, ownerID int, pid int) error {
+func (v VirtCHRoot) AddTapDeviceWithSELinuxLabel(name string, mtu, queues, ownerID, pid int) error {
 	cmd := v.addTapDeviceCmd(name, mtu, queues, ownerID)
 	return v.runWithSELinuxLabelFromPID(pid, cmd)
 }
 
-func (v VirtCHRoot) addTapDeviceCmd(name string, mtu int, queues int, ownerID int) *exec.Cmd {
+func (v VirtCHRoot) addTapDeviceCmd(name string, mtu, queues, ownerID int) *exec.Cmd {
 	id := strconv.Itoa(ownerID)
 	cmdArgs := []string{
 		"create-tap",

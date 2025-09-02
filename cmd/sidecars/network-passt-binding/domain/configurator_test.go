@@ -23,8 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	vishnetlink "github.com/vishvananda/netlink"
-
 	vmschema "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/domain"
@@ -32,50 +30,71 @@ import (
 	domainschema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type defaultNetLinkStub struct{}
+const (
+	ifaceTypeVhostUser = "vhostuser"
 
-func (nl defaultNetLinkStub) LinkByName(name string) (vishnetlink.Link, error) {
-	return nil, vishnetlink.LinkNotFoundError{}
-}
-
-type netLinkStub struct{}
-
-func (nl netLinkStub) LinkByName(name string) (vishnetlink.Link, error) {
-	return &vishnetlink.Veth{LinkAttrs: vishnetlink.LinkAttrs{Name: name}}, nil
-}
+	defaultPrimaryPodIfaceName = "eth0"
+)
 
 var _ = Describe("pod network configurator", func() {
 	Context("generate domain spec interface", func() {
 		DescribeTable("should fail to create configurator given",
-			func(ifaces []vmschema.Interface, networks []vmschema.Network) {
-				_, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &defaultNetLinkStub{})
+			func(ifaces []vmschema.Interface, networks []vmschema.Network, ifaceStatuses []vmschema.VirtualMachineInstanceNetworkInterface) {
+				_, err := domain.NewPasstNetworkConfigurator(
+					ifaces,
+					networks,
+					ifaceStatuses,
+					domain.NetworkConfiguratorOptions{},
+				)
 
 				Expect(err).To(HaveOccurred())
 			},
 			Entry("no pod network",
 				nil,
 				[]vmschema.Network{{Name: "default", NetworkSource: vmschema.NetworkSource{Multus: &vmschema.MultusNetwork{}}}},
+				nil,
 			),
 			Entry("no corresponding iface",
 				[]vmschema.Interface{{Name: "not-default", Binding: &vmschema.PluginBinding{Name: "passt"}}},
 				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
+				nil,
 			),
 			Entry("interface with no passt binding method",
 				[]vmschema.Interface{{Name: "default", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Bridge: &vmschema.InterfaceBridge{}}}},
 				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
+				[]vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}},
 			),
 			Entry("interface with no passt binding plugin",
 				[]vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "no-passt"}}},
 				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
+				[]vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}},
+			),
+			Entry("Interface with no matching status entry",
+				[]vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}},
+				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
+				nil,
+			),
+			Entry("Interface with an empty PodInterfaceName",
+				[]vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}},
+				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
+				[]vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: ""}},
 			),
 		)
 
 		It("should fail given interface with invalid PCI address", func() {
-			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-				PciAddress: "invalid-pci-address"}}
+			ifaces := []vmschema.Interface{{
+				Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+				PciAddress: "invalid-pci-address",
+			}}
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
+			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
 
-			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &defaultNetLinkStub{})
+			testMutator, err := domain.NewPasstNetworkConfigurator(
+				ifaces,
+				networks,
+				ifaceStatuses,
+				domain.NetworkConfiguratorOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = testMutator.Mutate(&domainschema.DomainSpec{})
@@ -86,8 +105,14 @@ var _ = Describe("pod network configurator", func() {
 			func(iface *vmschema.Interface, expectedDomainIface *domainschema.Interface) {
 				ifaces := []vmschema.Interface{*iface}
 				networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
+				ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
 
-				testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &defaultNetLinkStub{})
+				testMutator, err := domain.NewPasstNetworkConfigurator(
+					ifaces,
+					networks,
+					ifaceStatuses,
+					domain.NetworkConfiguratorOptions{},
+				)
 				Expect(err).ToNot(HaveOccurred())
 
 				mutatedDomSpec, err := testMutator.Mutate(&domainschema.DomainSpec{})
@@ -98,7 +123,7 @@ var _ = Describe("pod network configurator", func() {
 				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -106,11 +131,13 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("PCI address",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					PciAddress: "0000:02:02.0"},
+				&vmschema.Interface{
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+					PciAddress: "0000:02:02.0",
+				},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -119,11 +146,13 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("MAC address",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					MacAddress: "02:02:02:02:02:02"},
+				&vmschema.Interface{
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+					MacAddress: "02:02:02:02:02:02",
+				},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -132,11 +161,13 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("ACPI address",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					ACPIIndex: 2},
+				&vmschema.Interface{
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+					ACPIIndex: 2,
+				},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -145,12 +176,13 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("non virtio model",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+				&vmschema.Interface{
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
 					Model: "e1000",
 				},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -158,12 +190,15 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("tcp ports (should forward tcp ports only)",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					Ports: []vmschema.Port{{Protocol: "TCP", Port: 1}, {Protocol: "TCP", Port: 4}},
-				},
+				newInterface(
+					"default",
+					withPasstBindingPlugin(),
+					withOpenPort("TCP", 1),
+					withOpenPort("TCP", 4),
+				),
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
-					Type:    "user",
+					Type:    ifaceTypeVhostUser,
 					Source:  domainschema.InterfaceSource{Device: "eth0"},
 					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
@@ -178,12 +213,15 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("udp ports (should forward udp ports only)",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					Ports: []vmschema.Port{{Protocol: "UDP", Port: 2}, {Protocol: "UDP", Port: 3}},
-				},
+				newInterface(
+					"default",
+					withPasstBindingPlugin(),
+					withOpenPort("UDP", 2),
+					withOpenPort("UDP", 3),
+				),
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
-					Type:    "user",
+					Type:    ifaceTypeVhostUser,
 					Source:  domainschema.InterfaceSource{Device: "eth0"},
 					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
@@ -198,12 +236,17 @@ var _ = Describe("pod network configurator", func() {
 				},
 			),
 			Entry("both tcp and udp ports",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
-					Ports: []vmschema.Port{{Port: 1}, {Protocol: "UdP", Port: 2}, {Protocol: "UDP", Port: 3}, {Protocol: "tcp", Port: 4}},
-				},
+				newInterface(
+					"default",
+					withPasstBindingPlugin(),
+					withOpenPort("", 1),
+					withOpenPort("UDP", 2),
+					withOpenPort("UDP", 3),
+					withOpenPort("TCP", 4),
+				),
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
-					Type:    "user",
+					Type:    ifaceTypeVhostUser,
 					Source:  domainschema.InterfaceSource{Device: "eth0"},
 					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
@@ -229,8 +272,9 @@ var _ = Describe("pod network configurator", func() {
 			func(opts *domain.NetworkConfiguratorOptions, expectedDomainIface *domainschema.Interface) {
 				ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}}
 				networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
+				ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
 
-				testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, *opts, &defaultNetLinkStub{})
+				testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, ifaceStatuses, *opts)
 				Expect(err).ToNot(HaveOccurred())
 
 				mutatedDomSpec, err := testMutator.Mutate(&domainschema.DomainSpec{})
@@ -241,7 +285,7 @@ var _ = Describe("pod network configurator", func() {
 				&domain.NetworkConfiguratorOptions{UseVirtioTransitional: true},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -252,18 +296,24 @@ var _ = Describe("pod network configurator", func() {
 				&domain.NetworkConfiguratorOptions{IstioProxyInjectionEnabled: true},
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
-					Type:    "user",
+					Type:    ifaceTypeVhostUser,
 					Source:  domainschema.InterfaceSource{Device: "eth0"},
 					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
 					PortForward: []domainschema.InterfacePortForward{
 						{Proto: "tcp", Ranges: []domainschema.InterfacePortForwardRange{
-							{Start: 15000, Exclude: "yes"}, {Start: 15001, Exclude: "yes"},
-							{Start: 15004, Exclude: "yes"}, {Start: 15006, Exclude: "yes"},
-							{Start: 15008, Exclude: "yes"}, {Start: 15009, Exclude: "yes"},
-							{Start: 15020, Exclude: "yes"}, {Start: 15021, Exclude: "yes"},
-							{Start: 15053, Exclude: "yes"}, {Start: 15090, Exclude: "yes"},
-						}}},
+							{Start: 15000, Exclude: "yes"},
+							{Start: 15001, Exclude: "yes"},
+							{Start: 15004, Exclude: "yes"},
+							{Start: 15006, Exclude: "yes"},
+							{Start: 15008, Exclude: "yes"},
+							{Start: 15009, Exclude: "yes"},
+							{Start: 15020, Exclude: "yes"},
+							{Start: 15021, Exclude: "yes"},
+							{Start: 15053, Exclude: "yes"},
+							{Start: 15090, Exclude: "yes"},
+						}},
+					},
 				},
 			),
 		)
@@ -278,22 +328,31 @@ var _ = Describe("pod network configurator", func() {
 				{Name: "secondary", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Bridge: &vmschema.InterfaceBridge{}}},
 			}
 
+			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
+
 			expectedDomainIface := &domainschema.Interface{
 				Alias:       domainschema.NewUserDefinedAlias("default"),
-				Type:        "user",
+				Type:        ifaceTypeVhostUser,
 				Source:      domainschema.InterfaceSource{Device: "eth0"},
 				Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
 				Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 			}
 
-			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &defaultNetLinkStub{})
+			testMutator, err := domain.NewPasstNetworkConfigurator(
+				ifaces,
+				networks,
+				ifaceStatuses,
+				domain.NetworkConfiguratorOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			existingIface := &domainschema.Interface{Alias: domainschema.NewUserDefinedAlias("existing-iface")}
 			testDomSpec := &domainschema.DomainSpec{
 				Devices: domainschema.Devices{
-					Interfaces: []domainschema.Interface{*existingIface}}}
+					Interfaces: []domainschema.Interface{*existingIface},
+				},
+			}
 
 			mutatedDomSpec, err := testMutator.Mutate(testDomSpec)
 			Expect(err).ToNot(HaveOccurred())
@@ -303,17 +362,23 @@ var _ = Describe("pod network configurator", func() {
 		It("should set domain interface correctly when executed more than once", func() {
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
 			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}}
+			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
 
 			expectedDomainIface := &domainschema.Interface{
 				Alias:       domainschema.NewUserDefinedAlias("default"),
-				Type:        "user",
+				Type:        ifaceTypeVhostUser,
 				Source:      domainschema.InterfaceSource{Device: "eth0"},
 				Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
 				Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 			}
 
-			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &defaultNetLinkStub{})
+			testMutator, err := domain.NewPasstNetworkConfigurator(
+				ifaces,
+				networks,
+				ifaceStatuses,
+				domain.NetworkConfiguratorOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			testDomSpec := &domainschema.DomainSpec{}
@@ -327,16 +392,22 @@ var _ = Describe("pod network configurator", func() {
 		It("should set domain interface source link to the optional one if exists", func() {
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
 			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}}
+			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: "ovn-udn1"}}
 
 			expectedDomainIface := &domainschema.Interface{
 				Alias:       domainschema.NewUserDefinedAlias("default"),
-				Type:        "user",
+				Type:        ifaceTypeVhostUser,
 				Source:      domainschema.InterfaceSource{Device: "ovn-udn1"},
 				Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
 				Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 			}
-			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &netLinkStub{})
+			testMutator, err := domain.NewPasstNetworkConfigurator(
+				ifaces,
+				networks,
+				ifaceStatuses,
+				domain.NetworkConfiguratorOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			testDomSpec := &domainschema.DomainSpec{}
@@ -347,6 +418,89 @@ var _ = Describe("pod network configurator", func() {
 
 			Expect(testMutator.Mutate(mutatedDomSpec)).To(Equal(mutatedDomSpec))
 		})
+	})
+	Context("should define memoryBacking for vhost-user", func() {
+		var testMutator *domain.PasstNetworkConfigurator
+		BeforeEach(func() {
+			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
+			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}}
+			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
 
+			var err error
+			testMutator, err = domain.NewPasstNetworkConfigurator(
+				ifaces,
+				networks,
+				ifaceStatuses,
+				domain.NetworkConfiguratorOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should set shared memfd when clean domain", func() {
+			expectedMemoryBacking := &domainschema.MemoryBacking{
+				Access: &domainschema.MemoryBackingAccess{
+					Mode: "shared",
+				},
+				Source: &domainschema.MemoryBackingSource{
+					Type: "memfd",
+				},
+			}
+			mutatedDomSpec, err := testMutator.Mutate(&domainschema.DomainSpec{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mutatedDomSpec.MemoryBacking).To(Equal(expectedMemoryBacking))
+		})
+
+		It("should fail when private memory is predefined", func() {
+			domainWithPrivateMem := &domainschema.DomainSpec{
+				MemoryBacking: &domainschema.MemoryBacking{
+					Access: &domainschema.MemoryBackingAccess{Mode: "private"},
+				},
+			}
+			_, err := testMutator.Mutate(domainWithPrivateMem)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should use other configs of backing memory as long as they are shared", func() {
+			domainWithOtherSharedMem := &domainschema.DomainSpec{
+				MemoryBacking: &domainschema.MemoryBacking{
+					Access: &domainschema.MemoryBackingAccess{Mode: "shared"},
+					Source: &domainschema.MemoryBackingSource{Type: "file"},
+				},
+			}
+			mutatedDomSpec, err := testMutator.Mutate(domainWithOtherSharedMem)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(mutatedDomSpec.MemoryBacking).To(Equal(domainWithOtherSharedMem.MemoryBacking))
+		})
 	})
 })
+
+type option func(p *vmschema.Interface)
+
+func newInterface(name string, options ...option) *vmschema.Interface {
+	newIface := &vmschema.Interface{
+		Name: name,
+	}
+
+	for _, option := range options {
+		option(newIface)
+	}
+
+	return newIface
+}
+
+func withPasstBindingPlugin() option {
+	return func(iface *vmschema.Interface) {
+		iface.Binding = &vmschema.PluginBinding{
+			Name: "passt",
+		}
+	}
+}
+
+func withOpenPort(protocol string, portNumber int32) option {
+	return func(iface *vmschema.Interface) {
+		iface.Ports = append(iface.Ports, vmschema.Port{
+			Protocol: protocol,
+			Port:     portNumber,
+		})
+	}
+}

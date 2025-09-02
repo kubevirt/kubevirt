@@ -181,6 +181,18 @@ spec:
                           ovmfPath:
                             type: string
                         type: object
+                      s390x:
+                        properties:
+                          emulatedMachines:
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          machineType:
+                            type: string
+                          ovmfPath:
+                            type: string
+                        type: object
                     type: object
                   autoCPULimitNamespaceLabelSelector:
                     description: |-
@@ -340,6 +352,8 @@ spec:
                           virtLauncher:
                             type: integer
                           virtOperator:
+                            type: integer
+                          virtSynchronizationController:
                             type: integer
                         type: object
                       memoryOvercommit:
@@ -2136,6 +2150,10 @@ spec:
                    When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace
                   otherwise we will use the monitoring namespace.
                 type: string
+              synchronizationPort:
+                description: Specify the port to listen on for VMI status synchronization
+                  traffic. Default is 9185
+                type: string
               uninstallStrategy:
                 description: |-
                   Specifies if kubevirt can be deleted if workloads are still present.
@@ -3267,6 +3285,11 @@ spec:
                 description: KubeVirtPhase is a label for the phase of a KubeVirt
                   deployment at the current time.
                 type: string
+              synchronizationAddresses:
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: atomic
               targetDeploymentConfig:
                 type: string
               targetDeploymentID:
@@ -3449,6 +3472,18 @@ spec:
                           ovmfPath:
                             type: string
                         type: object
+                      s390x:
+                        properties:
+                          emulatedMachines:
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          machineType:
+                            type: string
+                          ovmfPath:
+                            type: string
+                        type: object
                     type: object
                   autoCPULimitNamespaceLabelSelector:
                     description: |-
@@ -3608,6 +3643,8 @@ spec:
                           virtLauncher:
                             type: integer
                           virtOperator:
+                            type: integer
+                          virtSynchronizationController:
                             type: integer
                         type: object
                       memoryOvercommit:
@@ -5404,6 +5441,10 @@ spec:
                    When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace
                   otherwise we will use the monitoring namespace.
                 type: string
+              synchronizationPort:
+                description: Specify the port to listen on for VMI status synchronization
+                  traffic. Default is 9185
+                type: string
               uninstallStrategy:
                 description: |-
                   Specifies if kubevirt can be deleted if workloads are still present.
@@ -6535,6 +6576,11 @@ spec:
                 description: KubeVirtPhase is a label for the phase of a KubeVirt
                   deployment at the current time.
                 type: string
+              synchronizationAddresses:
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: atomic
               targetDeploymentConfig:
                 type: string
               targetDeploymentID:

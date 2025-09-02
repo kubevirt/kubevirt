@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -55,7 +55,7 @@ type DeviceHandler interface {
 
 type DeviceUtilsHandler struct{}
 
-var Handler DeviceHandler
+var handler DeviceHandler = &DeviceUtilsHandler{}
 
 // getDeviceIOMMUGroup gets devices iommu_group
 // e.g. /sys/bus/pci/devices/0000\:65\:00.0/iommu_group -> ../../../../../kernel/iommu_groups/45
@@ -194,12 +194,6 @@ func (h *DeviceUtilsHandler) ReadMDEVAvailableInstances(mdevType string, parentI
 	}
 
 	return i, nil
-}
-
-func initHandler() {
-	if Handler == nil {
-		Handler = &DeviceUtilsHandler{}
-	}
 }
 
 func waitForGRPCServer(socketPath string, timeout time.Duration) error {

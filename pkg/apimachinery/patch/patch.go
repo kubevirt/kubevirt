@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -125,6 +125,21 @@ func (p *PatchSet) GeneratePayload() ([]byte, error) {
 
 func (p *PatchSet) IsEmpty() bool {
 	return len(p.patches) < 1
+}
+
+func (p *PatchSet) ToSlice() ([]string, error) {
+	var result []string
+
+	for _, operation := range p.patches {
+		patch, err := operation.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, string(patch))
+	}
+
+	return result, nil
 }
 
 func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -201,7 +201,6 @@ var istioTests = func(vmType VmType) {
 			}
 
 			BeforeEach(func() {
-				skipTestByVMType(vmType)
 
 				bastionVMI = libvmifact.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -255,7 +254,6 @@ var istioTests = func(vmType VmType) {
 
 			Context("With VMI having explicit ports specified", func() {
 				BeforeEach(func() {
-					skipTestByVMType(vmType)
 					vmiPorts = explicitPorts
 				})
 				DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
@@ -289,7 +287,6 @@ var istioTests = func(vmType VmType) {
 				})
 				Context("With VMI having explicit ports specified", func() {
 					BeforeEach(func() {
-						skipTestByVMType(vmType)
 						vmiPorts = explicitPorts
 					})
 					DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
@@ -343,7 +340,7 @@ var istioTests = func(vmType VmType) {
 					libvmi.WithNamespace(namespace),
 				)
 				By("Starting VirtualMachineInstance")
-				serverVMI = libvmops.RunVMIAndExpectLaunch(serverVMI, 240)
+				serverVMI = libvmops.RunVMIAndExpectLaunch(serverVMI, libvmops.StartupTimeoutSecondsHuge)
 
 				serverVMIService := netservice.BuildSpec("vmi-server", vmiServerTestPort, vmiServerTestPort, vmiAppSelectorKey, vmiServerAppSelectorValue)
 				_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
@@ -390,7 +387,6 @@ var istioTests = func(vmType VmType) {
 
 			Context("VMI with explicit ports", func() {
 				BeforeEach(func() {
-					skipTestByVMType(vmType)
 					vmiPorts = explicitPorts
 				})
 				It("Should be able to reach http server outside of mesh", func() {
@@ -425,7 +421,6 @@ var istioTests = func(vmType VmType) {
 
 				Context("VMI with explicit ports", func() {
 					BeforeEach(func() {
-						skipTestByVMType(vmType)
 						vmiPorts = explicitPorts
 					})
 					It("Should not be able to reach http service outside of mesh", func() {
@@ -449,12 +444,6 @@ var istioTests = func(vmType VmType) {
 	})
 }
 
-func skipTestByVMType(vmType VmType) {
-	if vmType == Passt {
-		Skip("this test is quarantine due to https://github.com/kubevirt/kubevirt/issues/13927")
-	}
-}
-
 var istioTestsWithMasqueradeBinding = func() {
 	istioTests(Masquerade)
 }
@@ -469,7 +458,7 @@ var istioTestsWithPasstBinding = func() {
 		err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
 			NetworkAttachmentDefinition: passtNetAttDefName,
-			Migration:                   &v1.InterfaceBindingMigration{Method: v1.LinkRefresh},
+			Migration:                   &v1.InterfaceBindingMigration{},
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2019 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  */
 
 package mutators
@@ -22,8 +22,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -81,6 +83,13 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		return response
 	}
 
+	// Only assign a new-style firmware UUID when the VM is created.
+	// On update, the mutator does not modify the UUID field to avoid
+	// race conditions with the VM controller.
+	if ar.Request.Operation == admissionv1.Create {
+		setFirmwareDefaultsIfEmpty(vm)
+	}
+
 	// Set VM defaults
 	log.Log.Object(vm).V(4).Info("Apply defaults")
 
@@ -107,5 +116,20 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
+	}
+}
+
+func setFirmwareDefaultsIfEmpty(vm *v1.VirtualMachine) {
+	if vm.Spec.Template.Spec.Domain.Firmware == nil {
+		vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
+	}
+	fw := vm.Spec.Template.Spec.Domain.Firmware
+
+	if fw.UUID == "" {
+		fw.UUID = types.UID(uuid.New().String())
+	}
+
+	if fw.Serial == "" {
+		fw.Serial = uuid.New().String()
 	}
 }

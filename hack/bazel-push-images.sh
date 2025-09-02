@@ -23,6 +23,7 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
+# Build core images for all architectures
 default_targets="
     virt-operator
     virt-api
@@ -31,19 +32,19 @@ default_targets="
     virt-launcher
     virt-exportserver
     virt-exportproxy
+    virt-synchronization-controller
     alpine-container-disk-demo
     fedora-with-test-tooling-container-disk
     vm-killer
     sidecar-shim
     disks-images-provider
+    libguestfs-tools
 "
 
-case ${ARCHITECTURE} in
-"s390x" | "crossbuild-s390x") ;;
-*)
+# Add additional images for non-s390x architectures only
+if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]; then
     default_targets+="
         conformance
-        libguestfs-tools
         pr-helper
         example-hook-sidecar
         example-disk-mutation-hook-sidecar
@@ -57,9 +58,9 @@ case ${ARCHITECTURE} in
         winrmcli
         network-slirp-binding
         network-passt-binding
+        network-passt-binding-cni
     "
-    ;;
-esac
+fi
 
 PUSH_TARGETS=(${PUSH_TARGETS:-${default_targets}})
 

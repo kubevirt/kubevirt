@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -21,9 +21,9 @@ package network
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
-
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,14 +33,21 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
@@ -57,7 +64,24 @@ const (
 	inPlace        hotplugMethod = "inPlace"
 )
 
-var _ = Describe(SIG("bridge nic-hotplug", func() {
+var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
+	BeforeEach(func() {
+		virtClient := kubevirt.Client()
+		originalKv := libkubevirt.GetCurrentKv(virtClient)
+		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
+			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
+		}
+		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
+
+		currentKv := libkubevirt.GetCurrentKv(virtClient)
+		config.WaitForConfigToBePropagatedToComponent(
+			"kubevirt.io=virt-controller",
+			currentKv.ResourceVersion,
+			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+			time.Minute)
+	})
+
 	const (
 		ifaceName = "iface1"
 		nadName   = "skynet"
@@ -163,16 +187,22 @@ var _ = Describe(SIG("bridge nic-hotplug", func() {
 				},
 			}
 
+			networkData, err := cloudinit.NewNetworkData(
+				cloudinit.WithEthernet("eth1",
+					cloudinit.WithAddresses(ip2+subnetMask),
+				),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
 			anotherVmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(iface),
 				libvmi.WithNetwork(&net),
-				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
-					cloudinit.CreateNetworkDataWithStaticIPsByIface("eth1", ip2+subnetMask),
-				)),
-				libvmi.WithNodeAffinityFor(hotPluggedVMI.Status.NodeName))
-			anotherVmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi, metav1.CreateOptions{})
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+				libvmi.WithNodeAffinityFor(hotPluggedVMI.Status.NodeName),
+			)
+			anotherVmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVMI(anotherVmi)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			Expect(console.LoginToFedora(anotherVmi)).To(Succeed())
@@ -187,12 +217,25 @@ var _ = Describe(SIG("bridge nic-hotplug", func() {
 		DescribeTable("is able to hotplug multiple network interfaces", func(plugMethod hotplugMethod) {
 			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
-			By("hotplugging the second interface")
+
+			By("hotplugging the second interface with state down")
 			var err error
 			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
+
 			const secondHotpluggedIfaceName = "iface2"
-			Expect(addBridgeInterface(hotPluggedVM, secondHotpluggedIfaceName, nadName)).To(Succeed())
+			secondIfaceMac, err := libnet.GenerateRandomMac()
+			Expect(err).NotTo(HaveOccurred())
+
+			secondHotpluggedIface := libvmi.InterfaceDeviceWithBridgeBinding(secondHotpluggedIfaceName)
+			secondHotpluggedIface.MacAddress = secondIfaceMac.String()
+			secondHotpluggedIface.State = v1.InterfaceStateLinkDown
+
+			Expect(
+				libnet.PatchVMWithNewInterface(hotPluggedVM,
+					*libvmi.MultusNetwork(secondHotpluggedIfaceName, nadName),
+					secondHotpluggedIface,
+				)).To(Succeed())
 
 			By("wait for the second network to appear in the VMI spec")
 			EventuallyWithOffset(1, func() []v1.Network {
@@ -217,7 +260,17 @@ var _ = Describe(SIG("bridge nic-hotplug", func() {
 					},
 				))
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
-			Expect(libnet.InterfaceExists(hotPluggedVMI, "eth2")).To(Succeed())
+
+			By("set the guest iface to up and verify state down")
+			secondHotpluggedIfaceStatus := vmispec.LookupInterfaceStatusByName(hotPluggedVMI.Status.Interfaces, secondHotpluggedIfaceName)
+			Expect(secondHotpluggedIfaceStatus).ToNot(BeNil())
+
+			secondGuestIfaceName := secondHotpluggedIfaceStatus.InterfaceName
+			Expect(secondGuestIfaceName).NotTo(BeEmpty())
+
+			Expect(libnet.SetInterfaceUp(hotPluggedVMI, secondGuestIfaceName)).To(Succeed())
+			timeout := 30 * time.Second
+			Expect(console.RunCommand(hotPluggedVMI, libnet.NewLinkStateAssersionCmd(secondIfaceMac.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
@@ -225,12 +278,28 @@ var _ = Describe(SIG("bridge nic-hotplug", func() {
 	})
 }))
 
-var _ = Describe(SIG("bridge nic-hotunplug", func() {
+var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
+	BeforeEach(func() {
+		virtClient := kubevirt.Client()
+		originalKv := libkubevirt.GetCurrentKv(virtClient)
+		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
+			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
+		}
+		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
+
+		currentKv := libkubevirt.GetCurrentKv(virtClient)
+		config.WaitForConfigToBePropagatedToComponent(
+			"kubevirt.io=virt-controller",
+			currentKv.ResourceVersion,
+			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+			time.Minute)
+	})
+
 	const (
 		linuxBridgeNetworkName1 = "red"
 		linuxBridgeNetworkName2 = "blue"
-
-		nadName = "skynet"
+		nadName                 = "skynet"
 	)
 
 	Context("a running VM", func() {
@@ -244,11 +313,13 @@ var _ = Describe(SIG("bridge nic-hotunplug", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("running a VM")
+			ifaceWithStateDown := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)
+			ifaceWithStateDown.State = v1.InterfaceStateLinkDown
 			vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName1, nadName)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, nadName)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)))
+				libvmi.WithInterface(ifaceWithStateDown))
 			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -333,13 +404,21 @@ func removeInterface(vm *v1.VirtualMachine, name string) error {
 }
 
 func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
+	var (
+		operationCompletionTimeout = 30 * time.Second
+		pollInterval               = time.Second
+	)
+
 	if plugMethod == migrationBased {
-		migration := libmigration.New(vmi.Name, vmi.Namespace)
-		migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
-		libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
+		By("Waiting for MigrationRequired condition to appear")
+		Eventually(matcher.ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
+
+		operationCompletionTimeout = 5 * time.Minute
+		pollInterval = 5 * time.Second
 	}
+
 	const queueCount = 1
-	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount)
+	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount, operationCompletionTimeout, pollInterval)
 }
 
 func verifyUnpluggedIfaceClearedFromVMandVMI(namespace, vmName, netName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
@@ -376,4 +455,20 @@ func assertInterfaceUnplugedFromVM(g Gomega, vm *v1.VirtualMachine, name string)
 		"unplugged iface should be cleared from VM spec")
 	g.Expect(libnet.LookupNetworkByName(vm.Spec.Template.Spec.Networks, name)).To(BeNil(),
 		"unplugged iface corresponding network should be cleared from VM spec")
+}
+
+func patchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubecli.KubevirtClient, updateStrategy *v1.KubeVirtWorkloadUpdateStrategy, rolloutStrategy *v1.VMRolloutStrategy) {
+	methodData, err := json.Marshal(updateStrategy)
+	ExpectWithOffset(1, err).To(Not(HaveOccurred()))
+	rolloutData, err := json.Marshal(rolloutStrategy)
+	ExpectWithOffset(1, err).To(Not(HaveOccurred()))
+
+	data1 := fmt.Sprintf(`{"op": "replace", "path": "/spec/workloadUpdateStrategy", "value": %s}`, string(methodData))
+	data2 := fmt.Sprintf(`{"op": "replace", "path": "/spec/configuration/vmRolloutStrategy", "value": %s}`, string(rolloutData))
+	data := []byte(fmt.Sprintf(`[%s, %s]`, data1, data2))
+
+	EventuallyWithOffset(1, func() error {
+		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, metav1.PatchOptions{})
+		return err
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }

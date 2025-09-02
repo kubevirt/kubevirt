@@ -133,6 +133,7 @@ var _ = Describe("test configuration", func() {
 						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeAMD64},
 						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeARM64},
 						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: machineTypePPC64le},
+						S390x:   &v1.ArchSpecificConfiguration{MachineType: machineTypeS390X},
 					},
 				},
 			},
@@ -143,9 +144,9 @@ var _ = Describe("test configuration", func() {
 		Expect(clusterConfig.GetMachineType(cpuArch)).To(Equal(result))
 	},
 		Entry("when amd64 set, GetMachineType should return the value", "amd64", "pc-q35-3.0", "", "", "", "pc-q35-3.0"),
-		Entry("when arm64 set, GetMachineType should return the value", "arm64", "", "virt", "", "", "virt"),
-		Entry("when ppc64le set, GetMachineType should return the value", "ppc64le", "", "", "pseries", "", "pseries"),
-		Entry("when s390x set, GetMachineType should return the value", "s390x", "", "", "", "s390-ccw-virtio", "s390-ccw-virtio"),
+		Entry("when arm64 set, GetMachineType should return the value", "arm64", "", "virt-rhel", "", "", "virt-rhel"),
+		Entry("when ppc64le set, GetMachineType should return the value", "ppc64le", "", "", "pseries-rhel", "", "pseries-rhel"),
+		Entry("when s390x set, GetMachineType should return the value", "s390x", "", "", "", "s390-ccw-virtio-rhel", "s390-ccw-virtio-rhel"),
 		Entry("when amd64 unset, GetMachineType should return the default with amd64", "amd64", "", "", "", "", virtconfig.DefaultAMD64MachineType),
 		Entry("when arm64 unset, GetMachineType should return the default with arm64", "arm64", "", "", "", "", virtconfig.DefaultAARCH64MachineType),
 		Entry("when ppc64le unset, GetMachineType should return the default with ppc64le", "ppc64le", "", "", "", "", virtconfig.DefaultPPC64LEMachineType),
@@ -226,6 +227,7 @@ var _ = Describe("test configuration", func() {
 		})
 		Expect(clusterConfig.GetCPUAllocationRatio()).To(Equal(result))
 	},
+
 		Entry("when set, GetCPUAllocationRatio should return the value", 150, 150),
 		Entry("when unset, GetCPUAllocationRatio should return the default", 0, virtconfig.DefaultCPUAllocationRatio),
 		Entry("when negative, GetCPUAllocationRatio should return the default", -150, virtconfig.DefaultCPUAllocationRatio),
@@ -243,6 +245,7 @@ var _ = Describe("test configuration", func() {
 						Amd64:   &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesAMD64},
 						Arm64:   &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesARM64},
 						Ppc64le: &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesAPC64le64},
+						S390x:   &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesS390X},
 					},
 				},
 			},
@@ -254,9 +257,9 @@ var _ = Describe("test configuration", func() {
 		Expect(emulatedMachines).To(ConsistOf(result))
 	},
 		Entry("when amd64 set, GetEmulatedMachines should return the value", "amd64", []string{"q35", "i440*"}, nil, nil, nil, []string{"q35", "i440*"}),
-		Entry("when arm64 set, GetEmulatedMachines should return the value", "arm64", nil, []string{"virt*"}, nil, nil, []string{"virt*"}),
-		Entry("when ppc64le set, GetEmulatedMachines should return the value", "ppc64le", nil, nil, []string{"pseries*"}, nil, []string{"pseries*"}),
-		Entry("when s390x set, GetEmulatedMachines should return the value", "s390x", nil, nil, nil, []string{"s390-ccw-virtio*"}, []string{"s390-ccw-virtio*"}),
+		Entry("when arm64 set, GetEmulatedMachines should return the value", "arm64", nil, []string{"virt-test*"}, nil, nil, []string{"virt-test*"}),
+		Entry("when ppc64le set, GetEmulatedMachines should return the value", "ppc64le", nil, nil, []string{"pseries-test*"}, nil, []string{"pseries-test*"}),
+		Entry("when s390x set, GetEmulatedMachines should return the value", "s390x", nil, nil, nil, []string{"s390-ccw-virtio-test*"}, []string{"s390-ccw-virtio-test*"}),
 		Entry("when unset, GetEmulatedMachines should return the defaults with amd64", "amd64", nil, nil, nil, nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
 		Entry("when empty, GetEmulatedMachines should return the defaults with amd64", "amd64", []string{}, []string{}, []string{}, nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
 		Entry("when unset, GetEmulatedMachines should return the defaults with arm64", "arm64", nil, nil, nil, nil, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
@@ -499,6 +502,7 @@ var _ = Describe("test configuration", func() {
 						Amd64:   &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyAMD64},
 						Arm64:   &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyARM64},
 						Ppc64le: &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyPPC64le64},
+						S390x:   &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyS390X},
 					},
 				},
 			},
@@ -514,11 +518,11 @@ var _ = Describe("test configuration", func() {
 		Entry("when amd64 set, GetOVMFPath should return the value", "amd64", "/usr/share/ovmf/x64", "", "", "", "/usr/share/ovmf/x64"),
 		Entry("when arm64 set, GetOVMFPath should return the value", "arm64", "", "/usr/share/AAVMF", "", "", "/usr/share/AAVMF"),
 		Entry("when ppc64le set, GetOVMFPath should return the value", "ppc64le", "", "", "/usr/share/ovmf/x64", "", "/usr/share/ovmf/x64"),
-		Entry("when s390x set, GetOVMFPath should return the value", "s390x", "", "", "", "", ""),
+		Entry("when s390x set, GetOVMFPath should return the value", "s390x", "", "", "", "/usr/share/ovmf/s390x", "/usr/share/ovmf/s390x"),
 		Entry("when unset, GetOVMFPath should return the default with amd64", "amd64", "", "", "", "", virtconfig.DefaultARCHOVMFPath),
 		Entry("when unset, GetOVMFPath should return the default with arm64", "arm64", "", "", "", "", virtconfig.DefaultAARCH64OVMFPath),
 		Entry("when unset, GetOVMFPath should return the default with ppc64le", "ppc64le", "", "", "", "", virtconfig.DefaultARCHOVMFPath),
-		Entry("when unset, GetOVMFPath should return an empty string with s390x", "s390x", "", "", "", "", ""),
+		Entry("when unset, GetOVMFPath should return the default with s390x", "s390x", "", "", "", "", virtconfig.DefaultS390xOVMFPath),
 	)
 
 	It("verifies that SetConfigModifiedCallback works as expected ", func() {

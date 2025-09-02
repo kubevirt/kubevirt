@@ -6,13 +6,13 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:10.10.0-7.el9}
-QEMU_VERSION=${QEMU_VERSION:-17:9.1.0-15.el9}
+LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:10.10.0-13.el9}
+QEMU_VERSION=${QEMU_VERSION:-17:9.1.0-19.el9}
 SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-4.el9}
-EDK2_VERSION=${EDK2_VERSION:-0:20241117-2.el9}
-LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.54.0-3.el9}
-GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.52.2-2.el9}
-PASST_VERSION=${PASST_VERSION:-0:0^20250217.ga1e48a0-1.el9}
+EDK2_VERSION=${EDK2_VERSION:-0:20241117-3.el9}
+LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.54.0-9.el9}
+GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.52.2-5.el9}
+PASST_VERSION=${PASST_VERSION:-0:0^20250415.g8ec1341-1.el9}
 VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.13.0-1.el9}
 SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-2.el9}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
@@ -97,6 +97,7 @@ launcherbase_main="
 launcherbase_x86_64="
   edk2-ovmf-${EDK2_VERSION}
   qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
+  qemu-kvm-device-display-virtio-vga-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   seabios-${SEABIOS_VERSION}
@@ -126,6 +127,7 @@ launcherbase_extra="
 
 handlerbase_main="
   qemu-img-${QEMU_VERSION}
+  passt-${PASST_VERSION}
 "
 handlerbase_extra="
   findutils
@@ -144,9 +146,13 @@ libguestfstools_main="
   guestfs-tools-${GUESTFSTOOLS_VERSION}
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
   qemu-kvm-core-${QEMU_VERSION}
-  seabios-${SEABIOS_VERSION}
 "
 libguestfstools_x86_64="
+  edk2-ovmf-${EDK2_VERSION}
+  seabios-${SEABIOS_VERSION}
+"
+
+libguestfstools_s390x="
   edk2-ovmf-${EDK2_VERSION}
 "
 libguestfstools_extra="
@@ -240,7 +246,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name libguestfs-tools \
+        --name libguestfs-tools_x86_64 \
         --basesystem ${BASESYSTEM} \
         $centos_main \
         $centos_extra \
@@ -493,6 +499,24 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $centos_main \
         $centos_extra \
         $exportserverbase_main
+
+    bazel run \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libguestfs-tools_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        $centos_main \
+        $centos_extra \
+        $libguestfstools_main \
+        $libguestfstools_s390x \
+        $libguestfstools_extra \
+        ${bazeldnf_repos} \
+        --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
+        --force-ignore-with-dependencies '^(python[3]{0,1}-)' \
+        --force-ignore-with-dependencies '^mozjs60' \
+        --force-ignore-with-dependencies '^(libvirt-daemon-kvm|swtpm)' \
+        --force-ignore-with-dependencies '^(man-db|mandoc)' \
+        --force-ignore-with-dependencies '^dbus'
 
     bazel run \
         --config=${ARCHITECTURE} \

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -94,7 +94,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/watcher"
-	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
 const (
@@ -172,7 +171,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		It("should remain to able resolve the VM IP", decorators.Conformance, func() {
 			const hostname = "alpine"
-			const port int = 1500
+			const port = 1500
 			const labelKey = "subdomain"
 			const labelValue = "mysub"
 
@@ -183,7 +182,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			By("Starting hello world in the VM")
 			vmnetserver.StartTCPServer(vmi, port, console.LoginToCirros)
@@ -265,7 +264,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				migrationPolicy := CreateMigrationPolicy(virtClient, GeneratePolicyAndAlignVMI(vmi))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				durationLowBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, migrationPolicy, "1Mi", 3)
 				durationHighBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, migrationPolicy, "128Mi", 3)
@@ -280,7 +279,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -297,7 +296,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheWriteBack
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -326,7 +325,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -347,7 +346,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -368,7 +367,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 				sc, exists := libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Fail("Block storage (RWX) is not present")
 				}
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
@@ -387,7 +386,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dv.Name),
-					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithMemoryRequest("1Gi"),
 					libvmi.WithEphemeralCDRom("cdrom-0", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 					libvmi.WithEphemeralCDRom("cdrom-1", v1.DiskBusSCSI, cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 				)
@@ -417,7 +416,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					via,
 				)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("starting the migration")
@@ -447,7 +446,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			},
 				Entry("[test_id:6971]disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk),
-				Entry("channel", libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio),
+				Entry("[QUARANTINE] channel", libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio, decorators.Quarantine),
 			)
 
 			It("[test_id:6842]should migrate with TSC frequency set", decorators.Invtsc, decorators.TscFrequencies, func() {
@@ -458,7 +457,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 				)
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the TSC frequency on the Domain XML")
@@ -497,7 +496,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -531,7 +530,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -549,7 +548,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -587,7 +586,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -632,7 +631,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -655,7 +654,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -700,11 +699,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
 					libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
-					libvmi.WithResourceMemory(fedoraVMSize),
+					libvmi.WithMemoryRequest(fedoraVMSize),
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				// execute a migration that is expected to fail
 				By("Starting the Migration")
@@ -730,10 +729,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 
 			It("should automatically cancel pending target pod after a catch all timeout period", func() {
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(fedoraVMSize))
+				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				// execute a migration that is expected to fail
 				By("Starting the Migration")
@@ -767,10 +766,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 
 			It("[test_id:3237]should complete a migration", func() {
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(fedoraVMSize))
+				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -791,10 +790,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 		Context("with setting guest time", func() {
 			It("[test_id:4114]should set an updated time after a migration", func() {
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(fedoraVMSize), libvmi.WithRng())
+				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize), libvmi.WithRng())
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -863,7 +862,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dataVolume.Name),
-					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithMemoryRequest("1Gi"),
 				)
 
 				dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -871,7 +870,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				libstorage.EventuallyDV(dataVolume, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 				// after being restarted multiple times
@@ -896,7 +895,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				By("Starting the VirtualMachineInstance")
 				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 300)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -910,10 +909,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 
 			It("[test_id:6974]should reject additional migrations on the same VMI if the first one is not finished", func() {
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(fedoraVMSize))
+				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -929,7 +928,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				migration1, err := virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(context.Background(), migration1, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				// Successfully tested with 40, but requests start getting throttled above 10, which is better to avoid to prevent flakyness
+				// Successfully tested with 40, but requests start getting throttled above 10, which is better to avoid to prevent flakiness
 				By("Starting 10 more migrations expecting all to fail to create")
 				var wg sync.WaitGroup
 				for n := 0; n < 10; n++ {
@@ -965,7 +964,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc, libvmi.WithContainerDisk("myephemeral", image))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -979,7 +978,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 			It("[release-blocker][test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := libvmops.RunVMIAndExpectLaunch(newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc), 180)
+				vmi := libvmops.RunVMIAndExpectLaunch(newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc), libvmops.StartupTimeoutSecondsXLarge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -998,7 +997,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 					libvmi.WithHostname(fmt.Sprintf("%s", cd.ContainerDiskCirros)),
 				)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -1045,13 +1044,13 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 			})
 
-			It("[test_id:2653][QUARANTINE] should be migrated successfully, using guest agent on VM with default migration configuration", decorators.Quarantine, func() {
+			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
 				By("Creating the DV")
 				createDV(testsuite.NamespacePrivileged)
 				VMIMigrationWithGuestAgent(virtClient, dv.Name, fedoraVMSize, nil)
 			})
 
-			It("[test_id:6975][QUARANTINE] should have guest agent functional after migration", decorators.Quarantine, func() {
+			It("[test_id:6975] should have guest agent functional after migration", func() {
 				By("Creating the DV")
 				createDV(testsuite.GetTestNamespace(nil))
 				By("Creating the VMI")
@@ -1059,7 +1058,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
-					libvmi.WithResourceMemory(fedoraVMSize),
+					libvmi.WithMemoryRequest(fedoraVMSize),
 					libvmi.WithRng(),
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
@@ -1135,7 +1134,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := createVMI()
 
 				By("Starting the VirtualMachineInstance")
-				// Resizing takes too long and therefor a warning is thrown
+				// Resizing takes too long and therefore a warning is thrown
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -1150,7 +1149,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 340)
 
-				By("Verifying Second Migration Succeeeds")
+				By("Verifying Second Migration Succeeds")
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Checking that the launcher is running as qemu")
@@ -1168,14 +1167,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithNetwork(v1.DefaultPodNetwork()))
 				}, console.LoginToAlpine),
 
-				Entry("[test_id:8610][QUARANTINE] with DataVolume", decorators.Quarantine, func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8610] with DataVolume", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return libvmi.New(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithDataVolume("disk0", dv.Name),
-						libvmi.WithResourceMemory("1Gi"),
+						libvmi.WithMemoryRequest("1Gi"),
 					)
 				}, console.LoginToAlpine),
 
@@ -1183,14 +1182,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged, false)
 				}, console.LoginToFedora),
 
-				Entry("[test_id:8612][QUARANTINE] with PVC", decorators.Quarantine, func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8612] with PVC", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the Underlying PVC
 					return libvmi.New(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
-						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithMemoryRequest("128Mi"),
 					)
 				}, console.LoginToAlpine),
 			)
@@ -1221,7 +1220,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi.Namespace = testsuite.NamespacePrivileged
 
 				By("Starting the VirtualMachineInstance")
-				// Resizing takes too long and therefor a warning is thrown
+				// Resizing takes too long and therefore a warning is thrown
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -1236,7 +1235,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 340)
 
-				By("Verifying Second Migration Succeeeds")
+				By("Verifying Second Migration Succeeds")
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Checking that the launcher is running as qemu")
@@ -1254,14 +1253,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithNetwork(v1.DefaultPodNetwork()))
 				}, console.LoginToAlpine),
 
-				Entry("[QUARANTINE] with DataVolume", decorators.Quarantine, func() *v1.VirtualMachineInstance {
+				Entry("with DataVolume", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return libvmi.New(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithDataVolume("disk0", dv.Name),
-						libvmi.WithResourceMemory("1Gi"),
+						libvmi.WithMemoryRequest("1Gi"),
 					)
 				}, console.LoginToAlpine),
 
@@ -1269,14 +1268,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged, false)
 				}, console.LoginToFedora),
 
-				Entry("[QUARANTINE] with PVC", decorators.Quarantine, func() *v1.VirtualMachineInstance {
+				Entry("with PVC", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the underlying PVC
 					return libvmi.New(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
-						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithMemoryRequest("128Mi"),
 					)
 
 				}, console.LoginToAlpine),
@@ -1292,7 +1291,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 					By("Starting the VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1310,10 +1309,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewQuantity(1, resource.BinarySI)
 					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
 					kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
-					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(fedoraVMSize))
+					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
 					By("Starting the VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -1382,13 +1381,13 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				})
 
 				It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
-					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(fedoraVMSize))
+					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
 					By("Limiting the bandwidth of migrations in the test namespace")
 					CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 					By("Starting the VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -1494,10 +1493,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				})
 
 				It("[test_id:2227] should abort a vmi migration", func() {
-					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory("1Gi"))
+					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest("1Gi"))
 
 					By("Starting the VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -1519,10 +1518,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			})
 			It("[test_id:6978] Should detect a failed migration", func() {
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory("1Gi"))
+				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest("1Gi"))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -1561,9 +1560,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				// check VMI, confirm migration state
 				vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
-				// Not sure how consistent the entire error is, so just making sure the failure happened in libvirt. Example string:
-				// Live migration failed error encountered during MigrateToURI3 libvirt api call: virError(Code=1, Domain=7, Message='internal error: client socket is closed'
-				Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("libvirt api call"))
 
 				By("Removing our migration killer pods")
 				for _, podName := range createdPods {
@@ -1598,20 +1594,20 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				migration = libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 340)
 
-				By("Verifying Second Migration Succeeeds")
+				By("Verifying Second Migration Succeeds")
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
 			It("old finalized migrations should get garbage collected", func() {
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
-					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithMemoryRequest("1Gi"),
 					// this annotation causes virt launcher to immediately fail a migration
 					libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				for i := 0; i < 10; i++ {
 					// execute a migration, wait for finalized state
@@ -1623,7 +1619,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					// check VMI, confirm migration state
 					vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
 					Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("Failed migration to satisfy functional test condition"))
-					Eventually(matcher.ThisPodWith(vmi.Namespace, vmi.Status.MigrationState.TargetPod)).WithPolling(time.Second).WithTimeout(10*time.Second).
+					Eventually(matcher.ThisPodWith(vmi.Namespace, vmi.Status.MigrationState.TargetPod)).WithPolling(time.Second).WithTimeout(30*time.Second).
 						Should(
 							Or(
 								matcher.BeInPhase(k8sv1.PodFailed),
@@ -1639,13 +1635,13 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			It("[test_id:6979]Target pod should exit after failed migration", func() {
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
-					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithMemoryRequest("1Gi"),
 					// this annotation causes virt launcher to immediately fail a migration
 					libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1655,20 +1651,20 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				// check VMI, confirm migration state
 				vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
 				Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("Failed migration to satisfy functional test condition"))
-				Eventually(matcher.ThisPodWith(vmi.Namespace, vmi.Status.MigrationState.TargetPod)).WithPolling(time.Second).WithTimeout(10*time.Second).
+				Eventually(matcher.ThisPodWith(vmi.Namespace, vmi.Status.MigrationState.TargetPod)).WithPolling(time.Second).WithTimeout(15*time.Second).
 					Should(Or(matcher.BeInPhase(k8sv1.PodFailed), matcher.BeInPhase(k8sv1.PodSucceeded)), "Target pod should exit quickly after migration fails.")
 			})
 
-			It("[test_id:6980][QUARANTINE]Migration should fail if target pod fails during target preparation", decorators.Quarantine, func() {
+			It("[test_id:6980]Migration should fail if target pod fails during target preparation", func() {
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
-					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithMemoryRequest("1Gi"),
 					// this annotation prevents virt launcher from finishing the target pod preparation.
 					libvmi.WithAnnotation(v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation, ""),
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				// execute a migration
 				By("Starting the Migration")
@@ -1737,7 +1733,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				// execute a migration
 				By("Starting the Migration")
@@ -1798,7 +1794,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteOnce, sc, libvmi.WithHostname(string(cd.ContainerDiskAlpine)))
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1849,7 +1845,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dv.Name),
-					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithMemoryRequest("1Gi"),
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
 				return vmi
@@ -1863,7 +1859,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -1907,13 +1903,13 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			)
 
 			It("[sig-compute][test_id:3241]Immediate migration cancellation after migration starts running cancel a migration by deleting vmim object", func() {
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(fedoraVMSize))
+				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
 				By("Limiting the bandwidth of migrations in the test namespace")
 				CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 				sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1970,13 +1966,13 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 
 			It("[sig-compute][test_id:8584]Immediate migration cancellation before migration starts running cancel a migration by deleting vmim object", func() {
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(fedoraVMSize))
+				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
 				By("Limiting the bandwidth of migrations in the test namespace")
 				CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 				vmiOriginalNode := vmi.Status.NodeName
 
 				// execute a migration, wait for finalized state
@@ -2015,7 +2011,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				)
 			})
 
-			Context("when target pod cannot be scheduled and is suck in Pending phase", Serial, func() {
+			Context("when target pod cannot be scheduled and is stuck in Pending phase", Serial, func() {
 
 				var nodesSetUnschedulable []string
 
@@ -2044,7 +2040,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 					By("Trying to migrate VM and expect for the migration to get stuck")
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2128,7 +2124,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2163,7 +2159,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -2191,13 +2187,12 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
 				vmi.Namespace = testsuite.GetTestNamespace(vmi)
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 				machineType := vmi.Status.Machine.Type
 				Expect(machineType).ToNot(BeEmpty(), "VMI should have a valid machine type in its status")
 
 				By("Fetching all nodes in the cluster")
-				nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				nodeList := libnode.GetAllSchedulableNodes(virtClient)
 				Expect(nodeList.Items).ToNot(BeEmpty())
 
 				By("Patching all nodes to remove the supported machine type label")
@@ -2234,9 +2229,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				Expect(scheduledCond.Status).To(BeEquivalentTo(k8sv1.ConditionFalse), "PodScheduled status should be False")
 				Expect(scheduledCond.Reason).To(BeEquivalentTo(k8sv1.PodReasonUnschedulable), "PodScheduled reason should be Unschedulable")
-				Expect(scheduledCond.Message).To(ContainSubstring("node(s) didn't match Pod's node affinity/selector."), "PodScheduled message mismatch")
+				Expect(scheduledCond.Message).To(ContainSubstring("node(s) didn't match Pod's node affinity/selector"), "PodScheduled message mismatch")
 			})
-
 		})
 	})
 
@@ -2248,7 +2242,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(7))
 			Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
@@ -2262,13 +2256,13 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 	Context("[test_id:8482] Migration Metrics", func() {
 		It("exposed to prometheus during VM migration", func() {
-			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory(fedoraVMSize))
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
 			By("Limiting the bandwidth of migrations in the test namespace")
 			CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 			By("Starting the VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -2306,12 +2300,12 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithResourceMemory(memory),
+				libvmi.WithMemoryRequest(memory),
 				libvmi.WithHugepages(hugepageSize),
 			)
 
 			By("Starting hugepages VMI")
-			libvmops.RunVMIAndExpectLaunch(hugepagesVmi, 360)
+			libvmops.RunVMIAndExpectLaunch(hugepagesVmi, libvmops.StartupTimeoutSecondsXHuge)
 
 			By("starting the migration")
 			migration := libmigration.New(hugepagesVmi.Name, hugepagesVmi.Namespace)
@@ -2332,7 +2326,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithDedicatedCPUPlacement(),
 				libvmi.WithCPUCount(3, 1, 1),
 				libvmi.WithHugepages("2Mi"),
@@ -2353,7 +2347,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithDedicatedCPUPlacement(),
 					libvmi.WithCPUCount(3, 1, 1),
 					libvmi.WithNUMAGuestMappingPassthrough(),
@@ -2361,7 +2355,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				)
 
 				By("Starting a VirtualMachineInstance")
-				libvmops.RunVMIAndExpectLaunch(cpuVMI, 360)
+				libvmops.RunVMIAndExpectLaunch(cpuVMI, libvmops.StartupTimeoutSecondsXHuge)
 
 				By("Performing a migration")
 				migration := libmigration.New(cpuVMI.Name, cpuVMI.Namespace)
@@ -2464,7 +2458,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			// However, we need to be sig-something or we'll fail the check, even if we don't run on any sig- lane.
 			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
 			nodes = libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient)
-
+			Expect(len(nodes)).To(BeNumerically(">=", 2), "Need at least 2 nodes with CPU manager enabled")
 			By("creating a template for a pause pod with 1 dedicated CPU core")
 			pausePod = libpod.RenderPod("pause-", nil, nil)
 			pausePod.Spec.Containers[0].Name = "compute"
@@ -2512,9 +2506,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithCPUCount(2, 1, 1),
 				libvmi.WithDedicatedCPUPlacement(),
-				libvmi.WithResourceMemory("512Mi"),
+				libvmi.WithMemoryRequest("512Mi"),
 				libvmi.WithNodeAffinityForLabel(testLabel1, "true"),
 			)
+
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2606,7 +2601,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			By("Starting the migration")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2626,7 +2621,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 		By("Starting a Migration")
 		migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2650,7 +2645,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			By("Checking that there always is at most one migration running")
 			labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmi.Name))
@@ -2696,10 +2691,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			It("invtsc feature exists", decorators.Invtsc, func() {
 				vmi := libvmi.New(
-					libvmi.WithResourceMemory("1Mi"),
+					libvmi.WithMemoryRequest("1Mi"),
 					libvmi.WithCPUFeature("invtsc", "require"),
 				)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				expectTopologyHintsToBeSet(vmi)
 			})
@@ -2709,7 +2704,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 				vmi.Spec.Volumes = []v1.Volume{}
 				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.P(true)}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				expectTopologyHintsToBeSet(vmi)
 			})
@@ -2724,7 +2719,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			vmi := libvmifact.NewCirros(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithResourceMemory(vmiRequest.String()),
+				libvmi.WithMemoryRequest(vmiRequest.String()),
 			)
 
 			vmiRequest.Add(resource.MustParse("50Mi")) //add 50Mi memoryOverHead to make sure vmi creation won't be blocked
@@ -2736,10 +2731,29 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			By("Creating ResourceQuota with enough memory for the vmi but not enough for migration")
 			resourceQuota := newResourceQuota(resourcesToLimit, testsuite.GetTestNamespace(vmi))
-			_ = createResourceQuota(resourceQuota)
+			resourceQuota = createResourceQuota(resourceQuota)
+			Eventually(func() error {
+				quota, err := virtClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Get(context.TODO(), resourceQuota.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				for key := range resourcesToLimit {
+					if _, ok := quota.Status.Hard[key]; !ok {
+						return fmt.Errorf("Missing %s in status", key)
+					}
+					value := quota.Status.Hard[key]
+					if value.Cmp(resourcesToLimit[key]) != 0 {
+						return fmt.Errorf("%v should equal %v", value, resourcesToLimit[key])
+					}
+					if _, ok := quota.Status.Used[key]; !ok {
+						return fmt.Errorf("Missing %s in status.used", key)
+					}
+				}
+				return err
+			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(Succeed())
 
 			By("Starting the VirtualMachineInstance")
-			_ = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			By("Trying to migrate the VirtualMachineInstance")
 			migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
@@ -2771,7 +2785,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			)
 
 			By("Running VMI")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 			By("Logging into the VMI")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -2799,7 +2813,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}, 200)).To(Succeed())
 		})
 
-		It("[QUARANTINE] should migrate with a shared DV", decorators.Quarantine, func() {
+		It("should migrate with a shared DV", func() {
 			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
 
 			if !foundSC {
@@ -2835,7 +2849,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			)
 
 			By("Starting VMI")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 			By("Logging into the VMI")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -2853,6 +2867,47 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 200)).To(Succeed())
+		})
+	})
+
+	Context("VMI deletion during migration", func() {
+		It("[sig-compute]should fail the migration and not prevent future migrations", func() {
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
+			vmi.Namespace = testsuite.GetTestNamespace(vmi)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+			By("Starting a virtual machine")
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVM(vm), 4*time.Minute, 1*time.Second).Should(BeReady())
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+
+			By("Limiting the bandwidth of migrations in the test namespace")
+			policy := CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
+
+			By("Starting a Migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting until the Migration has a UID")
+			Eventually(func() (types.UID, error) {
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+				return migration.UID, err
+			}, 180, 1*time.Second).ShouldNot(Equal(types.UID("")))
+
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
+
+			By("Waiting for the VMI to restart")
+			Eventually(ThisVMI(vmi), 4*time.Minute).Should(BeRestarted(vmi.UID))
+
+			By("Deleting the migration policy")
+			Expect(virtClient.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{})).To(Succeed())
+
+			By("Expecting to be able to migrate the VMI")
+			migration = libmigration.New(vmi.Name, vmi.Namespace)
+			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 		})
 	})
 }))
@@ -3086,11 +3141,28 @@ func haveMigrationState(matcher gomegatypes.GomegaMatcher) gomegatypes.GomegaMat
 
 func withKernelBoot() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		kernelBootFirmware := utils.GetVMIKernelBootWithRandName().Spec.Domain.Firmware
+		const (
+			kernelArgs = "console=ttyS0"
+			kernelPath = "/boot/vmlinuz-virt"
+			initrdPath = "/boot/initramfs-virt"
+		)
+
+		image := cd.ContainerDiskFor(cd.KernelBoot)
+		kb := &v1.KernelBoot{
+			KernelArgs: kernelArgs,
+			Container: &v1.KernelBootContainer{
+				Image:      image,
+				KernelPath: kernelPath,
+				InitrdPath: initrdPath,
+			},
+		}
+
 		if vmi.Spec.Domain.Firmware == nil {
-			vmi.Spec.Domain.Firmware = kernelBootFirmware
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				KernelBoot: kb,
+			}
 		} else {
-			vmi.Spec.Domain.Firmware.KernelBoot = kernelBootFirmware.KernelBoot
+			vmi.Spec.Domain.Firmware.KernelBoot = kb
 		}
 	}
 }

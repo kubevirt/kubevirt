@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -27,14 +27,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -77,9 +79,10 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 
-	enableFeatureGate := func(featureGate string) {
+	enableFeatureGates := func(featureGates ...string) {
+		fgs := slices.Clone(featureGates)
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 	disableFeatureGates := func() {
@@ -124,10 +127,194 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		return &readCloserWrapper{bytes.NewReader(optsJson)}
 	}
 
-	DescribeTable("Should succeed with add volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int, enableGate bool) {
-		if enableGate {
-			enableFeatureGate(featuregate.HotplugVolumesGate)
-		}
+	VolumeUpdateTests := func(featureGate string) {
+		DescribeTable("Should succeed with add/volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int, enableGate bool) {
+			if enableGate {
+				enableFeatureGates(featureGate)
+			}
+			if addOpts != nil {
+				request.Request.Body = newAddVolumeBody(addOpts)
+			} else {
+				request.Request.Body = newRemoveVolumeBody(removeOpts)
+			}
+
+			vmi := libvmi.New(
+				libvmi.WithName(request.PathParameter("name")),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				libvmi.WithPersistentVolumeClaim("existingvol", "testpvcdiskclaim"),
+				libvmi.WithPersistentVolumeClaim("hotpluggedPVC", "hotpluggedPVC"),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
+			)
+			vmi.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim.Hotpluggable = true
+
+			if isVM {
+				vm := libvmi.NewVirtualMachine(vmi)
+				vm.Name = request.PathParameter("name")
+				vm.Namespace = metav1.NamespaceDefault
+
+				vmClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vm, nil).AnyTimes()
+
+				if featureGate == featuregate.HotplugVolumesGate {
+					patchedVM := vm.DeepCopy()
+					patchedVM.Status.VolumeRequests = append(patchedVM.Status.VolumeRequests, v1.VirtualMachineVolumeRequest{AddVolumeOptions: addOpts, RemoveVolumeOptions: removeOpts})
+
+					if addOpts != nil {
+						vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+							func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
+								//check that dryRun option has been propagated to patch request
+								Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
+								return patchedVM, nil
+							}).AnyTimes()
+						app.VMAddVolumeRequestHandler(request, response)
+					} else {
+						vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+							func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
+								//check that dryRun option has been propagated to patch request
+								Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
+								return patchedVM, nil
+							})
+						app.VMRemoveVolumeRequestHandler(request, response)
+					}
+				} else {
+					if addOpts != nil {
+						vmClient.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+							func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+								//check that dryRun option has been propagated to patch request
+								Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
+								return vm, nil
+							}).AnyTimes()
+						app.VMAddVolumeRequestHandler(request, response)
+					} else {
+						vmClient.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+							func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+								//check that dryRun option has been propagated to patch request
+								Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
+								return vm, nil
+							})
+						app.VMRemoveVolumeRequestHandler(request, response)
+					}
+				}
+			} else {
+				vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil).AnyTimes()
+				if addOpts != nil {
+					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+						func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+							//check that dryRun option has been propagated to patch request
+							Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
+							return vmi, nil
+						}).AnyTimes()
+					app.VMIAddVolumeRequestHandler(request, response)
+				} else {
+					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+						func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+							//check that dryRun option has been propagated to patch request
+							Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
+							return vmi, nil
+						}).AnyTimes()
+					app.VMIRemoveVolumeRequestHandler(request, response)
+				}
+			}
+
+			Expect(response.StatusCode()).To(Equal(code))
+		},
+			Entry("VM with a valid add volume request", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				Disk:         &v1.Disk{},
+				VolumeSource: &v1.HotplugVolumeSource{},
+			}, nil, true, http.StatusAccepted, true),
+			Entry("VMI with a valid add volume request", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				Disk:         &v1.Disk{},
+				VolumeSource: &v1.HotplugVolumeSource{},
+			}, nil, false, http.StatusAccepted, true),
+			Entry("VMI with an invalid add volume request that's missing a name", &v1.AddVolumeOptions{
+				VolumeSource: &v1.HotplugVolumeSource{},
+				Disk:         &v1.Disk{},
+			}, nil, false, http.StatusBadRequest, true),
+			Entry("VMI with an invalid add volume request that's missing a disk", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				VolumeSource: &v1.HotplugVolumeSource{},
+			}, nil, false, http.StatusBadRequest, true),
+			Entry("VMI with an invalid add volume request that's missing a volume", &v1.AddVolumeOptions{
+				Name: "vol1",
+				Disk: &v1.Disk{},
+			}, nil, false, http.StatusBadRequest, true),
+			Entry("VM with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
+				Name: "hotpluggedPVC",
+			}, true, http.StatusAccepted, true),
+			Entry("VMI with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
+				Name: "hotpluggedPVC",
+			}, false, http.StatusAccepted, true),
+			Entry("VMI with a invalid remove volume request missing a name", nil, &v1.RemoveVolumeOptions{}, false, http.StatusBadRequest, true),
+			Entry("VMI with a valid remove volume request but no feature gate", nil, &v1.RemoveVolumeOptions{
+				Name: "existingvol",
+			}, false, http.StatusBadRequest, false),
+			Entry("VM with a valid add volume request but no feature gate", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				Disk:         &v1.Disk{},
+				VolumeSource: &v1.HotplugVolumeSource{},
+			}, nil, true, http.StatusBadRequest, false),
+			Entry("VM with a valid add volume request with DryRun", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				Disk:         &v1.Disk{},
+				VolumeSource: &v1.HotplugVolumeSource{},
+				DryRun:       withDryRun(),
+			}, nil, true, http.StatusAccepted, true),
+			Entry("VMI with a valid add volume request with DryRun", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				Disk:         &v1.Disk{},
+				VolumeSource: &v1.HotplugVolumeSource{},
+				DryRun:       withDryRun(),
+			}, nil, false, http.StatusAccepted, true),
+			Entry("VMI with an invalid add volume request that's missing a name with DryRun", &v1.AddVolumeOptions{
+				VolumeSource: &v1.HotplugVolumeSource{},
+				Disk:         &v1.Disk{},
+				DryRun:       withDryRun(),
+			}, nil, false, http.StatusBadRequest, true),
+			Entry("VMI with an invalid add volume request that's missing a disk with DryRun", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				VolumeSource: &v1.HotplugVolumeSource{},
+				DryRun:       withDryRun(),
+			}, nil, false, http.StatusBadRequest, true),
+			Entry("VMI with an invalid add volume request that's missing a volume with DryRun", &v1.AddVolumeOptions{
+				Name:   "vol1",
+				Disk:   &v1.Disk{},
+				DryRun: withDryRun(),
+			}, nil, false, http.StatusBadRequest, true),
+			Entry("VM with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
+				Name:   "hotpluggedPVC",
+				DryRun: withDryRun(),
+			}, true, http.StatusAccepted, true),
+			Entry("VMI with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
+				Name:   "hotpluggedPVC",
+				DryRun: withDryRun(),
+			}, false, http.StatusAccepted, true),
+			Entry("VMI with a invalid remove volume request missing a name with DryRun", nil, &v1.RemoveVolumeOptions{
+				DryRun: withDryRun(),
+			}, false, http.StatusBadRequest, true),
+			Entry("VMI with a valid remove volume request but no feature gate with DryRun", nil, &v1.RemoveVolumeOptions{
+				Name:   "existingvol",
+				DryRun: withDryRun(),
+			}, false, http.StatusBadRequest, false),
+			Entry("VM with a valid add volume request but no feature gate with DryRun", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				Disk:         &v1.Disk{},
+				VolumeSource: &v1.HotplugVolumeSource{},
+				DryRun:       withDryRun(),
+			}, nil, true, http.StatusBadRequest, false),
+		)
+	}
+
+	Context("With DeclarativeHotplugVolumes feature gate", func() {
+		VolumeUpdateTests(featuregate.DeclarativeHotplugVolumesGate)
+	})
+
+	Context("With HotplugVolumes feature gate", func() {
+		VolumeUpdateTests(featuregate.HotplugVolumesGate)
+	})
+
+	DescribeTable("Should handle VMI with owner and", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, code int, featuregates ...string) {
+		enableFeatureGates(featuregates...)
 		if addOpts != nil {
 			request.Request.Body = newAddVolumeBody(addOpts)
 		} else {
@@ -142,141 +329,54 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 		)
 		vmi.Spec.Volumes[1].VolumeSource.PersistentVolumeClaim.Hotpluggable = true
+		vmi.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: "kubevirt.io/v1",
+				Kind:       "VirtualMachine",
+				Name:       request.PathParameter("name"),
+				UID:        types.UID("1234"),
+				Controller: pointer.P(true),
+			},
+		}
 
-		if isVM {
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm.Name = request.PathParameter("name")
-			vm.Namespace = metav1.NamespaceDefault
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil).AnyTimes()
 
-			patchedVM := vm.DeepCopy()
-			patchedVM.Status.VolumeRequests = append(patchedVM.Status.VolumeRequests, v1.VirtualMachineVolumeRequest{AddVolumeOptions: addOpts, RemoveVolumeOptions: removeOpts})
-			vmClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vm, nil).AnyTimes()
+		if code == http.StatusAccepted {
+			vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(vmi, nil).AnyTimes()
+		}
 
-			if addOpts != nil {
-				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
-						Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
-						return patchedVM, nil
-					}).AnyTimes()
-				app.VMAddVolumeRequestHandler(request, response)
-			} else {
-				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
-						Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
-						return patchedVM, nil
-					})
-				app.VMRemoveVolumeRequestHandler(request, response)
-			}
+		if addOpts != nil {
+			app.VMIAddVolumeRequestHandler(request, response)
 		} else {
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil).AnyTimes()
-			if addOpts != nil {
-				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
-						Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
-						return vmi, nil
-					}).AnyTimes()
-				app.VMIAddVolumeRequestHandler(request, response)
-			} else {
-				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
-						Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
-						return vmi, nil
-					}).AnyTimes()
-				app.VMIRemoveVolumeRequestHandler(request, response)
-			}
+			app.VMIRemoveVolumeRequestHandler(request, response)
 		}
 
 		Expect(response.StatusCode()).To(Equal(code))
 	},
-		Entry("VM with a valid add volume request", &v1.AddVolumeOptions{
+		Entry("Reject Add with DeclarativeHotplugVolumes", &v1.AddVolumeOptions{
 			Name:         "vol1",
 			Disk:         &v1.Disk{},
 			VolumeSource: &v1.HotplugVolumeSource{},
-		}, nil, true, http.StatusAccepted, true),
-		Entry("VMI with a valid add volume request", &v1.AddVolumeOptions{
+		}, nil, http.StatusBadRequest, featuregate.DeclarativeHotplugVolumesGate),
+		Entry("Accept Add with HotplugVolumes", &v1.AddVolumeOptions{
 			Name:         "vol1",
 			Disk:         &v1.Disk{},
 			VolumeSource: &v1.HotplugVolumeSource{},
-		}, nil, false, http.StatusAccepted, true),
-		Entry("VMI with an invalid add volume request that's missing a name", &v1.AddVolumeOptions{
-			VolumeSource: &v1.HotplugVolumeSource{},
-			Disk:         &v1.Disk{},
-		}, nil, false, http.StatusBadRequest, true),
-		Entry("VMI with an invalid add volume request that's missing a disk", &v1.AddVolumeOptions{
+		}, nil, http.StatusAccepted, featuregate.HotplugVolumesGate),
+		Entry("Accept Add with both featuregates", &v1.AddVolumeOptions{
 			Name:         "vol1",
+			Disk:         &v1.Disk{},
 			VolumeSource: &v1.HotplugVolumeSource{},
-		}, nil, false, http.StatusBadRequest, true),
-		Entry("VMI with an invalid add volume request that's missing a volume", &v1.AddVolumeOptions{
-			Name: "vol1",
-			Disk: &v1.Disk{},
-		}, nil, false, http.StatusBadRequest, true),
-		Entry("VM with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
+		}, nil, http.StatusAccepted, featuregate.HotplugVolumesGate, featuregate.DeclarativeHotplugVolumesGate),
+		Entry("Reject Remove with DeclarativeHotplugVolumes", nil, &v1.RemoveVolumeOptions{
 			Name: "hotpluggedPVC",
-		}, true, http.StatusAccepted, true),
-		Entry("VMI with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
+		}, http.StatusBadRequest, featuregate.DeclarativeHotplugVolumesGate),
+		Entry("Accept Remove with HotplugVolumes", nil, &v1.RemoveVolumeOptions{
 			Name: "hotpluggedPVC",
-		}, false, http.StatusAccepted, true),
-		Entry("VMI with a invalid remove volume request missing a name", nil, &v1.RemoveVolumeOptions{}, false, http.StatusBadRequest, true),
-		Entry("VMI with a valid remove volume request but no feature gate", nil, &v1.RemoveVolumeOptions{
-			Name: "existingvol",
-		}, false, http.StatusBadRequest, false),
-		Entry("VM with a valid add volume request but no feature gate", &v1.AddVolumeOptions{
-			Name:         "vol1",
-			Disk:         &v1.Disk{},
-			VolumeSource: &v1.HotplugVolumeSource{},
-		}, nil, true, http.StatusBadRequest, false),
-		Entry("VM with a valid add volume request with DryRun", &v1.AddVolumeOptions{
-			Name:         "vol1",
-			Disk:         &v1.Disk{},
-			VolumeSource: &v1.HotplugVolumeSource{},
-			DryRun:       withDryRun(),
-		}, nil, true, http.StatusAccepted, true),
-		Entry("VMI with a valid add volume request with DryRun", &v1.AddVolumeOptions{
-			Name:         "vol1",
-			Disk:         &v1.Disk{},
-			VolumeSource: &v1.HotplugVolumeSource{},
-			DryRun:       withDryRun(),
-		}, nil, false, http.StatusAccepted, true),
-		Entry("VMI with an invalid add volume request that's missing a name with DryRun", &v1.AddVolumeOptions{
-			VolumeSource: &v1.HotplugVolumeSource{},
-			Disk:         &v1.Disk{},
-			DryRun:       withDryRun(),
-		}, nil, false, http.StatusBadRequest, true),
-		Entry("VMI with an invalid add volume request that's missing a disk with DryRun", &v1.AddVolumeOptions{
-			Name:         "vol1",
-			VolumeSource: &v1.HotplugVolumeSource{},
-			DryRun:       withDryRun(),
-		}, nil, false, http.StatusBadRequest, true),
-		Entry("VMI with an invalid add volume request that's missing a volume with DryRun", &v1.AddVolumeOptions{
-			Name:   "vol1",
-			Disk:   &v1.Disk{},
-			DryRun: withDryRun(),
-		}, nil, false, http.StatusBadRequest, true),
-		Entry("VM with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
-			Name:   "hotpluggedPVC",
-			DryRun: withDryRun(),
-		}, true, http.StatusAccepted, true),
-		Entry("VMI with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
-			Name:   "hotpluggedPVC",
-			DryRun: withDryRun(),
-		}, false, http.StatusAccepted, true),
-		Entry("VMI with a invalid remove volume request missing a name with DryRun", nil, &v1.RemoveVolumeOptions{
-			DryRun: withDryRun(),
-		}, false, http.StatusBadRequest, true),
-		Entry("VMI with a valid remove volume request but no feature gate with DryRun", nil, &v1.RemoveVolumeOptions{
-			Name:   "existingvol",
-			DryRun: withDryRun(),
-		}, false, http.StatusBadRequest, false),
-		Entry("VM with a valid add volume request but no feature gate with DryRun", &v1.AddVolumeOptions{
-			Name:         "vol1",
-			Disk:         &v1.Disk{},
-			VolumeSource: &v1.HotplugVolumeSource{},
-			DryRun:       withDryRun(),
-		}, nil, true, http.StatusBadRequest, false),
+		}, http.StatusAccepted, featuregate.HotplugVolumesGate),
+		Entry("Accept Remove with both featuregates", nil, &v1.RemoveVolumeOptions{
+			Name: "hotpluggedPVC",
+		}, http.StatusAccepted, featuregate.HotplugVolumesGate, featuregate.DeclarativeHotplugVolumesGate),
 	)
 
 	DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet) {
@@ -296,7 +396,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			},
 		})
 
-		patch, err := generateVMIVolumeRequestPatch(vmi, volumeRequest)
+		patch, err := generateVolumeRequestPatchVMI(&vmi.Spec, volumeRequest)
 		Expect(err).ToNot(HaveOccurred())
 
 		patchBytes, err := expectedPatchSet.GeneratePayload()
@@ -356,7 +456,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			)),
 	)
 
-	DescribeTable("Should generate expected vm patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumeRequests []v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet, expectError bool) {
+	DescribeTable("Should generate expected vm patch (volume request)", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumeRequests []v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet, expectError bool) {
 
 		vm := newMinimalVM(request.PathParameter("name"))
 		vm.Namespace = metav1.NamespaceDefault
@@ -504,6 +604,82 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			}},
 			nil,
 			true),
+	)
+
+	DescribeTable("Should generate expected vm patch (declarative)", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet) {
+
+		vm := libvmi.NewVirtualMachine(api.NewMinimalVMI(request.PathParameter("name")))
+		vm.Namespace = metav1.NamespaceDefault
+		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "existingvol",
+		})
+		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			Name: "existingvol",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "testpvcdiskclaim",
+				}},
+			},
+		})
+
+		patch, err := generateVolumeRequestPatchVM(&vm.Spec.Template.Spec, volumeRequest)
+		Expect(err).ToNot(HaveOccurred())
+
+		patchBytes, err := expectedPatchSet.GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(patch).To(Equal(patchBytes))
+	},
+		Entry("add volume request",
+			&v1.VirtualMachineVolumeRequest{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name:         "vol1",
+					Disk:         &v1.Disk{},
+					VolumeSource: &v1.HotplugVolumeSource{},
+				},
+			},
+			patch.New(
+				patch.WithTest("/spec/template/spec/volumes", []v1.Volume{{
+					Name: "existingvol",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testpvcdiskclaim",
+						}},
+					},
+				}}),
+				patch.WithTest("/spec/template/spec/domain/devices/disks", []v1.Disk{{Name: "existingvol"}}),
+				patch.WithReplace("/spec/template/spec/volumes", []v1.Volume{
+					{
+						Name: "existingvol",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "testpvcdiskclaim",
+							}},
+						},
+					},
+					{Name: "vol1"},
+				}),
+				patch.WithReplace("/spec/template/spec/domain/devices/disks", []v1.Disk{{Name: "existingvol"}, {Name: "vol1"}}),
+			),
+		),
+		Entry("remove volume request",
+			&v1.VirtualMachineVolumeRequest{
+				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+					Name: "existingvol",
+				},
+			},
+			patch.New(
+				patch.WithTest("/spec/template/spec/volumes", []v1.Volume{{
+					Name: "existingvol",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testpvcdiskclaim",
+						}},
+					},
+				}}),
+				patch.WithTest("/spec/template/spec/domain/devices/disks", []v1.Disk{{Name: "existingvol"}}),
+				patch.WithReplace("/spec/template/spec/volumes", []v1.Volume{}),
+				patch.WithReplace("/spec/template/spec/domain/devices/disks", []v1.Disk{}),
+			)),
 	)
 
 	DescribeTable("Should verify volume option", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumes []v1.Volume, expectedError string) {

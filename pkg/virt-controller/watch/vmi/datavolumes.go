@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -120,7 +120,8 @@ func (c *Controller) areDataVolumesReady(vmi *v1.VirtualMachineInstance, dataVol
 
 	for _, volume := range vmi.Spec.Volumes {
 		// Check both DVs and PVCs
-		if volume.VolumeSource.DataVolume != nil || volume.VolumeSource.PersistentVolumeClaim != nil {
+		if (volume.VolumeSource.DataVolume != nil && !volume.VolumeSource.DataVolume.Hotpluggable) ||
+			(volume.VolumeSource.PersistentVolumeClaim != nil && !volume.VolumeSource.PersistentVolumeClaim.Hotpluggable) {
 			volumeReady, volumeWffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
 			if err != nil {
 				if _, ok := err.(storagetypes.PvcNotFoundError); ok {
@@ -151,7 +152,7 @@ func aggregateDataVolumesConditions(vmiCopy *v1.VirtualMachineInstance, dvs []*c
 		Status:  k8sv1.ConditionTrue,
 		Type:    v1.VirtualMachineInstanceDataVolumesReady,
 		Reason:  v1.VirtualMachineInstanceReasonAllDVsReady,
-		Message: "All of the VMI's DVs are bound and not running",
+		Message: "All of the VMI's DVs are bound and ready",
 	}
 
 	for _, dv := range dvs {

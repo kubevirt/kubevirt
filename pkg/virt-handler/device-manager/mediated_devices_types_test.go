@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -136,7 +136,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		clientTest = fake.NewSimpleClientset()
 		mockMDEV = NewMockDeviceHandler(ctrl)
-		Handler = mockMDEV
+		handler = mockMDEV
 		configuredMdevTypesOnCards = make(map[string]map[string]struct{})
 
 		mockMDEV.EXPECT().CreateMDEVType(gomock.Any(), gomock.Any()).DoAndReturn(func(mdevType string, parentID string) error {

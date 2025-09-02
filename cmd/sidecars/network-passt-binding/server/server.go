@@ -69,7 +69,10 @@ type V1alpha3Server struct {
 	Done chan struct{}
 }
 
-func (s V1alpha3Server) OnDefineDomain(_ context.Context, params *hooksV1alpha3.OnDefineDomainParams) (*hooksV1alpha3.OnDefineDomainResult, error) {
+func (s V1alpha3Server) OnDefineDomain(
+	_ context.Context,
+	params *hooksV1alpha3.OnDefineDomainParams,
+) (*hooksV1alpha3.OnDefineDomainResult, error) {
 	vmi := &vmschema.VirtualMachineInstance{}
 	if err := json.Unmarshal(params.GetVmi(), vmi); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal VMI: %v", err)
@@ -80,7 +83,7 @@ func (s V1alpha3Server) OnDefineDomain(_ context.Context, params *hooksV1alpha3.
 	const istioInjectAnnotation = "sidecar.istio.io/inject"
 	istioProxyInjectionEnabled := false
 	if val, ok := vmi.GetAnnotations()[istioInjectAnnotation]; ok {
-		istioProxyInjectionEnabled = strings.ToLower(val) == "true"
+		istioProxyInjectionEnabled = strings.EqualFold(val, "true")
 	}
 
 	opts := domain.NetworkConfiguratorOptions{
@@ -88,7 +91,12 @@ func (s V1alpha3Server) OnDefineDomain(_ context.Context, params *hooksV1alpha3.
 		IstioProxyInjectionEnabled: istioProxyInjectionEnabled,
 	}
 
-	passtConfigurator, err := domain.NewPasstNetworkConfigurator(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, opts, nil)
+	passtConfigurator, err := domain.NewPasstNetworkConfigurator(
+		vmi.Spec.Domain.Devices.Interfaces,
+		vmi.Spec.Networks,
+		vmi.Status.Interfaces,
+		opts,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create passt configurator: %v", err)
 	}
@@ -103,7 +111,10 @@ func (s V1alpha3Server) OnDefineDomain(_ context.Context, params *hooksV1alpha3.
 	}, nil
 }
 
-func (s V1alpha3Server) PreCloudInitIso(_ context.Context, params *hooksV1alpha3.PreCloudInitIsoParams) (*hooksV1alpha3.PreCloudInitIsoResult, error) {
+func (s V1alpha3Server) PreCloudInitIso(
+	_ context.Context,
+	params *hooksV1alpha3.PreCloudInitIsoParams,
+) (*hooksV1alpha3.PreCloudInitIsoResult, error) {
 	return &hooksV1alpha3.PreCloudInitIsoResult{
 		CloudInitData: params.GetCloudInitData(),
 	}, nil

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -24,6 +24,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
@@ -63,7 +64,7 @@ func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, 
 
 	hostDevices = append(hostDevices, usbHostDevices...)
 
-	if err := validateCreationOfAllDevices(vmiHostDevices, hostDevices); err != nil {
+	if err := validateCreationOfDevicePluginsDevices(vmiHostDevices, hostDevices); err != nil {
 		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
 	}
 
@@ -82,16 +83,20 @@ func createHostDevicesMetadata(vmiHostDevices []v1.HostDevice) []hostdevice.Host
 	return hostDevicesMetaData
 }
 
-// validateCreationOfAllDevices validates that all specified generic host-devices have a matching host-device.
+// validateCreationOfDevicePluginsDevices validates that all specified generic host-devices have a matching host-device.
 // On validation failure, an error is returned.
 // The validation assumes that the assignment of a device to a specified generic host-device is correct,
 // therefore a simple quantity check is sufficient.
-func validateCreationOfAllDevices(genericHostDevices []v1.HostDevice, hostDevices []api.HostDevice) error {
-	if len(genericHostDevices) != len(hostDevices) {
-		return fmt.Errorf(
-			"the number of generic host-devices do not match the number of devices:\nGeneric: %v\nDevice: %v",
-			genericHostDevices, hostDevices,
-		)
+func validateCreationOfDevicePluginsDevices(genericHostDevices []v1.HostDevice, hostDevices []api.HostDevice) error {
+	hostDevsWithDP := []v1.HostDevice{}
+	for _, hd := range genericHostDevices {
+		if !drautil.IsHostDeviceDRA(hd) {
+			hostDevsWithDP = append(hostDevsWithDP, hd)
+		}
+	}
+
+	if len(hostDevsWithDP) > 0 && len(hostDevsWithDP) != len(hostDevices) {
+		return fmt.Errorf("the number of device plugin HostDevice/s do not match the number of devices:\nHostDevice: %v\nDevice: %v", hostDevsWithDP, hostDevices)
 	}
 	return nil
 }

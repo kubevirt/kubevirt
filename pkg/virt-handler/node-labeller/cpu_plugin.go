@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -119,6 +119,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 
 	n.hostCapabilities.items = usableModels
 	n.SEV = hostDomCapabilities.SEV
+	n.SecureExecution = hostDomCapabilities.SecureExecution
 
 	return nil
 }

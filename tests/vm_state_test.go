@@ -75,7 +75,7 @@ var _ = Describe("[sig-compute]VM state", func() {
 		addDataToTPM := func(vmi *v1.VirtualMachineInstance) {
 			By("Storing a secret into the TPM")
 			// https://www.intel.com/content/www/us/en/developer/articles/code-sample/protecting-secret-data-and-keys-using-intel-platform-trust-technology.html
-			// Not sealing against a set of PCRs, out of scope here, but should work with a carefully selected set (at least PCR1 was seen changing accross reboots)
+			// Not sealing against a set of PCRs, out of scope here, but should work with a carefully selected set (at least PCR1 was seen changing across reboots)
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "tpm2_createprimary -Q --hierarchy=o --key-context=prim.ctx\n"},
 				&expect.BExp{R: console.PromptExpression},
@@ -190,10 +190,10 @@ var _ = Describe("[sig-compute]VM state", func() {
 			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("[test_id:10818][QUARANTINE] TPM across migration and restart", decorators.SigComputeMigrations, decorators.Quarantine, decorators.RequiresRWXFsVMStateStorageClass, tpm, !efi, rwx, "migrate", "restart"),
-			Entry("[test_id:10819][QUARANTINE]TPM across restart and migration", decorators.SigComputeMigrations, decorators.Quarantine, decorators.RequiresRWXFsVMStateStorageClass, tpm, !efi, rwx, "restart", "migrate"),
-			Entry("[test_id:10820][QUARANTINE]EFI across migration and restart", decorators.SigComputeMigrations, decorators.Quarantine, decorators.RequiresRWXFsVMStateStorageClass, !tpm, efi, rwx, "migrate", "restart"),
-			Entry("[test_id:10821][QUARANTINE] TPM+EFI across migration and restart", decorators.SigComputeMigrations, decorators.Quarantine, decorators.RequiresRWXFsVMStateStorageClass, tpm, efi, rwx, "migrate", "restart"),
+			Entry("[test_id:10818]TPM across migration and restart", decorators.SigComputeMigrations, decorators.RequiresRWXFsVMStateStorageClass, tpm, !efi, rwx, "migrate", "restart"),
+			Entry("[test_id:10819]TPM across restart and migration", decorators.SigComputeMigrations, decorators.RequiresRWXFsVMStateStorageClass, tpm, !efi, rwx, "restart", "migrate"),
+			Entry("[test_id:10820]EFI across migration and restart", decorators.SigComputeMigrations, decorators.RequiresRWXFsVMStateStorageClass, !tpm, efi, rwx, "migrate", "restart"),
+			Entry("[test_id:10821]TPM+EFI across migration and restart", decorators.SigComputeMigrations, decorators.RequiresRWXFsVMStateStorageClass, tpm, efi, rwx, "migrate", "restart"),
 			// The entries below are clones of the entries above, but made for cluster that *do not* support RWX FS.
 			// They can't be flake-checked since the flake-checker cluster does support RWX FS.
 			Entry("TPM across migration and restart", decorators.SigCompute, decorators.RequiresRWOFsVMStateStorageClass, decorators.NoFlakeCheck, tpm, !efi, rwo, "migrate", "restart"),

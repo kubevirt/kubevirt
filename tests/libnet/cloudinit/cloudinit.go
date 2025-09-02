@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -179,7 +179,7 @@ const (
 // CreateDefaultCloudInitNetworkData generates a default configuration
 // for the Cloud-Init Network Data, in version 2 format.
 // The default configuration sets dynamic IPv4 (DHCP) and static IPv6 addresses,
-// inclusing DNS settings of the cluster nameserver IP and search domains.
+// including DNS settings of the cluster nameserver IP and search domains.
 func CreateDefaultCloudInitNetworkData() string {
 	data, err := NewNetworkData(
 		WithEthernet("eth0",

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  */
 
 package stats
@@ -71,6 +71,7 @@ type DomainStats struct {
 	CPUMapSet bool
 	CPUMap    [][]bool
 	NrVirtCpu uint
+	DirtyRate *DomainStatsDirtyRate
 }
 
 type DomainStatsCPU struct {
@@ -190,4 +191,15 @@ type DomainJobInfo struct {
 	DataRemaining    uint64
 	MemDirtyRateSet  bool
 	MemDirtyRate     uint64
+}
+
+type DomainStatsDirtyRate struct {
+	CalcStatusSet         bool
+	CalcStatus            int
+	CalcStartTimeSet      bool
+	CalcStartTime         int64
+	CalcPeriodSet         bool
+	CalcPeriod            int
+	MegabytesPerSecondSet bool
+	MegabytesPerSecond    int64
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -129,7 +129,7 @@ func newvmiSocketMapFromVMIs(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap 
 
 	ret := make(vmiSocketMap)
 	for _, vmi := range vmis {
-		socketPath, err := cmdclient.FindSocketOnHost(vmi)
+		socketPath, err := cmdclient.FindSocket(vmi)
 		if err != nil {
 			// nothing to scrape...
 			// this means there's no socket or the socket

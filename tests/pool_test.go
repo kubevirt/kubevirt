@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -22,6 +22,9 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,6 +34,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -82,7 +86,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			}
 
 			return nil
-		}, 120*time.Second, 1*time.Second).Should(BeNil())
+		}, 120*time.Second, 1*time.Second).Should(Succeed())
 
 	}
 
@@ -120,7 +124,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Filesystem storage (RWO) is not present")
 		}
 
 		dataVolume := libdv.NewDataVolume(
@@ -131,7 +135,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		vm := libvmi.NewVirtualMachine(
 			libvmi.New(
 				libvmi.WithDataVolume("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("100M"),
+				libvmi.WithMemoryRequest("100M"),
 			),
 			libvmi.WithDataVolumeTemplate(dataVolume),
 		)
@@ -150,7 +154,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	newVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		pool := newPoolFromVMI(libvmi.New(libvmi.WithResourceMemory("2Mi")))
+		pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
 		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 		return createVirtualMachinePool(pool)
 	}
@@ -162,9 +166,9 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	DescribeTable("pool should scale", func(startScale int, stopScale int) {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, int32(startScale))
-		doScale(newPool.ObjectMeta.Name, int32(stopScale))
-		doScale(newPool.ObjectMeta.Name, int32(0))
+		doScale(newPool.Name, int32(startScale))
+		doScale(newPool.Name, int32(stopScale))
+		doScale(newPool.Name, int32(0))
 	},
 		Entry("to three, to two and then to zero replicas", 3, 2),
 		Entry("to five, to six and then to zero replicas", 5, 6),
@@ -203,7 +207,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	It("should remove VMs once they are marked for deletion", func() {
 		newPool := newVirtualMachinePool()
 		// Create a pool with two replicas
-		doScale(newPool.ObjectMeta.Name, 2)
+		doScale(newPool.Name, 2)
 		// Delete it
 		By("Deleting the VirtualMachinePool")
 		Expect(virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Delete(context.Background(), newPool.ObjectMeta.Name, metav1.DeleteOptions{})).To(Succeed())
@@ -291,7 +295,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			}
 			return nil
 
-		}, 120*time.Second, 1*time.Second).Should(BeNil())
+		}, 120*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Waiting until all VMIs are created and online again")
 		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 2)
@@ -310,7 +314,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should replace deleted VM and get replacement", func() {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 3)
+		doScale(newPool.Name, 3)
 
 		var err error
 		var vms *v1.VirtualMachineList
@@ -355,13 +359,13 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			}
 			return nil
 
-		}, 120*time.Second, 1*time.Second).Should(BeNil())
+		}, 120*time.Second, 1*time.Second).Should(Succeed())
 
 	})
 
 	It("should roll out VM template changes without impacting VMI", func() {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 1)
+		doScale(newPool.Name, 1)
 		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 1)
 
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
@@ -402,7 +406,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			}
 
 			return nil
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Ensuring VMI remains consistent and isn't restarted")
 		Consistently(func() error {
@@ -414,12 +418,12 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			Expect(vmi.UID).To(Equal(vmiUID))
 			Expect(vmi.DeletionTimestamp).To(BeNil())
 			return nil
-		}, 5*time.Second, 1*time.Second).Should(BeNil())
+		}, 5*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	It("should roll out VMI template changes and proactively roll out new VMIs", func() {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 1)
+		doScale(newPool.Name, 1)
 		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 1)
 
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
@@ -461,7 +465,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			}
 
 			return nil
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Ensuring VMI is re-created to pick up new label")
 		Eventually(func() error {
@@ -478,12 +482,12 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 				return fmt.Errorf("Expected vmi to pick up the new updated label")
 			}
 			return nil
-		}, 60*time.Second, 1*time.Second).Should(BeNil())
+		}, 60*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	It("should remove owner references on the VirtualMachine if it is orphan deleted", func() {
 		newPool := newOfflineVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 2)
+		doScale(newPool.Name, 2)
 
 		// Check for owner reference
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
@@ -571,6 +575,89 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 10*time.Second, 1*time.Second).Should(Equal(int32(1)))
 	})
 
+	It("should use DescendingOrder scale-in strategy when specified", func() {
+		By("Create a new VirtualMachinePool with DescendingOrder scale-in policy")
+		pool := newPoolFromVMI(libvmifact.NewCirros())
+
+		// Set up DescendingOrder scale-in strategy
+		basePolicy := poolv1.VirtualMachinePoolBasePolicyDescendingOrder
+		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+			Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+					BasePolicy: &basePolicy,
+				},
+			},
+		}
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		pool = createVirtualMachinePool(pool)
+
+		By("Scaling pool to 5 replicas")
+		doScale(pool.ObjectMeta.Name, 5)
+
+		By("Waiting until all VMs are created and running")
+		waitForVMIs(pool.Namespace, pool.Spec.Selector, 5)
+
+		By("Getting all VMs to verify their names/ordinals")
+		vms, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(filterNotDeletedVMsOwnedByPool(pool.Name, vms)).To(HaveLen(5))
+
+		// Store original VM names sorted by ordinal for comparison
+		var vmNames []string
+		for _, vm := range vms.Items {
+			if vm.DeletionTimestamp == nil {
+				for _, ref := range vm.OwnerReferences {
+					if ref.Name == pool.Name {
+						vmNames = append(vmNames, vm.Name)
+						break
+					}
+				}
+			}
+		}
+
+		// Sort by ordinal to know which VMs should be deleted first (highest ordinals)
+		sort.Slice(vmNames, func(i, j int) bool {
+			// Extract ordinal from VM name (assuming format like "poolXXXXX-0", "poolXXXXX-1", etc.)
+			// This assumes indexFromName function extracts the ordinal correctly
+			ordinalI := extractOrdinalFromName(vmNames[i])
+			ordinalJ := extractOrdinalFromName(vmNames[j])
+			return ordinalI > ordinalJ // Sort descending (highest first)
+		})
+
+		By("Scaling down to 2 replicas (should remove 3 VMs with highest ordinals)")
+		doScale(pool.ObjectMeta.Name, 2)
+
+		By("Waiting for scale down to complete")
+		Eventually(func() int {
+			vms, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return len(filterNotDeletedVMsOwnedByPool(pool.Name, vms))
+		}, 120*time.Second, 1*time.Second).Should(Equal(2))
+
+		By("Verifying that VMs with highest ordinals were deleted")
+		vms, err = virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		remainingVMs := filterNotDeletedVMsOwnedByPool(pool.Name, vms)
+		Expect(remainingVMs).To(HaveLen(2))
+
+		// The remaining VMs should be the ones with the lowest ordinals
+		expectedRemainingVMs := vmNames[3:] // Last 2 VMs (lowest ordinals)
+		var actualRemainingVMNames []string
+		for _, vm := range remainingVMs {
+			actualRemainingVMNames = append(actualRemainingVMNames, vm.Name)
+		}
+
+		// Sort both slices for comparison
+		sort.Strings(expectedRemainingVMs)
+		sort.Strings(actualRemainingVMNames)
+
+		Expect(actualRemainingVMNames).To(Equal(expectedRemainingVMs))
+
+		By("Verifying VMIs are still running for remaining VMs")
+		waitForVMIs(pool.Namespace, pool.Spec.Selector, 2)
+	})
+
 	DescribeTable("should respect name generation settings", func(appendIndex *bool) {
 		const (
 			cmName     = "configmap"
@@ -610,6 +697,67 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Entry("do not append index if set to false", pointer.P(false)),
 		Entry("append index if set to true", pointer.P(true)),
 	)
+
+	It("should respect maxUnavailable strategy during updates", func() {
+		newPool := newVirtualMachinePool()
+
+		replicas := 4
+		maxUnavailable := 1
+
+		doScale(newPool.Name, int32(replicas))
+		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, replicas)
+
+		By(fmt.Sprintf("Setting maxUnavailable to %d", maxUnavailable))
+		patchData, err := patch.New(patch.WithReplace("/spec/maxUnavailable", intstr.FromInt(maxUnavailable))).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Making a VMI template change")
+		patchData, err = patch.New(patch.WithAdd(
+			fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey), newLabelValue),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verifying maxUnavailable constraint throughout the update process")
+		Consistently(func() error {
+			vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelectorToString(newPool.Spec.Selector),
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			unavailableCount := 0
+
+			for _, vmi := range vmis.Items {
+				if vmi.DeletionTimestamp != nil || vmi.Status.Phase != v1.Running {
+					unavailableCount++
+				}
+			}
+
+			if unavailableCount > maxUnavailable {
+				return fmt.Errorf("maxUnavailable constraint violated: %d unavailable VMIs (max allowed: %d)",
+					unavailableCount, maxUnavailable)
+			}
+			return nil
+		}, 120*time.Second, 1*time.Second).Should(Succeed(), "maxUnavailable constraint was violated during the update process")
+
+		By("Waiting for all VMIs to be updated")
+		updatedSelector := newPool.Spec.Selector.DeepCopy()
+		if updatedSelector.MatchLabels == nil {
+			updatedSelector.MatchLabels = make(map[string]string)
+		}
+		updatedSelector.MatchLabels[newLabelKey] = newLabelValue
+		labelSelector := labelSelectorToString(updatedSelector)
+		Eventually(func(g Gomega) {
+			vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelector,
+			})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vmis.Items).To(HaveLen(replicas))
+		}, 120*time.Second, 1*time.Second).Should(Succeed(), "VMIs not all updated")
+	})
 })
 
 func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
@@ -676,4 +824,20 @@ func labelSelectorFromVMs(vms *v1.VirtualMachineList) *metav1.LabelSelector {
 			},
 		},
 	}
+}
+
+// Helper function to extract ordinal from VM name
+// This assumes VM names follow a pattern where the ordinal is at the end
+func extractOrdinalFromName(name string) int {
+	parts := strings.Split(name, "-")
+	if len(parts) == 0 {
+		return 0
+	}
+
+	ordinalStr := parts[len(parts)-1]
+	ordinal, err := strconv.Atoi(ordinalStr)
+	if err != nil {
+		return 0
+	}
+	return ordinal
 }

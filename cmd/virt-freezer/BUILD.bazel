@@ -1,8 +1,8 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["main.go"],
+    srcs = ["virt-freezer.go"],
     importpath = "kubevirt.io/kubevirt/cmd/virt-freezer",
     visibility = ["//visibility:private"],
     deps = [
@@ -12,6 +12,24 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "virt-freezer_suite_test.go",
+        "virt-freezer_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/go.uber.org/mock/gomock:go_default_library",
     ],
 )
 

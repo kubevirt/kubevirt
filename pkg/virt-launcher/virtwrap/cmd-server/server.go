@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017, 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -488,6 +488,31 @@ func (l *Launcher) GetDomainStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cm
 		response.DomainStats = string(domainStats)
 	}
 
+	return response, nil
+}
+
+func (l *Launcher) GetDomainDirtyRateStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DirtyRateStatsResponse, error) {
+	response := &cmdv1.DirtyRateStatsResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	const dirtyRateCalculationTime = time.Second
+	stats, err := l.domainManager.GetDomainDirtyRateStats(dirtyRateCalculationTime)
+	if err != nil {
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	if !stats.MegabytesPerSecondSet {
+		response.Response.Success = false
+		response.Response.Message = "Dirty rate MegabytesPerSecondSet is false"
+		return response, nil
+	}
+
+	response.DirtyRateMbs = stats.MegabytesPerSecond
 	return response, nil
 }
 

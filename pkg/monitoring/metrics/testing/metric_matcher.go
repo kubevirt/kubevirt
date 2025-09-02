@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -22,8 +22,8 @@ package testing
 import (
 	"fmt"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/onsi/gomega/format"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 )
 
 const (

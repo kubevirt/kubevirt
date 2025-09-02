@@ -24,6 +24,7 @@ import (
 	goflag "flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -32,9 +33,7 @@ import (
 	"sync"
 	"time"
 
-	klog "github.com/go-kit/kit/log"
-	"github.com/golang/glog"
-	flag "github.com/spf13/pflag"
+	klog "github.com/go-kit/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -83,30 +82,24 @@ type FilteredLogger struct {
 
 var Log = DefaultLogger()
 
+func init() {
+	// "the practical default level is V(2)"
+	// see https://github.com/kubernetes/community/blob/master/contributors/devel/logging.md
+	goflag.IntVar(&defaultVerbosity, "v", 2, "log level for V logs")
+}
+
 func InitializeLogging(comp string) {
 	defaultComponent = comp
 	Log = DefaultLogger()
-	glog.CopyStandardLogTo(LogLevelNames[INFO])
 	goflag.CommandLine.Set("component", comp)
 	goflag.CommandLine.Set("logtostderr", "true")
-}
-
-func getDefaultVerbosity() int {
-	if verbosityFlag := flag.Lookup("v"); verbosityFlag != nil {
-		defaultVerbosity, _ := strconv.Atoi(verbosityFlag.Value.String())
-		return defaultVerbosity
-	} else {
-		// "the practical default level is V(2)"
-		// see https://github.com/kubernetes/community/blob/master/contributors/devel/logging.md
-		return 2
-	}
+	log.SetOutput(klog.NewStdlibAdapter(Log))
 }
 
 // Wrap a go-kit logger in a FilteredLogger. Not cached
 func MakeLogger(logger klog.Logger) *FilteredLogger {
 	defaultLogLevel := INFO
 
-	defaultVerbosity = getDefaultVerbosity()
 	// This verbosity will be used for info logs without setting a custom verbosity level
 	defaultCurrentVerbosity := 2
 

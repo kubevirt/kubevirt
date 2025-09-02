@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -36,6 +36,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
+const (
+	hotplugVolumeNotEnabledError = "Enable DeclarativeHotplugVolumes or HotplugVolumes feature gate to use this API."
+)
+
 // VMAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMAddVolumeRequestHandler(request *restful.Request, response *restful.Response) {
 	app.addVolumeRequestHandler(request, response, false)
@@ -56,12 +60,20 @@ func (app *SubresourceAPIApp) VMIRemoveVolumeRequestHandler(request *restful.Req
 	app.removeVolumeRequestHandler(request, response, true)
 }
 
+func (app *SubresourceAPIApp) hotplugVolumesEnabled() bool {
+	return app.clusterConfig.HotplugVolumesEnabled() || app.clusterConfig.DeclarativeHotplugVolumesEnabled()
+}
+
+func (app *SubresourceAPIApp) ephemeralHotplugSupported() bool {
+	return app.clusterConfig.HotplugVolumesEnabled()
+}
+
 func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
-	if !app.clusterConfig.HotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest("Unable to Add Volume because HotplugVolumes feature gate is not enabled."), response)
+	if !app.hotplugVolumesEnabled() {
+		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
 		return
 	}
 
@@ -104,8 +116,13 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 			writeError(err, response)
 			return
 		}
-	} else {
+	} else if app.clusterConfig.HotplugVolumesEnabled() {
 		if err := app.vmVolumePatchStatus(name, namespace, &volumeRequest); err != nil {
+			writeError(err, response)
+			return
+		}
+	} else {
+		if err := app.vmVolumePatch(name, namespace, &volumeRequest); err != nil {
 			writeError(err, response)
 			return
 		}
@@ -118,8 +135,8 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
-	if !app.clusterConfig.HotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest("Unable to Remove Volume because HotplugVolumes feature gate is not enabled."), response)
+	if !app.hotplugVolumesEnabled() {
+		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
 		return
 	}
 
@@ -149,8 +166,13 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 			writeError(err, response)
 			return
 		}
-	} else {
+	} else if app.clusterConfig.HotplugVolumesEnabled() {
 		if err := app.vmVolumePatchStatus(name, namespace, &volumeRequest); err != nil {
+			writeError(err, response)
+			return
+		}
+	} else {
+		if err := app.vmVolumePatch(name, namespace, &volumeRequest); err != nil {
 			writeError(err, response)
 			return
 		}
@@ -159,10 +181,44 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 	response.WriteHeader(http.StatusAccepted)
 }
 
+func (app *SubresourceAPIApp) vmVolumePatch(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
+	vm, statErr := app.fetchVirtualMachine(name, namespace)
+	if statErr != nil {
+		return statErr
+	}
+
+	err := verifyVolumeOption(vm.Spec.Template.Spec.Volumes, volumeRequest)
+	if err != nil {
+		return errors.NewConflict(v1.Resource("virtualmachine"), name, err)
+	}
+
+	patchBytes, err := generateVolumeRequestPatchVM(&vm.Spec.Template.Spec, volumeRequest)
+	if err != nil {
+		return errors.NewConflict(v1.Resource("virtualmachine"), name, err)
+	}
+
+	dryRunOption := getDryRunOption(volumeRequest)
+	log.Log.Object(vm).V(4).Infof("Patching VM: %s", string(patchBytes))
+	if _, err := app.virtCli.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+		log.Log.Object(vm).Errorf("unable to patch vm: %v", err)
+		if errors.IsInvalid(err) {
+			if statErr, ok := err.(*errors.StatusError); ok {
+				return statErr
+			}
+		}
+		return errors.NewInternalError(fmt.Errorf("unable to patch vm: %v", err))
+	}
+	return nil
+}
+
 func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
 	vmi, statErr := app.FetchVirtualMachineInstance(namespace, name)
 	if statErr != nil {
 		return statErr
+	}
+
+	if ownedByVirtualMachine(vmi) && !app.ephemeralHotplugSupported() {
+		return errors.NewBadRequest(fmt.Sprintf("VMI %s/%s is owned by a VM", vmi.Namespace, vmi.Name))
 	}
 
 	if !vmi.IsRunning() {
@@ -174,7 +230,7 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err)
 	}
 
-	patchBytes, err := generateVMIVolumeRequestPatch(vmi, volumeRequest)
+	patchBytes, err := generateVolumeRequestPatchVMI(&vmi.Spec, volumeRequest)
 	if err != nil {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err)
 	}
@@ -283,25 +339,34 @@ func volumeSourceName(volumeSource *v1.HotplugVolumeSource) string {
 	return ""
 }
 
-func generateVMIVolumeRequestPatch(vmi *v1.VirtualMachineInstance, volumeRequest *v1.VirtualMachineVolumeRequest) ([]byte, error) {
-	vmiCopy := vmi.DeepCopy()
-	vmiCopy.Spec = *controller.ApplyVolumeRequestOnVMISpec(&vmiCopy.Spec, volumeRequest)
+func generateVolumeRequestPatchVM(vmiSpec *v1.VirtualMachineInstanceSpec, volumeRequest *v1.VirtualMachineVolumeRequest) ([]byte, error) {
+	return generateVolumeRequestPatch("/spec/template", vmiSpec, volumeRequest)
+}
+
+func generateVolumeRequestPatchVMI(vmiSpec *v1.VirtualMachineInstanceSpec, volumeRequest *v1.VirtualMachineVolumeRequest) ([]byte, error) {
+	return generateVolumeRequestPatch("", vmiSpec, volumeRequest)
+}
+
+func generateVolumeRequestPatch(prefix string, vmiSpec *v1.VirtualMachineInstanceSpec, volumeRequest *v1.VirtualMachineVolumeRequest) ([]byte, error) {
+	volumePath := prefix + "/spec/volumes"
+	diskPath := prefix + "/spec/domain/devices/disks"
+	vmiSpecCopy := *controller.ApplyVolumeRequestOnVMISpec(vmiSpec.DeepCopy(), volumeRequest)
 
 	patchSet := patch.New(
-		patch.WithTest("/spec/volumes", vmi.Spec.Volumes),
-		patch.WithTest("/spec/domain/devices/disks", vmi.Spec.Domain.Devices.Disks),
+		patch.WithTest(volumePath, vmiSpec.Volumes),
+		patch.WithTest(diskPath, vmiSpec.Domain.Devices.Disks),
 	)
 
-	if len(vmi.Spec.Volumes) > 0 {
-		patchSet.AddOption(patch.WithReplace("/spec/volumes", vmiCopy.Spec.Volumes))
+	if len(vmiSpec.Volumes) > 0 {
+		patchSet.AddOption(patch.WithReplace(volumePath, vmiSpecCopy.Volumes))
 	} else {
-		patchSet.AddOption(patch.WithAdd("/spec/volumes", vmiCopy.Spec.Volumes))
+		patchSet.AddOption(patch.WithAdd(volumePath, vmiSpecCopy.Volumes))
 	}
 
-	if len(vmi.Spec.Domain.Devices.Disks) > 0 {
-		patchSet.AddOption(patch.WithReplace("/spec/domain/devices/disks", vmiCopy.Spec.Domain.Devices.Disks))
+	if len(vmiSpec.Domain.Devices.Disks) > 0 {
+		patchSet.AddOption(patch.WithReplace(diskPath, vmiSpecCopy.Domain.Devices.Disks))
 	} else {
-		patchSet.AddOption(patch.WithAdd("/spec/domain/devices/disks", vmiCopy.Spec.Domain.Devices.Disks))
+		patchSet.AddOption(patch.WithAdd(diskPath, vmiSpecCopy.Domain.Devices.Disks))
 	}
 
 	return patchSet.GeneratePayload()
@@ -384,4 +449,13 @@ func removeVolumeRequestExists(request v1.VirtualMachineVolumeRequest, name stri
 
 func addVolumeRequestExists(request v1.VirtualMachineVolumeRequest, name string) bool {
 	return request.AddVolumeOptions != nil && request.AddVolumeOptions.Name == name
+}
+
+func ownedByVirtualMachine(vmi *v1.VirtualMachineInstance) bool {
+	owner := metav1.GetControllerOf(vmi)
+	if owner != nil && owner.Kind == "VirtualMachine" && owner.APIVersion == v1.SchemeGroupVersion.String() {
+		return true
+	}
+
+	return false
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -222,6 +222,11 @@ func GetWFFCStorageSnapshotClass(client kubecli.KubevirtClient) (string, error) 
 	return "", nil
 }
 
+func GetCSIStorageClass() (string, bool) {
+	storageClassCSI := Config.StorageClassCSI
+	return storageClassCSI, storageClassCSI != ""
+}
+
 func GetRWXFileSystemStorageClass() (string, bool) {
 	storageRWXFileSystem := Config.StorageRWXFileSystem
 	return storageRWXFileSystem, storageRWXFileSystem != ""
@@ -240,6 +245,19 @@ func GetRWOBlockStorageClass() (string, bool) {
 func GetRWXBlockStorageClass() (string, bool) {
 	storageRWXBlock := Config.StorageRWXBlock
 	return storageRWXBlock, storageRWXBlock != ""
+}
+
+// GetAvailableRWBlockStorageClass returns any RWX or RWO access mode block storage class available, i.e,
+// If the available block storage classes only support RWO access mode, it returns that SC or vice versa.
+// This method to get a block storage class is recommended when the access mode is not relevant for the purpose of
+// the test.
+func GetAvailableRWBlockStorageClass() (string, bool) {
+	sc, foundSC := GetRWXBlockStorageClass()
+	if !foundSC {
+		sc, foundSC = GetRWOBlockStorageClass()
+	}
+
+	return sc, foundSC
 }
 
 func GetVMStateStorageClass() (string, bool) {

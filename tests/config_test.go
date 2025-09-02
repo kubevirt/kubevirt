@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 package tests_test
@@ -113,7 +113,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Running VMI")
 				vmi := libvmifact.NewAlpine(libvmi.WithConfigMapDisk(configMapName, configMapName))
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -178,7 +178,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					libvmi.WithConfigMapDisk(configMaps[1], configMaps[1]),
 					libvmi.WithConfigMapDisk(configMaps[2], configMaps[2]))
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				CheckIsoVolumeSizes(vmi)
 			})
 		})
@@ -214,7 +214,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Running VMI")
 				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -280,7 +280,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					libvmi.WithSecretDisk(secrets[1], secrets[1]),
 					libvmi.WithSecretDisk(secrets[2], secrets[2]))
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				CheckIsoVolumeSizes(vmi)
 			})
 		})
@@ -294,7 +294,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
 			By("Running VMI")
 			vmi := libvmifact.NewAlpine(libvmi.WithServiceAccountDisk("default"))
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			CheckIsoVolumeSizes(vmi)
@@ -401,7 +401,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					}
 				}
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -510,7 +510,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Running VMI")
 				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -527,7 +527,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(podOutput1).To(Equal(expectedPrivateKey), "Expected pod output of private key to match genereated one.")
+				Expect(podOutput1).To(Equal(expectedPrivateKey), "Expected pod output of private key to match generated one.")
 
 				podOutput2, err := exec.ExecuteCommandOnPod(
 					vmiPod,
@@ -537,7 +537,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(podOutput2).To(Equal(expectedPublicKey), "Expected pod output of public key to match genereated one.")
+				Expect(podOutput2).To(Equal(expectedPublicKey), "Expected pod output of public key to match generated one.")
 
 				By("Checking mounted secrets sshkeys image")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -571,7 +571,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithLabel(testLabelKey, testLabelVal),
 				libvmi.WithDownwardAPIDisk(downwardAPIName))
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			CheckIsoVolumeSizes(vmi)

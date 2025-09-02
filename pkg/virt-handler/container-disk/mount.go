@@ -11,18 +11,18 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/checkpoint"
-	"kubevirt.io/kubevirt/pkg/unsafepath"
-
-	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/util"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
-
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/checkpoint"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
+	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,6 +36,7 @@ const (
 )
 
 var (
+	ErrWaitingForDisks   = errors.New("waiting for containerdisks")
 	ErrDiskContainerGone = errors.New("disk container is gone")
 )
 
@@ -47,6 +48,7 @@ type mounter struct {
 	mountRecords               map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock           sync.Mutex
 	suppressWarningTimeout     time.Duration
+	needsBindMountFunc         needsBindMountFunc
 	socketPathGetter           containerdisk.SocketPathGetter
 	kernelBootSocketPathGetter containerdisk.KernelBootSocketPathGetter
 	clusterConfig              *virtconfig.ClusterConfig
@@ -95,6 +97,7 @@ func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string
 		podIsolationDetector:       isoDetector,
 		checkpointManager:          checkpoint.NewSimpleCheckpointManager(mountStateDir),
 		suppressWarningTimeout:     1 * time.Minute,
+		needsBindMountFunc:         newNeedsBindMountFunc(""),
 		socketPathGetter:           containerdisk.NewSocketPathGetter(""),
 		kernelBootSocketPathGetter: containerdisk.NewKernelBootSocketPathGetter(""),
 		clusterConfig:              clusterConfig,
@@ -222,6 +225,16 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 // Mount takes a vmi and mounts all container disks of the VMI, so that they are visible for the qemu process.
 // Additionally qcow2 images are validated if "verify" is true. The validation happens with rlimits set, to avoid DOS.
 func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
+	if m.clusterConfig.ImageVolumeEnabled() {
+		bindMountNeeded, err := m.needsBindMountFunc(vmi)
+		if err != nil {
+			return fmt.Errorf("fail to detect if bind mount needed for vmi: %s in namespace: %v. err: %v", vmi.Name, vmi.Namespace, err)
+		}
+		if !bindMountNeeded {
+			return nil
+		}
+	}
+
 	record := vmiMountTargetRecord{}
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
@@ -349,11 +362,20 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 }
 
 func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error) {
+	if m.clusterConfig.ImageVolumeEnabled() {
+		bindMountNeeded, err := m.needsBindMountFunc(vmi)
+		if err != nil {
+			return false, fmt.Errorf("fail to detect if bind mount needed for vmi: %s in namespace: %v. err: %v", vmi.Name, vmi.Namespace, err)
+		}
+		if !bindMountNeeded {
+			return true, nil
+		}
+	}
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
 			sock, err := m.socketPathGetter(vmi, i)
 			if err == nil {
-				_, err = m.podIsolationDetector.DetectForSocket(vmi, sock)
+				_, err = m.podIsolationDetector.DetectForSocket(sock)
 			}
 
 			if err != nil {
@@ -370,7 +392,7 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 	if util.HasKernelBootContainerImage(vmi) {
 		sock, err := m.kernelBootSocketPathGetter(vmi)
 		if err == nil {
-			_, err = m.podIsolationDetector.DetectForSocket(vmi, sock)
+			_, err = m.podIsolationDetector.DetectForSocket(sock)
 		}
 		if err != nil {
 			log.DefaultLogger().Object(vmi).Reason(err).Info("kernelboot container not yet ready")
@@ -592,7 +614,7 @@ func (m *mounter) getContainerDiskPath(vmi *v1.VirtualMachineInstance, volume *v
 		return nil, ErrDiskContainerGone
 	}
 
-	res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
+	res, err := m.podIsolationDetector.DetectForSocket(sock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
 	}
@@ -611,7 +633,7 @@ func (m *mounter) getKernelArtifactPaths(vmi *v1.VirtualMachineInstance) (*kerne
 		return nil, ErrDiskContainerGone
 	}
 
-	res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
+	res, err := m.podIsolationDetector.DetectForSocket(sock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect socket for kernelboot container: %v", err)
 	}
@@ -714,4 +736,29 @@ func (m *mounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksu
 	}
 
 	return diskChecksums, nil
+}
+
+type needsBindMountFunc func(vmi *v1.VirtualMachineInstance) (bool, error)
+
+func newNeedsBindMountFunc(baseDir string) needsBindMountFunc {
+	return func(vmi *v1.VirtualMachineInstance) (bool, error) {
+		for podUID := range vmi.Status.ActivePods {
+			virtLauncherSocketPath := cmdclient.SocketDirectoryOnHost(string(podUID))
+			launcherSocketExists, err := diskutils.FileExists(virtLauncherSocketPath)
+			if err != nil {
+				return false, err
+			}
+			basePath := fmt.Sprintf("%s/pods/%s/containers", baseDir, string(podUID))
+			containerDiskPath := filepath.Join(basePath, "container-disk-binary")
+			containerDiskInitContainerExists, err := diskutils.FileExists(containerDiskPath)
+			if err != nil {
+				return false, err
+			}
+			// we must check for launcherSocket to make sure this isn't an old launcher that is already completed
+			if launcherSocketExists && containerDiskInitContainerExists {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
 }
