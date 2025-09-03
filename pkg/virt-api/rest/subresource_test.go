@@ -2347,9 +2347,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("a running VMI with LivenessProbe with dry-run option", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
 		)
 
-		DescribeTable("Should fail unpausing", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions, expectedError string) {
+		DescribeTable("Should fail unpausing due to VMI state", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions, expectedError string) {
 
 			expectVMI(running, paused)
+
+			vm := newVirtualMachineWithRunning(pointer.P(Running))
+			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(vm, nil)
 
 			bytesRepresentation, _ := json.Marshal(unpauseOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
@@ -2366,6 +2369,26 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}, "VMI is not running"),
 		)
 
+		It("Should fail unpausing when snapshot in progress", func() {
+
+			request.PathParameters()["name"] = testVMIName
+			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
+
+			vm := newVirtualMachineWithRunning(pointer.P(Running))
+			vm.Status.SnapshotInProgress = &[]string{"test-snapshot"}[0]
+
+			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(vm, nil)
+
+			unpauseOptions := &v1.UnpauseOptions{}
+			bytesRepresentation, _ := json.Marshal(unpauseOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
+
+			app.UnpauseVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			ExpectMessage(recorder, ContainSubstring(vmSnapshotInprogress))
+		})
+
 		DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions, matchExpectation gomegatypes.GomegaMatcher) {
 
 			backend.AppendHandlers(
@@ -2375,6 +2398,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 			expectVMI(Running, Paused)
+			vm := newVirtualMachineWithRunning(pointer.P(Running))
+			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(vm, nil)
 
 			bytesRepresentation, _ := json.Marshal(unpauseOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
