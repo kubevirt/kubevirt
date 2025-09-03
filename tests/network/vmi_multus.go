@@ -139,31 +139,6 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 		},
 	}
 
-	createBridgeNetworkAttachmentDefinition := func(
-		namespace, networkName string, bridgeName string, vlan int, ipam map[string]string, macSpoofCheck bool,
-	) error {
-		netAttachDef := libnet.NewBridgeNetAttachDef(
-			networkName,
-			bridgeName,
-			libnet.WithMTU(1400),
-			libnet.WithVLAN(vlan),
-			libnet.WithIPAM(ipam),
-			libnet.WithMacSpoofChk(macSpoofCheck),
-		)
-		_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
-		return err
-	}
-	createPtpNetworkAttachmentDefinition := func(namespace, networkName, subnet string) error {
-		const pluginType = "ptp"
-		ipam := map[string]string{"type": "host-local", "subnet": subnet}
-		netAttachDef := libnet.NewNetAttachDef(
-			networkName,
-			libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(pluginType, map[string]interface{}{"ipam": ipam})),
-		)
-		_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
-		return err
-	}
-
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
@@ -743,4 +718,28 @@ func indexInterfaceStatusByName(vmi *v1.VirtualMachineInstance) map[string]v1.Vi
 		interfaceStatusByName[interfaceStatus.Name] = interfaceStatus
 	}
 	return interfaceStatusByName
+}
+
+func createBridgeNetworkAttachmentDefinition(namespace, networkName string, bridgeName string, vlan int, ipam map[string]string, macSpoofCheck bool) error {
+	netAttachDef := libnet.NewBridgeNetAttachDef(
+		networkName,
+		bridgeName,
+		libnet.WithMTU(1400),
+		libnet.WithVLAN(vlan),
+		libnet.WithIPAM(ipam),
+		libnet.WithMacSpoofChk(macSpoofCheck),
+	)
+	_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
+	return err
+}
+
+func createPtpNetworkAttachmentDefinition(namespace, networkName, subnet string) error {
+	const pluginType = "ptp"
+	ipam := map[string]string{"type": "host-local", "subnet": subnet}
+	netAttachDef := libnet.NewNetAttachDef(
+		networkName,
+		libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(pluginType, map[string]interface{}{"ipam": ipam})),
+	)
+	_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
+	return err
 }
