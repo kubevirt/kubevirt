@@ -1,7 +1,10 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
-  serviceSubnet: "10.76.0.0/12"
+  ipFamily: dual
+  podSubnet: "10.244.0.0/16,fd10:244::/56"
+  serviceSubnet: "10.96.0.0/12,fd10:96::/108"
+  disableDefaultCNI: true
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry:5000"]

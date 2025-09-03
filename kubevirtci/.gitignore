@@ -1,0 +1,18 @@
+*.img
+cli
+log.txt
+_ci-configs/*
+
+# IDE directories
+.idea
+.vscode
+sonobuoy*
+
+# Bazel directories
+cluster-provision/gocli/bazel-*
+
+# image builder
+*.qcow2
+cluster-provision/images/vm-image-builder/*_build
+
+cluster-provision/gocli/cover.out
