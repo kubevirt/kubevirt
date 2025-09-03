@@ -23,14 +23,18 @@ import (
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
-func WithNetBindingPlugin(name string, netBindingPlugin v1.InterfaceBindingPlugin) error {
+func WithNetBindingPluginNoOverride(name string, netBindingPlugin v1.InterfaceBindingPlugin) error {
 	return RegisterKubevirtConfigChange(func(c v1.KubeVirtConfiguration) (*patch.PatchSet, error) {
+		if netConf := c.NetworkConfiguration; netConf != nil && netConf.Binding != nil {
+			if _, exist := netConf.Binding[name]; exist {
+				return &patch.PatchSet{}, nil
+			}
+		}
 		return registerBindingPugins(c, name, netBindingPlugin)
 	})
 }

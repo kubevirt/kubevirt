@@ -51,7 +51,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			const passtBindingName = "passt"
 			passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
-			err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
+			err := config.WithNetBindingPluginNoOverride(passtBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage:                passtSidecarImage,
 				NetworkAttachmentDefinition: passtNetAttDefName,
 			})
@@ -108,7 +108,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 		})
 
 		BeforeEach(func() {
-			err := config.WithNetBindingPlugin(macvtapBindingName, v1.InterfaceBindingPlugin{DomainAttachmentType: v1.Tap})
+			err := config.WithNetBindingPluginNoOverride(macvtapBindingName, v1.InterfaceBindingPlugin{DomainAttachmentType: v1.Tap})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -147,7 +147,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 		)
 
 		BeforeEach(func() {
-			err := config.WithNetBindingPlugin(bindingName, v1.InterfaceBindingPlugin{DomainAttachmentType: v1.ManagedTap})
+			err := config.WithNetBindingPluginNoOverride(bindingName, v1.InterfaceBindingPlugin{DomainAttachmentType: v1.ManagedTap})
 			Expect(err).NotTo(HaveOccurred())
 		})
 

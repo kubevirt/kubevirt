@@ -55,7 +55,7 @@ var _ = Describe(SIG("Slirp", decorators.Networking, decorators.NetCustomBinding
 	BeforeEach(func() {
 		const slirpSidecarImage = "registry:5000/kubevirt/network-slirp-binding:devel"
 
-		Expect(config.WithNetBindingPlugin(slirpBindingName, v1.InterfaceBindingPlugin{
+		Expect(config.WithNetBindingPluginNoOverride(slirpBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage: slirpSidecarImage,
 		})).To(Succeed())
 	})
