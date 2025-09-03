@@ -936,7 +936,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 		res, err := indexByMigrationUID("invalid")
 		Expect(res).To(BeNil())
 		Expect(err).ToNot(HaveOccurred())
-		res, err = indexByVmiName("invalid")
+		res, err = indexByActiveVmiName("invalid")
 		Expect(res).To(BeNil())
 		Expect(err).ToNot(HaveOccurred())
 		res, err = indexBySourceMigrationID("invalid")
@@ -949,12 +949,12 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 	It("should not index migrations marked for deletion", func() {
 		migration := createSourceMigration(testMigrationID, "test-vmi", "", k8sv1.NamespaceDefault)
-		res, err := indexByVmiName(migration)
+		res, err := indexByActiveVmiName(migration)
 		Expect(res).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 
 		migration.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-		res, err = indexByVmiName(migration)
+		res, err = indexByActiveVmiName(migration)
 		Expect(res).To(BeEmpty())
 		Expect(err).ToNot(HaveOccurred())
 	})
