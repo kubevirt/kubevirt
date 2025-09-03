@@ -8,6 +8,7 @@ go_library(
         "endpointhints.go",
         "endpointport.go",
         "endpointslice.go",
+        "fornode.go",
         "forzone.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/applyconfigurations/discovery/v1",

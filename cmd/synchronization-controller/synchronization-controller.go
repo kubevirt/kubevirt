@@ -147,7 +147,7 @@ func (app *synchronizationControllerApp) setupTLS(factory controller.KubeInforme
 	kubevirtCAConfigInformer := factory.KubeVirtCAConfigMap()
 	if err := kubevirtCAConfigInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
-		cache.DefaultWatchErrorHandler(r, err)
+		cache.DefaultWatchErrorHandler(context.Background(), r, err)
 	}); err != nil {
 		return err
 	}

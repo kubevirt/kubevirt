@@ -335,7 +335,7 @@ func Execute() {
 
 	if err := app.kubeVirtInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
-		cache.DefaultWatchErrorHandler(r, err)
+		cache.DefaultWatchErrorHandler(context.Background(), r, err)
 	}); err != nil {
 		golog.Fatalf("failed to set the watch error handler: %v", err)
 	}
