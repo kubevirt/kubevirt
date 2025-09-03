@@ -80,6 +80,18 @@ func RegisterKubevirtConfigChange(kvChangeOption ...KvChangeOption) error {
 	return err
 }
 
+func WithWorkloadUpdateStrategy(updateStrategy *v1.KubeVirtWorkloadUpdateStrategy) KvChangeOption {
+	return func(kv *v1.KubeVirt) *patch.PatchSet {
+		return patch.New(patch.WithReplace("/spec/workloadUpdateStrategy", updateStrategy))
+	}
+}
+
+func WithVMRolloutStrategy(rolloutStrategy *v1.VMRolloutStrategy) KvChangeOption {
+	return func(kv *v1.KubeVirt) *patch.PatchSet {
+		return patch.New(patch.WithReplace("/spec/configuration/vmRolloutStrategy", rolloutStrategy))
+	}
+}
+
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
 // and then waits  to allow the configuration events to be propagated to the consumers.
 func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
