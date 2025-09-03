@@ -467,6 +467,10 @@ var _ = Describe("Annotations Generator", func() {
 				`{"name":"some-net","interface":"podb1f51a511f1","mac":"8a:37:d9:e7:0f:18","dns":{}}` +
 				`{"name":"other-net","interface":"pod16477688c0e","mac":"25:bb:e2:a3:e8:4d","dns":{}}` +
 				`]`
+
+			multusNetworksAnnotationWithPasstAndIstio = `[` +
+				`{"name":"netbindingpasst","namespace":"default","cni-args":{"logicNetworkName":"default"}},` +
+				`{"name": "istio-cni", "namespace": "default"}]`
 		)
 
 		It("Should not generate network attachment annotation when there are no networks", func() {
@@ -697,6 +701,31 @@ var _ = Describe("Annotations Generator", func() {
 			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
 
 			Expect(annotations).To(HaveKeyWithValue(networkv1.NetworkAttachmentAnnot, ""))
+		})
+
+		It("Should preserve added elements added by external entities", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotationWithPasstAndIstio,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryNet,
+			}
+
+			generator := annotations.NewGenerator(stubClusterConfig{
+				registeredPlugins: map[string]v1.InterfaceBindingPlugin{
+					"passt": {
+						SidecarImage:                "passt:latest",
+						NetworkAttachmentDefinition: "default/netbindingpasst",
+					},
+				},
+			})
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
 		})
 	})
 })
