@@ -277,9 +277,12 @@ function _add_extra_mounts() {
   - containerPath: /var/log/audit
     hostPath: /var/log/audit
     readOnly: true
-  - hostPath: /dev
-    containerPath: /dev
-    propagation: HostToContainer
+  - hostPath: /dev/kvm
+    containerPath: /dev/kvm
+  - hostPath: /dev/net/tun
+    containerPath: /dev/net/tun
+  - hostPath: /dev/vhost-net
+    containerPath: /dev/vhost-net
 EOF
 
     if [[ "$KUBEVIRT_PROVIDER" =~ sriov.* || "$KUBEVIRT_PROVIDER" =~ vgpu.* ]]; then
