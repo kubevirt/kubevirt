@@ -468,8 +468,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				}
 
 				for _, network := range networks {
-					ifc, is_present := interfacesByName[network.Name]
-					Expect(is_present).To(BeTrue())
+					ifc, isPresent := interfacesByName[network.Name]
+					Expect(isPresent).To(BeTrue())
 					Expect(ifc.MAC).To(Not(BeZero()))
 				}
 				Expect(interfacesByName[masqueradeIfaceName].MAC).To(Not(Equal(interfacesByName[linuxBridgeIfaceName].MAC)))
@@ -521,7 +521,6 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 		Context("Security", func() {
 			BeforeEach(func() {
 				const (
-					bridge11CNIType       = "cnv-bridge"
 					bridge11Name          = "br11"
 					bridge11MACSpoofCheck = true
 				)
