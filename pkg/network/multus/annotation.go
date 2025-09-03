@@ -64,13 +64,12 @@ func GenerateCNIAnnotationFromNameScheme(
 	networkNameScheme map[string]string,
 	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
 ) (string, error) {
-	multusNetworkAnnotationPool := networkAnnotationPool{}
+	var networkSelectionElements []networkv1.NetworkSelectionElement
 
 	for _, network := range networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]
-			multusNetworkAnnotationPool.Add(
-				newAnnotationData(namespace, interfaces, network, podInterfaceName))
+			networkSelectionElements = append(networkSelectionElements, newAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
 
 		if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
@@ -84,34 +83,20 @@ func GenerateCNIAnnotationFromNameScheme(
 				return "", err
 			}
 			if bindingPluginAnnotationData != nil {
-				multusNetworkAnnotationPool.Add(*bindingPluginAnnotationData)
+				networkSelectionElements = append(networkSelectionElements, *bindingPluginAnnotationData)
 			}
 		}
 	}
 
-	if !multusNetworkAnnotationPool.IsEmpty() {
-		return multusNetworkAnnotationPool.ToString()
+	if len(networkSelectionElements) == 0 {
+		return "", nil
 	}
-	return "", nil
-}
 
-type networkAnnotationPool struct {
-	pool []networkv1.NetworkSelectionElement
-}
-
-func (nap *networkAnnotationPool) Add(multusNetworkAnnotation networkv1.NetworkSelectionElement) {
-	nap.pool = append(nap.pool, multusNetworkAnnotation)
-}
-
-func (nap *networkAnnotationPool) IsEmpty() bool {
-	return len(nap.pool) == 0
-}
-
-func (nap *networkAnnotationPool) ToString() (string, error) {
-	multusNetworksAnnotation, err := json.Marshal(nap.pool)
+	multusNetworksAnnotation, err := json.Marshal(networkSelectionElements)
 	if err != nil {
-		return "", fmt.Errorf("failed to create JSON list from multus interface pool %v", nap.pool)
+		return "", fmt.Errorf("failed to create JSON list from networkSelectionElements: %v", networkSelectionElements)
 	}
+
 	return string(multusNetworksAnnotation), nil
 }
 
