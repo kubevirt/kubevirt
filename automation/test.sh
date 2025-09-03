@@ -64,11 +64,13 @@ if [[ $TARGET =~ windows.* ]]; then
 elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_DYN_NET_CTRL="${KUBEVIRT_WITH_DYN_NET_CTRL:-false}"
   export KUBEVIRT_NUM_NODES=3
-  export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
-  export KUBEVIRT_DEPLOY_CDI=false
-  export KUBEVIRT_DEPLOY_ISTIO=true
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+
+  # deploys with CNAO, no CDI, with Istio by default atm
+  # export KUBEVIRT_WITH_CNAO=true
+  # export KUBEVIRT_DEPLOY_CDI=false
+  # export KUBEVIRT_DEPLOY_ISTIO=true
+  export KUBEVIRT_PROVIDER=vkind
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
   export KUBEVIRT_STORAGE="rook-ceph-default"
