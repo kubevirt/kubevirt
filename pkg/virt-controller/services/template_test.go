@@ -68,12 +68,12 @@ import (
 var testHookSidecar = hooks.HookSidecar{Image: "test-image", ImagePullPolicy: "test-policy"}
 
 var _ = Describe("Template", func() {
-	var configFactory func(string) (*virtconfig.ClusterConfig, cache.Store, TemplateService)
+	var configFactory func(string) (*virtconfig.ClusterConfig, cache.Store, *TemplateService)
 	var qemuGid int64 = 107
 	var defaultArch = "amd64"
 
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	var svc TemplateService
+	var svc *TemplateService
 
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
@@ -117,7 +117,7 @@ var _ = Describe("Template", func() {
 	})
 
 	BeforeEach(func() {
-		configFactory = func(cpuArch string) (*virtconfig.ClusterConfig, cache.Store, TemplateService) {
+		configFactory = func(cpuArch string) (*virtconfig.ClusterConfig, cache.Store, *TemplateService) {
 			config, _, kvStore := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
 
 			svc = NewTemplateService("kubevirt/virt-launcher",
@@ -2699,7 +2699,7 @@ var _ = Describe("Template", func() {
 			It("should not run privileged", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.IsPPC64() {
+				if svc.isPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
@@ -3303,7 +3303,7 @@ var _ = Describe("Template", func() {
 			It("should not run privileged", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.IsPPC64() {
+				if svc.isPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				vmi := v1.VirtualMachineInstance{
@@ -3380,7 +3380,7 @@ var _ = Describe("Template", func() {
 			It("should not run privileged", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.IsPPC64() {
+				if svc.isPPC64() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				vmi := v1.VirtualMachineInstance{
