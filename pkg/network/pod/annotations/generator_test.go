@@ -653,11 +653,15 @@ var _ = Describe("Annotations Generator", func() {
 		})
 
 		It("Should generate network attachment annotation when a secondary interface is hot unplugged", func() {
+			ifaceWithStateAbsent := libvmi.InterfaceDeviceWithBridgeBinding(network1Name)
+			ifaceWithStateAbsent.State = v1.InterfaceStateAbsent
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(ifaceWithStateAbsent),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network2Name)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
 			)
 
@@ -674,10 +678,14 @@ var _ = Describe("Annotations Generator", func() {
 		})
 
 		It("Should remove the Multus network attachment annotation when the last secondary interface is hot unplugged", func() {
+			ifaceWithStateAbsent := libvmi.InterfaceDeviceWithBridgeBinding(network1Name)
+			ifaceWithStateAbsent.State = v1.InterfaceStateAbsent
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(ifaceWithStateAbsent),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
 			)
 
 			podAnnotations := map[string]string{
