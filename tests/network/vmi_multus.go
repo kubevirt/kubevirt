@@ -93,13 +93,6 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 	var nodes *k8sv1.NodeList
 
-	defaultInterface := v1.Interface{
-		Name: masqueradeIfaceName,
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{
-			Masquerade: &v1.InterfaceMasquerade{},
-		},
-	}
-
 	linuxBridgeInterface := v1.Interface{
 		Name: linuxBridgeIfaceName,
 		InterfaceBindingMethod: v1.InterfaceBindingMethod{
@@ -111,13 +104,6 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 		Name: linuxBridgeWithIPAMIfaceName,
 		InterfaceBindingMethod: v1.InterfaceBindingMethod{
 			Bridge: &v1.InterfaceBridge{},
-		},
-	}
-
-	defaultNetwork := v1.Network{
-		Name: masqueradeIfaceName,
-		NetworkSource: v1.NetworkSource{
-			Pod: &v1.PodNetwork{},
 		},
 	}
 
@@ -337,8 +323,20 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				Expect(libnet.PingFromVMConsole(vmiOne, ipAddr)).To(Succeed())
 			},
 				Entry("[test_id:1577]with secondary network only", []v1.Interface{linuxBridgeInterface}, []v1.Network{linuxBridgeNetwork}, "eth0", ptpSubnetIP1+ptpSubnetMask, ptpSubnetIP2+ptpSubnetMask),
-				Entry("[test_id:1578]with default network and secondary network", []v1.Interface{defaultInterface, linuxBridgeInterface}, []v1.Network{defaultNetwork, linuxBridgeNetwork}, "eth1", ptpSubnetIP1+ptpSubnetMask, ptpSubnetIP2+ptpSubnetMask),
-				Entry("with default network and secondary network with IPAM", []v1.Interface{defaultInterface, linuxBridgeInterfaceWithIPAM}, []v1.Network{defaultNetwork, linuxBridgeWithIPAMNetwork}, "eth1", "", ""),
+				Entry("[test_id:1578]with default network and secondary network",
+					[]v1.Interface{*v1.DefaultMasqueradeNetworkInterface(), linuxBridgeInterface},
+					[]v1.Network{*v1.DefaultPodNetwork(), linuxBridgeNetwork},
+					"eth1",
+					ptpSubnetIP1+ptpSubnetMask,
+					ptpSubnetIP2+ptpSubnetMask,
+				),
+				Entry("with default network and secondary network with IPAM",
+					[]v1.Interface{*v1.DefaultMasqueradeNetworkInterface(), linuxBridgeInterfaceWithIPAM},
+					[]v1.Network{*v1.DefaultPodNetwork(), linuxBridgeWithIPAMNetwork},
+					"eth1",
+					"",
+					"",
+				),
 			)
 		})
 
@@ -421,11 +419,11 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 		Context("Single VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
 			It("[test_id:1756]should report all interfaces in Status", func() {
 				interfaces := []v1.Interface{
-					defaultInterface,
+					*v1.DefaultMasqueradeNetworkInterface(),
 					linuxBridgeInterface,
 				}
 				networks := []v1.Network{
-					defaultNetwork,
+					*v1.DefaultPodNetwork(),
 					linuxBridgeNetwork,
 				}
 
@@ -582,11 +580,11 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 		Context("with qemu guest agent", func() {
 			It("[test_id:1757] should report guest interfaces in VMI status", func() {
 				interfaces := []v1.Interface{
-					defaultInterface,
+					*v1.DefaultMasqueradeNetworkInterface(),
 					linuxBridgeInterface,
 				}
 				networks := []v1.Network{
-					defaultNetwork,
+					*v1.DefaultPodNetwork(),
 					linuxBridgeNetwork,
 				}
 
