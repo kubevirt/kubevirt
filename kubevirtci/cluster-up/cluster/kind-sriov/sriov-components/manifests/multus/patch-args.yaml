@@ -1,6 +1,0 @@
-- op: add
-  path: /spec/template/spec/containers/0/args/-
-  value: "--multus-log-level=debug"
-- op: add
-  path: /spec/template/spec/containers/0/args/-
-  value: "--multus-log-file=/var/log/multus.log"

@@ -1,0 +1,104 @@
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-network-policies
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - namespaces
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+     - "networking.k8s.io"
+    resources:
+      - networkpolicies
+    verbs:
+      - list
+      - watch
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-network-policies
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-network-policies
+subjects:
+- kind: ServiceAccount
+  name: kube-network-policies
+  namespace: kube-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-network-policies
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kube-network-policies
+  namespace: kube-system
+  labels:
+    tier: node
+    app: kube-network-policies
+    k8s-app: kube-network-policies
+spec:
+  selector:
+    matchLabels:
+      app: kube-network-policies
+  template:
+    metadata:
+      labels:
+        tier: node
+        app: kube-network-policies
+        k8s-app: kube-network-policies
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      serviceAccountName: kube-network-policies
+      containers:
+      - name: kube-network-policies
+        image: registry.k8s.io/networking/kube-network-policies:v0.8.1
+        args:
+        - /bin/netpol
+        - --hostname-override=$(MY_NODE_NAME)
+        - --v=2
+        - --nfqueue-id=98
+        volumeMounts:
+        - name: nri-plugin
+          mountPath: /var/run/nri
+        - name: netns
+          mountPath: /var/run/netns
+          mountPropagation: HostToContainer
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "50Mi"
+        securityContext:
+          privileged: true
+          capabilities:
+            add: ["NET_ADMIN"]
+        env:
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      volumes:
+      - name: nri-plugin
+        hostPath:
+          path: /var/run/nri
+      - name: netns
+        hostPath:
+          path: /var/run/netns
+---
