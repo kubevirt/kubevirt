@@ -113,7 +113,7 @@ var _ = Describe("time defined cache", func() {
 	Context("keep value updated", func() {
 		It("should keep value updated if method is used", func() {
 			By("creating a cache with a refresh duration")
-			cache, err := virtcache.NewTimeDefinedCache(100*time.Millisecond, false, getMockCalcFunc())
+			cache, err := virtcache.NewTimeDefinedCache(100*time.Millisecond, true, getMockCalcFunc())
 			Expect(err).ToNot(HaveOccurred())
 
 			By("using the KeepValueUpdated() method")
