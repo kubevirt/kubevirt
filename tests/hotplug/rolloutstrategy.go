@@ -2,8 +2,6 @@ package hotplug
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,10 +18,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -40,16 +37,10 @@ var _ = Describe("[sig-compute]VM Rollout Strategy", decorators.SigCompute, Seri
 	Context("When using the Stage rollout strategy", func() {
 		BeforeEach(func() {
 			rolloutStrategy := pointer.P(v1.VMRolloutStrategyStage)
-			rolloutData, err := json.Marshal(rolloutStrategy)
-			Expect(err).To(Not(HaveOccurred()))
-
-			data := fmt.Sprintf(`[{"op": "replace", "path": "/spec/configuration/vmRolloutStrategy", "value": %s}]`, string(rolloutData))
-
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(data), metav1.PatchOptions{})
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			err := config.RegisterKubevirtConfigChange(
+				config.WithVMRolloutStrategy(rolloutStrategy),
+			)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:11207]should set RestartRequired when changing any spec field", func() {

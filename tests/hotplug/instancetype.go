@@ -46,12 +46,15 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		originalKv := libkubevirt.GetCurrentKv(virtClient)
 		updateStrategy := &virtv1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []virtv1.WorkloadUpdateMethod{virtv1.WorkloadUpdateMethodLiveMigrate},
 		}
 		rolloutStrategy := pointer.P(virtv1.VMRolloutStrategyLiveUpdate)
-		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
+		err := config.RegisterKubevirtConfigChange(
+			config.WithWorkloadUpdateStrategy(updateStrategy),
+			config.WithVMRolloutStrategy(rolloutStrategy),
+		)
+		Expect(err).ToNot(HaveOccurred())
 
 		currentKv := libkubevirt.GetCurrentKv(virtClient)
 		config.WaitForConfigToBePropagatedToComponent(
