@@ -180,9 +180,9 @@ func createPVC(pvc *k8sv1.PersistentVolumeClaim, namespace string) *k8sv1.Persis
 	return createdPvc
 }
 
-func CreateFSPVC(name, namespace, size string, labels map[string]string) *k8sv1.PersistentVolumeClaim {
+func CreateFSPVC(name, namespace, size string, labels map[string]string, opts ...Option) *k8sv1.PersistentVolumeClaim {
 	sc, _ := GetRWOFileSystemStorageClass()
-	pvc := NewPVC(name, size, sc)
+	pvc := NewPVC(name, size, sc, opts...)
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 	pvc.Spec.VolumeMode = &volumeMode
 	if labels != nil && pvc.Labels == nil {
@@ -196,18 +196,9 @@ func CreateFSPVC(name, namespace, size string, labels map[string]string) *k8sv1.
 	return createPVC(pvc, namespace)
 }
 
-func CreateRWXFSPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
-	sc, _ := GetRWXFileSystemStorageClass()
-	pvc := NewPVC(name, size, sc)
-	pvc.Spec.VolumeMode = pointer.P(k8sv1.PersistentVolumeFilesystem)
-	pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}
-
-	return createPVC(pvc, namespace)
-}
-
-func CreateBlockPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
+func CreateBlockPVC(name, namespace, size string, opts ...Option) *k8sv1.PersistentVolumeClaim {
 	sc, _ := GetRWOBlockStorageClass()
-	pvc := NewPVC(name, size, sc)
+	pvc := NewPVC(name, size, sc, opts...)
 	volumeMode := k8sv1.PersistentVolumeBlock
 	pvc.Spec.VolumeMode = &volumeMode
 

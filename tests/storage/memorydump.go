@@ -319,7 +319,7 @@ var _ = Describe(SIG("Memory dump", func() {
 
 			vm = createAndStartVM()
 
-			memoryDumpPVC = libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(vm), memoryDumpPVCSize, nil)
+			memoryDumpPVC = libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(vm), memoryDumpPVCSize, nil, libstorage.WithStorageProfile())
 		})
 
 		AfterEach(func() {
@@ -364,7 +364,7 @@ var _ = Describe(SIG("Memory dump", func() {
 			By("Running remove memory dump to pvc: " + memoryDumpPVCName)
 			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVMSubresource)
 
-			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), memoryDumpPVCSize, nil)
+			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), memoryDumpPVCSize, nil, libstorage.WithStorageProfile())
 			By("Running memory dump to other pvc: " + memoryDumpPVCName2)
 			previousOutput = createMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, memoryDumpVMSubresource)
 
@@ -410,7 +410,7 @@ var _ = Describe(SIG("Memory dump", func() {
 
 		It("[test_id:8501]Run memory dump with pvc too small should fail", func() {
 			By("Trying to get memory dump with small pvc")
-			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), "200Mi", nil)
+			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), "200Mi", nil, libstorage.WithStorageProfile())
 			Eventually(func() error {
 				return virtClient.VirtualMachine(vm.Namespace).MemoryDump(context.Background(), vm.Name, &v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: memoryDumpPVC2.Name,

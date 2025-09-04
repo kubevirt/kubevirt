@@ -148,10 +148,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			destPVC string
 		)
 		const (
-			fsPVC            = "filesystem"
-			blockPVC         = "block"
-			size             = "1Gi"
-			sizeWithOverhead = "1.2Gi"
+			fsPVC    = "filesystem"
+			blockPVC = "block"
+			size     = "1Gi"
 		)
 
 		waitMigrationToNotExist := func(vmiName, ns string) {
@@ -331,10 +330,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				var dstPVC *k8sv1.PersistentVolumeClaim
 				switch mode {
 				case fsPVC:
-					// Add some overhead to the target PVC for filesystem.
-					dstPVC = libstorage.CreateFSPVC(destPVC, ns, sizeWithOverhead, nil)
+					dstPVC = libstorage.CreateFSPVC(destPVC, ns, size, nil, libstorage.WithStorageProfile())
 				case blockPVC:
-					dstPVC = libstorage.CreateBlockPVC(destPVC, ns, size)
+					dstPVC = libstorage.CreateBlockPVC(destPVC, ns, size, libstorage.WithStorageProfile())
 				default:
 					Fail("Unrecognized mode")
 				}
@@ -482,7 +480,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			}, 120*time.Second, time.Second).Should(Equal(virtv1.MigrationPending))
 
 			By("Create the destination PVC")
-			libstorage.CreateFSPVC(destPVC, ns, "2Gi", nil)
+			libstorage.CreateFSPVC(destPVC, ns, "2Gi", nil, libstorage.WithStorageProfile())
 
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 
@@ -572,8 +570,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		It("should migrate a PVC with a VM using a containerdisk", func() {
 			volName := "volume"
 			srcPVC := "src-" + rand.String(5)
-			libstorage.CreateFSPVC(srcPVC, ns, size, nil)
-			libstorage.CreateFSPVC(destPVC, ns, size, nil)
+			libstorage.CreateFSPVC(srcPVC, ns, size, nil, libstorage.WithStorageProfile())
+			libstorage.CreateFSPVC(destPVC, ns, size, nil, libstorage.WithStorageProfile())
 			vmi := libvmifact.NewCirros(
 				libvmi.WithNamespace(ns),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -840,7 +838,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 			It("when the copy of the destination volumes was successful", func() {
 				dv := createDV()
-				libstorage.CreateFSPVC(destPVC, ns, sizeWithOverhead, nil)
+				libstorage.CreateFSPVC(destPVC, ns, size, nil, libstorage.WithStorageProfile())
 				vm := createAndStartVM(dv)
 
 				By("Update volumes")
@@ -1243,7 +1241,7 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 	virtCli := kubevirt.Client()
 	vmi, err := virtCli.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ShouldNot(HaveOccurred())
-	libstorage.CreateFSPVC(name, vmi.Namespace, size, nil)
+	libstorage.CreateFSPVC(name, vmi.Namespace, size, nil, libstorage.WithStorageProfile())
 	vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 	Expect(err).ShouldNot(HaveOccurred())
 	volume := k8sv1.Volume{
