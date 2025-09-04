@@ -16,6 +16,7 @@
  * Copyright 2019 Red Hat, Inc.
  *
  */
+
 package rest
 
 import (
@@ -61,6 +62,7 @@ func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *res
 	if err != nil {
 		return
 	}
+	defer client.Close()
 
 	err = client.PauseVirtualMachine(vmi)
 	if err != nil {
@@ -77,6 +79,7 @@ func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *r
 	if err != nil {
 		return
 	}
+	defer client.Close()
 
 	err = client.UnpauseVirtualMachine(vmi)
 	if err != nil {
@@ -93,6 +96,7 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 	if err != nil {
 		return
 	}
+	defer client.Close()
 
 	unfreezeTimeout := &v1.FreezeUnfreezeTimeout{}
 	if request.Request.Body == nil {
@@ -134,6 +138,7 @@ func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *
 	if err != nil {
 		return
 	}
+	defer client.Close()
 
 	err = client.UnfreezeVirtualMachine(vmi)
 	if err != nil {
@@ -150,6 +155,7 @@ func (lh *LifecycleHandler) SoftRebootHandler(request *restful.Request, response
 	if err != nil {
 		return
 	}
+	defer client.Close()
 
 	err = client.SoftRebootVirtualMachine(vmi)
 	if err != nil {
@@ -168,6 +174,7 @@ func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *res
 	if err != nil {
 		return
 	}
+	defer client.Close()
 
 	log.Log.Object(vmi).Infof("Retreiving guestinfo from %s", vmi.Name)
 
@@ -187,6 +194,7 @@ func (lh *LifecycleHandler) GetUsers(request *restful.Request, response *restful
 	if err != nil {
 		return
 	}
+	defer client.Close()
 
 	log.Log.Object(vmi).Infof("Retreiving userlist from %s", vmi.Name)
 
@@ -205,6 +213,7 @@ func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *r
 	if err != nil {
 		return
 	}
+	defer client.Close()
 
 	log.Log.Object(vmi).Infof("Retreiving filesystem list from %s", vmi.Name)
 
