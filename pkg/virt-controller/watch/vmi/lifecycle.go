@@ -21,6 +21,7 @@ package vmi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -32,6 +33,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/trace"
@@ -819,16 +821,20 @@ func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance
 			})
 		}
 	}
-	patchSet := preparePodPatch(pod, podCopy)
-	if patchSet.IsEmpty() {
+	if podConditions.ConditionsEqual(pod, podCopy) {
 		return nil
 	}
-	patchBytes, err := patchSet.GeneratePayload()
+	originalBytes, err := json.Marshal(pod)
+	if err != nil {
+		return fmt.Errorf("could not serialize original object: %v", err)
+	}
+	modifiedBytes, err := json.Marshal(podCopy)
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalBytes, modifiedBytes, k8sv1.Pod{})
 	if err != nil {
 		return fmt.Errorf("error preparing pod patch: %v", err)
 	}
 	log.Log.V(3).Object(pod).Infof("Patching pod conditions")
-	_, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}, "status")
+	_, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.StrategicMergePatchType, patchBytes, v1.PatchOptions{}, "status")
 	// We could not retry if the "test" fails but we have no sane way to detect that right now:
 	// https://github.com/kubernetes/kubernetes/issues/68202 for details
 	// So just retry like with any other errors
@@ -1089,15 +1095,4 @@ func newMigrationRequiredCondition(status k8sv1.ConditionStatus) *virtv1.Virtual
 		Reason:             reason,
 		Message:            "",
 	}
-}
-
-func preparePodPatch(oldPod, newPod *k8sv1.Pod) *patch.PatchSet {
-	podConditions := controller.NewPodConditionManager()
-	if podConditions.ConditionsEqual(oldPod, newPod) {
-		return patch.New()
-	}
-	return patch.New(
-		patch.WithTest("/status/conditions", oldPod.Status.Conditions),
-		patch.WithReplace("/status/conditions", newPod.Status.Conditions),
-	)
 }
