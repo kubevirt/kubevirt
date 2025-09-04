@@ -224,6 +224,11 @@ func GetWFFCStorageSnapshotClass(client kubecli.KubevirtClient) (string, error) 
 	return "", nil
 }
 
+func GetCSIStorageClass() (string, bool) {
+	storageClassCSI := Config.StorageClassCSI
+	return storageClassCSI, storageClassCSI != ""
+}
+
 func GetRWXFileSystemStorageClass() (string, bool) {
 	storageRWXFileSystem := Config.StorageRWXFileSystem
 	return storageRWXFileSystem, storageRWXFileSystem != ""
