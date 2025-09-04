@@ -5,11 +5,8 @@ import (
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
-	virtapi "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
-	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
-	virthandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
-	virtoperator "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 
 	"github.com/machadovilaca/operator-observability/pkg/docs"
 )
@@ -41,31 +38,7 @@ this document.
 `
 
 func main() {
-	if err := virtcontroller.SetupMetrics(nil, nil, nil, nil, nil, nil, nil); err != nil {
-		panic(err)
-	}
-
-	if err := virtcontroller.RegisterLeaderMetrics(); err != nil {
-		panic(err)
-	}
-
-	if err := virtapi.SetupMetrics(); err != nil {
-		panic(err)
-	}
-
-	if err := virtoperator.SetupMetrics(); err != nil {
-		panic(err)
-	}
-
-	if err := virtoperator.RegisterLeaderMetrics(); err != nil {
-		panic(err)
-	}
-
-	if err := virthandler.SetupMetrics("", "", 0, nil); err != nil {
-		panic(err)
-	}
-
-	if err := rules.SetupRules(""); err != nil {
+	if err := libmonitoring.RegisterAllMetrics(); err != nil {
 		panic(err)
 	}
 
