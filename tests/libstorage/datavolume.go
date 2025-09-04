@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 )
@@ -67,6 +68,56 @@ func AddDataVolume(vm *v1.VirtualMachine, diskName string, dataVolume *v1beta1.D
 			},
 		},
 	})
+}
+
+func CreateBlankFSDataVolume(name, namespace, size string, labels map[string]string) *v1beta1.DataVolume {
+	sc, _ := GetRWOFileSystemStorageClass()
+	dv := libdv.NewDataVolume(
+		libdv.WithNamespace(namespace),
+		libdv.WithName(name),
+		libdv.WithBlankImageSource(),
+		libdv.WithStorage(
+			libdv.StorageWithVolumeSize(size),
+			libdv.StorageWithStorageClass(sc),
+			libdv.StorageWithFilesystemVolumeMode(),
+		),
+	)
+	if labels != nil && dv.Labels == nil {
+		dv.Labels = map[string]string{}
+	}
+	for key, value := range labels {
+		dv.Labels[key] = value
+	}
+
+	return createDataVolume(dv, namespace)
+}
+
+func CreateBlankBlockDataVolume(name, namespace, size string) *v1beta1.DataVolume {
+	sc, _ := GetRWOBlockStorageClass()
+	dv := libdv.NewDataVolume(
+		libdv.WithNamespace(namespace),
+		libdv.WithName(name),
+		libdv.WithBlankImageSource(),
+		libdv.WithStorage(
+			libdv.StorageWithVolumeSize(size),
+			libdv.StorageWithStorageClass(sc),
+			libdv.StorageWithBlockVolumeMode(),
+		),
+	)
+
+	return createDataVolume(dv, namespace)
+}
+
+func createDataVolume(dv *v1beta1.DataVolume, namespace string) *v1beta1.DataVolume {
+	virtClient := kubevirt.Client()
+	dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, v12.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() error {
+		_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), dv.Name, v12.GetOptions{})
+		return err
+	}, time.Minute, time.Second).Should(Succeed())
+
+	return dv
 }
 
 func EventuallyDV(dv *v1beta1.DataVolume, timeoutSec int, matcher gomegatypes.GomegaMatcher) {

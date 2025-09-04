@@ -87,7 +87,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 	createSCSIDisk := func(podName, pvc string) {
 		diskSize := "1G"
 		// Create PVC where we store the backend storage for the SCSI disks
-		libstorage.CreateFSPVC(pvc, testsuite.NamespacePrivileged, diskSize, nil)
+		libstorage.CreateFSPVC(pvc, testsuite.NamespacePrivileged, diskSize, libstorage.WithStorageProfile())
 		// Create targetcli container
 		By("Create targetcli pod")
 		pod, err := libpod.Run(libpod.RenderTargetcliPod(podName, pvc), testsuite.NamespacePrivileged)

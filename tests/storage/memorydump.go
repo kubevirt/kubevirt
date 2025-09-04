@@ -99,33 +99,6 @@ var _ = Describe(SIG("Memory dump", func() {
 		return vm
 	}
 
-	waitDeleted := func(deleteFunc func() error) {
-		Eventually(func() error {
-			return deleteFunc()
-		}, 180*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-	}
-
-	deleteVirtualMachine := func(vm *v1.VirtualMachine) {
-		waitDeleted(func() error {
-			return virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
-		})
-		vm = nil
-	}
-
-	deletePod := func(pod *k8sv1.Pod) {
-		waitDeleted(func() error {
-			return virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
-		})
-		pod = nil
-	}
-
-	deletePVC := func(pvc *k8sv1.PersistentVolumeClaim) {
-		waitDeleted(func() error {
-			return virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(context.Background(), pvc.Name, metav1.DeleteOptions{})
-		})
-		pvc = nil
-	}
-
 	verifyMemoryDumpNotOnVMI := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
 			updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -256,7 +229,6 @@ var _ = Describe(SIG("Memory dump", func() {
 			Expect(lsOutput).ToNot(Equal(previousOutput))
 		}
 
-		deletePod(executorPod)
 		return lsOutput
 	}
 
@@ -319,19 +291,7 @@ var _ = Describe(SIG("Memory dump", func() {
 
 			vm = createAndStartVM()
 
-			memoryDumpPVC = libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(vm), memoryDumpPVCSize, nil)
-		})
-
-		AfterEach(func() {
-			if vm != nil {
-				deleteVirtualMachine(vm)
-			}
-			if memoryDumpPVC != nil {
-				deletePVC(memoryDumpPVC)
-			}
-			if memoryDumpPVC2 != nil {
-				deletePVC(memoryDumpPVC2)
-			}
+			memoryDumpPVC = libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(vm), memoryDumpPVCSize, libstorage.WithStorageProfile())
 		})
 
 		It("[test_id:8499]Should be able to get and remove memory dump calling endpoint directly", func() {
@@ -364,7 +324,7 @@ var _ = Describe(SIG("Memory dump", func() {
 			By("Running remove memory dump to pvc: " + memoryDumpPVCName)
 			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVMSubresource)
 
-			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), memoryDumpPVCSize, nil)
+			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), memoryDumpPVCSize, libstorage.WithStorageProfile())
 			By("Running memory dump to other pvc: " + memoryDumpPVCName2)
 			previousOutput = createMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, memoryDumpVMSubresource)
 
@@ -410,7 +370,7 @@ var _ = Describe(SIG("Memory dump", func() {
 
 		It("[test_id:8501]Run memory dump with pvc too small should fail", func() {
 			By("Trying to get memory dump with small pvc")
-			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), "200Mi", nil)
+			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), "200Mi", libstorage.WithStorageProfile())
 			Eventually(func() error {
 				return virtClient.VirtualMachine(vm.Namespace).MemoryDump(context.Background(), vm.Name, &v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: memoryDumpPVC2.Name,
