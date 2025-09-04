@@ -20,7 +20,6 @@
 package cache_test
 
 import (
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -86,7 +85,8 @@ var _ = Describe("time defined cache", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		const goroutineCount = 20
-		getReturnValues := make(chan int, goroutineCount)
+		getReturnValues := make(chan int)
+		defer close(getReturnValues)
 		getValueFromCache := func() {
 			defer GinkgoRecover()
 			ret, err := cache.Get()
@@ -100,13 +100,14 @@ var _ = Describe("time defined cache", func() {
 
 		Consistently(getReturnValues).Should(BeEmpty(), "all go routines should wait for the first one to finish")
 		Eventually(firstCallBarrier).Should(Receive(), "first go routine should start re-calculating")
-		Eventually(getReturnValues).Should(HaveLen(goroutineCount), fmt.Sprintf("expected all go routines to finish calling Get(). %d/%d finished", len(getReturnValues), goroutineCount))
 
-		close(getReturnValues)
-		for getValue := range getReturnValues {
-			Expect(getValue).To(Equal(1), "Get() calls are expected to return the cached value")
+		var val int
+		for _ = range goroutineCount {
+			Eventually(getReturnValues).Should(Receive(&val), "Get() calls are expected to return the cached value")
+			Expect(val).To(Equal(1))
 		}
-		Expect(firstCallBarrier).To(BeEmpty(), "ensure no other go routine called the re-calculation funtion")
+		Expect(getReturnValues).NotTo(Receive())
+		Expect(firstCallBarrier).To(BeEmpty(), "ensure no other go routine called the re-calculation function")
 	})
 
 	Context("keep value updated", func() {
