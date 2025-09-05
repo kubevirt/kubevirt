@@ -2,7 +2,7 @@ name: PR Quality Check
 
 on:
   pull_request:
-    branches: ["main"]
+    branches: ["main", "eugene/*"]
   workflow_dispatch:
   workflow_call:
 
