@@ -1,0 +1,19 @@
+name: PR Quality Check
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  Linting:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Linting
+        run: |
+          make format
+          make lint

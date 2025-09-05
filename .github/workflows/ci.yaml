@@ -7,17 +7,17 @@ on:
 
 env:
   DOCKER_PREFIX: ghcr.io/${{ github.repository }}
-  DOCKER_TAG: ${{ vars.MAJOR_VERSION }}.${{ vars.MINOR_VERSION }}.${{ vars.HF_VERSION }}-${{ github.run_number }}
+  DOCKER_TAG: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
   
 
 
 jobs:
-  # quality-check:
-  #   uses: ./.github/workflows/pr.yaml
+  quality-check:
+    uses: ./.github/workflows/pr.yaml
     
   Build_Push_Images:
     runs-on: ubuntu-latest
-    # needs: [quality-check]
+    needs: [quality-check]
     permissions: write-all
     steps:
       - name: Checkout
