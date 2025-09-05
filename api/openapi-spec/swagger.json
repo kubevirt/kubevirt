@@ -20697,6 +20697,9 @@
       "type": "string",
       "default": ""
      },
+     "volumeOwnershipPolicy": {
+      "type": "string"
+     },
      "volumeRestoreOverrides": {
       "description": "VolumeRestoreOverrides gives the option to change properties of each restored volume For example, specifying the name of the restored volume, or adding labels/annotations to it",
       "type": "array",

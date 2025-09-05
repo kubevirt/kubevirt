@@ -25274,6 +25274,10 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         virtualMachineSnapshotName:
           type: string
+        volumeOwnershipPolicy:
+          description: VolumeOwnershipPolicy defines what owns volumes once they're
+            restored
+          type: string
         volumeRestoreOverrides:
           description: |-
             VolumeRestoreOverrides gives the option to change properties of each restored volume
