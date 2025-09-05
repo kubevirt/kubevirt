@@ -28,5 +28,4 @@ fi
 
 bazel test \
     --config=${ARCHITECTURE} \
-    --features race \
     --test_output=errors -- ${WHAT}

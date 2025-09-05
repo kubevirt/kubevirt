@@ -43,6 +43,7 @@ go_test(
         "nodeselector_test.go",
         "scheduler_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/instancetype/conflict:go_default_library",

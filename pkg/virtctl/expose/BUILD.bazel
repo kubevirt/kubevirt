@@ -23,6 +23,7 @@ go_test(
         "expose_suite_test.go",
         "expose_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/libvmi:go_default_library",

@@ -31,6 +31,7 @@ go_test(
         "nad_test.go",
         "status_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
