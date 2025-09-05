@@ -32,6 +32,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -324,6 +325,56 @@ var _ = Describe("PVC source", func() {
 				},
 			},
 		})
+		return vm
+	}
+
+	createVMWithDataVolumeTemplates := func(pvcName string) *virtv1.VirtualMachine {
+		vm := createVMWithoutVolumes()
+		vm.Spec.DataVolumeTemplates = []virtv1.DataVolumeTemplateSpec{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      pvcName,
+					Namespace: testNamespace,
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					Source: &cdiv1.DataVolumeSource{
+						HTTP: &cdiv1.DataVolumeSourceHTTP{
+							URL: "https://download.fedoraproject.org/pub/fedora/linux/releases/40/Cloud/x86_64/images/Fedora-Cloud-Base-AmazonEC2.x86_64-40-1.14.raw.xz",
+						},
+					},
+					Storage: &cdiv1.StorageSpec{
+						AccessModes: []k8sv1.PersistentVolumeAccessMode{
+							k8sv1.ReadWriteMany,
+						},
+						Resources: k8sv1.VolumeResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+							},
+						},
+					},
+				},
+			},
+		}
+
+		volume1 := virtv1.Volume{
+			Name: "datavolumedisk1",
+			VolumeSource: virtv1.VolumeSource{
+				DataVolume: &virtv1.DataVolumeSource{
+					Name: pvcName,
+				},
+			},
+		}
+		volume2 := virtv1.Volume{
+			Name: "cloudinitdisk",
+			VolumeSource: virtv1.VolumeSource{
+				CloudInitNoCloud: &virtv1.CloudInitNoCloudSource{
+					UserData: "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n",
+				},
+			},
+		}
+
+		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume1, volume2)
+
 		return vm
 	}
 
@@ -629,4 +680,27 @@ var _ = Describe("PVC source", func() {
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 		testutils.ExpectEvent(recorder, exporterPodFailedOrCompletedEvent)
 	})
+
+	It("Should correctly handle PVCs that have dots in their names", func() {
+		testVMExport := createVMVMExport()
+		controller.VMInformer.GetStore().Add(createVMWithDataVolumeTemplates("mydisk.example.local"))
+		controller.PVCInformer.GetStore().Add(createPVC("mydisk.example.local", "kubevirt"))
+		controller.VMExportInformer.GetStore().Add(testVMExport)
+
+		expectExporterCreateReady(k8sClient)
+
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			verifyInternalLinkHasVolume(vmExport, "mydisk.example.local")
+			return true, vmExport, nil
+		})
+
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+	})
+
 })
