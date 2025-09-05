@@ -775,6 +775,9 @@ type DiskTarget struct {
 type LaunchSecurity struct {
 	// AMD Secure Encrypted Virtualization (SEV).
 	SEV *SEV `json:"sev,omitempty"`
+	// AMD SEV-SNP flags defined by the SEV-SNP specifications.
+	// +optional
+	SNP *SEVSNP `json:"snp,omitempty"`
 }
 
 type SEV struct {
@@ -795,6 +798,9 @@ type SEVPolicy struct {
 	// Defaults to false.
 	// +optional
 	EncryptedState *bool `json:"encryptedState,omitempty"`
+}
+
+type SEVSNP struct {
 }
 
 type SEVAttestation struct {

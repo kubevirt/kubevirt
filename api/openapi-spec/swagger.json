@@ -15224,6 +15224,10 @@
      "sev": {
       "description": "AMD Secure Encrypted Virtualization (SEV).",
       "$ref": "#/definitions/v1.SEV"
+     },
+     "snp": {
+      "description": "AMD SEV-SNP flags defined by the SEV-SNP specifications.",
+      "$ref": "#/definitions/v1.SEVSNP"
      }
     }
    },
@@ -16273,6 +16277,9 @@
       "type": "boolean"
      }
     }
+   },
+   "v1.SEVSNP": {
+    "type": "object"
    },
    "v1.SEVSecretOptions": {
     "description": "SEVSecretOptions is used to provide a secret for a running guest.",
