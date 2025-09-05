@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -40,8 +41,16 @@ import (
 type addVolFunc func(diskName, pvcName string, diskOpts ...libvmi.DiskOption) libvmi.Option
 
 var _ = Describe("Volume Hotplug", func() {
+	const (
+		volumeName = "hotplugvolume_1"
+		diskName   = "hotplugdisk_1"
+	)
 	var virtClient *kubecli.MockKubevirtClient
 	var virtFakeClient *fake.Clientset
+
+	serialFunc := func(diskName string) string {
+		return uuid.NewSHA1(uuid.NameSpaceDNS, []byte(diskName)).String()
+	}
 
 	BeforeEach(func() {
 		virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
@@ -76,7 +85,7 @@ var _ = Describe("Volume Hotplug", func() {
 			opts := []libvmi.Option{
 				libvmi.WithDataVolume("perm", "perm"),
 			}
-			allOpts := append(opts, libvmi.WithHotplugDataVolume("hotplugdisk_1", "hotplugvolume_1"))
+			allOpts := append(opts, libvmi.WithHotplugDataVolume(diskName, volumeName))
 			origVMI := libvmi.New(opts...)
 			postVMI := libvmi.New(append(allOpts, libvmi.WithName(origVMI.Name))...)
 			vm := libvmi.NewVirtualMachine(postVMI)
@@ -91,7 +100,7 @@ var _ = Describe("Volume Hotplug", func() {
 				libvmi.WithDataVolume("perm", "perm"),
 				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 			}
-			allOpts := append(opts, libvmi.WithDataVolume("hotplugdisk_1", "hotplugvolume_1"))
+			allOpts := append(opts, libvmi.WithDataVolume(diskName, volumeName))
 			origVMI := libvmi.New(opts...)
 			postVMI := libvmi.New(append(allOpts, libvmi.WithName(origVMI.Name))...)
 			vm := libvmi.NewVirtualMachine(postVMI)
@@ -108,7 +117,11 @@ var _ = Describe("Volume Hotplug", func() {
 			}
 			allOpts := opts
 			for i := 1; i <= numDisks; i++ {
-				allOpts = append(allOpts, f(fmt.Sprintf("hotplugdisk_%d", i), fmt.Sprintf("hotplugvolume_%d", i)))
+				allOpts = append(allOpts, f(
+					fmt.Sprintf("hotplugdisk_%d", i),
+					fmt.Sprintf("hotplugvolume_%d", i),
+					libvmi.WithSerial(serialFunc(fmt.Sprintf("hotplugdisk_%d", i))),
+				))
 			}
 			origVMI := libvmi.New(opts...)
 			postVMI := libvmi.New(append(allOpts, libvmi.WithName(origVMI.Name))...)
@@ -156,7 +169,7 @@ var _ = Describe("Volume Hotplug", func() {
 			opts := []libvmi.Option{
 				libvmi.WithDataVolume("perm", "perm"),
 				libvmi.WithDataVolume("perm2", "perm2"),
-				libvmi.WithHotplugDataVolume("hotplugdisk_1", "hotplugvolume_1"),
+				libvmi.WithHotplugDataVolume(diskName, volumeName),
 				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 			}
 			origVMI := libvmi.New(opts...)
@@ -178,13 +191,13 @@ var _ = Describe("Volume Hotplug", func() {
 						libvmistatus.WithPhase(v1.Running),
 						libvmistatus.WithVolumeStatus(
 							v1.VolumeStatus{
-								Name: "hotplugdisk_1",
+								Name: diskName,
 							},
 						),
 					),
 				),
 			}
-			allOpts := append(opts, libvmi.WithHotplugDataVolume("hotplugdisk_1", "hotplugvolume_1"))
+			allOpts := append(opts, libvmi.WithHotplugDataVolume(diskName, volumeName))
 			origVMI := libvmi.New(opts...)
 			postVMI := libvmi.New(append(allOpts, libvmi.WithName(origVMI.Name))...)
 			vm := libvmi.NewVirtualMachine(postVMI)
@@ -197,7 +210,7 @@ var _ = Describe("Volume Hotplug", func() {
 		It("should remove volume when volume changes", func() {
 			opts := []libvmi.Option{
 				libvmi.WithDataVolume("perm", "perm"),
-				libvmi.WithHotplugDataVolume("hotplugdisk_1", "hotplugvolume_1"),
+				libvmi.WithHotplugDataVolume(diskName, volumeName),
 				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 			}
 			origVMI := libvmi.New(opts...)
@@ -216,7 +229,7 @@ var _ = Describe("Volume Hotplug", func() {
 				libvmi.WithDataVolume("perm", "perm"),
 				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 			}
-			allOpts := append(opts, libvmi.WithDataVolume("hotplugdisk_1", "hotplugvolume_1"))
+			allOpts := append(opts, libvmi.WithDataVolume(diskName, volumeName))
 			origVMI := libvmi.New(opts...)
 			postVMI := libvmi.New(append(allOpts, libvmi.WithName(origVMI.Name))...)
 			vm := libvmi.NewVirtualMachine(postVMI, libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
@@ -315,5 +328,22 @@ var _ = Describe("Volume Hotplug", func() {
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(2))
 			Expect(result.Spec.Volumes).To(HaveLen(1))
 		})
+
+		DescribeTable("should set the serial of a disk", func(additionalDiskOpts ...libvmi.DiskOption) {
+			opts := []libvmi.Option{
+				libvmi.WithDataVolume("perm", "perm"),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
+			}
+			allOpts := opts
+			origVMI := libvmi.New(opts...)
+			allOpts = append(allOpts, libvmi.WithHotplugDataVolume(diskName, volumeName, additionalDiskOpts...))
+			postVMI := libvmi.New(append(allOpts, libvmi.WithName(origVMI.Name))...)
+			vm := libvmi.NewVirtualMachine(postVMI)
+			result := handle(vm, origVMI)
+			Expect(result.Spec).To(Equal(postVMI.Spec))
+		},
+			Entry("With requested serial", libvmi.WithSerial(diskName)),
+			Entry("With default serial when no serial is specified", libvmi.WithSerial(serialFunc(diskName))),
+		)
 	})
 })
