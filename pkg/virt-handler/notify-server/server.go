@@ -22,6 +22,7 @@ package eventsserver
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -39,7 +40,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
-	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -136,7 +136,7 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 	notifyv1.RegisterNotifyServer(grpcServer, notifyServer)
 
 	sockFile := filepath.Join(virtShareDir, "domain-notify.sock")
-	sock, err := grpcutil.CreateSocket(sockFile)
+	sock, err := net.Listen("unix", virtShareDir)
 	if err != nil {
 		return err
 	}
