@@ -25854,6 +25854,27 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestAgentInfo(ref comm
 							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSLoad"),
 						},
 					},
+					"guestAgentConnected": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestAgentConnected indicates whether the guest agent is connected",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"guestAgentSupported": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestAgentSupported indicates whether the guest agent is supported",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"guestAgentUnsupportedReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestAgentUnsupportedReason indicates the reason why the guest agent is not supported",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
