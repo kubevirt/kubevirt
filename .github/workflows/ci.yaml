@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "eugene/*"]
+  workflow_dispatch:
+
+env:
+  DOCKER_PREFIX: ghcr.io/${{ github.repository }}
+  DOCKER_TAG: ${{ vars.MAJOR_VERSION }}.${{ vars.MINOR_VERSION }}.${{ vars.HF_VERSION }}-${{ github.run_number }}
+  
+
+
+jobs:
+  # quality-check:
+  #   uses: ./.github/workflows/pr.yaml
+    
+  Build_Push_Images:
+    runs-on: ubuntu-latest
+    # needs: [quality-check]
+    permissions: write-all
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Login to GHCR
+        uses: docker/login-action@v1 
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Controller to GHCR
+        run: |
+          make
+          make push
+
+      - name: Generate Manifests
+        run: |
+          make manifests
+      
+      - name: Upload Manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifests
+          path: ${{ github.workspace }}/_out/manifests
