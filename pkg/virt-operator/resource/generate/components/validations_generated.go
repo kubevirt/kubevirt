@@ -358,6 +358,14 @@ var CRDsValidation map[string]string = map[string]string{
                 imageStream:
                   description: ImageStream is the name of image stream for import
                   type: string
+                platform:
+                  description: Platform describes the minimum runtime requirements
+                    of the image
+                  properties:
+                    architecture:
+                      description: Architecture specifies the image target CPU architecture
+                      type: string
+                  type: object
                 pullMethod:
                   description: PullMethod can be either "pod" (default import), or
                     "node" (node docker cache based import)
@@ -415,6 +423,10 @@ var CRDsValidation map[string]string = map[string]string{
                 backingFile:
                   description: BackingFile is the path to the virtual hard disk to
                     migrate from vCenter/ESXi
+                  type: string
+                extraArgs:
+                  description: ExtraArgs is a reference to a ConfigMap containing
+                    extra arguments to pass directly to the VDDK library
                   type: string
                 initImageURL:
                   description: InitImageURL is an optional URL to an image containing
@@ -4335,6 +4347,15 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ImageStream is the name of image stream for
                               import
                             type: string
+                          platform:
+                            description: Platform describes the minimum runtime requirements
+                              of the image
+                            properties:
+                              architecture:
+                                description: Architecture specifies the image target
+                                  CPU architecture
+                                type: string
+                            type: object
                           pullMethod:
                             description: PullMethod can be either "pod" (default import),
                               or "node" (node docker cache based import)
@@ -4392,6 +4413,10 @@ var CRDsValidation map[string]string = map[string]string{
                           backingFile:
                             description: BackingFile is the path to the virtual hard
                               disk to migrate from vCenter/ESXi
+                            type: string
+                          extraArgs:
+                            description: ExtraArgs is a reference to a ConfigMap containing
+                              extra arguments to pass directly to the VDDK library
                             type: string
                           initImageURL:
                             description: InitImageURL is an optional URL to an image
@@ -20609,6 +20634,15 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: ImageStream is the name of image
                                       stream for import
                                     type: string
+                                  platform:
+                                    description: Platform describes the minimum runtime
+                                      requirements of the image
+                                    properties:
+                                      architecture:
+                                        description: Architecture specifies the image
+                                          target CPU architecture
+                                        type: string
+                                    type: object
                                   pullMethod:
                                     description: PullMethod can be either "pod" (default
                                       import), or "node" (node docker cache based
@@ -20668,6 +20702,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   backingFile:
                                     description: BackingFile is the path to the virtual
                                       hard disk to migrate from vCenter/ESXi
+                                    type: string
+                                  extraArgs:
+                                    description: ExtraArgs is a reference to a ConfigMap
+                                      containing extra arguments to pass directly
+                                      to the VDDK library
                                     type: string
                                   initImageURL:
                                     description: InitImageURL is an optional URL to
@@ -25941,6 +25980,15 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: ImageStream is the name of image
                                           stream for import
                                         type: string
+                                      platform:
+                                        description: Platform describes the minimum
+                                          runtime requirements of the image
+                                        properties:
+                                          architecture:
+                                            description: Architecture specifies the
+                                              image target CPU architecture
+                                            type: string
+                                        type: object
                                       pullMethod:
                                         description: PullMethod can be either "pod"
                                           (default import), or "node" (node docker
@@ -26004,6 +26052,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       backingFile:
                                         description: BackingFile is the path to the
                                           virtual hard disk to migrate from vCenter/ESXi
+                                        type: string
+                                      extraArgs:
+                                        description: ExtraArgs is a reference to a
+                                          ConfigMap containing extra arguments to
+                                          pass directly to the VDDK library
                                         type: string
                                       initImageURL:
                                         description: InitImageURL is an optional URL
