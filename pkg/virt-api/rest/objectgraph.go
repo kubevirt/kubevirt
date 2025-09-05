@@ -100,9 +100,9 @@ func getResourceDependencyType(resource string) DependencyType {
 	case "pods", "virtualmachines", "virtualmachineinstances":
 		return DependencyTypeCompute
 	case "configmaps", "secrets", "virtualmachineinstancetypes", "virtualmachineclusterinstancetypes",
-		"virtualmachinepreferences", "virtualmachineclusterpreferences", "controllerrevisions":
+		"virtualmachinepreferences", "virtualmachineclusterpreferences", "controllerrevisions", "serviceaccounts":
 		return DependencyTypeConfig
-	case "serviceaccounts", "networkattachmentdefinitions":
+	case "networkattachmentdefinitions":
 		return DependencyTypeNetwork
 	default:
 		return DependencyTypeCompute
@@ -344,6 +344,11 @@ func (og *ObjectGraph) addVolumeGraph(obj any, namespace string) ([]v1.ObjectGra
 			}
 		case volume.Secret != nil:
 			node := og.newGraphNode(volume.Secret.SecretName, namespace, "secrets", nil, false)
+			if node != nil {
+				nodes = append(nodes, *node)
+			}
+		case volume.ServiceAccount != nil:
+			node := og.newGraphNode(volume.ServiceAccount.ServiceAccountName, namespace, "serviceaccounts", nil, false)
 			if node != nil {
 				nodes = append(nodes, *node)
 			}

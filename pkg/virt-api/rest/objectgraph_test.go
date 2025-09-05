@@ -255,6 +255,14 @@ var _ = Describe("Object Graph", func() {
 										},
 									},
 								},
+								{
+									Name: "serviceAccount",
+									VolumeSource: v1.VolumeSource{
+										ServiceAccount: &v1.ServiceAccountVolumeSource{
+											ServiceAccountName: "test-serviceAccount",
+										},
+									},
+								},
 							},
 							Networks: []v1.Network{
 								{
@@ -291,7 +299,7 @@ var _ = Describe("Object Graph", func() {
 			graph := NewObjectGraph(kvClient, &v1.ObjectGraphOptions{})
 			graphNodes, err := graph.GetObjectGraph(vm)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(graphNodes.Children).To(HaveLen(4))
+			Expect(graphNodes.Children).To(HaveLen(5))
 			Expect(graphNodes.ObjectReference.Name).To(Equal("test-vm"))
 			Expect(graphNodes.Children[0].ObjectReference.Name).To(Equal("test-vm"))
 			// Child nodes of the VMI
@@ -302,6 +310,8 @@ var _ = Describe("Object Graph", func() {
 			Expect(graphNodes.Children[2].ObjectReference.Name).To(Equal("test-root-disk-pvc"))
 			Expect(graphNodes.Children[3].ObjectReference.Name).To(Equal("test-datavolume"))
 			Expect(graphNodes.Children[3].ObjectReference.Kind).To(Equal("DataVolume"))
+			Expect(graphNodes.Children[4].ObjectReference.Name).To(Equal("test-serviceAccount"))
+			Expect(graphNodes.Children[4].ObjectReference.Kind).To(Equal("ServiceAccount"))
 			// Child nodes of the DV
 			Expect(graphNodes.Children[3].Children).To(HaveLen(1))
 			Expect(graphNodes.Children[3].Children[0].ObjectReference.Name).To(Equal("test-datavolume"))
