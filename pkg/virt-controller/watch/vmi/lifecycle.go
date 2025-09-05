@@ -1096,8 +1096,11 @@ func preparePodPatch(oldPod, newPod *k8sv1.Pod) *patch.PatchSet {
 	if podConditions.ConditionsEqual(oldPod, newPod) {
 		return patch.New()
 	}
+	// Remove the test operation to avoid failures in Kubernetes 1.34+ where
+	// observedGeneration field is automatically added to pod conditions.
+	// The test operation was causing patch failures due to observedGeneration
+	// differences between old and new pod conditions.
 	return patch.New(
-		patch.WithTest("/status/conditions", oldPod.Status.Conditions),
 		patch.WithReplace("/status/conditions", newPod.Status.Conditions),
 	)
 }
