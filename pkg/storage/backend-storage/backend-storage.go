@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	corev1 "kubevirt.io/api/core/v1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -41,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/backup"
 	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -280,15 +282,31 @@ func HasPersistentEFI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
 		*vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent
 }
 
-func IsBackendStorageNeededForVMI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
-	return tpm.HasPersistentDevice(vmiSpec) || HasPersistentEFI(vmiSpec)
-}
-
-func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
-	if vm.Spec.Template == nil {
+func IsBackendStorageNeeded(obj interface{}) bool {
+	switch obj := obj.(type) {
+	case *corev1.VirtualMachine:
+		if obj.Spec.Template == nil {
+			return false
+		}
+		return tpm.HasPersistentDevice(&obj.Spec.Template.Spec) ||
+			HasPersistentEFI(&obj.Spec.Template.Spec) ||
+			backup.HasCBTEnabled(obj.Status.ChangedBlockTracking)
+	case *snapshotv1.VirtualMachine:
+		if obj.Spec.Template == nil {
+			return false
+		}
+		// In case of snapshot cbt will not cause for a restore of
+		// backend storage
+		return tpm.HasPersistentDevice(&obj.Spec.Template.Spec) ||
+			HasPersistentEFI(&obj.Spec.Template.Spec)
+	case *corev1.VirtualMachineInstance:
+		return tpm.HasPersistentDevice(&obj.Spec) ||
+			HasPersistentEFI(&obj.Spec) ||
+			backup.HasCBTEnabled(obj.Status.ChangedBlockTracking)
+	default:
+		log.Log.Errorf("unsupported object type: %T", obj)
 		return false
 	}
-	return tpm.HasPersistentDevice(&vm.Spec.Template.Spec) || HasPersistentEFI(&vm.Spec.Template.Spec)
 }
 
 // MigrationHandoff runs at the end of a successful live migration.
@@ -538,6 +556,10 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 	return pvc, nil
 }
 
+func (bs *BackendStorage) DeletePVCForVMI(vmi *corev1.VirtualMachineInstance, pvcName string) error {
+	return bs.client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
+}
+
 func (bs *BackendStorage) CreatePVCForVMI(vmi *corev1.VirtualMachineInstance) (*v1.PersistentVolumeClaim, error) {
 	pvc := PVCForVMI(bs.pvcStore, vmi)
 	if pvc == nil {
@@ -568,7 +590,7 @@ func (bs *BackendStorage) CreatePVCForMigrationTarget(vmi *corev1.VirtualMachine
 // - The backend storage PVC is bound
 // - The backend storage PVC is pending uses a WaitForFirstConsumer storage class
 func (bs *BackendStorage) IsPVCReady(vmi *corev1.VirtualMachineInstance, pvcName string) (bool, error) {
-	if !IsBackendStorageNeededForVMI(&vmi.Spec) {
+	if !IsBackendStorageNeeded(vmi) {
 		return true, nil
 	}
 
