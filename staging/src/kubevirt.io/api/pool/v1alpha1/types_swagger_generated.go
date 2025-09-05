@@ -59,21 +59,41 @@ func (VirtualMachinePoolList) SwaggerDoc() map[string]string {
 
 func (VirtualMachinePoolScaleInStrategy) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "VirtualMachinePoolScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool\n+k8s:openapi-gen=true",
-		"proactive": "Proactive scale-in by forcing VMs to shutdown during scale-in (Default)\n+optional",
+		"":              "VirtualMachinePoolScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool\n+k8s:openapi-gen=true",
+		"unmanaged":     "The VM is never touched after creation. Users are responsible for scaling in the pool manually.\n+optional",
+		"opportunistic": "Opportunistic scale-in is a strategy when vms are deleted by some other means than the scale-in action.\nFor example, when the VM is deleted by the user or when the VM is deleted by the node that is hosting the VM.\n+optional",
+		"proactive":     "Proactive scale-in by forcing VMs to shutdown during scale-in (Default)\n+optional",
+	}
+}
+
+func (VirtualMachinePoolOpportunisticScaleInStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "VirtualMachinePoolOpportunisticScaleInStrategy represents opportunistic scale-in strategy\n+k8s:openapi-gen=true",
+		"enabled":           "Enable or disable opportunistic scale-in.\n+optional",
+		"statePreservation": "Specifies if and how to preserve the state of the VMs selected during scale-in.\n+optional\n+kubebuilder:validation:Enum=Disabled;Offline;Online",
 	}
 }
 
 func (VirtualMachinePoolProactiveScaleInStrategy) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "VirtualMachinePoolProactiveScaleInStrategy represents proactive scale-in strategy\n+k8s:openapi-gen=true",
-		"selectionPolicy": "SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in\nDefaults to \"Random\" base policy when no SelectionPolicy is configured\n+optional",
+		"":                  "VirtualMachinePoolProactiveScaleInStrategy represents proactive scale-in strategy\n+k8s:openapi-gen=true",
+		"selectionPolicy":   "SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in\nDefaults to \"Random\" base policy when no SelectionPolicy is configured\n+optional",
+		"statePreservation": "Specifies if and how to preserve the state of the VMs selected during scale-in.\n+optional\n+kubebuilder:validation:Enum=Disabled;Offline;Online",
 	}
 }
 
 func (VirtualMachinePoolSelectionPolicy) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for scale-in\n+k8s:openapi-gen=true",
-		"basePolicy": "BasePolicy is a catch-all policy [Random|DescendingOrder]\n+optional\n+kubebuilder:validation:Enum=Random;DescendingOrder",
+		"":                "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for scale-in\n+k8s:openapi-gen=true",
+		"basePolicy":      "BasePolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random].\n+optional\n+kubebuilder:validation:Enum=AscendingOrder;DescendingOrder;Newest;Oldest;Random",
+		"orderedPolicies": "OrderedPolicies is a Ordered list of selection policies. Initial policies include [LabelSelector]. Future policies may include a [NodeSelector] or other selection mechanisms.\n+optional",
+	}
+}
+
+func (VirtualMachinePoolOrderedPolicy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                               "+k8s:openapi-gen=true",
+		"labelSelector":                  "LabelSelector is a list of label selector for VMs.\n+optional",
+		"nodeSelectorRequirementMatcher": "NodeSelectorRequirementMatcher is a list of node selector requirement for VMs.\n+optional",
 	}
 }
