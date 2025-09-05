@@ -61,6 +61,9 @@ usage: [NUM_TESTS=x] \
         CANNIER_IMAGE       the container image to use to execute cannier
                             command
         NUM_TESTS           how many times the test lane is run, default is 5
+        RUN_FUNCTEST_ONCE   if set to 'true', instead of running functests
+                            NUM_TESTS amount times, run them only once and run
+                            the test NUM_TESTS times using Ginkgo flags
         NEW_TESTS           the json file containing the (textual) names of the
                             tests to run, according to what is shown in the
                             junit.xml file
@@ -275,10 +278,19 @@ else
     NUM_TESTS=1
 fi
 
-for i in $(seq 1 "$NUM_TESTS"); do
-    echo "Test lane: ${TEST_LANE}, run: $i"
-    if ! FUNC_TEST_ARGS="$ginkgo_params" make functest; then
-        echo "Test lane: ${TEST_LANE}, run: $i, tests failed!"
+RUN_FUNCTEST_ONCE="${RUN_FUNCTEST_ONCE-}"
+if [[ "$RUN_FUNCTEST_ONCE" == 'true' ]]; then
+    echo "Test lane: ${TEST_LANE}"
+    if ! FUNC_TEST_ARGS="--repeat=$(( NUM_TESTS - 1 )) $ginkgo_params" make functest; then
+        echo "Test lane: ${TEST_LANE}, tests failed!"
         exit 1
     fi
-done
+else
+    for i in $(seq 1 "$NUM_TESTS"); do
+        echo "Test lane: ${TEST_LANE}, run: $i"
+        if ! FUNC_TEST_ARGS="$ginkgo_params" make functest; then
+            echo "Test lane: ${TEST_LANE}, run: $i, tests failed!"
+            exit 1
+        fi
+    done
+fi
