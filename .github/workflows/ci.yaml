@@ -30,24 +30,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Free up Disk Space
-        run: |
-          # Remove specific Docker images that are no longer needed
-          docker rmi $(docker images -f "dangling=true" -q) || true
+      # - name: Free up Disk Space
+      #   run: |
+      #     # Remove specific Docker images that are no longer needed
+      #     docker rmi $(docker images -f "dangling=true" -q) || true
           
-          # Prune unused Docker objects (images, containers, volumes, and networks)
-          docker system prune -f || true
+      #     # Prune unused Docker objects (images, containers, volumes, and networks)
+      #     docker system prune -f || true
 
-          # Clean up specific directories known to consume a lot of space
-          sudo rm -rf /path/to/large/directory
+      #     # Clean up specific directories known to consume a lot of space
+      #     sudo rm -rf /path/to/large/directory
 
-          # Show disk space usage
-          df -h
+      #     # Show disk space usage
+      #     df -h
 
-      - name: Build and Push Images to GHCR
+      - name: Build Images
         run: |
-          # make
-          make push
+          make bazel-build-images
+
+      - name: Push Images
+        run: |
+          make bazel-push-images
 
       - name: Generate Manifests
         run: |
