@@ -20,11 +20,14 @@ set -euo pipefail
 
 # According to https://dl.acm.org/doi/abs/10.1145/3476105
 #
-# * almost all flaky tests were independent of the execution platform, so environmental issues should be considered with higher priority
+# * almost all flaky tests were independent of the execution platform,
+#   so environmental issues should be considered with higher priority
 # * devs may be unaware of many flakes due to order-dependent tests
-# * simple techniques of reversing or shuffling the test order may be more efficient and effective than more sophisticated approaches
-# * “One study found that 88% of flaky tests were found to consecutively fail up to a maximum of five times before passing,
-#    though another reported finding new flaky tests even after 10,000 test suite runs.”
+# * simple techniques of reversing or shuffling the test order may be more
+#   efficient and effective than more sophisticated approaches
+# * "One study found that 88% of flaky tests were found to consecutively fail
+#    up to a maximum of five times before passing, though another reported
+#    finding new flaky tests even after 10,000 test suite runs."
 #
 # Therefore we by default
 # * use only latest kubevirtci provider,
@@ -48,14 +51,15 @@ function usage() {
     cat <<EOF
 usage: [NUM_TESTS=x] \
        [NEW_TESTS=file_name.json] \
-       [TARGET_COMMIT_RANGE=a1b2c3d4] $0 [TEST_LANE] [--dry-run]
+       [TARGET_COMMIT_RANGE=a1b2c3d4..e5f60718] $0 [TEST_LANE] [--dry-run]
 
     run set of tests repeatedly using a json file containing the names of the tests that have been
     changed or added since last merge commit
     hint: set NEW_TESTS to explicitly name the json file containing test names to run
 
     options:
-        CANNIER_IMAGE       the container image to use to execute cannier command
+        CANNIER_IMAGE       the container image to use to execute cannier
+                            command
         NUM_TESTS           how many times the test lane is run, default is 5
         NEW_TESTS           the json file containing the (textual) names of the
                             tests to run, according to what is shown in the
@@ -104,7 +108,7 @@ function new_tests() {
         -v "${KUBEVIRT_ROOT}:/kubevirt/" \
         -v "${tmp_dir}:/tmp" \
         "${CANNIER_IMAGE}" \
-        extract changed-tests ${target_commit_range} \
+        extract changed-tests "${target_commit_range}" \
         -p /kubevirt \
         -t /kubevirt/tests/ \
         -o /tmp/changed-tests.json
@@ -220,9 +224,9 @@ add_to_label_filter() {
     local label=$1
     local separator=$2
     if [[ -z $label_filter ]]; then
-        label_filter="${1}"
+        label_filter="${label}"
     else
-        label_filter="${label_filter}${separator}${1}"
+        label_filter="${label_filter}${separator}${label}"
     fi
 }
 
