@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -49,10 +50,6 @@ import (
 const (
 	PVCPrefix = "persistent-state-for"
 	PVCSize   = "10Mi"
-
-	// LabelApplyStorageProfile is a label used by the CDI mutating webhook
-	// to modify the PVC according to the storage profile.
-	LabelApplyStorageProfile = "cdi.kubevirt.io/applyStorageProfile"
 )
 
 func basePVC(vmi *corev1.VirtualMachineInstance) string {
@@ -512,7 +509,7 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 	// For example, a profile can define a minimum supported volume size via the annotation:
 	// cdi.kubevirt.io/minimumSupportedPvcSize: 4Gi
 	// This helps avoid issues with provisioners that reject the hardcoded 10Mi PVC size used here.
-	labels[LabelApplyStorageProfile] = "true"
+	labels[storagetypes.LabelApplyStorageProfile] = "true"
 
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
