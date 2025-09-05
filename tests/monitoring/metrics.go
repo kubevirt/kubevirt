@@ -226,7 +226,7 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
 
 func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vmDiskPVC := "test-vm-pvc"
-	pvc := libstorage.CreateFSPVC(vmDiskPVC, testsuite.GetTestNamespace(nil), "512Mi", nil)
+	pvc := libstorage.CreateFSPVC(vmDiskPVC, testsuite.GetTestNamespace(nil), "512Mi", nil, libstorage.WithStorageProfile())
 	iface := *v1.DefaultMasqueradeNetworkInterface()
 
 	vmi := libvmifact.NewFedora(
