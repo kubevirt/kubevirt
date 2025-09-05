@@ -1878,6 +1878,55 @@ var _ = Describe("Converter", func() {
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 			Expect(domain.Spec.Devices.HostDevices).To(Equal([]api.HostDevice{{Type: identifyDevice}}))
 		})
+
+		It("should successfully passthrough a mediated device with a disabled display", func() {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("1G"),
+			}
+			vGPUs := []v1.GPU{
+				{
+					Name:       "gpu2",
+					DeviceName: "nvidia.com/GRID_T4-1B",
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.P(false),
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.GPUs = vGPUs
+
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			gpuHostDevice := api.HostDevice{
+				Alias: api.NewUserDefinedAlias("ua-gpu2"),
+				Source: api.HostDeviceSource{
+					Address: &api.Address{
+						UUID: "test-mdev-uuid",
+					},
+				},
+				Type:    api.HostDeviceMDev,
+				Mode:    "subsystem",
+				Model:   "vfio-pci",
+				Display: "",
+				RamFB:   "",
+			}
+			c.GPUHostDevices = append(c.GPUHostDevices, gpuHostDevice)
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+
+			domXml, err := xml.MarshalIndent(domain.Spec, "", "  ")
+			Expect(err).ToNot(HaveOccurred())
+			domXmlString := string(domXml)
+
+			By("Making sure that a boot display is disabled")
+			Expect(domXmlString).ToNot(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should not be enabled")
+			Expect(domXmlString).ToNot(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should not be enabled")
+
+			Expect(domXmlString).To(ContainSubstring("<hostdev"), "Should contain hostdev element")
+			Expect(domXmlString).To(ContainSubstring("test-mdev-uuid"), "Should contain the mdev UUID")
+		})
 	})
 
 	Context("graphics and video device", func() {
