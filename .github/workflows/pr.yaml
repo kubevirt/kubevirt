@@ -18,7 +18,7 @@ jobs:
           make format
           make lint
 
-      # There are two failing tests that need to be fixed, so commenting out for now.
+      # There is 1 failing test that need to be fixed, so commenting out for now.
       # - name: Run Unit Tests
       #   run: |
       #     make test
