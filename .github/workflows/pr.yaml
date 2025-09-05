@@ -1,6 +1,8 @@
 name: PR Quality Check
 
 on:
+  push:
+    branches: ["eugene/*"]
   pull_request:
     branches: ["main", "eugene/*"]
   workflow_dispatch:
