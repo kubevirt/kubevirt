@@ -9,6 +9,7 @@ rm -rf ${ARTIFACTS}/junit ${ARTIFACTS}/testlogs
 
 if [ "${CI}" == "true" ]; then
     cat >>ci.bazelrc <<EOF
+build --jobs=4
 test --cache_test_results=no --runs_per_test=1
 EOF
 
