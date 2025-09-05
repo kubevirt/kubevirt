@@ -104,7 +104,7 @@ func FuzzAdmitter(f *testing.F) {
 				adm := &admitters.VMsAdmitter{
 					ClusterConfig:           config,
 					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
-					InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
+					InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitterStub(),
 				}
 				return adm.Admit(context.Background(), request)
 			},
@@ -118,7 +118,7 @@ func FuzzAdmitter(f *testing.F) {
 				adm := &admitters.VMsAdmitter{
 					ClusterConfig:           config,
 					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
-					InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
+					InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitterStub(),
 				}
 				return adm.Admit(context.Background(), request)
 			},

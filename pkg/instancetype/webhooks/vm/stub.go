@@ -26,7 +26,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
-type MockAdmitter struct {
+type admitterStub struct {
 	ApplyToVMFunc func(*virtv1.VirtualMachine) (
 		*v1beta1.VirtualMachineInstancetypeSpec,
 		*v1beta1.VirtualMachinePreferenceSpec,
@@ -38,8 +38,8 @@ type MockAdmitter struct {
 	) (conflict.Conflicts, error)
 }
 
-func NewMockAdmitter() *MockAdmitter {
-	return &MockAdmitter{
+func NewAdmitterStub() *admitterStub {
+	return &admitterStub{
 		ApplyToVMFunc: func(*virtv1.VirtualMachine) (
 			*v1beta1.VirtualMachineInstancetypeSpec,
 			*v1beta1.VirtualMachinePreferenceSpec,
@@ -56,7 +56,7 @@ func NewMockAdmitter() *MockAdmitter {
 	}
 }
 
-func (m *MockAdmitter) ApplyToVM(vm *virtv1.VirtualMachine) (
+func (m *admitterStub) ApplyToVM(vm *virtv1.VirtualMachine) (
 	*v1beta1.VirtualMachineInstancetypeSpec,
 	*v1beta1.VirtualMachinePreferenceSpec,
 	[]metav1.StatusCause,
@@ -64,7 +64,7 @@ func (m *MockAdmitter) ApplyToVM(vm *virtv1.VirtualMachine) (
 	return m.ApplyToVMFunc(vm)
 }
 
-func (m *MockAdmitter) Check(
+func (m *admitterStub) Check(
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,

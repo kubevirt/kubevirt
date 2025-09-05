@@ -125,7 +125,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			DataSourceInformer:      dataSourceInformer,
 			NamespaceInformer:       namespaceInformer,
 			ClusterConfig:           config,
-			InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
+			InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitterStub(),
 			KubeVirtServiceAccounts: webhooks.KubeVirtServiceAccounts(kubeVirtNamespace),
 		}
 		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
