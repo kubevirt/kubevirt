@@ -46,7 +46,10 @@ jobs:
     environment: dev
     # permissions: write-all
     steps:
-      - name: Generate Manifests
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Generate Manifests with configured Feature Gates
         run: |          
           make manifests
         env: 
@@ -57,3 +60,7 @@ jobs:
         with:
           name: manifests
           path: ${{ github.workspace }}/_out/manifests
+
+    # TODO: enable deploy and test steps 
+    # - name: Deploy     
+    # - name: Test
