@@ -2894,14 +2894,8 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("EFI bootloader", func(secureBoot *bool, efiCode, efiVars string) {
 			c.EFIConfiguration = &EFIConfiguration{
-				EFICode:      efiCode,
-				EFIVars:      efiVars,
-				SecureLoader: secureBoot == nil || *secureBoot,
-			}
-
-			secureLoader := "yes"
-			if secureBoot != nil && !*secureBoot {
-				secureLoader = "no"
+				EFICode: efiCode,
+				EFIVars: efiVars,
 			}
 
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -2915,7 +2909,7 @@ var _ = Describe("Converter", func() {
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
 			Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
-			Expect(domainSpec.OS.BootLoader.Secure).To(Equal(secureLoader))
+			Expect(domainSpec.OS.BootLoader.Secure).To(Equal(boolToYesNo(vmi.IsSecureBootEnabled())))
 			Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal(efiCode))
 			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(efiVars))
 			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.fd"))
@@ -2928,9 +2922,8 @@ var _ = Describe("Converter", func() {
 
 		It("EFI vars should be in the right place when running as root", func() {
 			c.EFIConfiguration = &EFIConfiguration{
-				EFICode:      "OVMF_CODE.fd",
-				EFIVars:      "OVMF_VARS.fd",
-				SecureLoader: false,
+				EFICode: "OVMF_CODE.fd",
+				EFIVars: "OVMF_VARS.fd",
 			}
 
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -3948,11 +3941,6 @@ func vmiArchMutate(arch string, vmi *v1.VirtualMachineInstance, c *ConverterCont
 	switch arch {
 	case arm64:
 		defaults.SetArm64Defaults(&vmi.Spec)
-		// bootloader has been initialized in webhooks.SetArm64Defaults,
-		// c.EFIConfiguration.SecureLoader is needed in the converter.Convert_v1_VirtualMachineInstance_To_api_Domain.
-		c.EFIConfiguration = &EFIConfiguration{
-			SecureLoader: false,
-		}
 	case amd64, ppc64le:
 		defaults.SetAmd64Defaults(&vmi.Spec)
 	case s390x:

@@ -80,9 +80,8 @@ type deviceNamer struct {
 }
 
 type EFIConfiguration struct {
-	EFICode      string
-	EFIVars      string
-	SecureLoader bool
+	EFICode string
+	EFIVars string
 }
 
 type ConverterContext struct {
@@ -1188,11 +1187,24 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 	}
 
 	if vmi.IsBootloaderEFI() {
-		domain.Spec.OS.BootLoader = &api.Loader{
-			Path:     c.EFIConfiguration.EFICode,
-			ReadOnly: "yes",
-			Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
-			Type:     "pflash",
+		secureBootRequested := vmi.IsSecureBootEnabled()
+		secureBootRequestedString := boolToYesNo(&secureBootRequested, false)
+
+		features := []api.OSFirmwareFeature{
+			{
+				Name:    "secure-boot",
+				Enabled: secureBootRequestedString,
+			},
+			{
+				// Note that enabling enrolled-keys firmware feature disables booting unsigned Guests.
+				Name:    "enrolled-keys",
+				Enabled: secureBootRequestedString,
+			},
+		}
+
+		domain.Spec.OS.FirmwareType = api.OSFirmwareEFI
+		domain.Spec.OS.FirmwareFeatures = api.OSFirmwareFeatures{
+			Features: features,
 		}
 
 		domain.Spec.OS.NVRam = &api.NVRam{

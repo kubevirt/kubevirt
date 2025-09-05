@@ -567,6 +567,14 @@ func (v *VirtualMachineInstance) IsBootloaderEFI() bool {
 		v.Spec.Domain.Firmware.Bootloader.EFI != nil
 }
 
+func (v *VirtualMachineInstance) IsSecureBootEnabled() bool {
+	if !v.IsBootloaderEFI() {
+		return false
+	}
+	efi := v.Spec.Domain.Firmware.Bootloader.EFI
+	return efi.SecureBoot == nil || *efi.SecureBoot
+}
+
 // WantsToHaveQOSGuaranteed checks if cpu and memoyr limits and requests are identical on the VMI.
 // This is the indicator that people want a VMI with QOS of guaranteed
 func (v *VirtualMachineInstance) WantsToHaveQOSGuaranteed() bool {
