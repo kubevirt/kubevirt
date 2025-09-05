@@ -6,6 +6,7 @@ option go_package = "v1";
 service Synchronize {
   rpc SyncSourceMigrationStatus(VMIStatusRequest) returns (VMIStatusResponse) {}
   rpc SyncTargetMigrationStatus(VMIStatusRequest) returns (VMIStatusResponse) {}
+  rpc CancelMigration(MigrationCancelRequest) returns (MigrationCancelResponse) {}
 }
 
 message VMI {
@@ -22,5 +23,13 @@ message VMIStatusRequest {
 }
 
 message VMIStatusResponse {
+  string message = 1;
+}
+
+message MigrationCancelRequest {
+  string migrationUID = 1;
+}
+
+message MigrationCancelResponse {
   string message = 1;
 }
