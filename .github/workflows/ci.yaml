@@ -8,9 +8,8 @@ on:
 env:
   DOCKER_PREFIX: ghcr.io/${{ github.repository }}
   DOCKER_TAG: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+
   
-
-
 jobs:
   # quality-check:
   #   uses: ./.github/workflows/pr.yaml
@@ -18,7 +17,9 @@ jobs:
   Build_Push_Images:
     runs-on: ubuntu-latest
     # needs: [quality-check]
-    permissions: write-all
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -30,6 +31,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+
       - name: Build Images
         run: |
           make bazel-build-images
@@ -38,9 +40,17 @@ jobs:
         run: |
           make bazel-push-images
 
+  Deploy_to_Dev:
+    runs-on: ubuntu-latest
+    needs: [Build_Push_Images]
+    environment: dev
+    # permissions: write-all
+    steps:
       - name: Generate Manifests
-        run: |
+        run: |          
           make manifests
+        env: 
+          FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
       
       - name: Upload Manifests
         uses: actions/upload-artifact@v4
