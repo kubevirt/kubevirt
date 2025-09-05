@@ -30,9 +30,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Controller to GHCR
+      - name: Free up Disk Space
         run: |
-          make
+          # Remove specific Docker images that are no longer needed
+          docker rmi $(docker images -f "dangling=true" -q) || true
+          
+          # Prune unused Docker objects (images, containers, volumes, and networks)
+          docker system prune -f || true
+
+          # Clean up specific directories known to consume a lot of space
+          sudo rm -rf /path/to/large/directory
+
+          # Show disk space usage
+          df -h
+
+      - name: Build and Push Images to GHCR
+        run: |
+          # make
           make push
 
       - name: Generate Manifests
