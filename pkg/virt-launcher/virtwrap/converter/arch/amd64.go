@@ -145,6 +145,11 @@ func (converterAMD64) LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.Launch
 			DHCert:  vmi.Spec.Domain.LaunchSecurity.SEV.DHCert,
 			Session: vmi.Spec.Domain.LaunchSecurity.SEV.Session,
 		}
+	} else if util.IsTDXVMI(vmi) {
+		return &api.LaunchSecurity{
+			Type: "tdx",
+		}
 	}
+
 	return nil
 }
