@@ -364,7 +364,7 @@ var _ = Describe("VMSnapshot source", func() {
 				if condition.Type == exportv1.ConditionReady {
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 					Expect(condition.Reason).To(Equal(initializingReason))
-					Expect(condition.Message).To(Equal(""))
+					Expect(condition.Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %s/%s does not exist", vmExport.Namespace, vmExport.Spec.Source.Name)))
 				}
 				if condition.Type == exportv1.ConditionVolumesCreated {
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
@@ -641,13 +641,13 @@ var _ = Describe("VMSnapshot source", func() {
 			for _, condition := range vmExport.Status.Conditions {
 				if condition.Type == exportv1.ConditionReady {
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-					Expect(condition.Reason).To(Equal(inUseReason))
+					Expect(condition.Reason).To(Equal(initializingReason))
 					Expect(condition.Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name)))
 				}
 				if condition.Type == exportv1.ConditionVolumesCreated {
 					volumeCreateConditionSet = true
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-					Expect(condition.Reason).To(Equal(notAllPVCsCreated))
+					Expect(condition.Reason).To(Equal(notAllPVCsCreatedReason))
 					Expect(condition.Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name)))
 				}
 			}
