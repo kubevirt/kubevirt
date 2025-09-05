@@ -1,0 +1,32 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: istio-operator
+spec:
+  profile: demo
+  hub: quay.io/kubevirtci
+  components:
+    cni:
+      enabled: true
+      namespace: kube-system
+      k8s:
+        securityContext:
+          seLinuxOptions:
+            type: spc_t
+  values:
+    global:
+      jwtPolicy: third-party-jwt
+    cni:
+      provider: multus
+      chained: false
+      cniBinDir: /opt/cni/bin
+      cniConfDir: /etc/cni/multus/net.d
+      excludeNamespaces:
+       - istio-system
+       - kube-system
+      logLevel: debug
+    pilot:
+      cni:
+        enabled: true
+        provider: "multus"
