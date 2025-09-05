@@ -12,19 +12,19 @@ test:x86_64 --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo
 
 build:aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
 run:aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
-test:aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo --host_javabase=@local_jdk//:jdk
+test:aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
 
 build:s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
 run:s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
-test:s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo --host_javabase=@local_jdk//:jdk
+test:s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
 
 build:crossbuild-aarch64 --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:aarch64-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
 run:crossbuild-aarch64  --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:aarch64-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
-test:crossbuild-aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo --host_javabase=@local_jdk//:jdk
+test:crossbuild-aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
 
 build:crossbuild-s390x --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:s390x-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
 run:crossbuild-s390x  --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:s390x-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
-test:crossbuild-s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo --host_javabase=@local_jdk//:jdk
+test:crossbuild-s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
 
 build --define gotags=selinux
 
