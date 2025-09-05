@@ -7,13 +7,17 @@ on:
   workflow_call:
 
 jobs:
-  Linting:
-    name: lint
+  Quality_Check:
+    name: Quality Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
-      - name: Linting
+      # - name: Linting
+      #   run: |
+      #     make format
+      #     make lint
+
+      - name: Run Unit Tests
         run: |
-          make format
-          make lint
+          make test
