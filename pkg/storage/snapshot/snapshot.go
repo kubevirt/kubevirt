@@ -68,6 +68,14 @@ const (
 	snapshotRetryInterval = 5 * time.Second
 
 	contentDeletionInterval = 5 * time.Second
+
+	// Indication messages
+	onlineSnapshotIndicationMsg = "Running VMI snapshot; quiesce attempted for application consistency."
+	guestAgentIndicationMsg     = "Guest agent available, enabling an application-consistent snapshot."
+	noGuestAgentIndicationMsg   = "No guest agent; snapshot is not application-consistent (crash-consistent only)."
+	quiesceFailedIndicationMsg  = "Filesystem quiescing failed; snapshot is not application-consistent (crash-consistent only)."
+	pausedIndicationMsg         = "Paused domain prevented an application-consistent snapshot."
+	unknownIndicationMsg        = "Unknown indication"
 )
 
 func VmSnapshotReady(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
@@ -804,7 +812,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, source.LockMsg()))
 			}
 
-			updateSnapshotIndications(vmSnapshotCpy, source)
+			updateSnapshotSourceIndications(vmSnapshotCpy, source)
 		} else {
 			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
 		}
@@ -835,7 +843,26 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	return vmSnapshot, nil
 }
 
-func updateSnapshotIndications(snapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) {
+// getIndicationMessage returns a human-readable message for each indication
+func getIndicationMessage(indication snapshotv1.Indication) string {
+	switch indication {
+	case snapshotv1.VMSnapshotOnlineSnapshotIndication:
+		return onlineSnapshotIndicationMsg
+	case snapshotv1.VMSnapshotGuestAgentIndication:
+		return guestAgentIndicationMsg
+	case snapshotv1.VMSnapshotNoGuestAgentIndication:
+		return noGuestAgentIndicationMsg
+	case snapshotv1.VMSnapshotQuiesceFailedIndication:
+		return quiesceFailedIndicationMsg
+	case snapshotv1.VMSnapshotPausedIndication:
+		return pausedIndicationMsg
+	default:
+		return unknownIndicationMsg
+	}
+}
+
+// updateSnapshotSourceIndications updates both the old and new indication fields
+func updateSnapshotSourceIndications(snapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) {
 	if source.Online() {
 		indications := sets.New(snapshot.Status.Indications...)
 		indications = sets.Insert(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
@@ -853,8 +880,32 @@ func updateSnapshotIndications(snapshot *snapshotv1.VirtualMachineSnapshot, sour
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
 		}
 
-		snapshot.Status.Indications = sets.List(indications)
+		indicationsList := sets.List(indications)
+
+		// Update the old field for backward compatibility
+		snapshot.Status.Indications = indicationsList
+
+		// Update the new sourceIndications field
+		var sourceIndications []snapshotv1.SourceIndications
+		for _, indication := range indicationsList {
+			sourceIndications = append(sourceIndications, snapshotv1.SourceIndications{
+				Indication: indication,
+				Message:    getIndicationMessage(indication),
+			})
+		}
+		snapshot.Status.SourceIndications = sourceIndications
+	} else {
+		// For offline snapshots, no indications are needed
+		snapshot.Status.Indications = nil
+		snapshot.Status.SourceIndications = nil
 	}
+}
+
+// updateSnapshotIndications is deprecated. Use updateSnapshotSourceIndications instead.
+// This function is kept for backward compatibility and will be removed in a future version.
+// Deprecated: Use updateSnapshotSourceIndications instead.
+func updateSnapshotIndications(snapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) {
+	updateSnapshotSourceIndications(snapshot, source)
 }
 
 func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) error {
