@@ -68,6 +68,10 @@ const (
 	internal = "/internal"
 )
 
+var excludeMap = map[string]struct{}{
+	"lost+found": {},
+}
+
 type TokenGetterFunc func() (string, error)
 
 type ExportServerConfig struct {
@@ -399,21 +403,26 @@ var getDataVolumes = func(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error
 }
 
 func newTarReader(mountPoint string) (io.ReadCloser, error) {
-	cmd := exec.Command("/usr/bin/tar", "Scv", ".")
-	cmd.Dir = mountPoint
+	var excludeArgs []string
+	for name := range excludeMap {
+		excludeArgs = append(excludeArgs, "--exclude="+name)
+	}
 
+	args := []string{"Scv"}
+	args = append(args, excludeArgs...)
+	args = append(args, ".")
+
+	cmd := exec.Command("/usr/bin/tar", args...)
+	cmd.Dir = mountPoint
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
 	}
-
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-
 	if err = cmd.Start(); err != nil {
 		return nil, err
 	}
-
 	return &execReader{cmd: cmd, stdout: stdout, stderr: io.NopCloser(&stderr)}, nil
 }
 
@@ -517,6 +526,9 @@ func checkDirectoryPermissions(filePath string) bool {
 	}
 
 	for _, item := range contents {
+		if _, ok := excludeMap[item]; ok {
+			continue
+		}
 		itemPath := filepath.Join(filePath, item)
 		// Check if export server has permissions to manipulate the file
 		file, err := os.Open(itemPath)
