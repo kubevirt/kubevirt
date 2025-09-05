@@ -20,6 +20,7 @@
 package virt_controller
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
@@ -32,13 +33,18 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	vmlabels "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/labels"
 )
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo),
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo, vmLabels),
 		CollectCallback: vmStatsCollectorCallback,
 	}
+
+	// sanitizeLabelName transforms a label key into a Prometheus-safe label name.
+	// Non-alphanumeric characters are replaced with '_', and the first character is ensured to be [A-Za-z_].
+	invalidLabelCharRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
 	timestampMetrics = []operatormetrics.Metric{
 		startingTimestamp,
@@ -186,12 +192,19 @@ var (
 		},
 		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_name", "model"},
 	)
+
+	vmLabels = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_labels",
+			Help: "The metric exposes the VM labels as Prometheus labels. Configure allowed and ignored labels via the 'kubevirt-vm-labels-config' ConfigMap.",
+		},
+		labels,
+	)
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 	cachedObjs := stores.VM.List()
 	if len(cachedObjs) == 0 {
-		log.Log.V(4).Infof("No VMs detected")
 		return []operatormetrics.CollectorResult{}
 	}
 
@@ -493,6 +506,10 @@ func reportVmsStats(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 func reportVmStats(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
+	// VM labels metric collection
+	cr = append(cr, reportVmLabels(vm)...)
+
+	// VM timestamp metrics collection
 	status := vm.Status.PrintableStatus
 	currentStateMetric := getMetricDesc(status)
 
@@ -755,4 +772,45 @@ func LookupNetworkByName(networks []k6tv1.Network, name string) *k6tv1.Network {
 		}
 	}
 	return nil
+}
+
+func reportVmLabels(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	cfg := vmlabels.New(kubevirtClient)
+
+	if len(vm.Labels) == 0 {
+		return cr
+	}
+
+	constLabels := make(map[string]string)
+	for key, value := range vm.Labels {
+		if cfg.ShouldReport(key) {
+			sanitizedLabelName := sanitizeLabelName(key)
+			prometheusLabelName := "label_" + sanitizedLabelName
+			constLabels[prometheusLabelName] = value
+		}
+	}
+
+	if len(constLabels) == 0 {
+		log.Log.Infof("kubevirt_vm_labels skipping vm %s/%s, no allowlist keys found", vm.Namespace, vm.Name)
+		return cr
+	}
+
+	cr = append(cr, operatormetrics.CollectorResult{
+		Metric:      vmLabels,
+		Labels:      []string{vm.Name, vm.Namespace},
+		ConstLabels: constLabels,
+		Value:       1.0,
+	})
+
+	return cr
+}
+
+func sanitizeLabelName(name string) string {
+	sanitized := invalidLabelCharRE.ReplaceAllString(name, "_")
+	if len(sanitized) == 0 || !((sanitized[0] >= 'a' && sanitized[0] <= 'z') || (sanitized[0] >= 'A' && sanitized[0] <= 'Z') || sanitized[0] == '_') {
+		sanitized = "_" + sanitized
+	}
+	return sanitized
 }
