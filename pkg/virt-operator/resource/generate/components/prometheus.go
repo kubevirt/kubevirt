@@ -42,7 +42,7 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 					Scheme: "https",
 					TLSConfig: &promv1.TLSConfig{
 						SafeTLSConfig: promv1.SafeTLSConfig{
-							InsecureSkipVerify: insecureSkipVerify,
+							InsecureSkipVerify: &insecureSkipVerify,
 						},
 					},
 					HonorLabels: true,
