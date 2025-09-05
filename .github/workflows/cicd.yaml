@@ -2,7 +2,7 @@ name: CICD Pipeline
 
 on:
   push:
-    branches: ["main", "eugene/*"]
+    branches: ["main"]
   workflow_dispatch:
 
 env:
