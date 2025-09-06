@@ -369,8 +369,10 @@ func (app *virtAPIApp) composeSubresources() {
 			Operation(version.Version + "VNC").
 			Doc("Open a websocket connection to connect to VNC on the specified VirtualMachineInstance."))
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("vnc/screenshot")).
-			To(subresourceApp.VNCScreenshotRequestHandler).
-			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).Param(definitions.MoveCursorParam(subws)).
+			To(subresourceApp.ScreenshotRequestHandler).
+			Param(definitions.NamespaceParam(subws)).
+			Param(definitions.NameParam(subws)).
+			Param(definitions.MoveCursorParam(subws)).
 			Operation(version.Version + "VNCScreenshot").
 			Doc("Get a PNG VNC screenshot of the specified VirtualMachineInstance."))
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("usbredir")).
@@ -627,6 +629,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/vnc",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/vnc/screenshot",
 						Namespaced: true,
 					},
 					{
