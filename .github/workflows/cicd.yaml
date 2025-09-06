@@ -2,7 +2,7 @@ name: CICD Pipeline
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main","eugene/*"]
   workflow_dispatch:
 
 env:
@@ -15,7 +15,7 @@ jobs:
     uses: ./.github/workflows/pr.yaml
     
   Build_Push_Images:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [quality-check]
     permissions:
       contents: read
@@ -56,7 +56,7 @@ jobs:
           make bazel-push-images
 
   Deploy_to_Dev:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [Build_Push_Images]
     environment: dev
     steps:
@@ -86,7 +86,7 @@ jobs:
 
 
   Deploy_to_Ephemeral:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [Build_Push_Images]
     environment: ephemeral
     steps:

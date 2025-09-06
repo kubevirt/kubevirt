@@ -9,7 +9,7 @@ on:
 jobs:
   Quality_Check:
     name: Quality Check
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v3
 
