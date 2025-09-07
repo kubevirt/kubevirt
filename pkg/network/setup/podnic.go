@@ -21,13 +21,10 @@ package network
 
 import (
 	"fmt"
-	"os"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
-
-	goerrors "errors"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
@@ -140,20 +137,6 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain, domainAttachment st
 		return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, *l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler)
 	}
 	return nil
-}
-
-func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
-	var ifaceConfig *api.Interface
-	ifaceConfig, err := cache.ReadDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.vmiSpecIface.Name)
-	if goerrors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return ifaceConfig, nil
 }
 
 func getPIDString(pid *int) string {
