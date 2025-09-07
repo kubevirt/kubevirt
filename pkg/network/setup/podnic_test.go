@@ -45,13 +45,11 @@ var _ = Describe("podNIC", func() {
 		ctrl                 *gomock.Controller
 	)
 
-	newPhase2PodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
-		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], &vmi.Spec.Domain.Devices.Interfaces[0], mockNetwork, &baseCacheCreator)
-		if err != nil {
-			return nil, err
-		}
+	newPhase2PodNICWithMocks := func(vmi *v1.VirtualMachineInstance) *podNIC {
+		podnic := newPodNIC(vmi, &vmi.Spec.Networks[0], &vmi.Spec.Domain.Devices.Interfaces[0], mockNetwork, &baseCacheCreator)
 		podnic.dhcpConfigurator = mockDHCPConfigurator
-		return podnic, nil
+
+		return podnic
 	}
 	BeforeEach(func() {
 		dutils.MockDefaultOwnershipManager()
@@ -71,12 +69,10 @@ var _ = Describe("podNIC", func() {
 			vmi    *v1.VirtualMachineInstance
 		)
 		BeforeEach(func() {
-			var err error
 			domain = NewDomainWithBridgeInterface()
 			vmi = newVMIBridgeInterface("testnamespace", "testVmName")
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			podnic, err = newPhase2PodNICWithMocks(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			podnic = newPhase2PodNICWithMocks(vmi)
 
 			const launcherPID = "self"
 			Expect(

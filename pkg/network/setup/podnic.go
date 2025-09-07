@@ -20,8 +20,6 @@
 package network
 
 import (
-	"fmt"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
@@ -48,10 +46,7 @@ type podNIC struct {
 }
 
 func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator, domain *api.Domain, domainAttachment string) (*podNIC, error) {
-	podnic, err := newPodNIC(vmi, network, iface, handler, cacheCreator)
-	if err != nil {
-		return nil, err
-	}
+	podnic := newPodNIC(vmi, network, iface, handler, cacheCreator)
 
 	ifaceLink, err := link.DiscoverByNetwork(podnic.handler, podnic.vmi.Spec.Networks, *podnic.vmiSpecNetwork, vmi.Status.Interfaces)
 	if err != nil {
@@ -69,18 +64,14 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface 
 	return podnic, nil
 }
 
-func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator) (*podNIC, error) {
-	if network.Pod == nil && network.Multus == nil {
-		return nil, fmt.Errorf("Network not implemented")
-	}
-
+func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator) *podNIC {
 	return &podNIC{
 		cacheCreator:   cacheCreator,
 		handler:        handler,
 		vmi:            vmi,
 		vmiSpecNetwork: network,
 		vmiSpecIface:   iface,
-	}, nil
+	}
 }
 
 func (l *podNIC) PlugPhase2(domain *api.Domain) error {
