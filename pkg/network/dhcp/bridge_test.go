@@ -73,7 +73,6 @@ var _ = Describe("Bridge DHCP configurator", func() {
 			iface := v1.Interface{Name: "network"}
 			generator = BridgeConfigGenerator{
 				cacheCreator:     &cacheCreator,
-				launcherPID:      launcherPID,
 				podInterfaceName: ifaceName,
 				vmiSpecIfaces:    []v1.Interface{iface},
 				vmiSpecIface:     &iface,
@@ -104,7 +103,6 @@ var _ = Describe("Bridge DHCP configurator", func() {
 
 			generator = BridgeConfigGenerator{
 				cacheCreator:     &cacheCreator,
-				launcherPID:      launcherPID,
 				podInterfaceName: ifaceName,
 				subdomain:        subdomain,
 			}

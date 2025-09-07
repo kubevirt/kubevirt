@@ -113,7 +113,6 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 	if l.vmiSpecIface.Bridge != nil {
 		dhcpConfigurator = dhcpconfigurator.NewBridgeConfigurator(
 			l.cacheCreator,
-			getPIDString(l.launcherPID),
 			link.GenerateBridgeName(l.podInterfaceName),
 			l.handler,
 			l.podInterfaceName,
