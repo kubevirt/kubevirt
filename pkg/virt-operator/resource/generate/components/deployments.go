@@ -654,7 +654,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtOperatorCertSecretName, "/etc/virt-operator/certificates")
 	attachProfileVolume(&deployment.Spec.Template.Spec)
-	placement.InjectPlacementMetadata(nil, &deployment.Spec.Template.Spec, placement.RequireControlPlanePreferNonWorker)
+	placement.InjectPlacementMetadata(nil, &deployment.Spec.Template.Spec, placement.PreferControlPlanePreferNonWorker)
 
 	return deployment
 }
