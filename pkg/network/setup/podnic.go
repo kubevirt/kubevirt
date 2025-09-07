@@ -39,7 +39,6 @@ const defaultState = cache.PodIfaceNetworkPreparationPending
 type podNIC struct {
 	vmi              *v1.VirtualMachineInstance
 	podInterfaceName string
-	launcherPID      *int
 	vmiSpecIface     *v1.Interface
 	vmiSpecNetwork   *v1.Network
 	handler          netdriver.NetworkHandler
@@ -49,7 +48,7 @@ type podNIC struct {
 }
 
 func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator, domain *api.Domain, domainAttachment string) (*podNIC, error) {
-	podnic, err := newPodNIC(vmi, network, iface, handler, cacheCreator, nil)
+	podnic, err := newPodNIC(vmi, network, iface, handler, cacheCreator)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +69,7 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface 
 	return podnic, nil
 }
 
-func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
+func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator) (*podNIC, error) {
 	if network.Pod == nil && network.Multus == nil {
 		return nil, fmt.Errorf("Network not implemented")
 	}
@@ -81,7 +80,6 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.In
 		vmi:            vmi,
 		vmiSpecNetwork: network,
 		vmiSpecIface:   iface,
-		launcherPID:    launcherPID,
 	}, nil
 }
 
@@ -136,11 +134,4 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain, domainAttachment st
 		return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, *l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler)
 	}
 	return nil
-}
-
-func getPIDString(pid *int) string {
-	if pid != nil {
-		return fmt.Sprintf("%d", *pid)
-	}
-	return "self"
 }

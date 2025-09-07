@@ -46,7 +46,7 @@ var _ = Describe("podNIC", func() {
 	)
 
 	newPhase2PodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
-		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], &vmi.Spec.Domain.Devices.Interfaces[0], mockNetwork, &baseCacheCreator, nil)
+		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], &vmi.Spec.Domain.Devices.Interfaces[0], mockNetwork, &baseCacheCreator)
 		if err != nil {
 			return nil, err
 		}
@@ -77,10 +77,12 @@ var _ = Describe("podNIC", func() {
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			podnic, err = newPhase2PodNICWithMocks(vmi)
 			Expect(err).ToNot(HaveOccurred())
+
+			const launcherPID = "self"
 			Expect(
 				cache.WriteDHCPInterfaceCache(
 					podnic.cacheCreator,
-					getPIDString(podnic.launcherPID),
+					launcherPID,
 					podnic.podInterfaceName,
 					&cache.DHCPConfig{Name: podnic.podInterfaceName},
 				),
@@ -88,7 +90,7 @@ var _ = Describe("podNIC", func() {
 			Expect(
 				cache.WriteDomainInterfaceCache(
 					podnic.cacheCreator,
-					getPIDString(podnic.launcherPID),
+					launcherPID,
 					podnic.vmiSpecIface.Name,
 					&domain.Spec.Devices.Interfaces[0],
 				),
