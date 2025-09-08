@@ -703,13 +703,8 @@ func (n NetPod) unplugInterfaces(startedNets, finishedNets []v1.Network) []v1.In
 func (n NetPod) clearCache(nets []v1.Network) error {
 	var unplugErrors []error
 	for _, net := range nets {
-		err := cache.DeleteDomainInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), net.Name)
-		if err != nil {
-			unplugErrors = append(unplugErrors, err)
-		}
-
 		podInterfaceName := namescheme.HashedPodInterfaceName(net, n.vmiIfaceStatuses)
-		err = cache.DeleteDHCPInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), podInterfaceName)
+		err := cache.DeleteDHCPInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), podInterfaceName)
 		if err != nil {
 			unplugErrors = append(unplugErrors, err)
 		}
