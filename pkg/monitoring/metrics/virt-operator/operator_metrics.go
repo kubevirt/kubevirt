@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright the KubeVirt Authors.
+ * Copyright The KubeVirt Authors.
  */
 
 package virt_operator
 
-import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+import "github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
 var (
 	operatorMetrics = []operatormetrics.Metric{

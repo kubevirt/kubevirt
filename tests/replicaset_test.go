@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -32,7 +32,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi/replicaset"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -459,24 +458,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(vmi.DeletionTimestamp).ToNot(BeNil())
 	})
 
-	It("[test_id:4121]should create and verify kubectl/oc output for vm replicaset", func() {
-		k8sClient := clientcmd.GetK8sCmdClient()
-		clientcmd.FailIfNoCmd(k8sClient)
-
-		newRS := newReplicaSet()
-		doScale(newRS.ObjectMeta.Name, 2)
-
-		result, _, _ := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "get", "virtualmachineinstancereplicaset")
-		Expect(result).ToNot(BeNil())
-		resultFields := strings.Fields(result)
-		expectedHeader := []string{"NAME", "DESIRED", "CURRENT", "READY", "AGE"}
-		columnHeaders := resultFields[:len(expectedHeader)]
-		// Verify the generated header is same as expected
-		Expect(columnHeaders).To(Equal(expectedHeader))
-		// Name will be there in all the cases, so verify name
-		Expect(resultFields[len(expectedHeader)]).To(Equal(newRS.Name))
-	})
-
 	Context("replicaset with topology spread constraints", decorators.WgS390x, func() {
 		It("Replicas should be spread across nodes", func() {
 			nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
@@ -534,7 +515,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				return rs.Status.ReadyReplicas
 			}, 120*time.Second, 1*time.Second).Should(Equal(replicas))
 
-			By("Ensuring that VMI replicas are scheduled to seperate nodes")
+			By("Ensuring that VMI replicas are scheduled to separate nodes")
 			vmiSet, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=%s", vmLabelKey, vmLabelValue),
 			})

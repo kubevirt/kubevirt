@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -60,7 +60,7 @@ const (
 	bytesInKib          = 1024
 )
 
-var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes, Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes, Serial, decorators.SigCompute, decorators.Swap, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -70,7 +70,7 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 		Expect(len(nodes.Items)).To(BeNumerically(">", 1),
 			"should have at least two schedulable nodes in the cluster")
 
-		skipIfSwapOff(fmt.Sprintf("swap should be enabled through env var: KUBEVIRT_SWAP_ON=true "+
+		failIfSwapOff(fmt.Sprintf("swap should be enabled through env var: KUBEVIRT_SWAP_ON=true "+
 			"and contain at least %dMi in the nodes when running these tests", maxSwapSizeToUseKib/bytesInKib))
 
 	})
@@ -244,12 +244,12 @@ func fillMemWithStressFedoraVMI(vmi *virtv1.VirtualMachineInstance, memToUseInTh
 	return err
 }
 
-func skipIfSwapOff(message string) {
+func failIfSwapOff(message string) {
 	nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 	for _, node := range nodes.Items {
 		swapSizeKib := getSwapSizeInKib(node)
 		if swapSizeKib < maxSwapSizeToUseKib {
-			Skip(message)
+			Fail(message)
 		}
 	}
 }

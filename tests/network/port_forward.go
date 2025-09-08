@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -146,7 +146,7 @@ var _ = Describe(SIG("Port-forward", func() {
 }))
 
 func portForwardCommand(pod *k8sv1.Pod, sourcePort, targetPort int) (*exec.Cmd, error) {
-	_, cmd, err := clientcmd.CreateCommandWithNS(pod.Namespace, clientcmd.GetK8sCmdClient(), "port-forward", pod.Name, fmt.Sprintf("%d:%d", sourcePort, targetPort))
+	_, cmd, err := clientcmd.CreateCommandWithNS(pod.Namespace, "kubectl", "port-forward", pod.Name, fmt.Sprintf("%d:%d", sourcePort, targetPort))
 
 	return cmd, err
 }

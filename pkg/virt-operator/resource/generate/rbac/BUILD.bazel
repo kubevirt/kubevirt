@@ -10,6 +10,7 @@ go_library(
         "handler.go",
         "operator.go",
         "servicemonitor.go",
+        "synchronizationcontroller.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac",
     visibility = ["//visibility:public"],
@@ -36,6 +37,7 @@ go_test(
         "controller_test.go",
         "operator_test.go",
         "rbac_suite_test.go",
+        "synchronizationcontroller_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

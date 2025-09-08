@@ -62,7 +62,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		virtClient = kubevirt.Client()
 		nodesWithKVM = libnode.GetNodesWithKVM()
 		if len(nodesWithKVM) == 0 {
-			Skip("Skip testing with node-labeller, because there are no nodes with kvm")
+			Fail("No nodes with kvm")
 		}
 	})
 
@@ -191,7 +191,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 				Expect(cpuFeatureLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "feature"))
 				Expect(hyperVLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "hyperV"))
 				Expect(hostCPUModelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu model"))
-				Expect(hostCPURequiredFeaturesPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu required featuers"))
+				Expect(hostCPURequiredFeaturesPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu required features"))
 			}
 		})
 

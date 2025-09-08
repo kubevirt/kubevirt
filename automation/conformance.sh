@@ -3,6 +3,7 @@
 set -eExuo pipefail
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
+export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 mkdir -p "$ARTIFACTS_PATH"
 

@@ -491,6 +491,31 @@ func (l *Launcher) GetDomainStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cm
 	return response, nil
 }
 
+func (l *Launcher) GetDomainDirtyRateStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DirtyRateStatsResponse, error) {
+	response := &cmdv1.DirtyRateStatsResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	const dirtyRateCalculationTime = time.Second
+	stats, err := l.domainManager.GetDomainDirtyRateStats(dirtyRateCalculationTime)
+	if err != nil {
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	if !stats.MegabytesPerSecondSet {
+		response.Response.Success = false
+		response.Response.Message = "Dirty rate MegabytesPerSecondSet is false"
+		return response, nil
+	}
+
+	response.DirtyRateMbs = stats.MegabytesPerSecond
+	return response, nil
+}
+
 // GetGuestInfo collect guest info from the domain
 func (l *Launcher) GetGuestInfo(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestInfoResponse, error) {
 	response := &cmdv1.GuestInfoResponse{

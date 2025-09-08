@@ -30,6 +30,8 @@ import (
 const HookSidecarListAnnotationName = "hooks.kubevirt.io/hookSidecars"
 const HookSocketsSharedDirectory = "/var/run/kubevirt-hooks"
 
+const ContainerNameEnvVar = "CONTAINER_NAME"
+
 type HookSidecarList []HookSidecar
 
 type ConfigMap struct {

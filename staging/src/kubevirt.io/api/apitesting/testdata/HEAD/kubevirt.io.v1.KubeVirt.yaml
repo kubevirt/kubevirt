@@ -69,6 +69,11 @@ spec:
         - emulatedMachinesValue
         machineType: machineTypeValue
         ovmfPath: ovmfPathValue
+      s390x:
+        emulatedMachines:
+        - emulatedMachinesValue
+        machineType: machineTypeValue
+        ovmfPath: ovmfPathValue
     autoCPULimitNamespaceLabelSelector:
       matchExpressions:
       - key: keyValue
@@ -103,6 +108,7 @@ spec:
         virtHandler: 18446744073709551605
         virtLauncher: 18446744073709551604
         virtOperator: 18446744073709551604
+        virtSynchronizationController: 18446744073709551587
       memoryOvercommit: -16
       minimumClusterTSCFrequency: -26
       minimumReservePVCBytes: 18446744073709551594
@@ -400,6 +406,7 @@ spec:
   productName: productNameValue
   productVersion: productVersionValue
   serviceMonitorNamespace: serviceMonitorNamespaceValue
+  synchronizationPort: synchronizationPortValue
   uninstallStrategy: uninstallStrategyValue
   workloadUpdateStrategy:
     batchEvictionInterval: 1ns
@@ -570,6 +577,8 @@ status:
   operatorVersion: operatorVersionValue
   outdatedVirtualMachineInstanceWorkloads: -39
   phase: phaseValue
+  synchronizationAddresses:
+  - synchronizationAddressesValue
   targetDeploymentConfig: targetDeploymentConfigValue
   targetDeploymentID: targetDeploymentIDValue
   targetKubeVirtRegistry: targetKubeVirtRegistryValue

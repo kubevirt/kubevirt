@@ -70,6 +70,7 @@ func NewController(templateService services.TemplateService,
 	netAnnotationsGenerator annotationsGenerator,
 	netStatusUpdater statusUpdater,
 	netSpecValidator specValidator,
+	netMigrationEvaluator migrationEvaluator,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -98,6 +99,7 @@ func NewController(templateService services.TemplateService,
 		netAnnotationsGenerator: netAnnotationsGenerator,
 		updateNetworkStatus:     netStatusUpdater,
 		validateNetworkSpec:     netSpecValidator,
+		netMigrationEvaluator:   netMigrationEvaluator,
 	}
 
 	c.hasSynced = func() bool {
@@ -169,6 +171,16 @@ type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) erro
 
 type specValidator func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []v1.StatusCause
 
+type migrationEvaluator interface {
+	// Evaluate determines if a VMI should request an automatic migration.
+	//
+	// The method returns one of three values:
+	//   * ConditionUnknown: No action needed; the VMI should not be marked for auto-migration.
+	//   * ConditionTrue: Mark the VMI for immediate migration.
+	//   * ConditionFalse: Mark the VMI for pending migration.
+	Evaluate(vmi *virtv1.VirtualMachineInstance) k8sv1.ConditionStatus
+}
+
 type Controller struct {
 	templateService         services.TemplateService
 	clientset               kubecli.KubevirtClient
@@ -193,6 +205,7 @@ type Controller struct {
 	netAnnotationsGenerator annotationsGenerator
 	updateNetworkStatus     statusUpdater
 	validateNetworkSpec     specValidator
+	netMigrationEvaluator   migrationEvaluator
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
@@ -278,7 +291,7 @@ func (c *Controller) execute(key string) error {
 		c.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, v1.UpdateOptions{})
 		if err != nil {
-			c.vmiExpectations.LowerExpectations(key, 1, 0)
+			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
 		return nil
@@ -458,7 +471,7 @@ func (c *Controller) lowerVMIExpectation(curr interface{}) {
 	if err != nil {
 		return
 	}
-	c.vmiExpectations.LowerExpectations(key, 1, 0)
+	c.vmiExpectations.SetExpectations(key, 0, 0)
 }
 
 func (c *Controller) enqueueVirtualMachine(obj interface{}) {

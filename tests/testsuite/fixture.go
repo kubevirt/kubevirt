@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -160,6 +160,7 @@ func BeforeTestSuiteSetup(_ []byte) {
 	libvmifact.RegisterArchitecture(Arch)
 	libvmi.RegisterDefaultOption(addTestAnnotation)
 	libvmi.RegisterDefaultOption(libvmi.WithAutoattachGraphicsDevice(false))
+	libvmi.RegisterDefaultOption(libvmi.WithTerminationGracePeriod(0))
 }
 
 func EnsureKubevirtReady() {

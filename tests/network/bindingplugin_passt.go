@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2024 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -37,6 +37,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -75,6 +77,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
+
+		config.EnableFeatureGate(featuregate.PasstIPStackMigration)
 	})
 
 	BeforeEach(OncePerOrdered, func() {
@@ -372,11 +376,11 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 
 			assertSourcePodContainersTerminate(labelSelector, fieldSelector, migrateVMI)
 
-			By("Verify the VMI new IP is propogated to the status")
+			By("Verify the VMI new IP is propagated to the status")
 			var migrateVmiAfterMigIP string
 			Eventually(func() string {
 				migrateVMI, err = kubevirt.Client().VirtualMachineInstance(migrateVMI.Namespace).Get(context.Background(), migrateVMI.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
+				Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
 				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
 				return migrateVmiAfterMigIP
 			}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")

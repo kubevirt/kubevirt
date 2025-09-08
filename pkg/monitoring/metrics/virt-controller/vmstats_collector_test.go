@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -205,10 +205,10 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(cr.Labels).To(HaveLen(10))
 			Expect(cr.GetLabelValue("instance_type")).To(Equal(expected))
 		},
-			Entry("with no instance type expect <none>", "VirtualMachineInstancetype", "", "<none>"),
+			Entry("with no instance type expect empty string", "VirtualMachineInstancetype", "", ""),
 			Entry("with managed instance type expect its name", "VirtualMachineInstancetype", "i-managed", "i-managed"),
 			Entry("with custom instance type expect <other>", "VirtualMachineInstancetype", "i-unmanaged", "<other>"),
-			Entry("with no cluster instance type expect <none>", "VirtualMachineClusterInstancetype", "", "<none>"),
+			Entry("with no cluster instance type expect empty string", "VirtualMachineClusterInstancetype", "", ""),
 			Entry("with managed cluster instance type expect its name", "VirtualMachineClusterInstancetype", "ci-managed", "ci-managed"),
 			Entry("with custom cluster instance type expect <other>", "VirtualMachineClusterInstancetype", "ci-unmanaged", "<other>"),
 			Entry("with an instance type which no longer exists expect <other>", "VirtualMachineInstancetype", "i-gone", "<other>"),
@@ -240,10 +240,10 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(cr.Labels).To(HaveLen(10))
 			Expect(cr.GetLabelValue("preference")).To(Equal(expected))
 		},
-			Entry("with no preference expect <none>", "VirtualMachinePreference", "", "<none>"),
+			Entry("with no preference expect empty string", "VirtualMachinePreference", "", ""),
 			Entry("with managed preference expect its name", "VirtualMachinePreference", "p-managed", "p-managed"),
 			Entry("with custom preference expect <other>", "VirtualMachinePreference", "p-unmanaged", "<other>"),
-			Entry("with no cluster preference expect <none>", "VirtualMachineClusterPreference", "", "<none>"),
+			Entry("with no cluster preference expect empty string", "VirtualMachineClusterPreference", "", ""),
 			Entry("with managed cluster preference expect its name", "VirtualMachineClusterPreference", "cp-managed", "cp-managed"),
 			Entry("with custom cluster preference expect <other>", "VirtualMachineClusterPreference", "cp-unmanaged", "<other>"),
 			Entry("with an preference which no longer exists expect <other>", "VirtualMachinePreference", "p-gone", "<other>"),
@@ -461,7 +461,8 @@ var _ = Describe("VM Stats Collector", func() {
 
 	Context("PVC allocated size metric collection", func() {
 		BeforeEach(func() {
-			informers.PersistentVolumeClaim, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			stores.PersistentVolumeClaim = pvcInformer.GetIndexer()
 		})
 
 		createPVC := func(namespace, name string, size resource.Quantity, volumeMode *k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolumeClaim {
@@ -484,7 +485,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 		It("should collect PVC size metrics correctly", func() {
 			pvc := createPVC("default", "test-vm-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
-			err := informers.PersistentVolumeClaim.GetIndexer().Add(pvc)
+			err := stores.PersistentVolumeClaim.Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := &k6tv1.VirtualMachine{
@@ -522,7 +523,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 		It("should handle PVC with nil volume mode", func() {
 			pvc := createPVC("default", "test-vm-pvc-nil-mode", resource.MustParse("3Gi"), nil)
-			err := informers.PersistentVolumeClaim.GetIndexer().Add(pvc)
+			err := stores.PersistentVolumeClaim.Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := &k6tv1.VirtualMachine{
@@ -555,12 +556,12 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(results).ToNot(BeEmpty())
 			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
 			Expect(results[0].Value).To(Equal(float64(3 * 1024 * 1024 * 1024)))
-			Expect(results[0].Labels).To(Equal([]string{"test-vm-nil-mode", "default", "test-vm-pvc-nil-mode", "<none>", "rootdisk"}))
+			Expect(results[0].Labels).To(Equal([]string{"test-vm-nil-mode", "default", "test-vm-pvc-nil-mode", "", "rootdisk"}))
 		})
 
 		It("should prioritize DataVolume template size over PVC size", func() {
 			pvc := createPVC("default", "test-dv-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
-			err := informers.PersistentVolumeClaim.GetIndexer().Add(pvc)
+			err := stores.PersistentVolumeClaim.Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := &k6tv1.VirtualMachine{
@@ -700,12 +701,14 @@ var _ = Describe("VM Stats Collector", func() {
 											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
 												Bridge: &k6tv1.InterfaceBridge{},
 											},
+											Model: "virtio",
 										},
 										{
 											Name: "iface2",
 											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
 												Masquerade: &k6tv1.InterfaceMasquerade{},
 											},
+											Model: "e1000e",
 										},
 										{
 											Name: "iface3",
@@ -746,10 +749,10 @@ var _ = Describe("VM Stats Collector", func() {
 			metrics := CollectVmsVnicInfo([]*k6tv1.VirtualMachine{vm})
 			Expect(metrics).To(HaveLen(4), "Expected metrics for all vNICs")
 
-			Expect(metrics[0].Labels).To(Equal([]string{"test-vm", "test-ns", "iface1", "core", "pod networking", "bridge"}))
-			Expect(metrics[1].Labels).To(Equal([]string{"test-vm", "test-ns", "iface2", "core", "pod networking", "masquerade"}))
-			Expect(metrics[2].Labels).To(Equal([]string{"test-vm", "test-ns", "iface3", "core", "multus-net", "sriov"}))
-			Expect(metrics[3].Labels).To(Equal([]string{"test-vm", "test-ns", "iface4", "plugin", "custom-net", "custom-plugin"}))
+			Expect(metrics[0].Labels).To(Equal([]string{"test-vm", "test-ns", "iface1", "core", "pod networking", "bridge", "virtio"}))
+			Expect(metrics[1].Labels).To(Equal([]string{"test-vm", "test-ns", "iface2", "core", "pod networking", "masquerade", "e1000e"}))
+			Expect(metrics[2].Labels).To(Equal([]string{"test-vm", "test-ns", "iface3", "core", "multus-net", "sriov", "<none>"}))
+			Expect(metrics[3].Labels).To(Equal([]string{"test-vm", "test-ns", "iface4", "plugin", "custom-net", "custom-plugin", "<none>"}))
 		})
 		It("should not collect kubevirt_vm_vnic_info metric if no network defined", func() {
 			vm := &k6tv1.VirtualMachine{

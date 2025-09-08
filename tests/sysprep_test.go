@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -57,7 +57,7 @@ const (
 
 const (
 	// This xml will be the contents of the Autounattend.xml and Unattend.xml files, which are the answer files that Windows uses
-	// when booting from a sealed image at diffrent stages, in particulare to answer the questions at the OOBE stage.
+	// when booting from a sealed image at different stages, in particulare to answer the questions at the OOBE stage.
 	answerFileTemplate = `
     <?xml version="1.0" encoding="utf-8"?>
     <unattend xmlns="urn:schemas-microsoft-com:unattend">
@@ -273,7 +273,7 @@ var _ = Describe("[Sysprep][sig-compute]Syspreped VirtualMachineInstance", Seria
 					},
 				},
 			}),
-			libvmi.WithResourceMemory("2048Mi"),
+			libvmi.WithMemoryRequest("2048Mi"),
 			withFeatures(v1.Features{
 				ACPI: v1.FeatureState{},
 				APIC: &v1.FeatureAPIC{},

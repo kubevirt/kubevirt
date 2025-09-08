@@ -113,13 +113,13 @@ var _ = Describe("Certificate Management", func() {
 			now := time.Now()
 			current := newSelfSignedCert(now, now.Add(1*time.Hour))
 			given := []*tls.Certificate{}
-			for i := 1; i < 20; i++ {
+			for i := 1; i < 60; i++ {
 				given = append(given, newSelfSignedCert(now.Add(-1*time.Minute), now.Add(1*time.Hour)))
 			}
 			givenBundle := caCertsToBundle(given)
 			_, count, err := MergeCABundle(current, givenBundle, 2*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(count).To(Equal(11))
+			Expect(count).To(Equal(51))
 		})
 
 		It("should immediately suggest a rotation if the cert is not signed by the provided CA", func() {

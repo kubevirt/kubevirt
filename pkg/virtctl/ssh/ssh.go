@@ -138,7 +138,7 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 		return RunLocalClient(kind, namespace, name, &o.options, clientArgs)
 	}
 
-	return o.nativeSSH(kind, namespace, name, client)
+	return o.nativeSSH(kind, namespace, name, client, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr())
 }
 
 func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {

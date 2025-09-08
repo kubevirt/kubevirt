@@ -26,14 +26,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func New(vmi *v1.VirtualMachineInstance, replicas int) *v1.VirtualMachineInstanceReplicaSet {
+func New(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	const taillength = 5
-	replicas32 := int32(replicas)
 	rsselector := "rsselector" + rand.String(taillength)
 	return &v1.VirtualMachineInstanceReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "replicaset" + rand.String(taillength)},
 		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
-			Replicas: &replicas32,
+			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"rsslector": rsselector},
 			},

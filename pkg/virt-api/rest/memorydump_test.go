@@ -31,10 +31,10 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -204,7 +204,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		if vmiRunning {
 			vmi = libvmi.New(
 				libvmi.WithName(testVMIName),
-				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithMemoryRequest("1Gi"),
 				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 			)
 			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
@@ -258,7 +258,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		request.Request.Body = newMemoryDumpBody(memDumpReq)
 		vmi := libvmi.New(
 			libvmi.WithName(testVMIName),
-			libvmi.WithResourceMemory("1Gi"),
+			libvmi.WithMemoryRequest("1Gi"),
 			libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 		)
 		vm := libvmi.NewVirtualMachine(vmi)

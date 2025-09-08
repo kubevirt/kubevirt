@@ -77,8 +77,8 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiS
 
 func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiStore)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return
 	}
@@ -140,8 +140,8 @@ func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *res
 
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiStore)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return
 	}
@@ -159,8 +159,8 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiStore)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return
 	}
@@ -178,8 +178,8 @@ func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restf
 
 func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, t.vmiStore)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return
 	}

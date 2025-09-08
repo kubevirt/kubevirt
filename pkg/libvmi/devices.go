@@ -107,3 +107,18 @@ func WithTPM(persistent bool) Option {
 		}
 	}
 }
+
+func WithVideo(videoType string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Video = &v1.VideoDevice{
+			Type: videoType,
+		}
+	}
+}
+
+// WithPanicDevice adds a panic device with the given model
+func WithPanicDevice(model v1.PanicDeviceModel) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.PanicDevices = append(vmi.Spec.Domain.Devices.PanicDevices, v1.PanicDevice{Model: &model})
+	}
+}

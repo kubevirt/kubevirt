@@ -29,10 +29,8 @@ export PROMETHEUS_URL=${PROMETHEUS_URL:-http://127.0.0.1}
 export PERFSCALE_WORKLOAD=${PERFSCALE_WORKLOAD:-${_perfscale_workload}}
 
 echo 'Preparing directory for artifacts'
-export ARTIFACTS=${ARTIFACTS}/performance-density
 export AUDIT_CONFIG=${ARTIFACTS}/perfscale-audit-cfg.json
 export AUDIT_RESULTS=${ARTIFACTS}/perfscale-audit-results.json
-rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
 # in kubevirt CI/CD the node we run the job is on a different cluster, so time is not synced across all nodes

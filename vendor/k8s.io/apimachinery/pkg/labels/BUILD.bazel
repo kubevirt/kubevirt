@@ -17,6 +17,5 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/validation:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
         "//vendor/k8s.io/klog/v2:go_default_library",
-        "//vendor/k8s.io/utils/strings/slices:go_default_library",
     ],
 )

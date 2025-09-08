@@ -9,6 +9,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,7 +20,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -38,7 +38,7 @@ import (
 
 // The SCSI persistent reservation tests require to run serially because of the
 // feature gate PersistentReservation. The enablement/disablement of this
-// feature gate redeploys virt-handler pod, and this might interfer with other
+// feature gate redeploys virt-handler pod, and this might interfere with other
 // tests.
 var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 	const randLen = 8
@@ -199,7 +199,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 		}
 	})
 
-	Context("Use LUN disk with presistent reservation", func() {
+	Context("Use LUN disk with persistent reservation", func() {
 		BeforeEach(func() {
 			var err error
 			naa = generateNaa()
@@ -344,25 +344,50 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 		It("should delete and recreate virt-handler", func() {
 			config.DisableFeatureGate(featuregate.PersistentReservation)
 
-			Eventually(func() bool {
+			Eventually(func() []k8sv1.Container {
 				ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
 				if err != nil {
-					return false
+					return nil
 				}
-				return len(ds.Spec.Template.Spec.Containers) == 1
-			}, time.Minute*5, time.Second*2).Should(BeTrue())
+				return ds.Spec.Template.Spec.Containers
+			}, time.Minute*5, time.Second*2).ShouldNot(
+				ContainElement((gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Name": Equal("pr-helper")},
+				))))
 
 			// Switching the PersistentReservation feature gate on/off
 			// causes redeployment of all KubeVirt components.
 			By("Ensuring all KubeVirt components are ready")
 			testsuite.EnsureKubevirtReady()
+		})
 
-			nodes := libnode.GetAllSchedulableNodes(virtClient)
-			for _, node := range nodes.Items {
-				output, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"ls", reservation.GetPrHelperSocketDir()})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(output).To(Or(BeEmpty(), ContainSubstring("multipathd.socket")))
-			}
+		Context("With multipath", func() {
+			const mpathSocket = "/proc/1/root/run/multipathd.socket"
+			BeforeEach(func() {
+				// Check if mulitpathd socket exists on the nodes, if not simulate the existance by creating a mock socket
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				for _, node := range nodes.Items {
+					_, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"ls", mpathSocket})
+					if err != nil {
+						By(fmt.Sprintf("Create a fake mulitpathd.socket in node %s", node.Name))
+						libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"touch", mpathSocket})
+						DeferCleanup(func() {
+							_, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"rm", "-f", mpathSocket})
+							Expect(err).ToNot(HaveOccurred())
+						})
+					}
+				}
+			})
+
+			It("ensure multipath socket is bind mounted and available to the pr-helper daemon", func() {
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				for _, node := range nodes.Items {
+					output, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"cat", "/proc/mounts"})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(strings.Count(output, "multipathd.socket")).Should(Equal(1),
+						"the multipathd socket should be mounted only once")
+				}
+			})
 		})
 	})
 

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright the KubeVirt Authors.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -25,7 +25,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )

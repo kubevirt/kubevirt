@@ -49,10 +49,7 @@ func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineIns
 		}
 	}
 
-	if err := l.setGuestTime(vmi); err != nil {
-		return err
-	}
-
+	l.setGuestTime(vmi)
 	return nil
 }
 
@@ -147,6 +144,13 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	options *cmdv1.VirtualMachineOptions,
 ) error {
 	logger := log.Log.Object(vmi)
+	if l.imageVolumeFeatureGateEnabled {
+		err := l.linkImageVolumeFilePaths(vmi)
+		if err != nil {
+			logger.Reason(err).Error("failed link ImageVolumeFilePaths")
+			return err
+		}
+	}
 
 	c, err := l.generateConverterContext(vmi, allowEmulation, options, true)
 	if err != nil {
@@ -207,6 +211,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 			curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
 			unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
+			logger.V(2).Infof("Creating socketpath for unix migration/tcp %s", unixSocketPath)
 			migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, nil, string(vmi.UID))
 
 			err := migrationProxy.Start()

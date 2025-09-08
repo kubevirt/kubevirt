@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -70,6 +71,16 @@ var _ = Describe("Device Controller", func() {
 	var mockPCI *MockDeviceHandler
 	var ctrl *gomock.Controller
 	var clientTest *fake.Clientset
+	var wg *sync.WaitGroup
+
+	runDeviceController := func(deviceController *DeviceController) {
+		wg.Add(1)
+		go func() {
+			defer GinkgoRecover()
+			deviceController.Run(stop)
+			wg.Done()
+		}()
+	}
 
 	BeforeEach(func() {
 		clientTest = fake.NewSimpleClientset()
@@ -103,12 +114,14 @@ var _ = Describe("Device Controller", func() {
 		maxDevices = 100
 		permissions = "rw"
 		stop = make(chan struct{}, 1)
+		wg = &sync.WaitGroup{}
 	})
 
 	AfterEach(func() {
 		defer os.RemoveAll(workDir)
 		// Ensure the deviceController is stopped after each test to avoid leaking resources
 		stop <- struct{}{}
+		wg.Wait()
 		handler = &DeviceUtilsHandler{}
 	})
 
@@ -122,7 +135,8 @@ var _ = Describe("Device Controller", func() {
 
 			fileObj, err := os.Create(devicePath)
 			Expect(err).ToNot(HaveOccurred())
-			fileObj.Close()
+			err = fileObj.Close()
+			Expect(err).ToNot(HaveOccurred())
 
 			res = deviceController.NodeHasDevice(devicePath)
 			Expect(res).To(BeTrue())
@@ -144,7 +158,8 @@ var _ = Describe("Device Controller", func() {
 			devicePath1 = path.Join(workDir, deviceName1)
 			devicePath2 = path.Join(workDir, deviceName2)
 			// only create the second device.
-			os.Create(devicePath2)
+			_, err = os.Create(devicePath2)
+			Expect(err).ToNot(HaveOccurred())
 
 			plugin1 = NewFakePlugin(deviceName1, devicePath1)
 			plugin2 = NewFakePlugin(deviceName2, devicePath2)
@@ -155,7 +170,8 @@ var _ = Describe("Device Controller", func() {
 			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, clientTest.CoreV1())
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 10 * time.Second}
 
-			go deviceController.Run(stop)
+			runDeviceController(deviceController)
+
 			Eventually(func() int {
 				return int(atomic.LoadInt32(&plugin2.Starts))
 			}, 5*time.Second).Should(BeNumerically(">=", 1))
@@ -170,7 +186,8 @@ var _ = Describe("Device Controller", func() {
 			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, clientTest.CoreV1())
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 300 * time.Millisecond}
 
-			go deviceController.Run(stop)
+			runDeviceController(deviceController)
+
 			Consistently(func() int {
 				return int(atomic.LoadInt32(&plugin2.Starts))
 			}, 500*time.Millisecond).Should(BeNumerically("<", 3))
@@ -181,7 +198,7 @@ var _ = Describe("Device Controller", func() {
 			initialDevices := []Device{plugin1, plugin2}
 			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, clientTest.CoreV1())
 
-			go deviceController.Run(stop)
+			runDeviceController(deviceController)
 
 			Expect(deviceController.NodeHasDevice(devicePath1)).To(BeFalse())
 			Expect(deviceController.NodeHasDevice(devicePath2)).To(BeTrue())
@@ -204,7 +221,7 @@ var _ = Describe("Device Controller", func() {
 			deviceController.startDevice(deviceName1, plugin1)
 			deviceController.startDevice(deviceName2, plugin2)
 
-			go deviceController.Run(stop)
+			runDeviceController(deviceController)
 
 			Eventually(func() bool {
 				deviceController.startedPluginsMutex.Lock()
@@ -222,7 +239,7 @@ var _ = Describe("Device Controller", func() {
 			permanentPlugins := []Device{plugin1, plugin2}
 			deviceController := NewDeviceController(host, maxDevices, permissions, permanentPlugins, emptyConfigMap, clientTest.CoreV1())
 
-			go deviceController.Run(stop)
+			runDeviceController(deviceController)
 
 			Eventually(func() bool {
 				deviceController.startedPluginsMutex.Lock()

@@ -78,7 +78,7 @@ func (h *HeartBeat) heartBeat(heartBeatInterval time.Duration, stopCh chan struc
 }
 
 func (h *HeartBeat) labelNodeUnschedulable() {
-	retry.OnError(retry.DefaultBackoff, func(err error) bool { return err != nil }, func() error {
+	err := retry.OnError(retry.DefaultBackoff, func(err error) bool { return err != nil }, func() error {
 		now, err := json.Marshal(metav1.Now())
 		if err != nil {
 			log.DefaultLogger().Reason(err).Errorf("Can't determine date")
@@ -98,6 +98,10 @@ func (h *HeartBeat) labelNodeUnschedulable() {
 		}
 		return nil
 	})
+
+	if err != nil {
+		log.Log.Warningf("Failed to set node %s unschedulable", h.host)
+	}
 }
 
 // waitForDevicePlugins gives the device plugins additional time to successfully connect to the kubelet.
@@ -133,19 +137,10 @@ func (h *HeartBeat) do() {
 		cpuManagerEnabled = h.isCPUManagerEnabled(h.cpuManagerPaths)
 	}
 
-	node, err := h.clientset.Nodes().Get(context.Background(), h.host, metav1.GetOptions{})
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Can't get node %s", h.host)
-		return
-	}
-	ksmEnabled, ksmEnabledByUs := handleKSM(node, h.clusterConfig)
-
-	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s": "%t"}, "annotations": {"%s": %s, "%s": "%t"}}}`,
+	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t"}, "annotations": {"%s": %s}}}`,
 		v1.NodeSchedulable, kubevirtSchedulable,
 		v1.CPUManager, cpuManagerEnabled,
-		v1.KSMEnabledLabel, ksmEnabled,
 		v1.VirtHandlerHeartbeat, string(now),
-		v1.KSMHandlerManagedAnnotation, ksmEnabledByUs,
 	))
 	_, err = h.clientset.Nodes().Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {

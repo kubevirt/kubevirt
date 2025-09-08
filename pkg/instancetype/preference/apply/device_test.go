@@ -1,8 +1,29 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ */
+
 package apply_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -34,8 +55,6 @@ var _ = Describe("Preference.Devices", func() {
 				Physical: 512,
 			},
 		}
-		vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
-		vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
 		vmi.Spec.Domain.Devices.Disks = []virtv1.Disk{
 			{
 				Cache:     virtv1.CacheWriteBack,
@@ -94,14 +113,10 @@ var _ = Describe("Preference.Devices", func() {
 			},
 		}
 		vmi.Spec.Domain.Devices.Sound = &virtv1.SoundDevice{}
+		vmi.Spec.Domain.Devices.PanicDevices = []virtv1.PanicDevice{{}}
 
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Devices: &v1beta1.DevicePreferences{
-				PreferredAutoattachGraphicsDevice:   pointer.P(true),
-				PreferredAutoattachMemBalloon:       pointer.P(true),
-				PreferredAutoattachPodInterface:     pointer.P(true),
-				PreferredAutoattachSerialConsole:    pointer.P(true),
-				PreferredAutoattachInputDevice:      pointer.P(true),
 				PreferredDiskDedicatedIoThread:      pointer.P(true),
 				PreferredDisableHotplug:             pointer.P(true),
 				PreferredUseVirtioTransitional:      pointer.P(true),
@@ -124,6 +139,7 @@ var _ = Describe("Preference.Devices", func() {
 				PreferredSoundModel:          "ac97",
 				PreferredRng:                 &virtv1.Rng{},
 				PreferredInterfaceMasquerade: &virtv1.InterfaceMasquerade{},
+				PreferredPanicDeviceModel:    pointer.P(virtv1.Hyperv),
 			},
 		}
 	})
@@ -159,9 +175,6 @@ var _ = Describe("Preference.Devices", func() {
 	It("should apply to VMI", func() {
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 
-		Expect(vmi.Spec.Domain.Devices.AutoattachGraphicsDevice).To(HaveValue(BeFalse()))
-		Expect(vmi.Spec.Domain.Devices.AutoattachMemBalloon).To(HaveValue(BeFalse()))
-		Expect(vmi.Spec.Domain.Devices.AutoattachInputDevice).To(HaveValue(BeTrue()))
 		Expect(vmi.Spec.Domain.Devices.Disks[0].Cache).To(Equal(virtv1.CacheWriteBack))
 		Expect(vmi.Spec.Domain.Devices.Disks[0].IO).To(Equal(virtv1.IONative))
 		Expect(vmi.Spec.Domain.Devices.Disks[0].BlockSize).To(HaveValue(Equal(*userDefinedBlockSize)))
@@ -173,8 +186,6 @@ var _ = Describe("Preference.Devices", func() {
 		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Model).To(Equal("e1000"))
 
 		// Assert that everything that isn't defined in the VM/VMI should use Preferences
-		Expect(vmi.Spec.Domain.Devices.AutoattachPodInterface).To(HaveValue(Equal(*preferenceSpec.Devices.PreferredAutoattachPodInterface)))
-		Expect(vmi.Spec.Domain.Devices.AutoattachSerialConsole).To(HaveValue(Equal(*preferenceSpec.Devices.PreferredAutoattachSerialConsole)))
 		Expect(vmi.Spec.Domain.Devices.DisableHotplug).To(Equal(*preferenceSpec.Devices.PreferredDisableHotplug))
 		Expect(vmi.Spec.Domain.Devices.UseVirtioTransitional).To(HaveValue(Equal(*preferenceSpec.Devices.PreferredUseVirtioTransitional)))
 		Expect(vmi.Spec.Domain.Devices.Disks[1].Cache).To(Equal(preferenceSpec.Devices.PreferredDiskCache))
@@ -191,6 +202,7 @@ var _ = Describe("Preference.Devices", func() {
 		Expect(vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue).
 			To(HaveValue(Equal(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue)))
 		Expect(vmi.Spec.Domain.Devices.BlockMultiQueue).To(HaveValue(Equal(*preferenceSpec.Devices.PreferredBlockMultiQueue)))
+		Expect(vmi.Spec.Domain.Devices.PanicDevices[0].Model).To(Equal(preferenceSpec.Devices.PreferredPanicDeviceModel))
 	})
 
 	It("Should apply when a VMI disk doesn't have a DiskDevice target defined", func() {
@@ -277,4 +289,77 @@ var _ = Describe("Preference.Devices", func() {
 			),
 		)
 	})
+
+	Context("PreferredPanicDeviceModel", func() {
+		DescribeTable("should",
+			func(preferredPanicDeviceModel *virtv1.PanicDeviceModel, vmiPanicDevices, expectedPanicDevices []virtv1.PanicDevice) {
+				vmi.Spec.Domain.Devices.PanicDevices = vmiPanicDevices
+				preferenceSpec.Devices.PreferredPanicDeviceModel = preferredPanicDeviceModel
+				Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+				Expect(vmi.Spec.Domain.Devices.PanicDevices).To(Equal(expectedPanicDevices))
+			},
+			Entry("not apply when preferredPanicDeviceModel is nil",
+				nil,
+				[]virtv1.PanicDevice{{Model: pointer.P(virtv1.Hyperv)}},
+				[]virtv1.PanicDevice{{Model: pointer.P(virtv1.Hyperv)}},
+			),
+			Entry("not apply when panic devices is not provided in the VMI spec",
+				pointer.P(virtv1.Hyperv),
+				[]virtv1.PanicDevice{},
+				[]virtv1.PanicDevice{},
+			),
+			Entry("only apply when  panic device model is nil for a panic device provided in the VMI spec",
+				pointer.P(virtv1.Isa),
+				[]virtv1.PanicDevice{{Model: pointer.P(virtv1.Hyperv)}, {}, {Model: pointer.P(virtv1.PanicDeviceModel(""))}},
+				[]virtv1.PanicDevice{
+					{Model: pointer.P(virtv1.Hyperv)},
+					{Model: pointer.P(virtv1.Isa)},
+					{Model: pointer.P(virtv1.PanicDeviceModel(""))},
+				},
+			),
+		)
+	})
+
+	DescribeTable("PreferredAutoAttach should", func(preferenceValue, vmiValue *bool, match types.GomegaMatcher) {
+		type autoAttachField struct {
+			preference **bool
+			vmi        **bool
+		}
+		autoAttachFields := map[string]autoAttachField{
+			"PreferredAutoattachGraphicsDevice": {
+				&preferenceSpec.Devices.PreferredAutoattachGraphicsDevice,
+				&vmi.Spec.Domain.Devices.AutoattachGraphicsDevice,
+			},
+			"PreferredAutoattachMemBalloon": {
+				&preferenceSpec.Devices.PreferredAutoattachMemBalloon,
+				&vmi.Spec.Domain.Devices.AutoattachMemBalloon,
+			},
+			"PreferredAutoattachPodInterface": {
+				&preferenceSpec.Devices.PreferredAutoattachPodInterface,
+				&vmi.Spec.Domain.Devices.AutoattachPodInterface,
+			},
+			"PreferredAutoattachSerialConsole": {
+				&preferenceSpec.Devices.PreferredAutoattachSerialConsole,
+				&vmi.Spec.Domain.Devices.AutoattachSerialConsole,
+			},
+			"PreferredAutoattachInputDevice": {
+				&preferenceSpec.Devices.PreferredAutoattachInputDevice,
+				&vmi.Spec.Domain.Devices.AutoattachInputDevice,
+			},
+		}
+		for name, f := range autoAttachFields {
+			*f.preference = preferenceValue
+			*f.vmi = vmiValue
+			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+			Expect(*f.vmi).To(match, fmt.Sprintf("%s not applied correctly", name))
+		}
+	},
+		Entry("apply true when VMI value is nil", pointer.P(true), nil, HaveValue(BeTrue())),
+		Entry("apply false when VMI value is nil", pointer.P(false), nil, HaveValue(BeFalse())),
+		Entry("not apply nil when VMI value is nil", nil, nil, BeNil()),
+		Entry("not apply nil when VMI value is true", nil, pointer.P(true), HaveValue(BeTrue())),
+		Entry("not apply nil when VMI value is false", nil, pointer.P(false), HaveValue(BeFalse())),
+		Entry("not apply true when VMI value is false", pointer.P(true), pointer.P(false), HaveValue(BeFalse())),
+		Entry("not apply false when VMI value is true", pointer.P(false), pointer.P(true), HaveValue(BeTrue())),
+	)
 })

@@ -23,10 +23,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -170,9 +171,7 @@ var _ = Describe("Add volume command", func() {
 			if persist {
 				args = append(args, "--persist")
 			}
-			if extraArg != "" {
-				args = append(args, extraArg)
-			}
+			args = append(args, strings.Fields(extraArg)...)
 			cmd := testing.NewRepeatableVirtctlCommand(args...)
 			return cmd()
 		}
@@ -205,6 +204,7 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
 			)
 
 			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
@@ -221,6 +221,7 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
 			)
 
 			It("should fail immediately on non concurrent error", func() {
@@ -250,6 +251,14 @@ var _ = Describe("Add volume command", func() {
 				Expect(runCmd(true, "")).To(MatchError(ContainSubstring("error adding volume after 15 retries")))
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(15))
 			})
+
+			DescribeTable("should fail addvolume with LUN and virtio bus", func(persist bool) {
+				Expect(runCmd(persist, "--disk-type=lun --bus=virtio")).To(
+					MatchError(ContainSubstring("Invalid bus type 'virtio' for LUN disk. Only 'scsi' bus is supported.")))
+			},
+				Entry("without persist", false),
+				Entry("with persist", true),
+			)
 		})
 
 		Context("with PVC", func() {
@@ -281,6 +290,7 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
 			)
 
 			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
@@ -297,6 +307,7 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
 			)
 		})
 	})
@@ -318,7 +329,7 @@ func verifyDryRun(volumeOptions *v1.AddVolumeOptions) {
 
 func verifyDiskTypeDisk(volumeOptions *v1.AddVolumeOptions) {
 	Expect(volumeOptions.Disk.DiskDevice.Disk).ToNot(BeNil())
-	Expect(volumeOptions.Disk.DiskDevice.Disk.Bus).To(Equal(v1.DiskBusSCSI))
+	Expect(volumeOptions.Disk.DiskDevice.Disk.Bus).To(Or(Equal(v1.DiskBusSCSI), Equal(v1.DiskBusVirtio)))
 	Expect(volumeOptions.Disk.DiskDevice.LUN).To(BeNil())
 }
 
@@ -337,5 +348,11 @@ func verifyDiskSerial(serial string) verifyFn {
 func verifyCache(cache v1.DriverCache) verifyFn {
 	return func(volumeOptions *v1.AddVolumeOptions) {
 		Expect(volumeOptions.Disk.Cache).To(Equal(cache))
+	}
+}
+
+func verifyBus(bus v1.DiskBus) verifyFn {
+	return func(volumeOptions *v1.AddVolumeOptions) {
+		Expect(volumeOptions.Disk.Disk.Bus).To(Equal(bus))
 	}
 }

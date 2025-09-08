@@ -181,7 +181,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 				bridgeInterfaceName,
 				nic.AdvertisingIPAddr,
 				nic.Gateway,
-				nameservers,
+				nameservers.IPv4,
 				nic.Routes,
 				searchDomains,
 				nic.Mtu,
@@ -198,6 +198,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 			if err = DHCPv6Server(
 				nic.IPv6.IP,
 				bridgeInterfaceName,
+				nameservers.IPv6,
 			); err != nil {
 				log.Log.Reason(err).Error("failed to run DHCPv6 Server")
 				panic(err)

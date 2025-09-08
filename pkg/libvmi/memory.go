@@ -55,8 +55,20 @@ func WithMaxGuest(memory string) Option {
 	}
 }
 
+// Deprecated: Use WithMemoryRequest instead
 // WithResourceMemory specifies the vmi memory resource.
 func WithResourceMemory(value string) Option {
+	return WithMemoryRequest(value)
+}
+
+// Deprecated: Use WithMemoryLimit instead
+// WithLimitMemory specifies the VMI memory limit.
+func WithLimitMemory(value string) Option {
+	return WithMemoryLimit(value)
+}
+
+// WithMemoryRequest specifies the vmi memory resource.
+func WithMemoryRequest(value string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.Resources.Requests == nil {
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
@@ -65,8 +77,8 @@ func WithResourceMemory(value string) Option {
 	}
 }
 
-// WithLimitMemory specifies the VMI memory limit.
-func WithLimitMemory(value string) Option {
+// WithMemoryLimit specifies the VMI memory limit.
+func WithMemoryLimit(value string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.Resources.Limits == nil {
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}

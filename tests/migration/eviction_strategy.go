@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -107,47 +107,6 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						))),
 					),
 				)
-			})
-
-			It("[sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
-				vmi := alpineVMIWithEvictionStrategy()
-				for x := 0; x < 3; x++ {
-					By("creating the VMI")
-					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					By("checking that the PDB appeared")
-					Eventually(matcher.AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
-
-					By("waiting for VMI")
-					libwait.WaitForSuccessfulVMIStart(vmi,
-						libwait.WithTimeout(60),
-					)
-					By("deleting the VMI")
-					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-					By("checking that the PDB disappeared")
-					Eventually(matcher.AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
-					Eventually(matcher.ThisVMI(vmi), 60*time.Second, 500*time.Millisecond).Should(matcher.BeGone())
-				}
-			})
-
-			It("should create the PDB if VMI is live-migratable and has the LiveMigrateIfPossible strategy set", func() {
-				By("creating the VMI")
-				vmi := alpineVMIWithEvictionStrategy(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrateIfPossible))
-				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("checking that the PDB appeared, with extra time since schedulability needs to be determined first in the cluster")
-				Eventually(matcher.AllPDBs(vmi.Namespace), 60*time.Second, 500*time.Millisecond).Should(HaveLen(1))
-				By("waiting for VMI")
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithTimeout(60),
-				)
-
-				By("deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-				By("checking that the PDB disappeared")
-				Eventually(matcher.AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
 			})
 
 			It("[sig-compute][test_id:7680]should delete PDBs created by an old virt-controller", func() {
@@ -462,7 +421,6 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 			})
 		})
 		Context("with multiple VMIs with eviction policies set", Serial, func() {
-
 			It("[release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
 				var vmis []*v1.VirtualMachineInstance
 				for i := 0; i < 4; i++ {
@@ -621,7 +579,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 	return libvmifact.NewFedora(libnet.WithMasqueradeNetworking(),
-		libvmi.WithResourceMemory(fedoraVMSize),
+		libvmi.WithMemoryRequest(fedoraVMSize),
 		libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
 }

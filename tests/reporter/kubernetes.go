@@ -552,7 +552,7 @@ func (r *KubernetesReporter) logVirtLauncherCommands(virtCli kubecli.KubevirtCli
 		}
 
 		if !isContainerReady(pod.Status.ContainerStatuses, computeContainer) {
-			printError("could not find healty compute container for pod %s", pod.ObjectMeta.Name)
+			printError("could not find healthy compute container for pod %s", pod.ObjectMeta.Name)
 			continue
 		}
 
@@ -1123,7 +1123,7 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 }
 
 func (r *KubernetesReporter) logClusterOverview() {
-	stdout, stderr, err := clientcmd.RunCommand("", clientcmd.GetK8sCmdClient(), "get", "all", "--all-namespaces", "-o", "wide")
+	stdout, stderr, err := clientcmd.RunCommand("", "kubectl", "get", "all", "--all-namespaces", "-o", "wide")
 	if err != nil {
 		printError("failed to fetch cluster overview: %v, %s", err, stderr)
 		return

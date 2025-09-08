@@ -39,38 +39,30 @@ import (
 const xDescriptorText = "urn:alm:descriptor:text"
 
 type NewClusterServiceVersionData struct {
-	Namespace             string
-	KubeVirtVersion       string
-	OperatorImageVersion  string
-	DockerPrefix          string
-	ImagePrefix           string
-	ImagePullPolicy       string
-	Verbosity             string
-	CsvVersion            string
-	VirtApiSha            string
-	VirtControllerSha     string
-	VirtHandlerSha        string
-	VirtLauncherSha       string
-	VirtExportProxySha    string
-	VirtExportServerSha   string
-	GsSha                 string
-	PrHelperSha           string
-	SidecarShimSha        string
-	RunbookURLTemplate    string
-	Replicas              int
-	IconBase64            string
-	ReplacesCsvVersion    string
-	CreatedAtTimestamp    string
-	VirtOperatorImage     string
-	VirtApiImage          string
-	VirtControllerImage   string
-	VirtHandlerImage      string
-	VirtLauncherImage     string
-	VirtExportProxyImage  string
-	VirtExportServerImage string
-	GsImage               string
-	PrHelperImage         string
-	SidecarShimImage      string
+	Namespace                          string
+	KubeVirtVersion                    string
+	OperatorImageVersion               string
+	DockerPrefix                       string
+	ImagePrefix                        string
+	ImagePullPolicy                    string
+	Verbosity                          string
+	CsvVersion                         string
+	RunbookURLTemplate                 string
+	Replicas                           int
+	IconBase64                         string
+	ReplacesCsvVersion                 string
+	CreatedAtTimestamp                 string
+	VirtOperatorImage                  string
+	VirtApiImage                       string
+	VirtControllerImage                string
+	VirtHandlerImage                   string
+	VirtLauncherImage                  string
+	VirtExportProxyImage               string
+	VirtExportServerImage              string
+	VirtSynchronizationControllerImage string
+	GsImage                            string
+	PrHelperImage                      string
+	SidecarShimImage                   string
 }
 
 type csvClusterPermissions struct {
@@ -166,15 +158,6 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.OperatorImageVersion,
 		data.Verbosity,
 		data.KubeVirtVersion,
-		data.VirtApiSha,
-		data.VirtControllerSha,
-		data.VirtHandlerSha,
-		data.VirtLauncherSha,
-		data.VirtExportProxySha,
-		data.VirtExportServerSha,
-		data.GsSha,
-		data.PrHelperSha,
-		data.SidecarShimSha,
 		data.RunbookURLTemplate,
 		data.VirtApiImage,
 		data.VirtControllerImage,
@@ -182,6 +165,7 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.VirtLauncherImage,
 		data.VirtExportProxyImage,
 		data.VirtExportServerImage,
+		data.VirtSynchronizationControllerImage,
 		data.GsImage,
 		data.PrHelperImage,
 		data.SidecarShimImage,

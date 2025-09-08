@@ -24,6 +24,8 @@ import (
 	"k8s.io/client-go/testing"
 )
 
+// PUT
+
 type PutAction[T any] interface {
 	testing.Action
 	GetName() string
@@ -87,6 +89,80 @@ func NewRootPutSubresourceAction[T any](resource schema.GroupVersionResource, su
 func NewPutSubresourceAction[T any](resource schema.GroupVersionResource, namespace, subresource, name string, options T) PutActionImpl[T] {
 	action := PutActionImpl[T]{}
 	action.Verb = "put"
+	action.Resource = resource
+	action.Subresource = subresource
+	action.Namespace = namespace
+	action.Name = name
+	action.Options = options
+
+	return action
+}
+
+// GET
+
+type GetAction[T any] interface {
+	testing.Action
+	GetName() string
+	GetOptions() T
+}
+
+type GetActionImpl[T any] struct {
+	testing.ActionImpl
+	Name    string
+	Options T
+}
+
+func (a GetActionImpl[T]) GetName() string {
+	return a.Name
+}
+
+func (a GetActionImpl[T]) GetOptions() T {
+	return a.Options
+}
+
+func (a GetActionImpl[T]) DeepCopy() testing.Action {
+	return GetActionImpl[T]{
+		ActionImpl: a.ActionImpl.DeepCopy().(testing.ActionImpl),
+		Name:       a.Name,
+		Options:    a.Options,
+	}
+}
+
+func NewRootGetAction[T any](resource schema.GroupVersionResource, name string, options T) GetActionImpl[T] {
+	action := GetActionImpl[T]{}
+	action.Verb = "get"
+	action.Resource = resource
+	action.Name = name
+	action.Options = options
+
+	return action
+}
+
+func NewGetAction[T any](resource schema.GroupVersionResource, namespace, name string, options T) GetActionImpl[T] {
+	action := GetActionImpl[T]{}
+	action.Verb = "get"
+	action.Resource = resource
+	action.Namespace = namespace
+	action.Name = name
+	action.Options = options
+
+	return action
+}
+
+func NewRootGetSubresourceAction[T any](resource schema.GroupVersionResource, subresource, name string, options T) GetActionImpl[T] {
+	action := GetActionImpl[T]{}
+	action.Verb = "get"
+	action.Resource = resource
+	action.Subresource = subresource
+	action.Name = name
+	action.Options = options
+
+	return action
+}
+
+func NewGetSubresourceAction[T any](resource schema.GroupVersionResource, namespace, subresource, name string, options T) GetActionImpl[T] {
+	action := GetActionImpl[T]{}
+	action.Verb = "get"
 	action.Resource = resource
 	action.Subresource = subresource
 	action.Namespace = namespace

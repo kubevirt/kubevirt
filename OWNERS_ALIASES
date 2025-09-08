@@ -10,8 +10,6 @@ aliases:
     - enp0s3
     - xpivarc
     - vasiliy-ul
-    - acardace
-    - alicefr
     - iholder101
   emeritus_approvers:
     - danielBelenky
@@ -25,16 +23,16 @@ aliases:
     - zcahana
     - dhiller # 2024-03-15
     - AlonaKaplan
+    - acardace
+    - alicefr # 2025-06-04
   code-reviewers:
     - vladikr
     - enp0s3
     - jean-edouard
     - mhenriks
     - EdDev
-    - acardace
     - xpivarc
     - iholder101
-    - alicefr
     - 0xFelix
     - lyarwood
     - fossedihelm
@@ -46,14 +44,12 @@ aliases:
   sig-test-reviewers:
     - enp0s3
     - xpivarc
-    - acardace
     - 0xFelix
   sig-test-approvers:
     - kbidarkar
     - phoracek
     - enp0s3
     - xpivarc
-    - acardace
     - dhiller
     - 0xFelix
   sig-test-emeritus_approvers:
@@ -89,7 +85,6 @@ aliases:
   #
   sig-storage-approvers:
     - mhenriks
-    - alicefr
     - akalenyu
     - ShellyKa13
   sig-storage-reviewers:
@@ -97,6 +92,8 @@ aliases:
     - akalenyu
     - ShellyKa13
     - alromeros
+  sig-storage-emeritus_approvers:
+    - alicefr
 
   #
   # SIG API
@@ -164,11 +161,9 @@ aliases:
   # Owns the release process, including the schedule, and tools.
   #
   sig-release-approvers:
-    - acardace
     - fossedihelm
     - xpivarc
   sig-release-reviewers:
-    - acardace
     - fossedihelm
     - xpivarc
 

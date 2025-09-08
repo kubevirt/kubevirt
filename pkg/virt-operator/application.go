@@ -193,6 +193,7 @@ func Execute() {
 		ConfigMap:                app.informerFactory.OperatorConfigMap(),
 		ClusterInstancetype:      app.informerFactory.VirtualMachineClusterInstancetype(),
 		ClusterPreference:        app.informerFactory.VirtualMachineClusterPreference(),
+		Leases:                   app.informerFactory.Leases(),
 	}
 
 	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)
@@ -270,12 +271,6 @@ func Execute() {
 	if err != nil {
 		panic(err)
 	}
-
-	image := util.GetOperatorImage()
-	if image == "" {
-		golog.Fatalf("Error getting operator's image: %v", err)
-	}
-	log.Log.Infof("Operator image: %s", image)
 
 	app.clusterConfig, err = virtconfig.NewClusterConfig(
 		app.informerFactory.CRD(),

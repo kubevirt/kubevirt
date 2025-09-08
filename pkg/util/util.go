@@ -18,6 +18,8 @@ const (
 	ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
 	RequestHeaderClientCAFileKey              = "requestheader-client-ca-file"
 	VirtShareDir                              = "/var/run/kubevirt"
+	VirtImageVolumeDir                        = "/var/run/kubevirt-image-volume"
+	VirtKernelBootVolumeDir                   = "/var/run/kubevirt-kernel-boot"
 	VirtPrivateDir                            = "/var/run/kubevirt-private"
 	KubeletRoot                               = "/var/lib/kubelet"
 	KubeletPodsDir                            = KubeletRoot + "/pods"
@@ -81,31 +83,8 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-// Check if a VMI spec requests AMD SEV
-func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
-}
-
-// Check if a VMI spec requests SEV with attestation
-func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
-	return IsSEVVMI(vmi) && vmi.Spec.Domain.LaunchSecurity.SEV.Attestation != nil
-}
-
-// WantVirtioNetDevice checks whether a VMI references at least one "virtio" network interface.
-// Note that the reference can be explicit or implicit (unspecified nic models defaults to "virtio").
-func WantVirtioNetDevice(vmi *v1.VirtualMachineInstance) bool {
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Model == "" || iface.Model == v1.VirtIO {
-			return true
-		}
-	}
-	return false
-}
-
-func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
-	return (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
-		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
-		(*vmi.Spec.Domain.Devices.AutoattachPodInterface)
+func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
+	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi)
 }
 
 func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {

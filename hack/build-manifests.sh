@@ -54,9 +54,6 @@ done
 
 bundle_out_dir=${MANIFESTS_OUT_DIR}/release/olm/bundle
 
-# potentially parse image push log file for getting sha sums of virt images
-source hack/parse-shasums.sh
-
 # then process variables
 args=$(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in.tmp")
 for arg in $args; do
@@ -92,18 +89,9 @@ for arg in $args; do
         --kubevirt-logo-path=${kubevirt_logo_path} \
         --namespace=${namespace} \
         --package-name=${package_name} \
-        --pr-helper-sha=${PR_HELPER_SHA} \
         --quay-repository=${QUAY_REPOSITORY} \
         --runbook-url-template=${runbook_url_template} \
-        --sidecar-shim-sha=${SIDECAR_SHIM_SHA} \
         --verbosity=${verbosity} \
-        --virt-api-sha=${VIRT_API_SHA} \
-        --virt-controller-sha=${VIRT_CONTROLLER_SHA} \
-        --virt-exportproxy-sha=${VIRT_EXPORTPROXY_SHA} \
-        --virt-exportserver-sha=${VIRT_EXPORTSERVER_SHA} \
-        --virt-handler-sha=${VIRT_HANDLER_SHA} \
-        --virt-launcher-sha=${VIRT_LAUNCHER_SHA} \
-        --virt-operator-sha=${VIRT_OPERATOR_SHA} \
         >${outfile}
 done
 

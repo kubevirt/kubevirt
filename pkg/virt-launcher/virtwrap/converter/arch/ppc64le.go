@@ -95,3 +95,7 @@ func (converterPPC64) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdo
 func (converterPPC64) SupportPCIHole64Disabling() bool {
 	return false
 }
+
+func (converterPPC64) LaunchSecurity(_ *v1.VirtualMachineInstance) *api.LaunchSecurity {
+	return nil
+}

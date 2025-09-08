@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -36,6 +36,7 @@ const (
 	ContainerDiskVirtio               ContainerDisk = "virtio-container-disk"
 	ContainerDiskEmpty                ContainerDisk = "empty"
 	ContainerDiskFedoraRealtime       ContainerDisk = "fedora-realtime"
+	KernelBoot                        ContainerDisk = "alpine-ext-kernel-boot-demo"
 )
 
 const (
@@ -43,6 +44,7 @@ const (
 	CirrosVolumeSize = "512Mi"
 	AlpineVolumeSize = "512Mi"
 	BlankVolumeSize  = "16Mi"
+	VirtioVolumeSize = "750Mi"
 )
 
 // ContainerDiskFor takes the name of an image and returns the full
@@ -68,7 +70,10 @@ func ContainerDiskFromRegistryFor(registry string, name ContainerDisk) string {
 		return fmt.Sprintf("%s/virtio-container-disk:%s", registry, flags.KubeVirtUtilityVersionTag)
 	case ContainerDiskFedoraTestTooling, ContainerDiskFedoraRealtime, ContainerDiskAlpineTestTooling:
 		return fmt.Sprintf("%s/%s-container-disk:%s", registry, name, flags.KubeVirtUtilityVersionTag)
+	case KernelBoot:
+		return fmt.Sprintf("%s/alpine-ext-kernel-boot-demo:%s", registry, flags.KubeVirtUtilityVersionTag)
 	}
+
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }
 

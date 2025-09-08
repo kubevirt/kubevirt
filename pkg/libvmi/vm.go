@@ -191,3 +191,9 @@ func WithPreferenceRevision(revisionName string) VMOption {
 		}
 	}
 }
+
+func WithUpdateVolumeStrategy(strategy v1.UpdateVolumesStrategy) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.UpdateVolumesStrategy = pointer.P(strategy)
+	}
+}

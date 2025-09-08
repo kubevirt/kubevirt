@@ -3,12 +3,11 @@ package storage
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
-	"kubevirt.io/kubevirt/tests/libpod"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/watcher"
 
@@ -31,9 +30,8 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/storage/velero"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
-	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -302,18 +300,6 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				checkOnlineSnapshotExpectedContentSource(vm, contentName, true)
 			}
 
-			callVeleroHook := func(vmi *v1.VirtualMachineInstance, annoContainer, annoCommand string) (string, string, error) {
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-				command := pod.Annotations[annoCommand]
-				command = strings.Trim(command, "[]")
-				commandSlice := []string{}
-				for _, c := range strings.Split(command, ",") {
-					commandSlice = append(commandSlice, strings.Trim(c, "\" "))
-				}
-				return exec.ExecuteCommandOnPodWithResults(pod, pod.Annotations[annoContainer], commandSlice)
-			}
-
 			ensureFreezeFedora := func(vmi *v1.VirtualMachineInstance) {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -352,40 +338,21 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			}
 
 			It("[test_id:6767]with volumes and guest agent available", decorators.StorageCritical, func() {
-				quantity, err := resource.ParseQuantity("1Gi")
-				Expect(err).ToNot(HaveOccurred())
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = libvmi.NewVirtualMachine(vmi)
-				dvName := "dv-" + vm.Name
-				dataVolume := libdv.NewDataVolume(
-					libdv.WithName(dvName),
+				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
-					libdv.WithStorage(
-						libdv.StorageWithStorageClass(snapshotStorageClass),
-						libdv.StorageWithVolumeSize(quantity.String()),
+					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
+				)
+				vm, vmi := createAndStartVM(
+					libvmi.NewVirtualMachine(
+						libvmifact.NewFedora(
+							libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+							libnet.WithMasqueradeNetworking(),
+							libvmi.WithDataVolume("blank", dv.Name),
+						),
+						libvmi.WithDataVolumeTemplate(dv),
 					),
 				)
-				libstorage.AddDataVolumeTemplate(vm, dataVolume)
 
-				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: "blank",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
-					},
-				})
-				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-					Name: "blank",
-					VolumeSource: v1.VolumeSource{
-						DataVolume: &v1.DataVolumeSource{
-							Name: "dv-" + vm.Name,
-						},
-					},
-				})
-
-				vm, vmi = createAndStartVM(vm)
 				libwait.WaitForSuccessfulVMIStart(vmi,
 					libwait.WithTimeout(300),
 				)
@@ -421,39 +388,23 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("[test_id:6768]with volumes and no guest agent available", decorators.StorageCritical, func() {
-				quantity, err := resource.ParseQuantity("1Gi")
-				Expect(err).ToNot(HaveOccurred())
-				vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
-				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = libvmi.NewVirtualMachine(vmi)
-				dvName := "dv-" + vm.Name
-				dataVolume := libdv.NewDataVolume(
-					libdv.WithName(dvName),
+				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(snapshotStorageClass),
-						libdv.StorageWithVolumeSize(quantity.String()),
 					),
 				)
-				libstorage.AddDataVolumeTemplate(vm, dataVolume)
-				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: "blank",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
-					},
-				})
-				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-					Name: "blank",
-					VolumeSource: v1.VolumeSource{
-						DataVolume: &v1.DataVolumeSource{
-							Name: "dv-" + vm.Name,
-						},
-					},
-				})
+				vm, vmi := createAndStartVM(
+					libvmi.NewVirtualMachine(
+						libvmifact.NewAlpine(
+							libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+							libnet.WithMasqueradeNetworking(),
+							libvmi.WithDataVolume("blank", dv.Name),
+						),
+						libvmi.WithDataVolumeTemplate(dv),
+					),
+				)
 
-				vm, vmi = createAndStartVM(vm)
 				libwait.WaitForSuccessfulVMIStart(vmi,
 					libwait.WithTimeout(300),
 				)
@@ -580,7 +531,58 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				}, 30*time.Second, 2*time.Second).Should(BeEmpty())
 			})
 
-			It("[test_id:7472]should succeed online snapshot with hot plug disk", func() {
+			It("[test_id:12182] should succeed snapshot when VM is paused with Paused indication", func() {
+				dvName := "dv-" + rand.String(5)
+				quantity := resource.MustParse("1Gi")
+
+				opts := []libvmi.Option{
+					libnet.WithMasqueradeNetworking(),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libvmi.WithDataVolume("blank", dvName),
+				}
+
+				vmi := libvmifact.NewFedora(opts...)
+				vm = libvmi.NewVirtualMachine(vmi)
+
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithName(dvName),
+					libdv.WithBlankImageSource(),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(snapshotStorageClass),
+						libdv.StorageWithVolumeSize(quantity.String()),
+					),
+				)
+				libstorage.AddDataVolumeTemplate(vm, dataVolume)
+
+				vm, vmi = createAndStartVM(vm)
+				libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(300))
+
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Pausing the VirtualMachineInstance")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})).To(Succeed())
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+
+				By("Taking the snapshot")
+				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
+				_, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
+
+				By("Verifying snapshot has Paused indication")
+				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotPausedIndication}
+				Expect(snapshot.Status.Indications).To(ContainElements(expectedIndications))
+
+				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
+				checkOnlineSnapshotExpectedContentSource(vm, contentName, true)
+			})
+
+			DescribeTable("should succeed online snapshot with hot plug disk", func(withEphemeralHotplug bool) {
+				if withEphemeralHotplug {
+					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+					kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
+				}
+
 				var vmi *v1.VirtualMachineInstance
 				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 				vm, vmi = createAndStartVM(vm)
@@ -589,8 +591,11 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 				By("Add persistent hotplug disk")
 				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
-				By("Add temporary hotplug disk")
-				tempVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+				var tempVolName string
+				if withEphemeralHotplug {
+					By("Add temporary hotplug disk")
+					tempVolName = AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+				}
 				By("Create Snapshot")
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -650,7 +655,10 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					}
 					Expect(found).To(BeTrue())
 				}
-			})
+			},
+				Entry("[test_id:7472] with ephemeral hotplug disk", Serial, true),
+				Entry("without ephemeral hotplug disk", false),
+			)
 
 			It("should report appropriate event when freeze fails", func() {
 				// Activate SELinux and reboot machine so we can force fsfreeze failure
@@ -731,108 +739,6 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					})),
 					"CreationTime": BeNil(),
 				})))
-			})
-
-			It("Calling Velero hooks should freeze/unfreeze VM", func() {
-				By("Creating VM")
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = libvmi.NewVirtualMachine(vmi)
-
-				vm, vmi = createAndStartVM(vm)
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithTimeout(300),
-				)
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-				By("Logging into Fedora")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-				By("Calling Velero pre-backup hook")
-				_, _, err := callVeleroHook(vmi, velero.PreBackupHookContainerAnnotation, velero.PreBackupHookCommandAnnotation)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Veryfing the VM was frozen")
-				journalctlCheck := "journalctl --file /var/log/journal/*/system.journal"
-				expectedFreezeOutput := "executing fsfreeze hook with arg 'freeze'"
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedFreezeOutput)},
-					&expect.BExp{R: fmt.Sprintf(qemuGa, expectedFreezeOutput)},
-					&expect.BSnd{S: console.EchoLastReturnValue},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 30)).To(Succeed())
-				Eventually(func() string {
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.FSFreezeStatus
-				}, 180*time.Second, time.Second).Should(Equal("frozen"))
-
-				By("Calling Velero post-backup hook")
-				_, _, err = callVeleroHook(vmi, velero.PostBackupHookContainerAnnotation, velero.PostBackupHookCommandAnnotation)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Veryfing the VM was thawed")
-				expectedThawOutput := "executing fsfreeze hook with arg 'thaw'"
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedThawOutput)},
-					&expect.BExp{R: fmt.Sprintf(qemuGa, expectedThawOutput)},
-					&expect.BSnd{S: console.EchoLastReturnValue},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 30)).To(Succeed())
-				Eventually(func() string {
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.FSFreezeStatus
-				}, 180*time.Second, time.Second).Should(BeEmpty())
-			})
-
-			It("[test_id:9647]Calling Velero hooks should not error if no guest agent", func() {
-				const noGuestAgentString = "No guest agent, exiting"
-				By("Creating VM")
-				var vmi *v1.VirtualMachineInstance
-				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
-				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyHalted)
-
-				vm, vmi = createAndStartVM(vm)
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithTimeout(300),
-				)
-
-				By("Calling Velero pre-backup hook")
-				_, stderr, err := callVeleroHook(vmi, velero.PreBackupHookContainerAnnotation, velero.PreBackupHookCommandAnnotation)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(stderr).Should(ContainSubstring(noGuestAgentString))
-
-				By("Calling Velero post-backup hook")
-				_, stderr, err = callVeleroHook(vmi, velero.PostBackupHookContainerAnnotation, velero.PostBackupHookCommandAnnotation)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(stderr).Should(ContainSubstring(noGuestAgentString))
-			})
-
-			It("Calling Velero hooks should error if VM is Paused", func() {
-				By("Creating VM")
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = libvmi.NewVirtualMachine(vmi)
-
-				vm, vmi = createAndStartVM(vm)
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithTimeout(300),
-				)
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-				By("Logging into Fedora")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-				By("Pausing the VirtualMachineInstance")
-				err := virtClient.VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
-
-				By("Calling Velero pre-backup hook")
-				_, stderr, err := callVeleroHook(vmi, velero.PreBackupHookContainerAnnotation, velero.PreBackupHookCommandAnnotation)
-				Expect(err).To(HaveOccurred())
-				Expect(stderr).Should(ContainSubstring("Paused VM"))
 			})
 
 			Context("with memory dump", func() {
@@ -1294,7 +1200,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithDataVolume("disk0", dv.Name),
 					libvmi.WithDataVolume("disk1", dv2.Name),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 				),
 				libvmi.WithDataVolumeTemplate(dv2),
 				libvmi.WithRunStrategy(v1.RunStrategyHalted),
@@ -1410,7 +1316,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				vmi := libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory(memory),
+					libvmi.WithMemoryRequest(memory),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					storageOptFun("disk0", dataVolume.Name),
 				)
@@ -1475,7 +1381,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				vmi := libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithPersistentVolumeClaim("snapshotablevolume", includedDataVolume.Name),
 					libvmi.WithPersistentVolumeClaim("notsnapshotablevolume", excludedDataVolume.Name),
@@ -1524,7 +1430,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				vmi := libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithPersistentVolumeClaim("snapshotablevolume", includedDataVolume.Name),
 				)
@@ -1607,7 +1513,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 			DescribeTable("Bug #8435 - should create a snapshot successfully", decorators.StorageCritical, func(toRunSourceVM bool) {
 				if !toRunSourceVM {
-					By("Stoping the VM")
+					By("Stopping the VM")
 					vm = libvmops.StopVirtualMachine(vm)
 				}
 
@@ -1708,7 +1614,7 @@ func createDenyVolumeSnapshotCreateWebhook(virtClient kubecli.KubevirtClient, vm
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
 					Service: &admissionregistrationv1.ServiceReference{
 						Namespace: testsuite.GetTestNamespace(nil),
-						Name:      "nonexistant",
+						Name:      "nonexistent",
 						Path:      &whPath,
 					},
 				},

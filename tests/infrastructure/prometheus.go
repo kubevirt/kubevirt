@@ -419,6 +419,20 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:6227] by using IPv6", k8sv1.IPv6Protocol),
 	)
 
+	It("should expose kubevirt_node_deprecated_machine_types metric", func() {
+		ip := libnet.GetIP(handlerMetricIPs, k8sv1.IPv4Protocol)
+
+		By("Scraping the Prometheus endpoint for kubevirt_node_deprecated_machine_types metric")
+		metrics := collectMetrics(ip, "kubevirt_node_deprecated_machine_types")
+		Expect(metrics).ToNot(BeEmpty())
+
+		By("Checking that each entry has a machine_type label")
+		keys := libinfra.GetKeysFromMetrics(metrics)
+		for _, key := range keys {
+			Expect(key).To(ContainSubstring(`machine_type="`), fmt.Sprintf("Expected machine_type label in metric: %s", key))
+		}
+	})
+
 	DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
@@ -594,7 +608,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:6244] by IPv6", k8sv1.IPv6Protocol),
 	)
 
-	// explicit test fo swap metrics as test_id:4144 doesn't catch if they are missing
+	// explicit test swap metrics as test_id:4144 doesn't catch if they are missing
 	DescribeTable("should include swap metrics", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 

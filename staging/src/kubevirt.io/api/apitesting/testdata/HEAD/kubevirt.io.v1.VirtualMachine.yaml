@@ -466,8 +466,10 @@ spec:
           - name: nameValue
             virtiofs: {}
           gpus:
-          - deviceName: deviceNameValue
+          - claimName: claimNameValue
+            deviceName: deviceNameValue
             name: nameValue
+            requestName: requestNameValue
             tag: tagValue
             virtualGPUOptions:
               display:
@@ -475,8 +477,10 @@ spec:
                 ramFB:
                   enabled: true
           hostDevices:
-          - deviceName: deviceNameValue
+          - claimName: claimNameValue
+            deviceName: deviceNameValue
             name: nameValue
+            requestName: requestNameValue
             tag: tagValue
           inputs:
           - bus: busValue
@@ -513,6 +517,8 @@ spec:
             tag: tagValue
           logSerialConsole: true
           networkInterfaceMultiqueue: true
+          panicDevices:
+          - model: modelValue
           rng: {}
           sound:
             model: modelValue
@@ -521,6 +527,8 @@ spec:
             enabled: true
             persistent: true
           useVirtioTransitional: true
+          video:
+            type: typeValue
           watchdog:
             diag288:
               action: actionValue
@@ -576,6 +584,7 @@ spec:
             enabled: true
         firmware:
           acpi:
+            msdmNameRef: msdmNameRefValue
             slicNameRef: slicNameRefValue
           bootloader:
             bios:
@@ -671,6 +680,10 @@ spec:
           host: hostValue
           port: portValue
         timeoutSeconds: -14
+      resourceClaims:
+      - name: nameValue
+        resourceClaimName: resourceClaimNameValue
+        resourceClaimTemplateName: resourceClaimTemplateNameValue
       schedulerName: schedulerNameValue
       startStrategy: startStrategyValue
       subdomain: subdomainValue

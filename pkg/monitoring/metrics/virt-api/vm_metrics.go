@@ -20,7 +20,7 @@
 package virt_api
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	v1 "kubevirt.io/api/core/v1"
 )
 

@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["libvirt.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-launcher/virtwrap/cli:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/go.uber.org/mock/gomock:go_default_library",
+        "//vendor/libvirt.org/go/libvirt:go_default_library",
+    ],
+)

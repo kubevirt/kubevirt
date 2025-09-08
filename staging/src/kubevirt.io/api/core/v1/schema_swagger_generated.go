@@ -241,6 +241,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 func (ACPI) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"slicNameRef": "SlicNameRef should match the volume name of a secret object. The data in the secret should\nbe a binary blob that follows the ACPI SLIC standard, see:\nhttps://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)",
+		"msdmNameRef": "Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.\nThe above points to the spec of MSDM too.",
 	}
 }
 
@@ -264,11 +265,13 @@ func (Devices) SwaggerDoc() map[string]string {
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.\n+optional",
 		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional\n+listType=atomic",
 		"downwardMetrics":            "DownwardMetrics creates a virtio serials for exposing the downward metrics to the vmi.\n+optional",
+		"panicDevices":               "PanicDevices provides additional crash information when a guest crashes.\n+optional\n+listtype=atomic",
 		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional\n+listType=atomic",
 		"hostDevices":                "Whether to attach a host device to the vmi.\n+optional\n+listType=atomic",
 		"clientPassthrough":          "To configure and access client devices such as redirecting USB\n+optional",
 		"sound":                      "Whether to emulate a sound device.\n+optional",
 		"tpm":                        "Whether to emulate a TPM device.\n+optional",
+		"video":                      "Video describes the video device configuration for the vmi.\n+optional",
 	}
 }
 
@@ -290,6 +293,12 @@ func (TPMDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"enabled":    "Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine\nDefaults to True",
 		"persistent": "Persistent indicates the state of the TPM device should be kept accross reboots\nDefaults to false",
+	}
+}
+
+func (VideoDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"type": "Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).\nIf not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).\n+optional",
 	}
 }
 
@@ -318,8 +327,16 @@ func (DownwardMetrics) SwaggerDoc() map[string]string {
 
 func (GPU) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name": "Name of the GPU device as exposed by a device plugin",
-		"tag":  "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
+		"name":       "Name of the GPU device as exposed by a device plugin",
+		"deviceName": "DeviceName is the name of the device provisioned by device-plugins",
+		"tag":        "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
+	}
+}
+
+func (ClaimRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"claimName":   "ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this\ndevice is allocated\n+optional",
+		"requestName": "RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this\ndevice is requested\n+optional",
 	}
 }
 
@@ -334,9 +351,15 @@ func (VGPUDisplayOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (PanicDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"model": "Model specifies what type of panic device is provided.\nThe panic model used when this attribute is missing depends on the hypervisor and guest arch.\nOne of: isa, hyperv, pvpanic.\n+optional",
+	}
+}
+
 func (HostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"deviceName": "DeviceName is the resource name of the host device exposed by a device plugin",
+		"deviceName": "DeviceName is the name of the device provisioned by device-plugins",
 		"tag":        "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 	}
 }

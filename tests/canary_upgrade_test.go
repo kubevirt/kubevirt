@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -169,7 +169,7 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 		return eventsQueue
 	}
 
-	It("should successfully upgrade virt-handler", decorators.RequiresTwoSchedulableNodes, func() {
+	It("[QUARANTINE]should successfully upgrade virt-handler", decorators.RequiresTwoSchedulableNodes, decorators.Quarantine, func() {
 		var expectedEventsLock sync.Mutex
 		expectedEvents := []string{
 			"maxUnavailable=1",

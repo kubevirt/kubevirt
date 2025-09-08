@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -144,7 +144,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 				libvmi.WithContainerDisk("shr2", containerDiskCirros),
 				libvmi.WithContainerDisk("shr3", containerDiskCirros),
 				libvmi.WithContainerDisk("shr4", containerDiskCirros),
-				libvmi.WithResourceCPU(strconv.Itoa(numCpus)),
+				libvmi.WithCPURequest(strconv.Itoa(numCpus)),
 			)
 
 			By("Creating VMI with 2 dedicated and 4 shared ioThreadPolicies")

@@ -21,7 +21,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: OpenShift Optional
     certified: "false"
-    containerImage: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}
+    containerImage: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
     createdAt: {{.CreatedAt}}
     description: Creates and maintains KubeVirt deployments
     repository: https://github.com/kubevirt/kubevirt
@@ -169,7 +169,6 @@ spec:
           - watch
           - patch
           - update
-          - patch
         - apiGroups:
           - ""
           resources:
@@ -358,6 +357,7 @@ spec:
           - persistentvolumeclaims
           verbs:
           - get
+          - list
         - apiGroups:
           - kubevirt.io
           resources:
@@ -754,6 +754,15 @@ spec:
           - get
           - delete
         - apiGroups:
+          - resource.k8s.io
+          resources:
+          - resourceslices
+          - resourceclaims
+          verbs:
+          - list
+          - watch
+          - get
+        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachineinstances
@@ -827,6 +836,48 @@ spec:
         - apiGroups:
           - kubevirt.io
           resources:
+          - virtualmachineinstances
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+          - patch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - update
+          - create
+          - patch
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
           - kubevirts
           verbs:
           - get
@@ -852,6 +903,8 @@ spec:
           - virtualmachineinstances/sev/fetchcertchain
           - virtualmachineinstances/sev/querylaunchmeasurement
           - virtualmachineinstances/usbredir
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
           verbs:
           - get
         - apiGroups:
@@ -1008,6 +1061,8 @@ spec:
           - virtualmachineinstances/sev/fetchcertchain
           - virtualmachineinstances/sev/querylaunchmeasurement
           - virtualmachineinstances/usbredir
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
           verbs:
           - get
         - apiGroups:
@@ -1168,6 +1223,8 @@ spec:
           - virtualmachineinstances/userlist
           - virtualmachineinstances/sev/fetchcertchain
           - virtualmachineinstances/sev/querylaunchmeasurement
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
           verbs:
           - get
         - apiGroups:
@@ -1302,6 +1359,21 @@ spec:
               name: virt-operator
             spec:
               affinity:
+                nodeAffinity:
+                  preferredDuringSchedulingIgnoredDuringExecution:
+                  - preference:
+                      matchExpressions:
+                      - key: node-role.kubernetes.io/worker
+                        operator: DoesNotExist
+                    weight: 100
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: node-role.kubernetes.io/control-plane
+                        operator: Exists
+                    - matchExpressions:
+                      - key: node-role.kubernetes.io/master
+                        operator: Exists
                 podAntiAffinity:
                   preferredDuringSchedulingIgnoredDuringExecution:
                   - podAffinityTerm:
@@ -1323,33 +1395,22 @@ spec:
                 - virt-operator
                 env:
                 - name: VIRT_OPERATOR_IMAGE
-                  value: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}
+                  value: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                - name: VIRT_API_SHASUM
-                  value: {{if .VirtApiSha}}{{.VirtApiSha}}{{end}}
-                - name: VIRT_CONTROLLER_SHASUM
-                  value: {{if .VirtControllerSha}}{{.VirtControllerSha}}{{end}}
-                - name: VIRT_HANDLER_SHASUM
-                  value: {{if .VirtHandlerSha}}{{.VirtHandlerSha}}{{end}}
-                - name: VIRT_LAUNCHER_SHASUM
-                  value: {{if .VirtLauncherSha}}{{.VirtLauncherSha}}{{end}}
-                - name: VIRT_EXPORTPROXY_SHASUM
-                  value: {{if .VirtExportProxySha}}{{.VirtExportProxySha}}{{end}}
-                - name: VIRT_EXPORTSERVER_SHASUM
-                  value: {{if .VirtExportServerSha}}{{.VirtExportServerSha}}{{end}}
-                - name: GS_SHASUM
-                  value: {{if .GsSha}}{{.GsSha}}{{end}}
-                - name: PR_HELPER_SHASUM
-                  value: {{if .PrHelperSha}}{{.PrHelperSha}}{{end}}
-                - name: SIDECAR_SHIM_SHASUM
-                  value: {{if .SidecarShimSha}}{{.SidecarShimSha}}{{end}}
                 - name: KUBEVIRT_VERSION
                   value: {{.DockerTag}}
-                image: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}
+                image: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
                 imagePullPolicy: {{.ImagePullPolicy}}
+                livenessProbe:
+                  httpGet:
+                    path: /metrics
+                    port: 8443
+                    scheme: HTTPS
+                  initialDelaySeconds: 5
+                  timeoutSeconds: 10
                 name: virt-operator
                 ports:
                 - containerPort: 8443
@@ -1376,6 +1437,7 @@ spec:
                     - ALL
                   seccompProfile:
                     type: RuntimeDefault
+                terminationMessagePolicy: FallbackToLogsOnError
                 volumeMounts:
                 - mountPath: /etc/virt-operator/certificates
                   name: kubevirt-operator-certs
@@ -1392,6 +1454,12 @@ spec:
               serviceAccountName: kubevirt-operator
               tolerations:
               - key: CriticalAddonsOnly
+                operator: Exists
+              - effect: NoSchedule
+                key: node-role.kubernetes.io/control-plane
+                operator: Exists
+              - effect: NoSchedule
+                key: node-role.kubernetes.io/master
                 operator: Exists
               volumes:
               - name: kubevirt-operator-certs
@@ -1413,6 +1481,8 @@ spec:
           - kubevirt-virt-api-certs
           - kubevirt-controller-certs
           - kubevirt-exportproxy-certs
+          - kubevirt-synchronization-controller-certs
+          - kubevirt-synchronization-controller-server-certs
           resources:
           - secrets
           verbs:
@@ -1524,6 +1594,28 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - ""
+          resourceNames:
+          - kubevirt-ca
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - update
+          - create
+          - patch
         serviceAccountName: kubevirt-operator
     strategy: deployment
   installModes:

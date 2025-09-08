@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -59,7 +59,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 			vmi = libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithResourceMemory("8192Ki"),
+				libvmi.WithMemoryRequest("8192Ki"),
 				libvmi.WithContainerDisk("testdisk", "dummy"),
 			)
 		})
@@ -105,7 +105,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 			vmi = libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 			)
 
 			kv := libkubevirt.GetCurrentKv(virtClient)

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -181,7 +181,7 @@ func testCleanup() {
 // propagated if the current config in use does not match the original one.
 func resetToDefaultConfig() {
 	if !CurrentSpecReport().IsSerial {
-		// Tests which alter the global kubevirt config must be run serial, therefor, if we run in parallel
+		// Tests which alter the global kubevirt config must be run serial, therefore, if we run in parallel
 		// we can just skip the restore step.
 		return
 	}

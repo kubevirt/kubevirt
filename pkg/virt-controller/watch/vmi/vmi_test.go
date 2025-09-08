@@ -22,14 +22,15 @@ package vmi
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	gomegaTypes "github.com/onsi/gomega/types"
+	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -50,6 +51,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
@@ -237,6 +240,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			stubNetworkAnnotationsGenerator{},
 			stubNetStatusUpdate,
 			validateNetVMISpecStub(),
+			stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -827,6 +831,45 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			sanityExecute()
 
 			expectPodAnnotations(pod, Not(HaveKeyWithValue(key1, value1)), Not(HaveKeyWithValue(key2, value2)))
+		})
+	})
+
+	Context("VMI patch", func() {
+		var (
+			oldVMI *virtv1.VirtualMachineInstance
+			newVMI *virtv1.VirtualMachineInstance
+		)
+		BeforeEach(func() {
+			oldVMI = newPendingVirtualMachine("oldvmi")
+			newVMI = newPendingVirtualMachine("newvmi")
+
+			oldVMI.Status.Interfaces = []virtv1.VirtualMachineInstanceNetworkInterface{
+				{Name: "stubNetStatusUpdate1"},
+				{Name: "stubNetStatusUpdate2"},
+			}
+		})
+		It("should create empty status network interfaces patch, regardless of interfaces order", func() {
+
+			// Reverse the order of interfaces in the new VMI
+			newVMI.Status.Interfaces = slices.Clone(oldVMI.Status.Interfaces)
+			slices.Reverse(newVMI.Status.Interfaces)
+
+			patch := prepareVMIPatch(oldVMI, newVMI)
+
+			Expect(patch).ToNot(BeNil(), "Patch should not be nil")
+			Expect(patch.IsEmpty()).To(BeTrue(), "Patch should be empty")
+		})
+		It("should create non empty status network interfaces patch", func() {
+
+			// Add a new interface to the new VMI
+			newVMI.Status.Interfaces = append(oldVMI.Status.Interfaces,
+				virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate3"},
+			)
+
+			patch := prepareVMIPatch(oldVMI, newVMI)
+
+			Expect(patch).ToNot(BeNil(), "Patch should not be nil")
+			Expect(patch.IsEmpty()).To(BeFalse(), "Patch should not be empty")
 		})
 	})
 
@@ -1940,21 +1983,30 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(updatedVmi.Status.MigrationTransport).To(Equal(virtv1.MigrationTransportUnix))
 		})
 
-		Context("should update pod labels", func() {
+		Context("should update pod annotations and labels", func() {
 
 			type testData struct {
-				vmiLabels      map[string]string
-				podLabels      map[string]string
-				expectedPatch  bool
-				expectedLabels map[string]string
+				vmiAnnotations      map[string]string
+				podAnnotations      map[string]string
+				vmiLabels           map[string]string
+				podLabels           map[string]string
+				expectedPatch       bool
+				expectedAnnotations map[string]string
+				expectedLabels      map[string]string
 			}
-			DescribeTable("when VMI dynamic label set changes", func(td *testData) {
+			DescribeTable("when VMI dynamic annotations and label sets changes", func(td *testData) {
 				vmi := newPendingVirtualMachine("testvmi")
 				vmi.Status.Phase = virtv1.Running
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 				vmi.Labels = td.vmiLabels
+				for key, val := range td.vmiAnnotations {
+					vmi.Annotations[key] = val
+				}
+				for key, val := range td.podAnnotations {
+					pod.Annotations[key] = val
+				}
 				for key, val := range td.podLabels {
 					pod.Labels[key] = val
 				}
@@ -1967,6 +2019,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				updatedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedPod.Annotations).To(BeEquivalentTo(td.expectedAnnotations))
 				Expect(updatedPod.Labels).To(BeEquivalentTo(td.expectedLabels))
 				if td.expectedPatch {
 					Expect(kubeClient.Actions()).To(HaveLen(3)) // 0: create, 1: patch, 2: get
@@ -1982,6 +2035,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						},
 						podLabels: map[string]string{
 							virtv1.NodeNameLabel: "node1",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
 						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
@@ -1999,6 +2056,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						podLabels: map[string]string{
 							virtv1.NodeNameLabel: "node1",
 						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
@@ -2008,12 +2069,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				),
 				Entry("when POD label doesn't exist",
-
 					&testData{
 						vmiLabels: map[string]string{
 							virtv1.NodeNameLabel: "node1",
 						},
 						podLabels: map[string]string{},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
@@ -2022,10 +2086,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						expectedPatch: true,
 					},
 				),
-				Entry("when neither POD or VMI label exists",
+				Entry("when neither POD or VMI annotations and label exists",
 					&testData{
 						vmiLabels: map[string]string{},
 						podLabels: map[string]string{},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
@@ -2039,9 +2107,120 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						podLabels: map[string]string{
 							virtv1.OutdatedLauncherImageLabel: "",
 						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
+						},
+						expectedPatch: true,
+					},
+				),
+				Entry("when VMI and pod annotations differ",
+					&testData{
+						vmiAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						podAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "true",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":                  "testvmi",
+							descheduler.EvictOnlyAnnotation:       "",
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						expectedPatch: true,
+					},
+				),
+				Entry("when VMI and pod annotations are the same",
+					&testData{
+						vmiAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						podAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":                  "testvmi",
+							descheduler.EvictOnlyAnnotation:       "",
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						expectedPatch: false,
+					},
+				),
+				Entry("when POD annotation doesn't exist",
+					&testData{
+						vmiAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						podAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":                  "testvmi",
+							descheduler.EvictOnlyAnnotation:       "",
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						expectedPatch: true,
+					},
+				),
+				Entry("when POD annotation exists and VMI does not",
+					&testData{
+						vmiAnnotations: map[string]string{},
+						podAnnotations: map[string]string{
+							"kubevirt.io/domain":                  "testvmi",
+							descheduler.EvictOnlyAnnotation:       "",
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
+						expectedPatch: true,
+					},
+				),
+				Entry("when both annotations and labels differ between VMI and pod",
+					&testData{
+						vmiAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "false",
+						},
+						podAnnotations: map[string]string{
+							descheduler.EvictPodAnnotationKeyBeta: "true",
+						},
+						vmiLabels: map[string]string{
+							virtv1.NodeNameLabel: "node2",
+						},
+						podLabels: map[string]string{
+							virtv1.NodeNameLabel: "node1",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+							virtv1.NodeNameLabel:     "node2",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":                  "testvmi",
+							descheduler.EvictOnlyAnnotation:       "",
+							descheduler.EvictPodAnnotationKeyBeta: "false",
 						},
 						expectedPatch: true,
 					},
@@ -2776,6 +2955,20 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				[]int{0},
 				makeVolumeStatusesForUpdateWithMessage("test-pod", "abcd", virtv1.HotplugVolumeDetaching, "Deleted hotplug attachment pod test-pod, for volume volume0", kvcontroller.SuccessfulDeletePodReason, 0),
 				[]string{kvcontroller.SuccessfulDeletePodReason}),
+			Entry("should keep status and not update phase if volume is still Ready",
+				makeVolumeStatusesForUpdateWithMessage("", "", virtv1.VolumeReady, "", "", 0),
+				makeVolumes(),
+				[]int{0},
+				[]int{0},
+				makeVolumeStatusesForUpdateWithMessage("test-pod", "abcd", virtv1.VolumeReady, "", "", 0),
+				[]string{}),
+			Entry("should keep status and not update phase if volume is still mounted",
+				makeVolumeStatusesForUpdateWithMessage("", "", virtv1.HotplugVolumeMounted, "", "", 0),
+				makeVolumes(),
+				[]int{0},
+				[]int{0},
+				makeVolumeStatusesForUpdateWithMessage("test-pod", "abcd", virtv1.HotplugVolumeMounted, "", "", 0),
+				[]string{}),
 			Entry("should remove volume status, if volume is removed and pod is gone",
 				makeVolumeStatusesForUpdate(0),
 				makeVolumes(),
@@ -3609,6 +3802,162 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectMatchingPodCreation(vmi)
 		})
 	})
+
+	Context("Event handling", func() {
+		indexVMI := func(vmi *virtv1.VirtualMachineInstance) {
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+			_, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		pvcWith := func(requestSize, capacity, rv string) *k8sv1.PersistentVolumeClaim {
+			pvc := newPvc("default", "testpvc")
+			pvc.Spec.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceStorage: resource.MustParse(requestSize),
+			}
+			pvc.Status.Capacity = k8sv1.ResourceList{
+				k8sv1.ResourceStorage: resource.MustParse(capacity),
+			}
+			pvc.ObjectMeta.ResourceVersion = rv
+			return pvc
+		}
+
+		DescribeTable("updatePVC", func(newReq, newCap, newRV string, expectEnqueue bool) {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace("default"),
+				libvmi.WithDataVolume("myvolume", "testpvc"),
+			)
+			indexVMI(vmi)
+
+			oldPVC := pvcWith("50Gi", "50Gi", "1")
+			newPVC := pvcWith(newReq, newCap, newRV)
+
+			addDataVolumePVC(oldPVC)
+			controller.updatePVC(oldPVC, newPVC)
+
+			if expectEnqueue {
+				Eventually(func() int {
+					return mockQueue.Len()
+				}, time.Second, 100*time.Millisecond).Should(Equal(1))
+
+				item, _ := mockQueue.Get()
+				Expect(item).To(Equal("default/testvmi"))
+			} else {
+				Consistently(func() int {
+					return mockQueue.Len()
+				}, time.Second, 100*time.Millisecond).Should(Equal(0))
+			}
+		},
+			Entry("should enqueue when requested size changes", "100Gi", "50Gi", "2", true),
+			Entry("should enqueue when capacity changes", "50Gi", "100Gi", "2", true),
+			Entry("should not enqueue when nothing changed", "50Gi", "50Gi", "2", false),
+			Entry("should not enqueue when resource version is the same", "10Gi", "50Gi", "1", false),
+		)
+	})
+
+	Context("Automatic Migration Requirement", func() {
+		noConditionMatcher := Not(ContainElement(MatchFields(IgnoreExtras,
+			Fields{
+				"Type": Equal(virtv1.VirtualMachineInstanceMigrationRequired),
+			})))
+
+		falseConditionMatcher := ContainElement(MatchFields(IgnoreExtras,
+			Fields{
+				"Type":   Equal(virtv1.VirtualMachineInstanceMigrationRequired),
+				"Status": Equal(k8sv1.ConditionFalse),
+				"Reason": Equal(virtv1.VirtualMachineInstanceReasonAutoMigrationPending),
+			}))
+
+		trueConditionMatcher := ContainElement(MatchFields(IgnoreExtras,
+			Fields{
+				"Type":   Equal(virtv1.VirtualMachineInstanceMigrationRequired),
+				"Status": Equal(k8sv1.ConditionTrue),
+				"Reason": Equal(virtv1.VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate),
+			}))
+
+		DescribeTable("Auto migration logic",
+			func(existingCondition *virtv1.VirtualMachineInstanceCondition, evaluator migrationEvaluator, matcher gomegaTypes.GomegaMatcher) {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+
+				if existingCondition != nil {
+					vmi.Status.Conditions = append(vmi.Status.Conditions, *existingCondition)
+				}
+
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+				addActivePods(vmi, pod.UID, "")
+
+				controller.netMigrationEvaluator = evaluator
+				sanityExecute()
+
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, matcher)
+			},
+			Entry("should not set the condition when there is no condition and evaluator returns Unknown",
+				nil,
+				stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+				noConditionMatcher,
+			),
+			Entry("should set the condition to false when there is no condition and evaluator returns False",
+				nil,
+				stubMigrationEvaluator{result: k8sv1.ConditionFalse},
+				falseConditionMatcher,
+			),
+			Entry("should set the condition to false when there is no condition and evaluator returns True",
+				nil,
+				stubMigrationEvaluator{result: k8sv1.ConditionTrue},
+				trueConditionMatcher,
+			),
+			Entry("should keep the False condition when there is a False condition and evaluator returns False",
+				&virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceMigrationRequired,
+					Status: k8sv1.ConditionFalse,
+					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationPending,
+				},
+				stubMigrationEvaluator{result: k8sv1.ConditionFalse},
+				falseConditionMatcher,
+			),
+			Entry("should keep the True condition when there is a True condition and evaluator returns False",
+				&virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceMigrationRequired,
+					Status: k8sv1.ConditionTrue,
+					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate,
+				},
+				stubMigrationEvaluator{result: k8sv1.ConditionFalse},
+				trueConditionMatcher,
+			),
+			Entry("should set the condition to True when there is a False condition and evaluator returns True",
+				&virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceMigrationRequired,
+					Status: k8sv1.ConditionFalse,
+					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationPending,
+				},
+				stubMigrationEvaluator{result: k8sv1.ConditionTrue},
+				trueConditionMatcher,
+			),
+			Entry("should remove the condition when there is a False condition and evaluator returns Unknown",
+				&virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceMigrationRequired,
+					Status: k8sv1.ConditionFalse,
+					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationPending,
+				},
+				stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+				noConditionMatcher,
+			),
+			Entry("should remove the condition when there is a True condition and evaluator returns Unknown",
+				&virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceMigrationRequired,
+					Status: k8sv1.ConditionTrue,
+					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate,
+				},
+				stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+				noConditionMatcher,
+			),
+		)
+	})
 })
 
 func newDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {
@@ -3936,4 +4285,12 @@ func validateNetVMISpecStub(causes ...metav1.StatusCause) func(*k8sfield.Path, *
 	return func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []metav1.StatusCause {
 		return causes
 	}
+}
+
+type stubMigrationEvaluator struct {
+	result k8sv1.ConditionStatus
+}
+
+func (e stubMigrationEvaluator) Evaluate(_ *virtv1.VirtualMachineInstance) k8sv1.ConditionStatus {
+	return e.result
 }

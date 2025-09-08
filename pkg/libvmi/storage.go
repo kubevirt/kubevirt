@@ -62,7 +62,15 @@ func WithContainerSATADisk(diskName, imageName string, diskOpts ...DiskOption) O
 func WithPersistentVolumeClaim(diskName, pvcName string, diskOpts ...DiskOption) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio, diskOpts...))
-		addVolume(vmi, newPersistentVolumeClaimVolume(diskName, pvcName))
+		addVolume(vmi, newPersistentVolumeClaimVolume(diskName, pvcName, false))
+	}
+}
+
+// WithHotplugPersistentVolumeClaim specifies the name of the hotpluggable PersistentVolumeClaim to be used.
+func WithHotplugPersistentVolumeClaim(diskName, pvcName string, diskOpts ...DiskOption) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio, diskOpts...))
+		addVolume(vmi, newPersistentVolumeClaimVolume(diskName, pvcName, true))
 	}
 }
 
@@ -100,7 +108,7 @@ func WithEmptyDisk(diskName string, bus v1.DiskBus, capacity resource.Quantity, 
 
 // WithCDRom specifies a CDRom drive backed by a PVC to be used.
 func WithCDRom(cdRomName string, bus v1.DiskBus, claimName string) Option {
-	return WithCDRomAndVolume(bus, newPersistentVolumeClaimVolume(cdRomName, claimName))
+	return WithCDRomAndVolume(bus, newPersistentVolumeClaimVolume(cdRomName, claimName, false))
 }
 
 // WithCDRomAndVolume specifies a CDRom drive backed by given volume and given bus.
@@ -108,6 +116,13 @@ func WithCDRomAndVolume(bus v1.DiskBus, volume v1.Volume) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newCDRom(volume.Name, bus))
 		addVolume(vmi, volume)
+	}
+}
+
+// WithEmptyCDRom specifies a CDRom drive with no volume
+func WithEmptyCDRom(bus v1.DiskBus, name string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newCDRom(name, bus))
 	}
 }
 
@@ -123,7 +138,7 @@ func WithEphemeralCDRom(cdRomName string, bus v1.DiskBus, claimName string) Opti
 func WithFilesystemPVC(claimName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addFilesystem(vmi, newVirtiofsFilesystem(claimName))
-		addVolume(vmi, newPersistentVolumeClaimVolume(claimName, claimName))
+		addVolume(vmi, newPersistentVolumeClaimVolume(claimName, claimName, false))
 	}
 }
 
@@ -138,7 +153,7 @@ func WithFilesystemDV(dataVolumeName string) Option {
 func WithPersistentVolumeClaimLun(diskName, pvcName string, reservation bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newLun(diskName, reservation))
-		addVolume(vmi, newPersistentVolumeClaimVolume(diskName, pvcName))
+		addVolume(vmi, newPersistentVolumeClaimVolume(diskName, pvcName, false))
 	}
 }
 
@@ -307,7 +322,7 @@ func newContainerVolume(name, image string, imagePullPolicy k8sv1.PullPolicy) v1
 	return container
 }
 
-func newPersistentVolumeClaimVolume(name, claimName string) v1.Volume {
+func newPersistentVolumeClaimVolume(name, claimName string, hotpluggable bool) v1.Volume {
 	return v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
@@ -315,6 +330,7 @@ func newPersistentVolumeClaimVolume(name, claimName string) v1.Volume {
 				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 					ClaimName: claimName,
 				},
+				Hotpluggable: hotpluggable,
 			},
 		},
 	}

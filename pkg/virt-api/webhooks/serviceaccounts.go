@@ -29,8 +29,9 @@ func KubeVirtServiceAccounts(kubeVirtNamespace string) map[string]struct{} {
 	prefix := fmt.Sprintf("system:serviceaccount:%s", kubeVirtNamespace)
 
 	return map[string]struct{}{
-		fmt.Sprintf("%s:%s", prefix, components.ApiServiceAccountName):        {},
-		fmt.Sprintf("%s:%s", prefix, components.ControllerServiceAccountName): {},
-		fmt.Sprintf("%s:%s", prefix, components.HandlerServiceAccountName):    {},
+		fmt.Sprintf("%s:%s", prefix, components.ApiServiceAccountName):                       {},
+		fmt.Sprintf("%s:%s", prefix, components.ControllerServiceAccountName):                {},
+		fmt.Sprintf("%s:%s", prefix, components.HandlerServiceAccountName):                   {},
+		fmt.Sprintf("%s:%s", prefix, components.SynchronizationControllerServiceAccountName): {},
 	}
 }

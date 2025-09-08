@@ -34,7 +34,6 @@ type Option func(vmi *v1.VirtualMachineInstance)
 func New(opts ...Option) *v1.VirtualMachineInstance {
 	vmi := baseVmi(randName())
 
-	WithTerminationGracePeriod(0)(vmi)
 	for _, f := range opts {
 		f(vmi)
 	}
@@ -55,11 +54,15 @@ func randName() string {
 }
 
 func baseVmi(name string) *v1.VirtualMachineInstance {
-	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
-	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
-	vmi.TypeMeta = k8smetav1.TypeMeta{
-		APIVersion: v1.GroupVersion.String(),
-		Kind:       "VirtualMachineInstance",
+	vmi := &v1.VirtualMachineInstance{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name: name,
+		},
+		TypeMeta: k8smetav1.TypeMeta{
+			APIVersion: v1.GroupVersion.String(),
+			Kind:       "VirtualMachineInstance",
+		},
+		Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
 	}
 
 	for _, opt := range defaultOptions {

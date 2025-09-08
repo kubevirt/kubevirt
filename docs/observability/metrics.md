@@ -18,6 +18,9 @@ Version information. Type: Gauge.
 ### kubevirt_memory_delta_from_requested_bytes
 The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api and virt-operator. Type: Gauge.
 
+### kubevirt_node_deprecated_machine_types
+List of deprecated machine types based on the capabilities of individual nodes, as detected by virt-handler. Type: Gauge.
+
 ### kubevirt_nodes_with_kvm
 The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available. Type: Gauge.
 
@@ -126,11 +129,23 @@ Total CPU time spent in all modes (sum of both vcpu and hypervisor usage). Type:
 ### kubevirt_vmi_cpu_user_usage_seconds_total
 Total CPU time spent in user mode. Type: Counter.
 
+### kubevirt_vmi_dirty_rate_bytes_per_second
+Guest dirty-rate in bytes per second. Type: Gauge.
+
 ### kubevirt_vmi_filesystem_capacity_bytes
 Total VM filesystem capacity in bytes. Type: Gauge.
 
 ### kubevirt_vmi_filesystem_used_bytes
 Used VM filesystem capacity in bytes. Type: Gauge.
+
+### kubevirt_vmi_guest_load_15m
+Guest system load average over 15 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Type: Gauge.
+
+### kubevirt_vmi_guest_load_1m
+Guest system load average over 1 minute as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Type: Gauge.
+
+### kubevirt_vmi_guest_load_5m
+Guest system load average over 5 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Type: Gauge.
 
 ### kubevirt_vmi_info
 Information about VirtualMachineInstances. Type: Gauge.

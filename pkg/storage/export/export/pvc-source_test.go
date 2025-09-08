@@ -20,15 +20,12 @@ package export
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -52,7 +49,6 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -91,22 +87,14 @@ var _ = Describe("PVC source", func() {
 		k8sClient                   *k8sfake.Clientset
 		vmExportClient              *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider  *MockVolumeSnapshotProvider
+		fakeCertManager             *MockCertManager
 		mockVMExportQueue           *testutils.MockWorkQueue[string]
 		routeCache                  cache.Store
 		ingressCache                cache.Store
-		certDir                     string
-		certFilePath                string
-		keyFilePath                 string
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		var err error
-		certDir, err = os.MkdirTemp("", "certs")
-		Expect(err).ToNot(HaveOccurred())
-		certFilePath = filepath.Join(certDir, "tls.crt")
-		keyFilePath = filepath.Join(certDir, "tls.key")
-		writeCertsToDir(certDir)
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
@@ -135,6 +123,7 @@ var _ = Describe("PVC source", func() {
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 			volumeSnapshots: []*vsv1.VolumeSnapshot{},
 		}
+		fakeCertManager = &MockCertManager{}
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		k8sClient = k8sfake.NewSimpleClientset()
@@ -156,7 +145,7 @@ var _ = Describe("PVC source", func() {
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
 			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
-			caCertManager:               bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
+			caCertManager:               fakeCertManager,
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,
 			RouteConfigMapInformer:      cmInformer,
@@ -175,11 +164,8 @@ var _ = Describe("PVC source", func() {
 			ControllerRevisionInformer:  controllerRevisionInformer,
 		}
 		initCert = func(ctrl *VMExportController) {
-			go controller.caCertManager.Start()
-			// Give the thread time to read the certs.
-			Eventually(func() *tls.Certificate {
-				return controller.caCertManager.Current()
-			}, time.Second, time.Millisecond).ShouldNot(BeNil())
+			ctrl.caCertManager.Start()
+			Expect(ctrl.caCertManager.Current()).ToNot(BeNil())
 		}
 
 		controller.Init()
@@ -223,11 +209,6 @@ var _ = Describe("PVC source", func() {
 				},
 			}),
 		).To(Succeed())
-	})
-
-	AfterEach(func() {
-		controller.caCertManager.Stop()
-		os.RemoveAll(certDir)
 	})
 
 	It("Should properly update VMExport status with a valid token and no pvc", func() {

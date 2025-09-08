@@ -78,6 +78,10 @@ func (ins *FakeStrategy) ExportProxyDeployments() []*appsv1.Deployment {
 	return nil
 }
 
+func (ins *FakeStrategy) SynchronizationControllerDeployments() []*appsv1.Deployment {
+	return nil
+}
+
 func (ins *FakeStrategy) DaemonSets() []*appsv1.DaemonSet {
 	return nil
 }

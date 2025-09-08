@@ -20,7 +20,7 @@
 package virt_controller
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	k6tv1 "kubevirt.io/api/core/v1"
 )
 
@@ -83,7 +83,7 @@ var (
 )
 
 func migrationStatsCollectorCallback() []operatormetrics.CollectorResult {
-	cachedObjs := informers.VMIMigration.GetIndexer().List()
+	cachedObjs := indexers.VMIMigration.List()
 	vmims := make([]*k6tv1.VirtualMachineInstanceMigration, len(cachedObjs))
 	for i, obj := range cachedObjs {
 		vmims[i] = obj.(*k6tv1.VirtualMachineInstanceMigration)

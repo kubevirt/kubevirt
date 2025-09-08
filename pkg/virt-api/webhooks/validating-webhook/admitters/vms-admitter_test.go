@@ -27,9 +27,9 @@ import (
 	rt "runtime"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -486,6 +486,28 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			true),
+		Entry("with valid request to add volume (virtio)", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testdisk2",
+					Disk: &v1.Disk{
+						Name: "testdisk2",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "virtio",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "madeup",
+						},
+						},
+					},
+				},
+			},
+		},
+			true),
 		Entry("with valid request to add volume to a LUN disk", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
@@ -508,6 +530,28 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			true),
+		Entry("with invalid request to add volume to a LUN disk (virtio bus)", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testlun2",
+					Disk: &v1.Disk{
+						Name: "testlun2",
+						DiskDevice: v1.DiskDevice{
+							LUN: &v1.LunTarget{
+								Bus: "virtio",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "madeupLUN",
+						},
+						},
+					},
+				},
+			},
+		},
+			false),
 		Entry("with invalid request to add volume with invalid disk/bus combination", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
@@ -572,6 +616,29 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			false),
+		Entry("with valid request to add volume with dedicated IOThreads snd virtio bus", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testdisk2",
+					Disk: &v1.Disk{
+						Name: "testdisk",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "virtio",
+							},
+						},
+						DedicatedIOThread: pointer.P(true),
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "madeup",
+						},
+						},
+					},
+				},
+			},
+		},
+			true),
 		Entry("with invalid request to add volume that conflicts with running vmi", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
@@ -1518,6 +1585,36 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal(fgMessage))
+	})
+
+	Context("run strategy", func() {
+		AfterEach(func() {
+			disableFeatureGates()
+		})
+
+		DescribeTable("validate should", func(runStrategy v1.VirtualMachineRunStrategy, featureGate string, accepted bool) {
+			vmi := api.NewMinimalVMI("testvmi")
+			vm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: &runStrategy,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: vmi.Spec,
+					},
+				},
+			}
+			enableFeatureGate(featureGate)
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(Equal(accepted))
+		},
+			Entry("allow runstrategy halted", v1.RunStrategyHalted, "", true),
+			Entry("allow runstrategy manual", v1.RunStrategyManual, "", true),
+			Entry("allow runstrategy always", v1.RunStrategyAlways, "", true),
+			Entry("allow runstrategy rerun on failure", v1.RunStrategyRerunOnFailure, "", true),
+			Entry("allow runstrategy once", v1.RunStrategyOnce, "", true),
+			Entry("allow runstrategy wait as receiver", v1.RunStrategyWaitAsReceiver, featuregate.DecentralizedLiveMigration, true),
+			Entry("reject runstrategy wait as receiver, if feature gate not enabled", v1.RunStrategyWaitAsReceiver, "", false),
+			Entry("reject invalid runstrategy", v1.VirtualMachineRunStrategy("invalid"), "", false),
+		)
 	})
 })
 

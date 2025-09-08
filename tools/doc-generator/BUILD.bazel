@@ -11,8 +11,8 @@ go_library(
         "//pkg/monitoring/metrics/virt-handler:go_default_library",
         "//pkg/monitoring/metrics/virt-operator:go_default_library",
         "//pkg/monitoring/rules:go_default_library",
-        "//vendor/github.com/machadovilaca/operator-observability/pkg/docs:go_default_library",
-        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/docs:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics:go_default_library",
     ],
 )
 

@@ -81,6 +81,7 @@ type StrategyInterface interface {
 	ApiDeployments() []*appsv1.Deployment
 	ControllerDeployments() []*appsv1.Deployment
 	ExportProxyDeployments() []*appsv1.Deployment
+	SynchronizationControllerDeployments() []*appsv1.Deployment
 	DaemonSets() []*appsv1.DaemonSet
 	ValidatingWebhookConfigurations() []*admissionregistrationv1.ValidatingWebhookConfiguration
 	MutatingWebhookConfigurations() []*admissionregistrationv1.MutatingWebhookConfiguration
@@ -193,6 +194,18 @@ func (ins *Strategy) ExportProxyDeployments() []*appsv1.Deployment {
 
 	}
 
+	return deployments
+}
+
+func (ins *Strategy) SynchronizationControllerDeployments() []*appsv1.Deployment {
+	var deployments []*appsv1.Deployment
+
+	for _, deployment := range ins.deployments {
+		if !strings.Contains(deployment.Name, "virt-synchronization-controller") {
+			continue
+		}
+		deployments = append(deployments, deployment)
+	}
 	return deployments
 }
 
@@ -478,6 +491,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllHandler(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllExportProxy(config.GetNamespace())...)
+	rbaclist = append(rbaclist, rbac.GetAllSynchronizationController(config.GetNamespace())...)
 
 	monitorServiceAccount := config.GetMonitorServiceAccountName()
 	isServiceAccountFound := monitorNamespace != ""
@@ -571,6 +585,9 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 
 	exportProxyDeployment := components.NewExportProxyDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), productName, productVersion, productComponent, config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 	strategy.deployments = append(strategy.deployments, exportProxyDeployment)
+
+	synchronizationControllerDeployment := components.NewSynchronizationControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetSynchronizationControllerVersion(), productName, productVersion, productComponent, config.VirtSynchronizationControllerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetSynchronizationPort(), config.GetVerbosity(), config.GetExtraEnv())
+	strategy.deployments = append(strategy.deployments, synchronizationControllerDeployment)
 
 	handler := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
 

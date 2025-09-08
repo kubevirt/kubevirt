@@ -73,7 +73,7 @@ var _ = Describe(SIG("[crit:medium][vendor:cnv-qe@redhat.com][level:component][s
 
 	BeforeEach(func() {
 		// A VMI for each test to have fresh stack on server side
-		vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation), withClientPassthrough())
+		vmi = libvmi.New(libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation), withClientPassthrough())
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiRunTimeout)
 	})
 
@@ -162,7 +162,7 @@ func runConnectGoroutine(cmd *cobra.Command, errch chan error) {
 	cmd.SetErr(wErr)
 	defer rErr.Close()
 
-	// Make remote bufferred to not block select
+	// Make remote buffer non-blocking for select
 	remote := make(chan error, 1)
 	go func() {
 		defer GinkgoRecover()
@@ -194,7 +194,7 @@ func runConnectGoroutine(cmd *cobra.Command, errch chan error) {
 		// Ends when PipeWritter closes or after find ip.
 	}(rOut)
 
-	// Make local bufferred to not block select
+	// Make local buffer non-blocking for select
 	local := make(chan error, 1)
 	go func() {
 		defer GinkgoRecover()

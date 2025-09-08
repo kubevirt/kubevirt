@@ -73,7 +73,3 @@ type Informers struct {
 	DataSourceInformer cache.SharedIndexInformer
 	NamespaceInformer  cache.SharedIndexInformer
 }
-
-func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
-	return vmiSpec.Architecture == "arm64"
-}

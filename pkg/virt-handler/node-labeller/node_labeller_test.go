@@ -48,7 +48,7 @@ var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
 	var kubeClient *fake.Clientset
 	var cpuCounter *libvirtxml.CapsHostCPUCounter
-	var guestsCaps []libvirtxml.CapsGuest
+	var supportedMachines []libvirtxml.CapsGuestMachine
 
 	initNodeLabeller := func(kubevirt *v1.KubeVirt) {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kubevirt)
@@ -56,7 +56,7 @@ var _ = Describe("Node-labeller ", func() {
 		recorder.IncludeObject = true
 
 		var err error
-		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter, guestsCaps)
+		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter, supportedMachines)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -67,16 +67,7 @@ var _ = Describe("Node-labeller ", func() {
 			Scaling:   "no",
 		}
 
-		guestsCaps = []libvirtxml.CapsGuest{
-			{
-				OSType: "test",
-				Arch: libvirtxml.CapsGuestArch{
-					Machines: []libvirtxml.CapsGuestMachine{
-						{Name: "testmachine"},
-					},
-				},
-			},
-		}
+		supportedMachines = []libvirtxml.CapsGuestMachine{{Name: "testmachine"}}
 
 		node := newNode(nodeName)
 		kubeClient = fake.NewSimpleClientset(node)
@@ -162,6 +153,28 @@ var _ = Describe("Node-labeller ", func() {
 
 		node := retrieveNode(kubeClient)
 		Expect(node.Labels).To(HaveKey(v1.SEVESLabel))
+	})
+
+	It("should not add SecureExecution label", func() {
+		nlController.volumePath = "testdata/s390x"
+		Expect(nlController.loadAll()).Should(Succeed())
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(Not(HaveKey(v1.SecureExecutionLabel)))
+	})
+
+	It("should  add SecureExecution label", func() {
+		nlController.domCapabilitiesFileName = "s390x/domcapabilities_s390-pv.xml"
+		Expect(nlController.loadAll()).Should(Succeed())
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(v1.SecureExecutionLabel))
 	})
 
 	It("should add usable cpu model labels for the host cpu model", func() {
@@ -290,7 +303,7 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	DescribeTable("should add machine type labels", func(machines []libvirtxml.CapsGuestMachine, arch string) {
-		guestsCaps[0].Arch.Machines = machines
+		supportedMachines = machines
 
 		initNodeLabeller(&v1.KubeVirt{})
 		nlController.arch = newArchLabeller(arch)

@@ -23,8 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -172,8 +172,8 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			_ = informers.KVPod.GetStore().Add(originalPod)
-			_ = informers.KVPod.GetStore().Add(targetPod)
+			_ = indexers.KVPod.Add(originalPod)
+			_ = indexers.KVPod.Add(targetPod)
 
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -221,8 +221,8 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			_ = informers.KVPod.GetStore().Add(originalPod)
-			_ = informers.KVPod.GetStore().Add(targetPod)
+			_ = indexers.KVPod.Add(originalPod)
+			_ = indexers.KVPod.Add(targetPod)
 
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -279,10 +279,10 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr.Labels).To(HaveLen(17))
 			Expect(cr.Labels[7]).To(Equal(expected))
 		},
-			Entry("with no instance type expect <none>", k6tv1.InstancetypeAnnotation, "", "<none>"),
+			Entry("with no instance type expect empty string", k6tv1.InstancetypeAnnotation, "", ""),
 			Entry("with managed instance type expect its name", k6tv1.InstancetypeAnnotation, "i-managed", "i-managed"),
 			Entry("with custom instance type expect <other>", k6tv1.InstancetypeAnnotation, "i-unmanaged", "<other>"),
-			Entry("with no cluster instance type expect <none>", k6tv1.ClusterInstancetypeAnnotation, "", "<none>"),
+			Entry("with no cluster instance type expect empty string", k6tv1.ClusterInstancetypeAnnotation, "", ""),
 			Entry("with managed cluster instance type expect its name", k6tv1.ClusterInstancetypeAnnotation, "ci-managed", "ci-managed"),
 			Entry("with custom cluster instance type expect <other>", k6tv1.ClusterInstancetypeAnnotation, "ci-unmanaged", "<other>"),
 		)
@@ -316,10 +316,10 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr.Labels).To(HaveLen(17))
 			Expect(cr.Labels[8]).To(Equal(expected))
 		},
-			Entry("with no preference expect <none>", k6tv1.PreferenceAnnotation, "", "<none>"),
+			Entry("with no preference expect empty string", k6tv1.PreferenceAnnotation, "", ""),
 			Entry("with managed preference expect its name", k6tv1.PreferenceAnnotation, "p-managed", "p-managed"),
 			Entry("with custom preference expect <other>", k6tv1.PreferenceAnnotation, "p-unmanaged", "<other>"),
-			Entry("with no cluster preference expect <none>", k6tv1.ClusterPreferenceAnnotation, "", "<none>"),
+			Entry("with no cluster preference expect empty string", k6tv1.ClusterPreferenceAnnotation, "", ""),
 			Entry("with managed cluster preference expect its name", k6tv1.ClusterPreferenceAnnotation, "cp-managed", "cp-managed"),
 			Entry("with custom cluster preference expect <other>", k6tv1.ClusterPreferenceAnnotation, "cp-unmanaged", "<other>"),
 		)
@@ -329,7 +329,8 @@ var _ = Describe("VMI Stats Collector", func() {
 
 		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
 		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
-			informers.VMI, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
+			vmiInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
+			stores.VMI = vmiInformer.GetStore()
 
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
@@ -537,12 +538,14 @@ var _ = Describe("VMI Stats Collector", func() {
 									InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
 										Bridge: &k6tv1.InterfaceBridge{},
 									},
+									Model: "virtio",
 								},
 								{
 									Name: "iface2",
 									InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
 										Masquerade: &k6tv1.InterfaceMasquerade{},
 									},
+									Model: "e1000e",
 								},
 								{
 									Name: "iface3",
@@ -581,10 +584,10 @@ var _ = Describe("VMI Stats Collector", func() {
 			metrics := CollectVmisVnicInfo(vmi)
 			Expect(metrics).To(HaveLen(4))
 
-			Expect(metrics[0].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface1", "core", "pod networking", "bridge"}))
-			Expect(metrics[1].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface2", "core", "pod networking", "masquerade"}))
-			Expect(metrics[2].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface3", "core", "multus-net", "sriov"}))
-			Expect(metrics[3].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface4", "plugin", "custom-net", "custom-plugin"}))
+			Expect(metrics[0].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface1", "core", "pod networking", "bridge", "virtio"}))
+			Expect(metrics[1].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface2", "core", "pod networking", "masquerade", "e1000e"}))
+			Expect(metrics[2].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface3", "core", "multus-net", "sriov", "<none>"}))
+			Expect(metrics[3].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface4", "plugin", "custom-net", "custom-plugin", "<none>"}))
 		})
 		It("should not collect kubevirt_vmi_vnic_info metric when interface name is not matching network name", func() {
 			vmi := &k6tv1.VirtualMachineInstance{
@@ -720,19 +723,21 @@ func setupTestCollector() {
 		),
 	)
 
-	informers = &Informers{}
+	indexers = &Indexers{}
 
 	// Pod informer
-	informers.KVPod, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+	kvPodInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
+	indexers.KVPod = kvPodInformer.GetIndexer()
 
-	_ = informers.KVPod.GetStore().Add(&k8sv1.Pod{
+	_ = indexers.KVPod.Add(&k8sv1.Pod{
 		ObjectMeta: newPodMetaForInformer("virt-launcher-testpod", "test-ns", "test-vmi-uid"),
 	})
 
 	// VMI Migration informer
-	informers.VMIMigration, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstanceMigration{})
+	vmiMigrationInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstanceMigration{})
+	indexers.VMIMigration = vmiMigrationInformer.GetIndexer()
 
-	_ = informers.VMIMigration.GetStore().Add(&k6tv1.VirtualMachineInstanceMigration{
+	_ = indexers.VMIMigration.Add(&k6tv1.VirtualMachineInstanceMigration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-migration",
 			Namespace: "test-ns",

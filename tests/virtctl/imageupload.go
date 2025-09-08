@@ -77,7 +77,7 @@ var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, Serial, 
 		if config.Status.UploadProxyURL == nil {
 			By("Setting up port forwarding")
 			_, kubectlCmd, err = clientcmd.CreateCommandWithNS(
-				flags.ContainerizedDataImporterNamespace, clientcmd.GetK8sCmdClient(), "port-forward", "svc/cdi-uploadproxy", "18443:443",
+				flags.ContainerizedDataImporterNamespace, "kubectl", "port-forward", "svc/cdi-uploadproxy", "18443:443",
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kubectlCmd.Start()).To(Succeed())
@@ -117,7 +117,7 @@ var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, Serial, 
 
 			By("Start VMI")
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory("256Mi"),
+				libvmi.WithMemoryRequest("256Mi"),
 				diskFn("disk0", targetName),
 			)
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -198,7 +198,7 @@ var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, Serial, 
 
 			By("Start VMI")
 			vmi := libvmi.New(
-				libvmi.WithResourceMemory("256Mi"),
+				libvmi.WithMemoryRequest("256Mi"),
 				libvmi.WithDataVolume("disk0", targetName),
 			)
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})

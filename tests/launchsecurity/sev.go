@@ -337,7 +337,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, "SEV SEV-ES"),
 		)
 
-		It("should run guest attestation", func() {
+		It("[QUARANTINE] should run guest attestation", decorators.Quarantine, func() {
 			var (
 				expectedSEVPlatformInfo    v1.SEVPlatformInfo
 				expectedSEVMeasurementInfo v1.SEVMeasurementInfo

@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -160,8 +160,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 					},
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: "VM field(s) spec.template.spec.domain.memory conflicts with selected instance type",
-						Field:   "spec.template.spec.domain.memory",
+						Message: "VM field(s) spec.template.spec.domain.memory.guest conflicts with selected instance type",
+						Field:   "spec.template.spec.domain.memory.guest",
 					},
 				},
 			))

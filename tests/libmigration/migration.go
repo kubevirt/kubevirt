@@ -50,6 +50,23 @@ func New(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
 	}
 }
 
+func NewSource(vmiName, namespace, migrationID, connectURL string) *v1.VirtualMachineInstanceMigration {
+	migration := New(vmiName, namespace)
+	migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+		MigrationID: migrationID,
+		ConnectURL:  connectURL,
+	}
+	return migration
+}
+
+func NewTarget(vmiName, namespace, migrationID string) *v1.VirtualMachineInstanceMigration {
+	migration := New(vmiName, namespace)
+	migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
+		MigrationID: migrationID,
+	}
+	return migration
+}
+
 func ExpectMigrationToSucceed(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	return ExpectMigrationToSucceedWithOffset(2, virtClient, migration, timeout)
 }
@@ -77,6 +94,50 @@ func ExpectMigrationToSucceedWithOffset(offset int, virtClient kubecli.KubevirtC
 	return migration
 }
 
+func RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient kubecli.KubevirtClient, sourceMigration, targetMigration *v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigration) {
+	// increase timeout on decentralized migration.
+	return RunDecentralizedMigrationAndExpectToComplete(virtClient, sourceMigration, targetMigration, MigrationWaitTime*2)
+}
+
+func CheckSynchronizationAddressPopulated(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) {
+	kv := libkubevirt.GetCurrentKv(virtClient)
+	Expect(kv.Status.SynchronizationAddresses).ToNot(BeNil())
+	synchronizationAddress := kv.Status.SynchronizationAddresses[0]
+
+	Eventually(func() string {
+		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		if migration.Status.SynchronizationAddresses == nil {
+			return ""
+		}
+		return migration.Status.SynchronizationAddresses[0]
+	}).WithTimeout(time.Second * 20).WithPolling(500 * time.Millisecond).Should(Equal(synchronizationAddress))
+}
+
+func RunDecentralizedMigrationAndExpectToComplete(virtClient kubecli.KubevirtClient, sourceMigration, targetMigration *v1.VirtualMachineInstanceMigration, timeout int) (*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigration) {
+	By("ensuring the source VMI exists")
+	Eventually(func() *v1.VirtualMachineInstance {
+		vmi, err := virtClient.VirtualMachineInstance(sourceMigration.Namespace).Get(context.Background(), sourceMigration.Spec.VMIName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return vmi
+	}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
+
+	sourceMigration = RunMigration(virtClient, sourceMigration)
+	CheckSynchronizationAddressPopulated(virtClient, sourceMigration)
+
+	By("ensuring the target VMI exists")
+	Eventually(func() *v1.VirtualMachineInstance {
+		vmi, err := virtClient.VirtualMachineInstance(targetMigration.Namespace).Get(context.Background(), targetMigration.Spec.VMIName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return vmi
+	}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
+	targetMigration = RunMigration(virtClient, targetMigration)
+	CheckSynchronizationAddressPopulated(virtClient, targetMigration)
+	sourceMigration = ExpectMigrationToSucceed(virtClient, sourceMigration, timeout)
+	targetMigration = ExpectMigrationToSucceed(virtClient, targetMigration, timeout)
+	return sourceMigration, targetMigration
+}
+
 func RunMigrationAndExpectToComplete(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	migration = RunMigration(virtClient, migration)
 
@@ -89,7 +150,6 @@ func RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient kubecli.Kubevi
 
 func RunMigration(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstanceMigration {
 	By("Starting a Migration")
-
 	migrationCreated, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -99,9 +159,9 @@ func RunMigration(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachin
 func ConfirmMigrationDataIsStored(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance) {
 	By("Retrieving the VMI and the migration object")
 	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
+	Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
 	migration, migerr := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-	Expect(migerr).ToNot(HaveOccurred(), "should have been able to retrive the migration")
+	Expect(migerr).ToNot(HaveOccurred(), "should have been able to retrieve the migration")
 
 	By("Verifying the stored migration state")
 	Expect(migration.Status.MigrationState).ToNot(BeNil(), "should have been able to retrieve the migration `Status::MigrationState`")
@@ -116,7 +176,7 @@ func ConfirmMigrationDataIsStored(virtClient kubecli.KubevirtClient, migration *
 func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstance {
 	By("Retrieving the VMI post migration")
 	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
+	Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
 
 	By("Verifying the VMI's migration state")
 	Expect(vmi.Status.MigrationState).ToNot(BeNil(), "should have been able to retrieve the VMIs `Status::MigrationState`")
@@ -131,7 +191,11 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(string(migration.UID)), "the VMI migration UID must be the expected one")
 
 	By("Verifying the VMI's is in the running state")
-	Expect(vmi.Status.Phase).To(Equal(v1.Running), "the VMI must be in `Running` state after the migration")
+	Eventually(func() v1.VirtualMachineInstancePhase {
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
+		return vmi.Status.Phase
+	}, 60*time.Second, 1*time.Second).Should(Equal(v1.Running), fmt.Sprintf("the VMI %s/%s must be in `Running` state after the migration", vmi.Namespace, vmi.Name))
 
 	return vmi
 }
@@ -367,7 +431,7 @@ func ConfirmVMIPostMigrationFailed(vmi *v1.VirtualMachineInstance, migrationUID 
 	Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
 	Expect(vmi.Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
 	Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
-	Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+	Expect(vmi.Status.MigrationState.Completed).To(BeFalse())
 	Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
 	Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
 	Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
@@ -392,7 +456,7 @@ func ConfirmVMIPostMigrationAborted(vmi *v1.VirtualMachineInstance, migrationUID
 
 	}, timeout, 1*time.Second).Should(
 		gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"Completed":   BeTrue(),
+			"Completed":   BeFalse(),
 			"AbortStatus": Equal(v1.MigrationAbortSucceeded),
 		}),
 	)

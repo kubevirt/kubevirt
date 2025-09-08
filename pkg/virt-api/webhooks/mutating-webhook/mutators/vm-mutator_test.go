@@ -24,13 +24,14 @@ import (
 	"net/http"
 	rt "runtime"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
@@ -66,14 +67,15 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	ignoreInferFromVolumeFailure := v1.IgnoreInferFromVolumeFailure
 	rejectInferFromVolumeFailure := v1.RejectInferFromVolumeFailure
 
-	admitVM := func(arch string) *admissionv1.AdmissionResponse {
+	admitVM := func(arch string, op admissionv1.Operation) *admissionv1.AdmissionResponse {
 		vm.Spec.Template.Spec.Architecture = arch
 		vmBytes, err := json.Marshal(vm)
 		Expect(err).ToNot(HaveOccurred())
 		By("Creating the test admissions review from the VM")
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
-				Resource: k8smetav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
+				Operation: op,
+				Resource:  k8smetav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
 				Object: runtime.RawExtension{
 					Raw: vmBytes,
 				},
@@ -83,8 +85,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		return mutator.Mutate(ar)
 	}
 
-	getVMSpecMetaFromResponse := func(arch string) (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
-		resp := admitVM(arch)
+	getVMSpecMetaFromResponseCreate := func(arch string) (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
+		resp := admitVM(arch, admissionv1.Create)
 		Expect(resp.Allowed).To(BeTrue())
 
 		By("Getting the VM spec from the response")
@@ -155,14 +157,15 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	It("should allow VM being deleted without applying mutations", func() {
 		now := k8smetav1.Now()
 		vm.ObjectMeta.DeletionTimestamp = &now
-		resp := admitVM(rt.GOARCH)
+		resp := admitVM(rt.GOARCH, admissionv1.Delete)
 		Expect(resp.Allowed).To(BeTrue())
 		Expect(resp.Patch).To(BeEmpty())
 	})
 
 	DescribeTable("should apply defaults on VM create", func(arch string, result string) {
-		vmSpec, _ := getVMSpecMetaFromResponse(arch)
+		vmSpec, _ := getVMSpecMetaFromResponseCreate(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
+		Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).ToNot(BeNil())
 	},
 		Entry("ppc64le", "ppc64le", "pseries"),
 		Entry("arm64", "arm64", "virt"),
@@ -178,19 +181,20 @@ var _ = Describe("VirtualMachine Mutator", func() {
 						Amd64:   &v1.ArchSpecificConfiguration{MachineType: amd64MachineType},
 						Arm64:   &v1.ArchSpecificConfiguration{MachineType: arm64MachineType},
 						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: ppc64leMachineType},
+						S390x:   &v1.ArchSpecificConfiguration{MachineType: s390xMachineType},
 					},
 				},
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponse(arch)
+		vmSpec, _ := getVMSpecMetaFromResponseCreate(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
 
 	},
 		Entry("when override is for amd64 architecture", "amd64", machineTypeFromConfig, "", "", "", machineTypeFromConfig),
 		Entry("when override is for arm64 architecture", "arm64", "", machineTypeFromConfig, "", "", machineTypeFromConfig),
 		Entry("when override is for ppc64le architecture", "ppc64le", "", "", machineTypeFromConfig, "", machineTypeFromConfig),
-		Entry("when override is for s390x architecture, no override", "s390x", "", "", "", machineTypeFromConfig, "s390-ccw-virtio"),
+		Entry("when override is for s390x architecture", "s390x", "", "", "", machineTypeFromConfig, machineTypeFromConfig),
 	)
 
 	It("should not override default architecture with defaults on VM create", func() {
@@ -200,7 +204,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponse("amd64")
+		vmSpec, _ := getVMSpecMetaFromResponseCreate("amd64")
 		Expect(vmSpec.Template.Spec.Architecture).To(Equal("amd64"))
 
 	})
@@ -216,7 +220,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "pc-q35-2.0"}
 
-		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))
 	})
 
@@ -252,7 +256,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))
 	})
 
@@ -287,7 +291,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
 	})
 
@@ -304,17 +308,15 @@ var _ = Describe("VirtualMachine Mutator", func() {
 						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						S390x:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 					},
 				},
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
-		if rt.GOARCH == "s390x" {
-			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("s390-ccw-virtio"))
-		} else {
-			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
-		}
+		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
+
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 
 	})
 
@@ -322,7 +324,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 			Name: "foobar",
 		}
-		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 		Expect(vmSpec.Instancetype.Kind).To(Equal(apiinstancetype.ClusterSingularResourceName))
 	})
 
@@ -330,7 +332,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		vm.Spec.Preference = &v1.PreferenceMatcher{
 			Name: "foobar",
 		}
-		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 		Expect(vmSpec.Preference.Kind).To(Equal(apiinstancetype.ClusterSingularPreferenceResourceName))
 	})
 
@@ -356,14 +358,14 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Name: preference.Name,
 		}
 
-		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
 	})
 
 	DescribeTable("should admit valid values to InferFromVolumePolicy", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher) {
 		vm.Spec.Instancetype = instancetypeMatcher
 		vm.Spec.Preference = preferenceMatcher
-		resp := admitVM(rt.GOARCH)
+		resp := admitVM(rt.GOARCH, admissionv1.Create)
 		Expect(resp.Allowed).To(BeTrue())
 	},
 		Entry("InstancetypeMatcher with IgnoreInferFromVolumeFailure", &v1.InstancetypeMatcher{Name: "bar", InferFromVolumeFailurePolicy: &ignoreInferFromVolumeFailure}, nil),
@@ -413,15 +415,15 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Expect(*dataVolumeTemapltes[0].Spec.Storage.StorageClassName).To(Equal(expectedStorageClassName))
 		}
 
-		It("should apply PreferredStorageClassName to PVC", func() {
+		It("[test_id:10328]should apply PreferredStorageClassName to PVC", func() {
 			vm.Spec.DataVolumeTemplates[0].Spec.PVC = &k8sv1.PersistentVolumeClaimSpec{}
-			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+			vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 			assertPVCStorageClassName(vmSpec.DataVolumeTemplates, preference.Spec.Volumes.PreferredStorageClassName)
 		})
 
-		It("should apply PreferredStorageClassName to Storage", func() {
+		It("[test_id:10329]should apply PreferredStorageClassName to Storage", func() {
 			vm.Spec.DataVolumeTemplates[0].Spec.Storage = &cdiv1.StorageSpec{}
-			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+			vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 			assertStorageStorageClassName(vmSpec.DataVolumeTemplates, preference.Spec.Volumes.PreferredStorageClassName)
 		})
 
@@ -429,7 +431,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
 				Spec: cdiv1.DataVolumeSpec{},
 			}}
-			resp := admitVM(rt.GOARCH)
+			resp := admitVM(rt.GOARCH, admissionv1.Create)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -442,7 +444,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					},
 				},
 			}}
-			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+			vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 			assertPVCStorageClassName(vmSpec.DataVolumeTemplates, storageClass)
 		})
 
@@ -455,7 +457,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					},
 				},
 			}}
-			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+			vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
 			assertStorageStorageClassName(vmSpec.DataVolumeTemplates, storageClass)
 		})
 	})
@@ -677,11 +679,51 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				Expect(resp.Allowed).To(BeFalse())
 			})
 		})
+
+		It("should NOT assign new UUID when VM template spec lacks one on update", func() {
+			oldVM.Spec.Template.Spec.Domain.Firmware = nil
+			newVM.Spec.Template.Spec.Domain.Firmware = nil
+
+			resp := getResponseFromVMUpdate(oldVM, newVM)
+			Expect(resp.Allowed).To(BeTrue())
+
+			vmSpec := &v1.VirtualMachineSpec{}
+			vmMeta := &k8smetav1.ObjectMeta{}
+			patchOps := []patch.PatchOperation{
+				{Value: vmSpec},
+				{Value: vmMeta},
+			}
+			err := json.Unmarshal(resp.Patch, &patchOps)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patchOps).NotTo(BeEmpty())
+			Expect(vmSpec.Template.Spec.Domain.Firmware).To(BeNil())
+		})
+
+		It("should preserve existing UUID when VM template spec has one", func() {
+			testUUID := types.UID("existing-test-uid")
+			newUUID := types.UID("new-test-uid")
+			oldVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{UUID: testUUID}
+			newVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{UUID: newUUID}
+
+			resp := getResponseFromVMUpdate(oldVM, newVM)
+			Expect(resp.Allowed).To(BeTrue())
+
+			vmSpec := &v1.VirtualMachineSpec{}
+			vmMeta := &k8smetav1.ObjectMeta{}
+			patchOps := []patch.PatchOperation{
+				{Value: vmSpec},
+				{Value: vmMeta},
+			}
+			err := json.Unmarshal(resp.Patch, &patchOps)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmSpec.Template.Spec.Domain.Firmware).ToNot(BeNil())
+			Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).To(Equal(newUUID))
+		})
 	})
 
 	It("should default architecture to compiled architecture when not provided", func() {
 		// provide empty string for architecture so that default will apply
-		vmSpec, _ := getVMSpecMetaFromResponse("")
+		vmSpec, _ := getVMSpecMetaFromResponseCreate("")
 		Expect(vmSpec.Template.Spec.Architecture).To(Equal(rt.GOARCH))
 	})
 
@@ -799,7 +841,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		DescribeTable("should fail if", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, expectedField, expectedMessage string) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
-			resp := admitVM(rt.GOARCH)
+			resp := admitVM(rt.GOARCH, admissionv1.Create)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring(expectedMessage))
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))

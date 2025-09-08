@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
 	virtapi "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
@@ -11,7 +11,7 @@ import (
 	virtoperator "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 
-	"github.com/machadovilaca/operator-observability/pkg/docs"
+	"github.com/rhobs/operator-observability-toolkit/pkg/docs"
 )
 
 const tpl = `# KubeVirt metrics
@@ -61,7 +61,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := virthandler.SetupMetrics("", "", 0, nil); err != nil {
+	if err := virthandler.SetupMetrics("", "", 0, nil, nil); err != nil {
 		panic(err)
 	}
 

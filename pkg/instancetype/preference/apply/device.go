@@ -26,6 +26,29 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
+type field struct {
+	preference *bool
+	vmi        **bool
+}
+
+func ApplyAutoAttachPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if preferenceSpec.Devices == nil {
+		return
+	}
+	autoAttachFields := []field{
+		{preferenceSpec.Devices.PreferredAutoattachGraphicsDevice, &vmiSpec.Domain.Devices.AutoattachGraphicsDevice},
+		{preferenceSpec.Devices.PreferredAutoattachMemBalloon, &vmiSpec.Domain.Devices.AutoattachMemBalloon},
+		{preferenceSpec.Devices.PreferredAutoattachPodInterface, &vmiSpec.Domain.Devices.AutoattachPodInterface},
+		{preferenceSpec.Devices.PreferredAutoattachSerialConsole, &vmiSpec.Domain.Devices.AutoattachSerialConsole},
+		{preferenceSpec.Devices.PreferredAutoattachInputDevice, &vmiSpec.Domain.Devices.AutoattachInputDevice},
+	}
+	for _, field := range autoAttachFields {
+		if field.preference != nil && *field.vmi == nil {
+			*field.vmi = pointer.P(*field.preference)
+		}
+	}
+}
+
 func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Devices == nil {
 		return
@@ -36,22 +59,6 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 	// 1. A preference has actually been provided
 	// 2. The user hasn't defined the corresponding attribute already within the VMI
 	//
-	if preferenceSpec.Devices.PreferredAutoattachGraphicsDevice != nil && vmiSpec.Domain.Devices.AutoattachGraphicsDevice == nil {
-		vmiSpec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(*preferenceSpec.Devices.PreferredAutoattachGraphicsDevice)
-	}
-
-	if preferenceSpec.Devices.PreferredAutoattachMemBalloon != nil && vmiSpec.Domain.Devices.AutoattachMemBalloon == nil {
-		vmiSpec.Domain.Devices.AutoattachMemBalloon = pointer.P(*preferenceSpec.Devices.PreferredAutoattachMemBalloon)
-	}
-
-	if preferenceSpec.Devices.PreferredAutoattachPodInterface != nil && vmiSpec.Domain.Devices.AutoattachPodInterface == nil {
-		vmiSpec.Domain.Devices.AutoattachPodInterface = pointer.P(*preferenceSpec.Devices.PreferredAutoattachPodInterface)
-	}
-
-	if preferenceSpec.Devices.PreferredAutoattachSerialConsole != nil && vmiSpec.Domain.Devices.AutoattachSerialConsole == nil {
-		vmiSpec.Domain.Devices.AutoattachSerialConsole = pointer.P(*preferenceSpec.Devices.PreferredAutoattachSerialConsole)
-	}
-
 	if preferenceSpec.Devices.PreferredUseVirtioTransitional != nil && vmiSpec.Domain.Devices.UseVirtioTransitional == nil {
 		vmiSpec.Domain.Devices.UseVirtioTransitional = pointer.P(*preferenceSpec.Devices.PreferredUseVirtioTransitional)
 	}
@@ -62,10 +69,6 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 
 	if preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue != nil && vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue == nil {
 		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue)
-	}
-
-	if preferenceSpec.Devices.PreferredAutoattachInputDevice != nil && vmiSpec.Domain.Devices.AutoattachInputDevice == nil {
-		vmiSpec.Domain.Devices.AutoattachInputDevice = pointer.P(*preferenceSpec.Devices.PreferredAutoattachInputDevice)
 	}
 
 	// FIXME DisableHotplug isn't a pointer bool so we don't have a way to tell if a user has actually set it, for now override.
@@ -85,9 +88,11 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 		vmiSpec.Domain.Devices.TPM = preferenceSpec.Devices.PreferredTPM.DeepCopy()
 	}
 
+	ApplyAutoAttachPreferences(preferenceSpec, vmiSpec)
 	applyDiskPreferences(preferenceSpec, vmiSpec)
 	applyInterfacePreferences(preferenceSpec, vmiSpec)
 	applyInputPreferences(preferenceSpec, vmiSpec)
+	applyPanicDevicePreferences(preferenceSpec, vmiSpec)
 }
 
 func applyInputPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
@@ -100,5 +105,20 @@ func applyInputPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 		if preferenceSpec.Devices.PreferredInputType != "" && vmiInput.Type == "" {
 			vmiInput.Type = preferenceSpec.Devices.PreferredInputType
 		}
+	}
+}
+
+func applyPanicDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if preferenceSpec.Devices.PreferredPanicDeviceModel == nil {
+		return
+	}
+
+	// Only apply any preferred panic device when the same panic device has not been provided by a user already
+	for idx := range vmiSpec.Domain.Devices.PanicDevices {
+		panicDevice := &vmiSpec.Domain.Devices.PanicDevices[idx]
+		if panicDevice.Model != nil {
+			continue
+		}
+		panicDevice.Model = preferenceSpec.Devices.PreferredPanicDeviceModel
 	}
 }

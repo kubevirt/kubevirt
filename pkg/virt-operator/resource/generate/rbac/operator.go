@@ -94,7 +94,6 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"watch",
 					"patch",
 					"update",
-					"patch",
 				},
 			},
 			{
@@ -331,6 +330,7 @@ func getKubeVirtComponentsClusterRules() []rbacv1.PolicyRule {
 	all = append(all, GetAllController("")...)
 	all = append(all, GetAllHandler("")...)
 	all = append(all, GetAllExportProxy("")...)
+	all = append(all, GetAllSynchronizationController("")...)
 	all = append(all, GetAllCluster()...)
 
 	for _, resource := range all {
@@ -381,6 +381,7 @@ func getKubeVirtComponentsRules() []rbacv1.PolicyRule {
 	all = append(all, GetAllController("")...)
 	all = append(all, GetAllHandler("")...)
 	all = append(all, GetAllExportProxy("")...)
+	all = append(all, GetAllSynchronizationController("")...)
 	all = append(all, GetAllCluster()...)
 
 	for _, resource := range all {
@@ -480,6 +481,8 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 					components.VirtApiCertSecretName,
 					components.VirtControllerCertSecretName,
 					components.VirtExportProxyCertSecretName,
+					components.VirtSynchronizationControllerCertSecretName,
+					components.VirtSynchronizationControllerServerCertSecretName,
 				},
 				Verbs: []string{
 					"create",

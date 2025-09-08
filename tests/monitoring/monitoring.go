@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -93,7 +93,7 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 	Context("Migration Alerts", decorators.SigComputeMigrations, func() {
 		PIt("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times during the last 24 hours", func() {
 			By("Starting the VirtualMachineInstance")
-			vmi := libvmi.New(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory("2Mi"))
+			vmi := libvmi.New(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest("2Mi"))
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Migrating the VMI 13 times")

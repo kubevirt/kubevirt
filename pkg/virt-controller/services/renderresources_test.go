@@ -270,7 +270,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithHostDevices([]v1.HostDevice{}),
+				WithHostDevicesDevicePlugins([]v1.HostDevice{}),
 			)
 			Expect(rr.Limits()).To(BeEmpty())
 			Expect(rr.Requests()).To(BeEmpty())
@@ -286,7 +286,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithHostDevices(hostDevices),
+				WithHostDevicesDevicePlugins(hostDevices),
 			)
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
@@ -296,7 +296,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithGPUs([]v1.GPU{}),
+				WithGPUsDevicePlugins([]v1.GPU{}),
 			)
 			Expect(rr.Limits()).To(BeEmpty())
 			Expect(rr.Requests()).To(BeEmpty())
@@ -312,9 +312,128 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithGPUs(requestedGPUs))
+				WithGPUsDevicePlugins(requestedGPUs))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
+		})
+
+		It("should handle HostDevices with both device plugin and DRA resources in API", func() {
+			devicePluginHostDev := v1.HostDevice{
+				Name:       "device-plugin-host",
+				DeviceName: "pci-device",
+			}
+			draHostDev := v1.HostDevice{
+				Name: "dra-host",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("dra-claim"),
+					RequestName: pointer.P("dra-request"),
+				},
+			}
+			hostDevices := []v1.HostDevice{devicePluginHostDev, draHostDev}
+
+			rr = NewResourceRenderer(nil, nil, WithHostDevicesDevicePlugins(hostDevices), WithHostDevicesDRA(hostDevices))
+
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("pci-device"), *resource.NewQuantity(1, resource.DecimalSI)))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("pci-device"), *resource.NewQuantity(1, resource.DecimalSI)))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("dra-claim"))
+			Expect(claims[0].Request).To(Equal("dra-request"))
+		})
+
+		It("should handle GPUs with both device plugin and DRA resources in API", func() {
+			devicePluginGPU := v1.GPU{
+				Name:       "device-plugin-gpu",
+				DeviceName: "nvidia-gpu",
+			}
+			draGPU := v1.GPU{
+				Name: "dra-gpu",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("gpu-claim"),
+					RequestName: pointer.P("gpu-request"),
+				},
+			}
+			gpus := []v1.GPU{devicePluginGPU, draGPU}
+
+			rr = NewResourceRenderer(nil, nil, WithGPUsDevicePlugins(gpus), WithGPUsDRA(gpus))
+
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("nvidia-gpu"), *resource.NewQuantity(1, resource.DecimalSI)))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("nvidia-gpu"), *resource.NewQuantity(1, resource.DecimalSI)))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("gpu-claim"))
+			Expect(claims[0].Request).To(Equal("gpu-request"))
+		})
+
+		It("Unified functions should not interfere with other renderer options", func() {
+			cpuRequest := resource.MustParse("100m")
+			memoryRequest := resource.MustParse("128Mi")
+			cpuLimit := resource.MustParse("200m")
+			memoryLimit := resource.MustParse("256Mi")
+
+			requests := kubev1.ResourceList{
+				kubev1.ResourceCPU:    cpuRequest,
+				kubev1.ResourceMemory: memoryRequest,
+			}
+			limits := kubev1.ResourceList{
+				kubev1.ResourceCPU:    cpuLimit,
+				kubev1.ResourceMemory: memoryLimit,
+			}
+
+			gpus := []v1.GPU{
+				{
+					Name: "dra-gpu",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("gpu-claim"),
+						RequestName: pointer.P("gpu-request"),
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(limits, requests, WithGPUsDRA(gpus))
+
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuLimit))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryLimit))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("gpu-claim"))
+			Expect(claims[0].Request).To(Equal("gpu-request"))
+
+			hostDevices := []v1.HostDevice{
+				{
+					Name: "host-dev",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("hostdev-claim"),
+						RequestName: pointer.P("hostdev-request"),
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(limits, requests,
+				WithGPUsDRA(gpus),
+				WithHostDevicesDRA(hostDevices),
+			)
+
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuLimit))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryLimit))
+
+			claims = rr.Claims()
+			Expect(claims).To(HaveLen(2))
+
+			claimNames := make(map[string]string)
+			for _, claim := range claims {
+				claimNames[claim.Name] = claim.Request
+			}
+
+			Expect(claimNames).To(HaveKeyWithValue("gpu-claim", "gpu-request"))
+			Expect(claimNames).To(HaveKeyWithValue("hostdev-claim", "hostdev-request"))
 		})
 	})
 
@@ -358,10 +477,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 		kvConfig.SupportContainerResources[0].Resources.Requests = req
 		kvConfig.SupportContainerResources[0].Resources.Limits = lim
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
-		vmi := &v1.VirtualMachineInstance{
-			Spec: v1.VirtualMachineInstanceSpec{},
-		}
-		res := hotplugContainerResourceRequirementsForVMI(vmi, clusterConfig)
+
+		res := hotplugContainerResourceRequirementsForVMI(clusterConfig)
 		Expect(res.Requests).To(BeEquivalentTo(expectedReq))
 		Expect(res.Limits).To(BeEquivalentTo(expectedLim))
 	},
@@ -478,7 +595,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		// MemoryReq / 512bit
 		baseOverhead = pointer.P(resource.MustParse("7Mi"))
 		coresOverhead = pointer.P(resource.MustParse("8Mi"))
-		videoRAMOverhead = pointer.P(resource.MustParse("16Mi"))
+		videoRAMOverhead = pointer.P(resource.MustParse("32Mi"))
 		cpuArchOverhead = pointer.P(resource.MustParse("128Mi"))
 		vfioOverhead = pointer.P(resource.MustParse("1Gi"))
 		downwardmetricsOverhead = pointer.P(resource.MustParse("1Mi"))

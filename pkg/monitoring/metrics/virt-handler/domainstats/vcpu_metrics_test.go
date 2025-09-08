@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright the KubeVirt Authors.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k6tv1 "kubevirt.io/api/core/v1"
 
@@ -61,7 +61,7 @@ var _ = Describe("vcpu metrics", func() {
 			crs := vcpuMetrics{}.Collect(vmiReport)
 			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(metric, expectedValue)))
 		},
-			Entry("kubevirt_vmi_vcpu_seconds_total", vcpuSeconds, microsecondsToSeconds(1)),
+			Entry("kubevirt_vmi_vcpu_seconds_total", vcpuSeconds, nanosecondsToSeconds(1)),
 			Entry("kubevirt_vmi_vcpu_wait_seconds_total", vcpuWaitSeconds, nanosecondsToSeconds(2)),
 			Entry("kubevirt_vmi_vcpu_delay_seconds_total", vcpuDelaySeconds, nanosecondsToSeconds(3)),
 		)

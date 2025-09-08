@@ -209,7 +209,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				By("creating a large VM with RunStrategyRerunOnFailure")
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
-					libvmi.WithResourceMemory("3Gi"),
+					libvmi.WithMemoryRequest("3Gi"),
 					libvmi.WithRng(),
 					libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				)
@@ -218,7 +218,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				// update the migration policy to ensure slow pre-copy migration progress instead of an immediate cancellation.
+				By("updating the migration policy to ensure slow pre-copy migration progress instead of an immediate cancellation")
 				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(20))
 				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("1Mi"))
 				applyKubevirtCR()
@@ -247,8 +247,17 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				By("Removing virt-handler killer pod")
 				removeVirtHandlerKillerPod()
 
-				By("Ensuring the VirtualMachineInstance is restarted")
+				By("updating the migration policy to default values")
+				migrationPolicy.Spec.CompletionTimeoutPerGiB = nil
+				migrationPolicy.Spec.BandwidthPerMigration = nil
+				applyKubevirtCR()
+
+				By("Ensuring the virtual machine is restarted")
 				Eventually(matcher.ThisVMI(vmi), 5*time.Minute, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
+
+				By("Ensuring the virtual machine is migratable")
+				migration = libmigration.New(vmi.Name, vmi.Namespace)
+				libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 150)
 			})
 		})
 	})
@@ -266,7 +275,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithPersistentVolumeClaim("disk0", pvName),
-		libvmi.WithResourceMemory(memoryRequestSize),
+		libvmi.WithMemoryRequest(memoryRequestSize),
 		libvmi.WithRng(),
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountSvcAccCommands)),
 		libvmi.WithServiceAccountDisk("default"),

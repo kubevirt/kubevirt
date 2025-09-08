@@ -33,10 +33,6 @@ previous_release_registry=${PREVIOUS_RELEASE_REGISTRY:-$_default_previous_releas
 
 perftest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 
-if [[ ${KUBEVIRT_PROVIDER} == os-* ]] || [[ ${KUBEVIRT_PROVIDER} =~ (okd|ocp)-* ]]; then
-    oc=${kubectl}
-fi
-
 if [ -z "$kubeconfig" ]; then
     kubeconfig="$KUBECONFIG"
 fi
@@ -45,10 +41,8 @@ echo 'Performance testing'
 export KUBEVIRT_E2E_PERF_TEST=true
 
 echo 'Preparing directory for artifacts'
-export ARTIFACTS=${ARTIFACTS}/performance
 export AUDIT_CONFIG=${ARTIFACTS}/perfscale-audit-cfg.json
 export AUDIT_RESULTS=${ARTIFACTS}/perfscale-audit-results.json
-rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
 export TESTS_OUT_DIR=${TESTS_OUT_DIR}
@@ -58,7 +52,7 @@ echo 'ARTIFACTS ' ${ARTIFACTS}
 echo 'TESTS_OUT_DIR ' ${TESTS_OUT_DIR}
 
 function perftest() {
-    _out/tests/ginkgo -r -slow-spec-threshold=60s $@ _out/tests/tests.test -- ${extra_args} -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${perftest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS}
+    _out/tests/ginkgo -r -slow-spec-threshold=60s $@ _out/tests/tests.test -- ${extra_args} -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${perftest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -kubectl-path=${kubectl} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS}
 }
 
 function perfaudit() {

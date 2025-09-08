@@ -99,6 +99,16 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 					if err != nil {
 						return webhookutils.ToAdmissionResponseError(err)
 					}
+
+					newCauses := admitter.validateVolumeOverrides(ctx, vmRestore)
+					if newCauses != nil {
+						causes = append(causes, newCauses...)
+					}
+
+					newCauses = admitter.validateVolumeRestorePolicy(ctx, vmRestore)
+					if newCauses != nil {
+						causes = append(causes, newCauses...)
+					}
 				default:
 					causes = []metav1.StatusCause{
 						{
@@ -206,7 +216,7 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 		if backendstorage.IsBackendStorageNeededForVMI(&snapshotVM.Spec.Template.Spec) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Restore to a different VM not supported when using backend storage",
+				Message: "Restore to a different VM is not supported when snapshotted VM has backend storage (persistent TPM or EFI)",
 				Field:   field.String(),
 			})
 		}
@@ -247,6 +257,63 @@ func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sf
 				}
 			}
 		}
+	}
+
+	return causes
+}
+
+func (admitter *VMRestoreAdmitter) validateVolumeOverrides(ctx context.Context, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause) {
+	// Cancel if there's no volume override
+	if vmRestore.Spec.VolumeRestoreOverrides == nil {
+		return nil
+	}
+
+	// Check each individual override
+	for i, override := range vmRestore.Spec.VolumeRestoreOverrides {
+		if override.VolumeName == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("must provide a volume name"),
+				Field: k8sfield.NewPath("spec").
+					Child("volumeRestoreOverrides").
+					Index(i).Child("volumeName").
+					String(),
+			})
+		}
+
+		if override.RestoreName == "" && override.Annotations == nil && override.Labels == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("must provide at least one overriden field"),
+				Field:   k8sfield.NewPath("spec").Child("volumeRestoreOverrides").Index(i).String(),
+			})
+		}
+	}
+
+	return causes
+}
+
+func (admitter *VMRestoreAdmitter) validateVolumeRestorePolicy(ctx context.Context, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause) {
+	// Cancel if there's no volume restore policy
+	if vmRestore.Spec.VolumeRestorePolicy == nil {
+		return nil
+	}
+
+	policy := *vmRestore.Spec.VolumeRestorePolicy
+
+	// Verify the policy provided is among the ones that are allowed
+	switch policy {
+	case snapshotv1.VolumeRestorePolicyInPlace:
+	case snapshotv1.VolumeRestorePolicyRandomizeNames:
+		return nil
+	default:
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("volume restore policy \"%s\" doesn't exist", policy),
+			Field: k8sfield.NewPath("spec").
+				Child("volumeRestorePolicy").
+				String(),
+		})
 	}
 
 	return causes

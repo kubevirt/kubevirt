@@ -31,15 +31,16 @@ import (
 	. "github.com/onsi/gomega"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/golang/mock/gomock"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	routev1fake "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1/fake"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"go.uber.org/mock/gomock"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -87,9 +88,9 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 78
-	patchCount    = 50
-	updateCount   = 29
+	resourceCount = 85
+	patchCount    = 53
+	updateCount   = 33
 )
 
 type KubeVirtTestData struct {
@@ -188,6 +189,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 	informers.ValidatingAdmissionPolicy, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
 	informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
 	informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+	informers.Leases, _ = testutils.NewFakeInformerFor(&coordinationv1.Lease{})
 
 	// test OpenShift components
 	config := util.OperatorConfig{
@@ -254,6 +256,15 @@ func (k *KubeVirtTestData) BeforeTest() {
 		if action.GetVerb() == "create" && action.GetResource().Resource == "validatingadmissionpolicies" {
 			dummyValidatingAdmissionPolicy := &admissionregistrationv1.ValidatingAdmissionPolicy{}
 			return true, dummyValidatingAdmissionPolicy, nil
+		}
+
+		if action.GetVerb() == "create" && action.GetResource().Resource == "configmaps" {
+			dummyConfigMap := &k8sv1.ConfigMap{}
+			return true, dummyConfigMap, nil
+		}
+
+		if action.GetVerb() == "update" && action.GetResource().Resource == "configmaps" {
+			return true, nil, nil
 		}
 
 		if action.GetVerb() == "get" && action.GetResource().Resource == "serviceaccounts" {
@@ -1179,12 +1190,32 @@ func enableExportFeatureGate(kv *v1.KubeVirt) {
 	}
 }
 
+func enableSynchronizationControllerFeatureGate(kv *v1.KubeVirt) {
+	kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+		FeatureGates: []string{
+			"DecentralizedLiveMigration",
+		},
+	}
+}
+
 func exportProxyEnabled(kv *v1.KubeVirt) bool {
 	if kv.Spec.Configuration.DeveloperConfiguration == nil {
 		return false
 	}
 	for _, fg := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
 		if fg == "VMExport" {
+			return true
+		}
+	}
+	return false
+}
+
+func synchronizationControllerEnabled(kv *v1.KubeVirt) bool {
+	if kv.Spec.Configuration.DeveloperConfiguration == nil {
+		return false
+	}
+	for _, fg := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
+		if fg == "DecentralizedLiveMigration" {
 			return true
 		}
 	}
@@ -1202,6 +1233,8 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, rbac.GetAllHandler(NAMESPACE)...)
 	all = append(all, rbac.GetAllController(NAMESPACE)...)
 	all = append(all, rbac.GetAllExportProxy(NAMESPACE)...)
+	all = append(all, rbac.GetAllSynchronizationController(NAMESPACE)...)
+
 	// crds
 	functions := []func() (*extv1.CustomResourceDefinition, error){
 		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
@@ -1431,6 +1464,9 @@ func (k *KubeVirtTestData) makeDeploymentsReady(kv *v1.KubeVirt) {
 	deployments := []string{"/virt-api", "/virt-controller"}
 	if exportProxyEnabled(kv) {
 		deployments = append(deployments, "/virt-exportproxy")
+	}
+	if synchronizationControllerEnabled(kv) {
+		deployments = append(deployments, "/virt-synchronization-controller")
 	}
 
 	for _, name := range deployments {
@@ -2408,14 +2444,15 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
 			expectedTemporaryResources := 1
+			externalCAConfigMapCount := 1
 
-			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
+			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources + externalCAConfigMapCount))
 
-			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(4))
-			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(10))
-			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(7))
-			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(5))
-			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(5))
+			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(5))
+			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(11))
+			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(8))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(6))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(6))
 			Expect(kvTestData.controller.stores.OperatorCrdCache.List()).To(HaveLen(16))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
@@ -3294,8 +3331,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(4))
-			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(4))
+			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(5))
+			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.ServiceMonitorCache.List()).To(BeEmpty())
 		})
 	})

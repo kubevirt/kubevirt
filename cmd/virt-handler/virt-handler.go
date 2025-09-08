@@ -32,6 +32,7 @@ import (
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 
@@ -70,6 +71,7 @@ import (
 	metricshandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/handler"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
+	"kubevirt.io/kubevirt/pkg/network/passt"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -233,11 +235,12 @@ func (app *virtHandlerApp) Run() {
 	// Wire VirtualMachineInstance controller
 	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, nil, app.namespace)
 
+	vmiInformer := factory.VMI()
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 
 	// Wire Domain controller
-	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiSourceInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
+	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
 	if err != nil {
 		panic(err)
 	}
@@ -269,6 +272,13 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
+	go func() {
+		forceUpdateKSM := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, true) }
+		handleKSMUpdate := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, false) }
+
+		forceUpdateKSM()
+		app.clusterConfig.SetConfigModifiedCallback(handleKSMUpdate)
+	}()
 
 	if err := app.setupTLS(factory); err != nil {
 		logger.Criticalf("Error constructing migration tls config: %v", err)
@@ -302,13 +312,15 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	machines := getMachines(capabilities)
+
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
 	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
 		app.virtCli.CoreV1().Nodes(),
 		app.HostOverride,
 		nodeLabellerrecorder,
 		capabilities.Host.CPU.Counter,
-		capabilities.Guests,
+		machines,
 	)
 	if err != nil {
 		panic(err)
@@ -326,16 +338,63 @@ func (app *virtHandlerApp) Run() {
 
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
-	vmController, err := virthandler.NewController(
+	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
+
+	netConf := netsetup.NewNetConf(app.clusterConfig)
+	netStat := netsetup.NewNetStat()
+	passtRepairHandler := passt.NewRepairManager(app.clusterConfig)
+
+	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
 		app.virtCli,
 		app.HostOverride,
-		migrationIpAddress,
-		app.VirtShareDir,
+		launcherClientsManager,
+		vmiSourceInformer,
+		domainSharedInformer,
+		app.clusterConfig,
+		podIsolationDetector,
+		migrationProxy,
+		"/proc/%d/root/var/run",
+		netStat,
+		passtRepairHandler,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	migrationTargetController, err := virthandler.NewMigrationTargetController(
+		recorder,
+		app.virtCli,
+		app.HostOverride,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
-		vmiSourceInformer,
+		migrationIpAddress,
+		launcherClientsManager,
 		vmiTargetInformer,
+		domainSharedInformer,
+		app.clusterConfig,
+		podIsolationDetector,
+		migrationProxy,
+		"/proc/%d/root/var/run",
+		&capabilities,
+		netConf,
+		netStat,
+		netbinding.MemoryCalculator{},
+		passtRepairHandler,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	vmController, err := virthandler.NewVirtualMachineController(
+		recorder,
+		app.virtCli,
+		app.HostOverride,
+		app.VirtPrivateDir,
+		app.KubeletPodsDir,
+		launcherClientsManager,
+		vmiSourceInformer,
+		vmiInformer.GetStore(),
 		domainSharedInformer,
 		app.MaxDevices,
 		app.clusterConfig,
@@ -344,9 +403,8 @@ func (app *virtHandlerApp) Run() {
 		downwardMetricsManager,
 		&capabilities,
 		hostCpuModel,
-		netsetup.NewNetConf(app.clusterConfig),
-		netsetup.NewNetStat(),
-		netbinding.MemoryCalculator{},
+		netConf,
+		netStat,
 	)
 	if err != nil {
 		panic(err)
@@ -390,9 +448,17 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced, factory.KubeVirt().HasSynced)
+	cache.WaitForCacheSync(
+		stop,
+		vmiInformer.HasSynced,
+		vmiSourceInformer.HasSynced,
+		vmiTargetInformer.HasSynced,
+		domainSharedInformer.HasSynced,
+		factory.CRD().HasSynced,
+		factory.KubeVirt().HasSynced,
+	)
 
-	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer); err != nil {
+	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
 		panic(err)
 	}
 
@@ -400,6 +466,8 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
 	}
 
+	go migrationSourceController.Run(5, stop)
+	go migrationTargetController.Run(5, stop)
 	go vmController.Run(10, stop)
 
 	doneCh := make(chan string)
@@ -623,6 +691,14 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 	app.clientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
 
 	return nil
+}
+
+func getMachines(capabilities libvirtxml.Caps) []libvirtxml.CapsGuestMachine {
+	var machines []libvirtxml.CapsGuestMachine
+	for _, guest := range capabilities.Guests {
+		machines = append(machines, guest.Arch.Machines...)
+	}
+	return machines
 }
 
 func main() {

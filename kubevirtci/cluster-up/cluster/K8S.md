@@ -60,6 +60,13 @@ export KUBEVIRT_SLIM=true
 make cluster-up
 ```
 
+## Start only if nested virtualization is enabled
+
+```bash
+export KUBEVIRT_NESTED_VIRTUALIZATION_REQUIRED=true
+make cluster-up
+```
+
 ## Enabling IPv6 connectivity
 
 In order to be able to reach from the cluster to the host's IPv6 network, IPv6

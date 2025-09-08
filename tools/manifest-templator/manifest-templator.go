@@ -46,49 +46,40 @@ const (
 )
 
 type templateData struct {
-	Namespace              string
-	CDINamespace           string
-	CSVNamespace           string
-	DockerTag              string
-	DockerPrefix           string
-	ImagePrefix            string
-	ImagePullPolicy        string
-	Verbosity              string
-	CsvVersion             string
-	QuayRepository         string
-	ReplacesCsvVersion     string
-	OperatorDeploymentSpec string
-	OperatorCsv            string
-	OperatorRules          string
-	KubeVirtLogo           string
-	PackageName            string
-	CreatedAt              string
-	VirtOperatorSha        string
-	VirtApiSha             string
-	VirtControllerSha      string
-	VirtHandlerSha         string
-	VirtLauncherSha        string
-	VirtExportProxySha     string
-	VirtExportServerSha    string
-	GsSha                  string
-	PrHelperSha            string
-	SidecarShimSha         string
-	RunbookURLTemplate     string
-	PriorityClassSpec      string
-	FeatureGates           []string
-	InfraReplicas          uint8
-	TestImageReplicas      string
-	GeneratedManifests     map[string]string
-	VirtOperatorImage      string
-	VirtApiImage           string
-	VirtControllerImage    string
-	VirtHandlerImage       string
-	VirtLauncherImage      string
-	VirtExportProxyImage   string
-	VirtExportServerImage  string
-	GsImage                string
-	PrHelperImage          string
-	SidecarShimImage       string
+	Namespace                          string
+	CDINamespace                       string
+	CSVNamespace                       string
+	DockerTag                          string
+	DockerPrefix                       string
+	ImagePrefix                        string
+	ImagePullPolicy                    string
+	Verbosity                          string
+	CsvVersion                         string
+	QuayRepository                     string
+	ReplacesCsvVersion                 string
+	OperatorDeploymentSpec             string
+	OperatorCsv                        string
+	OperatorRules                      string
+	KubeVirtLogo                       string
+	PackageName                        string
+	CreatedAt                          string
+	RunbookURLTemplate                 string
+	PriorityClassSpec                  string
+	FeatureGates                       []string
+	InfraReplicas                      uint8
+	TestImageReplicas                  string
+	GeneratedManifests                 map[string]string
+	VirtOperatorImage                  string
+	VirtApiImage                       string
+	VirtControllerImage                string
+	VirtHandlerImage                   string
+	VirtLauncherImage                  string
+	VirtExportProxyImage               string
+	VirtExportServerImage              string
+	VirtSynchronizationControllerImage string
+	GsImage                            string
+	PrHelperImage                      string
+	SidecarShimImage                   string
 }
 
 func main() {
@@ -108,16 +99,6 @@ func main() {
 	kubeVirtLogoPath := flag.String("kubevirt-logo-path", "", "")
 	packageName := flag.String("package-name", "", "")
 	quayRepository := flag.String("quay-repository", "", "")
-	virtOperatorSha := flag.String("virt-operator-sha", "", shaEnvDeprecationMsg)
-	virtApiSha := flag.String("virt-api-sha", "", shaEnvDeprecationMsg)
-	virtControllerSha := flag.String("virt-controller-sha", "", shaEnvDeprecationMsg)
-	virtHandlerSha := flag.String("virt-handler-sha", "", shaEnvDeprecationMsg)
-	virtLauncherSha := flag.String("virt-launcher-sha", "", shaEnvDeprecationMsg)
-	virtExportProxySha := flag.String("virt-exportproxy-sha", "", shaEnvDeprecationMsg)
-	virtExportServerSha := flag.String("virt-exportserver-sha", "", shaEnvDeprecationMsg)
-	gsSha := flag.String("gs-sha", "", "")
-	prHelperSha := flag.String("pr-helper-sha", "", "")
-	sidecarShimSha := flag.String("sidecar-shim-sha", "", "")
 	runbookURLTemplate := flag.String("runbook-url-template", "", "")
 	featureGates := flag.String("feature-gates", "", "")
 	infraReplicas := flag.Uint("infra-replicas", 0, "")
@@ -129,6 +110,7 @@ func main() {
 	virtLauncherImage := flag.String("virt-launcher-image", "", "custom image for virt-launcher. "+customImageExample)
 	virtExportProxyImage := flag.String("virt-export-proxy-image", "", "custom image for virt-export-proxy. "+customImageExample)
 	virtExportServerImage := flag.String("virt-export-server-image", "", "custom image for virt-export-server. "+customImageExample)
+	virtSynchronizationControllerImage := flag.String("virt-synchronization-controller-image", "", "custom image for virt-synchronization-controller. "+customImageExample)
 	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
 	prHelperImage := flag.String("pr-helper-image", "", "custom image for pr-helper. "+customImageExample)
 	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
@@ -163,16 +145,6 @@ func main() {
 		data.TestImageReplicas = fmt.Sprintf("\"%s\"", *testImageReplicas)
 		data.CsvVersion = *csvVersion
 		data.QuayRepository = *quayRepository
-		data.VirtOperatorSha = *virtOperatorSha
-		data.VirtApiSha = *virtApiSha
-		data.VirtControllerSha = *virtControllerSha
-		data.VirtHandlerSha = *virtHandlerSha
-		data.VirtLauncherSha = *virtLauncherSha
-		data.VirtExportProxySha = *virtExportProxySha
-		data.VirtExportServerSha = *virtExportServerSha
-		data.GsSha = *gsSha
-		data.PrHelperSha = *prHelperSha
-		data.SidecarShimSha = *sidecarShimSha
 		data.RunbookURLTemplate = *runbookURLTemplate
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
@@ -188,6 +160,7 @@ func main() {
 		data.VirtLauncherImage = *virtLauncherImage
 		data.VirtExportProxyImage = *virtExportProxyImage
 		data.VirtExportServerImage = *virtExportServerImage
+		data.VirtSynchronizationControllerImage = *virtSynchronizationControllerImage
 		data.GsImage = *gsImage
 		data.PrHelperImage = *prHelperImage
 		data.SidecarShimImage = *sidecarShimImage
@@ -210,13 +183,6 @@ func main() {
 		data.TestImageReplicas = "{{.TestImageReplicas}}"
 		data.CsvVersion = "{{.CsvVersion}}"
 		data.QuayRepository = "{{.QuayRepository}}"
-		data.VirtOperatorSha = "{{.VirtOperatorSha}}"
-		data.VirtApiSha = "{{.VirtApiSha}}"
-		data.VirtControllerSha = "{{.VirtControllerSha}}"
-		data.VirtHandlerSha = "{{.VirtHandlerSha}}"
-		data.VirtLauncherSha = "{{.VirtLauncherSha}}"
-		data.VirtExportProxySha = "{{.VirtExportProxySha}}"
-		data.VirtExportServerSha = "{{.VirtExportServerSha}}"
 		data.ReplacesCsvVersion = "{{.ReplacesCsvVersion}}"
 		data.OperatorDeploymentSpec = "{{.OperatorDeploymentSpec}}"
 		data.OperatorCsv = "{{.OperatorCsv}}"
@@ -230,6 +196,7 @@ func main() {
 		data.VirtLauncherImage = "{{.VirtLauncherImage}}"
 		data.VirtExportProxyImage = "{{.VirtExportProxyImage}}"
 		data.VirtExportServerImage = "{{.VirtExportServerImage}}"
+		data.VirtSynchronizationControllerImage = "{{.VirtSynchronizationControllerImage}}"
 		data.GsImage = "{{.GsImage}}"
 		data.PrHelperImage = "{{.PrHelperImage}}"
 		data.SidecarShimImage = "{{.SidecarShimImage}}"
@@ -284,10 +251,6 @@ func getPriorityClassSpec(indentation int) string {
 
 func getOperatorDeploymentSpec(data templateData, indentation int) string {
 	version := data.DockerTag
-	if data.VirtOperatorSha != "" {
-		version = data.VirtOperatorSha
-	}
-
 	deployment := components.NewOperatorDeployment(
 		data.Namespace,
 		data.DockerPrefix,
@@ -295,15 +258,6 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		version,
 		data.Verbosity,
 		data.DockerTag,
-		data.VirtApiSha,
-		data.VirtControllerSha,
-		data.VirtHandlerSha,
-		data.VirtLauncherSha,
-		data.VirtExportProxySha,
-		data.VirtExportServerSha,
-		data.GsSha,
-		data.PrHelperSha,
-		data.SidecarShimSha,
 		data.RunbookURLTemplate,
 		data.VirtApiImage,
 		data.VirtControllerImage,
@@ -311,6 +265,7 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.VirtLauncherImage,
 		data.VirtExportProxyImage,
 		data.VirtExportServerImage,
+		data.VirtSynchronizationControllerImage,
 		data.GsImage,
 		data.PrHelperImage,
 		data.SidecarShimImage,

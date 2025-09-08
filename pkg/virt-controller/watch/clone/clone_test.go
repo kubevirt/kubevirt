@@ -25,9 +25,9 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1021,6 +1021,85 @@ var _ = Describe("Clone", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(restore.Spec.Patches).ToNot(ContainElement(partialExpectedPatches[0]))
 			})
+		})
+
+		It("Custom patches should be applied to the VM", func() {
+			patchSet := patch.New(
+				patch.WithAdd("/spec/template/metadata/labels/example", "extra-label"),
+				patch.WithReplace("/spec/template/spec/architecture", "new-architecture"),
+				patch.WithRemove("/spec/template/metadata/labels/label-to-remove"),
+			)
+
+			var err error
+			vmClone.Spec.Patches, err = patchSet.ToSlice()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Extra label we want to remove from the spec labels
+			sourceVM.Spec.Template.ObjectMeta.Labels = make(map[string]string)
+			sourceVM.Spec.Template.ObjectMeta.Labels["label-to-remove"] = "some-value"
+
+			addVM(sourceVM)
+			addClone(vmClone)
+
+			sanityExecute()
+			restore, err := client.SnapshotV1beta1().VirtualMachineRestores(metav1.NamespaceDefault).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
+
+			expectedVM := sourceVM.DeepCopy()
+
+			// The new label must be present
+			expectedVM.Spec.Template.ObjectMeta.Labels = make(map[string]string)
+			expectedVM.Spec.Template.ObjectMeta.Labels["example"] = "extra-label"
+
+			// The deleted label must be absent
+			delete(expectedVM.Spec.Template.ObjectMeta.Labels, "label-to-remove")
+
+			// Architecture has been changed
+			expectedVM.Spec.Template.Spec.Architecture = "new-architecture"
+
+			expectVMCreationFromPatches(expectedVM)
+		})
+
+		It("Custom patches should override other patches", func() {
+			const interfaceName = "test-interface"
+			const newMacAddress = "AA-BB-CC-DD-EE-FF"
+			var newSMBiosSerial = "new-serial"
+
+			// Set a firmware UUID and a MAC address on the first interface of the VM
+			sourceVM.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{Serial: "initial-serial"}
+			interfaces := sourceVM.Spec.Template.Spec.Domain.Devices.Interfaces
+			Expect(interfaces).To(HaveLen(1))
+			interfaces[0].Name = interfaceName
+			interfaces[0].MacAddress = "DE-AD-00-00-BE-EF"
+
+			// Use the Clone API to override SMBios/MAC address, but we expect this to do nothing
+			// as custom patches should have precedence over API defined patches.
+			vmClone.Spec.NewSMBiosSerial = &newSMBiosSerial
+			vmClone.Spec.NewMacAddresses = map[string]string{interfaceName: newMacAddress}
+
+			// Patches with higher precedence than any other in the VirtualMachineClone specs
+			patchSet := patch.New(
+				patch.WithReplace("/spec/template/spec/domain/firmware/serial", "replaced-serial"),
+				patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "DE-AD-00-FF-FF-FF"),
+			)
+
+			var err error
+			vmClone.Spec.Patches, err = patchSet.ToSlice()
+			Expect(err).NotTo(HaveOccurred())
+
+			addVM(sourceVM)
+			addClone(vmClone)
+
+			sanityExecute()
+			restore, err := client.SnapshotV1beta1().VirtualMachineRestores(metav1.NamespaceDefault).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
+
+			expectedVM := sourceVM.DeepCopy()
+			expectedVM.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{Serial: "replaced-serial"}
+			expectedVM.Spec.Template.Spec.Domain.Devices.Interfaces[0].MacAddress = "DE-AD-00-FF-FF-FF"
+			expectVMCreationFromPatches(expectedVM)
 		})
 
 		Context("Firmware UUID", func() {

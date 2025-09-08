@@ -24,8 +24,6 @@ package virtconfig
 */
 
 import (
-	"strings"
-
 	"kubevirt.io/client-go/log"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -70,6 +68,7 @@ const (
 	SupportedGuestAgentVersions                     = "2.*,3.*,4.*,5.*"
 	DefaultARCHOVMFPath                             = "/usr/share/OVMF"
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
+	DefaultS390xOVMFPath                            = ""
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
 	DefaultDiskVerificationMemoryLimitBytes         = 2000 * 1024 * 1024
@@ -140,7 +139,7 @@ func (c *ClusterConfig) GetMachineType(arch string) string {
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.MachineType
 	case "s390x":
-		return DefaultS390XMachineType
+		return c.GetConfig().ArchitectureConfiguration.S390x.MachineType
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.MachineType
 	}
@@ -174,7 +173,7 @@ func (c *ClusterConfig) GetEmulatedMachines(arch string) []string {
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.EmulatedMachines
 	case "s390x":
-		return strings.Split(DefaultS390XEmulatedMachines, ",")
+		return c.GetConfig().ArchitectureConfiguration.S390x.EmulatedMachines
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.EmulatedMachines
 	}
@@ -236,7 +235,7 @@ func (c *ClusterConfig) GetOVMFPath(arch string) string {
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.OVMFPath
 	case "s390x":
-		return ""
+		return c.GetConfig().ArchitectureConfiguration.S390x.OVMFPath
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.OVMFPath
 	}
@@ -331,6 +330,7 @@ const (
 	virtController
 	virtOperator
 	virtLauncher
+	virtSynchronizationController
 )
 
 // Gets the component verbosity. nodeName can be empty, then it's ignored.
@@ -354,6 +354,8 @@ func (c *ClusterConfig) getComponentVerbosity(component virtComponent, nodeName 
 		return logConf.VirtOperator
 	case virtLauncher:
 		return logConf.VirtLauncher
+	case virtSynchronizationController:
+		return logConf.VirtSynchronizationController
 	default:
 		log.Log.Errorf("getComponentVerbosity called with an unknown virtComponent: %v", component)
 		return 0
@@ -378,6 +380,10 @@ func (c *ClusterConfig) GetVirtOperatorVerbosity(nodeName string) uint {
 
 func (c *ClusterConfig) GetVirtLauncherVerbosity() uint {
 	return c.getComponentVerbosity(virtLauncher, "")
+}
+
+func (c *ClusterConfig) GetVirtSynchronizationControllerVerbosity() uint {
+	return c.getComponentVerbosity(virtSynchronizationController, "")
 }
 
 // GetMinCPUModel return minimal cpu which is used in node-labeller

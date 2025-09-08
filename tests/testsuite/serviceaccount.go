@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -45,7 +45,7 @@ const (
 )
 
 // As our tests run in parallel we need to ensure each worker creates a
-// unique clusterRoleBinding to avoid cleaning up anothers prematurely
+// unique clusterRoleBinding to avoid cleaning up objects belonging to other tests prematurely
 func getClusterRoleBindingName(saName string) string {
 	return fmt.Sprintf("%s-%d", saName, GinkgoParallelProcess())
 }

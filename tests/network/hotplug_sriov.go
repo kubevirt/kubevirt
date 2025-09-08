@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -23,9 +23,6 @@ import (
 	"context"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/tests/libnet"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -34,11 +31,17 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -51,6 +54,23 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 		Expect(validateSRIOVSetup(sriovResourceName, 1)).To(Succeed(),
 			"Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--label-filter=!SRIOV'")
 
+	})
+
+	BeforeEach(func() {
+		virtClient := kubevirt.Client()
+		originalKv := libkubevirt.GetCurrentKv(virtClient)
+		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
+			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
+		}
+		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
+
+		currentKv := libkubevirt.GetCurrentKv(virtClient)
+		config.WaitForConfigToBePropagatedToComponent(
+			"kubevirt.io=virt-controller",
+			currentKv.ResourceVersion,
+			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+			time.Minute)
 	})
 
 	Context("a running VM", func() {
@@ -87,9 +107,28 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 		It("can hotplug a network interface", func() {
 			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 
-			migration := libmigration.New(hotPluggedVMI.Name, hotPluggedVMI.Namespace)
-			migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
-			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), hotPluggedVMI, migrationUID)
+			virtClient := kubevirt.Client()
+
+			By("Waiting for MigrationRequired condition to appear")
+			Eventually(matcher.ThisVMI(hotPluggedVMI), 1*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
+
+			By("Ensuring live-migration started")
+			var migration *v1.VirtualMachineInstanceMigration
+			Eventually(func() *v1.VirtualMachineInstanceMigration {
+				migrations, err := virtClient.VirtualMachineInstanceMigration(hotPluggedVMI.Namespace).List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, mig := range migrations.Items {
+					if mig.Spec.VMIName == hotPluggedVMI.Name {
+						migration = mig.DeepCopy()
+						return migration
+					}
+				}
+				return nil
+			}).WithTimeout(30 * time.Second).WithPolling(time.Second).Should(Not(BeNil()))
+
+			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
+			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), hotPluggedVMI, migration)
 
 			hotPluggedVMI = verifySriovDynamicInterfaceChange(hotPluggedVMI)
 
@@ -151,5 +190,5 @@ func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) err
 
 func verifySriovDynamicInterfaceChange(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	const queueCount = 0
-	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount)
+	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount, 30*time.Second, time.Second)
 }

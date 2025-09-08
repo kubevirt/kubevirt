@@ -169,6 +169,46 @@ func (config *ClusterConfig) AlignCPUsEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.AlignCPUsGate)
 }
 
+func (config *ClusterConfig) ImageVolumeEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.ImageVolume)
+}
+
+func (config *ClusterConfig) VideoConfigEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.VideoConfig)
+}
+
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
+}
+
+func (config *ClusterConfig) ObjectGraphEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.ObjectGraph)
+}
+
+func (config *ClusterConfig) DeclarativeHotplugVolumesEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.DeclarativeHotplugVolumesGate)
+}
+
+func (config *ClusterConfig) SecureExecutionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.SecureExecution)
+}
+
+func (config *ClusterConfig) PanicDevicesEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.PanicDevicesGate)
+}
+
+func (config *ClusterConfig) PasstIPStackMigrationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.PasstIPStackMigration)
+}
+
+func (config *ClusterConfig) DecentralizedLiveMigrationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
+}
+
+func (config *ClusterConfig) GPUsWithDRAGateEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.GPUsWithDRAGate)
+}
+
+func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
 }

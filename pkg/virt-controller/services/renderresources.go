@@ -14,6 +14,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -27,6 +28,7 @@ type ResourceRenderer struct {
 	vmRequests         k8sv1.ResourceList
 	calculatedLimits   k8sv1.ResourceList
 	calculatedRequests k8sv1.ResourceList
+	resourceClaims     []k8sv1.ResourceClaim
 }
 
 type resourcePredicate func(*v1.VirtualMachineInstance) bool
@@ -65,6 +67,7 @@ func NewResourceRenderer(vmLimits k8sv1.ResourceList, vmRequests k8sv1.ResourceL
 		vmRequests:         requests,
 		calculatedLimits:   map[k8sv1.ResourceName]resource.Quantity{},
 		calculatedRequests: map[k8sv1.ResourceName]resource.Quantity{},
+		resourceClaims:     []k8sv1.ResourceClaim{},
 	}
 
 	for _, opt := range options {
@@ -87,10 +90,15 @@ func (rr *ResourceRenderer) Requests() k8sv1.ResourceList {
 	return podRequests
 }
 
+func (rr *ResourceRenderer) Claims() []k8sv1.ResourceClaim {
+	return rr.resourceClaims
+}
+
 func (rr *ResourceRenderer) ResourceRequirements() k8sv1.ResourceRequirements {
 	return k8sv1.ResourceRequirements{
 		Limits:   rr.Limits(),
 		Requests: rr.Requests(),
+		Claims:   rr.Claims(),
 	}
 }
 
@@ -137,6 +145,68 @@ func WithoutDedicatedCPU(vmi *v1.VirtualMachineInstance, cpuAllocationRatio int,
 				renderer.calculatedLimits[k8sv1.ResourceCPU] = resource.MustParse(strconv.FormatInt(totalCPUs, 10))
 			}
 		}
+	}
+}
+
+func WithGPUsDevicePlugins(gpus []v1.GPU) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		res := r.ResourceRequirements()
+		for _, g := range gpus {
+			if g.DeviceName != "" && g.ClaimRequest == nil {
+				requestResource(&res, g.DeviceName)
+			}
+		}
+		copyResources(res.Limits, r.calculatedLimits)
+		copyResources(res.Requests, r.calculatedRequests)
+	}
+}
+
+func WithGPUsDRA(gpus []v1.GPU) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		res := r.ResourceRequirements()
+		for _, g := range gpus {
+			if g.DeviceName == "" && g.ClaimRequest != nil {
+				requestResourceClaims(&res, &k8sv1.ResourceClaim{
+					Name:    *g.ClaimRequest.ClaimName,
+					Request: *g.ClaimRequest.RequestName,
+				})
+			}
+		}
+		copyResources(res.Limits, r.calculatedLimits)
+		copyResources(res.Requests, r.calculatedRequests)
+		copyResourceClaims(&res, &r.resourceClaims)
+	}
+}
+
+// WithHostDevicesDevicePlugins adds resource requests/limits only for HostDevices managed by device plugins.
+func WithHostDevicesDevicePlugins(hostDevices []v1.HostDevice) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		resources := r.ResourceRequirements()
+		for _, hd := range hostDevices {
+			if hd.DeviceName != "" && hd.ClaimRequest == nil {
+				requestResource(&resources, hd.DeviceName)
+			}
+		}
+		copyResources(resources.Limits, r.calculatedLimits)
+		copyResources(resources.Requests, r.calculatedRequests)
+	}
+}
+
+// WithHostDevicesDRA adds ResourceClaims for HostDevices provisioned via DRA.
+func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		resources := r.ResourceRequirements()
+		for _, hd := range hostDevices {
+			if hd.DeviceName == "" && hd.ClaimRequest != nil && hd.ClaimRequest.ClaimName != nil && hd.ClaimRequest.RequestName != nil {
+				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
+					Name:    *hd.ClaimRequest.ClaimName,
+					Request: *hd.ClaimRequest.RequestName,
+				})
+			}
+		}
+		copyResources(resources.Limits, r.calculatedLimits)
+		copyResources(resources.Requests, r.calculatedRequests)
+		copyResourceClaims(&resources, &r.resourceClaims)
 	}
 }
 
@@ -264,28 +334,6 @@ func WithNetworkResources(networkToResourceMap map[string]string) ResourceRender
 	}
 }
 
-func WithGPUs(gpus []v1.GPU) ResourceRendererOption {
-	return func(renderer *ResourceRenderer) {
-		resources := renderer.ResourceRequirements()
-		for _, gpu := range gpus {
-			requestResource(&resources, gpu.DeviceName)
-		}
-		copyResources(resources.Limits, renderer.calculatedLimits)
-		copyResources(resources.Requests, renderer.calculatedRequests)
-	}
-}
-
-func WithHostDevices(hostDevices []v1.HostDevice) ResourceRendererOption {
-	return func(renderer *ResourceRenderer) {
-		resources := renderer.ResourceRequirements()
-		for _, hostDev := range hostDevices {
-			requestResource(&resources, hostDev.DeviceName)
-		}
-		copyResources(resources.Limits, renderer.calculatedLimits)
-		copyResources(resources.Requests, renderer.calculatedRequests)
-	}
-}
-
 func WithSEV() ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		resources := renderer.ResourceRequirements()
@@ -307,6 +355,29 @@ func WithPersistentReservation() ResourceRendererOption {
 func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 	for key, value := range srcResources {
 		dstResources[key] = value
+	}
+}
+
+func requestResourceClaims(resources *k8sv1.ResourceRequirements, claim *k8sv1.ResourceClaim) {
+	if resources.Claims == nil {
+		resources.Claims = []k8sv1.ResourceClaim{*claim}
+		return
+	}
+	resources.Claims = append(resources.Claims, *claim)
+}
+
+func copyResourceClaims(resources *k8sv1.ResourceRequirements, claims *[]k8sv1.ResourceClaim) {
+	existing := make(map[string]struct{})
+	for _, c := range *claims {
+		existing[c.Name] = struct{}{}
+	}
+
+	for _, value := range resources.Claims {
+		if _, found := existing[value.Name]; found {
+			continue // skip duplicates by Name
+		}
+		*claims = append(*claims, value)
+		existing[value.Name] = struct{}{}
 	}
 }
 
@@ -370,7 +441,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 
 	// Add video RAM overhead
 	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
-		overhead.Add(resource.MustParse("16Mi"))
+		overhead.Add(resource.MustParse("32Mi"))
 	}
 
 	// When use uefi boot on aarch64 with edk2 package, qemu will create 2 pflash(64Mi each, 128Mi in total)
@@ -407,6 +478,10 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 		overhead.Add(resource.MustParse("53Mi"))
 	}
 
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		overhead.Add(resource.MustParse("100Mi"))
+	}
+
 	// Multiplying the ratio is expected to be the last calculation before returning overhead
 	if additionalOverheadRatio != nil && *additionalOverheadRatio != "" {
 		ratio, err := strconv.ParseFloat(*additionalOverheadRatio, 64)
@@ -417,10 +492,6 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 		}
 
 		overhead = multiplyMemory(overhead, ratio)
-	}
-
-	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-		overhead.Add(resource.MustParse("100Mi"))
 	}
 
 	return overhead
@@ -476,10 +547,10 @@ func calcVCPUs(cpu *v1.CPU) int64 {
 
 func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
-	if util.NeedTunDevice(vmi) {
+	if netvmispec.RequiresTunDevice(vmi) {
 		res[TunDevice] = resource.MustParse("1")
 	}
-	if needVirtioNetDevice(vmi, allowEmulation) {
+	if netvmispec.RequiresVirtioNetDevice(vmi, allowEmulation) {
 		// Note that about network interface, allowEmulation does not make
 		// any difference on eventual Domain xml, but uniformly making
 		// /dev/vhost-net unavailable and libvirt implicitly fallback
@@ -516,9 +587,12 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *v
 		for _, dev := range hostDevs.USB {
 			supportedHostDevicesMap[dev.ResourceName] = true
 		}
-		for _, hostDev := range spec.Domain.Devices.GPUs {
-			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
-				errors = append(errors, fmt.Sprintf("GPU %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
+		//TODO @alayp: add proper validation for DRA GPUs in beta
+		if !config.GPUsWithDRAGateEnabled() {
+			for _, hostDev := range spec.Domain.Devices.GPUs {
+				if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+					errors = append(errors, fmt.Sprintf("GPU %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
+				}
 			}
 		}
 		for _, hostDev := range spec.Domain.Devices.HostDevices {
@@ -627,7 +701,7 @@ func initContainerMinimalRequests(containerType v1.SupportContainerType, config 
 	return res
 }
 
-func hotplugContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+func hotplugContainerResourceRequirementsForVMI(config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
 	return k8sv1.ResourceRequirements{
 		Limits:   hotplugContainerLimits(config),
 		Requests: hotplugContainerRequests(config),
@@ -741,10 +815,4 @@ func getMemoryLimitsRatio(namespace string, namespaceStore cache.Store) float64 
 	}
 
 	return limitRatioValue
-}
-
-// needVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.
-// This happens when the VMI wants to use a "virtio" network interface, and software emulation is disallowed.
-func needVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
-	return util.WantVirtioNetDevice(vmi) && !allowEmulation
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2019 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -98,7 +98,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			)
 
 			cpuResources := strconv.Itoa(int(numCpus))
-			vmi := libvmifact.NewAlpine(libvmi.WithResourceCPU(cpuResources), libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+			vmi := libvmifact.NewAlpine(libvmi.WithCPURequest(cpuResources), libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
 			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
 
 			By("Creating VMI with 2 disks, 3 CPUs and multi-queue enabled")
@@ -127,29 +127,6 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			By("Ensuring each disk has three queues assigned")
 			for _, disk := range domSpec.Devices.Disks {
 				Expect(int32(*disk.Driver.Queues)).To(Equal(numCpus))
-			}
-		})
-
-		It("should be able to create a multi-queue VMI when requesting a single vCPU", func() {
-			vmi := libvmifact.NewCirros()
-
-			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 1, Sockets: 1, Threads: 1}
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)
-
-			By("Creating and starting the VMI")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Fetching Domain XML from running pod")
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			for i, iface := range domSpec.Devices.Interfaces {
-				expectedIfaceName := fmt.Sprintf("tap%d", i)
-
-				Expect(iface.Target.Device).To(Equal(expectedIfaceName), fmt.Sprintf("the target name should be %s", expectedIfaceName))
-				Expect(iface.Target.Managed).To(Equal("no"), "we should instruct libvirt not to configure the tap device")
 			}
 		})
 	})

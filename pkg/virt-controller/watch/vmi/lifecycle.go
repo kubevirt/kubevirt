@@ -24,7 +24,9 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
+	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -83,6 +85,10 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		return syncErr, pod
 	}
 
+	if vmi.IsMigrationTarget() && !vmi.IsMigrationTargetNodeLabelSet() {
+		// VMI is a receiver VMI, and not fully synced, wait for the sync to complete
+		return nil, pod
+	}
 	if !controller.PodExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
@@ -239,9 +245,10 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return fmt.Errorf("error syncing paused condition to pod: %v", err)
 		}
 
-		if err := c.syncDynamicLabelsToPod(vmiCopy, pod); err != nil {
-			return fmt.Errorf("error syncing labels to pod: %v", err)
+		if pod, err = c.syncDynamicAnnotationsAndLabelsToPod(vmiCopy, pod); err != nil {
+			return fmt.Errorf("error syncing annotations and labels to pod: %v", err)
 		}
+
 	}
 
 	aggregateDataVolumesConditions(vmiCopy, dataVolumes)
@@ -256,6 +263,8 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			vmiCopy.Status.Phase = virtv1.Scheduling
 		} else if vmi.DeletionTimestamp != nil || hasFailedDataVolume {
 			vmiCopy.Status.Phase = virtv1.Failed
+		} else if vmi.IsMigrationTarget() && !vmi.IsMigrationTargetNodeLabelSet() {
+			vmiCopy.Status.Phase = virtv1.WaitingForSync
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
 			if vmi.Status.TopologyHints == nil {
@@ -376,6 +385,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
 		} else {
+			log.Log.Object(vmi).V(5).Infof("setting VMI to failed during scheduling because pod does not exist")
 			// someone other than the controller deleted the pod unexpectedly
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
@@ -385,8 +395,8 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return err
 		}
 
-		if allDeleted {
-			log.Log.V(3).Object(vmi).Infof("All pods have been deleted, removing finalizer")
+		if allDeleted && (!vmi.IsDecentralizedMigration() || vmi.IsMigrationCompleted()) {
+			log.Log.V(3).Object(vmi).Infof("all pods have been deleted, removing finalizer")
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
 			if vmiCopy.Labels != nil {
 				delete(vmiCopy.Labels, virtv1.OutdatedLauncherImageLabel)
@@ -401,7 +411,13 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 	case vmi.IsRunning():
 		if !vmiPodExists {
+			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while running because pod does not exist")
 			vmiCopy.Status.Phase = virtv1.Failed
+			break
+		}
+
+		if pod.Status.Phase == k8sv1.PodSucceeded && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+			vmiCopy.Status.Phase = virtv1.Succeeded
 			break
 		}
 
@@ -427,14 +443,30 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			c.syncVolumesUpdate(vmiCopy)
 		}
 
+		c.syncMigrationRequiredCondition(vmiCopy)
+
 	case vmi.IsScheduled():
 		if !vmiPodExists {
+			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while scheduled because pod does not exist")
 			vmiCopy.Status.Phase = virtv1.Failed
 			break
 		}
 
 		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
 			return err
+		}
+	case vmi.IsWaitingForSync():
+		if vmi.DeletionTimestamp != nil {
+			// Deleted VMI while waiting for sync, remove finalizers.
+			log.Log.Object(vmi).V(1).Infof("deleting VMI while waiting for sync, removing finalizers")
+			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
+
+			if !c.hasOwnerVM(vmi) && len(vmiCopy.Finalizers) > 0 {
+				// if there's no owner VM around still, then remove the VM controller's finalizer if it exists
+				controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineControllerFinalizer)
+			}
+		} else if vmiPodExists {
+			vmiCopy.Status.Phase = virtv1.Scheduling
 		}
 	default:
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
@@ -451,6 +483,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return fmt.Errorf("error preparing VMI patch: %v", err)
 		}
 
+		log.Log.Object(vmi).V(5).Infof("patching VMI: %s", string(patchBytes))
 		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 		// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
 		// So just retry like with any other errors
@@ -466,16 +499,15 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		reason = syncErr.Reason()
 	}
 	conditionManager.CheckFailure(vmiCopy, syncErr, reason)
-	controller.SetVMIPhaseTransitionTimestamp(vmi, vmiCopy)
+	controller.SetVMIPhaseTransitionTimestamp(&vmi.Status, &vmiCopy.Status)
 
 	// If we detect a change on the vmi we update the vmi
 	vmiChanged := !equality.Semantic.DeepEqual(vmi.Status, vmiCopy.Status) || !equality.Semantic.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !equality.Semantic.DeepEqual(vmi.Annotations, vmiCopy.Annotations) || !equality.Semantic.DeepEqual(vmi.Labels, vmiCopy.Labels)
 	if vmiChanged {
-		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmiCopy, v1.UpdateOptions{})
+		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmiCopy, v1.UpdateOptions{})
 		if err != nil {
-			c.vmiExpectations.LowerExpectations(key, 1, 0)
+			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
 	}
@@ -548,8 +580,16 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 		}
 	}
 
+	// Sort network interfaces by name to ensure that the order does not affect the equality check.
+	// Prior to this an API patch flood would occur - see: https://github.com/kubevirt/kubevirt/issues/14442
+	cmpFunc := func(a, b virtv1.VirtualMachineInstanceNetworkInterface) int {
+		return strings.Compare(a.Name, b.Name)
+	}
+	newInterfaces := slices.SortedFunc(slices.Values(newVMI.Status.Interfaces), cmpFunc)
+	oldInterfaces := slices.SortedFunc(slices.Values(oldVMI.Status.Interfaces), cmpFunc)
+
 	// TODO(vladikr): Move to networking
-	if !equality.Semantic.DeepEqual(newVMI.Status.Interfaces, oldVMI.Status.Interfaces) {
+	if !equality.Semantic.DeepEqual(newInterfaces, oldInterfaces) {
 		patchSet.AddOption(
 			patch.WithTest("/status/interfaces", oldVMI.Status.Interfaces),
 			patch.WithAdd("/status/interfaces", newVMI.Status.Interfaces),
@@ -560,54 +600,74 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 	return patchSet
 }
 
-// These "dynamic" labels are Pod labels which may diverge from the VMI over time that we want to keep in sync.
-func (c *Controller) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+// These "dynamic" annotations/labels are Pod annotations/labels which may diverge from the VMI over time that we want to keep in sync.
+func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
 	patchSet := patch.New()
-	dynamicLabels := []string{
-		virtv1.NodeNameLabel,
-		virtv1.OutdatedLauncherImageLabel,
-	}
-	podMeta := pod.ObjectMeta.DeepCopy()
-	if podMeta.Labels == nil {
-		podMeta.Labels = map[string]string{}
-	}
-	changed := false
-	for _, key := range dynamicLabels {
-		vmiVal, vmiLabelExists := vmi.Labels[key]
-		podVal, podLabelExists := podMeta.Labels[key]
-		if vmiLabelExists == podLabelExists && vmiVal == podVal {
-			continue
+	newPodAnnotations := maps.Clone(pod.Annotations)
+	newPodLabels := maps.Clone(pod.Labels)
+
+	syncMap := func(keys []string, vmiMap, podNewMap, podOrigMap map[string]string, subPath string) {
+		if podNewMap == nil {
+			podNewMap = map[string]string{}
 		}
-		changed = true
-		if !vmiLabelExists {
-			delete(podMeta.Labels, key)
+
+		changed := false
+		for _, key := range keys {
+			vmiVal, vmiExists := vmiMap[key]
+			podVal, podExists := podNewMap[key]
+			if vmiExists == podExists && vmiVal == podVal {
+				continue
+			}
+			changed = true
+			if !vmiExists {
+				delete(podNewMap, key)
+			} else {
+				podNewMap[key] = vmiVal
+			}
+		}
+
+		if !changed {
+			return
+		}
+
+		if podOrigMap == nil {
+			patchSet.AddOption(patch.WithAdd("/metadata/"+subPath, podNewMap))
 		} else {
-			podMeta.Labels[key] = vmiVal
+			patchSet.AddOption(
+				patch.WithTest("/metadata/"+subPath, podOrigMap),
+				patch.WithReplace("/metadata/"+subPath, podNewMap),
+			)
 		}
 	}
-	if !changed {
-		return nil
-	}
-	if pod.ObjectMeta.Labels == nil {
-		patchSet.AddOption(patch.WithAdd("/metadata/labels", podMeta.Labels))
-	} else {
-		patchSet.AddOption(
-			patch.WithTest("/metadata/labels", pod.ObjectMeta.Labels),
-			patch.WithReplace("/metadata/labels", podMeta.Labels),
-		)
-	}
+
+	syncMap(
+		[]string{virtv1.NodeNameLabel, virtv1.OutdatedLauncherImageLabel},
+		vmi.Labels, newPodLabels, pod.ObjectMeta.Labels, "labels",
+	)
+
+	syncMap(
+		[]string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyBeta},
+		vmi.Annotations, newPodAnnotations, pod.ObjectMeta.Annotations, "annotations",
+	)
+
 	if patchSet.IsEmpty() {
-		return nil
+		return pod, nil
 	}
+
 	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
-		return err
+		return pod, err
 	}
-	if _, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
-		log.Log.Object(pod).Errorf("failed to sync dynamic pod labels during sync: %v", err)
-		return err
+
+	updatedPod, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(
+		context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{},
+	)
+	if err != nil {
+		log.Log.Object(pod).Errorf("failed to sync dynamic pod annotations and labels during sync: %v", err)
+		return pod, err
 	}
-	return nil
+
+	return updatedPod, nil
 }
 
 func (c *Controller) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
@@ -853,6 +913,9 @@ func (c *Controller) deletePod(vmiKey string, pod *k8sv1.Pod, options v1.DeleteO
 	err := c.clientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, options)
 	if err != nil {
 		c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
 	}
 	return err
 }
@@ -955,6 +1018,59 @@ func (c *Controller) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
 			vmi.Labels = map[string]string{}
 		}
 		vmi.Labels[virtv1.MemoryHotplugOverheadRatioLabel] = *overheadRatio
+	}
+}
+
+func (c *Controller) syncMigrationRequiredCondition(vmi *virtv1.VirtualMachineInstance) {
+	const pendingMigrationReEvalPeriod = 10 * time.Second
+
+	if migrations.IsMigrating(vmi) {
+		return
+	}
+
+	result := c.netMigrationEvaluator.Evaluate(vmi)
+
+	cm := controller.NewVirtualMachineInstanceConditionManager()
+	existingCondition := cm.GetCondition(vmi, virtv1.VirtualMachineInstanceMigrationRequired)
+
+	switch {
+	case result == k8sv1.ConditionUnknown && existingCondition == nil:
+		return
+	case result == k8sv1.ConditionUnknown && existingCondition != nil:
+		cm.RemoveCondition(vmi, virtv1.VirtualMachineInstanceMigrationRequired)
+		return
+	}
+
+	if existingCondition != nil && existingCondition.Status == k8sv1.ConditionTrue {
+		return
+	}
+
+	cm.UpdateCondition(vmi, newMigrationRequiredCondition(result))
+
+	if result == k8sv1.ConditionTrue {
+		return
+	}
+
+	// Re-enqueue the VMI object in order to make sure the VMI will be handled again after at most pendingMigrationReEvalPeriod.
+	// This is done in order to handle a scenario where the status was set to `False`, and none of the objects
+	// the VMI controller watches had changed.
+	key, _ := controller.KeyFunc(vmi)
+	c.Queue.AddAfter(key, pendingMigrationReEvalPeriod)
+}
+
+func newMigrationRequiredCondition(status k8sv1.ConditionStatus) *virtv1.VirtualMachineInstanceCondition {
+	reason := virtv1.VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate
+	if status == k8sv1.ConditionFalse {
+		reason = virtv1.VirtualMachineInstanceReasonAutoMigrationPending
+	}
+
+	return &virtv1.VirtualMachineInstanceCondition{
+		Type:               virtv1.VirtualMachineInstanceMigrationRequired,
+		Status:             status,
+		LastProbeTime:      v1.Time{},
+		LastTransitionTime: v1.Now(),
+		Reason:             reason,
+		Message:            "",
 	}
 }
 
