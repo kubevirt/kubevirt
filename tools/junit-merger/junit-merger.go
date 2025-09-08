@@ -34,21 +34,25 @@ func main() {
 	if err != nil {
 		log.DefaultLogger().Reason(err).Critical("Could not load JUnit files.")
 	}
+	log.DefaultLogger().Info("JUnit files loaded")
 
 	result, err := mergeJUnitFiles(suites)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Critical("Could not merge JUnit files")
 	}
+	log.DefaultLogger().Info("JUnit files merged")
 
 	writer, err := prepareOutput(output)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Critical("Failed to prepare the output file")
 	}
+	log.DefaultLogger().Info("JUnit files parsed")
 
 	err = writeJunitFile(writer, result)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Critical("Failed to write the merged junit report")
 	}
+	log.DefaultLogger().Info("merged report written")
 }
 
 func xmlDecode(file string) (reporters.JUnitTestSuite, error) {
