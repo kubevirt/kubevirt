@@ -51,27 +51,45 @@ import (
 
 type compare func(string, string) bool
 
-func RegisterKubevirtConfigChange(change func(c v1.KubeVirtConfiguration) (*patch.PatchSet, error)) error {
+type KvChangeOption func(kv *v1.KubeVirt) *patch.PatchSet
+
+func RegisterKubevirtConfigChange(kvChangeOption ...KvChangeOption) error {
 	kv := libkubevirt.GetCurrentKv(kubevirt.Client())
-	patchSet, err := change(kv.Spec.Configuration)
-	if err != nil {
-		return fmt.Errorf("failed changing the kubevirt configuration: %v", err)
+	var patches []patch.PatchOperation
+
+	for _, c := range kvChangeOption {
+		patches = append(patches, c(kv).GetPatches()...)
 	}
 
-	if patchSet.IsEmpty() {
+	if len(patches) == 0 {
 		return nil
 	}
 
-	return patchKV(kv.Namespace, kv.Name, patchSet)
-}
-
-func patchKV(namespace, name string, patchSet *patch.PatchSet) error {
-	patchData, err := patchSet.GeneratePayload()
+	patchData, err := patch.GeneratePatchPayload(patches...)
 	if err != nil {
 		return err
 	}
-	_, err = kubevirt.Client().KubeVirt(namespace).Patch(context.Background(), name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+
+	_, err = kubevirt.Client().KubeVirt(kv.Namespace).Patch(
+		context.Background(),
+		kv.Name,
+		types.JSONPatchType,
+		patchData,
+		metav1.PatchOptions{},
+	)
 	return err
+}
+
+func WithWorkloadUpdateStrategy(updateStrategy *v1.KubeVirtWorkloadUpdateStrategy) KvChangeOption {
+	return func(kv *v1.KubeVirt) *patch.PatchSet {
+		return patch.New(patch.WithReplace("/spec/workloadUpdateStrategy", updateStrategy))
+	}
+}
+
+func WithVMRolloutStrategy(rolloutStrategy *v1.VMRolloutStrategy) KvChangeOption {
+	return func(kv *v1.KubeVirt) *patch.PatchSet {
+		return patch.New(patch.WithReplace("/spec/configuration/vmRolloutStrategy", rolloutStrategy))
+	}
 }
 
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource

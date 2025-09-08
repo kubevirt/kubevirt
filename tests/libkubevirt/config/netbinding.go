@@ -29,27 +29,22 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
-func WithNetBindingPlugin(name string, netBindingPlugin v1.InterfaceBindingPlugin) error {
-	return RegisterKubevirtConfigChange(func(c v1.KubeVirtConfiguration) (*patch.PatchSet, error) {
-		return registerBindingPugins(c, name, netBindingPlugin)
-	})
-}
+func WithNetBindingPlugin(name string, netBindingPlugin v1.InterfaceBindingPlugin) KvChangeOption {
+	return func(kv *v1.KubeVirt) *patch.PatchSet {
+		patchSet := patch.New()
+		config := kv.Spec.Configuration
 
-func registerBindingPugins(config v1.KubeVirtConfiguration, name string, binding v1.InterfaceBindingPlugin) (
-	*patch.PatchSet, error,
-) {
-	patchSet := patch.New()
+		if config.NetworkConfiguration == nil {
+			patchSet.AddOption(patch.WithAdd("/spec/configuration/network", v1.NetworkConfiguration{}))
+			patchSet.AddOption(patch.WithAdd("/spec/configuration/network/binding", map[string]v1.InterfaceBindingPlugin{}))
+		} else if config.NetworkConfiguration.Binding == nil {
+			patchSet.AddOption(patch.WithAdd("/spec/configuration/network/binding", map[string]v1.InterfaceBindingPlugin{}))
+		}
 
-	if config.NetworkConfiguration == nil {
-		patchSet.AddOption(patch.WithAdd("/spec/configuration/network", v1.NetworkConfiguration{}))
-		patchSet.AddOption(patch.WithAdd("/spec/configuration/network/binding", map[string]v1.InterfaceBindingPlugin{}))
-	} else if config.NetworkConfiguration.Binding == nil {
-		patchSet.AddOption(patch.WithAdd("/spec/configuration/network/binding", map[string]v1.InterfaceBindingPlugin{}))
+		patchSet.AddOption(patch.WithAdd(fmt.Sprintf("/spec/configuration/network/binding/%s", name), netBindingPlugin))
+
+		log.Log.Infof("registering binding plugin: %s, %+v", name, netBindingPlugin)
+
+		return patchSet
 	}
-
-	patchSet.AddOption(patch.WithAdd(fmt.Sprintf("/spec/configuration/network/binding/%s", name), binding))
-
-	log.Log.Infof("registering binding plugin: %s, %+v", name, binding)
-
-	return patchSet, nil
 }

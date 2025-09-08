@@ -66,16 +66,18 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 
 		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
-		err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
-			SidecarImage:                passtSidecarImage,
-			NetworkAttachmentDefinition: passtNetAttDefName,
-			Migration:                   &v1.InterfaceBindingMigration{},
-			ComputeResourceOverhead: &v1.ResourceRequirementsWithoutClaims{
-				Requests: map[k8sv1.ResourceName]resource.Quantity{
-					k8sv1.ResourceMemory: passtComputeMemoryOverheadWhenAllPortsAreForwarded,
+		err := config.RegisterKubevirtConfigChange(
+			config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
+				SidecarImage:                passtSidecarImage,
+				NetworkAttachmentDefinition: passtNetAttDefName,
+				Migration:                   &v1.InterfaceBindingMigration{},
+				ComputeResourceOverhead: &v1.ResourceRequirementsWithoutClaims{
+					Requests: map[k8sv1.ResourceName]resource.Quantity{
+						k8sv1.ResourceMemory: passtComputeMemoryOverheadWhenAllPortsAreForwarded,
+					},
 				},
-			},
-		})
+			}),
+		)
 		Expect(err).NotTo(HaveOccurred())
 
 		config.EnableFeatureGate(featuregate.PasstIPStackMigration)
