@@ -1,13 +1,8 @@
 load("@bazel_gazelle//:def.bzl", "gazelle")
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
-
-gazelle(name = "gazelle")
-
 load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
+gazelle(name = "gazelle")
 
 pkg_tar(
     name = "winrm-cli-tar",
@@ -20,10 +15,6 @@ pkg_tar(
 
 oci_image(
     name = "winrmcli-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
     base = "//images:kubevirt-testing-base",
     tars = [
         ":winrm-cli-tar",

@@ -218,18 +218,27 @@ http_file(
 
 http_archive(
     name = "bazeldnf",
-    sha256 = "fb24d80ad9edad0f7bd3000e8cffcfbba89cc07e495c47a7d3b1f803bd527a40",
-    urls = [
-        "https://github.com/rmohr/bazeldnf/releases/download/v0.5.9/bazeldnf-v0.5.9.tar.gz",
-        "https://storage.googleapis.com/builddeps/fb24d80ad9edad0f7bd3000e8cffcfbba89cc07e495c47a7d3b1f803bd527a40",
-    ],
+    sha256 = "0a4b9740da1839ded674c8f5012c069b235b101f1eaa2552a4721287808541af",
+    strip_prefix = "bazeldnf-v0.5.9-2",
+    url = "https://github.com/brianmcarey/bazeldnf/releases/download/v0.5.9-2/bazeldnf-v0.5.9-2.tar.gz",
 )
 
-load("@bazeldnf//:deps.bzl", "bazeldnf_dependencies", "rpm")
+load("@bazeldnf//bazeldnf:defs.bzl", "rpm")
+load(
+    "@bazeldnf//bazeldnf:repositories.bzl",
+    "bazeldnf_dependencies",
+    "bazeldnf_register_toolchains",
+)
 load(
     "@io_bazel_rules_go//go:deps.bzl",
     "go_register_toolchains",
     "go_rules_dependencies",
+)
+
+bazeldnf_dependencies()
+
+bazeldnf_register_toolchains(
+    name = "bazeldnf_prebuilt",
 )
 
 go_rules_dependencies()
