@@ -32,6 +32,7 @@ jobs:
 
       - name: Build Images
         run: |
+          pwd
           make bazel-build-images
 
 
