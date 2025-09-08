@@ -190,10 +190,16 @@ function _fix_node_labels() {
         fi
     done
 
-    nodes=$(_get_nodes | awk '{print $1}')
-    for node in ${nodes[@]}; do
+    worker_nodes=$(_get_nodes | grep -i $WORKER_NODES_PATTERN | awk '{print $1}')
+    for node in ${worker_nodes[@]}; do
         _kubectl label node $node kubevirt.io/schedulable=true
         _kubectl label node $node node-role.kubernetes.io/worker=""
+    done
+
+    for node in $(_kubectl get nodes --no-headers -o custom-columns=":metadata.name"); do
+        $CRI_BIN exec -t $node bash -c "echo 'fs.inotify.max_user_watches=1048576' >> /etc/sysctl.conf"
+        $CRI_BIN exec -t $node bash -c "echo 'fs.inotify.max_user_instances=512' >> /etc/sysctl.conf"
+        $CRI_BIN exec -i $node bash -c "sysctl -p /etc/sysctl.conf"
     done
 }
 
