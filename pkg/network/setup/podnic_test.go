@@ -83,14 +83,6 @@ var _ = Describe("podNIC", func() {
 					&cache.DHCPConfig{Name: podnic.podInterfaceName},
 				),
 			).To(Succeed())
-			Expect(
-				cache.WriteDomainInterfaceCache(
-					podnic.cacheCreator,
-					launcherPID,
-					podnic.vmiSpecIface.Name,
-					&domain.Spec.Devices.Interfaces[0],
-				),
-			).To(Succeed())
 		})
 		Context("and starting the DHCP server fails", func() {
 			BeforeEach(func() {

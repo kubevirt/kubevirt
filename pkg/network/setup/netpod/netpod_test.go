@@ -30,8 +30,6 @@ import (
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -429,9 +427,6 @@ var _ = Describe("netpod", func() {
 		)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(Equal(expDHCPConfig))
-		Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", defaultPodNetworkName)).To(Equal(&api.Interface{
-			MAC: &api.MAC{MAC: podIfaceOrignalMAC},
-		}))
 	})
 
 	It("setup bridge binding with IP custom primary interface name", func() {
@@ -586,9 +581,6 @@ var _ = Describe("netpod", func() {
 		)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", customPrimaryIfaceName)).To(Equal(expDHCPConfig))
-		Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", defaultPodNetworkName)).To(Equal(&api.Interface{
-			MAC: &api.MAC{MAC: podIfaceOrignalMAC},
-		}))
 	})
 
 	It("setup bridge binding without IP", func() {
@@ -678,10 +670,6 @@ var _ = Describe("netpod", func() {
 
 		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(
 			Equal(&cache.DHCPConfig{IPAMDisabled: true}))
-
-		Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", defaultPodNetworkName)).To(Equal(&api.Interface{
-			MAC: &api.MAC{MAC: podIfaceOrignalMAC},
-		}))
 	})
 
 	When("using secondary network", func() {
@@ -1298,9 +1286,6 @@ var _ = Describe("netpod", func() {
 			Expect(pending).To(BeEmpty())
 			Expect(started).To(BeEmpty())
 			Expect(finished).To(Equal(specNetworks))
-
-			Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet1)).NotTo(BeNil())
-			Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet2)).NotTo(BeNil())
 		})
 
 		It("unplug 1 out of 2 secondary bridge binding networks", func() {
@@ -1409,12 +1394,6 @@ var _ = Describe("netpod", func() {
 				{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
 				{Name: testNet2, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
 			}))
-
-			// testNet1 is not expected to exist anymore.
-			_, err = cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet1)
-			Expect(err).To(HaveOccurred())
-
-			Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet2)).NotTo(BeNil())
 		})
 
 		It("unplug 2 out of 2 secondary bridge binding networks", func() {
@@ -1514,13 +1493,6 @@ var _ = Describe("netpod", func() {
 			Expect(finished).To(Equal([]v1.Network{
 				{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
 			}))
-
-			// testNet1 and testNet2 are not expected to exist anymore.
-			_, err = cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet1)
-			Expect(err).To(HaveOccurred())
-
-			_, err = cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet2)
-			Expect(err).To(HaveOccurred())
 		})
 
 		It("unplug secondary bridge binding network that is still in pending state", func() {
@@ -1638,12 +1610,6 @@ var _ = Describe("netpod", func() {
 				{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
 				{Name: testNet1, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
 			}))
-
-			Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet1)).NotTo(BeNil())
-
-			// testNet2 is not expected to exist anymore.
-			_, err = cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet2)
-			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -1837,12 +1803,6 @@ var _ = Describe("netpod", func() {
 			{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
 			{Name: testNet1, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
 		}))
-
-		Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet1)).NotTo(BeNil())
-
-		// testNet2 is not expected to exist anymore.
-		_, err = cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet2)
-		Expect(err).To(HaveOccurred())
 	})
 
 	When("binding plugin with managedTap domainAttachmentType", func() {
