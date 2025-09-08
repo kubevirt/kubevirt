@@ -78,5 +78,55 @@ var (
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
+		{
+			Alert: "GuestVCPUQueueHighWarning",
+			Expr:  intstr.FromString("kubevirt_vmi_guest_vcpu_queue > 10"),
+			Annotations: map[string]string{
+				"description": "VirtualMachineInstance {{ $labels.name }} CPU queue length > 10",
+				"summary":     "Guest vCPU Queue within collection cycle > 10",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "GuestVCPUQueueHighCritical",
+			Expr:  intstr.FromString("kubevirt_vmi_guest_vcpu_queue > 20"),
+			Annotations: map[string]string{
+				"description": "VirtualMachineInstance {{ $labels.name }} CPU queue length > 20",
+				"summary":     "Guest vCPU Queue within collection cycle > 20",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "VirtualMachineStuckInUnhealthyState",
+			Expr:  intstr.FromString("sum by (name, namespace, status)(kubevirt_vm_info{status='provisioning'}==1 or kubevirt_vm_info{status='starting'} == 1 or kubevirt_vm_info{status='terminating'} == 1 or kubevirt_vm_info{status_group='error'} == 1) unless on(name, namespace) kubevirt_vmi_info"),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				"summary":     "Virtual machine in {{ $labels.status }} state for more than 10 minutes",
+				"description": "Virtual machine {{ $labels.name }} in namespace {{ $labels.namespace }} has been in {{ $labels.status }} state for more than 10 minutes.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "VirtualMachineStuckOnNode",
+			Expr:  intstr.FromString("sum by (name, namespace, status, node)((kubevirt_vm_info{status='starting'} == 1 or kubevirt_vm_info{status='stopping'} == 1 or kubevirt_vm_info{status='terminating'} == 1 or (kubevirt_vm_info{status_group='error'} == 1 and on(name, namespace) kubevirt_vmi_info) ) * on(name, namespace) group_left(node) kubevirt_vmi_info)"),
+			For:   ptr.To(promv1.Duration("5m")),
+			Annotations: map[string]string{
+				"summary":     "Virtual machine stuck in unhealthy state for more than 5 minutes",
+				"description": "Virtual machine {{ $labels.name }} in namespace {{ $labels.namespace }} on node {{ $labels.node }} has been in {{ $labels.status }} state for more than 5 minutes. This may indicate issues with the VM lifecycle on the target node.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
 	}
 )

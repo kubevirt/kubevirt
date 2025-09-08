@@ -1635,14 +1635,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			sanityExecute()
 			expectVMIFailedState(vmi)
 		})
-		DescribeTable("should remove the fore ground finalizer if no pod is present and the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase) {
+		DescribeTable("should remove the fore ground finalizer if no pod is present and the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase, finalizer string) {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
 			vmi.Status.LauncherContainerImageVersion = "madeup"
 			vmi.Labels = map[string]string{}
 			vmi.Labels[virtv1.OutdatedLauncherImageLabel] = ""
-			vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineInstanceFinalizer)
-			Expect(vmi.Finalizers).To(ContainElement(virtv1.VirtualMachineInstanceFinalizer))
+			vmi.Finalizers = append(vmi.Finalizers, finalizer)
+			Expect(vmi.Finalizers).To(ContainElement(finalizer))
 
 			addVirtualMachine(vmi)
 
@@ -1653,15 +1653,22 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(updatedVmi.Labels).To(Not(HaveKey(virtv1.OutdatedLauncherImageLabel)))
 			Expect(updatedVmi.Status.LauncherContainerImageVersion).To(BeEmpty())
 			Expect(updatedVmi.Status.Phase).To(Equal(phase))
-			Expect(updatedVmi.Finalizers).ToNot(ContainElement(virtv1.VirtualMachineInstanceFinalizer))
+			Expect(updatedVmi.Finalizers).ToNot(ContainElement(finalizer))
 		},
-			Entry("succeeded state", virtv1.Succeeded),
-			Entry("failed state", virtv1.Failed),
+			Entry("succeeded state with deprecated finalizer", virtv1.Succeeded, virtv1.DeprecatedVirtualMachineInstanceFinalizer),
+			Entry("failed state with deprecated finalizer", virtv1.Failed, virtv1.DeprecatedVirtualMachineInstanceFinalizer),
+			Entry("succeeded state with domain-qualified finalizer", virtv1.Succeeded, virtv1.VirtualMachineInstanceFinalizer),
+			Entry("failed state with domain-qualified finalizer", virtv1.Failed, virtv1.VirtualMachineInstanceFinalizer),
 		)
 
 		DescribeTable("VM controller finalizer", func(hasOwner, vmExists, expectFinalizer bool) {
 			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer, virtv1.VirtualMachineInstanceFinalizer)
+			vmi.Finalizers = append(
+				vmi.Finalizers,
+				virtv1.VirtualMachineControllerFinalizer,
+				virtv1.DeprecatedVirtualMachineInstanceFinalizer,
+				virtv1.VirtualMachineInstanceFinalizer,
+			)
 			vmi.Status.Phase = virtv1.Succeeded
 			Expect(vmi.Finalizers).To(ContainElement(virtv1.VirtualMachineControllerFinalizer))
 
@@ -1689,6 +1696,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			updatedVmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVmi.Finalizers).ToNot(ContainElement(virtv1.DeprecatedVirtualMachineInstanceFinalizer))
 			Expect(updatedVmi.Finalizers).ToNot(ContainElement(virtv1.VirtualMachineInstanceFinalizer))
 			if !expectFinalizer {
 				Expect(updatedVmi.Finalizers).ToNot(ContainElement(virtv1.VirtualMachineControllerFinalizer))
@@ -2121,19 +2129,19 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("when VMI and pod annotations differ",
 					&testData{
 						vmiAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						podAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "true",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "true",
 						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
 						},
 						expectedAnnotations: map[string]string{
-							"kubevirt.io/domain":                  "testvmi",
-							descheduler.EvictOnlyAnnotation:       "",
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							"kubevirt.io/domain":                                   "testvmi",
+							descheduler.EvictOnlyAnnotation:                        "",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedPatch: true,
 					},
@@ -2141,19 +2149,19 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("when VMI and pod annotations are the same",
 					&testData{
 						vmiAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						podAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
 							"kubevirt.io/created-by": "1234",
 						},
 						expectedAnnotations: map[string]string{
-							"kubevirt.io/domain":                  "testvmi",
-							descheduler.EvictOnlyAnnotation:       "",
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							"kubevirt.io/domain":                                   "testvmi",
+							descheduler.EvictOnlyAnnotation:                        "",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedPatch: false,
 					},
@@ -2161,7 +2169,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("when POD annotation doesn't exist",
 					&testData{
 						vmiAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						podAnnotations: map[string]string{
 							"kubevirt.io/domain":            "testvmi",
@@ -2172,9 +2180,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 							"kubevirt.io/created-by": "1234",
 						},
 						expectedAnnotations: map[string]string{
-							"kubevirt.io/domain":                  "testvmi",
-							descheduler.EvictOnlyAnnotation:       "",
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							"kubevirt.io/domain":                                   "testvmi",
+							descheduler.EvictOnlyAnnotation:                        "",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedPatch: true,
 					},
@@ -2183,9 +2191,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					&testData{
 						vmiAnnotations: map[string]string{},
 						podAnnotations: map[string]string{
-							"kubevirt.io/domain":                  "testvmi",
-							descheduler.EvictOnlyAnnotation:       "",
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							"kubevirt.io/domain":                                   "testvmi",
+							descheduler.EvictOnlyAnnotation:                        "",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedLabels: map[string]string{
 							"kubevirt.io":            "virt-launcher",
@@ -2201,10 +2209,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("when both annotations and labels differ between VMI and pod",
 					&testData{
 						vmiAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						podAnnotations: map[string]string{
-							descheduler.EvictPodAnnotationKeyBeta: "true",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "true",
 						},
 						vmiLabels: map[string]string{
 							virtv1.NodeNameLabel: "node2",
@@ -2218,14 +2226,69 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 							virtv1.NodeNameLabel:     "node2",
 						},
 						expectedAnnotations: map[string]string{
-							"kubevirt.io/domain":                  "testvmi",
-							descheduler.EvictOnlyAnnotation:       "",
-							descheduler.EvictPodAnnotationKeyBeta: "false",
+							"kubevirt.io/domain":                                   "testvmi",
+							descheduler.EvictOnlyAnnotation:                        "",
+							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedPatch: true,
 					},
 				),
 			)
+		})
+
+		Context("Descheduler annotations", func() {
+			It("should add eviction-in-progress annotation in case of VMI marked for eviction", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.EvacuationNodeName = "test"
+				vmi.Status.NodeName = "test"
+
+				sourcePod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				sourcePod.Spec.NodeName = "test"
+				addActivePods(vmi, sourcePod.UID, "")
+
+				targetPod := sourcePod.DeepCopy()
+				targetPod.Name = "targetfailure"
+				targetPod.UID = "123-123-123-123"
+				targetPod.Spec.NodeName = "someothernode"
+
+				Expect(sourcePod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
+				Expect(targetPod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
+
+				addVirtualMachine(vmi)
+				addPod(sourcePod)
+				addPod(targetPod)
+
+				sanityExecute()
+
+				By("Checking that the source/active pod is correctly annotated")
+				updatedSourcePod, err := kubeClient.CoreV1().Pods(sourcePod.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedSourcePod.Annotations).To(HaveKey(descheduler.EvictionInProgressAnnotation))
+
+				By("Checking that a migration target pod is not annotated to prevent double counting")
+				updatedTargetPod, err := kubeClient.CoreV1().Pods(targetPod.Namespace).Get(context.Background(), targetPod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedTargetPod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
+			})
+
+			It("should remove eviction-in-progress annotation in case of VMI not marked for eviction", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.EvacuationNodeName = ""
+
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				pod.ObjectMeta.Annotations[descheduler.EvictionInProgressAnnotation] = "kubevirt"
+				addActivePods(vmi, pod.UID, "")
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+
+				updatedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedPod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
+			})
 		})
 
 		DescribeTable("should set VirtualMachineUnpaused=False pod condition when VMI is paused", func(currUnpausedStatus k8sv1.ConditionStatus) {

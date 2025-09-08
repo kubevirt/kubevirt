@@ -67,14 +67,13 @@ const connectedKey ctxKeyType = "connected"
 var _ = Describe(SIG("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] usbredir", decorators.SigCompute, func() {
 	const (
 		enoughMemForSafeBiosEmulation = "32Mi"
-		vmiRunTimeout                 = 90
 	)
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		// A VMI for each test to have fresh stack on server side
 		vmi = libvmi.New(libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation), withClientPassthrough())
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiRunTimeout)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 	})
 
 	It("Should fail when limit is reached", func() {

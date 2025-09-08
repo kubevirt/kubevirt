@@ -1328,7 +1328,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			DescribeTable("should allow live migration with attached hotplug volumes", decorators.StorageCritical, func(vmiFunc func() *v1.VirtualMachineInstance) {
 				vmi = vmiFunc()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 				volumeName := "testvolume"
 				volumeMode := k8sv1.PersistentVolumeBlock
 				addVolumeFunc := addDVVolumeVMI
@@ -1879,7 +1879,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			libstorage.DeleteStorageClass(storageClassHostPath)
 		})
 
-		It("should attach a hostpath based volume to running VM", decorators.StorageCritical, func() {
+		It("should attach a hostpath based volume to running VM", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,

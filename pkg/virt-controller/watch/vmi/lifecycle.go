@@ -185,6 +185,21 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 		pod = patchedPod
 
+		_, podIsMarkedForEviction := pod.GetAnnotations()[descheduler.EvictionInProgressAnnotation]
+		if vmi.IsMarkedForEviction() && !podIsMarkedForEviction {
+			patchedPod, err = descheduler.MarkEvictionInProgress(c.clientset, pod)
+			if err != nil {
+				return common.NewSyncError(err, controller.FailedPodPatchReason), pod
+			}
+		}
+		if !vmi.IsMarkedForEviction() && podIsMarkedForEviction {
+			patchedPod, err = descheduler.MarkEvictionCompleted(c.clientset, pod)
+			if err != nil {
+				return common.NewSyncError(err, controller.FailedPodPatchReason), pod
+			}
+		}
+		pod = patchedPod
+
 		hotplugVolumes := controller.GetHotplugVolumes(vmi, pod)
 		hotplugAttachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
 		if err != nil {
@@ -395,8 +410,9 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return err
 		}
 
-		if allDeleted && (!vmi.IsDecentralizedMigration() || vmi.IsMigrationCompleted()) {
+		if allDeleted {
 			log.Log.V(3).Object(vmi).Infof("all pods have been deleted, removing finalizer")
+			controller.RemoveFinalizer(vmiCopy, virtv1.DeprecatedVirtualMachineInstanceFinalizer)
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
 			if vmiCopy.Labels != nil {
 				delete(vmiCopy.Labels, virtv1.OutdatedLauncherImageLabel)
@@ -459,6 +475,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		if vmi.DeletionTimestamp != nil {
 			// Deleted VMI while waiting for sync, remove finalizers.
 			log.Log.Object(vmi).V(1).Infof("deleting VMI while waiting for sync, removing finalizers")
+			controller.RemoveFinalizer(vmiCopy, virtv1.DeprecatedVirtualMachineInstanceFinalizer)
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
 
 			if !c.hasOwnerVM(vmi) && len(vmiCopy.Finalizers) > 0 {
@@ -646,7 +663,7 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 	)
 
 	syncMap(
-		[]string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyBeta},
+		[]string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction},
 		vmi.Annotations, newPodAnnotations, pod.ObjectMeta.Annotations, "annotations",
 	)
 

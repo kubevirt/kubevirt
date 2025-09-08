@@ -115,8 +115,8 @@ var _ = Describe(SIG("interface state up/down", func() {
 		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
 
 		timeout := 5 * time.Second
-		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac1.String(), v1.InterfaceStateLinkUp), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
+		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkUp), timeout)).To(Succeed())
+		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
 
 		By("flipping the state of both interfaces")
 
@@ -141,8 +141,8 @@ var _ = Describe(SIG("interface state up/down", func() {
 		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
 
 		timeout = 30 * time.Second
-		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac2.String(), v1.InterfaceStateLinkUp), timeout)).To(Succeed())
+		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
+		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkUp), timeout)).To(Succeed())
 	})
 
 	It("status and guest should show iface is down when vm with ifaces down is migrated", func() {
@@ -199,8 +199,8 @@ var _ = Describe(SIG("interface state up/down", func() {
 		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
 
 		timeout := 5 * time.Second
-		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
+		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
+		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
 
 		By("migrating the vmi")
 		migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -218,8 +218,8 @@ var _ = Describe(SIG("interface state up/down", func() {
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
 		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
 
-		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
+		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
+		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
 
 	})
 }))
@@ -230,27 +230,6 @@ func normalizeIfaceStatuses(ifaceStatuses []v1.VirtualMachineInstanceNetworkInte
 		result = append(result, v1.VirtualMachineInstanceNetworkInterface{Name: ifaceStatus.Name, LinkState: ifaceStatus.LinkState})
 	}
 	return result
-}
-
-func assertLinkStateCmd(mac string, desiredLinkState v1.InterfaceState) string {
-	const (
-		linkStateUPRegex   = "'state[[:space:]]+UP'"
-		linkStateDOWNRegex = "'NO-CARRIER.+state[[:space:]]+DOWN'"
-		ipLinkTemplate     = "ip -one link | grep %s | grep -E %s\n"
-	)
-
-	var linkStateRegex string
-
-	switch desiredLinkState {
-	case v1.InterfaceStateLinkUp:
-		linkStateRegex = linkStateUPRegex
-	case v1.InterfaceStateLinkDown:
-		linkStateRegex = linkStateDOWNRegex
-	case v1.InterfaceStateAbsent:
-		// noop
-	}
-
-	return fmt.Sprintf(ipLinkTemplate, mac, linkStateRegex)
 }
 
 func patchToggleVMInterfacesStates(vm *v1.VirtualMachine) error {

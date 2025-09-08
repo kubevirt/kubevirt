@@ -28,9 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
-	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -48,9 +46,15 @@ func GenerateCNIAnnotation(
 	namespace string,
 	interfaces []v1.Interface,
 	networks []v1.Network,
-	config *virtconfig.ClusterConfig,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
 ) (string, error) {
-	return GenerateCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks), config)
+	return GenerateCNIAnnotationFromNameScheme(
+		namespace,
+		interfaces,
+		networks,
+		namescheme.CreateHashedNetworkNameScheme(networks),
+		registeredBindingPlugins,
+	)
 }
 
 func GenerateCNIAnnotationFromNameScheme(
@@ -58,7 +62,7 @@ func GenerateCNIAnnotationFromNameScheme(
 	interfaces []v1.Interface,
 	networks []v1.Network,
 	networkNameScheme map[string]string,
-	config *virtconfig.ClusterConfig,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
 ) (string, error) {
 	multusNetworkAnnotationPool := networkAnnotationPool{}
 
@@ -69,16 +73,18 @@ func GenerateCNIAnnotationFromNameScheme(
 				newAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
 
-		if config != nil {
-			if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
-				bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
-					config.GetConfig(), iface.Binding.Name, namespace, network.Name)
-				if err != nil {
-					return "", err
-				}
-				if bindingPluginAnnotationData != nil {
-					multusNetworkAnnotationPool.Add(*bindingPluginAnnotationData)
-				}
+		if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
+			bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
+				registeredBindingPlugins,
+				iface.Binding.Name,
+				namespace,
+				network.Name,
+			)
+			if err != nil {
+				return "", err
+			}
+			if bindingPluginAnnotationData != nil {
+				multusNetworkAnnotationPool.Add(*bindingPluginAnnotationData)
 			}
 		}
 	}
@@ -130,11 +136,13 @@ func newAnnotationData(
 }
 
 func newBindingPluginAnnotationData(
-	kvConfig *v1.KubeVirtConfiguration,
-	pluginName, namespace, networkName string,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
+	pluginName,
+	namespace,
+	networkName string,
 ) (*networkv1.NetworkSelectionElement, error) {
-	plugin := netbinding.ReadNetBindingPluginConfiguration(kvConfig, pluginName)
-	if plugin == nil {
+	plugin, exists := registeredBindingPlugins[pluginName]
+	if !exists {
 		return nil, fmt.Errorf("unable to find the network binding plugin '%s' in Kubevirt configuration", pluginName)
 	}
 

@@ -1191,7 +1191,8 @@ const (
 	VirtOperatorComponentFinalizer string = "kubevirt.io/virtOperatorFinalizer"
 
 	// Set by VMI controller to ensure VMIs are processed during deletion
-	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
+	VirtualMachineInstanceFinalizer           string = "kubevirt.io/foregroundDeleteVirtualMachine"
+	DeprecatedVirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 	// Set By VM controller on VMIs to ensure VMIs are processed by VM controller during deletion
 	VirtualMachineControllerFinalizer        string = "kubevirt.io/virtualMachineControllerFinalize"
 	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
@@ -2958,8 +2959,10 @@ const (
 )
 
 type ArchConfiguration struct {
-	Amd64               *ArchSpecificConfiguration `json:"amd64,omitempty"`
-	Arm64               *ArchSpecificConfiguration `json:"arm64,omitempty"`
+	Amd64 *ArchSpecificConfiguration `json:"amd64,omitempty"`
+	Arm64 *ArchSpecificConfiguration `json:"arm64,omitempty"`
+
+	// Deprecated: ppc64le architecture is no longer supported.
 	Ppc64le             *ArchSpecificConfiguration `json:"ppc64le,omitempty"`
 	S390x               *ArchSpecificConfiguration `json:"s390x,omitempty"`
 	DefaultArchitecture string                     `json:"defaultArchitecture,omitempty"`

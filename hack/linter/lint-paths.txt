@@ -1,6 +1,5 @@
 cmd/cniplugins
-cmd/sidecars/network-passt-binding/callback
-cmd/sidecars/network-passt-binding/server
+cmd/sidecars/network-passt-binding
 cmd/sidecars/network-slirp-binding/callback
 cmd/virtctl
 pkg/instancetype
@@ -33,8 +32,11 @@ pkg/virtctl/configuration
 pkg/virtctl/console
 pkg/virtctl/create/clone
 pkg/virtctl/create/params
+pkg/virtctl/create/preference
 pkg/virtctl/create/vm
 pkg/virtctl/credentials
+pkg/virtctl/scp
+pkg/virtctl/ssh
 pkg/virtctl/testing
 pkg/virtctl/version
 pkg/virt-launcher/virtwrap/agent-poller

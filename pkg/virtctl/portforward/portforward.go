@@ -232,7 +232,7 @@ func examples() string {
   # For continous traffic intensive connections, consider using a dedicated Kubernetes Service.`
 }
 
-// ParseTarget argument supporting the form of type/name[/namespace] or the legacy form of type/name.namespace
+// ParseTarget argument supporting the form of type/name[/namespace]
 func ParseTarget(target string) (kind string, namespace string, name string, err error) {
 	if target == "" {
 		return "", "", "", errors.New("target cannot be empty")
@@ -263,13 +263,6 @@ func ParseTarget(target string) (kind string, namespace string, name string, err
 
 	if name == "" {
 		return "", "", "", errors.New("name cannot be empty")
-	}
-
-	if lastDot := strings.LastIndex(parts[1], "."); len(parts) == 2 && lastDot > -1 {
-		log.Log.Warning("A dot in target without specifying a namespace activates legacy parsing of name and namespace.\n" +
-			"This behavior will be removed in the next release.")
-		name = parts[1][:lastDot]
-		namespace = parts[1][lastDot+1:]
 	}
 
 	return kind, namespace, name, nil

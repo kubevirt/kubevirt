@@ -3205,7 +3205,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("dynamic annotations", func() {
-			const selectedKey = descheduler.EvictPodAnnotationKeyBeta
+			const selectedKey = descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction
 			const ignoredKey = "anotherAnnotation"
 			const intitialValue = "initialValue"
 			const updatedValue = "updatedValue"
@@ -6211,7 +6211,6 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("VM should get now restarted")
 				// pick up deletion
-				controller.crIndexer.Delete(createVMRevision(vm))
 				controller.vmiIndexer.Delete(vmi)
 				controller.Queue.Add(key)
 				sanityExecute(vm)

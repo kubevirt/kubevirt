@@ -35,12 +35,17 @@ TARGET_DIRS=(
     "pkg/virtctl/imageupload"
     "pkg/virtctl/memorydump"
     "pkg/virtctl/vmexport"
+    "pkg/virt-api"
 )
 
 IGNORE_FILES=(
     # Generated files
     "pkg/network/dhcp/generated_mock_configurator.go"
     "pkg/network/driver/generated_mock_common.go"
+    "pkg/virt-api/rest/generated_mock_authorizer.go"
+
+    # K8s files
+    "pkg/virt-api/webhooks/validating-webhook/admitters/validate-k8s-utils.go"
 )
 
 MISSING_LICENSE_FILES=()

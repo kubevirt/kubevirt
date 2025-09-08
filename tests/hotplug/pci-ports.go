@@ -46,7 +46,7 @@ var _ = Describe("[sig-compute]VM Hotplug PCI Port Allocation", decorators.SigCo
 	DescribeTable("should allocate the appropriate number of free ports",
 		func(memory string, additionalDevs, expectedFreePorts int) {
 			options := []libvmi.Option{
-				libvmi.WithResourceMemory(memory),
+				libvmi.WithGuestMemory(memory),
 			}
 			for i := 1; i <= additionalDevs; i++ {
 				options = append(options,

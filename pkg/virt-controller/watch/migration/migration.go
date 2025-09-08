@@ -46,6 +46,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -56,11 +58,11 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	workqueuemetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 )
@@ -99,8 +101,15 @@ const lowPriority = -100
 
 var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 
+type templateService interface {
+	RenderMigrationManifest(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
+	RenderLaunchManifest(vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volumes []*virtv1.Volume, ownerPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
+	GetLauncherImage() string
+}
+
 type Controller struct {
-	templateService      services.TemplateService
+	templateService      templateService
 	clientset            kubecli.KubevirtClient
 	Queue                priorityqueue.PriorityQueue[string]
 	vmiStore             cache.Store
@@ -129,7 +138,7 @@ type Controller struct {
 	catchAllPendingTimeoutSeconds      int64
 }
 
-func NewController(templateService services.TemplateService,
+func NewController(templateService templateService,
 	vmiInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
@@ -149,6 +158,7 @@ func NewController(templateService services.TemplateService,
 		templateService: templateService,
 		Queue: priorityqueue.New[string]("virt-controller-migration", func(o *priorityqueue.Opts[string]) {
 			o.RateLimiter = workqueue.DefaultTypedControllerRateLimiter[string]()
+			o.MetricProvider = workqueuemetrics.NewPrometheusMetricsProvider()
 		}),
 		vmiStore:             vmiInformer.GetStore(),
 		podIndexer:           podInformer.GetIndexer(),
@@ -569,12 +579,6 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		}
 	}
 
-	if migrationCopy.Status.Phase == virtv1.MigrationFailed {
-		if err := descheduler.MarkSourcePodEvictionCompleted(c.clientset, migrationCopy, c.podIndexer); err != nil {
-			return err
-		}
-	}
-
 	controller.SetVMIMigrationPhaseTransitionTimestamp(migration, migrationCopy)
 	controller.SetSourcePod(migrationCopy, vmi, c.podIndexer)
 	if err := c.setSynchronizationAddressStatus(migrationCopy); err != nil {
@@ -707,7 +711,7 @@ func (c *Controller) processMigrationPhase(
 			migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
 		}
 	case virtv1.MigrationPreparingTarget:
-		if (migration.IsLocalOrDecentralizedSource() && vmi.IsMigrationSourceSynchronized()) ||
+		if (migration.IsLocalOrDecentralizedSource() && vmi.IsMigrationSourceSynchronized() && vmi.Status.MigrationState.TargetState.NodeAddress != nil) ||
 			(migration.IsLocalOrDecentralizedTarget() && vmi.Status.MigrationState.TargetNode != "" && vmi.Status.MigrationState.TargetNodeAddress != "") {
 			migrationCopy.Status.Phase = virtv1.MigrationTargetReady
 		}
@@ -1242,9 +1246,11 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 	if migration.Status.MigrationState == nil {
 		migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
-	migration.Status.MigrationState.SourcePersistentStatePVCName = backendstorage.CurrentPVCName(vmi)
-	if migration.Status.MigrationState.SourcePersistentStatePVCName == "" {
-		return fmt.Errorf("no backend-storage PVC found in VMI volume status")
+	if !vmi.IsDecentralizedMigration() || vmi.IsMigrationSource() {
+		migration.Status.MigrationState.SourcePersistentStatePVCName = backendstorage.CurrentPVCName(vmi)
+		if migration.Status.MigrationState.SourcePersistentStatePVCName == "" {
+			return fmt.Errorf("no backend-storage PVC found in VMI volume status")
+		}
 	}
 
 	pvc := backendstorage.PVCForMigrationTarget(c.pvcStore, migration)
@@ -1501,15 +1507,22 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 				}
 			} else {
 				log.Log.Object(vmi).V(5).Info("decentralized migration creating target pod in vmi namespace, source pod based on target VMI")
-				// This is a decentralized target, generate the source pod template
-				sourcePod, err = c.templateService.RenderLaunchManifest(vmi)
-				if err != nil {
-					return fmt.Errorf("failed to render launch manifest: %v", err)
+				vmiCopy := vmi.DeepCopy()
+				if tpm.HasPersistentDevice(&vmiCopy.Spec) {
+					// This is a decentralized target, generate the source pod template, we don't care about
+					// the backend-storage PVC here because it will be created in the target namespace/cluster.
+					// this is purely a fake source pod template.
+					vmiCopy.Spec.Domain.Devices.TPM.Enabled = pointer.P(false)
 				}
-			}
-			if _, exists := migration.GetAnnotations()[virtv1.EvacuationMigrationAnnotation]; exists {
-				if err = descheduler.MarkEvictionInProgress(c.clientset, sourcePod); err != nil {
-					return err
+				if backendstorage.HasPersistentEFI(&vmiCopy.Spec) {
+					// This is a decentralized target, generate the source pod template, we don't care about
+					// the backend-storage PVC here because it will be created in the target namespace/cluster.
+					// this is purely a fake source pod template.
+					vmiCopy.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(false)
+				}
+				sourcePod, err = c.templateService.RenderLaunchManifest(vmiCopy)
+				if err != nil {
+					return fmt.Errorf("failed to render fake source pod launch manifest: %v", err)
 				}
 			}
 			// patch VMI annotations and set RuntimeUser in preparation for target pod creation
@@ -1576,12 +1589,8 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 				return err
 			}
 		}
+		return nil
 
-		if migration.Status.Phase != virtv1.MigrationFailed {
-			return nil
-		}
-
-		return descheduler.MarkSourcePodEvictionCompleted(c.clientset, migration, c.podIndexer)
 	case virtv1.MigrationRunning:
 		if migration.DeletionTimestamp != nil && vmi.IsMigrationSynchronized(migration) {
 			err = c.markMigrationAbortInVmiStatus(migration, vmi)

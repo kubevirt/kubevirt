@@ -68,12 +68,12 @@ import (
 var testHookSidecar = hooks.HookSidecar{Image: "test-image", ImagePullPolicy: "test-policy"}
 
 var _ = Describe("Template", func() {
-	var configFactory func(string) (*virtconfig.ClusterConfig, cache.Store, TemplateService)
+	var configFactory func(string) (*virtconfig.ClusterConfig, cache.Store, *TemplateService)
 	var qemuGid int64 = 107
 	var defaultArch = "amd64"
 
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	var svc TemplateService
+	var svc *TemplateService
 
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
@@ -117,7 +117,7 @@ var _ = Describe("Template", func() {
 	})
 
 	BeforeEach(func() {
-		configFactory = func(cpuArch string) (*virtconfig.ClusterConfig, cache.Store, TemplateService) {
+		configFactory = func(cpuArch string) (*virtconfig.ClusterConfig, cache.Store, *TemplateService) {
 			config, _, kvStore := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
 
 			svc = NewTemplateService("kubevirt/virt-launcher",
@@ -519,7 +519,6 @@ var _ = Describe("Template", func() {
 			},
 				Entry("on amd64", "amd64", "/usr/share/OVMF"),
 				Entry("on arm64", "arm64", "/usr/share/AAVMF"),
-				Entry("on ppc64le", "ppc64le", "/usr/share/OVMF"),
 			)
 		})
 		Context("with SELinux types", func() {
@@ -2696,19 +2695,6 @@ var _ = Describe("Template", func() {
 
 		Context("with sriov interface", func() {
 
-			It("should not run privileged", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.IsPPC64() {
-					Skip("ppc64le is currently running is privileged mode, so skipping test")
-				}
-				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(pod.Spec.Containers).To(HaveLen(1))
-				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
-			})
-
 			It("should not mount pci related host directories", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
@@ -3300,38 +3286,6 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("with GPU device interface", func() {
-			It("should not run privileged", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.IsPPC64() {
-					Skip("ppc64le is currently running is privileged mode, so skipping test")
-				}
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								DisableHotplug: true,
-								GPUs: []v1.GPU{
-									{
-										Name:       "gpu1",
-										DeviceName: "vendor.com/gpu_name",
-									},
-								},
-							},
-						},
-					},
-				}
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(pod.Spec.Containers).To(HaveLen(1))
-				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
-			})
 			It("should not mount pci related host directories and should have gpu resource", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
@@ -3377,38 +3331,6 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("with HostDevice device interface", func() {
-			It("should not run privileged", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
-				if svc.IsPPC64() {
-					Skip("ppc64le is currently running is privileged mode, so skipping test")
-				}
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								DisableHotplug: true,
-								HostDevices: []v1.HostDevice{
-									{
-										Name:       "hostdev1",
-										DeviceName: "vendor.com/dev_name",
-									},
-								},
-							},
-						},
-					},
-				}
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(pod.Spec.Containers).To(HaveLen(1))
-				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
-			})
 			It("should not mount pci related host directories", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
@@ -4046,22 +3968,6 @@ var _ = Describe("Template", func() {
 			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
 				vmi := api.NewMinimalVMI("fake-vmi")
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
-				return vmi
-			}, &k8sv1.PodSecurityContext{
-				RunAsUser:    &nonRootUser,
-				RunAsGroup:   &nonRootUser,
-				RunAsNonRoot: pointer.P(true),
-				FSGroup:      &nonRootUser,
-			}),
-			Entry("on a passt vmi", func() *v1.VirtualMachineInstance {
-				nonRootUser := util.NonRootUID
-				vmi := api.NewMinimalVMI("fake-vmi")
-				vmi.Status.RuntimeUser = uint64(nonRootUser)
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						DeprecatedPasst: &v1.DeprecatedInterfacePasst{},
-					},
-				}}
 				return vmi
 			}, &k8sv1.PodSecurityContext{
 				RunAsUser:    &nonRootUser,
@@ -4824,57 +4730,6 @@ var _ = Describe("Template", func() {
 			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeFalse(), "Token automount is disabled")
 		})
 
-	})
-
-	Context("AMD SEV LaunchSecurity", func() {
-		It("should not run privileged with SEV device resource", func() {
-			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "namespace",
-					UID:       "1234",
-				},
-				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
-						LaunchSecurity: &v1.LaunchSecurity{
-							SEV: &v1.SEV{},
-						},
-					},
-				},
-			}
-			pod, err := svc.RenderLaunchManifest(&vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(pod.Spec.Containers).To(HaveLen(1))
-			Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
-
-			sev, ok := pod.Spec.Containers[0].Resources.Limits[SevDevice]
-			Expect(ok).To(BeTrue())
-			Expect(int(sev.Value())).To(Equal(1))
-		})
-	})
-
-	Context("Secure Execution LaunchSecurity", func() {
-		It("should not run privileged with Secure Execution", func() {
-			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "namespace",
-					UID:       "1234",
-				},
-				Spec: v1.VirtualMachineInstanceSpec{
-					Architecture: "s390x",
-					Domain: v1.DomainSpec{
-						LaunchSecurity: &v1.LaunchSecurity{},
-					},
-				},
-			}
-			pod, err := svc.RenderLaunchManifest(&vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(pod.Spec.Containers).To(HaveLen(1))
-			Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
-		})
 	})
 
 	Context("with VSOCK enabled", func() {

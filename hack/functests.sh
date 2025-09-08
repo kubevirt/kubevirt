@@ -59,18 +59,18 @@ function functest() {
     _out/tests/ginkgo -timeout=${KUBEVIRT_FUNC_TEST_GINKGO_TIMEOUT} -r "$@" _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -kubectl-path=${kubectl} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${kubevirt_test_config} --artifacts=${ARTIFACTS} --operator-manifest-path=${OPERATOR_MANIFEST_PATH} --testing-manifest-path=${TESTING_MANIFEST_PATH} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -virtctl-path=${virtctl_path} -example-guest-agent-path=${example_guest_agent_path}
 }
 
-additional_test_args=""
+additional_test_args=()
 if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-    additional_test_args="${additional_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
+    additional_test_args+=("--skip=${KUBEVIRT_E2E_SKIP}")
 fi
 
 if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
-    additional_test_args="${additional_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
+    additional_test_args+=("--focus=${KUBEVIRT_E2E_FOCUS}")
 fi
 
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
-    additional_test_args="--nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${additional_test_args}"
+    additional_test_args+=("--nodes=${KUBEVIRT_E2E_PARALLEL_NODES}")
 fi
 
 set -x
-functest ${additional_test_args} ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS} "${KUBEVIRT_FUNC_TEST_LABEL_FILTER}"
+functest "${additional_test_args[@]}" ${KUBEVIRT_FUNC_TEST_GINKGO_ARGS} "${KUBEVIRT_FUNC_TEST_LABEL_FILTER}"

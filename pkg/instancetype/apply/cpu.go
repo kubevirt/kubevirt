@@ -44,7 +44,7 @@ func applyCPU(
 		return conflicts
 	}
 
-	if vmiSpec.Domain.CPU.Model == "" && instancetypeSpec.CPU.Model != nil {
+	if instancetypeSpec.CPU.Model != nil {
 		vmiSpec.Domain.CPU.Model = *instancetypeSpec.CPU.Model
 	}
 
@@ -56,11 +56,11 @@ func applyCPU(
 		vmiSpec.Domain.CPU.IsolateEmulatorThread = *instancetypeSpec.CPU.IsolateEmulatorThread
 	}
 
-	if vmiSpec.Domain.CPU.NUMA == nil && instancetypeSpec.CPU.NUMA != nil {
+	if instancetypeSpec.CPU.NUMA != nil {
 		vmiSpec.Domain.CPU.NUMA = instancetypeSpec.CPU.NUMA.DeepCopy()
 	}
 
-	if vmiSpec.Domain.CPU.Realtime == nil && instancetypeSpec.CPU.Realtime != nil {
+	if instancetypeSpec.CPU.Realtime != nil {
 		vmiSpec.Domain.CPU.Realtime = instancetypeSpec.CPU.Realtime.DeepCopy()
 	}
 

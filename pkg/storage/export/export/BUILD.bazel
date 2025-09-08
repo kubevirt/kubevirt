@@ -22,7 +22,6 @@ go_library(
         "//pkg/instancetype/preference/find:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
-        "//pkg/storage/status:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/storage/utils:go_default_library",
         "//pkg/util:go_default_library",

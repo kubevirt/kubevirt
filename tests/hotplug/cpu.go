@@ -2,7 +2,6 @@ package hotplug
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -23,7 +22,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -45,12 +43,15 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 	)
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		originalKv := libkubevirt.GetCurrentKv(virtClient)
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
 		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
-		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
+		err := config.RegisterKubevirtConfigChange(
+			config.WithWorkloadUpdateStrategy(updateStrategy),
+			config.WithVMRolloutStrategy(rolloutStrategy),
+		)
+		Expect(err).ToNot(HaveOccurred())
 
 		currentKv := libkubevirt.GetCurrentKv(virtClient)
 		config.WaitForConfigToBePropagatedToComponent(
@@ -365,22 +366,6 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 		})
 	})
 })
-
-func patchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubecli.KubevirtClient, updateStrategy *v1.KubeVirtWorkloadUpdateStrategy, rolloutStrategy *v1.VMRolloutStrategy) {
-	methodData, err := json.Marshal(updateStrategy)
-	ExpectWithOffset(1, err).To(Not(HaveOccurred()))
-	rolloutData, err := json.Marshal(rolloutStrategy)
-	ExpectWithOffset(1, err).To(Not(HaveOccurred()))
-
-	data1 := fmt.Sprintf(`{"op": "replace", "path": "/spec/workloadUpdateStrategy", "value": %s}`, string(methodData))
-	data2 := fmt.Sprintf(`{"op": "replace", "path": "/spec/configuration/vmRolloutStrategy", "value": %s}`, string(rolloutData))
-	data := []byte(fmt.Sprintf(`[%s, %s]`, data1, data2))
-
-	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, k8smetav1.PatchOptions{})
-		return err
-	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-}
 
 // The VMI is assumed to be already logged-in.
 func getGuestVirtualCpus(vmi *v1.VirtualMachineInstance) (int, error) {

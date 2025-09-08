@@ -16,7 +16,7 @@ Amount of active Console connections, broken down by namespace and vmi name. Typ
 Version information. Type: Gauge.
 
 ### kubevirt_memory_delta_from_requested_bytes
-The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api and virt-operator. Type: Gauge.
+The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api, virt-operator and compute(virt-launcher). Type: Gauge.
 
 ### kubevirt_node_deprecated_machine_types
 List of deprecated machine types based on the capabilities of individual nodes, as detected by virt-handler. Type: Gauge.
@@ -147,6 +147,9 @@ Guest system load average over 1 minute as reported by the guest agent. Load is 
 ### kubevirt_vmi_guest_load_5m
 Guest system load average over 5 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Type: Gauge.
 
+### kubevirt_vmi_guest_vcpu_queue
+Guest queue length. Type: Gauge.
+
 ### kubevirt_vmi_info
 Information about VirtualMachineInstances. Type: Gauge.
 
@@ -204,14 +207,14 @@ The total Guest OS data to be migrated to the new VM. Type: Counter.
 ### kubevirt_vmi_migration_dirty_memory_rate_bytes
 The rate of memory being dirty in the Guest OS. Type: Gauge.
 
-### kubevirt_vmi_migration_disk_transfer_rate_bytes
-The rate at which the memory is being transferred. Type: Gauge.
-
 ### kubevirt_vmi_migration_end_time_seconds
 The time at which the migration ended. Type: Gauge.
 
 ### kubevirt_vmi_migration_failed
 Indicates if the VMI migration failed. Type: Gauge.
+
+### kubevirt_vmi_migration_memory_transfer_rate_bytes
+The rate at which the memory is being transferred. Type: Gauge.
 
 ### kubevirt_vmi_migration_phase_transition_time_from_creation_seconds
 Histogram of VM migration phase transitions duration from creation time in seconds. Type: Histogram.
@@ -309,6 +312,9 @@ Total time spent on write operations. Type: Counter.
 ### kubevirt_vmi_storage_write_traffic_bytes_total
 Total number of written bytes. Type: Counter.
 
+### kubevirt_vmi_vcpu_count
+The number of the VMI vCPUs. Type: Gauge.
+
 ### kubevirt_vmi_vcpu_delay_seconds_total
 Amount of time spent by each vcpu waiting in the queue instead of running. Type: Counter.
 
@@ -335,6 +341,27 @@ Returns the timestamp of successful virtual machine snapshot. Type: Gauge.
 
 ### kubevirt_vnc_active_connections
 Amount of active VNC connections, broken down by namespace and vmi name. Type: Gauge.
+
+### kubevirt_workqueue_adds_total
+Total number of adds handled by workqueue Type: Counter.
+
+### kubevirt_workqueue_depth
+Current depth of workqueue Type: Gauge.
+
+### kubevirt_workqueue_longest_running_processor_seconds
+How many seconds has the longest running processor for workqueue been running. Type: Gauge.
+
+### kubevirt_workqueue_queue_duration_seconds
+How long an item stays in workqueue before being requested. Type: Histogram.
+
+### kubevirt_workqueue_retries_total
+Total number of retries handled by workqueue Type: Counter.
+
+### kubevirt_workqueue_unfinished_work_seconds
+How many seconds of work has done that is in progress and hasn't been observed by work_duration. Large values indicate stuck threads. One can deduce the number of stuck threads by observing the rate at which this increases. Type: Gauge.
+
+### kubevirt_workqueue_work_duration_seconds
+How long in seconds processing an item from workqueue takes. Type: Histogram.
 
 ## Developing new metrics
 

@@ -43,7 +43,7 @@ var _ = Describe(SIG("64-Bit PCI hole", func() {
 
 	It("should not exceed maximum size when annotation was set to true", func() {
 		vmi := libvmops.RunVMIAndExpectLaunch(
-			libvmifact.NewAlpine(libvmi.WithAnnotation(v1.DisablePCIHole64, "true")), 60,
+			libvmifact.NewAlpine(libvmi.WithAnnotation(v1.DisablePCIHole64, "true")), libvmops.StartupTimeoutSecondsSmall,
 		)
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 

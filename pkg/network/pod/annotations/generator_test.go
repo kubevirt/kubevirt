@@ -33,8 +33,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/kubecli"
-
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
@@ -42,17 +40,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/pod/annotations"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Annotations Generator", func() {
-	const (
-		kubevirtCRName    = "kubevirt"
-		kubevirtNamespace = "kubevirt"
-
-		testNamespace = "default"
-	)
+	const testNamespace = "default"
 
 	Context("Multus", func() {
 		const (
@@ -65,15 +56,6 @@ var _ = Describe("Annotations Generator", func() {
 			networkAttachmentDefinitionName2       = "other-namespace/test1"
 		)
 
-		var clusterConfig *virtconfig.ClusterConfig
-
-		BeforeEach(func() {
-			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
-			kv.Namespace = kubevirtNamespace
-
-			clusterConfig = newClusterConfig(kv)
-		})
-
 		It("should generate the Multus networks annotation", func() {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
@@ -85,7 +67,7 @@ var _ = Describe("Annotations Generator", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
 			)
 
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations, err := generator.Generate(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -107,7 +89,7 @@ var _ = Describe("Annotations Generator", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
 			)
 
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations, err := generator.Generate(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -130,7 +112,7 @@ var _ = Describe("Annotations Generator", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
 			)
 
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations, err := generator.Generate(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -144,22 +126,13 @@ var _ = Describe("Annotations Generator", func() {
 	})
 
 	Context("Istio annotations", func() {
-		var clusterConfig *virtconfig.ClusterConfig
-
-		BeforeEach(func() {
-			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
-			kv.Namespace = kubevirtNamespace
-
-			clusterConfig = newClusterConfig(kv)
-		})
-
 		It("should generate Istio annotation when VMI is connected to pod network using masquerade binding", func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations, err := generator.Generate(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -167,7 +140,7 @@ var _ = Describe("Annotations Generator", func() {
 		})
 
 		DescribeTable("should not generate Istio annotation", func(vmi *v1.VirtualMachineInstance) {
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations, err := generator.Generate(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -184,10 +157,7 @@ var _ = Describe("Annotations Generator", func() {
 	})
 
 	Context("Network naming scheme conversion during migration", func() {
-		var (
-			clusterConfig *virtconfig.ClusterConfig
-			vmi           *v1.VirtualMachineInstance
-		)
+		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			const (
@@ -197,11 +167,6 @@ var _ = Describe("Annotations Generator", func() {
 				networkName2                     = "red"
 				networkAttachmentDefinitionName2 = "other-namespace/test1"
 			)
-
-			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
-			kv.Namespace = kubevirtNamespace
-
-			clusterConfig = newClusterConfig(kv)
 
 			vmi = libvmi.New(
 				libvmi.WithNamespace(testNamespace),
@@ -224,7 +189,7 @@ var _ = Describe("Annotations Generator", func() {
 
 			sourcePod := newStubVirtLauncherPod(vmi, sourcePodAnnotations)
 
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			convertedAnnotations, err := generator.GenerateFromSource(vmi, sourcePod)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -245,7 +210,7 @@ var _ = Describe("Annotations Generator", func() {
 
 			sourcePod := newStubVirtLauncherPod(vmi, sourcePodAnnotations)
 
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations, err := generator.GenerateFromSource(vmi, sourcePod)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -303,22 +268,13 @@ var _ = Describe("Annotations Generator", func() {
 }`
 		)
 
-		var clusterConfig *virtconfig.ClusterConfig
+		var clusterConfig stubClusterConfig
 
 		BeforeEach(func() {
-			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
-			kv.Namespace = kubevirtNamespace
-
-			kv.Spec.Configuration = v1.KubeVirtConfiguration{
-				NetworkConfiguration: &v1.NetworkConfiguration{
-					Binding: map[string]v1.InterfaceBindingPlugin{
-						deviceInfoPlugin:    {DownwardAPI: v1.DeviceInfo},
-						nonDeviceInfoPlugin: {},
-					},
-				},
+			clusterConfig.registeredPlugins = map[string]v1.InterfaceBindingPlugin{
+				deviceInfoPlugin:    {DownwardAPI: v1.DeviceInfo},
+				nonDeviceInfoPlugin: {},
 			}
-
-			clusterConfig = newClusterConfig(kv)
 		})
 
 		It("Should not generate the network info annotation when there are no networks", func() {
@@ -513,15 +469,6 @@ var _ = Describe("Annotations Generator", func() {
 				`]`
 		)
 
-		var clusterConfig *virtconfig.ClusterConfig
-
-		BeforeEach(func() {
-			kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
-			kv.Namespace = kubevirtNamespace
-
-			clusterConfig = newClusterConfig(kv)
-		})
-
 		It("Should not generate network attachment annotation when there are no networks", func() {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
@@ -532,7 +479,7 @@ var _ = Describe("Annotations Generator", func() {
 				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
 			})
 
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 
 			annotations := generator.GenerateFromActivePod(vmi, pod)
 			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
@@ -546,7 +493,7 @@ var _ = Describe("Annotations Generator", func() {
 			)
 
 			pod := newStubVirtLauncherPod(vmi, map[string]string{})
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 
 			annotations := generator.GenerateFromActivePod(vmi, pod)
 			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
@@ -568,7 +515,7 @@ var _ = Describe("Annotations Generator", func() {
 				)
 
 				pod := newStubVirtLauncherPod(vmi, podAnnotations)
-				generator := annotations.NewGenerator(clusterConfig)
+				generator := annotations.NewGenerator(stubClusterConfig{})
 
 				annotations := generator.GenerateFromActivePod(vmi, pod)
 				Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
@@ -609,7 +556,7 @@ var _ = Describe("Annotations Generator", func() {
 				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 			})
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 
 			annotations := generator.GenerateFromActivePod(vmi, pod)
 			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
@@ -628,7 +575,7 @@ var _ = Describe("Annotations Generator", func() {
 				podAnnotations := map[string]string{
 					networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
 				}
-				generator := annotations.NewGenerator(clusterConfig)
+				generator := annotations.NewGenerator(stubClusterConfig{})
 				annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
 
 				Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(multusNetworksAnnotation))
@@ -647,7 +594,7 @@ var _ = Describe("Annotations Generator", func() {
 					libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
 				)
 
-				generator := annotations.NewGenerator(clusterConfig)
+				generator := annotations.NewGenerator(stubClusterConfig{})
 				annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
 
 				Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusAnnotation))
@@ -677,7 +624,7 @@ var _ = Describe("Annotations Generator", func() {
 				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
 			}
 
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
 
 			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(multusNetworksAnnotationWithTwoNets))
@@ -699,7 +646,7 @@ var _ = Describe("Annotations Generator", func() {
 				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
 			}
 
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
 
 			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
@@ -719,7 +666,7 @@ var _ = Describe("Annotations Generator", func() {
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndTwoSecondaryNets,
 			}
 
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
 
 			const expectedMultusNetAttach = `[{"name":"other-net","namespace":"default","interface":"pod16477688c0e"}]`
@@ -738,18 +685,13 @@ var _ = Describe("Annotations Generator", func() {
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 			}
 
-			generator := annotations.NewGenerator(clusterConfig)
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
 
 			Expect(annotations).To(HaveKeyWithValue(networkv1.NetworkAttachmentAnnot, ""))
 		})
 	})
 })
-
-func newClusterConfig(kv *v1.KubeVirt) *virtconfig.ClusterConfig {
-	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-	return clusterConfig
-}
 
 func newMultusDefaultPodNetwork(name, networkAttachmentDefinitionName string) *v1.Network {
 	return &v1.Network{
@@ -771,4 +713,12 @@ func newStubVirtLauncherPod(vmi *v1.VirtualMachineInstance, podAnnotations map[s
 			Annotations: podAnnotations,
 		},
 	}
+}
+
+type stubClusterConfig struct {
+	registeredPlugins map[string]v1.InterfaceBindingPlugin
+}
+
+func (s stubClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
+	return s.registeredPlugins
 }

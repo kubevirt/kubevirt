@@ -52,7 +52,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					ignitionData := "ignition injected"
 					vmi := libvmops.RunVMIAndExpectLaunch(
 						libvmifact.NewFedora(libvmi.WithAnnotation(v1.IgnitionAnnotation, ignitionData)),
-						240)
+						libvmops.StartupTimeoutSecondsHuge)
 
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{

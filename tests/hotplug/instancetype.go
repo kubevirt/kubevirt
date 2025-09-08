@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, Serial, func() {
+var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators.SigCompute, decorators.SigComputeInstancetype, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, Serial, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
@@ -46,12 +46,15 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		originalKv := libkubevirt.GetCurrentKv(virtClient)
 		updateStrategy := &virtv1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []virtv1.WorkloadUpdateMethod{virtv1.WorkloadUpdateMethodLiveMigrate},
 		}
 		rolloutStrategy := pointer.P(virtv1.VMRolloutStrategyLiveUpdate)
-		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
+		err := config.RegisterKubevirtConfigChange(
+			config.WithWorkloadUpdateStrategy(updateStrategy),
+			config.WithVMRolloutStrategy(rolloutStrategy),
+		)
+		Expect(err).ToNot(HaveOccurred())
 
 		currentKv := libkubevirt.GetCurrentKv(virtClient)
 		config.WaitForConfigToBePropagatedToComponent(

@@ -9,14 +9,15 @@ var (
 
 	/* SIGs */
 
-	SigCompute           = Label("sig-compute")
-	SigOperator          = Label("sig-operator")
-	SigNetwork           = Label("sig-network")
-	SigStorage           = Label("sig-storage")
-	SigComputeRealtime   = Label("sig-compute-realtime")
-	SigComputeMigrations = Label("sig-compute-migrations")
-	SigMonitoring        = Label("sig-monitoring")
-	SigPerformance       = Label("sig-performance")
+	SigCompute             = Label("sig-compute")
+	SigOperator            = Label("sig-operator")
+	SigNetwork             = Label("sig-network")
+	SigStorage             = Label("sig-storage")
+	SigComputeInstancetype = Label("sig-compute-instancetype")
+	SigComputeRealtime     = Label("sig-compute-realtime")
+	SigComputeMigrations   = Label("sig-compute-migrations")
+	SigMonitoring          = Label("sig-monitoring")
+	SigPerformance         = Label("sig-performance")
 
 	/* HW */
 
@@ -47,8 +48,6 @@ var (
 	Networking                           = Label("Networking")
 	VMIlifecycle                         = Label("VMIlifecycle")
 	Expose                               = Label("Expose")
-	NativeSSH                            = Label("native-ssh")
-	ExcludeNativeSSH                     = Label("exclude-native-ssh")
 	Reenlightenment                      = Label("Reenlightenment")
 	TscFrequencies                       = Label("TscFrequencies")
 	HostDiskGate                         = Label("HostDiskGate")
@@ -67,6 +66,7 @@ var (
 	RequiresDualStackCluster             = Label("requires-dual-stack-cluster")
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
+	GuestAgentProbes                     = Label("guest-agent-probes")
 
 	/* Storage classes */
 
@@ -101,6 +101,10 @@ var (
 
 	WgS390x = Label("wg-s390x")
 	WgArm64 = Label("wg-arm64")
+
+	RequiresAMD64 = Label("requires-amd64")
+	RequiresS390X = Label("requires-s390x")
+	RequiresARM64 = Label("requires-arm64")
 
 	// Virtctl related tests
 	Virtctl = Label("virtctl")

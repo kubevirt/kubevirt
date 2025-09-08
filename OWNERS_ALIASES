@@ -46,6 +46,7 @@ aliases:
     - xpivarc
     - 0xFelix
   sig-test-approvers:
+    - akalenyu
     - kbidarkar
     - phoracek
     - enp0s3
@@ -87,6 +88,7 @@ aliases:
     - mhenriks
     - akalenyu
     - ShellyKa13
+    - awels
   sig-storage-reviewers:
     - awels
     - akalenyu
@@ -150,6 +152,7 @@ aliases:
   sig-observability-approvers:
     - sradco
     - machadovilaca
+    - avlitman
   sig-observability-reviewers:
     - machadovilaca
     - avlitman

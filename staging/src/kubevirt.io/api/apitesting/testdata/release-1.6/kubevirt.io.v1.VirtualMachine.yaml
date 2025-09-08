@@ -100,6 +100,7 @@ spec:
           matchLabels:
             matchLabelsKey: matchLabelsValue
         storageClassName: storageClassNameValue
+        volumeAttributesClassName: volumeAttributesClassNameValue
         volumeMode: volumeModeValue
         volumeName: volumeNameValue
       source:
@@ -161,8 +162,6 @@ spec:
           name: nameValue
           namespace: namespaceValue
         resources:
-          claims:
-          - name: nameValue
           limits:
             limitsKey: "0"
           requests:
@@ -282,6 +281,10 @@ spec:
                   - valuesValue
                 matchLabels:
                   matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
               namespaceSelector:
                 matchExpressions:
                 - key: keyValue
@@ -303,6 +306,10 @@ spec:
                 - valuesValue
               matchLabels:
                 matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
             namespaceSelector:
               matchExpressions:
               - key: keyValue
@@ -325,6 +332,10 @@ spec:
                   - valuesValue
                 matchLabels:
                   matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
               namespaceSelector:
                 matchExpressions:
                 - key: keyValue
@@ -346,6 +357,10 @@ spec:
                 - valuesValue
               matchLabels:
                 matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
             namespaceSelector:
               matchExpressions:
               - key: keyValue
@@ -451,8 +466,10 @@ spec:
           - name: nameValue
             virtiofs: {}
           gpus:
-          - deviceName: deviceNameValue
+          - claimName: claimNameValue
+            deviceName: deviceNameValue
             name: nameValue
+            requestName: requestNameValue
             tag: tagValue
             virtualGPUOptions:
               display:
@@ -460,8 +477,10 @@ spec:
                 ramFB:
                   enabled: true
           hostDevices:
-          - deviceName: deviceNameValue
+          - claimName: claimNameValue
+            deviceName: deviceNameValue
             name: nameValue
+            requestName: requestNameValue
             tag: tagValue
           inputs:
           - bus: busValue
@@ -498,14 +517,21 @@ spec:
             tag: tagValue
           logSerialConsole: true
           networkInterfaceMultiqueue: true
+          panicDevices:
+          - model: modelValue
           rng: {}
           sound:
             model: modelValue
             name: nameValue
           tpm:
+            enabled: true
             persistent: true
           useVirtioTransitional: true
+          video:
+            type: typeValue
           watchdog:
+            diag288:
+              action: actionValue
             i6300esb:
               action: actionValue
             name: nameValue
@@ -558,6 +584,7 @@ spec:
             enabled: true
         firmware:
           acpi:
+            msdmNameRef: msdmNameRefValue
             slicNameRef: slicNameRefValue
           bootloader:
             bios:
@@ -575,6 +602,8 @@ spec:
             kernelArgs: kernelArgsValue
           serial: serialValue
           uuid: uuidValue
+        ioThreads:
+          supplementalPoolThreadCount: 4294967269
         ioThreadsPolicy: ioThreadsPolicyValue
         launchSecurity:
           sev:
@@ -651,6 +680,10 @@ spec:
           host: hostValue
           port: portValue
         timeoutSeconds: -14
+      resourceClaims:
+      - name: nameValue
+        resourceClaimName: resourceClaimNameValue
+        resourceClaimTemplateName: resourceClaimTemplateNameValue
       schedulerName: schedulerNameValue
       startStrategy: startStrategyValue
       subdomain: subdomainValue
@@ -753,6 +786,7 @@ spec:
             name: nameValue
           secret:
             name: nameValue
+  updateVolumesStrategy: updateVolumesStrategyValue
 status:
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"
@@ -763,6 +797,13 @@ status:
     type: typeValue
   created: true
   desiredGeneration: -17
+  instancetypeRef:
+    controllerRevisionRef:
+      name: nameValue
+    inferFromVolume: inferFromVolumeValue
+    inferFromVolumeFailurePolicy: inferFromVolumeFailurePolicyValue
+    kind: kindValue
+    name: nameValue
   memoryDumpRequest:
     claimName: claimNameValue
     endTimestamp: "1988-01-01T01:01:01Z"
@@ -772,9 +813,17 @@ status:
     remove: true
     startTimestamp: "1986-01-01T01:01:01Z"
   observedGeneration: -18
+  preferenceRef:
+    controllerRevisionRef:
+      name: nameValue
+    inferFromVolume: inferFromVolumeValue
+    inferFromVolumeFailurePolicy: inferFromVolumeFailurePolicyValue
+    kind: kindValue
+    name: nameValue
   printableStatus: printableStatusValue
   ready: true
   restoreInProgress: restoreInProgressValue
+  runStrategy: runStrategyValue
   snapshotInProgress: snapshotInProgressValue
   startFailure:
     consecutiveFailCount: -20
@@ -834,3 +883,29 @@ status:
   - enabled: true
     name: nameValue
     reason: reasonValue
+  volumeUpdateState:
+    volumeMigrationState:
+      migratedVolumes:
+      - destinationPVCInfo:
+          accessModes:
+          - accessModesValue
+          capacity:
+            capacityKey: "0"
+          claimName: claimNameValue
+          filesystemOverhead: filesystemOverheadValue
+          preallocated: true
+          requests:
+            requestsKey: "0"
+          volumeMode: volumeModeValue
+        sourcePVCInfo:
+          accessModes:
+          - accessModesValue
+          capacity:
+            capacityKey: "0"
+          claimName: claimNameValue
+          filesystemOverhead: filesystemOverheadValue
+          preallocated: true
+          requests:
+            requestsKey: "0"
+          volumeMode: volumeModeValue
+        volumeName: volumeNameValue

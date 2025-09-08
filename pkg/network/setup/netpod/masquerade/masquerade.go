@@ -43,7 +43,7 @@ type nftable interface {
 type MasqPod struct {
 	nftable        nftable
 	istioEnabled   bool
-	migrationPorts []int
+	migrationPorts []uint
 }
 
 const (
@@ -85,7 +85,7 @@ func WithLegacyMigrationPorts() option {
 	const LibvirtDirectMigrationPort = 49152
 	const LibvirtBlockMigrationPort = 49153
 	return func(m *MasqPod) {
-		m.migrationPorts = []int{LibvirtDirectMigrationPort, LibvirtBlockMigrationPort}
+		m.migrationPorts = []uint{LibvirtDirectMigrationPort, LibvirtBlockMigrationPort}
 	}
 }
 
@@ -219,7 +219,7 @@ func (m MasqPod) setupNATByFamily(family nft.IPFamily, podIfaceSpec, bridgeIface
 	return nil
 }
 
-func (m MasqPod) skipForwardPorts(family nft.IPFamily, ports ...int) error {
+func (m MasqPod) skipForwardPorts(family nft.IPFamily, ports ...uint) error {
 	loopback := ipLoopback(family)
 	fmtPorts := formatPorts(ports)
 	portsSpec := fmt.Sprintf("{ %s }", strings.Join(fmtPorts, ", "))
@@ -232,10 +232,10 @@ func (m MasqPod) skipForwardPorts(family nft.IPFamily, ports ...int) error {
 	return nil
 }
 
-func formatPorts(ports []int) []string {
+func formatPorts(ports []uint) []string {
 	var formattedPorts []string
 	for _, p := range ports {
-		formattedPorts = append(formattedPorts, strconv.Itoa(p))
+		formattedPorts = append(formattedPorts, fmt.Sprintf("%d", p))
 	}
 	return formattedPorts
 }

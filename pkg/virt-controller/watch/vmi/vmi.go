@@ -42,7 +42,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vsock"
 )
@@ -52,7 +51,7 @@ const (
 	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 )
 
-func NewController(templateService services.TemplateService,
+func NewController(templateService templateService,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
@@ -163,6 +162,14 @@ func (i informalSyncError) RequiresRequeue() bool {
 	return false
 }
 
+type templateService interface {
+	RenderLaunchManifest(vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error)
+	RenderLaunchManifestNoVm(*virtv1.VirtualMachineInstance) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volumes []*virtv1.Volume, ownerPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentTriggerPodTemplate(volume *virtv1.Volume, ownerPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, pvcName string, isBlock, tempPod bool) (*k8sv1.Pod, error)
+	GetLauncherImage() string
+}
+
 type annotationsGenerator interface {
 	GenerateFromActivePod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) map[string]string
 }
@@ -182,7 +189,7 @@ type migrationEvaluator interface {
 }
 
 type Controller struct {
-	templateService         services.TemplateService
+	templateService         templateService
 	clientset               kubecli.KubevirtClient
 	Queue                   workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer              cache.Indexer

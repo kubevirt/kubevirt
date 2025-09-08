@@ -432,9 +432,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ sig-storage ]]; then
     label_filter='(sig-storage)'
   elif [[ $TARGET =~ wg-s390x ]]; then
-    label_filter='(wg-s390x)'
+    label_filter='(wg-s390x) && !(requires-amd64)'
   elif [[ $TARGET =~ wg-arm64 ]]; then
-    label_filter='(wg-arm64 && !(ACPI,requires-two-schedulable-nodes,cpumodel))'
+    label_filter='(wg-arm64 && !(ACPI,requires-two-schedulable-nodes,cpumodel,requires-two-worker-nodes-with-cpu-manager,requires-amd64))'
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='(VGPU)'
   elif [[ $TARGET =~ sev.* ]]; then
@@ -480,6 +480,14 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     add_to_label_filter "(!Sysprep)" "&&"
   fi
 
+  if [[ ! $TARGET =~ wg-s390x ]]; then
+    add_to_label_filter "(!requires-s390x)" "&&"
+  fi
+
+  if [[ ! $TARGET =~ wg-arm64 ]]; then
+    add_to_label_filter "(!requires-arm64)" "&&"
+  fi
+
   rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
   if [[ "${rwofs_sc}" == "local" ]]; then
     # local is a primitive non CSI storage class that doesn't support expansion
@@ -493,9 +501,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   fi
 
 fi
-
-# We do not want to run tests which exclude native SSH functionality
-add_to_label_filter '(!exclude-native-ssh)' '&&'
 
 # Single-node single-replica test lanes obviously can't run live migrations,
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
