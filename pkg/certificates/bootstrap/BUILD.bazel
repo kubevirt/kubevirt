@@ -23,6 +23,7 @@ go_test(
         "cert-manager_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",

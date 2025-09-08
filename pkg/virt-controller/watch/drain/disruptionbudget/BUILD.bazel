@@ -30,6 +30,7 @@ go_test(
         "disruptionbudget_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/controller/testing:go_default_library",
         "//pkg/testutils:go_default_library",

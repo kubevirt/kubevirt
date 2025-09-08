@@ -25,6 +25,7 @@ go_test(
         "multipath_monitor_suite_test.go",
         "multipath_monitor_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/safepath:go_default_library",

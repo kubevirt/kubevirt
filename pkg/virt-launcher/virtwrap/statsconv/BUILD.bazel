@@ -22,6 +22,7 @@ go_test(
         "stats_suite_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/virt-launcher/virtwrap/stats:go_default_library",
         "//pkg/virt-launcher/virtwrap/statsconv/util:go_default_library",

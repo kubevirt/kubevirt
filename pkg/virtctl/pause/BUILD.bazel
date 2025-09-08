@@ -22,6 +22,7 @@ go_test(
         "pause_suite_test.go",
         "pause_test.go",
     ],
+    race = "on",
     deps = [
         "//pkg/virtctl/testing:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
