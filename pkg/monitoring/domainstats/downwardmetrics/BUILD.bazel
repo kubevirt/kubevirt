@@ -34,6 +34,7 @@ go_test(
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

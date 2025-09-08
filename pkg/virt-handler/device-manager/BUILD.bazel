@@ -53,6 +53,7 @@ go_test(
         "socket_device_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",

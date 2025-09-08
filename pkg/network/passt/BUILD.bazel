@@ -22,6 +22,7 @@ go_test(
         "passt_suite_test.go",
         "repair_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/libvmi:go_default_library",

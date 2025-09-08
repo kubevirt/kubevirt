@@ -50,6 +50,7 @@ go_test(
         "vcpu_metrics_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/monitoring/metrics/testing:go_default_library",
         "//pkg/monitoring/metrics/virt-handler/collector:go_default_library",

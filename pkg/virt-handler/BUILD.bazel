@@ -99,6 +99,7 @@ go_test(
         "vm_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     tags = ["cov"],
     deps = [
         "//pkg/certificates:go_default_library",

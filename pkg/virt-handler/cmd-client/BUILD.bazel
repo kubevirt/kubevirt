@@ -37,6 +37,7 @@ go_test(
         "cmd_client_suite_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",

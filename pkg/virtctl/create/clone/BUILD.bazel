@@ -23,6 +23,7 @@ go_test(
         "clone_suite_test.go",
         "clone_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/virtctl/testing:go_default_library",

@@ -21,6 +21,7 @@ go_test(
         "configurator_test.go",
         "domain_suite_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

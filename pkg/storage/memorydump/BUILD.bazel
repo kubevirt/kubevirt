@@ -25,6 +25,7 @@ go_test(
         "memorydump_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",

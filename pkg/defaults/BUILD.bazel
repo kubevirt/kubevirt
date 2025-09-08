@@ -34,6 +34,7 @@ go_test(
         "defaults_suite_test.go",
         "defaults_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/libdv:go_default_library",

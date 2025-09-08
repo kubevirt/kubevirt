@@ -31,6 +31,7 @@ go_test(
         "types_suite_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/containerizeddataimporter/fake:go_default_library",

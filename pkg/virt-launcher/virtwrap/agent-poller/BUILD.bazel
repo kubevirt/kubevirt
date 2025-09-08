@@ -27,6 +27,7 @@ go_test(
         "agent_poller_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/testing:go_default_library",

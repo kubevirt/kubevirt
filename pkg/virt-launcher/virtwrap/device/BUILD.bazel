@@ -22,6 +22,7 @@ go_test(
         "device_suite_test.go",
         "pciaddress_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

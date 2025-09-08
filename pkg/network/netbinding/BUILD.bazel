@@ -23,6 +23,7 @@ go_test(
         "netbinding_suite_test.go",
         "netbinding_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/hooks:go_default_library",

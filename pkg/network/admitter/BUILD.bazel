@@ -37,6 +37,7 @@ go_test(
         "passt_test.go",
         "slirp_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/libvmi:go_default_library",

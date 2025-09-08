@@ -30,6 +30,7 @@ go_test(
         "memorydump_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/libvmi:go_default_library",
         "//pkg/virtctl/testing:go_default_library",

@@ -32,6 +32,7 @@ go_test(
         "vm_suite_test.go",
         "vm_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/pointer:go_default_library",

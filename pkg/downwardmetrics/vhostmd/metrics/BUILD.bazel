@@ -15,6 +15,7 @@ go_test(
         "metrics_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/downwardmetrics/vhostmd/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",

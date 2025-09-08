@@ -13,6 +13,7 @@ go_test(
         "patch_suite_test.go",
         "patch_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
