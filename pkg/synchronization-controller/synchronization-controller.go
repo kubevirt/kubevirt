@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -678,19 +677,6 @@ func (s *SynchronizationController) getVMIFromMigration(migration *virtv1.Virtua
 }
 
 func (s *SynchronizationController) getLocalSynchronizationAddress() (string, error) {
-	myIp := os.Getenv(MyPodIP)
-	if s.ip != "" && s.ip == myIp {
-		names, err := net.LookupAddr(myIp)
-		if err != nil {
-			log.Log.Errorf("Error from lookupAddr %v", err)
-		}
-		for _, name := range names {
-			log.Log.V(4).Infof("found DNS name for my IP address: %s", name)
-			return fmt.Sprintf("%s:%d", name, s.bindPort), nil
-		}
-		log.Log.Info("No names from DNS, returning my ip address")
-		return fmt.Sprintf("%s:%d", myIp, s.bindPort), nil
-	}
 	if s.ip != "" {
 		return fmt.Sprintf("%s:%d", s.ip, s.bindPort), nil
 	}
