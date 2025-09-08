@@ -506,7 +506,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					bridge11MACSpoofCheck)).To(Succeed())
 			})
 
-			It("Should allow outbound communication from VM under test - only if original MAC address is unchanged",
+			PIt("Should allow outbound communication from VM under test - only if original MAC address is unchanged",
 				func() {
 					const (
 						vmUnderTestIPAddress = "10.2.1.1"

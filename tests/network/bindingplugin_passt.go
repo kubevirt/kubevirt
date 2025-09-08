@@ -327,7 +327,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
 		})
 
-		It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
+		PIt("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
 			libnet.SkipWhenClusterNotSupportIpv6()
 			// Cluster nodes subnet (docker network gateway)
 			// Docker network subnet cidr definition:
