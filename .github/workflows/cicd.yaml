@@ -32,7 +32,6 @@ jobs:
 
       - name: Build Images
         run: |
-          cat $HOME/.docker/config.json
           make bazel-build-images
 
 
