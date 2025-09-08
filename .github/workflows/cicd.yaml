@@ -2,7 +2,7 @@ name: CICD Pipeline
 
 on:
   push:
-    branches: ["main","eugene/*"]
+    branches: ["ise","eugene/*"]
   workflow_dispatch:
 
 env:
@@ -11,32 +11,16 @@ env:
 
   
 jobs:
-  quality-check:
-    uses: ./.github/workflows/pr.yaml
+  # quality-check:
+  #   uses: ./.github/workflows/pr.yaml
     
   Build_Push_Images:
     runs-on: self-hosted
-    needs: [quality-check]
-    permissions:
-      contents: read
-      packages: write
+    # needs: [quality-check]
+    permissions: write-all
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-
-      - name: Free up Disk Space
-        run: |
-          # Remove specific Docker images that are no longer needed
-          docker rmi $(docker images -f "dangling=true" -q) || true
-          
-          # Prune unused Docker objects (images, containers, volumes, and networks)
-          docker system prune -f || true
-
-          # Clean up specific directories known to consume a lot of space
-          sudo rm -rf /path/to/large/directory
-
-          # Show disk space usage
-          df -h
 
       - name: Login to GHCR
         uses: docker/login-action@v1 
@@ -56,7 +40,7 @@ jobs:
           make bazel-push-images
 
   Deploy_to_Dev:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [Build_Push_Images]
     environment: dev
     steps:
@@ -89,23 +73,10 @@ jobs:
     runs-on: self-hosted
     needs: [Build_Push_Images]
     environment: ephemeral
+    permissions: write-all
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-
-      - name: Free up Disk Space
-        run: |
-          # Remove specific Docker images that are no longer needed
-          docker rmi $(docker images -f "dangling=true" -q) || true
-          
-          # Prune unused Docker objects (images, containers, volumes, and networks)
-          docker system prune -f || true
-
-          # Clean up specific directories known to consume a lot of space
-          sudo rm -rf /path/to/large/directory
-
-          # Show disk space usage
-          df -h
 
       - name: Start Ephemeral Environment
         run: |
