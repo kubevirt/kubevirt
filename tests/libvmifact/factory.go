@@ -42,7 +42,7 @@ const (
 // This image has tooling for the guest agent, stress, SR-IOV and more.
 func NewFedora(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	fedoraOptions := []libvmi.Option{
-		libvmi.WithMemoryRequest("512Mi"),
+		libvmi.WithMemoryRequest("1024Mi"),
 		libvmi.WithRng(),
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
