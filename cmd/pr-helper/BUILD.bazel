@@ -9,12 +9,17 @@ pkg_tar(
 )
 
 pkg_tar(
+    name = "get-version",
+    srcs = ["//:get-version"],
+    package_dir = "/",
+)
+
+pkg_tar(
     name = "entrypoint",
     srcs = [":entrypoint.sh"],
     mode = "0700",
     package_dir = "/",
 )
-
 
 oci_image(
     name = "version-container",

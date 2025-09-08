@@ -3,15 +3,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 
 # See https://github.com/bazelbuild/bazel/issues/7899
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
-load("@bazeldnf//:def.bzl", "bazeldnf")
+load("@bazeldnf//bazeldnf:defs.bzl", "bazeldnf")
 load("@buildifier_prebuilt//:rules.bzl", "buildifier")
 load("@com_github_ash2k_bazel_tools//goimports:def.bzl", "goimports")
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_bundle",
-    "container_image",
-    "container_push",
-)
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 
 # heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
@@ -21,6 +15,7 @@ load(
     container_repositories = "repositories",
 )
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "nogo")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 py_runtime(
@@ -174,12 +169,6 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_bundle",
-)
-load("@rules_oci//oci:defs.bzl", "oci_image")
-
 oci_image(
     name = "passwd-image",
     base = select({
@@ -196,22 +185,6 @@ config_setting(
     name = "release",
     values = {"define": "release=true"},
 )
-
-# This is for generating a bundle of the core components for external processing
-container_bundle(
-    name = "virt-components-bundle",
-    images = {
-        "$(container_prefix)/$(image_prefix)virt-api:$(container_tag)": "//cmd/virt-api:virt-api-image",
-        "$(container_prefix)/$(image_prefix)virt-controller:$(container_tag)": "//cmd/virt-controller:virt-controller-image",
-        "$(container_prefix)/$(image_prefix)virt-handler:$(container_tag)": "//cmd/virt-handler:virt-handler-image",
-        "$(container_prefix)/$(image_prefix)virt-launcher:$(container_tag)": "//cmd/virt-launcher:virt-launcher-image",
-        "$(container_prefix)/$(image_prefix)virt-operator:$(container_tag)": "//cmd/virt-operator:virt-operator-image",
-    },
-)
-
-# heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
-load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
-load("@rules_oci//oci:defs.bzl", "oci_push")
 
 # we need to push virt images with the rule from container:container in order to get the digest file
 oci_push(

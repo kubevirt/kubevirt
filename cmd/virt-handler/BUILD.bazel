@@ -1,10 +1,7 @@
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
 load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
@@ -70,10 +67,6 @@ go_binary(
     visibility = ["//visibility:public"],
     x_defs = version_x_defs(),
 )
-
-load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 passwd_entry(
     name = "root-user",
@@ -143,12 +136,6 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "virt-launcher-cil-tar",
-    srcs = [":virt_launcher.cil"],
-    package_dir = "/",
-)
-
-pkg_tar(
     name = "get-version-tar",
     srcs = ["//:get-version"],
     package_dir = "/",
@@ -163,8 +150,6 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-load("@rules_oci//oci:defs.bzl", "oci_image")
-
 oci_image(
     name = "version-container",
     base = select({
@@ -177,21 +162,18 @@ oci_image(
             "//rpm:handlerbase_aarch64",
             ":passwd-tar",
             ":nsswitch-tar",
-            ":virt-launcher-cil-tar",
             ":get-version-tar",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             "//rpm:handlerbase_s390x",
             ":passwd-tar",
             ":nsswitch-tar",
-            ":virt-launcher-cil-tar",
             ":get-version-tar",
         ],
         "//conditions:default": [
             "//rpm:handlerbase_x86_64",
             ":passwd-tar",
             ":nsswitch-tar",
-            ":virt-launcher-cil-tar",
             ":get-version-tar",
         ],
     }),

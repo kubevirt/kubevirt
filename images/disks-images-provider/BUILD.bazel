@@ -1,3 +1,4 @@
+load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 genrule(
@@ -46,15 +47,8 @@ pkg_tar(
     package_dir = "/",
 )
 
-load("@rules_oci//oci:defs.bzl", "oci_image")
-
 oci_image(
     name = "disks-images-provider-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
     base = "//images:kubevirt-testing-base",
     entrypoint = ["/entrypoint.sh"],
     tars = [

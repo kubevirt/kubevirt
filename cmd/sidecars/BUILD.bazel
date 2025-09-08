@@ -1,5 +1,6 @@
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 go_library(
     name = "go_default_library",
@@ -26,7 +27,6 @@ go_binary(
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )
-
 
 pkg_tar(
     name = "sidecar-shim-tar",
