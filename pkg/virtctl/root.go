@@ -166,19 +166,15 @@ func Execute() int {
 
 func checkClientServerVersion(ctx context.Context) error {
 	raw_version := client_version.Get().GitVersion
-	// raw_version might look like "v0.0.0-master+$Format:%h$", so we need to trim it to a valid semver
-	if strings.Contains(raw_version, "+") {
-		raw_version = strings.Split(raw_version, "+")[0]
-	}
-	if strings.Contains(raw_version, "-") {
-		raw_version = strings.Split(raw_version, "-")[0]
-	}
 	raw_version = strings.TrimPrefix(raw_version, "v")
-
-	clientSemVer, err := semver.NewVersion(raw_version)
-	if err != nil {
-		return err
+	var clientSemVer semver.Version
+	if raw_version != "" {
+		var err error
+		clientSemVer, err = semver.NewVersion(raw_version)
+		if err != nil {
+			return err
 	}
+
 
 	virtClient, _, _, err := clientconfig.ClientAndNamespaceFromContext(ctx)
 	if err != nil {
@@ -193,7 +189,7 @@ func checkClientServerVersion(ctx context.Context) error {
 		return err
 	}
 
-	if clientSemVer.Major != serverSemVer.Major || clientSemVer.Minor != serverSemVer.Minor {
+	if clientSemVer==nil || clientSemVer.Major != serverSemVer.Major || clientSemVer.Minor != serverSemVer.Minor {
 		return fmt.Errorf("You are using a client virtctl version that is different from the KubeVirt version running in the cluster\nClient Version: %s\nServer Version: %s\n", client_version.Get(), *serverVersion)
 	}
 
