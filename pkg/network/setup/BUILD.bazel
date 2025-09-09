@@ -20,7 +20,6 @@ go_library(
         "//pkg/network/driver:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/network/link:go_default_library",
-        "//pkg/network/namescheme:go_default_library",
         "//pkg/network/netns:go_default_library",
         "//pkg/network/setup/netpod:go_default_library",
         "//pkg/network/setup/netpod/masquerade:go_default_library",
