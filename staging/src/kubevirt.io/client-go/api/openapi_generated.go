@@ -26500,6 +26500,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationSpec(ref commo
 							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTarget"),
 						},
 					},
+					"priority": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Priority of the migration. This can be one of `system-critical`, `user-triggered`, `system-maintenance`.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
