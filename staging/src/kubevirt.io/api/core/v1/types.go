@@ -1642,6 +1642,14 @@ type VirtualMachineInstanceMigrationList struct {
 	Items           []VirtualMachineInstanceMigration `json:"items"`
 }
 
+type MigrationPriority string
+
+const (
+	PrioritySystemCritical    MigrationPriority = "system-critical"
+	PriorityUserTriggered     MigrationPriority = "user-triggered"
+	PrioritySystemMaintenance MigrationPriority = "system-maintenance"
+)
+
 type VirtualMachineInstanceMigrationSpec struct {
 	// The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace
 	VMIName string `json:"vmiName,omitempty" valid:"required"`
@@ -1659,6 +1667,9 @@ type VirtualMachineInstanceMigrationSpec struct {
 	SendTo *VirtualMachineInstanceMigrationSource `json:"sendTo,omitempty"`
 	// If receieve is specified, this VirtualMachineInstanceMigration will be considered the target
 	Receive *VirtualMachineInstanceMigrationTarget `json:"receive,omitempty"`
+	// Priority of the migration. This can be one of `system-critical`, `user-triggered`, `system-maintenance`.
+	// +optional
+	Priority *MigrationPriority `json:"priority,omitempty"`
 }
 
 type VirtualMachineInstanceMigrationSource struct {
