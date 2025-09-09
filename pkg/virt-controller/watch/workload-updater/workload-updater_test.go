@@ -3,6 +3,7 @@ package workloadupdater
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -14,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8svalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -656,6 +658,36 @@ var _ = Describe("Workload Updater", func() {
 			// was completed, but the migration object was still in running phase and it was accidentally deleted.
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstancemigrations")).To(BeEmpty())
 		})
+	})
+
+	Context("workload volumes update", func() {
+		DescribeTable("should use correct label value for filtering", func(vmName, expectedLabelValue string) {
+			vmi := newVirtualMachineInstance(vmName, true, "madeup")
+			condition := v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceVolumesChange,
+				Status: k8sv1.ConditionTrue,
+			}
+			virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &condition)
+			pod := newLauncherPodForVMI(vmi)
+			kv := newKubeVirt(1)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
+
+			addKubeVirt(kv)
+			controller.vmiStore.Add(vmi)
+			controller.podIndexer.Add(pod)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
+
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			migrations, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrations.Items).To(HaveLen(1))
+			Expect(migrations.Items[0].Spec.VMIName).To(Equal(vmName))
+			Expect(migrations.Items[0].Labels[v1.VolumesUpdateMigration]).To(BeEquivalentTo(expectedLabelValue))
+		},
+			Entry("with regular name", "testvm", "testvm"),
+			Entry("with long name", strings.Repeat("a", k8svalidation.DNS1035LabelMaxLength+1), "1234"),
+		)
 	})
 
 	AfterEach(func() {
