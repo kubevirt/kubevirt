@@ -225,6 +225,9 @@ func NewController(templateService templateService,
 	_, err = pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: c.addPVC,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	_, err = resourceQuotaInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateResourceQuota,
