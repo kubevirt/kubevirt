@@ -95,9 +95,9 @@ const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
 // given to active migrations. When a pending migration gets re-enqueued for
 // capacity reasons, we need to ensure it doesn't get re-processed as long as
 // capacity hasn't freed up, or it will delay processing of active migrations.
-// Active migrations default to a priority of 0. -100 leaves plenty of room
-// for potential future "semi-low" priority values.
-const lowPriority = -100
+// The informer will preserve priorities above 0 but bump negative ones to 0.
+const pendingPriority = -100
+const activePriority = 100
 
 var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 
@@ -976,7 +976,7 @@ func (c *Controller) handleMigrationBackoff(key string, vmi *virtv1.VirtualMachi
 
 	if backoff > 0 {
 		log.Log.Object(vmi).Errorf("vmi in migration backoff, re-enqueueing after %v", backoff)
-		c.Queue.AddAfter(key, backoff)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority, After: backoff}, key)
 		return migrationBackoffError
 	}
 	return nil
@@ -1186,11 +1186,11 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 
 	// Don't start new migrations if we wait for cache updates on migration target pods
 	if c.podExpectations.AllPendingCreations() > 0 {
-		c.Queue.AddAfter(key, 1*time.Second)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority, After: 1 * time.Second}, key)
 		return nil
 	} else if controller.VMIActivePodsCount(vmi, c.podIndexer) > 1 {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for migration because there are already multiple pods running for vmi %s/%s", vmi.Namespace, vmi.Name)
-		c.Queue.AddAfter(key, 1*time.Second)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority, After: 1 * time.Second}, key)
 		return nil
 
 	}
@@ -1205,7 +1205,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel migration count [%d] is currently at the global cluster limit.", vmi.Namespace, vmi.Name, len(runningMigrations))
 		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
-		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: lowPriority, After: 5 * time.Second}, key)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pendingPriority, After: 5 * time.Second}, key)
 		return nil
 	}
 
@@ -1215,7 +1215,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 		// XXX: Make this configurable, think about inbound migration limit, bandwidth per migration, and so on.
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
 		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
-		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: lowPriority, After: 5 * time.Second}, key)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pendingPriority, After: 5 * time.Second}, key)
 		return nil
 	}
 
@@ -1427,7 +1427,8 @@ func (c *Controller) handlePendingPodTimeout(migration *virtv1.VirtualMachineIns
 			return c.deleteTimedOutTargetPod(migration, vmi, pod, fmt.Sprintf("unschedulable pod %s/%s timeout period exceeded", pod.Namespace, pod.Name))
 		} else {
 			// Make sure we check this again after some time
-			c.Queue.AddAfter(migrationKey, time.Second*time.Duration(unschedulableTimeout-secondsSpentPending))
+			delay := time.Second * time.Duration(unschedulableTimeout-secondsSpentPending)
+			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority, After: delay}, migrationKey)
 		}
 	}
 
@@ -1435,7 +1436,8 @@ func (c *Controller) handlePendingPodTimeout(migration *virtv1.VirtualMachineIns
 		return c.deleteTimedOutTargetPod(migration, vmi, pod, fmt.Sprintf("pending pod %s/%s timeout period exceeded", pod.Namespace, pod.Name))
 	} else {
 		// Make sure we check this again after some time
-		c.Queue.AddAfter(migrationKey, time.Second*time.Duration(catchAllTimeout-secondsSpentPending))
+		delay := time.Second * time.Duration(catchAllTimeout-secondsSpentPending)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority, After: delay}, migrationKey)
 	}
 
 	return nil
@@ -1682,7 +1684,14 @@ func (c *Controller) enqueueMigration(obj interface{}) {
 		logger.Object(migration).Reason(err).Error("Failed to extract key from migration.")
 		return
 	}
-	c.Queue.Add(key)
+	// If the key is already in the queue at active priority or higher, it will keep that priority.
+	// If the key is already in the queue at pending priority, it will be bumped to 0 (still below all active ones).
+	// If the key is not present in the queue, it will default to the active priority if the migration is running, 0 otherwise.
+	if migration.Status.Phase == virtv1.MigrationRunning {
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority}, key)
+	} else {
+		c.Queue.Add(key)
+	}
 }
 
 func (c *Controller) getControllerOf(pod *k8sv1.Pod) *v1.OwnerReference {
@@ -1743,7 +1752,7 @@ func (c *Controller) addPod(obj interface{}) {
 	}
 	log.Log.V(4).Object(pod).Infof("Pod created for key %s", migrationKey)
 	c.podExpectations.CreationObserved(migrationKey)
-	c.enqueueMigration(migration)
+	c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority}, migrationKey)
 }
 
 // When a pod is updated, figure out what migration manages it and wake them
@@ -1784,8 +1793,11 @@ func (c *Controller) updatePod(old, cur interface{}) {
 		return
 	}
 	log.Log.V(4).Object(curPod).Infof("Pod updated")
-	c.enqueueMigration(migration)
-	return
+	migrationKey, err := controller.KeyFunc(migration)
+	if err != nil {
+		return
+	}
+	c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority}, migrationKey)
 }
 
 // When a resourceQuota is updated, figure out if there are pending migration in the namespace
