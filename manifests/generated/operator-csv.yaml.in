@@ -1357,6 +1357,7 @@ spec:
               labels:
                 kubevirt.io: virt-operator
                 name: virt-operator
+                np.kubevirt.io/allow-access-cluster-services: "true"
                 prometheus.kubevirt.io: "true"
               name: virt-operator
             spec:
