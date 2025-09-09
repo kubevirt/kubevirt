@@ -1262,20 +1262,17 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 		return nil
 	}
 	bs := backendstorage.NewBackendStorage(c.clientset, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
-	vmiKey, err := controller.KeyFunc(vmi)
-	if err != nil {
-		return err
-	}
-	c.pvcExpectations.ExpectCreations(vmiKey, 1)
+	key := controller.MigrationKey(migration)
+	c.pvcExpectations.ExpectCreations(key, 1)
 	backendStoragePVC, err := bs.CreatePVCForMigrationTarget(vmi, migration.Name)
 	if err != nil {
-		c.pvcExpectations.CreationObserved(vmiKey)
+		c.pvcExpectations.CreationObserved(key)
 		return err
 	}
 	migration.Status.MigrationState.TargetPersistentStatePVCName = backendStoragePVC.Name
 	if migration.Status.MigrationState.SourcePersistentStatePVCName == migration.Status.MigrationState.TargetPersistentStatePVCName {
 		// The PVC is shared between source and target, satisfy the expectation since the creation will never happen
-		c.pvcExpectations.CreationObserved(vmiKey)
+		c.pvcExpectations.CreationObserved(key)
 	}
 
 	return nil
