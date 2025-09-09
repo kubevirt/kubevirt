@@ -476,6 +476,7 @@ var _ = Describe("Annotations Generator", func() {
 				`{"name":"some-net","namespace":"default","interface":"podb1f51a511f1"},` +
 				`{"name":"external-entity","namespace":"default"}]`
 
+			istioNetworkAnnotationInSlashFormat = "default/istio-cni"
 		)
 
 		It("Should not generate network attachment annotation when there are no networks", func() {
@@ -786,6 +787,23 @@ var _ = Describe("Annotations Generator", func() {
 					},
 				},
 			})
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
+		})
+
+		It("Should preserve added elements added in the old namespace/name format by external entities", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: istioNetworkAnnotationInSlashFormat,
+			}
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
 
 			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))

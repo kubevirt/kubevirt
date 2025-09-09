@@ -21,8 +21,12 @@ package annotations
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
+	"strings"
+	"syscall"
 
 	k8scorev1 "k8s.io/api/core/v1"
 
@@ -259,14 +263,76 @@ func ifacesAndNetsForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v
 }
 
 func parseAnnotation(s string) ([]map[string]interface{}, error) {
-	var annotation []map[string]interface{}
+	var networks []map[string]interface{}
 	if s == "" {
-		return annotation, nil
+		return networks, nil
 	}
-	if err := json.Unmarshal([]byte(s), &annotation); err != nil {
-		return nil, err
+
+	if strings.ContainsAny(s, "[{\"") {
+		if err := json.Unmarshal([]byte(s), &networks); err != nil {
+			return nil, err
+		}
+	} else {
+		for _, item := range strings.Split(s, ",") {
+			item = strings.TrimSpace(item)
+
+			netNsName, networkName, netIfName, err := parsePodNetworkObjectName(item)
+			if err != nil {
+				return nil, err
+			}
+
+			networks = append(networks, map[string]interface{}{
+				"name":      networkName,
+				"namespace": netNsName,
+				"interface": netIfName,
+			})
+		}
 	}
-	return annotation, nil
+	return networks, nil
+}
+
+func parsePodNetworkObjectName(s string) (ns, nwName, nwIface string, err error) {
+	var netNsName string
+	var netIfName string
+	var networkName string
+
+	const (
+		noOfSegmentsWithNs   = 2
+		noOsSegmentsWithNoNs = 1
+	)
+	slashItems := strings.Split(s, "/")
+	if len(slashItems) == noOfSegmentsWithNs {
+		netNsName = strings.TrimSpace(slashItems[0])
+		networkName = slashItems[1]
+	} else if len(slashItems) == noOsSegmentsWithNoNs {
+		networkName = slashItems[0]
+	} else {
+		return "", "", "", errors.New("invalid annotation: " + "s")
+	}
+
+	atItems := strings.Split(networkName, "@")
+	networkName = strings.TrimSpace(atItems[0])
+	if len(atItems) == noOfSegmentsWithNs {
+		netIfName = strings.TrimSpace(atItems[1])
+	} else if len(atItems) != noOsSegmentsWithNoNs {
+		return "", "", "", errors.New("invalid annotation: " + "s")
+	}
+
+	allItems := []string{netNsName, networkName}
+	expr := regexp.MustCompile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+	for i := range allItems {
+		matched := expr.MatchString(allItems[i])
+		if !matched && len([]rune(allItems[i])) > 0 {
+			return "", "", "", errors.New("failed to parse one or more items did not match comma-delimited format" + s)
+		}
+	}
+
+	if netIfName != "" {
+		if len(netIfName) > (syscall.IFNAMSIZ-1) || strings.ContainsAny(netIfName, " \t\n\v\f\r/") {
+			return "", "", "", errors.New("failed to parse interface name: must be less than 15 chars and not contain '/' or spaces." + netIfName)
+		}
+	}
+	return netNsName, networkName, netIfName, nil
 }
 
 func makeLookupMap(annotItemsArr []map[string]interface{}) map[string]map[string]interface{} {
@@ -284,7 +350,6 @@ func ifacesAndNetsToRemoveFromMultusAnnotation(vmi *v1.VirtualMachineInstance) (
 		return iface.State != v1.InterfaceStateAbsent
 	})
 
-	// find what to unplug
 	ifacesToHotUnplug := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.State == v1.InterfaceStateAbsent
 	})
