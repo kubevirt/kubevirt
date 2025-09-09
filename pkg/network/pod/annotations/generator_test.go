@@ -471,6 +471,11 @@ var _ = Describe("Annotations Generator", func() {
 			multusNetworksAnnotationWithPasstAndIstio = `[` +
 				`{"name":"netbindingpasst","namespace":"default","cni-args":{"logicNetworkName":"default"}},` +
 				`{"name": "istio-cni", "namespace": "default"}]`
+
+			multusNetworksAnnotationWithOneSecondaryNetAndExternalEntry = `[` +
+				`{"name":"some-net","namespace":"default","interface":"podb1f51a511f1"},` +
+				`{"name":"external-entity","namespace":"default"}]`
+
 		)
 
 		It("Should not generate network attachment annotation when there are no networks", func() {
@@ -724,6 +729,43 @@ var _ = Describe("Annotations Generator", func() {
 
 			Expect(annotations).To(HaveKeyWithValue(networkv1.NetworkAttachmentAnnot, ""))
 		})
+
+		It("Should preserve added elements added by external entities in case of hot unplug of all interfaces", func() {
+			iface1WithStateAbsent := v1.DefaultBridgeNetworkInterface()
+			iface2WithStateAbsent := libvmi.InterfaceDeviceWithBridgeBinding(network1Name)
+			iface2WithStateAbsent.State = v1.InterfaceStateAbsent
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*iface1WithStateAbsent),
+				libvmi.WithInterface(iface2WithStateAbsent),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network1Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+					),
+				),
+			)
+
+			expected := `[` +
+				`{"name": "external-entity", "namespace": "default"}]`
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotationWithOneSecondaryNetAndExternalEntry,
+			}
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations).To(HaveKey(networkv1.NetworkAttachmentAnnot))
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expected))
+		})
+
 		It("Should preserve added elements added by external entities", func() {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
