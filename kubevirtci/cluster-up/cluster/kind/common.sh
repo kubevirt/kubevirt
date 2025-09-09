@@ -195,6 +195,12 @@ function _fix_node_labels() {
         _kubectl label node $node kubevirt.io/schedulable=true
         _kubectl label node $node node-role.kubernetes.io/worker=""
     done
+
+    for node in $(_kubectl get nodes --no-headers -o custom-columns=":metadata.name"); do
+        $CRI_BIN exec -t $node bash -c "echo 'fs.inotify.max_user_watches=1048576' >> /etc/sysctl.conf"
+        $CRI_BIN exec -t $node bash -c "echo 'fs.inotify.max_user_instances=512' >> /etc/sysctl.conf"
+        $CRI_BIN exec -i $node bash -c "sysctl -p /etc/sysctl.conf"
+    done
 }
 
 function setup_kind() {
@@ -228,6 +234,20 @@ function setup_kind() {
 
     _install_cnis
 
+    _kubectl create -f $KUBEVIRTCI_PATH/cluster/vkind/manifests/flannel.yaml
+    _kubectl create -f $KUBEVIRTCI_PATH/cluster/vkind/manifests/knp.yaml
+
+    _kubectl create -f $KUBEVIRTCI_PATH/cluster/vkind/manifests/namespace.yaml
+    _kubectl create -f $KUBEVIRTCI_PATH/cluster/vkind/manifests/network-addons-config.crd.yaml
+    _kubectl create -f $KUBEVIRTCI_PATH/cluster/vkind/manifests/operator.yaml
+    _kubectl create -f $KUBEVIRTCI_PATH/cluster/vkind/manifests/network-addons-config-example.cr.yaml
+
+    _kubectl create -f $KUBEVIRTCI_PATH/cluster/vkind/manifests/whereabouts.yaml
+
+    if [[ $KUBEVIRT_WITH_DYN_NET_CTRL == true ]]; then
+        DYNAMIC_NETWORKS_CONTROLLER_VERSION=v0.3.7
+        _kubectl create -f https://github.com/k8snetworkplumbingwg/multus-dynamic-networks-controller/releases/download/$DYNAMIC_NETWORKS_CONTROLLER_VERSION/dynamic-networks-controller.yaml
+    fi
     _wait_kind_up
     _kubectl cluster-info
     _fix_node_labels
@@ -254,12 +274,7 @@ function setup_kind() {
     done
     prepare_config
 
-    if [[ $KUBEVIRT_DEPLOY_CDI == "true" ]]; then
-       KUBEVIRT_CUSTOM_CDI_VERSION=${KUBEVIRT_CUSTOM_CDI_VERSION:-"v1.63.0"}
-      _kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/"$KUBEVIRT_CUSTOM_CDI_VERSION"/cdi-operator.yaml
-      _kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/"$KUBEVIRT_CUSTOM_CDI_VERSION"/cdi-cr.yaml
-    fi
-
+    $KUBEVIRTCI_PATH/cluster/vkind/istio.sh
 }
 
 function _add_extra_mounts() {
@@ -268,6 +283,12 @@ function _add_extra_mounts() {
   - containerPath: /var/log/audit
     hostPath: /var/log/audit
     readOnly: true
+  - hostPath: /dev/kvm
+    containerPath: /dev/kvm
+  - hostPath: /dev/net/tun
+    containerPath: /dev/net/tun
+  - hostPath: /dev/vhost-net
+    containerPath: /dev/vhost-net
 EOF
 
     if [[ "$KUBEVIRT_PROVIDER" =~ sriov.* || "$KUBEVIRT_PROVIDER" =~ vgpu.* ]]; then
