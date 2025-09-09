@@ -165,8 +165,7 @@ func Execute() int {
 }
 
 func checkClientServerVersion(ctx context.Context) error {
-	//raw_version := client_version.Get().GitVersion
-	raw_version := "something"
+	raw_version := client_version.Get().GitVersion
 	// raw_version might look like "v0.0.0-master+$Format:%h$", so we need to trim it to a valid semver
 	if strings.Contains(raw_version, "+") {
 		raw_version = strings.Split(raw_version, "+")[0]
