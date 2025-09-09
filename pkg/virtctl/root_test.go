@@ -72,6 +72,8 @@ var _ = Describe("virtctl", func() {
 		virtctl.NewVirtctlCommand = func() *cobra.Command {
 			return cmd
 		}
+
+		
 		DeferCleanup(func() {
 			virtctl.NewVirtctlCommand = virtctl.NewVirtctlCommandFn
 		})
