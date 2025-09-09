@@ -126,6 +126,7 @@ type Controller struct {
 	podExpectations      *controller.UIDTrackingControllerExpectations
 	pvcExpectations      *controller.UIDTrackingControllerExpectations
 	migrationStartLock   *sync.Mutex
+	migrationLimiter     *NodeMigrationLimiter
 	clusterConfig        *virtconfig.ClusterConfig
 	hasSynced            func() bool
 
@@ -182,6 +183,9 @@ func NewController(templateService templateService,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
 	}
 
+	parallelOutboundMigrationsPerNode := c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode
+	c.migrationLimiter = NewNodeMigrationLimiter(int64(*parallelOutboundMigrationsPerNode))
+
 	c.hasSynced = func() bool {
 		return vmiInformer.HasSynced() &&
 			podInformer.HasSynced() &&
@@ -194,6 +198,16 @@ func NewController(templateService templateService,
 			pvcInformer.HasSynced() &&
 			nodeInformer.HasSynced()
 	}
+
+	// register a callback that would resize the migration limiter with a new
+	// ParallelOutboundMigrationsPerNode
+	clusterConfig.SetConfigModifiedCallback(func() {
+		// refresh to get latest config
+		clusterConfig.GetConfig()
+
+		newParallelOutbound := int64(*clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
+		c.migrationLimiter.UpdateMaxPermits(newParallelOutbound)
+	})
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVMI,
@@ -236,6 +250,23 @@ func NewController(templateService templateService,
 
 	_, err = kubevirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateKubeVirt,
+	})
+
+	// cleanup the migration permits of a deleted node
+	_, err = nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj interface{}) {
+			node, ok := obj.(*k8sv1.Node)
+			if !ok {
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if ok {
+					node, _ = tombstone.Obj.(*k8sv1.Node)
+				}
+			}
+			if node != nil {
+				c.migrationLimiter.Delete(node.Name)
+				log.Log.V(4).Infof("Cleaned up migration permits for deleted node %s", node.Name)
+			}
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -489,6 +520,20 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 
 		// Remove the finalizer and conditions if the migration has already completed
 		controller.RemoveFinalizer(migrationCopy, virtv1.VirtualMachineInstanceMigrationFinalizer)
+
+		// migration is final we should return the permit
+		// however, at this point the nodeName could change on the VMI and point to the target node
+		// therefore, we should use the source nodeName if exist and fallback
+		// to the nodeName in the status
+		var nodeToRelease string
+		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.SourceNode != "" {
+			nodeToRelease = vmi.Status.MigrationState.SourceNode
+		} else if vmi.Status.NodeName != "" {
+			nodeToRelease = vmi.Status.NodeName
+		}
+		if nodeToRelease != "" {
+			c.migrationLimiter.Release(nodeToRelease)
+		}
 	} else if vmi == nil {
 		err := c.failMigration(migrationCopy)
 		if err != nil {
@@ -650,7 +695,7 @@ func (c *Controller) processMigrationPhase(
 				return err
 			}
 			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "VMI is not eligible for migration because another migration job is in progress.")
-			log.Log.Object(migration).Error("Migration object ont eligible for migration because another job is in progress")
+			log.Log.Object(migration).Error("Migration object not eligible for migration because another job is in progress")
 		}
 	case virtv1.MigrationPending:
 		if migration.IsLocalOrDecentralizedTarget() {
@@ -1056,7 +1101,6 @@ func (c *Controller) getNodeSelectorsFromNodeName(nodeName string) (map[string]s
 }
 
 func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-
 	if vmi.IsMigrationSynchronized(migration) && vmi.Status.MigrationState.MigrationUID == migration.UID {
 		// already handed off
 		return nil
@@ -1216,12 +1260,11 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 		return nil
 	}
 
-	outboundMigrations := c.outboundMigrationsOnNode(vmi.Status.NodeName, runningMigrations)
-	if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode) {
-		// Let's ensure that we only have two outbound migrations per node
-		// XXX: Make this configurable, think about inbound migration limit, bandwidth per migration, and so on.
-		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
-		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
+	// Let's ensure that we only have two outbound migrations per node
+	// Check the semaphore before checking outbound migrations
+	// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
+	if !c.migrationLimiter.Acquire(vmi.Status.NodeName) {
+		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because node %s has reached its outbound migration limit.", vmi.Namespace, vmi.Name, vmi.Status.NodeName)
 		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: lowPriority, After: 5 * time.Second}, key)
 		return nil
 	}
@@ -1231,11 +1274,19 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	if vmi.IsRunning() || migration.IsDecentralizedTarget() {
 		err = c.handleBackendStorage(migration, vmi)
 		if err != nil {
+			c.migrationLimiter.Release(vmi.Status.NodeName)
 			return err
 		}
-		return c.createTargetPod(migration, vmi, sourcePod)
+		err = c.createTargetPod(migration, vmi, sourcePod)
+		if err != nil {
+			c.migrationLimiter.Release(vmi.Status.NodeName)
+			return err
+		}
+		return nil
 	}
 	log.Log.Object(vmi).V(5).Info("target pod not created because vmi is not running and migration is not decentralized target migration")
+	// release the permit since no pod was created
+	c.migrationLimiter.Release(vmi.Status.NodeName)
 	return nil
 }
 
@@ -1449,7 +1500,6 @@ func (c *Controller) handlePendingPodTimeout(migration *virtv1.VirtualMachineIns
 }
 
 func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
-
 	var pod *k8sv1.Pod = nil
 	targetPodExists := len(pods) > 0
 	if targetPodExists {

@@ -788,10 +788,10 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 				addPod(newSourcePodForVirtualMachine(vmi))
 
-				const defaultMaxOutboundMigrationsPerNode = 2
-				for i := 0; i < defaultMaxOutboundMigrationsPerNode; i++ {
-					generateVMIandMigration(i)
-				}
+				// This is need to simulate the two migration taking permits - as it would happen in actual migration case
+				Expect(controller.migrationLimiter.Acquire(vmi.Status.NodeName)).To(BeTrue(), "Failed to acquire first permit for simulation")
+				Expect(controller.migrationLimiter.Acquire(vmi.Status.NodeName)).To(BeTrue(), "Failed to acquire second permit for simulation")
+
 				sanityExecute()
 
 				expectPodDoesNotExist(vmi.Namespace, "testvmi", "testmigration")
