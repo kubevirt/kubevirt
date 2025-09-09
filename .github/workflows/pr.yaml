@@ -15,12 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # - name: Linting
-      #   run: |
-      #     make format
-      #     make lint
+      - name: Linting
+        run: |
+          make format
+          make lint
 
-      # There is 1 failing test that need to be fixed, so commenting out for now.
       - name: Run Unit Tests
         run: |
           make test
