@@ -220,6 +220,15 @@ var _ = Describe("Patches", func() {
 			Expect(strings.Join(fa, " ")).To(ContainSubstring("--bool-flag"))
 		})
 
+		It("should return flags in sorted order", func() {
+			fa := flagsToArray(flags)
+			Expect(fa).To(HaveLen(5))
+
+			Expect(strings.Join(fa, " ")).To(HavePrefix("--bool-flag"))
+			Expect(strings.Join(fa, " ")).To(ContainSubstring(" --flag 3 "))
+			Expect(strings.Join(fa, " ")).To(HaveSuffix("--flag-one 1"))
+		})
+
 		It("should add flag patch", func() {
 			patches := addFlagsPatch(components.VirtAPIName, resource, flags, []v1.CustomizeComponentsPatch{})
 			Expect(patches).To(HaveLen(1))
