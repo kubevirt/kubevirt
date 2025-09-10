@@ -73,6 +73,7 @@ type KubernetesReporter struct {
 	artifactsDir      string
 	maxFails          int
 	programmaticFocus bool
+	alwaysCollect     bool
 }
 
 type commands struct {
@@ -80,11 +81,12 @@ type commands struct {
 	fileNameSuffix string
 }
 
-func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesReporter {
+func NewKubernetesReporter(artifactsDir string, maxFailures int, alwaysCollect bool) *KubernetesReporter {
 	return &KubernetesReporter{
-		failureCount: 0,
-		artifactsDir: artifactsDir,
-		maxFails:     maxFailures,
+		failureCount:  0,
+		artifactsDir:  artifactsDir,
+		maxFails:      maxFailures,
+		alwaysCollect: alwaysCollect,
 	}
 }
 
@@ -124,7 +126,7 @@ func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
 	if !r.programmaticFocus && r.failureCount > r.maxFails {
 		return
 	}
-	if specReport.Failed() {
+	if specReport.Failed() || r.alwaysCollect {
 		r.failureCount++
 	} else if !r.programmaticFocus {
 		return
@@ -137,6 +139,8 @@ func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
 	reason := "due to failure"
 	if r.programmaticFocus {
 		reason = "due to use of programmatic focus container"
+	} else if r.alwaysCollect {
+		reason = "due to kubevirt collect logs request"
 	}
 	By(fmt.Sprintf("Collecting Logs %s", reason))
 	r.DumpTestNamespacesAndClusterObjects(specReport.RunTime)
