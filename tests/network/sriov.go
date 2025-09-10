@@ -280,11 +280,33 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 
 				// It may take some time for the VMI interface status to be updated with the information reported by
 				// the guest-agent.
-				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 5*time.Minute)
-				Expect(err).NotTo(HaveOccurred())
+				var sriovIfaceName string
+				Eventually(func() error {
+					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					ifaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, sriovnet1)
+					if ifaceStatus == nil {
+						return fmt.Errorf("interface status for %q was not found", sriovnet1)
+					}
+
+					if !vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus) ||
+						!vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceDomain) ||
+						!vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceGuestAgent) {
+						return fmt.Errorf("interface status for %q does not contain all info sources %q", ifaceStatus.Name, ifaceStatus.InfoSource)
+					}
+
+					sriovIfaceName = ifaceStatus.InterfaceName
+
+					return nil
+				}).WithTimeout(5 * time.Minute).WithPolling(time.Second).Should(Succeed())
+				Expect(sriovIfaceName).NotTo(BeEmpty())
+
 				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(libnet.CheckMacAddress(updatedVMI, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
+				Expect(libnet.CheckMacAddress(updatedVMI, sriovIfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
 			})
 		})
 	})
