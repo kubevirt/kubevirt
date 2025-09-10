@@ -853,6 +853,53 @@ var _ = Describe("Pool", func() {
 
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "patch", "virtualmachines")).To(HaveLen(1))
 		})
+		It("should cleanup VMs with autohealing", func() {
+			pool, vm := DefaultPool(1)
+			pool.Spec.Autohealing = pointer.P(true)
+
+			addPool(pool)
+			poolRevision := createPoolRevision(pool)
+			addCR(poolRevision)
+			vm.Name = fmt.Sprintf("%s-0", pool.Name)
+			vm.Status.StartFailure = &v1.VirtualMachineStartFailure{
+				ConsecutiveFailCount: 3,
+			}
+
+			createVMsWithOrdinal(pool, 1, poolRevision, poolRevision, vm)
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(0))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(1))
+		})
+		It("should not cleanup VMs without autohealing enabled, even if the VM failed to start", func() {
+			pool, vm := DefaultPool(3)
+
+			addPool(pool)
+			poolRevision := createPoolRevision(pool)
+			addCR(poolRevision)
+			createVMsWithOrdinal(pool, 3, poolRevision, poolRevision, vm)
+
+			vm, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).Get(context.TODO(), fmt.Sprintf("%s-0", pool.Name), metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.Status.StartFailure = &v1.VirtualMachineStartFailure{
+				ConsecutiveFailCount: 3,
+			}
+			_, err = fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(3))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(0))
+		})
 	})
 })
 
