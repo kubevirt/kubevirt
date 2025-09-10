@@ -24,7 +24,7 @@ type NodeSelectorRenderer struct {
 type NodeSelectorRendererOption func(renderer *NodeSelectorRenderer)
 
 // DeckhouseVirtualizationPlatformGenericCPUModel is a name of additional empty CPU model for Discovery type of VMClass.
-const DeckhouseVirtualizationPlatformGenericCPUModel = "kvm64"
+const DeckhouseVirtualizationPlatformGenericCPUModel = "qemu64"
 
 func NewNodeSelectorRenderer(
 	vmiNodeSelectors map[string]string,
