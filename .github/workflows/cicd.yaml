@@ -81,14 +81,14 @@ jobs:
 
       - name: Start Ephemeral Environment
         run: |
-          make cluster-up
+          make cluster-down || make cluster-up
 
       - name: Deploy To Ephemeral Environment
         run: |
-          make cluster-sync
+          make cluster-deploy
         env: 
           FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
 
-      - name: Run Functional Tests
+      - name: Run Conformance Tests
         run: |
-          make functest
+          make conformance
