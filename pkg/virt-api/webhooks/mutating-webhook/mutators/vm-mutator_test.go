@@ -190,7 +190,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		vmSpec, _ := getVMSpecMetaFromResponse(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
-
+		Expect(vmSpec.Template.Spec.Domain.Firmware.Serial).ToNot(BeNil())
 	},
 		Entry("when override is for amd64 architecture", "amd64", machineTypeFromConfig, "", "", "", machineTypeFromConfig),
 		Entry("when override is for arm64 architecture", "arm64", "", machineTypeFromConfig, "", "", machineTypeFromConfig),
@@ -681,6 +681,25 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				resp := getResponseFromVMUpdate(oldVM, newVM)
 				Expect(resp.Allowed).To(BeFalse())
 			})
+		})
+
+		It("should preserve existing Serial when VM template spec has one", func() {
+			oldVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{Serial: "existing-serial"}
+			newVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{Serial: "new-serial"}
+
+			resp := getResponseFromVMUpdate(oldVM, newVM)
+			Expect(resp.Allowed).To(BeTrue())
+
+			vmSpec := &v1.VirtualMachineSpec{}
+			vmMeta := &k8smetav1.ObjectMeta{}
+			patchOps := []patch.PatchOperation{
+				{Value: vmSpec},
+				{Value: vmMeta},
+			}
+			err := json.Unmarshal(resp.Patch, &patchOps)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmSpec.Template.Spec.Domain.Firmware).ToNot(BeNil())
+			Expect(vmSpec.Template.Spec.Domain.Firmware.Serial).To(Equal("new-serial"))
 		})
 	})
 
