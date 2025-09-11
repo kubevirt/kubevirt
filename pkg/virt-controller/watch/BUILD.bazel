@@ -55,6 +55,7 @@ go_library(
         "//pkg/virt-controller/watch/descheduler:go_default_library",
         "//pkg/virt-controller/watch/drain/disruptionbudget:go_default_library",
         "//pkg/virt-controller/watch/drain/evacuation:go_default_library",
+        "//pkg/virt-controller/watch/priorityqueue:go_default_library",
         "//pkg/virt-controller/watch/topology:go_default_library",
         "//pkg/virt-controller/watch/util:go_default_library",
         "//pkg/virt-controller/watch/volume-migration:go_default_library",
