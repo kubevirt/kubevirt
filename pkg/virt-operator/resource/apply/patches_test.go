@@ -221,12 +221,15 @@ var _ = Describe("Patches", func() {
 		})
 
 		It("should return flags in sorted order", func() {
-			fa := flagsToArray(flags)
-			Expect(fa).To(HaveLen(5))
-
-			Expect(strings.Join(fa, " ")).To(HavePrefix("--bool-flag"))
-			Expect(strings.Join(fa, " ")).To(ContainSubstring(" --flag 3 "))
-			Expect(strings.Join(fa, " ")).To(HaveSuffix("--flag-one 1"))
+			Consistently(func() []string {
+				return flagsToArray(flags)
+			}).Should(HaveExactElements(
+				"--bool-flag",
+				"--flag",
+				"3",
+				"--flag-one",
+				"1",
+			))
 		})
 
 		It("should add flag patch", func() {
