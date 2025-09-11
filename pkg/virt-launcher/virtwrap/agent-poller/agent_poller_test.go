@@ -20,6 +20,7 @@
 package agentpoller
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -85,8 +86,8 @@ var _ = Describe("Qemu agent poller", func() {
 				libvirt.DOMAIN_GUEST_INFO_TIMEZONE |
 				libvirt.DOMAIN_GUEST_INFO_USERS
 
-			mockLibvirt.DomainEXPECT().Free()
 			mockLibvirt.DomainEXPECT().GetGuestInfo(libvirtTypes, uint32(0)).Return(guestInfo, nil)
+			mockLibvirt.DomainEXPECT().Free().AnyTimes()
 
 			fetchAndStoreGuestInfo(libvirtTypes, agentPoller)
 
@@ -221,6 +222,80 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(agentStore.AgentUpdated).NotTo(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{},
 			})))
+		})
+	})
+
+	Context("PollerWorker with minimum GA version set", func() {
+		var (
+			agentPoller *AgentPoller
+
+			guestInfo = &libvirt.DomainGuestInfo{
+				Load: &libvirt.DomainGuestInfoLoad{
+					Load1MSet:  true,
+					Load1M:     0.5,
+					Load5MSet:  true,
+					Load5M:     0.3,
+					Load15MSet: true,
+					Load15M:    0.1,
+				},
+			}
+		)
+
+		BeforeEach(func() {
+			agentPoller = &AgentPoller{
+				Connection: mockLibvirt.VirtConnection,
+				domainName: "test-domain",
+				agentStore: &agentStore,
+				workers: []PollerWorker{
+					{
+						CallTick:         5,
+						InfoTypes:        libvirt.DOMAIN_GUEST_INFO_LOAD,
+						MinimumGAVersion: guestInfoLoadGAVersionAvailable,
+					},
+				},
+			}
+
+			mockLibvirt.DomainEXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_LOAD, uint32(0)).Return(guestInfo, nil).AnyTimes()
+			mockLibvirt.DomainEXPECT().Free().AnyTimes()
+		})
+
+		AfterEach(func() {
+			agentPoller.Stop()
+		})
+
+		It("should execute when agent version meets minimum", func() {
+			agentInfo := AgentInfo{Version: "10.0.0"}
+			agentStore.Store(GetAgent, agentInfo)
+
+			agentPoller.Start()
+			Expect(agentPoller.agentDone).ToNot(BeNil())
+
+			verifyLoadCollected(&agentStore)
+		})
+
+		It("should not execute when agent version does not meet minimum", func() {
+			agentInfo := AgentInfo{Version: "0.0.1"}
+			agentStore.Store(GetAgent, agentInfo)
+
+			agentPoller.Start()
+			Expect(agentPoller.agentDone).ToNot(BeNil())
+
+			verifyLoadNotCollected(&agentStore)
+		})
+
+		It("should start executing worker when agent version is updated to meet minimum", func() {
+			agentInfo := AgentInfo{Version: "0.0.1"}
+			agentStore.Store(GetAgent, agentInfo)
+
+			agentPoller.Start()
+			Expect(agentPoller.agentDone).ToNot(BeNil())
+
+			verifyLoadNotCollected(&agentStore)
+
+			agentInfo = AgentInfo{Version: "10.0.0"}
+			agentStore.Store(GetAgent, agentInfo)
+
+			verifyLoadCollected(&agentStore)
 		})
 	})
 
@@ -426,4 +501,32 @@ func countSignals(done <-chan struct{}, maxSignals int, timeout time.Duration) i
 			}
 		}
 	}
+}
+
+func verifyLoadCollected(agentStore *AsyncAgentStore) {
+	var load api.Load
+
+	EventuallyWithOffset(1, func() error {
+		sysInfo := agentStore.GetSysInfo()
+		if !sysInfo.Load.Load1mSet || !sysInfo.Load.Load5mSet || !sysInfo.Load.Load15mSet {
+			return fmt.Errorf("load info not yet available")
+		}
+
+		load = sysInfo.Load
+		return nil
+	}, 10*time.Second, time.Second).ShouldNot(HaveOccurred(), "load info not available within timeout")
+
+	Expect(load.Load1m).To(Equal(0.5))
+	Expect(load.Load5m).To(Equal(0.3))
+	Expect(load.Load15m).To(Equal(0.1))
+}
+
+func verifyLoadNotCollected(agentStore *AsyncAgentStore) {
+	ConsistentlyWithOffset(1, func() error {
+		sysInfo := agentStore.GetSysInfo()
+		if sysInfo.Load.Load1mSet || sysInfo.Load.Load5mSet || sysInfo.Load.Load15mSet {
+			return fmt.Errorf("load info should not be available")
+		}
+		return nil
+	}, 5*time.Second, time.Second).ShouldNot(HaveOccurred(), "load info available unexpectedly")
 }
