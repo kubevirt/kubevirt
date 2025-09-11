@@ -75,7 +75,7 @@ var _ = Describe("Migration watcher", func() {
 	var stop chan struct{}
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
+	var mockQueue *testutils.MockPriorityQueue
 	var virtClient *kubecli.MockKubevirtClient
 	var virtClientset *kubevirtfake.Clientset
 	var kubeClient *fake.Clientset
@@ -275,7 +275,7 @@ var _ = Describe("Migration watcher", func() {
 			config,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
+		mockQueue = testutils.NewMockPriorityQueue(controller.Queue)
 		controller.Queue = mockQueue
 	}
 
@@ -2120,6 +2120,39 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
 			expectTargetPodWithSELinuxLevel(vmi.Namespace, vmi.UID, migration.UID, "")
+		})
+	})
+
+	Context("Priority queue", func() {
+		It("should properly re-enqueue pending migrations as low priority when no new migration can start", func() {
+			By("Creating 1 pending migration. It will be picked up by the call to Execute()")
+			vmi := newVirtualMachine("testvmipending", virtv1.Running)
+			migration := newMigration("testmigrationpending", vmi.Name, virtv1.MigrationPending)
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			By("Creating 5 running migrations")
+			for i := 0; i < 5; i++ {
+				vmi := newVirtualMachine(fmt.Sprintf("testvmi%d", i), virtv1.Running)
+				migration := newMigration(fmt.Sprintf("testmigration%d", i), vmi.Name, virtv1.MigrationRunning)
+				pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+				addMigration(migration)
+				addVirtualMachineInstance(vmi)
+				addPod(pod)
+			}
+
+			By("Executing the controller and expecting the pending migration to have a low priority")
+			controller.Execute()
+			for i := 0; i < 5; i++ {
+				item, priority, shutdown := controller.Queue.GetWithPriority()
+				Expect(item).To(Equal(fmt.Sprintf("default/testmigration%d", i)))
+				Expect(priority).To(Equal(0))
+				Expect(shutdown).To(BeFalse())
+			}
+			item, priority, shutdown := controller.Queue.GetWithPriority()
+			Expect(item).To(Equal("default/testmigrationpending"))
+			Expect(priority).To(Equal(-100))
+			Expect(shutdown).To(BeFalse())
 		})
 	})
 })
