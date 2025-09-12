@@ -35,6 +35,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"libvirt.org/go/libvirt"
 	"libvirt.org/go/libvirtxml"
 
@@ -443,7 +444,7 @@ var _ = Describe("Manager", func() {
 		addPlaceHolderInterfaces := func(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
 			count, err := calculateHotplugPortCount(vmi, domainSpec)
 			Expect(err).ToNot(HaveOccurred())
-			return appendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
+			return network.appendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
 		}
 
 		setDomainExpectations := func(vmi *v1.VirtualMachineInstance) {
