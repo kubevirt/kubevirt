@@ -17,6 +17,7 @@ env:
   DOCKER_TAG: ${{ inputs.image_tag }}
   KUBEVIRT_PROVIDER: external
   KUBECONFIG: ${{ github.workspace }}/kubeconfig
+  KUBEVIRT_WITH_ETC_IN_MEMORY: "true"
 
   
 jobs:
@@ -64,6 +65,7 @@ jobs:
 
       - name: Test
         run: |
+          export KUBECONFIG=${{ github.workspace }}/kubeconfig
           FUNC_TEST_ARGS=--no-color \
           FUNC_TEST_LABEL_FILTER='--label-filter=(!flake-check)&&('"${TEST_FOCUS}"'&&!(single-replica)&&(!QUARANTINE)&&(!requireHugepages2Mi)&&(!requireHugepages1Gi)&&(!SwapTest))' make functest
         env:          
