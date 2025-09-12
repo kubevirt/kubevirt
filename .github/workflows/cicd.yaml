@@ -48,6 +48,29 @@ jobs:
     secrets: inherit
     needs: [Build_Push_Images]
 
+  deploy-to-test-kvm:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: test-kvm
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+    secrets: inherit
+    needs: [deploy-to-dev]
+
+  deploy-to-test-emulation:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: test-emulation
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+    secrets: inherit
+    needs: [deploy-to-dev]
+
+  deploy-to-test-mshv:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: test-mshv
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+    secrets: inherit
+    needs: [deploy-to-dev]
 
   # Deploy_to_Dev:
   #   runs-on: ubuntu-latest
