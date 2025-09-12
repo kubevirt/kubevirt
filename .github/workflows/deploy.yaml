@@ -65,7 +65,7 @@ jobs:
       - name: Test
         run: |
           FUNC_TEST_ARGS=--no-color \
-          FUNC_TEST_LABEL_FILTER="--label-filter='(!flake-check)&&(${TEST_FOCUS}&&!(single-replica)&&(!QUARANTINE)&&(!requireHugepages2Mi)&&(!requireHugepages1Gi)&&(!SwapTest))'" make functest
+          FUNC_TEST_LABEL_FILTER='--label-filter=(!flake-check)&&('"${TEST_FOCUS}"'&&!(single-replica)&&(!QUARANTINE)&&(!requireHugepages2Mi)&&(!requireHugepages1Gi)&&(!SwapTest))' make functest
         env:          
           TEST_FOCUS: ${{ vars.TEST_FOCUS }}
           KUBEVIRT_E2E_SKIP: ${{ vars.TEST_SKIP }}
