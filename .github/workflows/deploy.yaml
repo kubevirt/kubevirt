@@ -1,0 +1,72 @@
+name: Deploy and Test
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'The environment to deploy to'
+        required: true
+        type: string
+      image_tag:
+        description: 'The image tag to deploy'
+        required: true
+        type: string
+
+env:
+  DOCKER_PREFIX: ghcr.io/${{ github.repository }}
+  DOCKER_TAG: ${{ inputs.image_tag }}
+  KUBEVIRT_PROVIDER: external
+  KUBECONFIG: ${{ github.workspace }}/kubeconfig
+
+  
+jobs:
+    
+  Deploy_and_Test:
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Generate Manifests with configured Feature Gates
+        run: |          
+          make manifests
+        env: 
+          FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
+      
+      - name: Upload Manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.environment }}-manifests
+          path: ${{ github.workspace }}/_out/manifests
+
+      - name: Configure kubeconfig
+        run: |
+          echo "$KUBE_CONFIG_CONTENT" > $KUBECONFIG          
+        env:
+          KUBE_CONFIG_CONTENT: ${{ secrets.KUBE_CONFIG }}             
+
+      - name: Deploy
+        run: |
+          # make sure all nodes are labeled as control-plane (required by KubeVirt)                             
+          kubectl label nodes --all 'node-role.kubernetes.io/control-plane=control-plane'
+          
+          make cluster-deploy
+
+          # if EMULATION is set to true, deploy the emulation configmap
+          if [ "$EMULATION" = "true" ]; then
+             kubectl -n kubevirt patch kubevirt kubevirt \
+              --type=merge \
+               --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":true}}}}'
+          fi
+        env:
+          EMULATION: ${{ vars.EMULATION }}  
+
+      - name: Test
+        run: |
+          make cluster-deploy
+        env:          
+          TEST_FOCUS: ${{ vars.TEST_FOCUS }}
+          KUBEVIRT_E2E_SKIP: ${{ vars.TEST_SKIP }}
+          
+
