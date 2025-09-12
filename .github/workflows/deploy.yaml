@@ -16,7 +16,7 @@ env:
   DOCKER_PREFIX: ghcr.io/${{ github.repository }}
   DOCKER_TAG: ${{ inputs.image_tag }}
   KUBEVIRT_PROVIDER: external
-  KUBECONFIG: ${{ github.workspace }}/kubeconfig
+  KUBECONFIG: ${{ github.workspace }}/kube-config
   KUBEVIRT_WITH_ETC_IN_MEMORY: "true"
 
   
@@ -50,7 +50,7 @@ jobs:
       - name: Deploy
         run: |
           # make sure all nodes are labeled as control-plane (required by KubeVirt)                             
-          kubectl label nodes --all 'node-role.kubernetes.io/control-plane=control-plane' --overwrite
+          # kubectl label nodes --all 'node-role.kubernetes.io/control-plane=control-plane' --overwrite
           
           # make cluster-deploy
 
@@ -65,7 +65,7 @@ jobs:
 
       - name: Test
         run: |
-          export KUBECONFIG=${{ github.workspace }}/kubeconfig
+          # export kubeconfig=${{ github.workspace }}/kubeconfig
           FUNC_TEST_ARGS=--no-color \
           FUNC_TEST_LABEL_FILTER='--label-filter=(!flake-check)&&('"${TEST_FOCUS}"'&&!(single-replica)&&(!QUARANTINE)&&(!requireHugepages2Mi)&&(!requireHugepages1Gi)&&(!SwapTest))' make functest
         env:          
