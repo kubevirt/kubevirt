@@ -15,7 +15,7 @@ jobs:
   #   uses: ./.github/workflows/pr.yaml
     
   Build_Push_Images:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     # needs: [quality-check]
     permissions: write-all
     steps:
