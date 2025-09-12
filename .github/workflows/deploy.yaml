@@ -28,17 +28,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Generate Manifests with configured Feature Gates
-        run: |          
-          make manifests
-        env: 
-          FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
+      # - name: Generate Manifests with configured Feature Gates
+      #   run: |          
+      #     make manifests
+      #   env: 
+      #     FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
       
-      - name: Upload Manifests
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.environment }}-manifests
-          path: ${{ github.workspace }}/_out/manifests
+      # - name: Upload Manifests
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: ${{ inputs.environment }}-manifests
+      #     path: ${{ github.workspace }}/_out/manifests
 
       - name: Configure kubeconfig
         run: |
@@ -51,7 +51,7 @@ jobs:
           # make sure all nodes are labeled as control-plane (required by KubeVirt)                             
           kubectl label nodes --all 'node-role.kubernetes.io/control-plane=control-plane'
           
-          make cluster-deploy
+          # make cluster-deploy
 
           # if EMULATION is set to true, deploy the emulation configmap
           if [ "$EMULATION" = "true" ]; then
@@ -64,7 +64,8 @@ jobs:
 
       - name: Test
         run: |
-          make cluster-deploy
+          FUNC_TEST_ARGS=--no-color \
+          FUNC_TEST_LABEL_FILTER="--label-filter='(!flake-check)&&(${TEST_FOCUS}&&!(single-replica)&&(!QUARANTINE)&&(!requireHugepages2Mi)&&(!requireHugepages1Gi)&&(!SwapTest))'" make functest
         env:          
           TEST_FOCUS: ${{ vars.TEST_FOCUS }}
           KUBEVIRT_E2E_SKIP: ${{ vars.TEST_SKIP }}
