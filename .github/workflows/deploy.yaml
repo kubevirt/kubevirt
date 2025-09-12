@@ -49,7 +49,7 @@ jobs:
       - name: Deploy
         run: |
           # make sure all nodes are labeled as control-plane (required by KubeVirt)                             
-          kubectl label nodes --all 'node-role.kubernetes.io/control-plane=control-plane'
+          kubectl label nodes --all 'node-role.kubernetes.io/control-plane=control-plane' --overwrite
           
           # make cluster-deploy
 
