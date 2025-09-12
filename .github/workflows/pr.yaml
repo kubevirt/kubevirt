@@ -1,8 +1,8 @@
 name: PR Quality Check
 
 on:
-  push:
-    branches: ["ise","eugene/*"]
+  # push:
+  #   branches: ["ise","eugene/*"]
   pull_request:
     branches: ["ise"]
   workflow_dispatch:
@@ -11,7 +11,7 @@ on:
 jobs:
   Quality_Check:
     name: Quality Check
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
