@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -118,7 +119,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			Fail("Fail test when a CSI storage class is not present")
 		}
 
-		sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
+		sc, err := k8s.Client().StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		wffcSc := sc.DeepCopy()
 		wffcSc.ObjectMeta = metav1.ObjectMeta{
@@ -128,12 +129,12 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			},
 		}
 		wffcSc.VolumeBindingMode = pointer.P(storagev1.VolumeBindingWaitForFirstConsumer)
-		sc, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), wffcSc, metav1.CreateOptions{})
+		sc, err = k8s.Client().StorageV1().StorageClasses().Create(context.Background(), wffcSc, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		testSc = sc.Name
 	})
 	AfterEach(func() {
-		virtClient.StorageV1().StorageClasses().Delete(context.Background(), testSc, metav1.DeleteOptions{})
+		k8s.Client().StorageV1().StorageClasses().Delete(context.Background(), testSc, metav1.DeleteOptions{})
 	})
 
 	Describe("Update volumes with the migration updateVolumesStrategy", func() {
@@ -330,7 +331,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					Fail("Unrecognized mode")
 				}
 
-				dstPVC, err := virtClient.CoreV1().PersistentVolumeClaims(ns).Get(context.Background(), destPVC, metav1.GetOptions{})
+				dstPVC, err := k8s.Client().CoreV1().PersistentVolumeClaims(ns).Get(context.Background(), destPVC, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(dstPVC.Spec.StorageClassName).ToNot(BeNil())
 				if !volumeExpansionAllowed(*dstPVC.Spec.StorageClassName) {
@@ -351,7 +352,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					patch.WithAdd("/spec/resources/requests/storage", resource.MustParse("4Gi")),
 				).GeneratePayload()
 				Expect(err).ToNot(HaveOccurred())
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Patch(context.Background(),
+				_, err = k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Patch(context.Background(),
 					destPVC, types.JSONPatchType, p, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -866,7 +867,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				By("Killing the source pod")
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
-				err = virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
+				err = k8s.Client().CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
 					GracePeriodSeconds: pointer.P(int64(0)),
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1294,7 +1295,7 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 			SecurityContext: &podSecurityContext,
 		},
 	}
-	p, err := virtCli.CoreV1().Pods(vmi.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
+	p, err := k8s.Client().CoreV1().Pods(vmi.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
 	Expect(err).ShouldNot(HaveOccurred())
 	Eventually(matcher.ThisPod(p)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveSucceeded())
 }

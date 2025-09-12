@@ -26,6 +26,7 @@ go_library(
         "//tests/flags:go_default_library",
         "//tests/framework/checks:go_default_library",
         "//tests/framework/cleanup:go_default_library",
+        "//tests/framework/k8s:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/libkubevirt:go_default_library",
@@ -48,5 +49,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/strategicpatch:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
     ],
 )

@@ -47,6 +47,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -174,7 +175,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				pod := libpod.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{"date; pkill -e -9 virt-handler || echo not found"})
 
 				pod.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
-				createdPod, err := virtClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+				createdPod, err := k8s.Client().CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create killer pod")
 				killerPod = createdPod.Name
 			}
@@ -182,13 +183,13 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			removeVirtHandlerKillerPod := func() {
 				Expect(killerPod).NotTo(BeEmpty())
 				Eventually(func() error {
-					err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), killerPod, metav1.DeleteOptions{})
+					err := k8s.Client().CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), killerPod, metav1.DeleteOptions{})
 					return err
 				}, 1*time.Minute, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Should delete helper pod")
 
 				By("Waiting for virt-handler to come back online")
 				Eventually(func() error {
-					handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+					handler, err := k8s.Client().AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}

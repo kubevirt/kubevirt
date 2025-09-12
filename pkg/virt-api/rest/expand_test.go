@@ -96,7 +96,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		}
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-		app = NewSubresourceAPIApp(virtClient, 0, nil, config)
+		app = NewSubresourceAPIApp(virtClient, nil, 0, nil, config)
 
 		request = restful.NewRequest(&http.Request{})
 		recorder = httptest.NewRecorder()

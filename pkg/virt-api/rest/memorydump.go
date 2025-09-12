@@ -48,7 +48,7 @@ const (
 )
 
 func (app *SubresourceAPIApp) fetchPersistentVolumeClaim(name string, namespace string) (*k8sv1.PersistentVolumeClaim, *errors.StatusError) {
-	pvc, err := app.virtCli.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	pvc, err := app.k8sCli.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("persistentvolumeclaim"), name)

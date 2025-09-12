@@ -77,7 +77,7 @@ func fromLabels(labels map[string]string, defaultNameLabel, defaultKindLabel str
 }
 
 func (h *handler) fromPVC(pvcName, pvcNamespace, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
-	pvc, err := h.virtClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+	pvc, err := h.k8sClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(context.Background(), pvcName, metav1.GetOptions{})
 	if err != nil {
 		return "", "", err
 	}

@@ -52,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -157,7 +158,7 @@ var _ = Describe(SIG("Storage", func() {
 				// In order to remove the scsi debug module, the SCSI device cannot be in used by the VM.
 				// For this reason, we manually clean-up the VM  before removing the kernel module.
 				RemoveSCSIDisk(nodeName, address)
-				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+				Expect(k8s.Client().CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
 			It("should pause VMI on IO error", func() {
@@ -654,7 +655,7 @@ var _ = Describe(SIG("Storage", func() {
 						diskPath = filepath.Join(hostDiskDir, diskName)
 						// create a disk image before test
 						pod := CreateHostDisk(diskPath)
-						pod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
+						pod, err = k8s.Client().CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
 						Eventually(ThisPod(pod), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
@@ -805,7 +806,7 @@ var _ = Describe(SIG("Storage", func() {
 							},
 						},
 					}
-					pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+					pod, err = k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					By("Waiting for hostPath pod to prepare the mounted directory")
@@ -827,7 +828,7 @@ var _ = Describe(SIG("Storage", func() {
 						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
 						libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 					}
-					Expect(virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})).To(Succeed())
+					Expect(k8s.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})).To(Succeed())
 					waitForPodToDisappearWithTimeout(pod.Name, 120)
 				})
 
@@ -1284,7 +1285,7 @@ var _ = Describe(SIG("Storage", func() {
 
 			AfterEach(func() {
 				RemoveSCSIDisk(nodeName, address)
-				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+				Expect(k8s.Client().CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
 			DescribeTable("should run the VMI using", func(addLunDisk func(*v1.VirtualMachineInstance, string, string)) {
@@ -1368,9 +1369,8 @@ var _ = Describe(SIG("Storage", func() {
 }))
 
 func waitForPodToDisappearWithTimeout(podName string, seconds int) {
-	virtClient := kubevirt.Client()
 	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Get(context.Background(), podName, metav1.GetOptions{})
+		_, err := k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(nil)).Get(context.Background(), podName, metav1.GetOptions{})
 		return err
 	}, seconds, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 }
@@ -1386,15 +1386,13 @@ func checkResultShellCommandOnVmi(vmi *v1.VirtualMachineInstance, cmd, output st
 }
 
 func deletePvAndPvc(name string) {
-	virtCli := kubevirt.Client()
-
-	err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
+	err := k8s.Client().CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
 	Expect(err).To(Or(
 		Not(HaveOccurred()),
 		MatchError(errors.IsNotFound, "errors.IsNotFound"),
 	))
 
-	err = virtCli.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Delete(context.Background(), name, metav1.DeleteOptions{})
+	err = k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Delete(context.Background(), name, metav1.DeleteOptions{})
 	Expect(err).To(Or(
 		Not(HaveOccurred()),
 		MatchError(errors.IsNotFound, "errors.IsNotFound"),
@@ -1402,10 +1400,8 @@ func deletePvAndPvc(name string) {
 }
 
 func runPodAndExpectPhase(pod *k8sv1.Pod, phase k8sv1.PodPhase) *k8sv1.Pod {
-	virtClient := kubevirt.Client()
-
 	var err error
-	pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err = k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(ThisPod(pod), 120).Should(BeInPhase(phase))
 

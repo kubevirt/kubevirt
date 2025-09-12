@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -92,7 +93,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 
 	BeforeAll(func() {
 		virtClient = kubevirt.Client()
-		scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
+		scales = libmonitoring.NewScaling(k8s.Client(), []string{virtOperator.deploymentName})
 	})
 
 	BeforeEach(func() {
@@ -114,26 +115,26 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 	Context("Up metrics", func() {
 		It("VirtOperatorDown should be triggered when virt-operator is down", func() {
 			By("Waiting for the operator to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_up", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_virt_operator_up", 0)
 
 			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtOperator.downAlert)
+			libmonitoring.VerifyAlertExist(k8s.Client(), virtOperator.downAlert)
 		})
 
 		It("NoReadyVirtOperator should be triggered when virt-operator is down", func() {
 			By("Waiting for the operator to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_ready", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_virt_operator_ready", 0)
 
 			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtOperator.noReadyAlert)
+			libmonitoring.VerifyAlertExist(k8s.Client(), virtOperator.noReadyAlert)
 		})
 
 		It("LowVirtOperatorCount should be triggered when virt-operator count is low", decorators.RequiresTwoSchedulableNodes, func() {
 			By("Waiting for the operator to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_up", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_virt_operator_up", 0)
 
 			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtOperator.lowCountAlert)
+			libmonitoring.VerifyAlertExist(k8s.Client(), virtOperator.lowCountAlert)
 		})
 
 		It("VirtControllerDown should be triggered when virt-controller is down", func() {
@@ -141,10 +142,10 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			scales.UpdateScale(virtController.deploymentName, int32(0))
 
 			By("Waiting for the controller to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_controller_up", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_virt_controller_up", 0)
 
 			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtController.downAlert)
+			libmonitoring.VerifyAlertExist(k8s.Client(), virtController.downAlert)
 		})
 
 		It("NoReadyVirtController should be triggered when virt-controller is down", func() {
@@ -152,10 +153,10 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			scales.UpdateScale(virtController.deploymentName, int32(0))
 
 			By("Waiting for the controller to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_controller_ready", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_virt_controller_ready", 0)
 
 			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtController.noReadyAlert)
+			libmonitoring.VerifyAlertExist(k8s.Client(), virtController.noReadyAlert)
 		})
 
 		It("LowVirtControllersCount should be triggered when virt-controller count is low", decorators.RequiresTwoSchedulableNodes, func() {
@@ -163,10 +164,10 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			scales.UpdateScale(virtController.deploymentName, int32(0))
 
 			By("Waiting for the controller to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_controller_up", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_virt_controller_up", 0)
 
 			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtController.lowCountAlert)
+			libmonitoring.VerifyAlertExist(k8s.Client(), virtController.lowCountAlert)
 		})
 
 		It("VirtApiDown should be triggered when virt-api is down", func() {
@@ -174,10 +175,10 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			scales.UpdateScale(virtApi.deploymentName, int32(0))
 
 			By("Waiting for the api to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_api_up", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_virt_api_up", 0)
 
 			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtApi.downAlert)
+			libmonitoring.VerifyAlertExist(k8s.Client(), virtApi.downAlert)
 		})
 
 		It("LowVirtAPICount should be triggered when virt-api count is low", decorators.RequiresTwoSchedulableNodes, func() {
@@ -185,16 +186,16 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			scales.UpdateScale(virtApi.deploymentName, int32(0))
 
 			By("Waiting for the api to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_api_up", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_virt_api_up", 0)
 
 			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtApi.lowCountAlert)
+			libmonitoring.VerifyAlertExist(k8s.Client(), virtApi.lowCountAlert)
 		})
 	})
 
 	Context("Low ready alerts", decorators.RequiresTwoSchedulableNodes, func() {
 		It("LowReadyVirtControllersCount should be triggered when virt-controller pods exist but are not ready", func() {
-			virtControllerDeployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), virtController.deploymentName, metav1.GetOptions{})
+			virtControllerDeployment, err := k8s.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), virtController.deploymentName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			container := &virtControllerDeployment.Spec.Template.Spec.Containers[0]
@@ -207,10 +208,10 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			patch, err := json.Marshal(virtControllerDeployment)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), virtControllerDeployment.Name, types.MergePatchType, patch, metav1.PatchOptions{})
+			_, err = k8s.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), virtControllerDeployment.Name, types.MergePatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			libmonitoring.VerifyAlertExist(virtClient, virtController.lowReadyAlert)
+			libmonitoring.VerifyAlertExist(k8s.Client(), virtController.lowReadyAlert)
 		})
 	})
 
@@ -221,11 +222,11 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 
 		BeforeEach(func() {
 			By("Backing up the operator cluster role binding")
-			crb, err = virtClient.RbacV1().ClusterRoleBindings().Get(context.Background(), "kubevirt-operator", metav1.GetOptions{})
+			crb, err = k8s.Client().RbacV1().ClusterRoleBindings().Get(context.Background(), "kubevirt-operator", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Backing up the operator role binding")
-			operatorRoleBinding, err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Get(context.Background(), operatorRoleBindingName, metav1.GetOptions{})
+			operatorRoleBinding, err = k8s.Client().RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Get(context.Background(), operatorRoleBindingName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -234,14 +235,14 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			crb.Annotations = nil
 			crb.ObjectMeta.ResourceVersion = ""
 			crb.ObjectMeta.UID = ""
-			_, err = virtClient.RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
+			_, err = k8s.Client().RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
 			Expect(err).To(Or(Not(HaveOccurred()), MatchError(errors.IsAlreadyExists, "IsAlreadyExists")))
 
 			By("Restoring the operator role binding")
 			operatorRoleBinding.Annotations = nil
 			operatorRoleBinding.ObjectMeta.ResourceVersion = ""
 			operatorRoleBinding.ObjectMeta.UID = ""
-			_, err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Create(context.Background(), operatorRoleBinding, metav1.CreateOptions{})
+			_, err = k8s.Client().RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Create(context.Background(), operatorRoleBinding, metav1.CreateOptions{})
 			Expect(err).To(Or(Not(HaveOccurred()), MatchError(errors.IsAlreadyExists, "IsAlreadyExists")))
 		})
 
@@ -250,7 +251,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			Eventually(func(g Gomega) {
 				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).VNC(rand.String(6), false)
 				g.Expect(err).To(MatchError(ContainSubstring("not found")))
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtApi.restErrorsBurtsAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(k8s.Client(), virtApi.restErrorsBurtsAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
@@ -259,22 +260,22 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			scales.RestoreScale(virtOperator.deploymentName)
 
 			By("Deleting the operator cluster role binding")
-			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, metav1.DeleteOptions{})
+			err = k8s.Client().RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting the operator role binding")
-			err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Delete(context.Background(), operatorRoleBindingName, metav1.DeleteOptions{})
+			err = k8s.Client().RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Delete(context.Background(), operatorRoleBindingName, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the alert to exist")
 			Eventually(func(g Gomega) {
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtOperator.restErrorsBurtsAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(k8s.Client(), virtOperator.restErrorsBurtsAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
 		PIt("VirtControllerRESTErrorsBurst should be triggered when requests to virt-controller are failing", func() {
 			By("Deleting the controller cluster role binding")
-			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-controller", metav1.DeleteOptions{})
+			err = k8s.Client().RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-controller", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := libvmifact.NewGuestless()
@@ -284,13 +285,13 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 				_, _ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				_ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtController.restErrorsBurtsAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(k8s.Client(), virtController.restErrorsBurtsAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
 		It("VirtHandlerRESTErrorsBurst should be triggered when requests to virt-handler are failing", func() {
 			By("Deleting the handler cluster role binding")
-			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
+			err = k8s.Client().RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := libvmifact.NewGuestless()
@@ -300,7 +301,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 				_, _ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				_ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsBurtsAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(k8s.Client(), virtHandler.restErrorsBurtsAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 	})
@@ -316,14 +317,14 @@ func restoreOperator(virtClient kubecli.KubevirtClient, scales *libmonitoring.Sc
 		scales.UpdateScale(virtOperator.deploymentName, int32(replica))
 
 		By("Waiting for the operator to be up")
-		libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_up", float64(replica))
+		libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_virt_operator_up", float64(replica))
 
 		By("Waiting for the operator to be ready")
-		libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_ready", float64(replica))
+		libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_virt_operator_ready", float64(replica))
 	}
 
 	By("Waiting for an operator to be leading")
-	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_leading", 1.0)
+	libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_virt_operator_leading", 1.0)
 }
 
 func increaseRateLimit(virtClient kubecli.KubevirtClient) {

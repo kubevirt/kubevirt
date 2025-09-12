@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -41,6 +42,7 @@ type BurstLoadGenerator struct {
 type BurstJob struct {
 	Workload   *config.Workload
 	virtClient kubecli.KubevirtClient
+	k8sClient  kubernetes.Interface
 	UUID       string
 	objType    string
 	done       <-chan time.Time
@@ -48,9 +50,10 @@ type BurstJob struct {
 }
 
 // NewBurstJob
-func newBurstJob(virtClient kubecli.KubevirtClient, workload *config.Workload, uuid string, d <-chan time.Time) *BurstJob {
+func newBurstJob(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, workload *config.Workload, uuid string, d <-chan time.Time) *BurstJob {
 	return &BurstJob{
 		virtClient: virtClient,
+		k8sClient:  k8sClient,
 		Workload:   workload,
 		UUID:       uuid,
 		done:       d,
@@ -58,14 +61,14 @@ func newBurstJob(virtClient kubecli.KubevirtClient, workload *config.Workload, u
 	}
 }
 
-func (b *BurstLoadGenerator) Delete(virtClient kubecli.KubevirtClient, workload *config.Workload) {
-	j := newBurstJob(virtClient, workload, b.UUID, b.Done)
+func (b *BurstLoadGenerator) Delete(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, workload *config.Workload) {
+	j := newBurstJob(virtClient, k8sClient, workload, b.UUID, b.Done)
 	j.DeleteWorkloads()
 	j.stopAllWatchers()
 }
 
-func (b *BurstLoadGenerator) Run(virtClient kubecli.KubevirtClient, workload *config.Workload) {
-	j := newBurstJob(virtClient, workload, b.UUID, b.Done)
+func (b *BurstLoadGenerator) Run(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, workload *config.Workload) {
+	j := newBurstJob(virtClient, k8sClient, workload, b.UUID, b.Done)
 	j.CreateWorkloads()
 	// only stop watchers if the test will not delete the objs, otherwise the watchers will watch for the obj deletions
 	if !flags.Delete {
@@ -81,7 +84,7 @@ func (b *BurstJob) CreateWorkloads() {
 	objSpec := b.Workload.Object
 	objSample := renderObjSpecTemplate(objSpec, b.UUID)
 	b.createWatcherIfNotExist(objSample)
-	objUtil.CreateNamespaceIfNotExist(b.virtClient, objSample.GetNamespace(), config.WorkloadUUIDLabel, b.UUID)
+	objUtil.CreateNamespaceIfNotExist(b.k8sClient, objSample.GetNamespace(), config.WorkloadUUIDLabel, b.UUID)
 
 	// Create all replicas
 	for r := 1; r <= b.Workload.Count; r++ {

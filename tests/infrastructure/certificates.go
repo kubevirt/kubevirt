@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -79,7 +80,7 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 			patch.WithReplace("/data/tls.key", ""),
 		).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
-		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(
+		_, err = k8s.Client().CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(
 			context.Background(), components.KubeVirtCASecretName,
 			types.JSONPatchType, secretPatch, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -100,7 +101,7 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 
 		By("checking that the ca bundle gets propagated to the validating webhook")
 		Eventually(func() bool {
-			webhook, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
+			webhook, err := k8s.Client().AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
 				context.Background(), components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(webhook.Webhooks) > 0 {
@@ -110,7 +111,7 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 		}, 10*time.Second, 1*time.Second).Should(BeTrue())
 		By("checking that the ca bundle gets propagated to the mutating webhook")
 		Eventually(func() bool {
-			webhook, err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
+			webhook, err := k8s.Client().AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
 				context.Background(), components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(webhook.Webhooks) > 0 {
@@ -139,7 +140,7 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 			fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
 
 		By("destroying the CA certificate")
-		err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Delete(
+		err := k8s.Client().CoreV1().Secrets(flags.KubeVirtInstallNamespace).Delete(
 			context.Background(), components.KubeVirtCASecretName, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -176,7 +177,7 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 			patch.WithReplace("/data/tls.key", ""),
 		).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
-		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(
+		_, err = k8s.Client().CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(
 			context.Background(), secretName, types.JSONPatchType, secretPatch, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -194,8 +195,7 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 }))
 
 func getCertFromSecret(secretName string) []byte {
-	virtClient := kubevirt.Client()
-	secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
+	secret, err := k8s.Client().CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	if rawBundle, ok := secret.Data[bootstrap.CertBytesValue]; ok {
 		return rawBundle

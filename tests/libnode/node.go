@@ -35,6 +35,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -48,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	k8sClient "kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
@@ -57,11 +59,11 @@ const workerLabel = "node-role.kubernetes.io/worker"
 var SchedulableNode = ""
 
 func CleanNodes() {
-	virtCli := kubevirt.Client()
+	k8sCli := k8sClient.Client()
 
 	clusterDrainKey := GetNodeDrainKey()
 
-	for _, node := range GetAllSchedulableNodes(virtCli).Items {
+	for _, node := range GetAllSchedulableNodes(k8sCli).Items {
 		old, err := json.Marshal(node)
 		Expect(err).ToNot(HaveOccurred())
 		newNode := node.DeepCopy()
@@ -104,7 +106,7 @@ func CleanNodes() {
 		patchBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJSON, node)
 		Expect(err).ToNot(HaveOccurred())
 
-		_, err = virtCli.CoreV1().Nodes().Patch(
+		_, err = k8sCli.CoreV1().Nodes().Patch(
 			context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -153,7 +155,7 @@ func patchLabelAnnotationHelper(nodeName string, newMap, oldMap map[string]strin
 	path := "/metadata/" + string(mapType) + "s"
 	patchBytes, err := patch.New(patch.WithTest(path, oldMap), patch.WithReplace(path, newMap)).GeneratePayload()
 	Expect(err).ToNot(HaveOccurred())
-	client := kubevirt.Client()
+	client := k8sClient.Client()
 	patchedNode, err := client.CoreV1().Nodes().Patch(
 		context.Background(), nodeName, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{})
 	return patchedNode, err
@@ -188,12 +190,12 @@ func addRemoveLabelAnnotationHelper(nodeName, key, value string, mapType mapType
 	Expect(fetchMap).ToNot(BeNil())
 	Expect(mutateMap).ToNot(BeNil())
 
-	virtCli := kubevirt.Client()
+	k8sCli := k8sClient.Client()
 
 	var nodeToReturn *k8sv1.Node
 
 	EventuallyWithOffset(2, func() error {
-		origNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+		origNode, err := k8sCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		originalMap := fetchMap(origNode)
@@ -246,8 +248,8 @@ func RemoveAnnotationFromNode(nodeName, key string) *k8sv1.Node {
 }
 
 func Taint(nodeName, key string, effect k8sv1.TaintEffect) {
-	virtCli := kubevirt.Client()
-	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+	k8sCli := k8sClient.Client()
+	node, err := k8sCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	old, err := json.Marshal(node)
@@ -264,22 +266,22 @@ func Taint(nodeName, key string, effect k8sv1.TaintEffect) {
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJSON, node)
 	Expect(err).ToNot(HaveOccurred())
 
-	_, err = virtCli.CoreV1().Nodes().Patch(
+	_, err = k8sCli.CoreV1().Nodes().Patch(
 		context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 }
 
 func GetNodesWithKVM() []*k8sv1.Node {
-	virtClient := kubevirt.Client()
+	k8sCli := k8sClient.Client()
 	listOptions := k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+	virtHandlerPods, err := k8sCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 	Expect(err).ToNot(HaveOccurred())
 
 	nodeList := make([]*k8sv1.Node, 0)
 	// cluster is not ready until all nodeList are ready.
 	for i := range virtHandlerPods.Items {
 		pod := virtHandlerPods.Items[i]
-		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, k8smetav1.GetOptions{})
+		virtHandlerNode, err := k8sCli.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		_, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
@@ -291,18 +293,18 @@ func GetNodesWithKVM() []*k8sv1.Node {
 }
 
 // GetAllSchedulableNodes returns list of Nodes which are "KubeVirt" schedulable.
-func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
-	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{
+func GetAllSchedulableNodes(k8sCli kubernetes.Interface) *k8sv1.NodeList {
+	nodeList, err := k8sCli.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{
 		LabelSelector: v1.NodeSchedulable + "=" + "true",
 	})
 	Expect(err).ToNot(HaveOccurred(), "Should list compute nodeList")
 	return nodeList
 }
 
-func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
+func GetHighestCPUNumberAmongNodes(k8sCli kubernetes.Interface) int {
 	var cpus int64
 
-	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
+	nodeList, err := k8sCli.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	for _, node := range nodeList.Items {
@@ -316,33 +318,33 @@ func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
 
 func GetNodeNameWithHandler() string {
 	listOptions := k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-	virtClient := kubevirt.Client()
-	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+	k8sCli := k8sClient.Client()
+	virtHandlerPods, err := k8sCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 	Expect(err).ToNot(HaveOccurred())
-	node, err := virtClient.CoreV1().Nodes().Get(context.Background(), virtHandlerPods.Items[0].Spec.NodeName, k8smetav1.GetOptions{})
+	node, err := k8sCli.CoreV1().Nodes().Get(context.Background(), virtHandlerPods.Items[0].Spec.NodeName, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return node.ObjectMeta.Name
 }
 
 func GetArch() string {
-	virtCli := kubevirt.Client()
-	nodeList := GetAllSchedulableNodes(virtCli).Items
+	k8sCli := k8sClient.Client()
+	nodeList := GetAllSchedulableNodes(k8sCli).Items
 	Expect(nodeList).ToNot(BeEmpty(), "There should be some node")
 	return nodeList[0].Status.NodeInfo.Architecture
 }
 
-func setNodeSchedualability(nodeName string, virtCli kubecli.KubevirtClient, setSchedulable bool) {
-	origNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+func setNodeSchedualability(nodeName string, k8sCli kubernetes.Interface, setSchedulable bool) {
+	origNode, err := k8sCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 	Expect(err).ShouldNot(HaveOccurred())
 
 	nodeCopy := origNode.DeepCopy()
 	nodeCopy.Spec.Unschedulable = !setSchedulable
 
-	err = nodes.PatchNode(virtCli, origNode, nodeCopy)
+	err = nodes.PatchNode(k8sCli, origNode, nodeCopy)
 	Expect(err).ShouldNot(HaveOccurred())
 
 	Eventually(func() bool {
-		patchedNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+		patchedNode, err := k8sCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
 		return patchedNode.Spec.Unschedulable
@@ -351,20 +353,20 @@ func setNodeSchedualability(nodeName string, virtCli kubecli.KubevirtClient, set
 		fmt.Sprintf("node %s is expected to set to Unschedulable=%t, but it's set to %t", nodeName, !setSchedulable, setSchedulable))
 }
 
-func SetNodeUnschedulable(nodeName string, virtCli kubecli.KubevirtClient) {
-	setNodeSchedualability(nodeName, virtCli, false)
+func SetNodeUnschedulable(nodeName string, k8sCli kubernetes.Interface) {
+	setNodeSchedualability(nodeName, k8sCli, false)
 }
 
-func SetNodeSchedulable(nodeName string, virtCli kubecli.KubevirtClient) {
-	setNodeSchedualability(nodeName, virtCli, true)
+func SetNodeSchedulable(nodeName string, k8sCli kubernetes.Interface) {
+	setNodeSchedualability(nodeName, k8sCli, true)
 }
 
-func GetVirtHandlerPod(virtCli kubecli.KubevirtClient, nodeName string) (*k8sv1.Pod, error) {
-	return kubecli.NewVirtHandlerClient(virtCli, &http.Client{}).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+func GetVirtHandlerPod(k8sCli kubernetes.Interface, nodeName string) (*k8sv1.Pod, error) {
+	return kubecli.NewVirtHandlerClient(k8sCli, &http.Client{}).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 }
 
-func GetControlPlaneNodes(virtCli kubecli.KubevirtClient) *k8sv1.NodeList {
-	controlPlaneNodes, err := virtCli.
+func GetControlPlaneNodes(k8sCli kubernetes.Interface) *k8sv1.NodeList {
+	controlPlaneNodes, err := k8sCli.
 		CoreV1().
 		Nodes().
 		List(context.Background(),
@@ -375,9 +377,9 @@ func GetControlPlaneNodes(virtCli kubecli.KubevirtClient) *k8sv1.NodeList {
 	return controlPlaneNodes
 }
 
-func GetWorkerNodesWithCPUManagerEnabled(virtClient kubecli.KubevirtClient) []k8sv1.Node {
+func GetWorkerNodesWithCPUManagerEnabled(k8sCli kubernetes.Interface) []k8sv1.Node {
 	ginkgo.By("getting the list of worker nodes that have cpumanager enabled")
-	nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
+	nodeList, err := k8sCli.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),
 	})
 	Expect(err).ToNot(HaveOccurred())
@@ -444,7 +446,7 @@ func GetNodeHostModel(node *k8sv1.Node) (hostModel string) {
 }
 
 func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
-	virtHandlerPod, err := GetVirtHandlerPod(kubevirt.Client(), nodeName)
+	virtHandlerPod, err := GetVirtHandlerPod(k8sClient.Client(), nodeName)
 	if err != nil {
 		return "", err
 	}

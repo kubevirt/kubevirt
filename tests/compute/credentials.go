@@ -37,7 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -190,7 +190,7 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 
 func createNewSecret(namespace string, name string, data libsecret.DataBytes) error {
 	secret := libsecret.New(name, data)
-	_, err := kubevirt.Client().CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	_, err := k8s.Client().CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	return err
 }
 

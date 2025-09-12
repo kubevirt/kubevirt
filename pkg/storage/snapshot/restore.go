@@ -226,7 +226,7 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 	controller.AddFinalizer(vmRestoreOut, vmRestoreFinalizer)
 
 	if !equality.Semantic.DeepEqual(vmRestoreIn.ObjectMeta, vmRestoreOut.ObjectMeta) {
-		vmRestoreOut, err = ctrl.Client.VirtualMachineRestore(vmRestoreOut.Namespace).Update(context.Background(), vmRestoreOut, metav1.UpdateOptions{})
+		vmRestoreOut, err = ctrl.VirtClient.VirtualMachineRestore(vmRestoreOut.Namespace).Update(context.Background(), vmRestoreOut, metav1.UpdateOptions{})
 		if err != nil {
 			logger.Reason(err).Error("Error updating owner references")
 			return 0, err
@@ -345,7 +345,7 @@ func (ctrl *VMRestoreController) doUpdateErrorWithFailure(restore *snapshotv1.Vi
 
 func (ctrl *VMRestoreController) doUpdateStatus(original, updated *snapshotv1.VirtualMachineRestore) error {
 	if !equality.Semantic.DeepEqual(original.Status, updated.Status) {
-		if _, err := ctrl.Client.VirtualMachineRestore(updated.Namespace).UpdateStatus(context.Background(), updated, metav1.UpdateOptions{}); err != nil {
+		if _, err := ctrl.VirtClient.VirtualMachineRestore(updated.Namespace).UpdateStatus(context.Background(), updated, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -381,7 +381,7 @@ func (ctrl *VMRestoreController) handleVMRestoreDeletion(vmRestore *snapshotv1.V
 	if err != nil {
 		return err
 	}
-	_, err = ctrl.Client.VirtualMachineRestore(vmRestore.Namespace).Patch(context.Background(), vmRestore.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	_, err = ctrl.VirtClient.VirtualMachineRestore(vmRestore.Namespace).Patch(context.Background(), vmRestore.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 	return err
 }
 
@@ -550,7 +550,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 
 			// If we're here, the PVC associated with that volume exists, and needs to be wiped before we restore in its place
 			log.Log.Object(vmRestore).Infof("deleting %s/%s to replace volume due to policy InPlace", vmRestore.Namespace, pvc.Name)
-			if err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).
+			if err = ctrl.K8sClient.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).
 				Delete(context.Background(), pvc.Name, metav1.DeleteOptions{}); err != nil {
 				return false, err
 			}
@@ -604,7 +604,7 @@ func (t *vmRestoreTarget) UpdateDoneRestore() error {
 
 	vmCopy.Status.RestoreInProgress = nil
 	vmCopy.Status.MemoryDumpRequest = nil
-	vmCopy, err := t.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+	vmCopy, err := t.controller.VirtClient.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -627,7 +627,7 @@ func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
 		vmCopy.Status.RestoreInProgress = &t.vmRestore.Name
 
 		var err error
-		vmCopy, err = t.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+		vmCopy, err = t.controller.VirtClient.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -643,7 +643,7 @@ func (t *vmRestoreTarget) Stop() error {
 	}
 
 	log.Log.Infof("Stopping VM before restore [%s/%s]", t.vm.Namespace, t.vm.Name)
-	return t.controller.Client.VirtualMachine(t.vm.Namespace).Stop(context.Background(), t.vm.Name, &kubevirtv1.StopOptions{})
+	return t.controller.VirtClient.VirtualMachine(t.vm.Namespace).Stop(context.Background(), t.vm.Name, &kubevirtv1.StopOptions{})
 }
 
 func (t *vmRestoreTarget) Ready() (bool, error) {
@@ -697,7 +697,7 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 	}
 
 	// Retrieve only the backend volume
-	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithBackendVolume)
+	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.K8sClient, storageutils.WithBackendVolume)
 	if err != nil {
 		// Not checking for ErrNoBackendPVC, simply returning
 		// error as backend PVC should exist now
@@ -757,7 +757,7 @@ func (t *vmRestoreTarget) removeBackendLabelFromPVC(pvc *corev1.PersistentVolume
 			return false, err
 		}
 
-		_, err = t.controller.Client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		_, err = t.controller.K8sClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		return false, err
 	}
 
@@ -799,7 +799,7 @@ func (t *vmRestoreTarget) updateRestorePVCWithBackendLabel(originalPVC *corev1.P
 			if err != nil {
 				return false, err
 			}
-			_, err = t.controller.Client.CoreV1().PersistentVolumeClaims(restorePVC.Namespace).Patch(context.Background(), restorePVC.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			_, err = t.controller.K8sClient.CoreV1().PersistentVolumeClaims(restorePVC.Namespace).Patch(context.Background(), restorePVC.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			if err != nil {
 				return false, err
 			}
@@ -840,7 +840,7 @@ func (t *vmRestoreTarget) updateVMRestoreRestores(snapshotVM *snapshotv1.Virtual
 		restore := &restores[k]
 		// Just need to access the regular VM volumes here as the backend volume
 		// is handled separately.
-		volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client)
+		volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.K8sClient)
 		if err != nil {
 			return false, err
 		}
@@ -892,7 +892,7 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 
 	// Just need to access the regular VM volumes here as the backend volume
 	// doesn't need to be included in the VM spec.
-	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client)
+	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.K8sClient)
 	if err != nil {
 		return nil, err
 	}
@@ -999,9 +999,9 @@ func (t *vmRestoreTarget) reconcileSpec(restoredVM *kubevirtv1.VirtualMachine) (
 		if err != nil {
 			return false, fmt.Errorf("error patching VM %s: %v", restoredVM.Name, err)
 		}
-		restoredVM, err = t.controller.Client.VirtualMachine(t.vmRestore.Namespace).Create(context.Background(), restoredVM, metav1.CreateOptions{})
+		restoredVM, err = t.controller.VirtClient.VirtualMachine(t.vmRestore.Namespace).Create(context.Background(), restoredVM, metav1.CreateOptions{})
 	} else {
-		restoredVM, err = t.controller.Client.VirtualMachine(restoredVM.Namespace).Update(context.Background(), restoredVM, metav1.UpdateOptions{})
+		restoredVM, err = t.controller.VirtClient.VirtualMachine(restoredVM.Namespace).Update(context.Background(), restoredVM, metav1.UpdateOptions{})
 	}
 	if err != nil {
 		return false, err
@@ -1026,7 +1026,7 @@ func (t *vmRestoreTarget) updateRestorePVCOwnership() error {
 	}
 	for _, volume := range t.VirtualMachine().Spec.Template.Spec.Volumes {
 		if volume.PersistentVolumeClaim != nil {
-			pvc, err := t.controller.Client.CoreV1().PersistentVolumeClaims(t.vmRestore.Namespace).Get(context.Background(), volume.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+			pvc, err := t.controller.K8sClient.CoreV1().PersistentVolumeClaims(t.vmRestore.Namespace).Get(context.Background(), volume.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -1038,7 +1038,7 @@ func (t *vmRestoreTarget) updateRestorePVCOwnership() error {
 					delete(pvc.Annotations, restoreOwnedByVMLabel)
 
 					// Update the PVC to have the owner reference
-					_, err = t.controller.Client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+					_, err = t.controller.K8sClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
 					if err != nil {
 						return err
 					}
@@ -1070,7 +1070,7 @@ func (t *vmRestoreTarget) updatePVCPopulatedForAnnotation(pvc *corev1.Persistent
 		updatePVC.Annotations[populatedForPVCAnnotation] = dvName
 		// datavolume will take ownership
 		updatePVC.OwnerReferences = nil
-		_, err := t.controller.Client.CoreV1().PersistentVolumeClaims(updatePVC.Namespace).Update(context.Background(), updatePVC, metav1.UpdateOptions{})
+		_, err := t.controller.K8sClient.CoreV1().PersistentVolumeClaims(updatePVC.Namespace).Update(context.Background(), updatePVC, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -1174,7 +1174,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 				return existingCR, nil
 			}
 			// Otherwise as CRs are immutable delete the existing CR so we can restore the version from the snapshot below
-			if err := t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), existingCR.Name, metav1.DeleteOptions{}); err != nil {
+			if err := t.controller.K8sClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), existingCR.Name, metav1.DeleteOptions{}); err != nil {
 				return nil, err
 			}
 			// As the VirtualMachine already exists here we can also populate the OwnerReference, avoiding the need to do so later during claimInstancetypeControllerRevisionOwnership
@@ -1182,7 +1182,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 		}
 	}
 
-	restoredCR, err = t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), restoredCR, metav1.CreateOptions{})
+	restoredCR, err = t.controller.K8sClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), restoredCR, metav1.CreateOptions{})
 	// This might not be our first time through the reconcile loop so accommodate previous calls to restoreInstancetypeControllerRevision by ignoring unexpected existing CRs for now.
 	// TODO - Check the contents of the existing CR here against that of the snapshot CR
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
@@ -1220,7 +1220,7 @@ func (t *vmRestoreTarget) claimInstancetypeControllerRevisionOwnership(revisionN
 
 	if !metav1.IsControlledBy(cr, vm) {
 		cr.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(vm, kubevirtv1.VirtualMachineGroupVersionKind)}
-		_, err = t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Update(context.Background(), cr, metav1.UpdateOptions{})
+		_, err = t.controller.K8sClient.AppsV1().ControllerRevisions(vm.Namespace).Update(context.Background(), cr, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -1257,7 +1257,7 @@ func (t *vmRestoreTarget) createDataVolume(restoredVM *kubevirtv1.VirtualMachine
 		return false, nil
 	}
 
-	newDataVolume, err := typesutil.GenerateDataVolumeFromTemplate(t.controller.Client, dvt, restoredVM.Namespace, restoredVM.Spec.Template.Spec.PriorityClassName)
+	newDataVolume, err := typesutil.GenerateDataVolumeFromTemplate(t.controller.VirtClient, dvt, restoredVM.Namespace, restoredVM.Spec.Template.Spec.PriorityClassName)
 	if err != nil {
 		return false, fmt.Errorf("Unable to create restore DataVolume manifest: %v", err)
 	}
@@ -1268,7 +1268,7 @@ func (t *vmRestoreTarget) createDataVolume(restoredVM *kubevirtv1.VirtualMachine
 	newDataVolume.Annotations[RestoreNameAnnotation] = t.vmRestore.Name
 	newDataVolume.Annotations[cdiv1.AnnPrePopulated] = "true"
 
-	if _, err = t.controller.Client.CdiClient().CdiV1beta1().DataVolumes(restoredVM.Namespace).Create(context.Background(), newDataVolume, metav1.CreateOptions{}); err != nil {
+	if _, err = t.controller.VirtClient.CdiClient().CdiV1beta1().DataVolumes(restoredVM.Namespace).Create(context.Background(), newDataVolume, metav1.CreateOptions{}); err != nil {
 		t.controller.Recorder.Eventf(t.vm, corev1.EventTypeWarning, restoreDataVolumeCreateErrorEvent, "Error creating restore DataVolume %s: %v", newDataVolume.Name, err)
 		return false, fmt.Errorf("Failed to create restore DataVolume: %v", err)
 	}
@@ -1303,7 +1303,7 @@ func (ctrl *VMRestoreController) deleteObsoleteVolumes(vmRestore *snapshotv1.Vir
 			return err
 		}
 		if exists {
-			err = ctrl.Client.CdiClient().CdiV1beta1().DataVolumes(vmRestore.Namespace).
+			err = ctrl.VirtClient.CdiClient().CdiV1beta1().DataVolumes(vmRestore.Namespace).
 				Delete(context.Background(), dvName, metav1.DeleteOptions{})
 			if err != nil {
 				return err
@@ -1323,14 +1323,14 @@ func (ctrl *VMRestoreController) deleteObsoleteVolumes(vmRestore *snapshotv1.Vir
 func (ctrl *VMRestoreController) deleteObsoleteBackendPVC(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
 	// Target should always exist at this point, just nil check for safety.
 	if target.Exists() && backendstorage.IsBackendStorageNeeded(target.VirtualMachine()) {
-		pvcs, err := ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).List(context.Background(), metav1.ListOptions{
+		pvcs, err := ctrl.K8sClient.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("%s=%s", restoreCleanupBackendPVCLabel, getCleanupLabelValue(vmRestore)),
 		})
 		if err != nil {
 			return err
 		}
 		for _, pvc := range pvcs.Items {
-			err = ctrl.Client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(context.Background(), pvc.Name, metav1.DeleteOptions{})
+			err = ctrl.K8sClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(context.Background(), pvc.Name, metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
@@ -1542,7 +1542,7 @@ func (ctrl *VMRestoreController) createRestorePVC(
 		}
 	}
 
-	_, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	_, err = ctrl.K8sClient.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -1681,7 +1681,7 @@ func updateRestoreCondition(r *snapshotv1.VirtualMachineRestore, c snapshotv1.Co
 func (ctrl *VMRestoreController) volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent) (sets.String, error) {
 	noRestore := sets.NewString()
 
-	volumes, err := storageutils.GetVolumes(content.Spec.Source.VirtualMachine, ctrl.Client)
+	volumes, err := storageutils.GetVolumes(content.Spec.Source.VirtualMachine, ctrl.K8sClient)
 	if err != nil {
 		return noRestore, err
 	}
@@ -1771,7 +1771,7 @@ func (ctrl *VMRestoreController) prepopulateDataVolume(namespace, dataVolume, re
 	}
 
 	// Patch the DataVolume
-	_, err = ctrl.Client.CdiClient().CdiV1beta1().DataVolumes(namespace).Patch(context.Background(), dataVolume, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.VirtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Patch(context.Background(), dataVolume, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	return err
 }
 

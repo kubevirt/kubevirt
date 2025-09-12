@@ -23,7 +23,7 @@ var _ = Describe("client", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("creating a client from context")
-		contextClient, _, _, err := clientconfig.ClientAndNamespaceFromContext(
+		contextClient, _, _, _, err := clientconfig.ClientAndNamespaceFromContext(
 			clientconfig.NewContext(context.Background(), clientConfig),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -33,7 +33,7 @@ var _ = Describe("client", func() {
 	})
 
 	It("ClientAndNamespaceFromContext should fail when clientConfig is missing from context", func() {
-		_, _, _, err := clientconfig.ClientAndNamespaceFromContext(context.Background())
+		_, _, _, _, err := clientconfig.ClientAndNamespaceFromContext(context.Background())
 		Expect(err).To(MatchError("unable to get client config from context"))
 	})
 })

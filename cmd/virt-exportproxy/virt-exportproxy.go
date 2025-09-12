@@ -181,9 +181,13 @@ func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) {
 	if err != nil {
 		panic(err)
 	}
+	k8sCli, err := kubecli.GetK8sClientFromRESTConfig(clientConfig)
+	if err != nil {
+		panic(err)
+	}
 	aggregatorClient := aggregatorclient.NewForConfigOrDie(clientConfig)
 
-	kubeInformerFactory := controller.NewKubeInformerFactory(virtCli.RestClient(), virtCli, aggregatorClient, namespace)
+	kubeInformerFactory := controller.NewKubeInformerFactory(virtCli.RestClient(), virtCli, k8sCli, aggregatorClient, namespace)
 	caInformer := kubeInformerFactory.KubeVirtExportCAConfigMap()
 	app.exportStore = kubeInformerFactory.VirtualMachineExport().GetStore()
 	app.kubeVirtStore = kubeInformerFactory.KubeVirt().GetStore()

@@ -314,7 +314,7 @@ func (c *createClone) typeToTypedLocalObjectReference(sourceOrTargetType, source
 }
 
 func (c *createClone) setDefaults(ctx context.Context) error {
-	_, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(ctx)
+	_, _, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(ctx)
 	const cloneRandomSuffixLength = 5
 	if err != nil {
 		return err

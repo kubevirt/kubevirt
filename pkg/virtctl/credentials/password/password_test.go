@@ -45,9 +45,10 @@ var _ = Describe("Credentials set-password", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
+		kubecli.GetK8sClientFromClientConfig = kubecli.GetMockK8sClientFromClientConfig
+		kubecli.MockK8sClientInstance = kubeClient
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).
 			Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		vmi := libvmi.New(
 			libvmi.WithNamespace(metav1.NamespaceDefault),

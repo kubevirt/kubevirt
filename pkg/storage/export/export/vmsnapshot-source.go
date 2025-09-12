@@ -180,7 +180,7 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 		},
 	})
 
-	pvc, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmExport.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	pvc, err = ctrl.K8sClient.CoreV1().PersistentVolumeClaims(vmExport.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}

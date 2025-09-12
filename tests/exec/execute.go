@@ -23,7 +23,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	k8sClient "kubevirt.io/kubevirt/tests/framework/k8s"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -61,7 +61,7 @@ func ExecuteCommandOnPodWithResults(pod *k8sv1.Pod, containerName string, comman
 }
 
 func ExecuteCommandOnPodWithOptions(pod *k8sv1.Pod, containerName string, command []string, options remotecommand.StreamOptions) error {
-	req := kubevirt.Client().CoreV1().RESTClient().Post().
+	req := k8sClient.Client().CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(pod.Name).
 		Namespace(pod.Namespace).

@@ -34,7 +34,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
+var _ = Describe("Kubevirt VirtualMachineInstancePreset VirtClient", func() {
 	var server *ghttp.Server
 	basePath := "/apis/kubevirt.io/v1/namespaces/default/virtualmachineinstancepresets"
 	presetPath := path.Join(basePath, "testpreset")

@@ -233,6 +233,7 @@ var _ = Describe("Migration watcher", func() {
 	BeforeEach(func() {
 		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 		virtClientset = kubevirtfake.NewSimpleClientset()
+		kubeClient = fake.NewSimpleClientset(&namespace)
 
 		vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		migrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstanceMigration{}, virtcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
@@ -250,7 +251,7 @@ var _ = Describe("Migration watcher", func() {
 		kubevirtInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		controller, _ = NewController(
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, kubeClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
@@ -263,6 +264,7 @@ var _ = Describe("Migration watcher", func() {
 			kubevirtInformer,
 			recorder,
 			virtClient,
+			kubeClient,
 			config,
 			stubNetworkAnnotationsGenerator{},
 		)
@@ -273,11 +275,8 @@ var _ = Describe("Migration watcher", func() {
 		}
 
 		// Set up mock client
-		kubeClient = fake.NewSimpleClientset(&namespace)
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachineInstances(k8sv1.NamespaceDefault)).AnyTimes()
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
 		networkClient = fakenetworkclient.NewSimpleClientset()
 		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 		virtClient.EXPECT().MigrationPolicy().Return(virtClientset.MigrationsV1alpha1().MigrationPolicies()).AnyTimes()

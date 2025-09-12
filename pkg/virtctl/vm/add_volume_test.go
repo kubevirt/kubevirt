@@ -63,10 +63,12 @@ var _ = Describe("Add volume command", func() {
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
+		coreClient = k8sfake.NewSimpleClientset()
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
+		kubecli.GetK8sClientFromClientConfig = kubecli.GetMockK8sClientFromClientConfig
+		kubecli.MockK8sClientInstance = coreClient
 		cdiClient = cdifake.NewSimpleClientset()
-		coreClient = k8sfake.NewSimpleClientset()
 		virtClient = kubevirtfake.NewSimpleClientset()
 	})
 
@@ -82,7 +84,6 @@ var _ = Describe("Add volume command", func() {
 
 	It("should fail when trying to add volume with invalid disk type", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
 
 		_, err := coreClient.CoreV1().PersistentVolumeClaims(metav1.NamespaceDefault).Create(context.Background(), &k8sv1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -97,7 +98,6 @@ var _ = Describe("Add volume command", func() {
 
 	DescribeTable("should fail addvolume when no source is found according to option", func(dryRun bool) {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
 
 		args := []string{"addvolume", vmiName, "--volume-name=" + volumeName}
 		if dryRun {
@@ -264,7 +264,6 @@ var _ = Describe("Add volume command", func() {
 		Context("with PVC", func() {
 			BeforeEach(func() {
 				kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
-				kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
 				_, err := coreClient.CoreV1().PersistentVolumeClaims(metav1.NamespaceDefault).Create(
 					context.Background(),
 					&k8sv1.PersistentVolumeClaim{

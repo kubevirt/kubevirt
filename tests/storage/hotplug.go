@@ -32,6 +32,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/framework/k8s"
+
 	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -394,7 +396,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 		labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
 
-		pods, err := virtClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+		pods, err := k8s.Client().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 		Expect(err).ToNot(HaveOccurred(), "Should list pods")
 
 		var virtlauncher *k8sv1.Pod
@@ -406,7 +408,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		}
 		Expect(virtlauncher).ToNot(BeNil(), "Should find running virtlauncher pod")
 		Eventually(func() bool {
-			podList, err := virtClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+			podList, err := k8s.Client().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
 			if err != nil {
 				return false
 			}
@@ -479,7 +481,7 @@ var _ = Describe(SIG("Hotplug", func() {
 	}
 
 	verifySingleAttachmentPod := func(vmi *v1.VirtualMachineInstance) {
-		podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+		podList, err := k8s.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		attachmentPodCount := 0
 		var virtlauncherPod k8sv1.Pod
@@ -768,10 +770,10 @@ var _ = Describe(SIG("Hotplug", func() {
 			Expect(targets).To(HaveLen(1))
 
 			By("Deleting virt-handler pod")
-			virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+			virtHandlerPod, err := libnode.GetVirtHandlerPod(k8s.Client(), vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
-				err := virtClient.CoreV1().
+				err := k8s.Client().CoreV1().
 					Pods(virtHandlerPod.GetObjectMeta().GetNamespace()).
 					Delete(context.Background(), virtHandlerPod.GetObjectMeta().GetName(), metav1.DeleteOptions{})
 				return err
@@ -779,7 +781,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			By("Waiting for virt-handler pod to restart")
 			Eventually(func() bool {
-				virtHandlerPod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+				virtHandlerPod, err = libnode.GetVirtHandlerPod(k8s.Client(), vmi.Status.NodeName)
 				return err == nil && virtHandlerPod.Status.Phase == k8sv1.PodRunning
 			}, 60*time.Second, 1*time.Second).Should(BeTrue(), "virt-handler pod is expected to be restarted")
 
@@ -878,7 +880,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 	Context("[storage-req]", decorators.StorageReq, func() {
 		findCPUManagerWorkerNode := func() string {
-			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+			nodes, err := k8s.Client().CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
 				LabelSelector: "node-role.kubernetes.io/worker",
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -1075,7 +1077,7 @@ var _ = Describe(SIG("Hotplug", func() {
 					verifyVolumeNolongerAccessible(vmi, targets[i])
 				}
 				By("Verifying there are no sync errors")
-				events, err := virtClient.CoreV1().Events(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+				events, err := k8s.Client().CoreV1().Events(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, event := range events.Items {
 					if event.InvolvedObject.Kind == "VirtualMachineInstance" && event.InvolvedObject.UID == vmi.UID {
@@ -1379,7 +1381,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 				By("Verifying the source attachment pods are deleted")
 				Eventually(func() error {
-					_, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourceAttachmentPods[0], metav1.GetOptions{})
+					_, err := k8s.Client().CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourceAttachmentPods[0], metav1.GetOptions{})
 					return err
 				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
@@ -1455,7 +1457,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				libstorage.EventuallyDV(dv, 180, matcher.HaveSucceeded())
 
 				By("rename disk image on PVC")
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+				pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				renameImgFile(pvc, newDiskImgName)
 
@@ -1517,13 +1519,13 @@ var _ = Describe(SIG("Hotplug", func() {
 			}
 			Expect(podName).ToNot(BeEmpty())
 			foreGround := metav1.DeletePropagationForeground
-			err := virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{
+			err := k8s.Client().CoreV1().Pods(vmi.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{
 				GracePeriodSeconds: pointer.P(int64(0)),
 				PropagationPolicy:  &foreGround,
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
-				_, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), podName, metav1.GetOptions{})
+				_, err := k8s.Client().CoreV1().Pods(vmi.Namespace).Get(context.Background(), podName, metav1.GetOptions{})
 				return err
 			}, 300*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		}
@@ -1541,7 +1543,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				},
 			}
 
-			_, err := virtClient.CoreV1().ResourceQuotas(namespace).Create(context.Background(), rq, metav1.CreateOptions{})
+			_, err := k8s.Client().CoreV1().ResourceQuotas(namespace).Create(context.Background(), rq, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -1760,11 +1762,11 @@ var _ = Describe(SIG("Hotplug", func() {
 					},
 				},
 			}
-			lr, err = virtClient.CoreV1().LimitRanges(namespace).Create(context.Background(), lr, metav1.CreateOptions{})
+			lr, err = k8s.Client().CoreV1().LimitRanges(namespace).Create(context.Background(), lr, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			By("Ensuring LimitRange exists")
 			Eventually(func() error {
-				lr, err = virtClient.CoreV1().LimitRanges(namespace).Get(context.Background(), lr.Name, metav1.GetOptions{})
+				lr, err = k8s.Client().CoreV1().LimitRanges(namespace).Get(context.Background(), lr.Name, metav1.GetOptions{})
 				return err
 			}, 30*time.Second, 1*time.Second).Should(Succeed())
 		}
@@ -1780,7 +1782,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 		AfterEach(func() {
 			if lr != nil {
-				err = virtClient.CoreV1().LimitRanges(lr.Namespace).Delete(context.Background(), lr.Name, metav1.DeleteOptions{})
+				err = k8s.Client().CoreV1().LimitRanges(lr.Namespace).Delete(context.Background(), lr.Name, metav1.DeleteOptions{})
 				if !errors.IsNotFound(err) {
 					Expect(err).ToNot(HaveOccurred())
 				}
@@ -1815,7 +1817,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyVolumeStatus(vmi, v1.VolumeReady, "", "testvolume")
 			verifySingleAttachmentPod(vmi)
 			By("Verifying request/limit ratio on attachment pod")
-			podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			podList, err := k8s.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			var virtlauncherPod, attachmentPod k8sv1.Pod
 			By("Finding virt-launcher pod")
@@ -2111,7 +2113,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		AfterEach(func() {
 			// Delete the scsi disk
 			RemoveSCSIDisk(nodeName, address)
-			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+			Expect(k8s.Client().CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			err := deleteVirtualMachine(vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -2143,7 +2145,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			removeVolumeVM(vm.Name, vm.Namespace, testNewVolume2, false)
 
 			verifyVolumeAndDiskVMRemoved(vm, testNewVolume1, testNewVolume2)
-			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv2.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+			Expect(k8s.Client().CoreV1().PersistentVolumes().Delete(context.Background(), pv2.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 		})
 
 		It("on an online VM", func() {
@@ -2261,8 +2263,7 @@ func renameImgFile(pvc *k8sv1.PersistentVolumeClaim, newName string) {
 	By("renaming disk.img")
 	pod := libstorage.RenderPodWithPVC("rename-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
 
-	virtClient := kubevirt.Client()
-	pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err := k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(matcher.ThisPod(pod), 120).Should(matcher.BeInPhase(k8sv1.PodSucceeded))
 }

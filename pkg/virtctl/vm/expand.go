@@ -73,7 +73,7 @@ func (o *Command) expandRun(cmd *cobra.Command, args []string) error {
 	var expandedVm *v1.VirtualMachine
 	var err error
 
-	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtClient, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

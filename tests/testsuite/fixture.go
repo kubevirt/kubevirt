@@ -30,6 +30,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/framework/k8s"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -142,9 +144,10 @@ func BeforeTestSuiteSetup(_ []byte) {
 
 	// Wait for schedulable nodes
 	virtClient := kubevirt.Client()
+	k8sClient := k8s.Client()
 	initRunConfiguration(virtClient)
 	Eventually(func() int {
-		nodes := libnode.GetAllSchedulableNodes(virtClient)
+		nodes := libnode.GetAllSchedulableNodes(k8sClient)
 		if len(nodes.Items) > 0 {
 			idx := rand.Intn(len(nodes.Items))
 			libnode.SchedulableNode = nodes.Items[idx].Name
@@ -209,17 +212,18 @@ func shouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
 
 func EnsureKVMPresent() {
 	virtClient := kubevirt.Client()
+	k8sClient := k8s.Client()
 
 	if !shouldAllowEmulation(virtClient) {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-		virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+		virtHandlerPods, err := k8sClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		EventuallyWithOffset(1, func() bool {
 			ready := true
 			// cluster is not ready until all nodes are ready.
 			for _, pod := range virtHandlerPods.Items {
-				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
+				virtHandlerNode, err := k8sClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 				kvmAllocatable, ok1 := virtHandlerNode.Status.Allocatable[services.KvmDevice]
@@ -234,7 +238,7 @@ func EnsureKVMPresent() {
 }
 
 func deleteFakeKWOKNodes() {
-	err := kubevirt.Client().CoreV1().Nodes().DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: "type=kwok"})
+	err := k8s.Client().CoreV1().Nodes().DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: "type=kwok"})
 	Expect(err).NotTo(HaveOccurred(), "failed to delete fake nodes")
 }
 
@@ -246,12 +250,12 @@ func createFakeKWOKNodes() {
 		nodeName := fmt.Sprintf("kwok-node-%d", i)
 		node := newFakeKWOKNode(nodeName)
 
-		_, err := kubevirt.Client().CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
+		_, err := k8s.Client().CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("Failed to create node %s", nodeName))
 	}
 
 	By("Get the list of nodes")
-	nodeList, err := kubevirt.Client().CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: "type=kwok"})
+	nodeList, err := k8s.Client().CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: "type=kwok"})
 	Expect(err).NotTo(HaveOccurred(), "Failed to list fake nodes")
 	Expect(nodeList.Items).To(HaveLen(nodeCount))
 }
@@ -352,9 +356,9 @@ func WipeTestingInfrastructure() {
 func waitForAllDaemonSetsReady(timeout time.Duration) {
 	checkForDaemonSetsReady := func() []string {
 		dsNotReady := make([]string, 0)
-		virtClient := kubevirt.Client()
+		k8sClient := k8s.Client()
 
-		dsList, err := virtClient.AppsV1().DaemonSets(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+		dsList, err := k8sClient.AppsV1().DaemonSets(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		for _, ds := range dsList.Items {
 			if ds.Status.DesiredNumberScheduled != ds.Status.NumberReady {
@@ -370,9 +374,9 @@ func waitForAllDaemonSetsReady(timeout time.Duration) {
 func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
 	checkForPodsToBeReady := func() []string {
 		podsNotReady := make([]string, 0)
-		virtClient := kubevirt.Client()
+		k8sClient := k8s.Client()
 
-		podsList, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(context.Background(), listOptions)
+		podsList, err := k8sClient.CoreV1().Pods(k8sv1.NamespaceAll).List(context.Background(), listOptions)
 		Expect(err).ToNot(HaveOccurred())
 		for _, pod := range podsList.Items {
 			for _, status := range pod.Status.ContainerStatuses {
@@ -397,8 +401,8 @@ func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 
 func WaitExportProxyReady() {
 	Eventually(func() bool {
-		virtClient := kubevirt.Client()
-		d, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
+		k8sClient := k8s.Client()
+		d, err := k8sClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return false
 		}

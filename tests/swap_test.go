@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -66,7 +67,7 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		nodes := libnode.GetAllSchedulableNodes(virtClient)
+		nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 		Expect(len(nodes.Items)).To(BeNumerically(">", 1),
 			"should have at least two schedulable nodes in the cluster")
 
@@ -77,7 +78,7 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 
 	Context("Migration to/from memory overcommitted nodes", decorators.SigComputeMigrations, func() {
 		It("Postcopy Migration of vmi that is dirtying(stress-ng) more memory than the source node's memory", func() {
-			sourceNode, targetNode, err := libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
+			sourceNode, targetNode, err := libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(k8s.Client())
 			Expect(err).ToNot(HaveOccurred(), "should be able to get valid source and target nodes for migartion")
 			totalMemKib := getTotalMemSizeInKib(*sourceNode)
 			availableMemSizeKib := getAvailableMemSizeInKib(*sourceNode)
@@ -141,7 +142,7 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 		})
 
 		It("Migration of vmi to memory overcommited node", func() {
-			sourceNode, targetNode, err := libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
+			sourceNode, targetNode, err := libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(k8s.Client())
 			Expect(err).ToNot(HaveOccurred(), "should be able to get valid source and target nodes for migartion")
 			vmMemoryRequestkib := 512000
 			availableMemSizeKib := getAvailableMemSizeInKib(*targetNode)
@@ -245,7 +246,7 @@ func fillMemWithStressFedoraVMI(vmi *virtv1.VirtualMachineInstance, memToUseInTh
 }
 
 func failIfSwapOff(message string) {
-	nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
+	nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 	for _, node := range nodes.Items {
 		swapSizeKib := getSwapSizeInKib(node)
 		if swapSizeKib < maxSwapSizeToUseKib {

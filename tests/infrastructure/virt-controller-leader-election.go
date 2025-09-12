@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -42,7 +43,7 @@ var _ = Describe(SIGSerial("Start a VirtualMachineInstance", func() {
 			virtClient := kubevirt.Client()
 			By("Deleting the virt-controller leader pod")
 			leaderPodName := libinfra.GetLeader()
-			Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(
+			Expect(k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(
 				context.Background(), leaderPodName,
 				metav1.DeleteOptions{})).To(Succeed())
 

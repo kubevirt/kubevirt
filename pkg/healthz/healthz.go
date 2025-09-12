@@ -74,7 +74,7 @@ func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig, h
 		var version = hVersion.GetVersion()
 
 		if version == nil {
-			cli, err := kubecli.GetKubevirtClient()
+			cli, err := kubecli.GetK8sClient()
 			if err != nil {
 				unhealthy(err, clusterConfig, response)
 				return

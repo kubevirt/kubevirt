@@ -85,7 +85,7 @@ func NewCommand() *cobra.Command {
 }
 
 func (o *scp) run(cmd *cobra.Command, args []string) error {
-	_, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	_, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

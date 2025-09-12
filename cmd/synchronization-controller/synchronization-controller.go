@@ -32,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -90,6 +91,7 @@ type synchronizationControllerApp struct {
 	service.ServiceListen
 
 	virtCli        kubecli.KubevirtClient
+	k8sCli         kubernetes.Interface
 	namespace      string
 	LeaderElection leaderelectionconfig.Configuration
 
@@ -204,13 +206,27 @@ func (app *synchronizationControllerApp) Run() {
 		panic(fmt.Errorf("unable to get kubevirt client from rest config after %d retries %v", maxRetryCount, err))
 	}
 
+	for retryCount = 0; retryCount < maxRetryCount; retryCount++ {
+		app.k8sCli, err = kubecli.GetK8sClientFromRESTConfig(clientConfig)
+		if err != nil {
+			log.Log.Errorf("unable to get k8s client from rest config %v", err)
+			waitTime := 2 ^ (retryCount + 1)
+			time.Sleep(time.Duration(waitTime) * time.Millisecond)
+			continue
+		}
+		break
+	}
+	if retryCount >= maxRetryCount {
+		panic(fmt.Errorf("unable to get k8s client from rest config after %d retries %v", maxRetryCount, err))
+	}
+
 	app.namespace, err = clientutil.GetNamespace()
 	if err != nil {
 		log.Log.Criticalf("Error searching for namespace: %v", err)
 		os.Exit(2)
 	}
 	log.Log.V(1).Infof("running in namespace %s", app.namespace)
-	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, nil, app.namespace)
+	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.k8sCli, nil, app.namespace)
 
 	vmiInformer := factory.VMI()
 	migrationInformer := factory.VirtualMachineInstanceMigration()
@@ -328,8 +344,8 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 	rl, err := resourcelock.New(app.LeaderElection.ResourceLock,
 		app.namespace,
 		leaseName,
-		app.virtCli.CoreV1(),
-		app.virtCli.CoordinationV1(),
+		app.k8sCli.CoreV1(),
+		app.k8sCli.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      id,
 			EventRecorder: recorder,
@@ -371,7 +387,7 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 
 func (app *synchronizationControllerApp) getNewRecorder(namespace string, componentName string) record.EventRecorder {
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.virtCli.CoreV1().Events(namespace)})
+	eventBroadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.k8sCli.CoreV1().Events(namespace)})
 	return eventBroadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: componentName})
 }
 
@@ -400,7 +416,7 @@ func (app *synchronizationControllerApp) AddFlags() {
 		"The name of configmap containing CA certificates to authenticate requests presenting client certificates with matching CommonName")
 
 	flag.StringVar(&app.clientCertFilePath, "client-cert-file", defaultClientCertFilePath,
-		"Client certificate used to prove the identity of the virt-handler when it must call out during a request")
+		"VirtClient certificate used to prove the identity of the virt-handler when it must call out during a request")
 
 	flag.StringVar(&app.clientKeyFilePath, "client-key-file", defaultClientKeyFilePath,
 		"Private key for the client certificate used to prove the identity of the virt-handler when it must call out during a request")

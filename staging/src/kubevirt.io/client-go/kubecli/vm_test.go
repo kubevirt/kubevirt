@@ -39,7 +39,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
-var _ = Describe("Kubevirt VirtualMachine Client", func() {
+var _ = Describe("Kubevirt VirtualMachine VirtClient", func() {
 
 	var server *ghttp.Server
 	basePath := "/apis/kubevirt.io/v1/namespaces/default/virtualmachines"

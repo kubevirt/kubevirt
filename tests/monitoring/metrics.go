@@ -29,12 +29,14 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -99,8 +101,8 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 		}
 
 		BeforeAll(func() {
-			vm = basicVMLifecycle(virtClient)
-			metrics = fetchPrometheusKubevirtMetrics(virtClient)
+			vm = basicVMLifecycle(virtClient, k8s.Client())
+			metrics = fetchPrometheusKubevirtMetrics(k8s.Client())
 			Expect(metrics.Data.Result).ToNot(BeEmpty(), "No metrics found")
 		})
 
@@ -172,7 +174,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 		It("should not contain controller-runtime workqueue metrics for virt workloads", func() {
 			By("Checking workqueue_depth{container=~\"virt*\"} is not present")
 			query := "{__name__=\"workqueue_depth\",container=~\"virt.*\"}"
-			metrics := fetchPrometheusMetrics(virtClient, query)
+			metrics := fetchPrometheusMetrics(k8s.Client(), query)
 			Expect(metrics.Data.Result).To(BeEmpty(), "Expected no workqueue_depth metrics for virt workloads")
 		})
 
@@ -205,19 +207,19 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			for _, name := range names {
 				By("Checking workqueue metrics for " + name)
 				query := "{__name__=\"kubevirt_workqueue_adds_total\",name=\"" + name + "\"}"
-				metrics := fetchPrometheusMetrics(virtClient, query)
+				metrics := fetchPrometheusMetrics(k8s.Client(), query)
 				Expect(metrics.Data.Result).ToNot(BeEmpty(), "Expected workqueue metrics for "+name)
 			}
 		})
 	})
 })
 
-func fetchPrometheusKubevirtMetrics(virtClient kubecli.KubevirtClient) *libmonitoring.QueryRequestResult {
-	return fetchPrometheusMetrics(virtClient, "{__name__=~\"kubevirt_.*\"}")
+func fetchPrometheusKubevirtMetrics(k8sClient kubernetes.Interface) *libmonitoring.QueryRequestResult {
+	return fetchPrometheusMetrics(k8sClient, "{__name__=~\"kubevirt_.*\"}")
 }
 
-func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient, query string) *libmonitoring.QueryRequestResult {
-	metrics, err := libmonitoring.QueryRange(virtClient, query, time.Now().Add(-1*time.Minute), time.Now(), 15*time.Second)
+func fetchPrometheusMetrics(k8sClient kubernetes.Interface, query string) *libmonitoring.QueryRequestResult {
+	metrics, err := libmonitoring.QueryRange(k8sClient, query, time.Now().Add(-1*time.Minute), time.Now(), 15*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(metrics.Status).To(Equal("success"))
@@ -226,29 +228,29 @@ func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient, query string) *li
 	return metrics
 }
 
-func basicVMLifecycle(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
+func basicVMLifecycle(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) *v1.VirtualMachine {
 	By("Creating and running a VM")
 	vm := createAndRunVM(virtClient)
 
 	By("Waiting for the VM to be reported")
-	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", 1)
+	libmonitoring.WaitForMetricValue(k8sClient, "kubevirt_number_of_vms", 1)
 
 	By("Waiting for the VMI to be reported")
 	labels := map[string]string{
 		"namespace": vm.Namespace,
 		"name":      vm.Name,
 	}
-	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
+	libmonitoring.WaitForMetricValueWithLabels(k8sClient, "kubevirt_vmi_info", 1, labels, 1)
 
 	By("Waiting for the VM domainstats metrics to be reported")
-	libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_filesystem_capacity_bytes", map[string]string{"namespace": vm.Namespace, "name": vm.Name}, 0, ">", 0)
+	libmonitoring.WaitForMetricValueWithLabelsToBe(k8sClient, "kubevirt_vmi_filesystem_capacity_bytes", map[string]string{"namespace": vm.Namespace, "name": vm.Name}, 0, ">", 0)
 
 	By("Deleting the VirtualMachine")
 	err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Waiting for the VM deletion to be reported")
-	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", -1)
+	libmonitoring.WaitForMetricValue(k8sClient, "kubevirt_number_of_vms", -1)
 
 	return vm
 }

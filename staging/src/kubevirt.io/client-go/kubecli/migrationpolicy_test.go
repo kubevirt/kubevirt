@@ -40,7 +40,7 @@ const (
 	proxyPath      = "/proxy/path"
 )
 
-var _ = Describe("Kubevirt MigrationPolicy Client", func() {
+var _ = Describe("Kubevirt MigrationPolicy VirtClient", func() {
 
 	var server *ghttp.Server
 	var basePath, policyPath string

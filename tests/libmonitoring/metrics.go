@@ -10,7 +10,7 @@ import (
 )
 
 func RegisterAllMetrics() error {
-	if err := virtcontroller.SetupMetrics(nil, nil, nil, nil); err != nil {
+	if err := virtcontroller.SetupMetrics(nil, nil, nil, nil, nil); err != nil {
 		return err
 	}
 

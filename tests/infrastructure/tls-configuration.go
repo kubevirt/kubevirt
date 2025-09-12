@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -76,7 +77,7 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 
 		var podsToTest []k8sv1.Pod
 		for _, labelSelector := range labelSelectorList {
-			podList, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{
+			podList, err := k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: labelSelector,
 			})
 			Expect(err).ToNot(HaveOccurred())

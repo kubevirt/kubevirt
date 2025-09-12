@@ -65,6 +65,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		vm *virtv1.VirtualMachine
 
 		virtClient *kubecli.MockKubevirtClient
+		k8sClient  *k8sfake.Clientset
 
 		upgradeHandler                  upgrader
 		controllerrevisionInformerStore cache.Store
@@ -92,8 +93,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-
-		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
+		k8sClient = k8sfake.NewSimpleClientset()
 
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
 			fakeclientset.NewSimpleClientset().KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
@@ -104,7 +104,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			libvmi.WithPreference("bar"),
 		)
 
-		upgradeHandler = upgrade.New(controllerrevisionInformerStore, virtClient)
+		upgradeHandler = upgrade.New(controllerrevisionInformerStore, virtClient, k8sClient)
 	})
 
 	createControllerRevisionFromObject := func(obj runtime.Object) *appsv1.ControllerRevision {
@@ -148,11 +148,11 @@ var _ = Describe("ControllerRevision upgrades", func() {
 
 		Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(originalInstancetypeCR.Name))
 
-		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+		_, err = k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), originalInstancetypeCR.Name, metav1.GetOptions{})
 		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
-		newInstancetypeCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+		newInstancetypeCR, err := k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -163,11 +163,11 @@ var _ = Describe("ControllerRevision upgrades", func() {
 
 		Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).ToNot(Equal(originalPreferenceCR.Name))
 
-		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+		_, err = k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), originalPreferenceCR.Name, metav1.GetOptions{})
 		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
-		newPreferenceCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+		newPreferenceCR, err := k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 

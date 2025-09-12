@@ -189,7 +189,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 
 	if vmCopy.Status.SnapshotInProgress == nil {
 		vmCopy.Status.SnapshotInProgress = &s.snapshot.Name
-		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+		vmCopy, err = s.controller.VirtClient.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -203,7 +203,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 			return false, err
 		}
 
-		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Patch(context.Background(), vmCopy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+		vmCopy, err = s.controller.VirtClient.VirtualMachine(vmCopy.Namespace).Patch(context.Background(), vmCopy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -231,14 +231,14 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 			return false, err
 		}
 
-		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Patch(context.Background(), vmCopy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+		vmCopy, err = s.controller.VirtClient.VirtualMachine(vmCopy.Namespace).Patch(context.Background(), vmCopy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 		if err != nil {
 			return false, err
 		}
 	}
 
 	vmCopy.Status.SnapshotInProgress = nil
-	vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+	vmCopy, err = s.controller.VirtClient.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -354,7 +354,7 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevision(namespace, revi
 	}
 	snapshotCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(snapshot, snapshot.GroupVersionKind())}
 
-	snapshotCR, err = s.controller.Client.AppsV1().ControllerRevisions(s.snapshot.Namespace).Create(context.Background(), snapshotCR, metav1.CreateOptions{})
+	snapshotCR, err = s.controller.K8sClient.AppsV1().ControllerRevisions(s.snapshot.Namespace).Create(context.Background(), snapshotCR, metav1.CreateOptions{})
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return "", err
 	}
@@ -451,7 +451,7 @@ func (s *vmSnapshotSource) Freeze() error {
 	log.Log.V(3).Infof("Freezing vm %s file system before taking the snapshot", s.vm.Name)
 
 	startTime := time.Now()
-	err := s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
+	err := s.controller.VirtClient.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
 		formattedErr := fmt.Errorf("%s %s: %v", failedFreezeMsg, s.vm.Name, err)
@@ -471,7 +471,7 @@ func (s *vmSnapshotSource) Unfreeze() error {
 	log.Log.V(3).Infof("Unfreezing vm %s file system after taking the snapshot", s.vm.Name)
 
 	defer timeTrack(time.Now(), fmt.Sprintf("Unfreezing vmi %s", s.vm.Name))
-	err := s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)
+	err := s.controller.VirtClient.VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)
 	if err != nil {
 		return err
 	}
@@ -481,7 +481,7 @@ func (s *vmSnapshotSource) Unfreeze() error {
 }
 
 func (s *vmSnapshotSource) PersistentVolumeClaims() (map[string]string, error) {
-	volumes, err := storageutils.GetVolumes(s.vm, s.controller.Client, storageutils.WithAllVolumes)
+	volumes, err := storageutils.GetVolumes(s.vm, s.controller.K8sClient, storageutils.WithAllVolumes)
 	if err != nil {
 		return map[string]string{}, err
 	}

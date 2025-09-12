@@ -39,7 +39,8 @@ func main() {
 	log.Log.V(1).Infof("Running Load Generator")
 
 	workload := config.NewWorkload(flags.WorkloadConfigFile)
-	client := config.NewKubevirtClient()
+	virtClient := config.NewKubevirtClient()
+	k8sClient := config.NewK8sClient()
 	if workload.Type == "" {
 		workload.Type = config.Type
 	}
@@ -62,10 +63,10 @@ func main() {
 	}
 
 	if flags.Run {
-		lg.Run(client, workload)
+		lg.Run(virtClient, k8sClient, workload)
 	}
 	if flags.Delete {
-		lg.Delete(client, workload)
+		lg.Delete(virtClient, k8sClient, workload)
 	}
 	return
 }

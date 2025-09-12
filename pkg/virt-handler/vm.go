@@ -35,6 +35,7 @@ import (
 	"github.com/mitchellh/go-ps"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"golang.org/x/sys/unix"
+	"k8s.io/client-go/kubernetes"
 	"libvirt.org/go/libvirtxml"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -122,7 +123,8 @@ var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup
 
 func NewVirtualMachineController(
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	virtClientset kubecli.KubevirtClient,
+	k8sClientset kubernetes.Interface,
 	host string,
 	virtPrivateDir string,
 	kubeletPodsDir string,
@@ -151,7 +153,7 @@ func NewVirtualMachineController(
 		logger,
 		host,
 		recorder,
-		clientset,
+		virtClientset,
 		queue,
 		vmiInformer,
 		domainInformer,
@@ -179,7 +181,7 @@ func NewVirtualMachineController(
 	c := &VirtualMachineController{
 		BaseController:           baseCtrl,
 		capabilities:             capabilities,
-		clientset:                clientset,
+		clientset:                virtClientset,
 		containerDiskMounter:     containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
 		downwardMetricsManager:   downwardMetricsManager,
 		hotplugVolumeMounter:     hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
@@ -229,8 +231,8 @@ func NewVirtualMachineController(
 		permissions,
 		deviceManager.PermanentHostDevicePlugins(maxDevices, permissions),
 		clusterConfig,
-		clientset.CoreV1())
-	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
+		k8sClientset.CoreV1())
+	c.heartBeat = heartbeat.NewHeartBeat(k8sClientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
 	return c, nil
 }

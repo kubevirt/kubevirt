@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdomain"
@@ -622,7 +623,7 @@ func validateSRIOVSetup(sriovResourceName string, minRequiredNodes int) error {
 }
 
 func getNodesWithAllocatedResource(resourceName string) []k8sv1.Node {
-	nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
+	nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 	filteredNodes := []k8sv1.Node{}
 	for _, node := range nodes.Items {
 		resourceList := node.Status.Allocatable

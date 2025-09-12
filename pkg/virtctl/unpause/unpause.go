@@ -65,7 +65,7 @@ func (vc *virtCommand) Run(cmd *cobra.Command, args []string) error {
 	resourceType := strings.ToLower(args[0])
 	resourceName := args[1]
 
-	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtClient, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
 	}

@@ -16,12 +16,14 @@
  * Copyright The KubeVirt Authors.
  *
  */
+
 package find
 
 import (
 	"fmt"
 	"strings"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -38,11 +40,11 @@ type specFinder struct {
 	revisionFinder            *revisionFinder
 }
 
-func NewSpecFinder(store, clusterStore, revisionStore cache.Store, virtClient kubecli.KubevirtClient) *specFinder {
+func NewSpecFinder(store, clusterStore, revisionStore cache.Store, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) *specFinder {
 	return &specFinder{
 		instancetypeFinder:        NewInstancetypeFinder(store, virtClient),
 		clusterInstancetypeFinder: NewClusterInstancetypeFinder(clusterStore, virtClient),
-		revisionFinder:            NewRevisionFinder(revisionStore, virtClient),
+		revisionFinder:            NewRevisionFinder(revisionStore, k8sClient),
 	}
 }
 

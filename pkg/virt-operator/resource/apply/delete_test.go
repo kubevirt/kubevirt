@@ -25,12 +25,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	k8sv1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	kubecli "kubevirt.io/client-go/kubecli"
-
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/testing"
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -179,14 +177,11 @@ var _ = Describe("Deletion", func() {
 
 	Context("Node label deletion", func() {
 		var clientset *fake.Clientset
-		var kubevirtClient *kubecli.MockKubevirtClient
 		var ctrl *gomock.Controller
 
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
 			clientset = fake.NewSimpleClientset()
-			kubevirtClient = kubecli.NewMockKubevirtClient(ctrl)
-			kubevirtClient.EXPECT().CoreV1().Return(clientset.CoreV1()).AnyTimes()
 		})
 
 		AfterEach(func() {
@@ -231,7 +226,7 @@ var _ = Describe("Deletion", func() {
 			_, err = clientset.CoreV1().Nodes().Create(context.Background(), &nodes.Items[2], metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			err = deleteKubeVirtLabelsFromNodes(kubevirtClient)
+			err = deleteKubeVirtLabelsFromNodes(clientset)
 			Expect(err).ToNot(HaveOccurred())
 
 			updatedNode1, err := clientset.CoreV1().Nodes().Get(context.Background(), "node1", metav1.GetOptions{})

@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -179,13 +180,13 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			By("start connectivity job on the same node as the VM")
 			localNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
 			localNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpIn, inboundVMI.Status.NodeName)}
-			localNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), localNodeTCPJob, metav1.CreateOptions{})
+			localNodeTCPJob, err = k8s.Client().BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), localNodeTCPJob, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("start connectivity job on different node")
 			remoteNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
 			remoteNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpNotIn, inboundVMI.Status.NodeName)}
-			remoteNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), remoteNodeTCPJob, metav1.CreateOptions{})
+			remoteNodeTCPJob, err = k8s.Client().BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), remoteNodeTCPJob, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(job.WaitForJobToSucceed(localNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on the same node")
@@ -565,7 +566,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 				By("Create client pod")
 				clientPod := libpod.RenderPod("test-conn", []string{"/bin/sh", "-c", "sleep 360"}, []string{})
-				clientPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientPod, metav1.CreateOptions{})
+				clientPod, err = k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientPod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create VMI")
@@ -576,7 +577,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				Eventually(matcher.ThisPod(clientPod)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
-				clientPod, err = virtClient.CoreV1().Pods(clientPod.Namespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
+				clientPod, err = k8s.Client().CoreV1().Pods(clientPod.Namespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Check connectivity")
@@ -611,7 +612,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 				By("Create client pod")
 				clientPod := libpod.RenderPod("test-conn", []string{"/bin/sh", "-c", "sleep 360"}, []string{})
-				clientPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientPod, metav1.CreateOptions{})
+				clientPod, err = k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientPod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create VMI")
@@ -623,7 +624,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 				Eventually(matcher.ThisPod(clientPod)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
-				clientPod, err = virtClient.CoreV1().Pods(clientPod.Namespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
+				clientPod, err = k8s.Client().CoreV1().Pods(clientPod.Namespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Check connectivity")

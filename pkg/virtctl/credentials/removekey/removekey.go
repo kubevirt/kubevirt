@@ -8,10 +8,10 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
@@ -55,7 +55,7 @@ func (r *removeSSHKeyFlags) AddToCommand(cmd *cobra.Command) {
 func (r *removeSSHKeyFlags) runRemoveKeyCommand(cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 
-	cli, vmNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtCli, k8sCli, vmNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("error getting kubevirt client or namespace: %w", err)
 	}
@@ -66,7 +66,7 @@ func (r *removeSSHKeyFlags) runRemoveKeyCommand(cmd *cobra.Command, args []strin
 		return fmt.Errorf("error getting ssh key: %w", err)
 	}
 
-	vm, err := cli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
+	vm, err := virtCli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error getting virtual machine: %w", err)
 	}
@@ -89,7 +89,7 @@ func (r *removeSSHKeyFlags) runRemoveKeyCommand(cmd *cobra.Command, args []strin
 	}
 
 	for _, secretName := range filteredSecrets {
-		err := removeKeyFromSecret(cmd.Context(), cli, vm, secretName, sshKey, r.Force)
+		err := removeKeyFromSecret(cmd.Context(), k8sCli, vm, secretName, sshKey, r.Force)
 		if err != nil {
 			return err
 		}
@@ -100,7 +100,7 @@ func (r *removeSSHKeyFlags) runRemoveKeyCommand(cmd *cobra.Command, args []strin
 
 func removeKeyFromSecret(
 	ctx context.Context,
-	cli kubecli.KubevirtClient,
+	cli kubernetes.Interface,
 	vm *v1.VirtualMachine,
 	secretName string,
 	key string,

@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -72,7 +73,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 	// executeTargetCli executes command targetcli
 	executeTargetCli := func(podName string, args []string) {
 		cmd := append([]string{"/usr/bin/targetcli"}, args...)
-		pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
+		pod, err := k8s.Client().CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "targetcli", cmd)
@@ -123,7 +124,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 	// /dev/sda disk1
 	findSCSIdisk := func(podName string, model string) string {
 		var device string
-		pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
+		pod, err := k8s.Client().CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "targetcli",
@@ -162,7 +163,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 		Expect(err).ToNot(HaveOccurred())
 		selector := metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 		Eventually(func() bool {
-			pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), selector)
+			pods, err := k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), selector)
 			Expect(err).ToNot(HaveOccurred())
 			if len(pods.Items) < 1 {
 				return false
@@ -228,7 +229,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 				"loopback/", "delete", naa})
 			executeTargetCli(targetCliPod, []string{
 				"backstores/fileio", "delete", backendDisk})
-			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+			Expect(k8s.Client().CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 
 		})
 
@@ -264,19 +265,19 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(),
 				vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			pod, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+			pod, err := libnode.GetVirtHandlerPod(k8s.Client(), vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
-			err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+			err = k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			// Wait unti new handler pod is ready
 			oldPodName := pod.Name
 			Eventually(func(g Gomega) bool {
-				pod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+				pod, err = libnode.GetVirtHandlerPod(k8s.Client(), vmi.Status.NodeName)
 				g.Expect(err).To(Or(Succeed(), MatchError("Expected to find one Pod, found 2 Pods")))
 				if err != nil {
 					return false
 				}
-				pod, err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+				pod, err = k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 				return pod.Name != oldPodName
 			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(BeTrue())
 			Eventually(matcher.ThisPod(pod)).WithTimeout(30 * time.Second).
@@ -345,7 +346,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			config.DisableFeatureGate(featuregate.PersistentReservation)
 
 			Eventually(func() []k8sv1.Container {
-				ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
+				ds, err := k8s.Client().AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
 				if err != nil {
 					return nil
 				}
@@ -365,7 +366,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			const mpathSocket = "/proc/1/root/run/multipathd.socket"
 			BeforeEach(func() {
 				// Check if mulitpathd socket exists on the nodes, if not simulate the existance by creating a mock socket
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 				for _, node := range nodes.Items {
 					_, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"ls", mpathSocket})
 					if err != nil {
@@ -380,7 +381,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			})
 
 			It("ensure multipath socket is bind mounted and available to the pr-helper daemon", func() {
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 				for _, node := range nodes.Items {
 					Eventually(func(g Gomega) {
 						output, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"cat", "/proc/mounts"})

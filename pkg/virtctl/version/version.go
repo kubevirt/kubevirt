@@ -24,7 +24,7 @@ func VersionCommand() *cobra.Command {
 		Args:    cobra.NoArgs,
 		RunE:    v.Run,
 	}
-	cmd.Flags().BoolVarP(&v.clientOnly, "client", "c", v.clientOnly, "Client version only (no server required).")
+	cmd.Flags().BoolVarP(&v.clientOnly, "client", "c", v.clientOnly, "VirtClient version only (no server required).")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -36,13 +36,13 @@ func usage() string {
 }
 
 func (v *version) Run(cmd *cobra.Command, _ []string) error {
-	cmd.Printf("Client Version: %#v\n", client_version.Get())
+	cmd.Printf("VirtClient Version: %#v\n", client_version.Get())
 
 	if v.clientOnly {
 		return nil
 	}
 
-	virtClient, _, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtClient, _, _, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("failed to get virtClient config: %w", err)
 	}

@@ -24,6 +24,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubevirt/typed/core/v1:go_default_library",
         "//tests/console:go_default_library",
         "//tests/decorators:go_default_library",
+        "//tests/framework/k8s:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/libdomain:go_default_library",

@@ -426,7 +426,7 @@ func (c *createVM) run(cmd *cobra.Command, _ []string) error {
 func (c *createVM) setDefaults(cmd *cobra.Command) error {
 	c.cmd = cmd
 
-	_, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	_, _, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -42,8 +43,9 @@ type command struct {
 	ipFamilies     []k8sv1.IPFamily
 	ipFamilyPolicy k8sv1.IPFamilyPolicy
 
-	namespace string
-	client    kubecli.KubevirtClient
+	namespace  string
+	virtClient kubecli.KubevirtClient
+	k8sClient  kubernetes.Interface
 }
 
 func NewCommand() *cobra.Command {
@@ -105,8 +107,8 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	}
 
 	var err error
-	if c.client, c.namespace, _, err = clientconfig.ClientAndNamespaceFromContext(cmd.Context()); err != nil {
-		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
+	if c.virtClient, c.k8sClient, c.namespace, _, err = clientconfig.ClientAndNamespaceFromContext(cmd.Context()); err != nil {
+		return fmt.Errorf("cannot obtain KubeVirt virtClient: %v", err)
 	}
 
 	serviceSelector, ports, err := c.getServiceSelectorAndPorts(vmType, vmName)
@@ -148,7 +150,7 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 
 	switch vmType {
 	case "vmi", "vmis", "virtualmachineinstance", "virtualmachineinstances":
-		vmi, err := c.client.VirtualMachineInstance(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+		vmi, err := c.virtClient.VirtualMachineInstance(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
 			return nil, nil, fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
 		}
@@ -157,7 +159,7 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(vmi.Name),
 		}
 	case "vm", "vms", "virtualmachine", "virtualmachines":
-		vm, err := c.client.VirtualMachine(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+		vm, err := c.virtClient.VirtualMachine(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
 			return nil, nil, fmt.Errorf("error fetching VirtualMachine: %v", err)
 		}
@@ -168,7 +170,7 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(vm.Name),
 		}
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
-		vmirs, err := c.client.ReplicaSet(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+		vmirs, err := c.virtClient.ReplicaSet(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
 			return nil, nil, fmt.Errorf("error fetching VirtualMachineInstanceReplicaSet: %v", err)
 		}
@@ -217,7 +219,7 @@ func (c *command) createService(serviceSelector map[string]string, ports []k8sv1
 	if c.ipFamilyPolicy != "" {
 		service.Spec.IPFamilyPolicy = &c.ipFamilyPolicy
 	}
-	if _, err := c.client.CoreV1().Services(c.namespace).Create(context.Background(), service, metav1.CreateOptions{}); err != nil {
+	if _, err := c.k8sClient.CoreV1().Services(c.namespace).Create(context.Background(), service, metav1.CreateOptions{}); err != nil {
 		return fmt.Errorf("service creation failed: %v", err)
 	}
 

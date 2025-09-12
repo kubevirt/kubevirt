@@ -135,7 +135,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 				libvmi.WithPreference(preferenceName),
 			)
 
-			admitter = webhook.NewAdmitter(virtClient)
+			admitter = webhook.NewAdmitter(virtClient, nil)
 		})
 
 		It("should reject if instancetype fails to apply to VMI", func() {

@@ -141,7 +141,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				err := os.MkdirAll(pipeDir, 0755)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Client should fail when pipe is offline
+				// VirtClient should fail when pipe is offline
 				client = notifyclient.NewNotifier(pipeDir)
 
 				client.SetCustomTimeouts(1*time.Second, 1*time.Second, 3*time.Second)
@@ -149,7 +149,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
 				Expect(err).To(HaveOccurred())
 
-				// Client should automatically come online when pipe is established
+				// VirtClient should automatically come online when pipe is established
 				listener, err := net.Listen("unix", pipePath)
 				Expect(err).ToNot(HaveOccurred())
 

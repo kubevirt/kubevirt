@@ -11,6 +11,7 @@ go_library(
         "//tests/console:go_default_library",
         "//tests/decorators:go_default_library",
         "//tests/exec:go_default_library",
+        "//tests/framework/k8s:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/libdomain:go_default_library",
         "//tests/libnode:go_default_library",

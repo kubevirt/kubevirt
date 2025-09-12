@@ -111,14 +111,13 @@ var _ = Describe("SEV Subresources", func() {
 		mockVirtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 		virtClient = kubevirtfake.NewSimpleClientset()
 
-		mockVirtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachine("").Return(virtClient.KubevirtV1().VirtualMachines("")).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachineInstanceMigration(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstanceMigrations(metav1.NamespaceDefault)).AnyTimes()
 
-		app = NewSubresourceAPIApp(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(mockVirtClient, kubeClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	AfterEach(func() {

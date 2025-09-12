@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -84,10 +85,10 @@ var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", d
 				By("restarting kubelet")
 				pod := libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", "kubelet"})
 				pod.Spec.NodeName = nodeName
-				pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+				pod, err = k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() k8sv1.PodPhase {
-					pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Get(context.Background(), pod.Name, metav1.GetOptions{})
+					pod, err = k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(pod)).Get(context.Background(), pod.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return pod.Status.Phase
 				}, 50, 5).Should(Equal(k8sv1.PodSucceeded))

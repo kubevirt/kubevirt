@@ -122,7 +122,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		vmiClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		migrateClient = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
 
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachine("").Return(vmClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiClient).AnyTimes()
@@ -136,6 +135,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		Expect(err).ToNot(HaveOccurred())
 		app.consoleServerPort = backendPort
 		app.virtCli = virtClient
+		app.k8sCli = kubeClient
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 		app.clusterConfig = config
 		app.handlerHttpClient = &http.Client{

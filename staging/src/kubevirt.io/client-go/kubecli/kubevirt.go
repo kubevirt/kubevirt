@@ -36,7 +36,6 @@ import (
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -88,7 +87,6 @@ type KubevirtClient interface {
 	KubernetesSnapshotClient() k8ssnapshotclient.Interface
 	DynamicClient() dynamic.Interface
 	MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client
-	kubernetes.Interface
 	Config() *rest.Config
 	SetRestTimeout(timeout time.Duration) (KubevirtClient, error)
 }
@@ -110,7 +108,6 @@ type kubevirtClient struct {
 	dynamicClient           dynamic.Interface
 	migrationsClient        *migrationsv1.MigrationsV1alpha1Client
 	cloneClient             *clone.CloneV1beta1Client
-	*kubernetes.Clientset
 }
 
 func (k kubevirtClient) SetRestTimeout(timeout time.Duration) (KubevirtClient, error) {

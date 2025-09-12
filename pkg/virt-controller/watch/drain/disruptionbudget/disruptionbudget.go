@@ -10,12 +10,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -33,7 +33,7 @@ const (
 )
 
 type DisruptionBudgetController struct {
-	clientset                       kubecli.KubevirtClient
+	clientset                       kubernetes.Interface
 	Queue                           workqueue.TypedRateLimitingInterface[string]
 	vmiStore                        cache.Store
 	pdbIndexer                      cache.Indexer
@@ -48,7 +48,7 @@ func NewDisruptionBudgetController(
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	clientset kubernetes.Interface,
 ) (*DisruptionBudgetController, error) {
 
 	c := &DisruptionBudgetController{

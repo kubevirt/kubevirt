@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -40,6 +41,7 @@ type SteadyStateLoadGenerator struct {
 type SteadyStateJob struct {
 	Workload      *config.Workload
 	virtClient    kubecli.KubevirtClient
+	k8sClient     kubernetes.Interface
 	UUID          string
 	objType       string
 	firstLoop     bool
@@ -51,7 +53,7 @@ type SteadyStateJob struct {
 }
 
 // NewSteadyStateJob
-func newSteadyStateJob(virtClient kubecli.KubevirtClient, workload *config.Workload, uuid string) *SteadyStateJob {
+func newSteadyStateJob(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, workload *config.Workload, uuid string) *SteadyStateJob {
 	// minChurnSleep is an optinal config
 	if workload.MinChurnSleep == nil {
 		workload.MinChurnSleep = &config.Duration{Duration: config.DefaultMinSleepChurn}
@@ -61,6 +63,7 @@ func newSteadyStateJob(virtClient kubecli.KubevirtClient, workload *config.Workl
 	}
 	return &SteadyStateJob{
 		virtClient:    virtClient,
+		k8sClient:     k8sClient,
 		Workload:      workload,
 		firstLoop:     true,
 		churn:         workload.Churn,
@@ -72,16 +75,16 @@ func newSteadyStateJob(virtClient kubecli.KubevirtClient, workload *config.Workl
 	}
 }
 
-func (b *SteadyStateLoadGenerator) Delete(virtClient kubecli.KubevirtClient, workload *config.Workload) {
-	ss := newSteadyStateJob(virtClient, workload, b.UUID)
+func (b *SteadyStateLoadGenerator) Delete(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, workload *config.Workload) {
+	ss := newSteadyStateJob(virtClient, k8sClient, workload, b.UUID)
 	ss.DeleteWorkloads(ss.Workload.Count)
 	ss.DeleteNamespaces()
 	ss.stopAllWatchers()
 	return
 }
 
-func (b *SteadyStateLoadGenerator) Run(virtClient kubecli.KubevirtClient, workload *config.Workload) {
-	ss := newSteadyStateJob(virtClient, workload, b.UUID)
+func (b *SteadyStateLoadGenerator) Run(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, workload *config.Workload) {
+	ss := newSteadyStateJob(virtClient, k8sClient, workload, b.UUID)
 	// Ramp up phase, creating all objects, waiting before starting the steady state phase
 	log.Log.V(1).Infof("Starting the Ramp Up Phase")
 	ss.CreateWorkloads(ss.Workload.Count)
@@ -117,7 +120,7 @@ func (b *SteadyStateJob) CreateWorkloads(replicas int) {
 	objSpec := b.Workload.Object
 	objSample := renderObjSpecTemplate(objSpec, b.UUID)
 	b.createWatcherIfNotExist(objSample)
-	objUtil.CreateNamespaceIfNotExist(b.virtClient, objSample.GetNamespace(), config.WorkloadUUIDLabel, b.UUID)
+	objUtil.CreateNamespaceIfNotExist(b.k8sClient, objSample.GetNamespace(), config.WorkloadUUIDLabel, b.UUID)
 
 	// Create all replicas
 	for r := 1; r <= replicas; r++ {
@@ -159,8 +162,8 @@ func (b *SteadyStateJob) DeleteWorkloads(count int) {
 
 func (b *SteadyStateJob) DeleteNamespaces() {
 	log.Log.V(2).Infof("Clean up, deleting all created namespaces")
-	objUtil.CleanupNamespaces(b.virtClient, 30*time.Minute, config.GetListOpts(config.WorkloadUUIDLabel, b.UUID))
-	objUtil.WaitForDeleteNamespaces(b.virtClient, 30*time.Minute, *config.GetListOpts(config.WorkloadUUIDLabel, b.UUID))
+	objUtil.CleanupNamespaces(b.k8sClient, 30*time.Minute, config.GetListOpts(config.WorkloadUUIDLabel, b.UUID))
+	objUtil.WaitForDeleteNamespaces(b.k8sClient, 30*time.Minute, *config.GetListOpts(config.WorkloadUUIDLabel, b.UUID))
 }
 
 func (b *SteadyStateJob) createWatcherIfNotExist(objSpec *unstructured.Unstructured) {

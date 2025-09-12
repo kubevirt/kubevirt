@@ -11,6 +11,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/client-go/kubecli"
 )
@@ -22,13 +23,13 @@ func SkipTestIfNoFeatureGate(featureGate string) {
 	}
 }
 
-func RecycleImageOrFail(virtClient kubecli.KubevirtClient, imageName string) {
-	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), imageName, metav1.GetOptions{})
+func RecycleImageOrFail(k8sClient kubernetes.Interface, imageName string) {
+	windowsPv, err := k8sClient.CoreV1().PersistentVolumes().Get(context.Background(), imageName, metav1.GetOptions{})
 	if err != nil || windowsPv.Status.Phase == k8sv1.VolumePending || windowsPv.Status.Phase == k8sv1.VolumeFailed {
 		ginkgo.Fail(fmt.Sprintf("Skip tests that requires PV %s", imageName))
 	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
 		windowsPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, metav1.UpdateOptions{})
+		_, err = k8sClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, metav1.UpdateOptions{})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 }

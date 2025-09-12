@@ -3,7 +3,7 @@ package disruptionbudget
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
+
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,7 +17,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
-	"kubevirt.io/client-go/kubecli"
 
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -25,9 +24,7 @@ import (
 
 var _ = Describe("Disruptionbudget", func() {
 
-	var ctrl *gomock.Controller
 	var stop chan struct{}
-	var virtClient *kubecli.MockKubevirtClient
 	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var pdbInformer cache.SharedIndexInformer
@@ -75,7 +72,7 @@ var _ = Describe("Disruptionbudget", func() {
 
 	initController := func() {
 
-		controller, _ = NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, vmimInformer, recorder, virtClient)
+		controller, _ = NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, vmimInformer, recorder, kubeClient)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		pdbFeeder = testutils.NewPodDisruptionBudgetFeeder(mockQueue, pdbSource)
@@ -84,8 +81,7 @@ var _ = Describe("Disruptionbudget", func() {
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
-		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		kubeClient = fake.NewSimpleClientset()
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		pdbInformer, pdbSource = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		vmimInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
@@ -93,11 +89,6 @@ var _ = Describe("Disruptionbudget", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		initController()
-
-		// Set up mock client
-		kubeClient = fake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {

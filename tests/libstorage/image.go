@@ -31,7 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -54,8 +54,8 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 		RunAsNonRoot: pointer.P(false),
 	}
 
-	virtClient := kubevirt.Client()
-	pod, err := virtClient.CoreV1().Pods(pvc.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+	k8sClient := k8s.Client()
+	pod, err := k8sClient.CoreV1().Pods(pvc.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded), "Could not set permissions to non-qemu")
 }

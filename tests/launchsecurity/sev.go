@@ -18,7 +18,10 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -40,7 +43,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -212,15 +214,15 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		return uint(val)
 	}
 
-	prepareSession := func(virtClient kubecli.KubevirtClient, nodeName string, pdh string) (*v1.SEVSessionOptions, string, string) {
+	prepareSession := func(k8sClient kubernetes.Interface, nodeName string, pdh string) (*v1.SEVSessionOptions, string, string) {
 		helperPod := libpod.RenderPrivilegedPod("sev-helper", []string{"sleep"}, []string{"infinity"})
 		helperPod.Spec.NodeName = nodeName
 
 		var err error
-		helperPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(helperPod)).Create(context.Background(), helperPod, k8smetav1.CreateOptions{})
+		helperPod, err = k8sClient.CoreV1().Pods(testsuite.GetTestNamespace(helperPod)).Create(context.Background(), helperPod, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		defer func() {
-			err := virtClient.CoreV1().Pods(helperPod.Namespace).Delete(context.Background(), helperPod.Name, k8smetav1.DeleteOptions{})
+			err := k8sClient.CoreV1().Pods(helperPod.Namespace).Delete(context.Background(), helperPod.Name, k8smetav1.DeleteOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		}()
 		EventuallyWithOffset(1, ThisPod(helperPod), 30).Should(BeInPhase(k8sv1.PodRunning))
@@ -259,14 +261,14 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		)
 
 		var (
-			virtClient      kubecli.KubevirtClient
+			k8sClient       kubernetes.Interface
 			nodeName        string
 			isDevicePresent bool
 			err             error
 		)
 
 		BeforeEach(func() {
-			virtClient = kubevirt.Client()
+			k8sClient = k8s.Client()
 
 			nodeName = libnode.GetNodeNameWithHandler()
 			Expect(nodeName).ToNot(BeEmpty())
@@ -283,7 +285,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			}
 
 			Eventually(func() bool {
-				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+				node, err := k8sClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				val, ok := node.Status.Allocatable[sevResourceName]
 				return ok && !val.IsZero()
@@ -303,7 +305,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			By(fmt.Sprintf("Disabling %s feature gate", featuregate.WorkloadEncryptionSEV))
 			config.DisableFeatureGate(featuregate.WorkloadEncryptionSEV)
 			Eventually(func() bool {
-				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+				node, err := k8sClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				val, ok := node.Status.Allocatable[sevResourceName]
 				return !ok || val.IsZero()
@@ -369,7 +371,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			By("Setting up session parameters")
 			vmi, err = ThisVMI(vmi)()
 			Expect(err).ToNot(HaveOccurred())
-			sevSessionOptions, tikBase64, tekBase64 := prepareSession(virtClient, vmi.Status.NodeName, sevPlatformInfo.PDH)
+			sevSessionOptions, tikBase64, tekBase64 := prepareSession(k8s.Client(), vmi.Status.NodeName, sevPlatformInfo.PDH)
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).SEVSetupSession(context.Background(), vmi.Name, sevSessionOptions)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVMI(vmi), 60).Should(And(BeRunning(), HaveConditionTrue(v1.VirtualMachineInstancePaused)))

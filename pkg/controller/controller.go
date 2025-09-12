@@ -33,11 +33,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -567,7 +567,7 @@ func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Po
 	return hotplugVolumes
 }
 
-func SyncPodAnnotations(clientset kubecli.KubevirtClient, pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
+func SyncPodAnnotations(clientset kubernetes.Interface, pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
 	patchSet := patch.New()
 	for key, newValue := range newAnnotations {
 		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || podAnnotationValue != newValue {

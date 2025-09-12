@@ -37,6 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/tests/framework/k8s"
+
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -54,6 +56,7 @@ var (
 
 func AdjustKubeVirtResource() {
 	virtClient := kubevirt.Client()
+	k8sClient := k8s.Client()
 
 	kv := libkubevirt.GetCurrentKv(virtClient)
 	originalKV = kv.DeepCopy()
@@ -146,16 +149,16 @@ func AdjustKubeVirtResource() {
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
 	if checks.HasFeature(featuregate.CPUManager) {
 		// CPUManager is not enabled in the control-plane node(s)
-		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
+		nodes, err := k8sClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
 		Expect(err).NotTo(HaveOccurred())
 		waitForSchedulableNodesWithCPUManager(len(nodes.Items))
 	}
 }
 
 func waitForSchedulableNodesWithCPUManager(n int) {
-	virtClient := kubevirt.Client()
+	k8sClient := k8s.Client()
 	Eventually(func() bool {
-		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true," + v1.CPUManager + "=true"})
+		nodes, err := k8sClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true," + v1.CPUManager + "=true"})
 		Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
 		return len(nodes.Items) == n
 	}, 360, 1*time.Second).Should(BeTrue())

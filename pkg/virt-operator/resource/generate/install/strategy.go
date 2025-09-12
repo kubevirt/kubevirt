@@ -29,6 +29,8 @@ import (
 	"io"
 	"strings"
 
+	"k8s.io/client-go/kubernetes"
+
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -49,7 +51,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
@@ -352,7 +353,7 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorut
 	return "", nil
 }
 
-func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
+func DumpInstallStrategyToConfigMap(clientset kubernetes.Interface, operatorNamespace string) error {
 	config, err := operatorutil.GetConfigFromEnv()
 	if err != nil {
 		return err

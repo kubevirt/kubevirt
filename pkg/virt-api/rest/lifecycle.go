@@ -510,7 +510,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 				return
 			}
 			// set terminationGracePeriod to 1 (which is the shorted safe restart period) and delete the VMI pod to trigger a swift restart.
-			err = app.virtCli.CoreV1().Pods(namespace).Delete(context.Background(), vmiPodname, metav1.DeleteOptions{GracePeriodSeconds: pointer.P(int64(1))})
+			err = app.k8sCli.CoreV1().Pods(namespace).Delete(context.Background(), vmiPodname, metav1.DeleteOptions{GracePeriodSeconds: pointer.P(int64(1))})
 			if err != nil {
 				if !errors.IsNotFound(err) {
 					writeError(errors.NewInternalError(err), response)
@@ -607,7 +607,7 @@ func (app *SubresourceAPIApp) findPod(namespace string, vmi *v1.VirtualMachineIn
 		return "", err
 	}
 	selector := metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
-	podList, err := app.virtCli.CoreV1().Pods(namespace).List(context.Background(), selector)
+	podList, err := app.k8sCli.CoreV1().Pods(namespace).List(context.Background(), selector)
 	if err != nil {
 		return "", err
 	}

@@ -22,11 +22,12 @@ package checks
 import (
 	"fmt"
 
+	"k8s.io/client-go/kubernetes"
+
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -36,7 +37,7 @@ const (
 // ExpectAtLeastTwoWorkerNodesWithCPUManager uses gomega.Expect to verify that the node list returned by
 // libnode.GetWorkerNodesWithCPUManagerEnabled contains at least two elements.
 // DescriptionTwoWorkerNodesWCPUManagerRequired is added to the default description via ginkgo.By
-func ExpectAtLeastTwoWorkerNodesWithCPUManager(virtClient kubecli.KubevirtClient) {
+func ExpectAtLeastTwoWorkerNodesWithCPUManager(k8sClient kubernetes.Interface) {
 	ginkgo.By(fmt.Sprintf("expect at least 2 nodes - %s", DescriptionTwoWorkerNodesWCPUManagerRequired))
-	_ = gomega.Expect(len(libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient))).To(gomega.BeNumerically(">=", 2), DescriptionTwoWorkerNodesWCPUManagerRequired)
+	_ = gomega.Expect(len(libnode.GetWorkerNodesWithCPUManagerEnabled(k8sClient))).To(gomega.BeNumerically(">=", 2), DescriptionTwoWorkerNodesWCPUManagerRequired)
 }

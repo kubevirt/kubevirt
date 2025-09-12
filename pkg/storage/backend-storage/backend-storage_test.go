@@ -29,13 +29,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -54,11 +52,9 @@ var _ = Describe("Backend Storage", func() {
 	var storageClassStore cache.Store
 	var storageProfileStore cache.Store
 	var pvcStore cache.Store
-	var virtClient *kubecli.MockKubevirtClient
+	var k8sClient *k8sfake.Clientset
 
 	BeforeEach(func() {
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		kubevirtFakeConfig := &virtv1.KubeVirtConfiguration{}
 		config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
@@ -68,7 +64,8 @@ var _ = Describe("Backend Storage", func() {
 		pvcInformer, _ := testutils.NewFakeInformerFor(&v1.PersistentVolumeClaim{})
 		pvcStore = pvcInformer.GetStore()
 
-		backendStorage = NewBackendStorage(virtClient, config, storageClassStore, storageProfileStore, pvcStore)
+		k8sClient = k8sfake.NewSimpleClientset()
+		backendStorage = NewBackendStorage(k8sClient, config, storageClassStore, storageProfileStore, pvcStore)
 	})
 
 	Context("Storage class", func() {
@@ -172,7 +169,6 @@ var _ = Describe("Backend Storage", func() {
 	})
 
 	Context("Migration", func() {
-		var k8sClient *k8sfake.Clientset
 		var migration *virtv1.VirtualMachineInstanceMigration
 		const (
 			nsName        = "testns"
@@ -183,8 +179,6 @@ var _ = Describe("Backend Storage", func() {
 		)
 
 		BeforeEach(func() {
-			k8sClient = k8sfake.NewSimpleClientset()
-			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			sourcePVC := &v1.PersistentVolumeClaim{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:   sourcePVCName,
@@ -222,7 +216,7 @@ var _ = Describe("Backend Storage", func() {
 			}
 		})
 		It("Should label the target PVC and remove the source PVC on migration success", func() {
-			err := MigrationHandoff(virtClient, pvcStore, migration)
+			err := MigrationHandoff(k8sClient, pvcStore, migration)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
@@ -231,7 +225,7 @@ var _ = Describe("Backend Storage", func() {
 			Expect(targetPVC.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
 		})
 		It("Should remove the target PVC on migration failure", func() {
-			err := MigrationAbort(virtClient, migration)
+			err := MigrationAbort(k8sClient, migration)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -241,7 +235,7 @@ var _ = Describe("Backend Storage", func() {
 		})
 		It("Should keep the shared PVC on migration success", func() {
 			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
-			err := MigrationHandoff(virtClient, pvcStore, migration)
+			err := MigrationHandoff(k8sClient, pvcStore, migration)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -249,7 +243,7 @@ var _ = Describe("Backend Storage", func() {
 		})
 		It("Should keep the shared PVC on migration failure", func() {
 			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
-			err := MigrationAbort(virtClient, migration)
+			err := MigrationAbort(k8sClient, migration)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -258,17 +252,11 @@ var _ = Describe("Backend Storage", func() {
 	})
 
 	Context("createPVC", func() {
-		var k8sClient *k8sfake.Clientset
 		const (
 			nsName  = "testns"
 			vmiName = "testvmi"
 			pvcName = "persistent-state-for-" + vmiName
 		)
-
-		BeforeEach(func() {
-			k8sClient = k8sfake.NewSimpleClientset()
-			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-		})
 
 		It("Should create a PVC with the correct labels", func() {
 			vmi := &virtv1.VirtualMachineInstance{
@@ -295,8 +283,6 @@ var _ = Describe("Backend Storage", func() {
 	})
 
 	Context("Legacy PVCs", func() {
-		var k8sClient *k8sfake.Clientset
-
 		const (
 			nsName  = "testns"
 			vmiName = "testvmi"
@@ -304,8 +290,6 @@ var _ = Describe("Backend Storage", func() {
 		)
 
 		BeforeEach(func() {
-			k8sClient = k8sfake.NewSimpleClientset()
-			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			legacyPVC := &v1.PersistentVolumeClaim{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      pvcName,

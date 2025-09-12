@@ -53,7 +53,7 @@ func (o *Command) restartRun(cmd *cobra.Command, args []string) error {
 	vmiName := args[0]
 	errorFmt := "error restarting VirtualMachine: %v"
 
-	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtClient, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

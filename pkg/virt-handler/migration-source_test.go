@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
@@ -165,9 +164,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				FeatureGates: []string{featuregate.PasstIPStackMigration},
 			},
 		}
-		k8sfakeClient := fake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
 

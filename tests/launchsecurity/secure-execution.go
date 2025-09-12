@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -46,8 +47,7 @@ import (
 var _ = Describe("[sig-compute]IBM Secure Execution", decorators.SecureExecution, decorators.SigCompute, decorators.RequiresS390X, Serial, func() {
 	Context("Node Labels", func() {
 		It("Should have nodes with Secure Execution Label", func() {
-			virtclient := kubevirt.Client()
-			nodes := libnode.GetAllSchedulableNodes(virtclient)
+			nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 			hasNodeWithSELabel := false
 			for _, node := range nodes.Items {
 				if _, ok := node.Labels[kubevirtv1.SecureExecutionLabel]; ok {
@@ -65,12 +65,12 @@ var _ = Describe("[sig-compute]IBM Secure Execution", decorators.SecureExecution
 		BeforeEach(func() {
 			config.EnableFeatureGate(featuregate.SecureExecution)
 			By("Reading the hostkey from the 'secex-hostkey' configmap in the 'kubevirt-prow-jobs' namespace")
-			cm, err := kubevirt.Client().CoreV1().ConfigMaps("kubevirt-prow-jobs").Get(context.Background(), "secex-hostkey", metav1.GetOptions{})
+			cm, err := k8s.Client().CoreV1().ConfigMaps("kubevirt-prow-jobs").Get(context.Background(), "secex-hostkey", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a configmap containing the hostkey")
 			cm = libconfigmap.New(cm.Name, cm.Data)
-			cm, err = kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+			cm, err = k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi = libvmifact.NewFedora(

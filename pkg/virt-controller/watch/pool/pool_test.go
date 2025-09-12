@@ -134,6 +134,7 @@ var _ = Describe("Pool", func() {
 
 		BeforeEach(func() {
 			virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
+			k8sClient = k8sfake.NewSimpleClientset()
 
 			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
@@ -156,6 +157,7 @@ var _ = Describe("Pool", func() {
 			})
 
 			controller, _ = NewController(virtClient,
+				k8sClient,
 				vmiInformer,
 				vmInformer,
 				poolInformer,
@@ -176,10 +178,7 @@ var _ = Describe("Pool", func() {
 
 			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(fakeVirtClient.PoolV1beta1().VirtualMachinePools(testNamespace)).AnyTimes()
 
-			k8sClient = k8sfake.NewSimpleClientset()
 			cdiClient = cdiv1fake.NewSimpleClientset()
-			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
-			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 		})
 

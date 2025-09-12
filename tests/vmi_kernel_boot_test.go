@@ -44,6 +44,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
@@ -91,7 +92,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 
 			By("Ensuring virt-launcher is deleted")
 			Eventually(func() error {
-				_, err = virtClient.CoreV1().Pods(virtLauncherPod.Namespace).Get(context.Background(), virtLauncherPod.Name, v1.GetOptions{})
+				_, err = k8s.Client().CoreV1().Pods(virtLauncherPod.Namespace).Get(context.Background(), virtLauncherPod.Name, v1.GetOptions{})
 				return err
 			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), fmt.Sprintf("virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name))
 		})
@@ -167,7 +168,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 
 			By("Ensuring virt-launcher is deleted")
 			Eventually(func() error {
-				_, err = virtClient.CoreV1().Pods(virtLauncherPod.Namespace).Get(context.Background(), virtLauncherPod.Name, v1.GetOptions{})
+				_, err = k8s.Client().CoreV1().Pods(virtLauncherPod.Namespace).Get(context.Background(), virtLauncherPod.Name, v1.GetOptions{})
 				return err
 			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), fmt.Sprintf("virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name))
 		})

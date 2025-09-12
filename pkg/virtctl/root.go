@@ -171,7 +171,7 @@ func checkClientServerVersion(ctx context.Context) error {
 		return err
 	}
 
-	virtClient, _, _, err := clientconfig.ClientAndNamespaceFromContext(ctx)
+	virtClient, _, _, _, err := clientconfig.ClientAndNamespaceFromContext(ctx)
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,7 @@ package kubecli
 import (
 	"errors"
 
+	"k8s.io/client-go/kubernetes"
 	clone "kubevirt.io/api/clone/v1beta1"
 
 	"kubevirt.io/api/migrations/v1alpha1"
@@ -26,9 +27,17 @@ import (
 // MockKubevirtClientInstance is a reference to the kubevirt client that could be manipulated by the test code
 var MockKubevirtClientInstance *MockKubevirtClient
 
+// MockK8sClientInstance is a reference to the k8s client that could be manipulated by the test code
+var MockK8sClientInstance kubernetes.Interface
+
 // GetMockKubevirtClientFromClientConfig is an entry point for testing, could be used to override GetKubevirtClientFromClientConfig
 func GetMockKubevirtClientFromClientConfig(cmdConfig clientcmd.ClientConfig) (KubevirtClient, error) {
 	return MockKubevirtClientInstance, nil
+}
+
+// GetMockK8sClientFromClientConfig is an entry point for testing, could be used to override GetKubevirtClientFromClientConfig
+func GetMockK8sClientFromClientConfig(cmdConfig clientcmd.ClientConfig) (kubernetes.Interface, error) {
+	return MockK8sClientInstance, nil
 }
 
 // GetInvalidKubevirtClientFromClientConfig is an entry point for testing case where client should be invalid

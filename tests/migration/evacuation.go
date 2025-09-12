@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -67,7 +68,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 			By("Triggering an eviction by evict API")
 			ctx := context.Background()
-			err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
+			err = k8s.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      virtLauncherPod.Name,
 					Namespace: virtLauncherPod.Namespace,
@@ -77,7 +78,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 			By("Waiting for the eviction-in-progress annotation to be added to the source pod")
 			Eventually(func() map[string]string {
-				virtLauncherPod, err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).Get(ctx, virtLauncherPod.Name, metav1.GetOptions{})
+				virtLauncherPod, err = k8s.Client().CoreV1().Pods(virtLauncherPod.Namespace).Get(ctx, virtLauncherPod.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return virtLauncherPod.GetAnnotations()
 			}).WithTimeout(20 * time.Second).WithPolling(1 * time.Second).Should(HaveKey("descheduler.alpha.kubernetes.io/eviction-in-progress"))
@@ -125,7 +126,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 				By("Triggering an eviction by evict API")
 				ctx := context.Background()
-				err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
+				err = k8s.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      virtLauncherPod.Name,
 						Namespace: virtLauncherPod.Namespace,
@@ -150,7 +151,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 				By("Ensuring eviction-in-progress annotation is not removed from the source pod")
 				Consistently(func() map[string]string {
-					virtLauncherPod, err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).Get(ctx, virtLauncherPod.Name, metav1.GetOptions{})
+					virtLauncherPod, err = k8s.Client().CoreV1().Pods(virtLauncherPod.Namespace).Get(ctx, virtLauncherPod.Name, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					return virtLauncherPod.GetAnnotations()
 				}).WithTimeout(30 * time.Second).WithPolling(1 * time.Second).Should(HaveKey("descheduler.alpha.kubernetes.io/eviction-in-progress"))
@@ -160,7 +161,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.MigrationState).ToNot(BeNil())
 				Expect(vmi.Status.MigrationState.TargetPod).ToNot(Equal(""))
-				targetPod, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).Get(ctx, vmi.Status.MigrationState.TargetPod, metav1.GetOptions{})
+				targetPod, err := k8s.Client().CoreV1().Pods(vmi.Namespace).Get(ctx, vmi.Status.MigrationState.TargetPod, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(targetPod.GetAnnotations()).ToNot(HaveKey("descheduler.alpha.kubernetes.io/eviction-in-progress"))
 			})
@@ -233,7 +234,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 				By("Triggering an eviction by evict API")
 				ctx := context.Background()
-				err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
+				err = k8s.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      virtLauncherPod.Name,
 						Namespace: virtLauncherPod.Namespace,
@@ -280,7 +281,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 					By("Triggering an eviction by evict API")
 					ctx := context.Background()
-					err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
+					err = k8s.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      virtLauncherPod.Name,
 							Namespace: virtLauncherPod.Namespace,
@@ -327,7 +328,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 			By("Evicting VMI pod")
 			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).NotTo(HaveOccurred())
-			err = kubevirt.Client().CoreV1().Pods(vmiPod.Namespace).EvictV1(context.Background(), &policy.Eviction{
+			err = k8s.Client().CoreV1().Pods(vmiPod.Namespace).EvictV1(context.Background(), &policy.Eviction{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      vmiPod.Name,
 					Namespace: vmiPod.Namespace,

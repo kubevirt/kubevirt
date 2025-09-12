@@ -780,7 +780,7 @@ func reportVmLabels(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult 
 
 	if vmLabelsCfg == nil {
 		var err error
-		vmLabelsCfg, err = vmlabels.New(kubevirtClient)
+		vmLabelsCfg, err = vmlabels.New(k8sClient)
 		if err != nil {
 			log.Log.Warningf("vm-labels: watcher init error: %v", err)
 			return cr

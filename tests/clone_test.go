@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinstancetype"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -467,7 +468,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				)
 
 				BeforeEach(func() {
-					snapshotStorageClass, err = libstorage.GetSnapshotStorageClass(virtClient)
+					snapshotStorageClass, err = libstorage.GetSnapshotStorageClass(virtClient, k8s.Client())
 					Expect(err).ToNot(HaveOccurred())
 					Expect(snapshotStorageClass).ToNot(BeEmpty(), "no storage class with snapshot support")
 				})
@@ -577,8 +578,8 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 						Expect(targetVM.Status.PreferenceRef.ControllerRevisionRef.Name).ToNot(Equal(sourceVM.Status.PreferenceRef.ControllerRevisionRef.Name), "source and target preference revision names should not be equal")
 
 						By("Asserting that the source and target ControllerRevisions contain the same Object")
-						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.InstancetypeRef.ControllerRevisionRef.Name, targetVM.Status.InstancetypeRef.ControllerRevisionRef.Name, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
-						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.PreferenceRef.ControllerRevisionRef.Name, targetVM.Status.PreferenceRef.ControllerRevisionRef.Name, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
+						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.InstancetypeRef.ControllerRevisionRef.Name, targetVM.Status.InstancetypeRef.ControllerRevisionRef.Name, k8s.Client())).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
+						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.PreferenceRef.ControllerRevisionRef.Name, targetVM.Status.PreferenceRef.ControllerRevisionRef.Name, k8s.Client())).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
 					},
 						Entry("with a running VM", virtv1.RunStrategyAlways),
 						Entry("with a stopped VM", virtv1.RunStrategyHalted),
@@ -638,7 +639,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 				Context("with WaitForFirstConsumer binding mode", decorators.RequiresWFFCStorageClass, func() {
 					BeforeEach(func() {
-						snapshotStorageClass, err = libstorage.GetWFFCStorageSnapshotClass(virtClient)
+						snapshotStorageClass, err = libstorage.GetWFFCStorageSnapshotClass(virtClient, k8s.Client())
 						Expect(err).ToNot(HaveOccurred())
 						if snapshotStorageClass == "" {
 							Fail("Failing test, no storage class with snapshot support and wffc binding mode")

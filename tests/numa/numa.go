@@ -22,6 +22,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -56,7 +57,7 @@ var _ = Describe("[sig-compute]NUMA", Serial, decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 			cpuVMI = libwait.WaitForSuccessfulVMIStart(cpuVMI)
 			By("Fetching the numa memory mapping")
-			handler, err := libnode.GetVirtHandlerPod(virtClient, cpuVMI.Status.NodeName)
+			handler, err := libnode.GetVirtHandlerPod(k8s.Client(), cpuVMI.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 			pid := getQEMUPID(handler, cpuVMI)
 

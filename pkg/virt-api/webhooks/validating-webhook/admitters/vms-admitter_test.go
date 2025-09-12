@@ -128,7 +128,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitterStub(),
 			KubeVirtServiceAccounts: webhooks.KubeVirtServiceAccounts(kubeVirtNamespace),
 		}
-		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 	})
 
 	Context("with an invalid VM", func() {
@@ -1323,7 +1322,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(
 				fakeclientset.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
 
-			vmsAdmitter.InstancetypeAdmitter = instancetypeWebhooks.NewAdmitter(virtClient)
+			vmsAdmitter.InstancetypeAdmitter = instancetypeWebhooks.NewAdmitter(virtClient, k8sClient)
 		})
 		It("should not apply instancetype to the VMISpec of the original VM", func() {
 			const clusterInstancetypeName = "clusterInstancetype"

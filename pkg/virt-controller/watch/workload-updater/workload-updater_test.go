@@ -84,6 +84,7 @@ var _ = Describe("Workload Updater", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 		fakeVirtClient = kubevirtfake.NewSimpleClientset()
+		kubeClient = fake.NewSimpleClientset()
 
 		vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, cache.Indexers{
 			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
@@ -99,14 +100,11 @@ var _ = Describe("Workload Updater", func() {
 
 		kubeVirtInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 
-		controller, _ = NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, config)
+		controller, _ = NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, kubeClient, config)
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().KubeVirt(k8sv1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().KubeVirts(k8sv1.NamespaceDefault)).AnyTimes()
-		kubeClient = fake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {

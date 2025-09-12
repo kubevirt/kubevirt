@@ -361,6 +361,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			virtClient = kubecli.NewMockKubevirtClient(ctrl)
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+			k8sClient = k8sfake.NewSimpleClientset()
 
 			vmSnapshotInformer, vmSnapshotSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshot{}, virtcontroller.GetVirtualMachineSnapshotInformerIndexers())
 			vmSnapshotContentInformer, vmSnapshotContentSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshotContent{}, virtcontroller.GetVirtualMachineSnapshotContentInformerIndexers())
@@ -380,7 +381,8 @@ var _ = Describe("Snapshot controlleer", func() {
 			recorder.IncludeObject = true
 
 			controller = &VMSnapshotController{
-				Client:                    virtClient,
+				VirtClient:                virtClient,
+				K8sClient:                 k8sClient,
 				VMSnapshotInformer:        vmSnapshotInformer,
 				VMSnapshotContentInformer: vmSnapshotContentInformer,
 				VMInformer:                vmInformer,
@@ -422,10 +424,6 @@ var _ = Describe("Snapshot controlleer", func() {
 
 			k8sSnapshotClient = k8ssnapshotfake.NewSimpleClientset()
 			virtClient.EXPECT().KubernetesSnapshotClient().Return(k8sSnapshotClient).AnyTimes()
-
-			k8sClient = k8sfake.NewSimpleClientset()
-			virtClient.EXPECT().StorageV1().Return(k8sClient.StorageV1()).AnyTimes()
-			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
 			k8sClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				Expect(action).To(BeNil())

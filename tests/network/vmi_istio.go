@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -119,7 +120,7 @@ var istioTests = func(vmType VmType) {
 			vmiIP := libnet.GetVmiPrimaryIPByFamily(vmi, k8sv1.IPv4Protocol)
 
 			By("Running job to send a request to the server")
-			return virtClient.BatchV1().Jobs(namespace).Create(
+			return k8s.Client().BatchV1().Jobs(namespace).Create(
 				context.Background(),
 				job.NewHelloWorldJobHTTP(vmiIP, fmt.Sprintf("%d", targetPort)),
 				metav1.CreateOptions{},
@@ -138,14 +139,14 @@ var istioTests = func(vmType VmType) {
 			virtClient = kubevirt.Client()
 			serviceName := fmt.Sprintf("%s-service", vmiAppSelectorValue)
 			service := netservice.BuildSpec(serviceName, svcDeclaredTestPort, svcDeclaredTestPort, vmiAppSelectorKey, vmiAppSelectorValue)
-			_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{})
+			_, err = k8s.Client().CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 		JustBeforeEach(func() {
 			// Enable sidecar injection by setting the namespace label
-			Expect(libnamespace.AddLabelToNamespace(virtClient, namespace, istioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
+			Expect(libnamespace.AddLabelToNamespace(k8s.Client(), namespace, istioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
 			defer func() {
-				Expect(libnamespace.RemoveLabelFromNamespace(virtClient, namespace, istioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
+				Expect(libnamespace.RemoveLabelFromNamespace(k8s.Client(), namespace, istioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
 			}()
 
 			By("Creating VMI")
@@ -160,7 +161,7 @@ var istioTests = func(vmType VmType) {
 		Describe("Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 			var sourcePodName string
 			allContainersCompleted := func(podName string) error {
-				pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+				pod, err := k8s.Client().CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -345,7 +346,7 @@ var istioTests = func(vmType VmType) {
 				serverVMI = libvmops.RunVMIAndExpectLaunch(serverVMI, libvmops.StartupTimeoutSecondsHuge)
 
 				serverVMIService := netservice.BuildSpec("vmi-server", vmiServerTestPort, vmiServerTestPort, vmiAppSelectorKey, vmiServerAppSelectorValue)
-				_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
+				_, err = k8s.Client().CoreV1().Services(namespace).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting HTTP Server")
@@ -371,7 +372,7 @@ var istioTests = func(vmType VmType) {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Getting Istio ingressgateway IP")
-				ingressGatewayService, err := virtClient.CoreV1().Services(istioNamespace).Get(context.TODO(), "istio-ingressgateway", metav1.GetOptions{})
+				ingressGatewayService, err := k8s.Client().CoreV1().Services(istioNamespace).Get(context.TODO(), "istio-ingressgateway", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				ingressGatewayServiceIP = ingressGatewayService.Spec.ClusterIP
 			})

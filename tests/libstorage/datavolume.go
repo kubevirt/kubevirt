@@ -23,8 +23,6 @@ import (
 	"context"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 
@@ -39,6 +37,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
@@ -110,10 +110,11 @@ func CreateBlankBlockDataVolume(name, namespace, size string) *v1beta1.DataVolum
 
 func createDataVolume(dv *v1beta1.DataVolume, namespace string) *v1beta1.DataVolume {
 	virtClient := kubevirt.Client()
+	k8sClient := k8s.Client()
 	dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, v12.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(func() error {
-		_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), dv.Name, v12.GetOptions{})
+		_, err = k8sClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), dv.Name, v12.GetOptions{})
 		return err
 	}, time.Minute, time.Second).Should(Succeed())
 

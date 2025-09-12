@@ -26,6 +26,7 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 	"github.com/pkg/errors"
+	"k8s.io/client-go/kubernetes"
 
 	k8sv1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -60,16 +61,18 @@ const (
 )
 
 type ObjectGraph struct {
-	client   kubecli.KubevirtClient
-	graphMap map[string]schema.GroupKind
-	options  *v1.ObjectGraphOptions
+	virtClient kubecli.KubevirtClient
+	k8sClient  kubernetes.Interface
+	graphMap   map[string]schema.GroupKind
+	options    *v1.ObjectGraphOptions
 }
 
-func NewObjectGraph(client kubecli.KubevirtClient, opts *v1.ObjectGraphOptions) *ObjectGraph {
+func NewObjectGraph(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, opts *v1.ObjectGraphOptions) *ObjectGraph {
 	return &ObjectGraph{
-		client:   client,
-		graphMap: objectGraphMap,
-		options:  opts,
+		virtClient: virtClient,
+		k8sClient:  k8sClient,
+		graphMap:   objectGraphMap,
+		options:    opts,
 	}
 }
 
@@ -131,7 +134,7 @@ func (app *SubresourceAPIApp) handleObjectGraph(request *restful.Request, respon
 		return
 	}
 
-	graph, err := NewObjectGraph(app.virtCli, objectGraphOpts).GetObjectGraph(obj)
+	graph, err := NewObjectGraph(app.virtCli, app.k8sCli, objectGraphOpts).GetObjectGraph(obj)
 	if err != nil {
 		writeError(apierrors.NewInternalError(err), response)
 		return
@@ -316,7 +319,7 @@ func (og *ObjectGraph) buildChildrenFromVMI(vmi *v1.VirtualMachineInstance) ([]v
 
 func (og *ObjectGraph) addVolumeGraph(obj any, namespace string) ([]v1.ObjectGraphNode, error) {
 	var nodes []v1.ObjectGraphNode
-	volumes, err := storageutils.GetVolumes(obj, og.client, storageutils.WithAllVolumes)
+	volumes, err := storageutils.GetVolumes(obj, og.k8sClient, storageutils.WithAllVolumes)
 	if err != nil {
 		if !storageutils.IsErrNoBackendPVC(err) {
 			return nil, err
@@ -384,7 +387,7 @@ func (og *ObjectGraph) addVolumeGraph(obj any, namespace string) ([]v1.ObjectGra
 }
 
 func (og *ObjectGraph) getLauncherPodNode(name, namespace string) (*v1.ObjectGraphNode, error) {
-	pods, err := og.client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+	pods, err := og.k8sClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, "virt-launcher"),
 	})
 	if err != nil {

@@ -32,6 +32,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -41,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -106,7 +108,7 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			}
 
 			By("Verifying KubeVirtVMIExcessiveMigration alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtVMIExcessiveMigrations")
+			libmonitoring.VerifyAlertExist(k8s.Client(), "KubeVirtVMIExcessiveMigrations")
 
 			// delete VMI
 			By("Deleting the VMI")
@@ -130,18 +132,18 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			Expect(err).ToNot(HaveOccurred(), "Failed to disable virt-handler")
 
 			By("Ensuring virt-handler is unschedulable on all nodes")
-			waitForVirtHandlerNodeSelector(1, virtClient, originalKv.Namespace, "does-not-exist", 90*time.Second, 5*time.Second)
+			waitForVirtHandlerNodeSelector(1, k8s.Client(), originalKv.Namespace, "does-not-exist", 90*time.Second, 5*time.Second)
 
 			By("Verifying virt-handler has no available pods")
-			waitForVirtHandlerPodCount(1, virtClient, originalKv.Namespace, 0, 90*time.Second, 5*time.Second)
+			waitForVirtHandlerPodCount(1, k8s.Client(), originalKv.Namespace, 0, 90*time.Second, 5*time.Second)
 
 			By("Verifying KubeVirtNoAvailableNodesToRunVMs alert exists if emulation is disabled")
-			libmonitoring.VerifyAlertExistWithCustomTime(virtClient, "KubeVirtNoAvailableNodesToRunVMs", 10*time.Minute)
+			libmonitoring.VerifyAlertExistWithCustomTime(k8s.Client(), "KubeVirtNoAvailableNodesToRunVMs", 10*time.Minute)
 
 			By("Restoring virt-handler")
 			err = restoreVirtHandler(virtClient, originalKv)
 			Expect(err).ToNot(HaveOccurred(), "Failed to restore virt-handler")
-			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, "KubeVirtNoAvailableNodesToRunVMs")
+			libmonitoring.WaitUntilAlertDoesNotExist(k8s.Client(), "KubeVirtNoAvailableNodesToRunVMs")
 		})
 	})
 
@@ -155,10 +157,10 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtDeprecatedAPIRequested")
+			libmonitoring.VerifyAlertExist(k8s.Client(), "KubeVirtDeprecatedAPIRequested")
 
 			By("Verifying the alert disappears")
-			libmonitoring.WaitUntilAlertDoesNotExistWithCustomTime(virtClient, 15*time.Minute, "KubeVirtDeprecatedAPIRequested")
+			libmonitoring.WaitUntilAlertDoesNotExistWithCustomTime(k8s.Client(), 15*time.Minute, "KubeVirtDeprecatedAPIRequested")
 		})
 	})
 
@@ -195,9 +197,9 @@ func restoreVirtHandler(virtClient kubecli.KubevirtClient, originalKv *v1.KubeVi
 	return err
 }
 
-func waitForVirtHandlerNodeSelector(offset int, virtClient kubecli.KubevirtClient, namespace, expectedValue string, timeout, polling time.Duration) {
+func waitForVirtHandlerNodeSelector(offset int, k8sClient kubernetes.Interface, namespace, expectedValue string, timeout, polling time.Duration) {
 	EventuallyWithOffset(offset, func() (string, error) {
-		vh, err := virtClient.AppsV1().DaemonSets(namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
+		vh, err := k8sClient.AppsV1().DaemonSets(namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		}
@@ -205,9 +207,9 @@ func waitForVirtHandlerNodeSelector(offset int, virtClient kubecli.KubevirtClien
 	}).WithTimeout(timeout).WithPolling(polling).Should(Equal(expectedValue))
 }
 
-func waitForVirtHandlerPodCount(offset int, virtClient kubecli.KubevirtClient, namespace string, expectedCount int, timeout, polling time.Duration) {
+func waitForVirtHandlerPodCount(offset int, k8sClient kubernetes.Interface, namespace string, expectedCount int, timeout, polling time.Duration) {
 	EventuallyWithOffset(offset, func() (int, error) {
-		vh, err := virtClient.AppsV1().DaemonSets(namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
+		vh, err := k8sClient.AppsV1().DaemonSets(namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
 		if err != nil {
 			return 0, err
 		}

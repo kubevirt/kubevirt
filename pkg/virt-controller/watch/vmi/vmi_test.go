@@ -191,6 +191,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	BeforeEach(func() {
 		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 		virtClientset = kubevirtfake.NewSimpleClientset()
+		kubeClient = fake.NewSimpleClientset()
 
 		vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
 
@@ -225,7 +226,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}
 
 		controller, _ = NewController(
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, kubeClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			vmiInformer,
 			vmInformer,
 			podInformer,
@@ -234,6 +235,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			storageClassInformer,
 			recorder,
 			virtClient,
+			kubeClient,
 			dataVolumeInformer,
 			storageProfileInformer,
 			cdiInformer,
@@ -264,8 +266,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(
 			virtClientset.KubevirtV1().VirtualMachineInstances(k8sv1.NamespaceDefault),
 		).AnyTimes()
-		kubeClient = fake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 	})
 
 	AfterEach(func() {

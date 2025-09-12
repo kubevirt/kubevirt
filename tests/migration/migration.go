@@ -72,6 +72,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -122,7 +123,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			"config2": "value2",
 		}
 		cm := libconfigmap.New(name, data)
-		cm, err := virtClient.CoreV1().ConfigMaps(namespace).Create(context.Background(), cm, metav1.CreateOptions{})
+		cm, err := k8s.Client().CoreV1().ConfigMaps(namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return name
 	}
@@ -130,7 +131,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 	prepareVMIWithAllVolumeSources := func(namespace string, kernelBootEnabled bool) *v1.VirtualMachineInstance {
 		name := "secret-" + rand.String(5)
 		secret := libsecret.New(name, libsecret.DataString{"user": "admin", "password": "redhat"})
-		_, err := kubevirt.Client().CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+		_, err := k8s.Client().CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		if !errors.IsAlreadyExists(err) {
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -163,7 +164,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		const subdomain = "mysub"
 
 		AfterEach(func() {
-			err := virtClient.CoreV1().Services(testsuite.NamespaceTestDefault).Delete(context.Background(), subdomain, metav1.DeleteOptions{})
+			err := k8s.Client().CoreV1().Services(testsuite.NamespaceTestDefault).Delete(context.Background(), subdomain, metav1.DeleteOptions{})
 			if !errors.IsNotFound(err) {
 				Expect(err).NotTo(HaveOccurred())
 			}
@@ -189,14 +190,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			By("Exposing headless service matching subdomain")
 			service := service.BuildHeadlessSpec(subdomain, port, port, labelKey, labelValue)
-			_, err := virtClient.CoreV1().Services(vmi.Namespace).Create(context.TODO(), service, metav1.CreateOptions{})
+			_, err := k8s.Client().CoreV1().Services(vmi.Namespace).Create(context.TODO(), service, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			assertConnectivityToService := func(msg string) {
 				By(msg)
 				tcpJob := job.NewHelloWorldJobTCP(fmt.Sprintf("%s.%s", hostname, subdomain), strconv.FormatInt(int64(port), 10))
 				tcpJob.Spec.BackoffLimit = pointer.P(int32(3))
-				tcpJob, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), tcpJob, metav1.CreateOptions{})
+				tcpJob, err := k8s.Client().BatchV1().Jobs(vmi.Namespace).Create(context.Background(), tcpJob, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				err = job.WaitForJobToSucceed(tcpJob, 90*time.Second)
@@ -591,7 +592,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				pods, err := k8s.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
 					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
 				})
 				Expect(err).ToNot(HaveOccurred(), "Should list pods successfully")
@@ -689,7 +690,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			var nodes *k8sv1.NodeList
 			BeforeEach(func() {
 				Eventually(func() []k8sv1.Node {
-					nodes = libnode.GetAllSchedulableNodes(virtClient)
+					nodes = libnode.GetAllSchedulableNodes(k8s.Client())
 					return nodes.Items
 				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
 			})
@@ -1098,7 +1099,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			Expect(err).ToNot(HaveOccurred())
 			var pvc *k8sv1.PersistentVolumeClaim
 			Eventually(func() *k8sv1.PersistentVolumeClaim {
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+				pvc, err = k8s.Client().CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 				if err != nil {
 					return nil
 				}
@@ -1340,7 +1341,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					By("checking if we fail to connect with our own cert")
 					tlsConfig := temporaryTLSConfig()
 
-					handler, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.MigrationState.TargetNode)
+					handler, err := libnode.GetVirtHandlerPod(k8s.Client(), vmi.Status.MigrationState.TargetNode)
 					Expect(err).ToNot(HaveOccurred())
 
 					var wg sync.WaitGroup
@@ -1419,7 +1420,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					By("checking if we fail to connect with our own cert")
 					tlsConfig := temporaryTLSConfig()
 
-					handler, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.MigrationState.TargetNode)
+					handler, err := libnode.GetVirtHandlerPod(k8s.Client(), vmi.Status.MigrationState.TargetNode)
 					Expect(err).ToNot(HaveOccurred())
 
 					var wg sync.WaitGroup
@@ -1467,7 +1468,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			AfterEach(func() {
 				for _, podName := range createdPods {
 					Eventually(func() error {
-						err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), podName, metav1.DeleteOptions{})
+						err := k8s.Client().CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), podName, metav1.DeleteOptions{})
 						return err
 					}, 10*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Should delete helper pod")
 				}
@@ -1534,7 +1535,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				// launch killer pod on every node that isn't the vmi's node
 				By("Starting our migration killer pods")
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				for idx, entry := range nodes.Items {
 					if entry.Name == vmi.Status.NodeName {
@@ -1547,7 +1548,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					pod := libpod.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do ps aux | grep -v \"defunct\" | grep -v \"D\" | grep \"%s\" && pkill -9 virt-handler && sleep 5; done", emulator)})
 
 					pod.Spec.NodeName = entry.Name
-					createdPod, err := virtClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+					createdPod, err := k8s.Client().CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
 					createdPods = append(createdPods, createdPod.Name)
 				}
@@ -1564,12 +1565,12 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Removing our migration killer pods")
 				for _, podName := range createdPods {
 					Eventually(func() error {
-						err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), podName, metav1.DeleteOptions{})
+						err := k8s.Client().CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), podName, metav1.DeleteOptions{})
 						return err
 					}, 10*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Should delete helper pod")
 
 					Eventually(func() error {
-						_, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
+						_, err := k8s.Client().CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
 						return err
 					}, 300*time.Second, 1*time.Second).Should(
 						SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())),
@@ -1579,7 +1580,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				By("Waiting for virt-handler to come back online")
 				Eventually(func() error {
-					handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+					handler, err := k8s.Client().AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -1688,7 +1689,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(vmi.Status.MigrationState).ToNot(BeNil())
 				Expect(vmi.Status.MigrationState.TargetPod).ToNot(Equal(""))
 
-				err = virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), vmi.Status.MigrationState.TargetPod, metav1.DeleteOptions{})
+				err = k8s.Client().CoreV1().Pods(vmi.Namespace).Delete(context.Background(), vmi.Status.MigrationState.TargetPod, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Expecting VMI migration failure")
@@ -1711,11 +1712,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					"config2": "value2",
 				}
 				cm := libconfigmap.New(configMapName, config_data)
-				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				cm, err := k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
-				secret, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				secret, err = k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
 				if !errors.IsAlreadyExists(err) {
 					Expect(err).ToNot(HaveOccurred())
 				}
@@ -1935,7 +1936,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() error {
-					vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
+					vmiPods, err := k8s.Client().CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(vmiPods.Items)).To(BeNumerically("<=", 2), "vmi has 3 active pods")
 
@@ -2017,12 +2018,12 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				BeforeEach(func() {
 					By("Keeping only one schedulable node")
-					schedulableNodes := libnode.GetAllSchedulableNodes(virtClient).Items
+					schedulableNodes := libnode.GetAllSchedulableNodes(k8s.Client()).Items
 					Expect(schedulableNodes).NotTo(And(BeEmpty(), HaveLen(1)))
 
 					// Iterate on all schedulable nodes but one
 					for _, schedulableNode := range schedulableNodes[:len(schedulableNodes)-1] {
-						libnode.SetNodeUnschedulable(schedulableNode.Name, virtClient)
+						libnode.SetNodeUnschedulable(schedulableNode.Name, k8s.Client())
 						nodesSetUnschedulable = append(nodesSetUnschedulable, schedulableNode.Name)
 					}
 				})
@@ -2030,7 +2031,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				AfterEach(func() {
 					By("Restoring nodes to be schedulable")
 					for _, schedulableNodeName := range nodesSetUnschedulable {
-						libnode.SetNodeSchedulable(schedulableNodeName, virtClient)
+						libnode.SetNodeSchedulable(schedulableNodeName, k8s.Client())
 					}
 				})
 
@@ -2052,7 +2053,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + string(vmi.GetUID())))
 					Expect(err).ShouldNot(HaveOccurred())
 
-					vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
+					vmiPods, err := k8s.Client().CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(vmiPods.Items).To(HaveLen(2), "two pods are expected for stuck vmi: source and target pods")
 
@@ -2078,7 +2079,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					}, 60*time.Second, 5*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 					By("Making sure source pod is still running")
-					sourcePod, err = virtClient.CoreV1().Pods(sourcePod.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
+					sourcePod, err = k8s.Client().CoreV1().Pods(sourcePod.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(sourcePod).To(matcher.BeInPhase(k8sv1.PodRunning))
 					By("Making sure the VMI's migration state remains nil")
@@ -2192,13 +2193,13 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(machineType).ToNot(BeEmpty(), "VMI should have a valid machine type in its status")
 
 				By("Fetching all nodes in the cluster")
-				nodeList := libnode.GetAllSchedulableNodes(virtClient)
+				nodeList := libnode.GetAllSchedulableNodes(k8s.Client())
 				Expect(nodeList.Items).ToNot(BeEmpty())
 
 				By("Patching all nodes to remove the supported machine type label")
 				for _, node := range nodeList.Items {
 					nodeName := node.Name
-					libinfra.ExpectStoppingNodeLabellerToSucceed(nodeName, virtClient)
+					libinfra.ExpectStoppingNodeLabellerToSucceed(nodeName, k8s.Client())
 
 					// we remove the vmi specific machine type from all the labels on all nodes to render it unsupported for scheduling
 					libnode.RemoveLabelFromNode(node.Name, v1.SupportedMachineTypeLabel+machineType)
@@ -2207,7 +2208,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				DeferCleanup(func() {
 					By("Restoring the machine type label for all nodes")
 					for _, node := range nodeList.Items {
-						libinfra.ExpectResumingNodeLabellerToSucceed(node.Name, virtClient)
+						libinfra.ExpectResumingNodeLabellerToSucceed(node.Name, virtClient, k8s.Client())
 					}
 				})
 
@@ -2282,7 +2283,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + hugepageSize)
 
 			count := 0
-			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			nodes, err := k8s.Client().CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 			for _, node := range nodes.Items {
@@ -2457,7 +2458,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			// We will get focused to run on migration test lanes because we contain the word "Migration".
 			// However, we need to be sig-something or we'll fail the check, even if we don't run on any sig- lane.
 			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
-			nodes = libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient)
+			nodes = libnode.GetWorkerNodesWithCPUManagerEnabled(k8s.Client())
 			Expect(len(nodes)).To(BeNumerically(">=", 2), "Need at least 2 nodes with CPU manager enabled")
 			By("creating a template for a pause pod with 1 dedicated CPU core")
 			pausePod = libpod.RenderPod("pause-", nil, nil)
@@ -2538,7 +2539,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			By("deleting the paused pods that don't have cores in common with the VMI")
 			for _, pod := range pods {
-				err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+				err = k8s.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 
@@ -2560,7 +2561,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			Expect(cpuSetTargetLibvirt).To(Equal(cpuSetTarget))
 
 			By("deleting the last paused pod")
-			err = virtClient.CoreV1().Pods(pausedPod.Namespace).Delete(context.Background(), pausedPod.Name, metav1.DeleteOptions{})
+			err = k8s.Client().CoreV1().Pods(pausedPod.Namespace).Delete(context.Background(), pausedPod.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -2609,7 +2610,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			By("Checking if the migration happened, and over the right network")
 			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-			targetHandler, err := libnode.GetVirtHandlerPod(kubevirt.Client(), vmi.Status.NodeName)
+			targetHandler, err := libnode.GetVirtHandlerPod(k8s.Client(), vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(targetHandler.Status.PodIP), "The migration did not appear to go over the dedicated migration network")
 		})
@@ -2733,7 +2734,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			resourceQuota := newResourceQuota(resourcesToLimit, testsuite.GetTestNamespace(vmi))
 			resourceQuota = createResourceQuota(resourceQuota)
 			Eventually(func() error {
-				quota, err := virtClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Get(context.TODO(), resourceQuota.Name, metav1.GetOptions{})
+				quota, err := k8s.Client().CoreV1().ResourceQuotas(resourceQuota.Namespace).Get(context.TODO(), resourceQuota.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -2775,7 +2776,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			By("Creating ConfigMap")
 			cm := libconfigmap.New(configMapName, data)
-			cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+			cm, err := k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := libvmifact.NewAlpine(
@@ -2913,11 +2914,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 }))
 
 func createResourceQuota(resourceQuota *k8sv1.ResourceQuota) *k8sv1.ResourceQuota {
-	virtCli := kubevirt.Client()
-
 	var obj *k8sv1.ResourceQuota
 	var err error
-	obj, err = virtCli.CoreV1().ResourceQuotas(resourceQuota.Namespace).Create(context.Background(), resourceQuota, metav1.CreateOptions{})
+	obj, err = k8s.Client().CoreV1().ResourceQuotas(resourceQuota.Namespace).Create(context.Background(), resourceQuota, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return obj
 }
@@ -3085,9 +3084,7 @@ func getVirtqemudPid(pod *k8sv1.Pod) (string, error) {
 
 // runCommandOnVmiTargetPod runs specified command on the target virt-launcher pod of a migration
 func runCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) (string, error) {
-	virtClient := kubevirt.Client()
-
-	pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+	pods, err := k8s.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
 	var vmiPod *k8sv1.Pod

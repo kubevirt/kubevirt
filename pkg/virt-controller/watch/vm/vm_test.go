@@ -88,6 +88,7 @@ var _ = Describe("VirtualMachine", func() {
 		BeforeEach(func() {
 			virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 			virtFakeClient = fake.NewSimpleClientset()
+			k8sClient = k8sfake.NewSimpleClientset()
 			// enable /status, this assumes that no other reactor will be prepend.
 			// if you need to prepend reactor it need to not handle the object or use the
 			// modify function
@@ -149,6 +150,7 @@ var _ = Describe("VirtualMachine", func() {
 				crInformer,
 				recorder,
 				virtClient,
+				k8sClient,
 				config,
 				nil,
 				nil,
@@ -178,11 +180,6 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(action).To(BeNil())
 				return true, nil, nil
 			})
-
-			k8sClient = k8sfake.NewSimpleClientset()
-			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
-			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-			virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 		})
 
 		// TODO: We need to make sure the action was triggered
@@ -2067,7 +2064,7 @@ var _ = Describe("VirtualMachine", func() {
 					crName, err := controller.createVMRevision(vm)
 					Expect(err).ToNot(HaveOccurred())
 
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), crName, metav1.GetOptions{})
+					_, err = k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), crName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					vmi.Status.VirtualMachineRevisionName = crName
@@ -4625,9 +4622,6 @@ var _ = Describe("VirtualMachine", func() {
 				fakeClusterPreferenceClient = fakeInstancetypeClients.VirtualMachineClusterPreferences()
 				virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
 
-				k8sClient = k8sfake.NewSimpleClientset()
-				virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
-
 				instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
 				instancetypeInformerStore = instancetypeInformer.GetStore()
 
@@ -4650,6 +4644,7 @@ var _ = Describe("VirtualMachine", func() {
 					clusterPreferenceInformerStore,
 					controllerrevisionInformerStore,
 					virtClient,
+					k8sClient,
 					config,
 					controller.recorder,
 				)
@@ -4735,7 +4730,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.VirtualMachineRevisionName).ToNot(BeEmpty())
 
-				vmRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+				vmRevision, err := k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 					context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmRevision).ToNot(BeNil())
@@ -6083,6 +6078,7 @@ var _ = Describe("VirtualMachine", func() {
 						nil,
 						controllerrevisionInformerStore,
 						virtClient,
+						k8sClient,
 						config,
 						controller.recorder,
 					)

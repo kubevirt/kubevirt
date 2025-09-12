@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -248,7 +249,7 @@ var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, Serial, 
 			}
 
 			By("Get PVC")
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
+			pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
 				Get(context.Background(), targetName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pvc.Annotations).To(HaveKeyWithValue("cdi.kubevirt.io/storage.contentType", string(cdiv1.DataVolumeArchive)))
@@ -276,9 +277,8 @@ var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, Serial, 
 }))
 
 func copyAlpineDisk() string {
-	virtClient := kubevirt.Client()
 	By("Getting the disk image provider pod")
-	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).
+	pods, err := k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).
 		List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=disks-images-provider"})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pods.Items).ToNot(BeEmpty())
@@ -343,7 +343,7 @@ func validatePVC(targetName, sc string) {
 	Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 	By("Get PVC")
-	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
+	pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
 		Get(context.Background(), targetName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(*pvc.Spec.StorageClassName).To(Equal(sc))
@@ -368,7 +368,7 @@ func validatePVCForceBind(targetName string) {
 	Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 	By("Get PVC")
-	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
+	pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
 		Get(context.Background(), targetName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	_, found := pvc.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"]

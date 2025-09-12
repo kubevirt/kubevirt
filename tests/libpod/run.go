@@ -30,15 +30,14 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
 func Run(pod *k8sv1.Pod, namespace string) (*k8sv1.Pod, error) {
 	var err error
-	virtClient := kubevirt.Client()
 
-	pod, err = virtClient.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err = k8s.Client().CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}

@@ -30,9 +30,9 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,14 +94,14 @@ func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
 }
 
 func ApplyRawManifest(object unstructured.Unstructured) error {
-	virtCli := kubevirt.Client()
+	k8sCli := k8s.Client()
 
 	uri := composeResourceURI(object)
 	jsonbody, err := object.MarshalJSON()
 	if err != nil {
 		return err
 	}
-	b, err := virtCli.CoreV1().RESTClient().Post().RequestURI(uri).Body(jsonbody).DoRaw(context.Background())
+	b, err := k8sCli.CoreV1().RESTClient().Post().RequestURI(uri).Body(jsonbody).DoRaw(context.Background())
 	if err != nil {
 		fmt.Printf(fmt.Sprintf("ERROR: Can not apply %s\n, err: %#v", object, err))
 		return err
@@ -111,7 +111,7 @@ func ApplyRawManifest(object unstructured.Unstructured) error {
 }
 
 func DeleteRawManifest(object unstructured.Unstructured) error {
-	virtCli := kubevirt.Client()
+	k8sCli := k8s.Client()
 
 	uri := composeResourceURI(object)
 	uri = path.Join(uri, object.GetName())
@@ -122,7 +122,7 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 	log.DefaultLogger().Infof("Calling DELETE on testing manifest: %s", uri)
 
 	EventuallyWithOffset(2, func() error {
-		result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Body(options).Do(context.Background())
+		result := k8sCli.CoreV1().RESTClient().Delete().RequestURI(uri).Body(options).Do(context.Background())
 		return result.Error()
 	}, 30*time.Second, 1*time.Second).Should(
 		SatisfyAll(HaveOccurred(), WithTransform(k8serrors.IsNotFound, BeTrue())),

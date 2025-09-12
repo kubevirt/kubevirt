@@ -46,7 +46,7 @@ type Screenshot struct {
 }
 
 func (s *Screenshot) Run(cmd *cobra.Command, args []string) error {
-	virtCli, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtCli, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

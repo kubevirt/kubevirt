@@ -22,14 +22,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-
-	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 var _ = Describe("Container disk", func() {
@@ -59,6 +61,7 @@ var _ = Describe("Container disk", func() {
 				"pull-secret-1",
 				cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil),
 				kubecli.NewMockKubevirtClient(ctrl),
+				fake.NewClientset(),
 				config,
 				107,
 				"kubevirt/vmexport",

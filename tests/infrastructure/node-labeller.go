@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -77,7 +78,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 
 		for _, node := range nodesWithKVM {
 			Eventually(func() error {
-				nodeObj, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+				nodeObj, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				if _, exists := nodeObj.Labels[nonExistingCPUModelLabel]; exists {
@@ -97,7 +98,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		var errorMsg string
 
 		EventuallyWithOffset(1, func() (isValid bool) {
-			node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+			node, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			isValid, errorMsg = labelValidation(node.Labels)
@@ -135,7 +136,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 				payloadBytes, err := json.Marshal(p)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+				_, err = k8s.Client().CoreV1().Nodes().Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 			kvConfig := v1.KubeVirtConfiguration{ObsoleteCPUModels: map[string]bool{}}
@@ -202,7 +203,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			node := nodesWithKVM[0]
 			timeout := 30 * time.Second
 			Eventually(func() error {
-				nodeObj, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+				nodeObj, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for key := range nodeObj.Labels {
 					if strings.Contains(key, v1.CPUModelLabel) {
@@ -263,7 +264,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		})
 
 		It("[test_id:6250] should update node with new cpu model vendor label", func() {
-			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			nodes, err := k8s.Client().CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, node := range nodes.Items {
 				for key := range node.Labels {
@@ -319,7 +320,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		var kvConfig *v1.KubeVirtConfiguration
 
 		BeforeEach(func() {
-			node = &(libnode.GetAllSchedulableNodes(virtClient).Items[0])
+			node = &(libnode.GetAllSchedulableNodes(k8s.Client()).Items[0])
 			obsoleteModel = libnode.GetNodeHostModel(node)
 
 			By("Updating Kubevirt CR , this should wake node-labeller ")
@@ -331,7 +332,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 
 			Eventually(func() error {
-				nodeObj, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+				nodeObj, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 
 				_, exists := nodeObj.Annotations[v1.LabellerSkipNodeAnnotation]
@@ -361,7 +362,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 
 			Eventually(func() error {
-				nodeObj, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+				nodeObj, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 
 				obsoleteHostModelLabel := false

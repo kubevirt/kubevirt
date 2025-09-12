@@ -34,21 +34,16 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"kubevirt.io/client-go/kubecli"
+	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
 var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
-	var virtClient kubecli.KubevirtClient
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
-
 	Context("CriticalAddonsOnly taint set on a node", decorators.RequiresDedicatedWorkerNodes, func() {
 		var (
 			possiblyTaintedNodeName string
@@ -61,11 +56,11 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 			kubevirtPodsOnNode = nil
 			deploymentsOnNode = nil
 
-			pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
+			pods, err := k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ShouldNot(HaveOccurred(), "failed listing kubevirt pods")
 			Expect(pods.Items).ToNot(BeEmpty(), "no kubevirt pods found")
 
-			nodeName := getNodeWithOneOfPods(virtClient, pods.Items)
+			nodeName := getNodeWithOneOfPods(k8s.Client(), pods.Items)
 
 			// It is possible to run this test on a cluster that simply does not have worker nodes.
 			// Since KubeVirt can't control that, the only correct action is to halt the test.
@@ -73,16 +68,16 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 				Fail("Could not determine a node to safely taint")
 			}
 
-			podsOnNode, err := virtClient.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{
+			podsOnNode, err := k8s.Client().CoreV1().Pods("").List(context.Background(), metav1.ListOptions{
 				FieldSelector: fields.OneTermEqualSelector("spec.nodeName", nodeName).String(),
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			kubevirtPodsOnNode = filterKubevirtPods(podsOnNode.Items)
-			deploymentsOnNode = getDeploymentsForPods(virtClient, podsOnNode.Items)
+			deploymentsOnNode = getDeploymentsForPods(k8s.Client(), podsOnNode.Items)
 
 			By("tainting the selected node")
-			selectedNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+			selectedNode, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			possiblyTaintedNodeName = nodeName
@@ -95,7 +90,7 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 
 			patchData, err := patch.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, taints)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = virtClient.CoreV1().Nodes().Patch(
+			_, err = k8s.Client().CoreV1().Nodes().Patch(
 				context.Background(), selectedNode.Name,
 				types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -107,7 +102,7 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 			}
 
 			By("removing the taint from the tainted node")
-			selectedNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), possiblyTaintedNodeName, metav1.GetOptions{})
+			selectedNode, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), possiblyTaintedNodeName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			var hasTaint bool
@@ -126,7 +121,7 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 
 			patchData, err := patch.GenerateTestReplacePatch("/spec/taints", selectedNode.Spec.Taints, otherTaints)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.CoreV1().Nodes().Patch(
+			_, err = k8s.Client().CoreV1().Nodes().Patch(
 				context.Background(), selectedNode.Name,
 				types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -139,7 +134,7 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 						continue
 					}
 
-					deployment, err := virtClient.AppsV1().Deployments(namespacedName.Namespace).
+					deployment, err := k8s.Client().AppsV1().Deployments(namespacedName.Namespace).
 						Get(context.Background(), namespacedName.Name, metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						checkedDeployments[namespacedName] = struct{}{}
@@ -164,7 +159,7 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 			timeout := 10 * time.Second
 			Consistently(func(g Gomega) {
 				for _, podName := range kubevirtPodsOnNode {
-					pod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+					pod, err := k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 					g.Expect(err).NotTo(HaveOccurred(),
 						fmt.Sprintf("error getting pod %s/%s",
 							flags.KubeVirtInstallNamespace, podName))
@@ -180,8 +175,8 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 	})
 }))
 
-func getNodeWithOneOfPods(virtClient kubecli.KubevirtClient, pods []k8sv1.Pod) string {
-	schedulableNodesList := libnode.GetAllSchedulableNodes(virtClient)
+func getNodeWithOneOfPods(k8sClient kubernetes.Interface, pods []k8sv1.Pod) string {
+	schedulableNodesList := libnode.GetAllSchedulableNodes(k8sClient)
 	schedulableNodes := map[string]*k8sv1.Node{}
 	for _, node := range schedulableNodesList.Items {
 		schedulableNodes[node.Name] = node.DeepCopy()
@@ -229,9 +224,9 @@ func filterKubevirtPods(pods []k8sv1.Pod) []string {
 	return result
 }
 
-func getDeploymentsForPods(virtClient kubecli.KubevirtClient, pods []k8sv1.Pod) []types.NamespacedName {
+func getDeploymentsForPods(k8sClient kubernetes.Interface, pods []k8sv1.Pod) []types.NamespacedName {
 	// Listing all deployments to find which ones belong to the pods.
-	allDeployments, err := virtClient.AppsV1().Deployments("").List(context.Background(), metav1.ListOptions{})
+	allDeployments, err := k8sClient.AppsV1().Deployments("").List(context.Background(), metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	var result []types.NamespacedName

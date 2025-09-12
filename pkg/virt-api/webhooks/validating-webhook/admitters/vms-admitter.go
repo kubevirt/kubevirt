@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -73,12 +74,12 @@ type VMsAdmitter struct {
 	KubeVirtServiceAccounts map[string]struct{}
 }
 
-func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}) *VMsAdmitter {
+func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}) *VMsAdmitter {
 	return &VMsAdmitter{
-		VirtClient:              client,
+		VirtClient:              virtClient,
 		DataSourceInformer:      informers.DataSourceInformer,
 		NamespaceInformer:       informers.NamespaceInformer,
-		InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitter(client),
+		InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitter(virtClient, k8sClient),
 		ClusterConfig:           clusterConfig,
 		KubeVirtServiceAccounts: kubeVirtServiceAccounts,
 	}

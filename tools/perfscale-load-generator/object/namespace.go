@@ -26,13 +26,13 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"kubevirt.io/client-go/kubecli"
+	"k8s.io/client-go/kubernetes"
 	"kubevirt.io/client-go/log"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 )
 
-func CreateNamespaceIfNotExist(virtCli kubecli.KubevirtClient, name, scenarioLabel, uuid string) error {
+func CreateNamespaceIfNotExist(k8sCli kubernetes.Interface, name, scenarioLabel, uuid string) error {
 	ns := &k8sv1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -42,7 +42,7 @@ func CreateNamespaceIfNotExist(virtCli kubecli.KubevirtClient, name, scenarioLab
 		},
 	}
 	log.Log.V(2).Infof("Namespace %s created", name)
-	_, err := virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
+	_, err := k8sCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
 		if err != nil {
 			log.Log.Errorf("Error creating namespace %s: %v", name, err)
@@ -53,12 +53,12 @@ func CreateNamespaceIfNotExist(virtCli kubecli.KubevirtClient, name, scenarioLab
 }
 
 // CleanupNamespaces deletes a collection of namespaces with the given selector
-func CleanupNamespaces(virtCli kubecli.KubevirtClient, timeout time.Duration, listOpts *metav1.ListOptions) error {
+func CleanupNamespaces(k8sCli kubernetes.Interface, timeout time.Duration, listOpts *metav1.ListOptions) error {
 	log.Log.V(2).Infof("Deleting namespaces with label %s", listOpts.LabelSelector)
-	ns, _ := virtCli.CoreV1().Namespaces().List(context.TODO(), *listOpts)
+	ns, _ := k8sCli.CoreV1().Namespaces().List(context.TODO(), *listOpts)
 	if len(ns.Items) > 0 {
 		for _, ns := range ns.Items {
-			err := virtCli.CoreV1().Namespaces().Delete(context.TODO(), ns.Name, metav1.DeleteOptions{})
+			err := k8sCli.CoreV1().Namespaces().Delete(context.TODO(), ns.Name, metav1.DeleteOptions{})
 			if errors.IsNotFound(err) {
 				log.Log.V(2).Infof("Namespace %s not found", ns.Name)
 				continue
@@ -72,9 +72,9 @@ func CleanupNamespaces(virtCli kubecli.KubevirtClient, timeout time.Duration, li
 }
 
 // WaitForDeleteNamespaces waits to all namespaces with the given selector be deleted
-func WaitForDeleteNamespaces(virtCli kubecli.KubevirtClient, timeout time.Duration, listOpts metav1.ListOptions) error {
+func WaitForDeleteNamespaces(k8sCli kubernetes.Interface, timeout time.Duration, listOpts metav1.ListOptions) error {
 	return virtwait.PollImmediately(10*time.Second, timeout, func(ctx context.Context) (bool, error) {
-		ns, err := virtCli.CoreV1().Namespaces().List(ctx, listOpts)
+		ns, err := k8sCli.CoreV1().Namespaces().List(ctx, listOpts)
 		if err != nil {
 			return false, err
 		}

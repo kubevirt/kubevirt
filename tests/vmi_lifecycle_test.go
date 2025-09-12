@@ -41,9 +41,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/rand"
 	k8sWatch "k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -57,6 +57,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -79,7 +80,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	Context("when virt-handler is deleted", Serial, decorators.WgS390x, func() {
 		It("[test_id:4716]should label the node with kubevirt.io/schedulable=false", func() {
-			pods, err := kubevirt.Client().CoreV1().Pods("").List(context.Background(), metav1.ListOptions{
+			pods, err := k8s.Client().CoreV1().Pods("").List(context.Background(), metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"),
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -89,10 +90,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			handlerNamespace := pod.GetNamespace()
 
 			By("setting up a watch on Nodes")
-			nodeWatch, err := kubevirt.Client().CoreV1().Nodes().Watch(context.Background(), metav1.ListOptions{})
+			nodeWatch, err := k8s.Client().CoreV1().Nodes().Watch(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			err = kubevirt.Client().CoreV1().Pods(handlerNamespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+			err = k8s.Client().CoreV1().Pods(handlerNamespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(nodeWatch.ResultChan(), 120*time.Second).Should(Receive(WithTransform(func(e k8sWatch.Event) metav1.ObjectMeta {
@@ -123,7 +124,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 			By("Getting virt-launcher logs")
-			logs := func() string { return getVirtLauncherLogs(kubevirt.Client(), vmi) }
+			logs := func() string { return getVirtLauncherLogs(k8s.Client(), vmi) }
 			Eventually(logs,
 				11*time.Second,
 				500*time.Millisecond).
@@ -154,7 +155,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Expect(err).NotTo(HaveOccurred())
 
 			By("calling evict on VMI's pod")
-			err = kubevirt.Client().CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+			err = k8s.Client().CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 			// The "too many requests" err is what get's returned when an
 			// eviction would invalidate a pdb. This is what we want to see here.
 			Expect(err).To(MatchError(k8serrors.IsTooManyRequests, "too many requests should be returned as way of blocking eviction"))
@@ -177,7 +178,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 			By("Getting virt-launcher logs")
-			logs := func() string { return getVirtLauncherLogs(kubevirt.Client(), vmi) }
+			logs := func() string { return getVirtLauncherLogs(k8s.Client(), vmi) }
 			Eventually(logs,
 				11*time.Second,
 				500*time.Millisecond).
@@ -202,7 +203,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
 			By("Getting virt-launcher logs")
-			logs := func() string { return getVirtLauncherLogs(kubevirt.Client(), vmi) }
+			logs := func() string { return getVirtLauncherLogs(k8s.Client(), vmi) }
 
 			const totalTestTime = 2 * time.Second
 			const checkIntervalTime = 500 * time.Millisecond
@@ -356,7 +357,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					// Creat nonexistent secret, so that the VirtualMachineInstance can recover
 					By("Creating a user-data secret")
 					secret := libsecret.New("nonexistent", libsecret.DataString{"userdata": userData64})
-					_, err = kubevirt.Client().CoreV1().Secrets(createdVMI.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+					_, err = k8s.Client().CoreV1().Secrets(createdVMI.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should create secret successfully")
 
 					// Wait for the VirtualMachineInstance to be started, allow warning events to occur
@@ -373,7 +374,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "not-existing-os"}
 				vmi = libvmops.RunVMIAndExpectScheduling(vmi, 30)
 
-				pods, err := kubevirt.Client().CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{})
+				pods, err := k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, pod := range pods.Items {
@@ -397,7 +398,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "linux"}
 				libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 
-				pods, err := kubevirt.Client().CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{})
+				pods, err := k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, pod := range pods.Items {
@@ -499,7 +500,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				defer cancel()
 
 				By("Crashing the virt-launcher")
-				vmiKiller, err := pkillAllLaunchers(kubevirt.Client(), nodeName)
+				vmiKiller, err := pkillAllLaunchers(k8s.Client(), nodeName)
 				Expect(err).ToNot(HaveOccurred(), "Should create vmi-killer pod to kill virt-launcher successfully")
 				watcher.New(vmiKiller).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(ctx, watcher.NormalEvent, v1.Started)
 
@@ -531,12 +532,12 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				// Kill virt-handler on the node the VirtualMachineInstance is active on.
 				By("Crashing the virt-handler")
-				err = pkillHandler(kubevirt.Client(), nodeName)
+				err = pkillHandler(k8s.Client(), nodeName)
 				Expect(err).ToNot(HaveOccurred(), "Should kill virt-handler successfully")
 
 				// Crash the VirtualMachineInstance and verify a recovered version of virt-handler processes the crash
 				By("Killing the VirtualMachineInstance")
-				err = pkillVMI(kubevirt.Client(), vmi)
+				err = pkillVMI(k8s.Client(), vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should kill VMI successfully")
 
 				// Give virt-handler some time. It can greatly vary when virt-handler will be ready again
@@ -562,26 +563,26 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:1633]should indicate that a node is ready for vmis", decorators.WgS390x, func() {
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
-				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
+				nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				for _, node := range nodes.Items {
 					Expect(node.Annotations[v1.VirtHandlerHeartbeat]).ToNot(BeEmpty(), "Nodes should have be ready for VMI")
 				}
 
 				node := &nodes.Items[0]
-				node, err := kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable)), metav1.PatchOptions{})
+				node, err := k8s.Client().CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable)), metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 				timestamp := node.Annotations[v1.VirtHandlerHeartbeat]
 
 				By("setting the schedulable label back to true")
 				Eventually(func() string {
-					n, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+					n, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
 					return n.Labels[v1.NodeSchedulable]
 				}, 5*time.Minute, 2*time.Second).Should(Equal("true"), "Nodes should be schedulable")
 				By("updating the heartbeat roughly every minute")
 				Expect(func() string {
-					n, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+					n, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
 					return n.Labels[v1.VirtHandlerHeartbeat]
 				}()).ShouldNot(Equal(timestamp), "Should not have old vmi heartbeat")
@@ -598,7 +599,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				nodeName := libwait.WaitForSuccessfulVMIStart(vmi).Status.NodeName
 
 				By("triggering a device plugin re-registration on that node")
-				pod, err := libnode.GetVirtHandlerPod(kubevirt.Client(), nodeName)
+				pod, err := libnode.GetVirtHandlerPod(k8s.Client(), nodeName)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, _, err = exec.ExecuteCommandOnPodWithResults(pod,
@@ -613,13 +614,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred())
 
 				By("checking if we see the device plugin restart in the logs")
-				virtHandlerPod, err := libnode.GetVirtHandlerPod(kubevirt.Client(), nodeName)
+				virtHandlerPod, err := libnode.GetVirtHandlerPod(k8s.Client(), nodeName)
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client for node")
 
 				handlerName := virtHandlerPod.GetObjectMeta().GetName()
 				handlerNamespace := virtHandlerPod.GetObjectMeta().GetNamespace()
 				seconds := int64(10)
-				logsQuery := kubevirt.Client().CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
+				logsQuery := k8s.Client().CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
 				Eventually(func() string {
 					data, err := logsQuery.DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred(), "Should get logs")
@@ -667,10 +668,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					libwait.WithTimeout(180),
 				).Status.NodeName
 
-				virtHandler, err = libnode.GetVirtHandlerPod(kubevirt.Client(), nodeName)
+				virtHandler, err = libnode.GetVirtHandlerPod(k8s.Client(), nodeName)
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client")
 
-				ds, err := kubevirt.Client().AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+				ds, err := k8s.Client().AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler daemonset")
 				// Save virt-handler number of desired pods
 				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
@@ -695,14 +696,14 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should update kubevirt infra placement")
 
 				Eventually(func() error {
-					_, err := kubevirt.Client().CoreV1().Pods(virtHandler.Namespace).Get(context.Background(), virtHandler.Name, metav1.GetOptions{})
+					_, err := k8s.Client().CoreV1().Pods(virtHandler.Namespace).Get(context.Background(), virtHandler.Name, metav1.GetOptions{})
 					return err
 				}, 120*time.Second, 1*time.Second).Should(MatchError(k8serrors.IsNotFound, "k8serrors.IsNotFound"), "The virt-handler pod should be gone")
 			})
 
 			It("[test_id:1634]the node controller should mark the node as unschedulable when the virt-handler heartbeat has timedout", func() {
 				// Update virt-handler heartbeat, to trigger a timeout
-				node, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+				node, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get node successfully")
 
 				Expect(node.Annotations).To(HaveKey(v1.VirtHandlerHeartbeat))
@@ -716,20 +717,20 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				).GeneratePayload()
 				Expect(err).ToNot(HaveOccurred(), "Should generate patches")
 
-				_, err = kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodeName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+				_, err = k8s.Client().CoreV1().Nodes().Patch(context.Background(), nodeName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 
 				// Note we cannot remove the Pod as the vmi controller also moves the VMI to Failed if Pod disappears
 				// This leads to race condition, killing the process gives us exactly what we want
 				By("killing the virt-launcher")
-				vmiKiller, err := pkillAllLaunchers(kubevirt.Client(), nodeName)
+				vmiKiller, err := pkillAllLaunchers(k8s.Client(), nodeName)
 				Expect(err).ToNot(HaveOccurred(), "Should create vmi-killer pod to kill virt-launcher successfully")
 				watcher.New(vmiKiller).SinceWatchedObjectResourceVersion().Timeout(20*time.Second).WaitFor(context.Background(), watcher.NormalEvent, v1.Started)
 
 				// it will take at least 45 seconds until the vmi is gone, check the schedulable state in the meantime
 				By("marking the node as not schedulable")
 				Eventually(func() map[string]string {
-					node, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+					node, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get node successfully")
 					return node.Labels
 				}, 10*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.NodeSchedulable, "false"), "The node should not be schedulable")
@@ -750,7 +751,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				// Wait until virt-handler ds will have expected number of pods
 				Eventually(func() bool {
-					ds, err := kubevirt.Client().AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+					ds, err := k8s.Client().AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get virthandler successfully")
 
 					return ds.Status.NumberAvailable == virtHandlerAvailablePods &&
@@ -766,13 +767,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var nodes *k8sv1.NodeList
 			BeforeEach(func() {
 				Eventually(func() []k8sv1.Node {
-					nodes = libnode.GetAllSchedulableNodes(kubevirt.Client())
+					nodes = libnode.GetAllSchedulableNodes(k8s.Client())
 					return nodes.Items
 				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
 
 				// Taint first node with "NoSchedule"
 				data := []byte(`{"spec":{"taints":[{"effect":"NoSchedule","key":"test","timeAdded":null,"value":"123"}]}}`)
-				_, err := kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodes.Items[0].Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+				_, err := k8s.Client().CoreV1().Nodes().Patch(context.Background(), nodes.Items[0].Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node")
 
 			})
@@ -780,7 +781,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			AfterEach(func() {
 				// Untaint first node
 				data := []byte(`{"spec":{"taints":[]}}`)
-				_, err := kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodes.Items[0].Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+				_, err := k8s.Client().CoreV1().Nodes().Patch(context.Background(), nodes.Items[0].Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node")
 			})
 
@@ -812,7 +813,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var node *k8sv1.Node
 
 			BeforeEach(func() {
-				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
+				nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node = nodes.Items[0].DeepCopy()
 			})
@@ -877,7 +878,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			//store old kubevirt-config
 			BeforeEach(func() {
-				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
+				nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				supportedCpuModels = libnode.GetSupportedCPUModels(*nodes)
 				if len(supportedCpuModels) < 2 {
@@ -984,7 +985,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var supportedKVMInfoFeature []string
 
 			BeforeEach(func() {
-				nodes = libnode.GetAllSchedulableNodes(kubevirt.Client())
+				nodes = libnode.GetAllSchedulableNodes(k8s.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 				node = &nodes.Items[0]
@@ -1210,7 +1211,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					namespace = testsuite.NamespaceTestAlternative
 				}
 
-				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
+				nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node := nodes.Items[0].Name
 
@@ -1220,13 +1221,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				)
-				virtHandlerPod, err := libnode.GetVirtHandlerPod(kubevirt.Client(), node)
+				virtHandlerPod, err := libnode.GetVirtHandlerPod(k8s.Client(), node)
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client for node")
 
 				handlerName := virtHandlerPod.GetObjectMeta().GetName()
 				handlerNamespace := virtHandlerPod.GetObjectMeta().GetNamespace()
 				seconds := int64(120)
-				logsQuery := kubevirt.Client().CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
+				logsQuery := k8s.Client().CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
 
 				// Make sure we schedule the VirtualMachineInstance to master
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
@@ -1282,7 +1283,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("VM Accelerated Mode", decorators.WgS390x, func() {
 
 			It("[test_id:1648]Should provide KVM via plugin framework", func() {
-				nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
+				nodeList := libnode.GetAllSchedulableNodes(k8s.Client())
 
 				if len(nodeList.Items) == 0 {
 					Fail("There are no compute nodes in cluster")
@@ -1546,7 +1547,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			// Delete the Pod
 			By("Deleting the VirtualMachineInstance's pod")
-			err = kubevirt.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+			err = k8s.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// TODD By("Verifying VirtualMachineInstance's pod terminates")
@@ -1572,7 +1573,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("Verifying VirtualMachineInstance's pod terminates")
 				Eventually(func() error {
-					_, err := kubevirt.Client().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+					_, err := k8s.Client().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 					return err
 				}, 60*time.Second, 5*time.Second).Should(MatchError(k8serrors.IsNotFound, "k8serrors.IsNotFound"))
 			})
@@ -1646,7 +1647,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Killing the VirtualMachineInstance")
-			Expect(pkillVMI(kubevirt.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
+			Expect(pkillVMI(k8s.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
 
 			// Wait for stop event of the VirtualMachineInstance
 			ctx, cancel := context.WithCancel(context.Background())
@@ -1676,13 +1677,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 })
 
-func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+func getVirtLauncherLogs(k8sClient kubernetes.Interface, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()
 
 	labelSelector := fmt.Sprintf("%s=%s", v1.CreatedByLabel, string(uid))
 
-	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+	pods, err := k8sClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 	Expect(err).ToNot(HaveOccurred(), "Should list pods")
 
 	podName := ""
@@ -1694,7 +1695,7 @@ func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 	}
 	Expect(podName).ToNot(BeEmpty(), "Should find pod not scheduled for deletion")
 
-	logsRaw, err := virtCli.CoreV1().
+	logsRaw, err := k8sClient.CoreV1().
 		Pods(namespace).
 		GetLogs(podName, &k8sv1.PodLogOptions{
 			Container: "compute",
@@ -1705,14 +1706,14 @@ func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 	return string(logsRaw)
 }
 
-func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
+func pkillHandler(k8sClient kubernetes.Interface, node string) error {
 	pod := libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", "virt-handler"})
 	pod.Spec.NodeName = node
-	createdPod, err := virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+	createdPod, err := k8sClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
 
 	getStatus := func() k8sv1.PodPhase {
-		podG, err := virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Get(context.Background(), createdPod.Name, metav1.GetOptions{})
+		podG, err := k8sClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Get(context.Background(), createdPod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Should return current status")
 		return podG.Status.Phase
 	}
@@ -1722,13 +1723,13 @@ func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
 	return err
 }
 
-func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node string) (*k8sv1.Pod, error) {
+func pkillAllLaunchers(k8sClient kubernetes.Interface, node string) (*k8sv1.Pod, error) {
 	pod := libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", "virt-launcher"})
 	pod.Spec.NodeName = node
-	return virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+	return k8sClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 }
 
-func pkillVMI(client kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) error {
+func pkillVMI(client kubernetes.Interface, vmi *v1.VirtualMachineInstance) error {
 	node := vmi.Status.NodeName
 	if node == "" {
 		return fmt.Errorf("VMI %s was not scheduled yet", node)

@@ -16,9 +16,11 @@
  * Copyright The KubeVirt Authors.
  *
  */
+
 package revision
 
 import (
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/kubecli"
@@ -30,6 +32,7 @@ type revisionHandler struct {
 	preferenceStore          cache.Store
 	clusterPreferenceStore   cache.Store
 	virtClient               kubecli.KubevirtClient
+	k8sClient                kubernetes.Interface
 }
 
 func New(
@@ -38,6 +41,7 @@ func New(
 	preferenceStore,
 	clusterPreferenceStore cache.Store,
 	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 ) *revisionHandler {
 	return &revisionHandler{
 		instancetypeStore:        instancetypeStore,
@@ -45,5 +49,6 @@ func New(
 		preferenceStore:          preferenceStore,
 		clusterPreferenceStore:   clusterPreferenceStore,
 		virtClient:               virtClient,
+		k8sClient:                k8sClient,
 	}
 }

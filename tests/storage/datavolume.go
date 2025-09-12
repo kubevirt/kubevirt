@@ -27,10 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
 	expect "github.com/google/goexpect"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -44,6 +40,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -58,13 +55,17 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -182,7 +183,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			By("Expanding PVC")
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
+			pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			origSize, exists := pvc.Status.Capacity[k8sv1.ResourceStorage]
 			Expect(exists).To(BeTrue())
@@ -193,7 +194,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			patchData, err := patchSet.GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Patch(context.Background(), dataVolume.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			_, err = k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Patch(context.Background(), dataVolume.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for notification about size change")
@@ -250,7 +251,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libstorage.EventuallyDV(dataVolume, 100, HaveSucceeded())
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
+			pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			executorPod := createExecutorPodWithPVC("size-detection", pvc)
@@ -457,7 +458,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					Provisioner:       "afakeone",
 					VolumeBindingMode: &bindMode,
 				}
-				storageClass, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
+				storageClass, err = k8s.Client().StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				dv = libdv.NewDataVolume(
@@ -469,7 +470,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			})
 			AfterEach(func() {
 				if storageClass != nil && storageClass.Name != "" {
-					err := virtClient.StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
+					err := k8s.Client().StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
@@ -479,7 +480,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() error {
-					_, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
+					_, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
 					return err
 				}, 30*time.Second, 1*time.Second).Should(Succeed())
 
@@ -585,7 +586,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(Or(BeInPhase(v1.Pending), BeInPhase(v1.Scheduling)))
 
 				By("Creating a service which makes the registry reachable")
-				_, err = virtClient.CoreV1().Services(vm.Namespace).Create(context.Background(), &k8sv1.Service{
+				_, err = k8s.Client().CoreV1().Services(vm.Namespace).Create(context.Background(), &k8sv1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: fakeRegistryName,
 					},
@@ -704,7 +705,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			var vm *v1.VirtualMachine
 
 			BeforeEach(func() {
-				storageClass, err = libstorage.GetSnapshotStorageClass(virtClient)
+				storageClass, err = libstorage.GetSnapshotStorageClass(virtClient, k8s.Client())
 				Expect(err).ToNot(HaveOccurred())
 				if storageClass == "" {
 					Fail("Failing test, no VolumeSnapshot support")
@@ -741,13 +742,13 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 			AfterEach(func() {
 				if cloneRole != nil {
-					err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.Background(), cloneRole.Name, metav1.DeleteOptions{})
+					err := k8s.Client().RbacV1().Roles(cloneRole.Namespace).Delete(context.Background(), cloneRole.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					cloneRole = nil
 				}
 
 				if cloneRoleBinding != nil {
-					err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
+					err := k8s.Client().RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					cloneRoleBinding = nil
 				}
@@ -785,7 +786,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			}
 
 			snapshotCloneMutateFunc := func() {
-				snapshotClassName, err := libstorage.GetSnapshotClass(storageClass, virtClient)
+				snapshotClassName, err := libstorage.GetSnapshotClass(storageClass, virtClient, k8s.Client())
 				Expect(err).ToNot(HaveOccurred())
 				if snapshotClassName == "" {
 					Fail("The clone permission suite uses a snapshot-capable storage class, must have associated snapshot class")
@@ -825,7 +826,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			}
 
 			createSnapshotDataSource := func() *cdiv1.DataSource {
-				snapshotClassName, err := libstorage.GetSnapshotClass(storageClass, virtClient)
+				snapshotClassName, err := libstorage.GetSnapshotClass(storageClass, virtClient, k8s.Client())
 				Expect(err).ToNot(HaveOccurred())
 				if snapshotClassName == "" {
 					Fail("The clone permission suite uses a snapshot-capable storage class, must have associated snapshot class")
@@ -873,7 +874,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				}
 
 				cloneRole, cloneRoleBinding = addClonePermission(
-					virtClient,
+					k8s.Client(),
 					explicitCloneRole,
 					testsuite.AdminServiceAccountName,
 					testsuite.GetTestNamespace(nil),
@@ -902,7 +903,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 			It("should report DataVolume without source PVC", func() {
 				cloneRole, cloneRoleBinding = addClonePermission(
-					virtClient,
+					k8s.Client(),
 					explicitCloneRole,
 					testsuite.AdminServiceAccountName,
 					testsuite.GetTestNamespace(nil),
@@ -930,7 +931,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				// We check the expected event
 				By("Expecting SourcePVCNotAvailabe event")
 				Eventually(func() bool {
-					events, err := virtClient.CoreV1().Events(vm.Namespace).List(context.Background(), metav1.ListOptions{})
+					events, err := k8s.Client().CoreV1().Events(vm.Namespace).List(context.Background(), metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					for _, e := range events.Items {
 						if e.Reason == "SourcePVCNotAvailabe" {
@@ -960,7 +961,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				}
 
 				// add permission
-				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, saName, saNamespace, testsuite.NamespaceTestAlternative)
+				cloneRole, cloneRoleBinding = addClonePermission(k8s.Client(), role, saName, saNamespace, testsuite.NamespaceTestAlternative)
 				if fail {
 					Consistently(ThisVM(vm), 10*time.Second, 1*time.Second).Should(HaveConditionTrueWithMessage(v1.VirtualMachineFailure, "insufficient permissions in clone source namespace"))
 					return
@@ -981,7 +982,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 			It("should skip authorization when DataVolume already exists", func() {
 				cloneRole, cloneRoleBinding = addClonePermission(
-					virtClient,
+					k8s.Client(),
 					explicitCloneRole,
 					"",
 					"",
@@ -996,7 +997,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dv, 90, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
-				err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
+				err := k8s.Client().RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				cloneRoleBinding = nil
 
@@ -1208,7 +1209,7 @@ var implicitSnapshotCloneRole = &rbacv1.Role{
 	},
 }
 
-func addClonePermission(client kubecli.KubevirtClient, role *rbacv1.Role, sa, saNamespace, targetNamesace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
+func addClonePermission(client kubernetes.Interface, role *rbacv1.Role, sa, saNamespace, targetNamesace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
 	role, err := client.RbacV1().Roles(targetNamesace).Create(context.Background(), role, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -1252,8 +1253,7 @@ func addClonePermission(client kubecli.KubevirtClient, role *rbacv1.Role, sa, sa
 }
 
 func volumeExpansionAllowed(sc string) bool {
-	virtClient := kubevirt.Client()
-	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
+	storageClass, err := k8s.Client().StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return storageClass.AllowVolumeExpansion != nil &&
 		*storageClass.AllowVolumeExpansion

@@ -10,8 +10,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-
-	"kubevirt.io/client-go/kubecli"
 )
 
 var _ = Describe("Nodetopologyupdater", func() {
@@ -19,19 +17,16 @@ var _ = Describe("Nodetopologyupdater", func() {
 	var topologyUpdater *nodeTopologyUpdater
 	var ctrl *gomock.Controller
 	var hinter *MockHinter
-	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		hinter = NewMockHinter(ctrl)
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		kubeClient = fake.NewSimpleClientset()
 		topologyUpdater = &nodeTopologyUpdater{
 			hinter: hinter,
-			client: virtClient,
+			client: kubeClient,
 		}
-		kubeClient = fake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 	})
 
 	Context("with no VMs with TSC frequency set running", func() {

@@ -35,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -52,7 +53,7 @@ var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulable
 	})
 
 	It("Should disallow to modify VMs on different node", func() {
-		nodes := libnode.GetAllSchedulableNodes(virtClient).Items
+		nodes := libnode.GetAllSchedulableNodes(k8s.Client()).Items
 		if len(nodes) < minNodesWithVirtHandler {
 			Fail("Requires multiple nodes with virt-handler running")
 		}
@@ -69,7 +70,7 @@ var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulable
 				break
 			}
 		}
-		pod, err := libnode.GetVirtHandlerPod(virtClient, differentNode)
+		pod, err := libnode.GetVirtHandlerPod(k8s.Client(), differentNode)
 		Expect(err).ToNot(HaveOccurred())
 
 		token, err := exec.ExecuteCommandOnPod(

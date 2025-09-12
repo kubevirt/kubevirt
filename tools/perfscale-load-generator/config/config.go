@@ -25,6 +25,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	"kubevirt.io/kubevirt/pkg/util"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,6 +95,22 @@ func NewKubevirtClient() kubecli.KubevirtClient {
 	clientSet, err := kubecli.GetKubevirtClientFromRESTConfig(config)
 	if err != nil {
 		panic(fmt.Errorf("unexpected error creating kubevirt client: %v", err))
+	}
+	return clientSet
+}
+
+// NewK8sClient
+func NewK8sClient() kubernetes.Interface {
+	config, err := clientcmd.BuildConfigFromFlags("", flags.Kubeconfig)
+	if err != nil {
+		panic(err)
+	}
+	config.QPS = QPS
+	config.Burst = Burst
+	config.Timeout = RequestTimeout
+	clientSet, err := kubecli.GetK8sClientFromRESTConfig(config)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error creating k8s client: %v", err))
 	}
 	return clientSet
 }

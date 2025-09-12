@@ -30,7 +30,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -42,7 +41,6 @@ func (k *kubevirtClient) VirtualMachineInstance(namespace string) VirtualMachine
 		VirtualMachineInstanceInterface: k.GeneratedKubeVirtClient().KubevirtV1().VirtualMachineInstances(namespace),
 		restClient:                      k.restClient,
 		config:                          k.config,
-		clientSet:                       k.Clientset,
 		namespace:                       namespace,
 		resource:                        "virtualmachineinstances",
 	}
@@ -52,7 +50,6 @@ type vmis struct {
 	kvcorev1.VirtualMachineInstanceInterface
 	restClient *rest.RESTClient
 	config     *rest.Config
-	clientSet  *kubernetes.Clientset
 	namespace  string
 	resource   string
 	master     string

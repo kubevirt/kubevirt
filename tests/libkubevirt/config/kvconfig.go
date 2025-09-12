@@ -43,6 +43,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -136,12 +137,12 @@ func waitForConfigToBePropagated(resourceVersion string) {
 }
 
 func WaitForConfigToBePropagatedToComponent(podLabel, resourceVersion string, compareResourceVersions compare, duration time.Duration) {
-	virtClient := kubevirt.Client()
+	k8sClient := k8s.Client()
 
 	errComponentInfo := fmt.Sprintf("component: %q", strings.TrimPrefix(podLabel, "kubevirt.io="))
 
 	EventuallyWithOffset(3, func() error {
-		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+		pods, err := k8sClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 			context.Background(), metav1.ListOptions{LabelSelector: podLabel})
 		if err != nil {
 			return fmt.Errorf("failed to fetch pods: %v, %s", err, errComponentInfo)

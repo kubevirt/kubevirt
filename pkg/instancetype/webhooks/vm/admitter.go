@@ -16,11 +16,13 @@
  * Copyright The KubeVirt Authors.
  *
  */
+
 package vm
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -67,10 +69,10 @@ type admitter struct {
 	requirementsChecker
 }
 
-func NewAdmitter(virtClient kubecli.KubevirtClient) *admitter {
+func NewAdmitter(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) *admitter {
 	return &admitter{
-		instancetypeFinder:  find.NewSpecFinder(nil, nil, nil, virtClient),
-		preferenceFinder:    preferenceFind.NewSpecFinder(nil, nil, nil, virtClient),
+		instancetypeFinder:  find.NewSpecFinder(nil, nil, nil, virtClient, k8sClient),
+		preferenceFinder:    preferenceFind.NewSpecFinder(nil, nil, nil, virtClient, k8sClient),
 		requirementsChecker: requirements.New(),
 		applyVMIHandler:     apply.NewVMIApplier(),
 	}

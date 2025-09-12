@@ -25,6 +25,7 @@ import (
 
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -67,18 +68,19 @@ var (
 		vmSnapshotMetrics,
 	}
 
-	indexers       *Indexers
-	stores         *Stores
-	clusterConfig  *virtconfig.ClusterConfig
-	vmApplier      vmApplyHandler
-	kubevirtClient kubecli.KubevirtClient
+	indexers      *Indexers
+	stores        *Stores
+	clusterConfig *virtconfig.ClusterConfig
+	vmApplier     vmApplyHandler
+	k8sClient     kubernetes.Interface
 )
 
 func SetupMetrics(
 	metricsIndexers *Indexers,
 	metricsStores *Stores,
 	virtClusterConfig *virtconfig.ClusterConfig,
-	clientset kubecli.KubevirtClient,
+	virtClientSet kubecli.KubevirtClient,
+	k8sClientSet kubernetes.Interface,
 ) error {
 	if metricsIndexers == nil {
 		metricsIndexers = &Indexers{}
@@ -90,20 +92,22 @@ func SetupMetrics(
 	}
 	stores = metricsStores
 	clusterConfig = virtClusterConfig
-	kubevirtClient = clientset
+	k8sClient = k8sClientSet
 
 	vmApplier = apply.NewVMApplier(
 		find.NewSpecFinder(
 			stores.Instancetype,
 			stores.ClusterInstancetype,
 			stores.ControllerRevision,
-			clientset,
+			virtClientSet,
+			k8sClientSet,
 		),
 		preferencefind.NewSpecFinder(
 			stores.Preference,
 			stores.ClusterPreference,
 			stores.ControllerRevision,
-			clientset,
+			virtClientSet,
+			k8sClientSet,
 		),
 	)
 

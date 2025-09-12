@@ -42,6 +42,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -101,7 +102,7 @@ var _ = Describe(SIG("Memory dump", func() {
 
 	deletePod := func(pod *k8sv1.Pod) {
 		Eventually(func() error {
-			return virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+			return k8s.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 		}, 180*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 	}
 
@@ -164,7 +165,7 @@ var _ = Describe(SIG("Memory dump", func() {
 				return fmt.Errorf(waitMemoryDumpPvcVolume)
 			}
 
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), memoryDumpPVC, metav1.GetOptions{})
+			pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), memoryDumpPVC, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -262,7 +263,7 @@ var _ = Describe(SIG("Memory dump", func() {
 
 		waitAndVerifyMemoryDumpCompletion(vm, pvcName)
 		verifyMemoryDumpNotOnVMI(vm, pvcName)
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Get(context.Background(), pvcName, metav1.GetOptions{})
+		pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Get(context.Background(), pvcName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		return verifyMemoryDumpOutput(pvc, previousOutput, false)
@@ -272,7 +273,7 @@ var _ = Describe(SIG("Memory dump", func() {
 		By("Running remove memory dump")
 		removeMemoryDumpFunc(vm.Name, vm.Namespace)
 		waitAndVerifyMemoryDumpDissociation(vm, pvcName)
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Get(context.Background(), pvcName, metav1.GetOptions{})
+		pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Get(context.Background(), pvcName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		// Verify the content is still on the pvc
 		verifyMemoryDumpOutput(pvc, previousOutput, true)
@@ -380,7 +381,7 @@ var _ = Describe(SIG("Memory dump", func() {
 			By("create pvc with a non-existing storage-class")
 			memoryDumpPVC2 = libstorage.NewPVC(memoryDumpPVCName2, memoryDumpPVCSize, "no-exist")
 			memoryDumpPVC2.Namespace = vm.Namespace
-			memoryDumpPVC2, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), memoryDumpPVC2, metav1.CreateOptions{})
+			memoryDumpPVC2, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), memoryDumpPVC2, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			memoryDumpVMSubresource(vm.Name, vm.Namespace, memoryDumpPVC2.Name)
 
@@ -400,7 +401,7 @@ var _ = Describe(SIG("Memory dump", func() {
 			By("Running remove memory dump")
 			removeMemoryDumpVMSubresource(vm.Name, vm.Namespace)
 			waitAndVerifyMemoryDumpDissociation(vm, memoryDumpPVCName)
-			memoryDumpPVC2, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), memoryDumpPVC2.Name, metav1.GetOptions{})
+			memoryDumpPVC2, err = k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), memoryDumpPVC2.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if memoryDumpPVC2.Annotations != nil {
 				Expect(memoryDumpPVC2.Annotations[v1.PVCMemoryDumpAnnotation]).To(BeNil())

@@ -34,6 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -51,7 +52,7 @@ var _ = Describe(SIG("Live Migration with addedNodeSelector", decorators.Require
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		Eventually(func() int {
-			nodes = libnode.GetAllSchedulableNodes(virtClient)
+			nodes = libnode.GetAllSchedulableNodes(k8s.Client())
 			return len(nodes.Items)
 		}, 60*time.Second, 1*time.Second).Should(BeNumerically(">=", 3), "There should be at lest three compute nodes")
 	})

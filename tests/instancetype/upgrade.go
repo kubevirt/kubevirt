@@ -27,6 +27,7 @@ import (
 	utils "kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
@@ -46,7 +47,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	createControllerRevision := func(obj runtime.Object) (*appsv1.ControllerRevision, error) {
 		cr, err := revision.CreateControllerRevision(vm, obj)
 		Expect(err).ToNot(HaveOccurred())
-		return virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+		return k8s.Client().AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 	}
 
 	generateLegacyCRName := func(obj runtime.Object) string {
@@ -68,7 +69,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Expect(cr.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectVersionLabel))
 		delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
 
-		return virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+		return k8s.Client().AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 	}
 
 	updateInstancetypeMatcher := func(revisionName string) {
@@ -150,7 +151,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			revisionName = getVMRevisionName()
 			g.Expect(revisionName).ToNot(Equal(originalRevisionName))
 
-			cr, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), revisionName, metav1.GetOptions{})
+			cr, err = k8s.Client().AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), revisionName, metav1.GetOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the referenced ControllerRevision has the latest version label")
@@ -165,7 +166,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		// If a new CR has been created assert that the old CR is eventually deleted
 		if originalTestRevisionName != revisionName {
 			Eventually(func() error {
-				_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), originalTestRevisionName, metav1.GetOptions{})
+				_, err := k8s.Client().AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), originalTestRevisionName, metav1.GetOptions{})
 				return err
 			}, 30*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "errors.IsNotFound"), "ControllerRevision %s has not been deleted", originalTestRevisionName)
 		}

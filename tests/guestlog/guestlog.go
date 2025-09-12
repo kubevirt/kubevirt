@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -249,7 +250,7 @@ func generateHugeLogData(vmi *v1.VirtualMachineInstance, mb int) {
 }
 
 func getConsoleLogs(virtlauncherPod *k8sv1.Pod) (string, error) {
-	logsRaw, err := kubevirt.Client().CoreV1().
+	logsRaw, err := k8s.Client().CoreV1().
 		Pods(virtlauncherPod.Namespace).
 		GetLogs(virtlauncherPod.Name, &k8sv1.PodLogOptions{
 			Container: "guest-console-log",

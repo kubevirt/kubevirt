@@ -59,13 +59,14 @@ var _ = Describe("Node controller with", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		fakeVirtClient = kubevirtfake.NewSimpleClientset()
+		kubeClient = fake.NewSimpleClientset()
 
 		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&k8sv1.Node{})
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
-		controller, _ = NewController(virtClient, nodeInformer, vmiInformer, recorder)
+		controller, _ = NewController(virtClient, kubeClient, nodeInformer, vmiInformer, recorder)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
@@ -74,9 +75,6 @@ var _ = Describe("Node controller with", func() {
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceAll).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceAll)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
-		kubeClient = fake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		virtClient.EXPECT().AppsV1().Return(kubeClient.AppsV1()).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {

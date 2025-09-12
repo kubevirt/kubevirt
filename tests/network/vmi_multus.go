@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -45,6 +43,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -128,7 +128,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		nodes = libnode.GetAllSchedulableNodes(virtClient)
+		nodes = libnode.GetAllSchedulableNodes(k8s.Client())
 		Expect(nodes.Items).NotTo(BeEmpty())
 
 		const vlanID100 = 100

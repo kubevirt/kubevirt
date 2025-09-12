@@ -101,7 +101,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithCancel(cmd.Context())
 	defer cancel()
 
-	virtCli, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(ctx)
+	virtCli, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		}
 		defer fd.Close()
 
-		log.Log.V(2).Infof("VNC Client connected in %v", time.Since(start))
+		log.Log.V(2).Infof("VNC VirtClient connected in %v", time.Since(start))
 		templates.PrintWarningForPausedVMI(virtCli, vmi, namespace)
 
 		// write to FD <- pipeOutReader

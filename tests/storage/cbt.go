@@ -45,6 +45,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -206,7 +207,7 @@ var _ = Describe(SIG("CBT", func() {
 
 		}),
 		Entry("patch vm namespace", func(vm *v1.VirtualMachine) {
-			Expect(libnamespace.AddLabelToNamespace(virtClient, vm.Namespace, cbt.CBTKey, "true")).ToNot(HaveOccurred())
+			Expect(libnamespace.AddLabelToNamespace(k8s.Client(), vm.Namespace, cbt.CBTKey, "true")).ToNot(HaveOccurred())
 		}),
 	)
 
@@ -219,7 +220,7 @@ var _ = Describe(SIG("CBT", func() {
 	createConsumerPod := func(vm *v1.VirtualMachine, pvcName string) *k8sv1.Pod {
 		By("Creating consumer pod to inspect qcow2 overlay")
 
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+		pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		pod := libstorage.RenderPodWithPVC(
@@ -246,7 +247,7 @@ var _ = Describe(SIG("CBT", func() {
 
 	cleanupConsumerPod := func(pod *k8sv1.Pod) {
 		By(fmt.Sprintf("Cleaning up consumer pod %s", pod.Name))
-		err := virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+		err := k8s.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 

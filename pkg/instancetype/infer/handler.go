@@ -16,10 +16,13 @@
  * Copyright The KubeVirt Authors.
  *
  */
+
 package infer
 
 import (
 	"errors"
+
+	"k8s.io/client-go/kubernetes"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	api "kubevirt.io/api/instancetype"
@@ -31,11 +34,13 @@ const logVerbosityLevel = 3
 
 type handler struct {
 	virtClient kubecli.KubevirtClient
+	k8sClient  kubernetes.Interface
 }
 
-func New(virtClient kubecli.KubevirtClient) *handler {
+func New(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) *handler {
 	return &handler{
 		virtClient: virtClient,
+		k8sClient:  k8sClient,
 	}
 }
 

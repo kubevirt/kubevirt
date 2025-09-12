@@ -310,8 +310,8 @@ var _ = Describe("Node-labeller ", func() {
 
 		node = retrieveNode(kubeClient)
 		Expect(node.Labels).ToNot(SatisfyAny(
-			HaveKey(v1.CPUModelLabel+"Skylake-Client-IBRS"),
-			HaveKey(v1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS"),
+			HaveKey(v1.CPUModelLabel+"Skylake-VirtClient-IBRS"),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"Skylake-VirtClient-IBRS"),
 		))
 		Expect(node.Labels).To(SatisfyAll(
 			HaveKey(v1.CPUModelLabel+"Cascadelake-Server"),

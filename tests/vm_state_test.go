@@ -21,6 +21,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -155,7 +156,7 @@ var _ = Describe("[sig-compute]VM state", func() {
 			}
 
 			By("Ensuring we're testing what we think we're testing")
-			pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{
+			pvcs, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: "persistent-state-for=" + vm.Name,
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -227,7 +228,7 @@ var _ = Describe("[sig-compute]VM state", func() {
 				if !errors.IsNotFound(err) {
 					return fmt.Errorf("VM %s not removed: %v", vmi.Name, err)
 				}
-				pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				pvcs, err := k8s.Client().CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
 					LabelSelector: "persistent-state-for=" + vmi.Name,
 				})
 				Expect(err).ToNot(HaveOccurred())

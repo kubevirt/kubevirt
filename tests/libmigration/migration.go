@@ -17,12 +17,14 @@ import (
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/kubernetes"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinfra"
@@ -215,7 +217,7 @@ func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 
 	// Saving the list of virt-handler pods prior to changing migration settings, see comment below.
 	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+	virtHandlerPods, err := k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 	Expect(err).ToNot(HaveOccurred(), "Failed to list the virt-handler pods")
 
 	if set {
@@ -236,7 +238,7 @@ func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 	//   Waiting for all "old" virt-handlers to disappear ensures test VMIs will be created on updated virt-handler pods.
 	Eventually(func() bool {
 		for _, pod := range virtHandlerPods.Items {
-			_, err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+			_, err = k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 			if err == nil {
 				return false
 			}
@@ -246,7 +248,7 @@ func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 
 	// Ensure all virt-handlers are ready
 	Eventually(func() bool {
-		newVirtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+		newVirtHandlerPods, err := k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 		if len(newVirtHandlerPods.Items) != len(virtHandlerPods.Items) {
 			return false
 		}
@@ -331,7 +333,7 @@ func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
 	}
 }
 
-func GetValidSourceNodeAndTargetNodeForHostModelMigration(virtCli kubecli.KubevirtClient) (sourceNode *k8sv1.Node, targetNode *k8sv1.Node, err error) {
+func GetValidSourceNodeAndTargetNodeForHostModelMigration(k8sCli kubernetes.Interface) (sourceNode *k8sv1.Node, targetNode *k8sv1.Node, err error) {
 	getNodeHostRequiredFeatures := func(node *k8sv1.Node) (features []string) {
 		for key := range node.Labels {
 			if strings.HasPrefix(key, v1.HostModelRequiredFeaturesLabel) {
@@ -360,7 +362,7 @@ func GetValidSourceNodeAndTargetNodeForHostModelMigration(virtCli kubecli.Kubevi
 
 	var sourceHostCpuModel string
 
-	nodes := libnode.GetAllSchedulableNodes(virtCli)
+	nodes := libnode.GetAllSchedulableNodes(k8sCli)
 	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
 	for _, potentialSourceNode := range nodes.Items {
 		for _, potentialTargetNode := range nodes.Items {
@@ -525,7 +527,7 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 	const family = k8sv1.IPv4Protocol
 
 	By("Finding the prometheus endpoint")
-	pod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+	pod, err = libnode.GetVirtHandlerPod(k8s.Client(), vmi.Status.NodeName)
 	Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 	Expect(pod.Status.PodIPs).ToNot(BeEmpty(), "pod IPs must not be empty")
 	for _, ip := range pod.Status.PodIPs {

@@ -348,7 +348,7 @@ func findOperation(cmd *cobra.Command) (operation, error) {
 }
 
 func (c *Command) RunE(cmd *cobra.Command, _ []string) error {
-	virtClient, _, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtClient, _, _, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
