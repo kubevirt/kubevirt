@@ -40,7 +40,7 @@ source hack/config-default.sh
 export TIMESTAMP=${TIMESTAMP:-1}
 
 function usage {
-    cat <<EOF
+  cat <<EOF
 usage: [NUM_TESTS=x] [NEW_TESTS=tests/file_1.go|...|tests/file_n.go [TARGET_COMMIT=a1b2c3d4] $0 [TEST_LANE] [--dry-run]
 
     run tests repeatedly using the set of test files that have been changed or added since last merge commit
@@ -70,98 +70,101 @@ EOF
 }
 
 function new_tests {
-    local target_commit
-    target_commit="$1"
-    # 1. fetch the names of all added, copied, modified or renamed files
-    #    from within the tests/ directory
-    # 2. print only the last column of the line (in case of rename this is the new name)
-    # 3. grep all files ending with '.go' but not with '_suite.go'
-    # 4. replace newline with `|`
-    # 5. remove last `|`
-    git diff --diff-filter=ACMR --name-status "${target_commit}".. -- tests/ \
-        | awk '{print $NF}' \
-        | grep '\.go' \
-        | grep -vE '_suite(_test)\.go' \
-        | tr '\n' '|' \
-        | sed -E 's/\|$//'
+  local target_commit
+  target_commit="$1"
+  # 1. fetch the names of all added, copied, modified or renamed files
+  #    from within the tests/ directory
+  # 2. print only the last column of the line (in case of rename this is the new name)
+  # 3. grep all files ending with '.go' but not with '_suite.go'
+  # 4. replace newline with `|`
+  # 5. remove last `|`
+  git diff --diff-filter=ACMR --name-status "${target_commit}".. -- tests/ |
+    awk '{print $NF}' |
+    grep '\.go' |
+    grep -vE '_suite(_test)\.go' |
+    tr '\n' '|' |
+    sed -E 's/\|$//'
 }
 
 # taking into account that each file containing changed tests is run several times per default
 # and considering overhead of cluster-up etc., we should just skip the run
 # if the total number of tests for all runs gets higher than the total number of tests
 function should_skip_test_run_due_to_too_many_tests() {
-    local new_tests="$1"
-    local test_start_pattern='(Specify|It|Entry)\('
-    local tests_total_estimate=0
-    while IFS= read -r -d '' test_file_name; do
-        tests_total_estimate=$(( tests_total_estimate + $(grep -hcE "${test_start_pattern}" "$test_file_name") ))
-    done < <(find tests/ -name '*.go' -print0)
-    local tests_to_run_estimate=0
-    for test_file_name in $(echo "${new_tests}" | tr '|' '\n'); do
-        set +e
-        tests_to_run_estimate=$(( tests_to_run_estimate + $(grep -hcE "${test_start_pattern}" "$test_file_name") ))
-        set -e
-    done
-    local tests_total_for_all_runs_estimate
-    tests_total_for_all_runs_estimate=$(( tests_to_run_estimate * NUM_TESTS ))
-    echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
-    [ "$tests_total_for_all_runs_estimate" -gt $tests_total_estimate ]
+  local new_tests="$1"
+  local test_start_pattern='(Specify|It|Entry)\('
+  local tests_total_estimate=0
+  while IFS= read -r -d '' test_file_name; do
+    tests_total_estimate=$((tests_total_estimate + $(grep -hcE "${test_start_pattern}" "$test_file_name")))
+  done < <(find tests/ -name '*.go' -print0)
+  local tests_to_run_estimate=0
+  for test_file_name in $(echo "${new_tests}" | tr '|' '\n'); do
+    set +e
+    tests_to_run_estimate=$((tests_to_run_estimate + $(grep -hcE "${test_start_pattern}" "$test_file_name")))
+    set -e
+  done
+  local tests_total_for_all_runs_estimate
+  tests_total_for_all_runs_estimate=$((tests_to_run_estimate * NUM_TESTS))
+  echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
+  [ "$tests_total_for_all_runs_estimate" -gt $tests_total_estimate ]
 }
 
 ginko_params=''
-if (( $# > 0 )); then
-    if [[ "$1" =~ -h ]]; then
-        usage
-        exit 0
-    fi
+if (($# > 0)); then
+  if [[ "$1" =~ -h ]]; then
+    usage
+    exit 0
+  fi
 
-    if [[ "$1" =~ --dry-run ]]; then
-        ginko_params='-dry-run'
-        shift
-    fi
+  if [[ "$1" =~ --dry-run ]]; then
+    ginko_params='-dry-run'
+    shift
+  fi
 fi
 
-if (( $# > 0 )); then
-    TEST_LANE="$1"
-    shift
+if (($# > 0)); then
+  TEST_LANE="$1"
+  shift
 else
-    # We only want to use stable providers for flake testing, thus we fetch the k8s version file from kubevirtci.
-    # we stop at the first provider that is stable (aka doesn't have an rc or beta or alpha version)
-    for k8s_provider in $(cd kubevirtci/cluster-up/cluster && ls -rd k8s-[0-9]\.[0-9][0-9]); do
-        # shellcheck disable=SC2154
-        k8s_provider_version=$(curl --fail "https://raw.githubusercontent.com/kubevirt/kubevirtci/${kubevirtci_git_hash}/cluster-provision/k8s/${k8s_provider#"k8s-"}/version")
-        if [[ "${k8s_provider_version}" =~ -(rc|alpha|beta) ]]; then
-            echo "Skipping ${k8s_provider_version}"
-        else
-            TEST_LANE="${k8s_provider}"
-            break
-        fi
-    done
-    if [[ ${TEST_LANE} == "" ]]; then
-        echo "No stable provider found"
-        exit 1
+  # We only want to use stable providers for flake testing, thus we fetch the k8s version file from kubevirtci.
+  # we stop at the first provider that is stable (aka doesn't have an rc or beta or alpha version)
+  for k8s_provider in $(cd kubevirtci/cluster-up/cluster && ls -rd k8s-[0-9]\.[0-9][0-9]); do
+    # shellcheck disable=SC2154
+    k8s_provider_version=$(curl --fail "https://raw.githubusercontent.com/kubevirt/kubevirtci/${kubevirtci_git_hash}/cluster-provision/k8s/${k8s_provider#"k8s-"}/version")
+    if [[ "${k8s_provider_version}" =~ -(rc|alpha|beta) ]]; then
+      echo "Skipping ${k8s_provider_version}"
+    else
+      TEST_LANE="${k8s_provider}"
+      break
     fi
+  done
+  if [[ ${TEST_LANE} == "" ]]; then
+    echo "No stable provider found"
+    exit 1
+  fi
 fi
 echo "Test lane: ${TEST_LANE}"
-[ -d "kubevirtci/cluster-up/cluster/${TEST_LANE}" ] || ( echo "provider ${TEST_LANE} does not exist!"; exit 1 )
+[ -d "kubevirtci/cluster-up/cluster/${TEST_LANE}" ] || (
+  echo "provider ${TEST_LANE} does not exist!"
+  exit 1
+)
 
 if [[ -z ${TARGET_COMMIT-} ]]; then
-    # if there's no commit provided default to the latest merge commit
-    TARGET_COMMIT=$(git log -1 --format=%H --merges)
+  # if there's no commit provided default to the latest merge commit
+  TARGET_COMMIT=$(git log -1 --format=%H --merges)
 fi
 
 if [[ -z ${NEW_TESTS-} ]]; then
 
-    set +e # required due to grep barking when it does not have any input
-    NEW_TESTS=$(new_tests "$TARGET_COMMIT")
-    set -e
+  set +e # required due to grep barking when it does not have any input
+  NEW_TESTS=$(new_tests "$TARGET_COMMIT")
+  set -e
 
-    # skip certain tests for now, as we don't have a strategy currently
-    NEW_TESTS=$(echo "$NEW_TESTS" | sed -E 's/\|?[^\|]*(sriov|multus|windows|gpu|mdev)[^\|]*//g' | sed 's/^|//')
+  # skip certain tests for now, as we don't have a strategy currently
+  NEW_TESTS=$(echo "$NEW_TESTS" | sed -E 's/\|?[^\|]*(sriov|multus|windows|gpu|mdev)[^\|]*//g' | sed 's/^|//')
 fi
 if [[ -z "${NEW_TESTS}" ]]; then
-    echo "Nothing to test"
-    exit 0
+  echo "Nothing to test"
+  exit 0
 fi
 echo "Test files touched: $(echo "${NEW_TESTS}" | tr '|' ',')"
 
@@ -169,15 +172,15 @@ NUM_TESTS=${NUM_TESTS-5}
 echo "Number of per lane runs: $NUM_TESTS"
 
 if should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
-    echo "Skipping run due to number of tests in total being too high for repeated run."
-    exit 0
+  echo "Skipping run due to number of tests in total being too high for repeated run."
+  exit 0
 fi
 
 # for some tests we need three nodes aka two nodes with cpu manager installed, thus we grep whether the skip is present
 KUBEVIRT_NUM_NODES=2
 # shellcheck disable=SC2046
 if grep -q 'RequiresTwoWorkerNodesWithCPUManager' $(echo "${NEW_TESTS}" | tr '|' ' '); then
-    KUBEVIRT_NUM_NODES=3
+  KUBEVIRT_NUM_NODES=3
 fi
 
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM
@@ -220,33 +223,35 @@ label_filter="${KUBEVIRT_LABEL_FILTER:-}"
 add_to_label_filter '(!QUARANTINE)' '&&'
 add_to_label_filter '(!exclude-native-ssh)' '&&'
 add_to_label_filter '(!no-flake-check)' '&&'
+add_to_label_filter '(!requires-arm64)' '&&'
+add_to_label_filter '(!requires-s390x)' '&&'
 rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
 if [[ "${rwofs_sc}" == "local" ]]; then
-    # local is a primitive non CSI storage class that doesn't support expansion
-    add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
+  # local is a primitive non CSI storage class that doesn't support expansion
+  add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
 fi
 
 label_filter="(flake-check)||(${label_filter})"
 ginko_params="$ginko_params -no-color -succinct --label-filter="${label_filter}" -randomize-all"
 for test_file in $(echo "${NEW_TESTS}" | tr '|' '\n'); do
-    ginko_params+=" -focus-file=${test_file}"
+  ginko_params+=" -focus-file=${test_file}"
 done
 
 echo "Test lane: ${TEST_LANE}, preparing cluster up"
 
 if [[ ! "$ginko_params" =~ -dry-run ]]; then
-    make cluster-up
-    make cluster-sync
+  make cluster-up
+  make cluster-sync
 else
-    # Ginkgo only performs -dryRun in serial mode.
-    export KUBEVIRT_E2E_PARALLEL="false"
-    NUM_TESTS=1
+  # Ginkgo only performs -dryRun in serial mode.
+  export KUBEVIRT_E2E_PARALLEL="false"
+  NUM_TESTS=1
 fi
 
 for i in $(seq 1 "$NUM_TESTS"); do
-    echo "Test lane: ${TEST_LANE}, run: $i"
-    if ! FUNC_TEST_ARGS="$ginko_params" make functest; then
-        echo "Test lane: ${TEST_LANE}, run: $i, tests failed!"
-        exit 1
-    fi
+  echo "Test lane: ${TEST_LANE}, run: $i"
+  if ! FUNC_TEST_ARGS="$ginko_params" make functest; then
+    echo "Test lane: ${TEST_LANE}, run: $i, tests failed!"
+    exit 1
+  fi
 done
