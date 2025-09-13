@@ -54,6 +54,7 @@ jobs:
       environment: test-kvm
       image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
     secrets: inherit
+    needs: [Build_Push_Images]
     # needs: [dev]
 
   test-emulation:
@@ -62,6 +63,7 @@ jobs:
       environment: test-emulation
       image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
     secrets: inherit
+    needs: [Build_Push_Images]
     # needs: [dev]
 
   test-mshv:
@@ -70,4 +72,5 @@ jobs:
       environment: test-mshv
       image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
     secrets: inherit
+    needs: [Build_Push_Images]
     # needs: [dev]
