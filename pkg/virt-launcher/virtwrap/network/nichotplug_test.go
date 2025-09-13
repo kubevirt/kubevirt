@@ -17,7 +17,7 @@
  *
  */
 
-package virtwrap
+package network
 
 import (
 	"encoding/xml"
@@ -146,7 +146,7 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 	)
 
 	It("hotplugVirtioInterface SUCCEEDS with link state down", func() {
-		networkInterfaceManager := newVirtIOInterfaceManager(
+		networkInterfaceManager := NewVirtIOInterfaceManager(
 			expectAttachDeviceLinkStateDown(gomock.NewController(GinkgoT())).VirtDomain,
 			&fakeVMConfigurator{},
 		)
@@ -166,7 +166,7 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 				)),
 			),
 		)
-		Expect(networkInterfaceManager.hotplugVirtioInterface(
+		Expect(networkInterfaceManager.HotplugVirtioInterface(
 			vmi,
 			dummyDomain(),
 			newDomain(newDeviceInterface(networkName, libvirtInterfaceLinkStateDown)),
@@ -176,11 +176,11 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 	DescribeTable(
 		"hotplugVirtioInterface SUCCEEDS for",
 		func(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain, result libvirtClientResult) {
-			networkInterfaceManager := newVirtIOInterfaceManager(
+			networkInterfaceManager := NewVirtIOInterfaceManager(
 				mockLibvirtClient(gomock.NewController(GinkgoT()), result).VirtDomain,
 				&fakeVMConfigurator{},
 			)
-			Expect(networkInterfaceManager.hotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(Succeed())
+			Expect(networkInterfaceManager.HotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(Succeed())
 		},
 		Entry(
 			"VMI without networks, whose domain also doesn't have interfaces, does **not** attach any device",
@@ -200,11 +200,11 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 	DescribeTable(
 		"hotplugVirtioInterface FAILS when",
 		func(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain, configurator vmConfigurator, result libvirtClientResult) {
-			networkInterfaceManager := newVirtIOInterfaceManager(
+			networkInterfaceManager := NewVirtIOInterfaceManager(
 				mockLibvirtClient(gomock.NewController(GinkgoT()), result).VirtDomain,
 				configurator,
 			)
-			Expect(networkInterfaceManager.hotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(MatchError("boom"))
+			Expect(networkInterfaceManager.HotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(MatchError("boom"))
 		},
 		Entry("the VM network configurator ERRORs invoking setup networking phase#2",
 			vmiWithSingleBridgeInterfaceWithPodInterfaceReady(networkName, nadName),
@@ -278,7 +278,7 @@ var _ = Describe("domain network interfaces resources", func() {
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{}}
 		domainSpec := &api.DomainSpec{}
 		countCalls := 0
-		_, _ = withNetworkIfacesResources(vmi, domainSpec, 0, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+		_, _ = WithNetworkIfacesResources(vmi, domainSpec, 0, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
 			countCalls++
 			return nil, nil
 		})
@@ -305,7 +305,7 @@ var _ = Describe("domain network interfaces resources", func() {
 
 		originalDomainSpec := domainSpec.DeepCopy()
 		countCalls := 0
-		_, err = withNetworkIfacesResources(vmi, domainSpec, 3, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+		_, err = WithNetworkIfacesResources(vmi, domainSpec, 3, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
 			// Tracking the behavior of the tested function.
 			// It is expected that the callback function is called twice when placeholders are needed.
 			// The first time it is called with the placeholders in place.
@@ -331,10 +331,10 @@ var _ = Describe("interface link state update", func() {
 			domainTo *api.Domain,
 			expectMockFunc func(*gomock.Controller) *testing.Libvirt) {
 
-			networkInterfaceManager := newVirtIOInterfaceManager(
+			networkInterfaceManager := NewVirtIOInterfaceManager(
 				expectMockFunc(gomock.NewController(GinkgoT())).VirtDomain,
 				&fakeVMConfigurator{})
-			Expect(networkInterfaceManager.updateDomainLinkState(domainFrom, domainTo)).To(Succeed())
+			Expect(networkInterfaceManager.UpdateDomainLinkState(domainFrom, domainTo)).To(Succeed())
 		},
 
 		Entry("none to none",
