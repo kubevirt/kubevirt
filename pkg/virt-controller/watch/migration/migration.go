@@ -1671,6 +1671,35 @@ func (c *Controller) listMatchingTargetPods(migration *virtv1.VirtualMachineInst
 	return pods, nil
 }
 
+func (c *Controller) listMatchingTargetPods2(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) ([]*k8sv1.Pod, error) {
+
+	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{
+		MatchLabels: map[string]string{
+			virtv1.CreatedByLabel:    string(vmi.UID),
+			virtv1.AppLabel:          "virt-launcher",
+			virtv1.MigrationJobLabel: string(migration.UID),
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	objs, err := c.podIndexer.ByIndex("migrationJobUID", string(migration.UID))
+	if err != nil {
+		return nil, err
+	}
+
+	var pods []*k8sv1.Pod
+	for _, obj := range objs {
+		pod := obj.(*k8sv1.Pod)
+		if selector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
+			pods = append(pods, pod)
+		}
+	}
+
+	return pods, nil
+}
+
 func (c *Controller) addMigration(obj interface{}) {
 	c.enqueueMigration(obj)
 }
@@ -1978,6 +2007,25 @@ func (c *Controller) garbageCollectFinalizedMigrations(vmi *virtv1.VirtualMachin
 
 func (c *Controller) filterMigrations(namespace string, filter func(*virtv1.VirtualMachineInstanceMigration) bool) ([]*virtv1.VirtualMachineInstanceMigration, error) {
 	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	var migrations []*virtv1.VirtualMachineInstanceMigration
+	for _, obj := range objs {
+		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
+
+		if filter(migration) {
+			migrations = append(migrations, migration)
+		}
+	}
+	return migrations, nil
+}
+
+const vmiIndex = "vmiIndex"
+
+func (c *Controller) filterMigrationsByVMI(namespace, vmiName string, filter func(*virtv1.VirtualMachineInstanceMigration) bool) ([]*virtv1.VirtualMachineInstanceMigration, error) {
+	objs, err := c.migrationIndexer.ByIndex(vmiIndex, fmt.Sprintf("%s/%s", namespace, vmiName))
 	if err != nil {
 		return nil, err
 	}
