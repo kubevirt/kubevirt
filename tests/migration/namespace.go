@@ -38,6 +38,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -560,6 +561,75 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				checkEFI(targetVMI)
 			})
 		})
+
+		DescribeTable("should be able to cancel a migration by deleting the migration resource", decorators.SigStorage, func(deleteSource bool) {
+			const timeout = 180
+			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
+			sourceVMI := libvmifact.NewCirros(
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			targetVMI := sourceVMI.DeepCopy()
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
+
+			By("limiting the bandwidth of migrations in the test namespace")
+			CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(sourceVMI, resource.MustParse("1Ki")))
+
+			By("starting the VirtualMachine")
+			createAndStartVMFromVMISpec(sourceVMI)
+			By("creating a receiver VM")
+			createReceiverVMFromVMISpec(targetVMI)
+			By("creating the migration")
+			sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
+			targetMigration := libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
+
+			By("starting a migration")
+			sourceMigration = libmigration.RunMigration(virtClient, sourceMigration)
+			targetMigration = libmigration.RunMigration(virtClient, targetMigration)
+			migrationToDelete := sourceMigration
+			if !deleteSource {
+				migrationToDelete = targetMigration
+			}
+
+			By("waiting until the migration is Running")
+			Eventually(func() bool {
+				sourceMigration, err := virtClient.VirtualMachineInstanceMigration(sourceMigration.Namespace).Get(context.Background(), sourceMigration.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(sourceMigration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
+				if sourceMigration.Status.Phase == v1.MigrationRunning {
+					sourceVMI, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					if sourceVMI.Status.MigrationState.Completed != true {
+						return true
+					}
+				}
+				return false
+			}).WithTimeout(timeout * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue())
+
+			By("cancelling a migration")
+			Expect(virtClient.VirtualMachineInstanceMigration(migrationToDelete.Namespace).Delete(context.Background(), migrationToDelete.Name, metav1.DeleteOptions{})).To(Succeed())
+
+			By("checking VMI, confirm migration state")
+			libmigration.ConfirmVMIPostMigrationAborted(sourceVMI, string(sourceMigration.UID), timeout)
+
+			By("Waiting for the source migration object to disappear")
+			libwait.WaitForMigrationToDisappearWithTimeout(sourceMigration, timeout)
+			By("Waiting for the target migration object to disappear")
+			libwait.WaitForMigrationToDisappearWithTimeout(targetMigration, timeout)
+			By("Logging in and ensuring the source VM is still running")
+			Expect(console.LoginToCirros(sourceVMI)).To(Succeed())
+			By("Checking that the receiving VM is in WaitingAsReceiver phase")
+			Eventually(func() virtv1.VirtualMachineInstancePhase {
+				targetVMI, err := virtClient.VirtualMachineInstance(targetVMI.Namespace).Get(context.Background(), targetVMI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return targetVMI.Status.Phase
+			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).Should(Equal(virtv1.WaitingForSync))
+		},
+			Entry("delete source migration", true),
+			Entry("delete target migration", false),
+		)
 	})
 
 	Context("datavolume disk", func() {

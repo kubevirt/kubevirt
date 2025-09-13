@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -90,6 +89,8 @@ var _ = Describe("VMI status synchronization controller", func() {
 		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(targetNamespace).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(targetNamespace)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(targetNamespace).Return(virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(targetNamespace)).AnyTimes()
 		vmiInformer, _ = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
 		migrationInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
 		tmpDir, err := os.MkdirTemp("", "synchronizationcontrollertest")
@@ -470,6 +471,8 @@ var _ = Describe("VMI status synchronization controller", func() {
 			targetMigration = createTargetMigration(testMigrationID, targetVMI.Name, targetVMI.Namespace)
 			err = migrationInformer.GetStore().Add(targetMigration)
 			Expect(err).ToNot(HaveOccurred())
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(targetVMI.Namespace).Create(context.TODO(), targetMigration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			sourceVMI = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			sourceVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 			err = vmiInformer.GetStore().Add(sourceVMI)
@@ -479,6 +482,8 @@ var _ = Describe("VMI status synchronization controller", func() {
 			remoteURL, err := controller.getLocalSynchronizationAddress()
 			sourceMigration = createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
 			err = migrationInformer.GetStore().Add(sourceMigration)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).Create(context.TODO(), sourceMigration, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -650,6 +655,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			err                                  error
 			remoteController                     *SynchronizationController
 			targetVMI, sourceVMI                 *virtv1.VirtualMachineInstance
+			targetMigration, sourceMigration     *virtv1.VirtualMachineInstanceMigration
 			remoteURL, localURL                  string
 			controllerDone, remoteControllerDone chan struct{}
 		)
@@ -675,16 +681,17 @@ var _ = Describe("VMI status synchronization controller", func() {
 				controller.grpcServer.Serve(localTCPConn)
 			}()
 
-			targetVMI = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			targetVMI = libvmi.New(libvmi.WithNamespace(targetNamespace))
 			targetVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 			err = vmiInformer.GetStore().Add(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = virtClient.VirtualMachineInstance(targetVMI.Namespace).Create(context.TODO(), targetVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			targetMigration := createTargetMigration(testMigrationID, targetVMI.Name, targetVMI.Namespace)
+			targetMigration = createTargetMigration(testMigrationID, targetVMI.Name, targetVMI.Namespace)
 			err = remoteMigrationInformer.GetStore().Add(targetMigration)
 			Expect(err).ToNot(HaveOccurred())
-
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(targetVMI.Namespace).Create(context.TODO(), targetMigration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			sourceVMI = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			sourceVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 			err = vmiInformer.GetStore().Add(sourceVMI)
@@ -692,8 +699,10 @@ var _ = Describe("VMI status synchronization controller", func() {
 			sourceVMI, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Create(context.TODO(), sourceVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			remoteURL, err = remoteController.getLocalSynchronizationAddress()
-			sourceMigration := createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
+			sourceMigration = createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
 			err = migrationInformer.GetStore().Add(sourceMigration)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(sourceVMI.Namespace).Create(context.TODO(), sourceMigration, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			localURL, err = controller.getLocalSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
@@ -930,6 +939,47 @@ var _ = Describe("VMI status synchronization controller", func() {
 			})
 			Expect(count).To(Equal(1), "there should be one item in the map")
 		})
+
+		It("should cancel remote migration", func() {
+			targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: targetTestMigrationUID,
+				},
+			}
+			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(localURL),
+				},
+			}
+			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: sourceTestMigrationUID,
+				},
+			}
+			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(remoteURL),
+				},
+			}
+			By("setting up the clients and informers")
+			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			targetMigration.DeletionTimestamp = pointer.P(metav1.Now())
+			err = remoteController.migrationInformer.GetStore().Update(targetMigration)
+			Expect(err).ToNot(HaveOccurred())
+
+			res, err := controller.CancelMigration(context.Background(), &syncv1.MigrationCancelRequest{
+				MigrationUID: targetTestMigrationUID,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Message).To(Equal("migration canceled"))
+		})
 	})
 
 	It("should return nil, nil if invalid resource type passed into index function", func() {
@@ -944,18 +994,6 @@ var _ = Describe("VMI status synchronization controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 		res, err = indexByTargetMigrationID("invalid")
 		Expect(res).To(BeNil())
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	It("should not index migrations marked for deletion", func() {
-		migration := createSourceMigration(testMigrationID, "test-vmi", "", k8sv1.NamespaceDefault)
-		res, err := indexByVmiName(migration)
-		Expect(res).To(HaveLen(1))
-		Expect(err).ToNot(HaveOccurred())
-
-		migration.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-		res, err = indexByVmiName(migration)
-		Expect(res).To(BeEmpty())
 		Expect(err).ToNot(HaveOccurred())
 	})
 
