@@ -76,7 +76,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 						k8sv1.ResourceMemory: passtComputeMemoryOverheadWhenAllPortsAreForwarded,
 					},
 				},
-			}),
+			}, false),
 		)
 		Expect(err).NotTo(HaveOccurred())
 

@@ -57,7 +57,8 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 		err := config.RegisterKubevirtConfigChange(
 			config.WithNetBindingPlugin(macvtapBindingName, v1.InterfaceBindingPlugin{
 				DomainAttachmentType: v1.Tap,
-			}),
+			},
+				false),
 		)
 		Expect(err).NotTo(HaveOccurred())
 	})
