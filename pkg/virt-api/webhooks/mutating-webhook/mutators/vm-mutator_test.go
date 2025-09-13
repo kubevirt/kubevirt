@@ -181,21 +181,19 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).ToNot(BeNil())
 		Expect(vmSpec.Template.Spec.Domain.Firmware.Serial).ToNot(BeNil())
 	},
-		Entry("ppc64le", "ppc64le", "pseries"),
 		Entry("arm64", "arm64", "virt"),
 		Entry("s390x", "s390x", "s390-ccw-virtio"),
 		Entry("amd64", "amd64", "q35"),
 	)
 
-	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, ppc64leMachineType string, s390xMachineType string, result string) {
+	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, s390xMachineType string, result string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ArchitectureConfiguration: &v1.ArchConfiguration{
-						Amd64:   &v1.ArchSpecificConfiguration{MachineType: amd64MachineType},
-						Arm64:   &v1.ArchSpecificConfiguration{MachineType: arm64MachineType},
-						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: ppc64leMachineType},
-						S390x:   &v1.ArchSpecificConfiguration{MachineType: s390xMachineType},
+						Amd64: &v1.ArchSpecificConfiguration{MachineType: amd64MachineType},
+						Arm64: &v1.ArchSpecificConfiguration{MachineType: arm64MachineType},
+						S390x: &v1.ArchSpecificConfiguration{MachineType: s390xMachineType},
 					},
 				},
 			},
@@ -205,10 +203,9 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
 
 	},
-		Entry("when override is for amd64 architecture", "amd64", machineTypeFromConfig, "", "", "", machineTypeFromConfig),
-		Entry("when override is for arm64 architecture", "arm64", "", machineTypeFromConfig, "", "", machineTypeFromConfig),
-		Entry("when override is for ppc64le architecture", "ppc64le", "", "", machineTypeFromConfig, "", machineTypeFromConfig),
-		Entry("when override is for s390x architecture", "s390x", "", "", "", machineTypeFromConfig, machineTypeFromConfig),
+		Entry("when override is for amd64 architecture", "amd64", machineTypeFromConfig, "", "", machineTypeFromConfig),
+		Entry("when override is for arm64 architecture", "arm64", "", machineTypeFromConfig, "", machineTypeFromConfig),
+		Entry("when override is for s390x architecture", "s390x", "", "", machineTypeFromConfig, machineTypeFromConfig),
 	)
 
 	It("should not override default architecture with defaults on VM create", func() {
@@ -330,10 +327,9 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ArchitectureConfiguration: &v1.ArchConfiguration{
-						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
-						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
-						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
-						S390x:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						Amd64: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						Arm64: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						S390x: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 					},
 				},
 			},
@@ -346,22 +342,6 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Entry("arm64", "arm64"),
 		Entry("s390x", "s390x"),
 	)
-
-	It("should default instancetype kind to ClusterSingularResourceName when not provided", func() {
-		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-			Name: "foobar",
-		}
-		vmSpec, _ := getVMSpecMetaFromResponseCreate()
-		Expect(vmSpec.Instancetype.Kind).To(Equal(apiinstancetype.ClusterSingularResourceName))
-	})
-
-	It("should default preference kind to ClusterSingularPreferenceResourceName when not provided", func() {
-		vm.Spec.Preference = &v1.PreferenceMatcher{
-			Name: "foobar",
-		}
-		vmSpec, _ := getVMSpecMetaFromResponseCreate()
-		Expect(vmSpec.Preference.Kind).To(Equal(apiinstancetype.ClusterSingularPreferenceResourceName))
-	})
 
 	DescribeTable("should use PreferredMachineType from ClusterSingularPreferenceResourceName when no preference kind is provided", func(arch string) {
 		preference := &instancetypev1beta1.VirtualMachineClusterPreference{

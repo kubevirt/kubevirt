@@ -112,7 +112,7 @@ var _ = Describe(SIG("[sig-compute]VNC", decorators.SigCompute, decorators.WgArm
 
 	It("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]"+
 		"[test_id:11667]should allow creating a VNC screenshot in PNG format", func() {
-		// The default resolution is 720x400 for the vga/boch device used on amd64 and ppcl64,
+		// The default resolution is 720x400 for the vga/boch device used on amd64,
 		// while it is 1280x800 for the virtio device used on arm64 and s390x.
 		size := image.Point{720, 400}
 		if vmi.Spec.Architecture == "arm64" || vmi.Spec.Architecture == "s390x" {

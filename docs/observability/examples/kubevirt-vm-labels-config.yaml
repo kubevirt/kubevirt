@@ -1,0 +1,25 @@
+# Usage:
+# 1. Customize the allowlist and ignorelist as needed
+# 2. Apply to your cluster: kubectl apply -f kubevirt-vm-labels-config.yaml
+# Configuration is loaded dynamically - no restart required
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubevirt-vm-labels-config
+  # Namespace where virt-controller runs (e.g., "kubevirt" or "openshift-cnv")
+  namespace: kubevirt
+data:
+  # Allowlist of labels to expose in kubevirt_vm_labels metric
+  # Allowlist: empty = no metric; non-empty = only VMs with these explicit label keys.
+  # Examples:
+  # allowlist: "*"                                                # Allow all labels
+  # allowlist: "app.kubernetes.io/name,app.kubernetes.io/version" # Allow specific labels
+  allowlist: "*"
+
+  # Ignorelist of labels to exclude from kubevirt_vm_labels metric
+  # Labels in ignorelist take precedence over allowlist.
+  # Only explicit label keys are supported; wildcard patterns like "*" are not supported and have no effect.
+  # Examples:
+  # ignorelist: ""                                                         # Ignore no labels (empty)
+  # ignorelist: "vm.kubevirt.io/template,vm.kubevirt.io/template.revision" # Ignore specific labels
+  ignorelist: ""

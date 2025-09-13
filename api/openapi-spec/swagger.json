@@ -12838,6 +12838,7 @@
       "type": "string"
      },
      "ppc64le": {
+      "description": "Deprecated: ppc64le architecture is no longer supported.",
       "$ref": "#/definitions/v1.ArchSpecificConfiguration"
      },
      "s390x": {
@@ -20695,6 +20696,9 @@
      "virtualMachineSnapshotName": {
       "type": "string",
       "default": ""
+     },
+     "volumeOwnershipPolicy": {
+      "type": "string"
      },
      "volumeRestoreOverrides": {
       "description": "VolumeRestoreOverrides gives the option to change properties of each restored volume For example, specifying the name of the restored volume, or adding labels/annotations to it",
