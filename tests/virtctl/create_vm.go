@@ -247,7 +247,8 @@ chpasswd: { expire: False }`
 		instancetype := createInstancetype(virtClient)
 		preference := createPreference(virtClient)
 		dataSource := createAnnotatedDataSource(virtClient, "something", "something")
-		pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), size, nil)
+		pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), size, nil,
+			libstorage.WithStorageProfile())
 		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
 		out, err := runCreateVMCmd(
@@ -703,7 +704,8 @@ chpasswd: { expire: False }`
 
 	It("[test_id:11654]Failure of implicit inference does not fail the VM creation", func() {
 		By("Creating a PVC without annotation labels")
-		pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), size, nil)
+		pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), size, nil,
+			libstorage.WithStorageProfile())
 		volumeName := "imported-volume"
 
 		By("Creating a VM with implicit inference (inference enabled by default)")
@@ -826,5 +828,5 @@ func createAnnotatedSourcePVC(instancetypeName, preferenceName string) *k8sv1.Pe
 		apiinstancetype.DefaultInstancetypeKindLabel: apiinstancetype.SingularResourceName,
 		apiinstancetype.DefaultPreferenceLabel:       preferenceName,
 		apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
-	})
+	}, libstorage.WithStorageProfile())
 }
