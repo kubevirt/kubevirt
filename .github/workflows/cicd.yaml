@@ -30,23 +30,23 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
 
-      # - name: Build Images
-      #   run: |
-      #     pwd
-      #     make bazel-build-images
+      - name: Build Images
+        run: |
+          pwd
+          make bazel-build-images
 
 
-      # - name: Push Images
-      #   run: |
-      #     make bazel-push-images
+      - name: Push Images
+        run: |
+          make bazel-push-images
   
-  dev:
-    uses: ./.github/workflows/deploy.yaml
-    with:
-      environment: test-kvm
-      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
-    secrets: inherit
-    needs: [Build_Push_Images]
+  # dev:
+  #   uses: ./.github/workflows/deploy.yaml
+  #   with:
+  #     environment: dev
+  #     image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+  #   secrets: inherit
+  #   needs: [Build_Push_Images]
 
   test-kvm:
     uses: ./.github/workflows/deploy.yaml
@@ -54,7 +54,7 @@ jobs:
       environment: test-kvm
       image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
     secrets: inherit
-    needs: [dev]
+    # needs: [dev]
 
   test-emulation:
     uses: ./.github/workflows/deploy.yaml
@@ -62,7 +62,7 @@ jobs:
       environment: test-emulation
       image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
     secrets: inherit
-    needs: [dev]
+    # needs: [dev]
 
   test-mshv:
     uses: ./.github/workflows/deploy.yaml
@@ -70,4 +70,4 @@ jobs:
       environment: test-mshv
       image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
     secrets: inherit
-    needs: [dev]
+    # needs: [dev]

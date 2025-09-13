@@ -21,7 +21,11 @@ env:
 
   
 jobs:
-    
+  # wake-up-vm:
+  #   uses: ./.github/workflows/wake-up-vm.yaml    
+  #   with:
+  #     environment: ${{ inputs.environment }}
+
   Deploy_and_Test:
     environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
@@ -52,7 +56,8 @@ jobs:
           # make sure all nodes are labeled as control-plane (required by KubeVirt)                             
           # kubectl label nodes --all 'node-role.kubernetes.io/control-plane=control-plane' --overwrite
           make cluster-up
-          # make cluster-deploy
+          make manifests
+          make cluster-deploy
 
           # if EMULATION is set to true, deploy the emulation configmap
           if [ "$EMULATION" = "true" ]; then
@@ -65,7 +70,6 @@ jobs:
 
       - name: Test
         run: |
-          # export kubeconfig=${{ github.workspace }}/kubeconfig
           make cluster-up
           FUNC_TEST_ARGS=--no-color \
           FUNC_TEST_LABEL_FILTER='--label-filter=(!flake-check)&&('"${TEST_FOCUS}"'&&!(single-replica)&&(!QUARANTINE)&&(!requireHugepages2Mi)&&(!requireHugepages1Gi)&&(!SwapTest))' make functest
