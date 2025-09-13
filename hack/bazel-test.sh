@@ -1,4 +1,4 @@
-set -e
+set -ex
 
 source hack/common.sh
 source hack/bootstrap.sh
