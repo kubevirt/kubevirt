@@ -1363,17 +1363,19 @@ spec:
                   preferredDuringSchedulingIgnoredDuringExecution:
                   - preference:
                       matchExpressions:
-                      - key: node-role.kubernetes.io/worker
-                        operator: DoesNotExist
-                    weight: 100
-                  requiredDuringSchedulingIgnoredDuringExecution:
-                    nodeSelectorTerms:
-                    - matchExpressions:
                       - key: node-role.kubernetes.io/control-plane
                         operator: Exists
-                    - matchExpressions:
+                    weight: 100
+                  - preference:
+                      matchExpressions:
                       - key: node-role.kubernetes.io/master
                         operator: Exists
+                    weight: 100
+                  - preference:
+                      matchExpressions:
+                      - key: node-role.kubernetes.io/worker
+                        operator: DoesNotExist
+                    weight: 50
                 podAntiAffinity:
                   preferredDuringSchedulingIgnoredDuringExecution:
                   - podAffinityTerm:
