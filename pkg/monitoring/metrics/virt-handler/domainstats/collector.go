@@ -56,16 +56,12 @@ type resourceMetrics interface {
 }
 
 type collectorSettings struct {
-	virtShareDir        string
-	nodeName            string
 	maxRequestsInFlight int
 	vmiInformer         cache.SharedIndexInformer
 }
 
-func SetupDomainStatsCollector(virtShareDir, nodeName string, maxRequestsInFlight int, vmiInformer cache.SharedIndexInformer) {
+func SetupDomainStatsCollector(maxRequestsInFlight int, vmiInformer cache.SharedIndexInformer) {
 	settings = &collectorSettings{
-		virtShareDir:        virtShareDir,
-		nodeName:            nodeName,
 		maxRequestsInFlight: maxRequestsInFlight,
 		vmiInformer:         vmiInformer,
 	}
