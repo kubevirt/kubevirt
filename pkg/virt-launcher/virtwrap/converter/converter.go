@@ -1186,18 +1186,27 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 			Value: string(firmware.UUID),
 		},
 	}
-
 	if vmi.IsBootloaderEFI() {
-		domain.Spec.OS.BootLoader = &api.Loader{
-			Path:     c.EFIConfiguration.EFICode,
-			ReadOnly: "yes",
-			Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
-			Type:     "pflash",
-		}
+		if util.IsSEVSNPVMI(vmi) {
+			// SEV-SNP cannot use the pflash loader.
+			domain.Spec.OS.BootLoader = &api.Loader{
+				Path:     c.EFIConfiguration.EFICode,
+				ReadOnly: "yes",
+				Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
+				Type:     "rom",
+			}
+		} else {
+			domain.Spec.OS.BootLoader = &api.Loader{
+				Path:     c.EFIConfiguration.EFICode,
+				ReadOnly: "yes",
+				Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
+				Type:     "pflash",
+			}
 
-		domain.Spec.OS.NVRam = &api.NVRam{
-			Template: c.EFIConfiguration.EFIVars,
-			NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			domain.Spec.OS.NVRam = &api.NVRam{
+				Template: c.EFIConfiguration.EFIVars,
+				NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			}
 		}
 	}
 
@@ -1497,7 +1506,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 		domain.Spec.LaunchSecurity = c.Architecture.LaunchSecurity(vmi)
 	}
-
 	if c.SMBios != nil {
 		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
 			api.Entry{
