@@ -19,7 +19,3 @@ jobs:
         run: |
           make format
           make lint
-
-      - name: Run Unit Tests
-        run: |
-          make test

@@ -35,6 +35,9 @@ jobs:
           pwd
           make bazel-build-images
 
+      - name: Run Unit Tests
+        run: |
+          make test
 
       - name: Push Images
         run: |
