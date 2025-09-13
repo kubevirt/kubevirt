@@ -443,7 +443,7 @@ var _ = Describe("Manager", func() {
 		addPlaceHolderInterfaces := func(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
 			count, err := calculateHotplugPortCount(vmi, domainSpec)
 			Expect(err).ToNot(HaveOccurred())
-			return appendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
+			return appendHotPlugPorts(domainSpec, count)
 		}
 
 		setDomainExpectations := func(vmi *v1.VirtualMachineInstance) {
