@@ -19,10 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/trace"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	appsv1 "k8s.io/api/apps/v1"
 	k8score "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,6 +29,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
@@ -60,8 +61,9 @@ const (
 	FailedUpdateVirtualMachineReason     = "FailedUpdate"
 	SuccessfulUpdateVirtualMachineReason = "SuccessfulUpdate"
 
-	defaultAddDelay   = 1 * time.Second
-	defaultRetryDelay = 3 * time.Second
+	defaultAddDelay                = 1 * time.Second
+	defaultRetryDelay              = 3 * time.Second
+	defaultStartUpFailureThreshold = 3
 )
 
 const (
@@ -482,11 +484,20 @@ func (c *Controller) calcDiff(pool *poolv1.VirtualMachinePool, vms []*virtv1.Vir
 	return len(vms) - int(wantedReplicas)
 }
 
-func filterDeletingVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
-
+func filterRunningVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
 	filtered := []*virtv1.VirtualMachine{}
 	for _, vm := range vms {
 		if vm.DeletionTimestamp == nil {
+			filtered = append(filtered, vm)
+		}
+	}
+	return filtered
+}
+
+func filterDeletingVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
+	filtered := []*virtv1.VirtualMachine{}
+	for _, vm := range vms {
+		if vm.DeletionTimestamp != nil {
 			filtered = append(filtered, vm)
 		}
 	}
@@ -563,7 +574,7 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 		return err
 	}
 
-	elgibleVMs := filterDeletingVMs(vms)
+	elgibleVMs := filterRunningVMs(vms)
 
 	// make sure we count already deleting VMs here during scale in.
 	count = count - (len(vms) - len(elgibleVMs))
@@ -590,13 +601,19 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 			defer wg.Done()
 			vm := deleteList[idx]
 
-			err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(metav1.DeletePropagationForeground)})
-			if err != nil {
+			if err := c.removeFinalizer(vm); err != nil {
+				log.Log.Object(pool).Reason(err).Errorf("Failed to remove finalizer from virtual machine %s/%s", vm.Namespace, vm.Name)
+				errChan <- err
+				return
+			}
+
+			if err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(metav1.DeletePropagationForeground)}); err != nil {
 				c.expectations.DeletionObserved(poolKey, controller.VirtualMachineKey(vm))
 				c.recorder.Eventf(pool, k8score.EventTypeWarning, common.FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s/%s: %v", vm.Namespace, vm.Name, err)
 				errChan <- err
 				return
 			}
+
 			c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Deleted VM %s/%s with uid %v from pool", vm.Namespace, vm.Name, vm.ObjectMeta.UID)
 			log.Log.Object(pool).Infof("Deleted vm %s/%s from pool", vm.Namespace, vm.Name)
 		}(i)
@@ -826,6 +843,7 @@ func (c *Controller) scaleOut(pool *poolv1.VirtualMachinePool, count int) error 
 			vm.Annotations = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
 			vm.Spec = *indexVMSpec(&pool.Spec, index)
 			vm = injectPoolRevisionLabelsIntoVM(vm, revisionName)
+			controller.AddFinalizer(vm, poolv1.VirtualMachinePoolControllerFinalizer)
 
 			vm.ObjectMeta.OwnerReferences = []metav1.OwnerReference{poolOwnerRef(pool)}
 
@@ -857,7 +875,10 @@ func (c *Controller) scaleOut(pool *poolv1.VirtualMachinePool, count int) error 
 func (c *Controller) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (common.SyncError, bool) {
 	diff := c.calcDiff(pool, vms)
 	if diff == 0 {
-		// nothing to do
+		if err := c.opportunisticScaleIn(vms); err != nil {
+			return common.NewSyncError(fmt.Errorf("error during opportunistic scale in: %v", err), FailedScaleInReason), false
+		}
+
 		return nil, true
 	}
 
@@ -865,12 +886,12 @@ func (c *Controller) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virtua
 	if diff < 0 {
 		err := c.scaleOut(pool, maxDiff)
 		if err != nil {
-			return common.NewSyncError(fmt.Errorf("Error during scale out: %v", err), FailedScaleOutReason), false
+			return common.NewSyncError(fmt.Errorf("error during scale out: %v", err), FailedScaleOutReason), false
 		}
 	} else {
 		err := c.scaleIn(pool, vms, maxDiff)
 		if err != nil {
-			return common.NewSyncError(fmt.Errorf("Error during scale in: %v", err), FailedScaleInReason), false
+			return common.NewSyncError(fmt.Errorf("error during scale in: %v", err), FailedScaleInReason), false
 		}
 	}
 
@@ -1236,7 +1257,7 @@ func (c *Controller) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms [
 	for revisionName := range deletionMap {
 		err := c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, metav1.DeleteOptions{})
 		if err != nil {
-			return common.NewSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
+			return common.NewSyncError(fmt.Errorf("error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
 		}
 	}
 
@@ -1252,7 +1273,7 @@ func (c *Controller) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virtu
 	for _, vm := range vms {
 		outdated, err := c.isOutdatedVM(pool, vm)
 		if err != nil {
-			return common.NewSyncError(fmt.Errorf("Error while detected outdated VMs: %v", err), FailedUpdateReason), false
+			return common.NewSyncError(fmt.Errorf("error while detected outdated VMs: %v", err), FailedUpdateReason), false
 		}
 
 		if outdated {
@@ -1403,6 +1424,12 @@ func (c *Controller) execute(key string) error {
 		return err
 	}
 
+	if isAutohealingEnabled(pool) {
+		if err := c.autoHealFailingVMs(vms); err != nil {
+			return err
+		}
+	}
+
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
@@ -1413,12 +1440,21 @@ func (c *Controller) execute(key string) error {
 		if fresh.ObjectMeta.UID != pool.ObjectMeta.UID {
 			return nil, fmt.Errorf("original Pool %v/%v is gone: got uid %v, wanted %v", pool.Namespace, pool.Name, fresh.UID, pool.UID)
 		}
+
 		return fresh, nil
 	})
 	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, pool, selector, virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind, canAdoptFunc)
 	vms, err = cm.ReleaseDetachedVirtualMachines(vms)
 	if err != nil {
 		return err
+	}
+
+	if pool.DeletionTimestamp == nil {
+		if !controller.HasFinalizer(pool, poolv1.VirtualMachinePoolControllerFinalizer) {
+			if err := c.addPoolFinalizer(pool); err != nil {
+				return err
+			}
+		}
 	}
 
 	needsSync := c.expectations.SatisfiedExpectations(key)
@@ -1444,6 +1480,20 @@ func (c *Controller) execute(key string) error {
 		}
 		virtControllerPoolWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VMPool Name", Value: pool.Name})
 	} else if pool.DeletionTimestamp != nil {
+		freshPool, err := c.clientset.VirtualMachinePool(pool.Namespace).Get(context.Background(), pool.Name, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				if err := c.cleanupVMs(vms); err != nil {
+					return err
+				}
+			}
+			return err
+		} else {
+			if err := c.handlePoolDeletion(freshPool, vms); err != nil {
+				return err
+			}
+		}
+
 		syncErr = c.pruneUnusedRevisions(pool, vms)
 	}
 
@@ -1504,5 +1554,146 @@ func (c *Controller) handleResourceUpdate(pool *poolv1.VirtualMachinePool, vm *v
 	}
 
 	c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Successfully updated resource %s/%s", vm.Namespace, vm.Name)
+	return nil
+}
+
+func patchFinalizer(oldFinalizers, newFinalizers []string) ([]byte, error) {
+	return patch.New(
+		patch.WithTest("/metadata/finalizers", oldFinalizers),
+		patch.WithReplace("/metadata/finalizers", newFinalizers)).
+		GeneratePayload()
+}
+
+func removePoolControllerFinalizer(finalizers []string) []string {
+	newFinalizers := make([]string, 0, len(finalizers))
+	for _, finalizer := range finalizers {
+		if finalizer != poolv1.VirtualMachinePoolControllerFinalizer {
+			newFinalizers = append(newFinalizers, finalizer)
+		}
+	}
+	return newFinalizers
+}
+
+func (c *Controller) removeFinalizer(vm *virtv1.VirtualMachine) error {
+	if !controller.HasFinalizer(vm, poolv1.VirtualMachinePoolControllerFinalizer) {
+		return nil
+	}
+
+	freshVM, err := c.clientset.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get VM to remove finalizer: %v", err)
+	}
+
+	patch, err := patchFinalizer(freshVM.Finalizers, removePoolControllerFinalizer(freshVM.Finalizers))
+	if err != nil {
+		return err
+	}
+
+	_, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	return err
+}
+
+func (c *Controller) opportunisticScaleIn(vms []*virtv1.VirtualMachine) error {
+	// Find VMs that are marked for deletion
+	// This happens when someone manually deletes a VM or when pool is scaled down and VMs are marked for deletion
+	deletingVMs := filterDeletingVMs(vms)
+	if len(deletingVMs) == 0 {
+		return nil
+	}
+
+	for _, vm := range deletingVMs {
+		if err := c.removeFinalizer(vm); err != nil {
+			return err
+		}
+		log.Log.Object(vm).Infof("Removed finalizer from VM %s/%s", vm.Namespace, vm.Name)
+	}
+
+	return nil
+}
+
+func (c *Controller) addPoolFinalizer(pool *poolv1.VirtualMachinePool) error {
+	newPoolFinalizers := make([]string, 0, len(pool.Finalizers)+1)
+	copy(newPoolFinalizers, pool.Finalizers)
+	newPoolFinalizers = append(newPoolFinalizers, poolv1.VirtualMachinePoolControllerFinalizer)
+
+	patch, err := patchFinalizer(pool.Finalizers, newPoolFinalizers)
+	if err != nil {
+		log.Log.Object(pool).Errorf("Failed to marshal patch: %v", err)
+		return err
+	}
+
+	_, err = c.clientset.VirtualMachinePool(pool.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	return err
+}
+
+func (c *Controller) removePoolFinalizer(pool *poolv1.VirtualMachinePool) error {
+	if !controller.HasFinalizer(pool, poolv1.VirtualMachinePoolControllerFinalizer) {
+		return nil
+	}
+
+	patch, err := patchFinalizer(pool.Finalizers, removePoolControllerFinalizer(pool.Finalizers))
+	if err != nil {
+		log.Log.Object(pool).Errorf("Failed to marshal patch: %v", err)
+		return err
+	}
+
+	_, err = c.clientset.VirtualMachinePool(pool.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	return err
+}
+
+func (c *Controller) cleanupVMs(vms []*virtv1.VirtualMachine) error {
+	for _, vm := range vms {
+		if err := c.removeFinalizer(vm); err != nil {
+			log.Log.Object(vm).Errorf("Failed to remove finalizer: %v", err)
+		}
+	}
+	return nil
+}
+
+func (c *Controller) handlePoolDeletion(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
+	if err := c.cleanupVMs(vms); err != nil {
+		return err
+	}
+
+	if err := c.removePoolFinalizer(pool); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func isAutohealingEnabled(pool *poolv1.VirtualMachinePool) bool {
+	return pool.Spec.Autohealing != nil && *pool.Spec.Autohealing
+}
+
+func (c *Controller) autoHealFailingVMs(vms []*virtv1.VirtualMachine) error {
+	vmsToCleanup := filterVMs(vms, func(vm *virtv1.VirtualMachine) bool {
+		return vm.Status.StartFailure != nil && vm.Status.StartFailure.ConsecutiveFailCount >= defaultStartUpFailureThreshold
+	})
+
+	if len(vmsToCleanup) > 0 {
+		for _, vm := range vmsToCleanup {
+			if err := c.cleanupVM(vm); err != nil {
+				log.Log.Object(vm).Errorf("Failed to cleanUp VM: %v", err)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) cleanupVM(vm *virtv1.VirtualMachine) error {
+	if err := c.removeFinalizer(vm); err != nil {
+		log.Log.Object(vm).Errorf("Failed to remove finalizer: %v", err)
+		return err
+	}
+
+	if err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(metav1.DeletePropagationForeground)}); err != nil {
+		log.Log.Object(vm).Errorf("Failed to delete VM: %v", err)
+		return err
+	}
 	return nil
 }

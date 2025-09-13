@@ -28,13 +28,23 @@ import (
 )
 
 const (
-	VirtualMachinePoolKind = "VirtualMachinePool"
+	VirtualMachinePoolKind                = "VirtualMachinePool"
+	VirtualMachinePoolControllerFinalizer = "pool.kubevirt.io/finalizer"
 )
 
 const (
 	// Base selection policies
-	VirtualMachinePoolBasePolicyRandom          VirtualMachinePoolBasePolicy = "Random"
+	VirtualMachinePoolBasePolicyAscendingOrder  VirtualMachinePoolBasePolicy = "AscendingOrder"
 	VirtualMachinePoolBasePolicyDescendingOrder VirtualMachinePoolBasePolicy = "DescendingOrder"
+	VirtualMachinePoolBasePolicyNewest          VirtualMachinePoolBasePolicy = "Newest"
+	VirtualMachinePoolBasePolicyOldest          VirtualMachinePoolBasePolicy = "Oldest"
+	VirtualMachinePoolBasePolicyRandom          VirtualMachinePoolBasePolicy = "Random"
+)
+
+const (
+	StatePreservationDisabled StatePreservation = "Disabled"
+	StatePreservationOffline  StatePreservation = "Offline"
+	StatePreservationOnline   StatePreservation = "Online"
 )
 
 // VirtualMachinePool resource contains a VirtualMachine configuration
@@ -127,6 +137,10 @@ type VirtualMachinePoolSpec struct {
 	// ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool
 	// +optional
 	ScaleInStrategy *VirtualMachinePoolScaleInStrategy `json:"scaleInStrategy,omitempty"`
+
+	// Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance
+	// +optional
+	Autohealing *bool `json:"autohealing,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -148,9 +162,31 @@ type VirtualMachinePoolList struct {
 // VirtualMachinePoolScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool
 // +k8s:openapi-gen=true
 type VirtualMachinePoolScaleInStrategy struct {
+	// The VM is never touched after creation. Users are responsible for scaling in the pool manually.
+	// +optional
+	Unmanaged *bool `json:"unmanaged,omitempty"`
+
+	// Opportunistic scale-in is a strategy when vms are deleted by some other means than the scale-in action.
+	// For example, when the VM is deleted by the user or when the VM is deleted by the node that is hosting the VM.
+	// +optional
+	Opportunistic *VirtualMachinePoolOpportunisticScaleInStrategy `json:"opportunistic,omitempty"`
+
 	// Proactive scale-in by forcing VMs to shutdown during scale-in (Default)
 	// +optional
 	Proactive *VirtualMachinePoolProactiveScaleInStrategy `json:"proactive,omitempty"`
+}
+
+// VirtualMachinePoolOpportunisticScaleInStrategy represents opportunistic scale-in strategy
+// +k8s:openapi-gen=true
+type VirtualMachinePoolOpportunisticScaleInStrategy struct {
+	// Enable or disable opportunistic scale-in.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Specifies if and how to preserve the state of the VMs selected during scale-in.
+	// +optional
+	// +kubebuilder:validation:Enum=Disabled;Offline;Online
+	StatePreservation *StatePreservation `json:"statePreservation,omitempty"`
 }
 
 // VirtualMachinePoolProactiveScaleInStrategy represents proactive scale-in strategy
@@ -160,16 +196,39 @@ type VirtualMachinePoolProactiveScaleInStrategy struct {
 	// Defaults to "Random" base policy when no SelectionPolicy is configured
 	// +optional
 	SelectionPolicy *VirtualMachinePoolSelectionPolicy `json:"selectionPolicy,omitempty"`
+
+	// Specifies if and how to preserve the state of the VMs selected during scale-in.
+	// +optional
+	// +kubebuilder:validation:Enum=Disabled;Offline;Online
+	StatePreservation *StatePreservation `json:"statePreservation,omitempty"`
 }
 
 // VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for scale-in
 // +k8s:openapi-gen=true
 type VirtualMachinePoolSelectionPolicy struct {
-	// BasePolicy is a catch-all policy [Random|DescendingOrder]
+	// BasePolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random].
 	// +optional
-	// +kubebuilder:validation:Enum=Random;DescendingOrder
+	// +kubebuilder:validation:Enum=AscendingOrder;DescendingOrder;Newest;Oldest;Random
 	BasePolicy *VirtualMachinePoolBasePolicy `json:"basePolicy,omitempty"`
+
+	// OrderedPolicies is a Ordered list of selection policies. Initial policies include [LabelSelector]. Future policies may include a [NodeSelector] or other selection mechanisms.
+	// +optional
+	OrderedPolicies *VirtualMachinePoolOrderedPolicy `json:"orderedPolicies,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type VirtualMachinePoolOrderedPolicy struct {
+	// LabelSelector is a list of label selector for VMs.
+	// +optional
+	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
+
+	// NodeSelectorRequirementMatcher is a list of node selector requirement for VMs.
+	// +optional
+	NodeSelectorRequirementMatcher *[]k8sv1.NodeSelectorRequirement `json:"nodeSelectorRequirementMatcher,omitempty"`
 }
 
 // +k8s:openapi-gen=true
 type VirtualMachinePoolBasePolicy string
+
+// +k8s:openapi-gen=true
+type StatePreservation string
