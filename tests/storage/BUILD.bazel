@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "configuration.go",
         "datavolume.go",
         "declarative-hotplug.go",
         "events.go",
@@ -52,6 +53,7 @@ go_library(
         "//tests/framework/cleanup:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
+        "//tests/libdomain:go_default_library",
         "//tests/libinstancetype:go_default_library",
         "//tests/libkubevirt:go_default_library",
         "//tests/libkubevirt/config:go_default_library",
