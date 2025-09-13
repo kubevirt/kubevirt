@@ -251,7 +251,7 @@ func (t *TemplateService) GetLauncherImage() string {
 
 func (t *TemplateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	backendStoragePVCName := ""
-	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+	if backendstorage.IsBackendStorageNeeded(vmi) {
 		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
 		if backendStoragePVC == nil {
 			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
@@ -267,7 +267,7 @@ func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		return nil, fmt.Errorf("can not proceed with the migration when no reproducible image digest can be detected: %v", err)
 	}
 	backendStoragePVCName := ""
-	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+	if backendstorage.IsBackendStorageNeeded(vmi) {
 		backendStoragePVC := backendstorage.PVCForMigrationTarget(t.persistentVolumeClaimStore, migration)
 		if backendStoragePVC == nil {
 			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
@@ -293,7 +293,7 @@ func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 
 func (t *TemplateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	backendStoragePVCName := ""
-	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+	if backendstorage.IsBackendStorageNeeded(vmi) {
 		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
 		if backendStoragePVC == nil {
 			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")

@@ -19,6 +19,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -395,7 +396,7 @@ func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 
 func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName string) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
-		if !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+		if !backendstorage.IsBackendStorageNeeded(vmi) {
 			return nil
 		}
 
@@ -458,6 +459,15 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 				ReadOnly:  false,
 				MountPath: PathForNVram(vmi),
 				SubPath:   "nvram",
+			})
+		}
+
+		if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      volumeName,
+				ReadOnly:  false,
+				MountPath: cbt.PathForCBT(vmi),
+				SubPath:   "cbt",
 			})
 		}
 

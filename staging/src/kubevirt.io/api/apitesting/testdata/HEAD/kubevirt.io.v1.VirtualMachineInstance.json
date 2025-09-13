@@ -247,7 +247,8 @@
               }
             },
             "shareable": true,
-            "errorPolicy": "errorPolicyValue"
+            "errorPolicy": "errorPolicyValue",
+            "changedBlockTracking": true
           }
         ],
         "watchdog": {
@@ -1158,6 +1159,9 @@
           }
         }
       ]
+    },
+    "changedBlockTracking": {
+      "state": "stateValue"
     }
   }
 }

@@ -53,6 +53,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -67,6 +68,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
+)
+
+const (
+	testVmName    = "testvmi"
+	testNamespace = "testnamespace"
 )
 
 var (
@@ -102,8 +108,6 @@ var _ = Describe("Manager", func() {
 	var testEphemeralDiskDir string
 	var metadataCache *metadata.Cache
 	var topology *cmdv1.Topology
-	testVmName := "testvmi"
-	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
 	ephemeralDiskCreatorMock := &fake.MockEphemeralDiskImageCreator{}
 	newLibvirtDomainManagerDefault := func() (DomainManager, error) {
@@ -1801,6 +1805,7 @@ var _ = Describe("Manager", func() {
 			Expect(actualGracePeriod).To(Equal(updatedGracePeriod))
 		})
 	})
+
 	Context("test marking graceful shutdown", func() {
 		It("Should set metadata when calling MarkGracefulShutdown api", func() {
 			manager, _ := newLibvirtDomainManagerDefault()
@@ -3594,14 +3599,6 @@ var _ = Describe("Manager helper functions", func() {
 			VolumeMode: &blockMode,
 		}
 
-		getFsImagePath := func(name string) string {
-			return filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
-		}
-
-		getBlockPath := func(name string) string {
-			return filepath.Join(string(filepath.Separator), "dev", name)
-		}
-
 		createDomWithFsImage := func(name string) *libvirtxml.Domain {
 			return &libvirtxml.Domain{
 				Devices: &libvirtxml.DomainDeviceList{
@@ -3751,6 +3748,201 @@ var _ = Describe("Manager helper functions", func() {
 	})
 })
 
+var _ = Describe("Changed Block Tracking", func() {
+	Context("needToCreateQCOW2Overlay", func() {
+		DescribeTable("should return correct value based on ChangedBlockTracking state", func(state v1.ChangedBlockTrackingState, expected bool) {
+			vmi := newVMI(testNamespace, testVmName)
+			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, state)
+
+			result := needToCreateQCOW2Overlay(vmi)
+			Expect(result).To(Equal(expected))
+		},
+			Entry("when state is Initializing", v1.ChangedBlockTrackingInitializing, true),
+			Entry("when state is Enabled", v1.ChangedBlockTrackingEnabled, false),
+			Entry("when state is Disabled", v1.ChangedBlockTrackingDisabled, false),
+			Entry("when state is Undefined", v1.ChangedBlockTrackingUndefined, false),
+		)
+	})
+
+	Context("applyChangedBlockTracking", func() {
+		var (
+			vmi                      *v1.VirtualMachineInstance
+			converterContext         *converter.ConverterContext
+			createQCOW2OverlayCalled int
+			blockDevCalled           int
+		)
+
+		BeforeEach(func() {
+			vmi = newVMI(testNamespace, testVmName)
+			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
+			converterContext = &converter.ConverterContext{
+				IsBlockPVC: make(map[string]bool),
+				IsBlockDV:  make(map[string]bool),
+			}
+			createQCOW2OverlayCalled = 0
+			blockDevCalled = 0
+			createQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+				createQCOW2OverlayCalled++
+				if blockDev {
+					blockDevCalled++
+				}
+				return nil
+			}
+		})
+
+		It("should skip volumes that don't support CBT", func() {
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "config-map-volume",
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{},
+					},
+				},
+				{
+					Name: "secret-volume",
+					VolumeSource: v1.VolumeSource{
+						Secret: &v1.SecretVolumeSource{},
+					},
+				},
+			}
+
+			err := applyChangedBlockTracking(vmi, converterContext)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(converterContext.ApplyCBT).To(BeEmpty())
+			Expect(createQCOW2OverlayCalled).To(Equal(0))
+		})
+
+		It("should process fs volumes that support CBT", func() {
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "pvc-volume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "test-pvc",
+							},
+						},
+					},
+				},
+				{
+					Name: "dv-volume",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "test-dv",
+						},
+					},
+				},
+				{
+					Name: "host-disk-volume",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path: "/path/to/disk",
+						},
+					},
+				},
+			}
+			converterContext.IsBlockPVC["pvc-volume"] = false
+			converterContext.IsBlockDV["dv-volume"] = false
+
+			err := applyChangedBlockTracking(vmi, converterContext)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(createQCOW2OverlayCalled).To(Equal(3))
+			Expect(blockDevCalled).To(Equal(0))
+			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
+			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
+			Expect(converterContext.ApplyCBT).To(HaveKey("dv-volume"))
+			Expect(converterContext.ApplyCBT["dv-volume"]).To(ContainSubstring("dv-volume.qcow2"))
+			Expect(converterContext.ApplyCBT).To(HaveKey("host-disk-volume"))
+			Expect(converterContext.ApplyCBT["host-disk-volume"]).To(ContainSubstring("host-disk-volume.qcow2"))
+		})
+
+		It("should process block volumes that support CBT", func() {
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "pvc-volume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "test-pvc",
+							},
+						},
+					},
+				},
+				{
+					Name: "dv-volume",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "test-dv",
+						},
+					},
+				},
+			}
+			converterContext.IsBlockPVC["pvc-volume"] = true
+			converterContext.IsBlockDV["dv-volume"] = true
+
+			err := applyChangedBlockTracking(vmi, converterContext)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(createQCOW2OverlayCalled).To(Equal(2))
+			Expect(blockDevCalled).To(Equal(2))
+			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
+			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
+			Expect(converterContext.ApplyCBT).To(HaveKey("dv-volume"))
+			Expect(converterContext.ApplyCBT["dv-volume"]).To(ContainSubstring("dv-volume.qcow2"))
+		})
+
+		It("should apply cbt to domain but skip creation when CBT is already enabled", func() {
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "pvc-volume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "test-pvc",
+							},
+						},
+					},
+				},
+			}
+			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+
+			err := applyChangedBlockTracking(vmi, converterContext)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(createQCOW2OverlayCalled).To(Equal(0))
+			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
+			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
+		})
+
+		It("should return error when overlay creation fails", func() {
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "pvc-volume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "test-pvc",
+							},
+						},
+					},
+				},
+			}
+			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
+
+			errMsg := "failed to create overlay"
+			// Mock createQCOW2Overlay to return error
+			createQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+				createQCOW2OverlayCalled++
+				return fmt.Errorf(errMsg)
+			}
+
+			err := applyChangedBlockTracking(vmi, converterContext)
+			Expect(err).To(HaveOccurred())
+			Expect(createQCOW2OverlayCalled).To(Equal(1))
+			Expect(err.Error()).To(ContainSubstring(errMsg))
+			Expect(converterContext.ApplyCBT).To(BeEmpty())
+		})
+	})
+})
+
 var _ = Describe("calculateHotplugPortCount", func() {
 	const gb = 1024 * 1024 * 1024
 
@@ -3835,4 +4027,90 @@ func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkDa
 func isoCreationFunc(isoOutFile, volumeID string, inDir string) error {
 	_, err := os.Create(isoOutFile)
 	return err
+}
+
+func createDomainDisk(volumeName string) api.Disk {
+	return api.Disk{
+		Device: "disk",
+		Type:   "file",
+		Source: api.DiskSource{
+			File: getFsImagePath(volumeName),
+		},
+		Target: api.DiskTarget{
+			Bus:    v1.DiskBusVirtio,
+			Device: "vda",
+		},
+		Driver: &api.DiskDriver{
+			Cache:       string(v1.CacheNone),
+			Name:        "qemu",
+			Type:        "raw",
+			ErrorPolicy: "stop",
+			Discard:     "unmap",
+		},
+		Alias: api.NewUserDefinedAlias(volumeName),
+	}
+}
+
+func createVMIDisk(name string) v1.Disk {
+	return v1.Disk{
+		Name: name,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: v1.DiskBusVirtio,
+			},
+		},
+		Cache: v1.CacheNone,
+	}
+}
+
+func createCloudInitDisk(volumeName string) api.Disk {
+	disk := createDomainDisk(volumeName)
+
+	isoPath := cloudinit.GetIsoFilePath(cloudinit.DataSourceNoCloud, testVmName, testNamespace)
+	disk.Source.File = isoPath
+	disk.Driver.Cache = string(v1.CacheWriteThrough)
+	disk.Driver.IO = v1.IONative
+	return disk
+}
+
+func createDomainDiskWithCBT(volumeName string, block bool) api.Disk {
+	disk := createDomainDisk(volumeName)
+	disk.Driver.Type = "qcow2"
+	disk.Source.File = getCBTImagePath(volumeName)
+	if block {
+		disk.Source.Name = volumeName
+		disk.Source.DataStore = &api.DataStore{
+			Type: "block",
+			Format: &api.DataStoreFormat{
+				Type: "raw",
+			},
+			Source: &api.DiskSource{
+				Dev: getBlockPath(volumeName),
+			},
+		}
+	} else {
+		disk.Source.DataStore = &api.DataStore{
+			Type: "file",
+			Format: &api.DataStoreFormat{
+				Type: "raw",
+			},
+			Source: &api.DiskSource{
+				File: getFsImagePath(volumeName),
+			},
+		}
+	}
+	return disk
+}
+
+func getCBTImagePath(name string) string {
+	cbtPath := filepath.Join("/var", "lib", "libvirt", "qemu", "cbt")
+	return filepath.Join(cbtPath, name+".qcow2")
+}
+
+func getFsImagePath(name string) string {
+	return filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
+}
+
+func getBlockPath(name string) string {
+	return filepath.Join(string(filepath.Separator), "dev", name)
 }
