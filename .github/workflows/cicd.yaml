@@ -30,15 +30,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
 
-      - name: Build Images
-        run: |
-          pwd
-          make bazel-build-images
+      # - name: Build Images
+      #   run: |
+      #     pwd
+      #     make bazel-build-images
 
 
-      - name: Push Images
-        run: |
-          make bazel-push-images
+      # - name: Push Images
+      #   run: |
+      #     make bazel-push-images
   
   # dev:
   #   uses: ./.github/workflows/deploy.yaml
