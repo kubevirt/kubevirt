@@ -1,8 +1,6 @@
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
 go_library(
@@ -43,24 +41,33 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
-container_image(
-    name = "version-container",
-    base = "//:passwd-image",
-    directory = "/",
-    files = ["//:get-version"],
+pkg_tar(
+    name = "get-version",
+    srcs = [
+        "//:get-version",
+    ],
+    package_dir = "/",
 )
 
-container_image(
+pkg_tar(
+    name = "virt-synchronization-tar",
+    srcs = [
+        ":virt-synchronization-controller",
+    ],
+    package_dir = "/usr/bin/",
+)
+
+oci_image(
+    name = "version-container",
+    base = "//:passwd-image",
+    tars = [":get-version"],
+)
+
+oci_image(
     name = "synchronization-controller-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
     base = ":version-container",
-    directory = "/usr/bin/",
     entrypoint = ["/usr/bin/synchronization-controller"],
-    files = [":virt-synchronization-controller"],
+    tars = [":virt-synchronization-tar"],
     user = "1001",
     visibility = ["//visibility:public"],
 )

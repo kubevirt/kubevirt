@@ -1,7 +1,4 @@
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
+load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 genrule(
@@ -42,18 +39,20 @@ pkg_tar(
     package_dir = "images/custom",
 )
 
-container_image(
+pkg_tar(
+    name = "entrypoint-tar",
+    srcs = [
+        "entrypoint.sh",
+    ],
+    package_dir = "/",
+)
+
+oci_image(
     name = "disks-images-provider-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
     base = "//images:kubevirt-testing-base",
-    directory = "/",
     entrypoint = ["/entrypoint.sh"],
-    files = ["entrypoint.sh"],
     tars = [
+        ":entrypoint-tar",
         ":alpine-tar",
         ":custom-tar",
     ],

@@ -1,11 +1,8 @@
-load("@bazeldnf//:deps.bzl", "xattrs")
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
+load("@bazeldnf//bazeldnf:defs.bzl", "xattrs")
 load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
@@ -174,43 +171,50 @@ pkg_tar(
     owner = "0.0",
 )
 
-container_image(
+pkg_tar(
+    name = "get-version-tar",
+    srcs = ["//:get-version"],
+    package_dir = "/",
+)
+
+oci_image(
     name = "version-container",
-    directory = "/",
-    files = ["//:get-version"],
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
+        "//conditions:default": "@go_image_base",
+    }),
     tars = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
+            "//rpm:launcherbase_aarch64",
+            ":get-version-tar",
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
             ":qemu-kvm-modules-dir-tar",
-            "//rpm:launcherbase_aarch64",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
+            "//rpm:launcherbase_s390x",
+            ":get-version-tar",
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
             ":qemu-kvm-modules-dir-tar",
-            "//rpm:launcherbase_s390x",
         ],
         "//conditions:default": [
+            "//rpm:launcherbase_x86_64",
+            ":get-version-tar",
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
             ":qemu-hook-tar",
             ":qemu-kvm-modules-dir-tar",
-            "//rpm:launcherbase_x86_64",
         ],
     }),
 )
 
-container_image(
+oci_image(
     name = "virt-launcher-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
     base = ":version-container",
     entrypoint = ["/usr/bin/virt-launcher"],
     tars = [":setcaps"],
