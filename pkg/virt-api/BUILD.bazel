@@ -57,6 +57,7 @@ go_test(
         "virt-api_suite_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/util:go_default_library",
         "//pkg/virt-api/rest:go_default_library",

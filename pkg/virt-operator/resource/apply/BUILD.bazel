@@ -92,6 +92,7 @@ go_test(
         "scc_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/certificates/triple:go_default_library",

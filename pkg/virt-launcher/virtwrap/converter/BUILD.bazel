@@ -59,6 +59,7 @@ go_test(
         "testdata/domain_x86_64_root.xml.tmpl",
         "testdata/domain_s390x.xml.tmpl",
     ],
+    race = "on",
     deps = [
         "//pkg/config:go_default_library",
         "//pkg/defaults:go_default_library",

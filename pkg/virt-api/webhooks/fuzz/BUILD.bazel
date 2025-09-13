@@ -6,6 +6,7 @@ go_test(
         "fuzz_suite_test.go",
         "fuzz_test.go",
     ],
+    race = "off",
     tags = ["fuzz"],
     deps = [
         "//pkg/instancetype/webhooks/vm:go_default_library",

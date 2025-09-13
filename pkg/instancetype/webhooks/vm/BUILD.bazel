@@ -35,6 +35,7 @@ go_test(
         "admitter_test.go",
         "vm_suite_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/instancetype/conflict:go_default_library",

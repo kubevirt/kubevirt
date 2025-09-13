@@ -21,6 +21,7 @@ go_test(
         "metadata_suite_test.go",
         "metadata_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

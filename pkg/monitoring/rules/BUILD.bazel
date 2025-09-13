@@ -19,6 +19,7 @@ go_test(
         "rules_suite_test.go",
         "rules_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

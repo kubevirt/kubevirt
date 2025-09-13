@@ -13,6 +13,7 @@ go_test(
         "filewatcher_suite_test.go",
         "filewatcher_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

@@ -20,6 +20,7 @@ go_test(
         "emptydisk_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/libvmi:go_default_library",

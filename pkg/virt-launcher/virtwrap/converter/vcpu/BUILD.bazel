@@ -24,6 +24,7 @@ go_test(
         "vcpu_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

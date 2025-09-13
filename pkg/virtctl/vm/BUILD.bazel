@@ -47,6 +47,7 @@ go_test(
         "user_list_test.go",
         "vm_suite_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/pointer:go_default_library",

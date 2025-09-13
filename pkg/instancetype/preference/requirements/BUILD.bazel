@@ -26,6 +26,7 @@ go_test(
         "memory_test.go",
         "requirements_suite_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/instancetype/conflict:go_default_library",
