@@ -653,12 +653,29 @@ var _ = Describe("Annotations Generator", func() {
 		})
 
 		It("Should generate network attachment annotation when a secondary interface is hot unplugged", func() {
+			ifaceWithStateAbsent := libvmi.InterfaceDeviceWithBridgeBinding(network1Name)
+			ifaceWithStateAbsent.State = v1.InterfaceStateAbsent
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(ifaceWithStateAbsent),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network2Name)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network1Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network2Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+					),
+				),
 			)
 
 			podAnnotations := map[string]string{
@@ -674,10 +691,23 @@ var _ = Describe("Annotations Generator", func() {
 		})
 
 		It("Should remove the Multus network attachment annotation when the last secondary interface is hot unplugged", func() {
+			ifaceWithStateAbsent := libvmi.InterfaceDeviceWithBridgeBinding(network1Name)
+			ifaceWithStateAbsent.State = v1.InterfaceStateAbsent
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(ifaceWithStateAbsent),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network1Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+					),
+				),
 			)
 
 			podAnnotations := map[string]string{
