@@ -491,6 +491,23 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
 	}
 
+	if vmiCopy.IsMarkedForEviction() {
+		if !conditionManager.HasConditionWithStatus(vmiCopy, virtv1.VirtualMachineInstanceEvictionRequested, k8sv1.ConditionTrue) {
+			conditionManager.UpdateCondition(vmiCopy, &virtv1.VirtualMachineInstanceCondition{
+				Type:               virtv1.VirtualMachineInstanceEvictionRequested,
+				Status:             k8sv1.ConditionTrue,
+				Reason:             virtv1.VirtualMachineInstanceReasonEvictionRequested,
+				Message:            "VMI is marked for eviction",
+				LastProbeTime:      v1.Now(),
+				LastTransitionTime: v1.Now(),
+			})
+		}
+	} else {
+		if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceEvictionRequested) {
+			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceEvictionRequested)
+		}
+	}
+
 	// VMI is owned by virt-handler, so patch instead of update
 	if vmi.IsRunning() || vmi.IsScheduled() {
 		patchSet := prepareVMIPatch(vmi, vmiCopy)
