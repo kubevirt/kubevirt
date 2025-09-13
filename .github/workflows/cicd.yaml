@@ -16,7 +16,7 @@ jobs:
     
   Build_Push_Images:
     runs-on: ubuntu-latest
-    # needs: [quality-check]
+    needs: [quality-check]
     permissions: write-all
     steps:
       - name: Checkout
