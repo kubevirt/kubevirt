@@ -381,6 +381,62 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(agentPoller.agentDone).To(Equal(originalState))
 		})
 	})
+
+	Context("minimumGAVersionNotMet method", func() {
+		var agentPoller *AgentPoller
+
+		BeforeEach(func() {
+			agentPoller = &AgentPoller{
+				agentStore: &agentStore,
+			}
+		})
+
+		It("should not skip worker when no minimum version is set", func() {
+			// No minimum GA version set
+			worker := PollerWorker{}
+			Expect(agentPoller.minimumGAVersionNotMet(worker)).To(BeFalse())
+		})
+
+		It("should skip worker when no agent version is available", func() {
+			worker := PollerWorker{
+				MinimumGAVersion: "10.0.0",
+			}
+			Expect(agentPoller.minimumGAVersionNotMet(worker)).To(BeTrue())
+		})
+
+		It("should not skip worker when agent version equals minimum required version", func() {
+			worker := PollerWorker{
+				MinimumGAVersion: "10.0.0",
+			}
+
+			agentInfo := AgentInfo{Version: "10.0.0"}
+			agentStore.Store(GetAgent, agentInfo)
+
+			Expect(agentPoller.minimumGAVersionNotMet(worker)).To(BeFalse())
+		})
+
+		It("should not skip worker when agent version is higher than minimum required version", func() {
+			worker := PollerWorker{
+				MinimumGAVersion: "10.0.0",
+			}
+
+			agentInfo := AgentInfo{Version: "11.2.1"}
+			agentStore.Store(GetAgent, agentInfo)
+
+			Expect(agentPoller.minimumGAVersionNotMet(worker)).To(BeFalse())
+		})
+
+		It("should skip worker when agent version is lower than minimum required version", func() {
+			worker := PollerWorker{
+				MinimumGAVersion: "10.0.0",
+			}
+
+			agentInfo := AgentInfo{Version: "9.5.2"}
+			agentStore.Store(GetAgent, agentInfo)
+
+			Expect(agentPoller.minimumGAVersionNotMet(worker)).To(BeTrue())
+		})
+	})
 })
 
 // runPollAndCountCommandExecution runs a PollerWorker with the specified polling interval
