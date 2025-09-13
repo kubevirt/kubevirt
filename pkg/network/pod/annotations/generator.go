@@ -20,6 +20,14 @@
 package annotations
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"reflect"
+	"regexp"
+	"strings"
+	"syscall"
+
 	k8scorev1 "k8s.io/api/core/v1"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -125,13 +133,28 @@ func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8
 }
 
 func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) (string, bool) {
+	var (
+		netSelectorsInCurrentMultusAnnot []map[string]interface{}
+		netSelectorsOwnedByKubevirt      []map[string]interface{}
+		updatedMultusAnnotation          []map[string]interface{}
+		newMultusAnnot                   []byte
+		netSelectorsToUnplug             string
+		err                              error
+	)
+
+	currentMultusAnnotation := pod.Annotations[networkv1.NetworkAttachmentAnnot]
+	if netSelectorsInCurrentMultusAnnot, err = parseAnnotation(currentMultusAnnotation); err != nil {
+		log.Log.Errorf("failed to unmarshall current pod multus annotation: %v", err)
+	}
+
 	vmiSpecIfaces, vmiSpecNets, ifaceChangeRequired := ifacesAndNetsForMultusAnnotationUpdate(vmi)
 	if !ifaceChangeRequired {
 		return "", false
 	}
 
 	podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(vmiSpecNets, multus.NetworkStatusesFromPod(pod))
-	updatedMultusAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
+
+	multusAnnotationItemsToModify, err := multus.GenerateCNIAnnotationFromNameScheme(
 		vmi.Namespace,
 		vmiSpecIfaces,
 		vmiSpecNets,
@@ -141,21 +164,53 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 	if err != nil {
 		return "", false
 	}
-
-	currentMultusAnnotation := pod.Annotations[networkv1.NetworkAttachmentAnnot]
-
-	const logLevel = 4
-	log.Log.Object(pod).V(logLevel).Infof(
-		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
-		currentMultusAnnotation,
-		updatedMultusAnnotation,
-	)
-
-	if updatedMultusAnnotation == currentMultusAnnotation {
-		return "", false
+	if netSelectorsOwnedByKubevirt, err = parseAnnotation(multusAnnotationItemsToModify); err != nil {
+		log.Log.Errorf("failed to unmarshall annotation to modify: %v", err)
 	}
 
-	return updatedMultusAnnotation, true
+	ifacesToUnplug, nwOfIfacesToUnplug, unplugRequired := ifacesAndNetsToRemoveFromMultusAnnotation(vmi)
+	if unplugRequired {
+		netSelectorsToUnplug, err = multus.GenerateCNIAnnotationFromNameScheme(
+			vmi.Namespace,
+			ifacesToUnplug,
+			nwOfIfacesToUnplug,
+			podIfaceNamesByNetworkName,
+			g.clusterConfigurer.GetNetworkBindings(),
+		)
+		if err != nil {
+			return "", false
+		}
+		updatedMultusAnnotation = removeUnpluggedIfacesFromMultusAnnot(netSelectorsToUnplug, netSelectorsInCurrentMultusAnnot)
+	} else {
+		for _, item := range netSelectorsInCurrentMultusAnnot {
+			newItem := make(map[string]interface{})
+			for k, v := range item {
+				newItem[k] = v
+			}
+			updatedMultusAnnotation = append(updatedMultusAnnotation, newItem)
+		}
+	}
+
+	updatedMultusAnnotation = mergeMultusAnnotations(updatedMultusAnnotation, netSelectorsOwnedByKubevirt, currentMultusAnnotation)
+
+	if updatedMultusAnnotation != nil {
+		newMultusAnnot, err = json.Marshal(updatedMultusAnnotation)
+		if err != nil {
+			log.Log.Errorf("failed to marshall updated multus annotation: %v", err)
+		}
+	}
+
+	if reflect.DeepEqual(netSelectorsInCurrentMultusAnnot, updatedMultusAnnotation) {
+		return "", false
+	} else {
+		const logLevel = 4
+		log.Log.Object(pod).V(logLevel).Infof(
+			"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
+			currentMultusAnnotation,
+			string(newMultusAnnot),
+		)
+		return string(newMultusAnnot), true
+	}
 }
 
 func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
@@ -205,4 +260,151 @@ func ifacesAndNetsForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v
 		return nil, nil, false
 	}
 	return ifacesToAnnotate, networksToAnnotate, ifaceChangeRequired
+}
+
+func parseAnnotation(s string) ([]map[string]interface{}, error) {
+	var networks []map[string]interface{}
+	if s == "" {
+		return networks, nil
+	}
+
+	if strings.ContainsAny(s, "[{\"") {
+		if err := json.Unmarshal([]byte(s), &networks); err != nil {
+			return nil, err
+		}
+	} else {
+		for _, item := range strings.Split(s, ",") {
+			item = strings.TrimSpace(item)
+
+			netNsName, networkName, netIfName, err := parsePodNetworkObjectName(item)
+			if err != nil {
+				return nil, err
+			}
+
+			networks = append(networks, map[string]interface{}{
+				"name":      networkName,
+				"namespace": netNsName,
+				"interface": netIfName,
+			})
+		}
+	}
+	return networks, nil
+}
+
+func parsePodNetworkObjectName(s string) (ns, nwName, nwIface string, err error) {
+	var netNsName string
+	var netIfName string
+	var networkName string
+
+	const (
+		noOfSegmentsWithNs   = 2
+		noOsSegmentsWithNoNs = 1
+	)
+	slashItems := strings.Split(s, "/")
+	if len(slashItems) == noOfSegmentsWithNs {
+		netNsName = strings.TrimSpace(slashItems[0])
+		networkName = slashItems[1]
+	} else if len(slashItems) == noOsSegmentsWithNoNs {
+		networkName = slashItems[0]
+	} else {
+		return "", "", "", errors.New("invalid annotation: " + "s")
+	}
+
+	atItems := strings.Split(networkName, "@")
+	networkName = strings.TrimSpace(atItems[0])
+	if len(atItems) == noOfSegmentsWithNs {
+		netIfName = strings.TrimSpace(atItems[1])
+	} else if len(atItems) != noOsSegmentsWithNoNs {
+		return "", "", "", errors.New("invalid annotation: " + "s")
+	}
+
+	allItems := []string{netNsName, networkName}
+	expr := regexp.MustCompile("^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+	for i := range allItems {
+		matched := expr.MatchString(allItems[i])
+		if !matched && len([]rune(allItems[i])) > 0 {
+			return "", "", "", errors.New("failed to parse one or more items did not match comma-delimited format" + s)
+		}
+	}
+
+	if netIfName != "" {
+		if len(netIfName) > (syscall.IFNAMSIZ-1) || strings.ContainsAny(netIfName, " \t\n\v\f\r/") {
+			return "", "", "", errors.New("failed to parse interface name: must be less than 15 chars and not contain '/' or spaces." + netIfName)
+		}
+	}
+	return netNsName, networkName, netIfName, nil
+}
+
+func makeLookupMap(annotItemsArr []map[string]interface{}) map[string]map[string]interface{} {
+	// We assume that name+namespace is a unique identifier
+	lookupMap := make(map[string]map[string]interface{})
+	for _, item := range annotItemsArr {
+		key := fmt.Sprintf("%s/%s", item["name"], item["namespace"])
+		lookupMap[key] = item
+	}
+	return lookupMap
+}
+
+func ifacesAndNetsToRemoveFromMultusAnnotation(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {
+	vmiNonAbsentSpecIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+
+	ifacesToHotUnplug := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State == v1.InterfaceStateAbsent
+	})
+	networksToUnplug := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToHotUnplug)
+
+	ifacesToHotUnplugExist := len(vmi.Spec.Domain.Devices.Interfaces) > len(vmiNonAbsentSpecIfaces)
+
+	return ifacesToHotUnplug, networksToUnplug, ifacesToHotUnplugExist
+}
+
+func removeUnpluggedIfacesFromMultusAnnot(
+	multusAnnotationItemsToRemove string,
+	currentAnnotArr []map[string]interface{},
+) []map[string]interface{} {
+	var (
+		netSelectorsToRemoveArr []map[string]interface{}
+		updatedNetSelectors     []map[string]interface{}
+		err                     error
+	)
+
+	if netSelectorsToRemoveArr, err = parseAnnotation(multusAnnotationItemsToRemove); err != nil {
+		log.Log.Errorf("failed to unmarshall annotation to remove: %v", err)
+	}
+
+	itemsToRemoveSet := makeLookupMap(netSelectorsToRemoveArr)
+	for _, item := range currentAnnotArr {
+		key := fmt.Sprintf("%s/%s", item["name"], item["namespace"])
+		if _, exists := itemsToRemoveSet[key]; !exists {
+			updatedNetSelectors = append(updatedNetSelectors, item)
+		}
+	}
+	return updatedNetSelectors
+}
+
+func mergeMultusAnnotations(
+	updatedAnnot []map[string]interface{},
+	kubevirtOwnedAnnot []map[string]interface{},
+	currentAnnot string,
+) []map[string]interface{} {
+	itemsToModifyMap := makeLookupMap(kubevirtOwnedAnnot)
+	for index, currentItem := range updatedAnnot {
+		key := fmt.Sprintf("%s/%s", currentItem["name"], currentItem["namespace"])
+		if modifyItem, found := itemsToModifyMap[key]; found {
+			for k, v := range modifyItem {
+				currentItem[k] = v
+			}
+			delete(itemsToModifyMap, key)
+		}
+		updatedAnnot[index] = currentItem
+	}
+	for _, remainingItem := range itemsToModifyMap {
+		updatedAnnot = append(updatedAnnot, remainingItem)
+	}
+	if currentAnnot == "" {
+		updatedAnnot = kubevirtOwnedAnnot
+	}
+	return updatedAnnot
 }
