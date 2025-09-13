@@ -17,10 +17,22 @@ jobs:
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: Wake up Azure VM
-        uses: azure/vm@v1
+
+      - name: Azure CLI script
+        uses: azure/cli@v2
         with:
-          name: ${{ vars.COMPUTE_NAME }}
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          subscription-id: ${{ vars.SUBSCRIPTION_ID }}
-          action: start
+          azcliversion: latest
+          inlineScript: |
+            az vm start --name ${{ vars.COMPUTE_NAME }} --resource-group ${{ vars.RESOURCE_GROUP }}
+        env:
+          COMPUTE_NAME: ${{ vars.COMPUTE_NAME }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          SUBSCRIPTION_ID: ${{ vars.SUBSCRIPTION_ID }}
+
+      # - name: Wake up Azure VM
+      #   uses: azure/vm@v1
+      #   with:
+      #     name: ${{ vars.COMPUTE_NAME }}
+      #     resource-group: ${{ vars.RESOURCE_GROUP }}
+      #     subscription-id: ${{ vars.SUBSCRIPTION_ID }}
+      #     action: start
