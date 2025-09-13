@@ -14,7 +14,8 @@ on:
 
 env:
   DOCKER_PREFIX: ghcr.io/${{ github.repository }}
-  DOCKER_TAG: ${{ inputs.image_tag }}
+  # DOCKER_TAG: ${{ inputs.image_tag }}
+  DOCKER_TAG: latest
   KUBEVIRT_PROVIDER: external
   KUBECONFIG: ${{ github.workspace }}/kube-config
   KUBEVIRT_WITH_ETC_IN_MEMORY: "true"
