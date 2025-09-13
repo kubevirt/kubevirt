@@ -447,7 +447,8 @@
               "attestation": {},
               "session": "sessionValue",
               "dhCert": "dhCertValue"
-            }
+            },
+            "tdx": {}
           }
         },
         "nodeSelector": {
