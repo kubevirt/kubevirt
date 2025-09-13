@@ -14,8 +14,7 @@ on:
 
 env:
   DOCKER_PREFIX: ghcr.io/${{ github.repository }}
-  # DOCKER_TAG: ${{ inputs.image_tag }}
-  DOCKER_TAG: latest
+  DOCKER_TAG: ${{ inputs.image_tag }}
   KUBEVIRT_PROVIDER: external
   KUBECONFIG: ${{ github.workspace }}/kube-config
   KUBEVIRT_WITH_ETC_IN_MEMORY: "true"
@@ -34,17 +33,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      # - name: Generate Manifests with configured Feature Gates
-      #   run: |          
-      #     make manifests
-      #   env: 
-      #     FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
+      - name: Generate Manifests with configured Feature Gates
+        run: |          
+          make manifests
+        env: 
+          FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
       
-      # - name: Upload Manifests
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: ${{ inputs.environment }}-manifests
-      #     path: ${{ github.workspace }}/_out/manifests
+      - name: Upload Manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.environment }}-manifests
+          path: ${{ github.workspace }}/_out/manifests
 
       - name: Configure kubeconfig
         run: |
@@ -57,7 +56,6 @@ jobs:
           # make sure all nodes are labeled as control-plane (required by KubeVirt)                             
           # kubectl label nodes --all 'node-role.kubernetes.io/control-plane=control-plane' --overwrite
           make cluster-up
-          make manifests
           make cluster-deploy
 
           # if EMULATION is set to true, deploy the emulation configmap
