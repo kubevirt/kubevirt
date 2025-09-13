@@ -162,8 +162,9 @@ func newPodTemplateSpec(podName, imageName, repository, version, productName, pr
 	podTemplateSpec := &corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				virtv1.AppLabel:    podName,
-				prometheusLabelKey: prometheusLabelValue,
+				virtv1.AppLabel:                          podName,
+				prometheusLabelKey:                       prometheusLabelValue,
+				virtv1.AllowAccessClusterServicesNPLabel: "true",
 			},
 			Name: podName,
 		},
@@ -531,9 +532,10 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						virtv1.AppLabel:    VirtOperatorName,
-						virtv1.AppName:     VirtOperatorName,
-						prometheusLabelKey: prometheusLabelValue,
+						virtv1.AppLabel:                          VirtOperatorName,
+						virtv1.AppName:                           VirtOperatorName,
+						prometheusLabelKey:                       prometheusLabelValue,
+						virtv1.AllowAccessClusterServicesNPLabel: "true",
 					},
 					Name: VirtOperatorName,
 				},
