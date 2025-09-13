@@ -63,12 +63,6 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 				return err
 			}
 
-			// This cache is no longer used by vit-launcher, the dummy interface is used instead to store the data.
-			// It is kept here for backward compatibility.
-			if err := n.storeBridgeDomainInterfaceData(podIfaceStatus, vmiSpecIface); err != nil {
-				return err
-			}
-
 		case vmiSpecIface.Masquerade != nil:
 			if !podIfaceExists {
 				return fmt.Errorf("pod link (%s) is missing", podIfaceName)
