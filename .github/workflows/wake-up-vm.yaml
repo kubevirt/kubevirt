@@ -18,7 +18,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Azure CLI script
+      - name: Wake up Azure VM
         uses: azure/cli@v2
         with:
           azcliversion: latest
