@@ -1059,29 +1059,26 @@ rpm(
 )
 
 rpm(
-    name = "crypto-policies-0__20250804-1.git2c74f3d.el9.aarch64",
-    sha256 = "96f3d4427ff10d17577e4a00d575ff5c35a7df57237dac6bb753fba9c1a0e689",
+    name = "crypto-policies-0__20250905-1.git377cc42.el9.aarch64",
+    sha256 = "e303cc1e87fbd5c9aded367feb0f88e7d83d466366b819f63306aef5cc60dc65",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/crypto-policies-20250804-1.git2c74f3d.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/96f3d4427ff10d17577e4a00d575ff5c35a7df57237dac6bb753fba9c1a0e689",
+        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/crypto-policies-20250905-1.git377cc42.el9.noarch.rpm",
     ],
 )
 
 rpm(
-    name = "crypto-policies-0__20250804-1.git2c74f3d.el9.s390x",
-    sha256 = "96f3d4427ff10d17577e4a00d575ff5c35a7df57237dac6bb753fba9c1a0e689",
+    name = "crypto-policies-0__20250905-1.git377cc42.el9.s390x",
+    sha256 = "e303cc1e87fbd5c9aded367feb0f88e7d83d466366b819f63306aef5cc60dc65",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/crypto-policies-20250804-1.git2c74f3d.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/96f3d4427ff10d17577e4a00d575ff5c35a7df57237dac6bb753fba9c1a0e689",
+        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/crypto-policies-20250905-1.git377cc42.el9.noarch.rpm",
     ],
 )
 
 rpm(
-    name = "crypto-policies-0__20250804-1.git2c74f3d.el9.x86_64",
-    sha256 = "96f3d4427ff10d17577e4a00d575ff5c35a7df57237dac6bb753fba9c1a0e689",
+    name = "crypto-policies-0__20250905-1.git377cc42.el9.x86_64",
+    sha256 = "e303cc1e87fbd5c9aded367feb0f88e7d83d466366b819f63306aef5cc60dc65",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/crypto-policies-20250804-1.git2c74f3d.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/96f3d4427ff10d17577e4a00d575ff5c35a7df57237dac6bb753fba9c1a0e689",
+        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/crypto-policies-20250905-1.git377cc42.el9.noarch.rpm",
     ],
 )
 
@@ -1748,6 +1745,14 @@ rpm(
     urls = [
         "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/findutils-4.8.0-7.el9.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/393fc651dddb826521d528d78819515c09b93e551701cafb62b672c2c4701d04",
+    ],
+)
+
+rpm(
+    name = "fips-provider-next-0__1.2.0-5.el9.aarch64",
+    sha256 = "216cd58e8e9222e696f9fa5607393807c1e55200f47980bd99b3f1326d5961e2",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/fips-provider-next-1.2.0-5.el9.aarch64.rpm",
     ],
 )
 
@@ -2751,29 +2756,26 @@ rpm(
 )
 
 rpm(
-    name = "kernel-headers-0__5.14.0-611.el9.aarch64",
-    sha256 = "bbfb330afff55f27f749e9f8206e5234c9f78a47719f1685c9214a4d22d6ef50",
+    name = "kernel-headers-0__5.14.0-612.el9.aarch64",
+    sha256 = "ba07be6c3423bf5f82f5142f3a014712ad07a47adf39d295bd6c5b8011932851",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/kernel-headers-5.14.0-611.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/bbfb330afff55f27f749e9f8206e5234c9f78a47719f1685c9214a4d22d6ef50",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/kernel-headers-5.14.0-612.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "kernel-headers-0__5.14.0-611.el9.s390x",
-    sha256 = "7d4bb2984b2d7de5a788945048906fa52624a151d6af18d66e0c9c7333f2456c",
+    name = "kernel-headers-0__5.14.0-612.el9.s390x",
+    sha256 = "521fc35fd4058f086289ca6c9a2109b1748cdee56d09e26189692e1a6b3fb345",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/kernel-headers-5.14.0-611.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/7d4bb2984b2d7de5a788945048906fa52624a151d6af18d66e0c9c7333f2456c",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/kernel-headers-5.14.0-612.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "kernel-headers-0__5.14.0-611.el9.x86_64",
-    sha256 = "a95df6688cdc6d5b8991f930cca8d42ed3431393847a300aeba305ff5e0f4cef",
+    name = "kernel-headers-0__5.14.0-612.el9.x86_64",
+    sha256 = "df224d344b4aa3e941b6e5364c79c5e1e10fe3f57ec0394f7c29d0d2aa192471",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/kernel-headers-5.14.0-611.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/a95df6688cdc6d5b8991f930cca8d42ed3431393847a300aeba305ff5e0f4cef",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/kernel-headers-5.14.0-612.el9.x86_64.rpm",
     ],
 )
 
