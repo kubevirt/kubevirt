@@ -133,6 +133,7 @@ type annotationsGenerator interface {
 
 type targetAnnotationsGenerator interface {
 	GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (map[string]string, error)
+	GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) map[string]string
 }
 
 type TemplateService struct {
@@ -286,6 +287,11 @@ func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		}
 
 		maps.Copy(targetPod.Annotations, netAnnotations)
+
+		activePodAnnotations := t.netTargetAnnotationsGenerator.GenerateFromActivePod(vmi, sourcePod)
+		if deviceInfo, exists := activePodAnnotations[downwardapi.NetworkInfoAnnot]; exists {
+			targetPod.Annotations[downwardapi.NetworkInfoAnnot] = deviceInfo
+		}
 	}
 
 	return targetPod, err
