@@ -123,37 +123,37 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		It("Should be available for a running VM", func() {
 
 			By("Create a running VirtualMachine")
-			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			vms := createVMs(virtClient, 2, libvmifact.NewGuestless(), v1.RunStrategyAlways)
 
 			By("Checking that the VM metrics are available")
-			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
-			for _, metric := range cpuMetrics {
-				checkMetricTo(metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a running VM")
+			for _, vm := range vms {
+				metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
+				for _, metric := range cpuMetrics {
+					checkMetricTo(metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a running VM")
+				}
 			}
 		})
 
 		It("Should be available for a paused VM", func() {
 
 			By("Create a running VirtualMachine")
-			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			vms := createVMs(virtClient, 2, libvmifact.NewGuestless(), v1.RunStrategyAlways)
 
 			By("Pausing the VM")
-			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			for _, vm := range vms {
+				err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
 
 			By("Waiting until next Prometheus scrape")
 			time.Sleep(35 * time.Second)
 
 			By("Checking that the VM metrics are available")
-			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
-			for _, metric := range cpuMetrics {
-				checkMetricTo(metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a paused VM")
+			for _, vm := range vms {
+				metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
+				for _, metric := range cpuMetrics {
+					checkMetricTo(metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a paused VM")
+				}
 			}
 		})
 
