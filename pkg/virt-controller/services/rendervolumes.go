@@ -754,7 +754,7 @@ func (vr *VolumeRenderer) addContainerDiskVolumeMount(volume v1.Volume, volumeIn
 
 func (vr *VolumeRenderer) addKernelBootVolume(kbc *v1.KernelBootContainer) {
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
-		Name: containerdisk.KernelBootName,
+		Name: containerdisk.KernelBootVolumeName,
 		VolumeSource: k8sv1.VolumeSource{
 			Image: &k8sv1.ImageVolumeSource{
 				Reference:  kbc.Image,
@@ -766,7 +766,7 @@ func (vr *VolumeRenderer) addKernelBootVolume(kbc *v1.KernelBootContainer) {
 
 func (vr *VolumeRenderer) addKernelBootVolumeMount() {
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
-		Name:      containerdisk.KernelBootName,
+		Name:      containerdisk.KernelBootVolumeName,
 		MountPath: util.VirtKernelBootVolumeDir,
 		ReadOnly:  true,
 	})

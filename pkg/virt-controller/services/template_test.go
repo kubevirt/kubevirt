@@ -3884,7 +3884,7 @@ var _ = Describe("Template", func() {
 
 				Expect(volumes).To(ContainElement(
 					k8sv1.Volume{
-						Name: containerdisk.KernelBootName,
+						Name: containerdisk.KernelBootVolumeName,
 						VolumeSource: k8sv1.VolumeSource{
 							Image: &k8sv1.ImageVolumeSource{
 								Reference:  kernelbootcontainer.Image,
@@ -3895,7 +3895,7 @@ var _ = Describe("Template", func() {
 				)
 				Expect(computeMounts).To(ContainElement(
 					k8sv1.VolumeMount{
-						Name:      containerdisk.KernelBootName,
+						Name:      containerdisk.KernelBootVolumeName,
 						MountPath: util.VirtKernelBootVolumeDir,
 						ReadOnly:  true,
 					}),
