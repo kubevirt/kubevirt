@@ -82,7 +82,9 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 
 	if shouldAddIstioKubeVirtAnnotation(vmi) {
 		const defaultBridgeName = "k6t-eth0"
+		// both annotations do the same thing, but we need to support both for backward compatibility
 		annotations[istio.KubeVirtTrafficAnnotation] = defaultBridgeName
+		annotations[istio.RerouteVirtualInterfacesAnnotation] = defaultBridgeName
 	}
 
 	return annotations, nil
