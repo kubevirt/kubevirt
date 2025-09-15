@@ -30,8 +30,5 @@ func GetControllerOf(pod *k8sv1.Pod) *metav1.OwnerReference {
 }
 
 func IsControlledBy(pod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance) bool {
-	if controllerRef := GetControllerOf(pod); controllerRef != nil {
-		return controllerRef.UID == vmi.UID
-	}
-	return false
+	return metav1.IsControlledBy(pod, vmi)
 }
