@@ -33,7 +33,7 @@ jobs:
 
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: junit-test-results
           path: _out/artifacts/junit/*.xml
