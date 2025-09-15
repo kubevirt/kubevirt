@@ -61,6 +61,7 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
@@ -2279,20 +2280,20 @@ var _ = Describe("Migration watcher", func() {
 			)
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(Equal("default/testmigrationpending"))
-			Expect(priority).To(Equal(pendingPriority))
+			Expect(priority).To(Equal(migrationsutil.PriorityPending))
 			Expect(shutdown).To(BeFalse())
 		})
 
 		It("existing items should keep low priority after regular Add", func() {
 			controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-				Priority: pendingPriority,
+				Priority: migrationsutil.PriorityPending,
 			}, "default/testmigrationpending")
 
 			// Simulating what we do with informer handler
 			controller.Queue.Add("default/testmigrationpending")
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(Equal("default/testmigrationpending"))
-			Expect(priority).To(BeNumerically("<", activePriority))
+			Expect(priority).To(BeNumerically("<", migrationsutil.PriorityRunning))
 			Expect(shutdown).To(BeFalse())
 		})
 
@@ -2300,20 +2301,20 @@ var _ = Describe("Migration watcher", func() {
 			controller.Queue.Add("default/testmigrationpending")
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(Equal("default/testmigrationpending"))
-			Expect(priority).To(BeNumerically("<", activePriority))
-			Expect(priority).To(BeNumerically(">", pendingPriority))
+			Expect(priority).To(BeNumerically("<", migrationsutil.PriorityRunning))
+			Expect(priority).To(BeNumerically(">", migrationsutil.PriorityPending))
 			Expect(shutdown).To(BeFalse())
 		})
 
 		It("should get items in order based on priority", func() {
 			for i := range 5 {
 				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-					Priority: pendingPriority,
+					Priority: migrationsutil.PriorityPending,
 				}, fmt.Sprintf("default/pending%d", i))
 			}
 			for i := range 5 {
 				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-					Priority: activePriority,
+					Priority: migrationsutil.PriorityRunning,
 				}, fmt.Sprintf("default/active%d", i))
 			}
 			// Add should not change active3's priority
@@ -2324,13 +2325,13 @@ var _ = Describe("Migration watcher", func() {
 			for i := range 5 {
 				item, priority, shutdown := controller.Queue.GetWithPriority()
 				Expect(item).To(BeEquivalentTo(fmt.Sprintf("default/active%d", i)))
-				Expect(priority).To(Equal(activePriority))
+				Expect(priority).To(Equal(migrationsutil.PriorityRunning))
 				Expect(shutdown).To(BeFalse())
 			}
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(BeEquivalentTo("default/pending3"))
-			Expect(priority).To(BeNumerically("<", activePriority))
-			Expect(priority).To(BeNumerically(">", pendingPriority))
+			Expect(priority).To(BeNumerically("<", migrationsutil.PriorityRunning))
+			Expect(priority).To(BeNumerically(">", migrationsutil.PriorityPending))
 			Expect(shutdown).To(BeFalse())
 			for i := range 5 {
 				if i == 3 {
@@ -2338,7 +2339,7 @@ var _ = Describe("Migration watcher", func() {
 				}
 				item, priority, shutdown := controller.Queue.GetWithPriority()
 				Expect(item).To(BeEquivalentTo(fmt.Sprintf("default/pending%d", i)))
-				Expect(priority).To(Equal(pendingPriority))
+				Expect(priority).To(Equal(migrationsutil.PriorityPending))
 				Expect(shutdown).To(BeFalse())
 			}
 		})
