@@ -14,15 +14,14 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -366,12 +365,12 @@ func getMarkedForEvictionVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.V
 	return evictionCandidates
 }
 
-func GenerateNewMigration(vmiName string, key string) *virtv1.VirtualMachineInstanceMigration {
+func GenerateNewMigration(vmiName string, key string, config *virtconfig.ClusterConfig) *virtv1.VirtualMachineInstanceMigration {
 
 	annotations := map[string]string{
 		virtv1.EvacuationMigrationAnnotation: key,
 	}
-	return &virtv1.VirtualMachineInstanceMigration{
+	mig := &virtv1.VirtualMachineInstanceMigration{
 		ObjectMeta: v1.ObjectMeta{
 			Annotations:  annotations,
 			GenerateName: "kubevirt-evacuation-",
@@ -380,6 +379,11 @@ func GenerateNewMigration(vmiName string, key string) *virtv1.VirtualMachineInst
 			VMIName: vmiName,
 		},
 	}
+	if config.MigrationPriorityQueueEnabled() {
+		mig.Spec.Priority = pointer.P(virtv1.PrioritySystemCritical)
+	}
+
+	return mig
 }
 
 func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.VirtualMachineInstance, activeMigrations []*virtv1.VirtualMachineInstanceMigration) error {
@@ -449,7 +453,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi.Name, node.Name), v1.CreateOptions{})
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi.Name, node.Name, c.clusterConfig), v1.CreateOptions{})
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)
