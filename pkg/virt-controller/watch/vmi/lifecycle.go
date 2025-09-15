@@ -428,8 +428,9 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		}
 
 	case vmi.IsRunning():
-		if !vmiPodExists {
-			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while running because pod does not exist")
+		vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+		if !vmiPodExists || vmiConditions.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceReady, k8sv1.ConditionFalse) {
+			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while running because pod isn't ready")
 			vmiCopy.Status.Phase = virtv1.Failed
 			break
 		}
