@@ -1224,7 +1224,12 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel migration count [%d] is currently at the global cluster limit.", vmi.Namespace, vmi.Name, len(runningMigrations))
 		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
-		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityPending, After: 5 * time.Second}, key)
+		if c.clusterConfig.MigrationPriorityQueueEnabled() {
+			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityFromMigration(migration), After: 5 * time.Second}, key)
+		} else {
+			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityPending, After: 5 * time.Second}, key)
+		}
+
 		return nil
 	}
 
@@ -1234,7 +1239,11 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 		// XXX: Make this configurable, think about inbound migration limit, bandwidth per migration, and so on.
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
 		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
-		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityPending, After: 5 * time.Second}, key)
+		if c.clusterConfig.MigrationPriorityQueueEnabled() {
+			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityFromMigration(migration), After: 5 * time.Second}, key)
+		} else {
+			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityPending, After: 5 * time.Second}, key)
+		}
 		return nil
 	}
 
@@ -1700,13 +1709,17 @@ func (c *Controller) enqueueMigration(obj interface{}) {
 		logger.Object(migration).Reason(err).Error("Failed to extract key from migration.")
 		return
 	}
-	// If the key is already in the queue at active priority or higher, it will keep that priority.
-	// If the key is already in the queue at pending priority, it will be bumped to 0 (still below all active ones).
-	// If the key is not present in the queue, it will default to the active priority if the migration is running, 0 otherwise.
+	// If the migration is running, it will default to the active priority.
 	if migration.Status.Phase == virtv1.MigrationRunning {
 		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityRunning}, key)
 	} else {
-		c.Queue.Add(key)
+		if c.clusterConfig.MigrationPriorityQueueEnabled() {
+			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityFromMigration(migration)}, key)
+		} else {
+			// If the key is already in the queue at active priority or higher, it will keep that priority.
+			// If the key is already in the queue at pending priority, it will be bumped to 0 (still below all active ones).
+			c.Queue.Add(key)
+		}
 	}
 }
 

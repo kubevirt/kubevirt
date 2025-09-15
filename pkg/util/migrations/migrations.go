@@ -15,8 +15,12 @@ import (
 const CancelMigrationFailedVmiNotMigratingErr = "failed to cancel migration - vmi is not migrating"
 
 const (
-	PriorityRunning int = 1000
-	PriorityPending int = -100
+	PriorityRunning           int = 1000
+	PrioritySystemCritical    int = 100
+	PriorityUserTriggered     int = 50
+	PrioritySystemMaintenance int = 20
+	PriorityDefault           int = 0
+	PriorityPending           int = -100
 )
 
 func ListUnfinishedMigrations(indexer cache.Indexer) []*v1.VirtualMachineInstanceMigration {
@@ -135,4 +139,20 @@ func ActiveMigrationExistsForVMI(migrationIndexer cache.Indexer, vmi *v1.Virtual
 		}
 	}
 	return false, nil
+}
+
+func PriorityFromMigration(migration *v1.VirtualMachineInstanceMigration) int {
+	if migration.Spec.Priority == nil {
+		return PriorityDefault
+	}
+	switch *migration.Spec.Priority {
+	case v1.PrioritySystemCritical:
+		return PrioritySystemCritical
+	case v1.PriorityUserTriggered:
+		return PriorityUserTriggered
+	case v1.PrioritySystemMaintenance:
+		return PrioritySystemMaintenance
+	default:
+		return PriorityDefault
+	}
 }
