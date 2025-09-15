@@ -69,7 +69,7 @@ const (
 	hookSidecarSocks             = "hook-sidecar-sockets"
 	varRun                       = "/var/run"
 	virtBinDir                   = "virt-bin-share-dir"
-	hotplugDisk                  = "hotplug-disk"
+	hotplugDisk                  = "d8v-hotplug-disk"
 	virtExporter                 = "virt-exporter"
 	hotplugContainerDisks        = "hotplug-container-disks"
 	HotplugContainerDisk         = "hotplug-container-disk-"
@@ -733,7 +733,7 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 }
 
 func (t *templateService) newInitContainerRenderer(vmiSpec *v1.VirtualMachineInstance, initContainerVolumeMount k8sv1.VolumeMount, initContainerResources k8sv1.ResourceRequirements, userId int64) *ContainerSpecRenderer {
-	const containerDisk = "container-disk-binary"
+	const containerDisk = "d8v-container-disk-binary"
 	cpInitContainerOpts := []Option{
 		WithVolumeMounts(initContainerVolumeMount),
 		WithResourceRequirements(initContainerResources),
@@ -773,7 +773,7 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 		computeContainerOpts = append(computeContainerOpts, WithLivelinessProbe(vmi))
 	}
 
-	const computeContainerName = "compute"
+	const computeContainerName = "d8v-compute"
 	containerRenderer := NewContainerSpecRenderer(
 		computeContainerName, t.launcherImage, t.clusterConfig.GetImagePullPolicy(), computeContainerOpts...)
 	return containerRenderer
@@ -1401,7 +1401,7 @@ func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string, dockerSEL
 		// feature gate to be set.
 		for i := range pod.Spec.Containers {
 			container := &pod.Spec.Containers[i]
-			if container.Name != "compute" {
+			if !strings.HasSuffix(container.Name, "compute") {
 				generateContainerSecurityContext(selinuxType, container)
 			}
 		}
@@ -1440,7 +1440,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	}
 	maps.Copy(annotationsSet, filterVMIAnnotationsForPod(vmi.Annotations))
 
-	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
+	annotationsSet[podcmd.DefaultContainerAnnotationName] = "d8v-compute"
 
 	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.State != v1.InterfaceStateAbsent
@@ -1461,12 +1461,12 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
 		annotationsSet[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
-	annotationsSet[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
+	annotationsSet[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "d8v-compute"
 	annotationsSet[VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
 		"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
 		vmi.GetObjectMeta().GetName(),
 		vmi.GetObjectMeta().GetNamespace())
-	annotationsSet[VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
+	annotationsSet[VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION] = "d8v-compute"
 	annotationsSet[VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
 		"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
 		vmi.GetObjectMeta().GetName(),

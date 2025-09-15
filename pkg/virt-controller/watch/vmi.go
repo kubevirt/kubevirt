@@ -527,7 +527,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	if vmiPodExists {
 		var foundImage string
 		for _, container := range pod.Spec.Containers {
-			if container.Name == "compute" {
+			if strings.HasSuffix(container.Name, "compute") {
 				foundImage = container.Image
 				break
 			}
@@ -2296,7 +2296,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 				} else if volume.PersistentVolumeClaim != nil {
 					var isReady bool
 					for _, cs := range attachmentPod.Status.ContainerStatuses {
-						if cs.Name == "hotplug-disk" {
+						if cs.Name == "d8v-hotplug-disk" {
 							isReady = cs.Ready
 							break
 						}

@@ -594,7 +594,7 @@ func newPod(vmi *v1.VirtualMachineInstance, name string, phase k8scorev1.PodPhas
 		Status: k8scorev1.PodStatus{
 			Phase: phase,
 			ContainerStatuses: []k8scorev1.ContainerStatus{
-				{Ready: false, Name: "compute", State: k8scorev1.ContainerState{Running: &k8scorev1.ContainerStateRunning{}}},
+				{Ready: false, Name: "d8v-compute", State: k8scorev1.ContainerState{Running: &k8scorev1.ContainerStateRunning{}}},
 			},
 		},
 	}
