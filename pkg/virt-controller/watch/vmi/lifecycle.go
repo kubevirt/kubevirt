@@ -1006,7 +1006,7 @@ func (c *Controller) waitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachin
 		if controller.IsControlledBy(pod, vmi) {
 			temporaryPods = append(temporaryPods, pod)
 		}
-		if ownerRef := controller.GetControllerOf(pod); ownerRef != nil && ownerRef.UID == virtLauncherPod.UID {
+		if ownerRef := v1.GetControllerOf(pod); ownerRef != nil && ownerRef.UID == virtLauncherPod.UID {
 			temporaryPods = append(temporaryPods, pod)
 		}
 	}

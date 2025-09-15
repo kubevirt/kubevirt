@@ -23,12 +23,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
-// GetControllerOf returns the controllerRef if controllee has a controller,
-// otherwise returns nil.
-func GetControllerOf(pod *k8sv1.Pod) *metav1.OwnerReference {
-	return metav1.GetControllerOf(pod)
-}
-
 func IsControlledBy(pod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance) bool {
 	return metav1.IsControlledBy(pod, vmi)
 }

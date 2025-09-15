@@ -469,7 +469,7 @@ func AttachmentPods(ownerPod *k8sv1.Pod, podIndexer cache.Indexer) ([]*k8sv1.Pod
 	attachmentPods := []*k8sv1.Pod{}
 	for _, obj := range objs {
 		pod := obj.(*k8sv1.Pod)
-		ownerRef := GetControllerOf(pod)
+		ownerRef := metav1.GetControllerOf(pod)
 		if ownerRef == nil || ownerRef.UID != ownerPod.UID {
 			continue
 		}
