@@ -23,13 +23,27 @@ jobs:
           
       - name: Run Unit Tests
         run: |
-          make test
+          make test 2>&1 | tee test_output.log
+
+      - name: Parse Test Results
+        id: test-count
+        run: |
+          TEST_COUNT=$(grep "Executed .* out of .* tests" test_output.log | tail -n1 | sed 's/.*Executed \([0-9]*\) out of \([0-9]*\) tests.*/\1\/\2/')
+          echo "count=$TEST_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: junit-test-results
+          path: _out/artifacts/junit/*.xml
+          retention-days: 30
 
       - name: Publish Test Results
         uses: dorny/test-reporter@v1
         if: success() || failure()    # run this step even if previous step failed
         with:
-          name: Unit Test Results
+          name: "Unit Tests (${{ steps.test-count.outputs.count }} test files)"
           path: _out/artifacts/junit/junit.unittests.xml
           reporter: java-junit
           fail-on-error: false
