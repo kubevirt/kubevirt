@@ -14,6 +14,11 @@ import (
 
 const CancelMigrationFailedVmiNotMigratingErr = "failed to cancel migration - vmi is not migrating"
 
+const (
+	PriorityRunning int = 1000
+	PriorityPending int = -100
+)
+
 func ListUnfinishedMigrations(indexer cache.Indexer) []*v1.VirtualMachineInstanceMigration {
 	objs, err := indexer.ByIndex(controller.UnfinishedIndex, controller.UnfinishedIndex)
 	if err != nil {
