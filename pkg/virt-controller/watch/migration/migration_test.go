@@ -2370,6 +2370,7 @@ func newSourcePodForVirtualMachine(vmi *virtv1.VirtualMachineInstance) *k8sv1.Po
 			Annotations: map[string]string{
 				virtv1.DomainAnnotation: vmi.Name,
 			},
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind)},
 		},
 		Status: k8sv1.PodStatus{
 			Phase: k8sv1.PodRunning,
@@ -2398,6 +2399,7 @@ func newTargetPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, migration
 				virtv1.DomainAnnotation:           vmi.Name,
 				virtv1.MigrationJobNameAnnotation: migration.Name,
 			},
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind)},
 		},
 		Status: k8sv1.PodStatus{
 			Phase: phase,

@@ -4222,6 +4222,9 @@ func newPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 				virtv1.CreatedByLabel: string(vmi.UID),
 			},
 			Annotations: podAnnotations,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
+			},
 		},
 		Status: k8sv1.PodStatus{
 			Phase: phase,
