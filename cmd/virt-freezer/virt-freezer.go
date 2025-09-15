@@ -25,11 +25,10 @@ import (
 	"strings"
 
 	"github.com/spf13/pflag"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -93,14 +92,9 @@ func parseFlags() (*FreezerConfig, error) {
 }
 
 func run(config *FreezerConfig, client cmdclient.LauncherClient) error {
-	vmi := &v1.VirtualMachineInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.Name,
-			Namespace: config.Namespace,
-		},
-	}
+	vmi := libvmi.New(libvmi.WithName(config.Name), libvmi.WithNamespace(config.Namespace))
 
-	info, err := client.GetGuestInfo()
+	info, err := client.GetGuestInfo(vmi, []string{})
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to get guest info")
 		return err

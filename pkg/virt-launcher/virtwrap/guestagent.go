@@ -17,7 +17,7 @@
  *
  */
 
-package virthandler
+package virtwrap
 
 import v1 "kubevirt.io/api/core/v1"
 

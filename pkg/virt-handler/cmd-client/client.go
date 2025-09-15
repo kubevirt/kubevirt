@@ -95,7 +95,7 @@ type LauncherClient interface {
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
 	GetDomainStats() (*stats.DomainStats, bool, error)
-	GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error)
+	GetGuestInfo(vmi *v1.VirtualMachineInstance, supportedGuestAgentVersions []string) (*v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error)
 	GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error)
 	Exec(string, string, []string, int32) (int, string, error)
@@ -540,25 +540,40 @@ func (c *VirtLauncherClient) Ping() error {
 }
 
 // GetGuestInfo is a counterpart for virt-launcher call to gather guest agent data
-func (c *VirtLauncherClient) GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error) {
+func (c *VirtLauncherClient) GetGuestInfo(vmi *v1.VirtualMachineInstance, supportedGuestAgentVersions []string) (*v1.VirtualMachineInstanceGuestAgentInfo, error) {
 	guestInfo := &v1.VirtualMachineInstanceGuestAgentInfo{}
 
-	request := &cmdv1.EmptyRequest{}
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	vmOptions := &cmdv1.VirtualMachineOptions{}
+	if supportedGuestAgentVersions != nil {
+		vmOptions.SupportedGuestAgentVersions = supportedGuestAgentVersions
+	}
+
+	request := &cmdv1.VMIRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		Options: vmOptions,
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 
-	gaRespose, err := c.v1client.GetGuestInfo(ctx, request)
+	gaResponse, err := c.v1client.GetGuestInfo(ctx, request)
 	var response *cmdv1.Response
-	if gaRespose != nil {
-		response = gaRespose.Response
+	if gaResponse != nil {
+		response = gaResponse.Response
 	}
 
-	if err = handleError(err, "GetGuestInfo", response); err != nil || gaRespose == nil {
+	if err = handleError(err, "GetGuestInfo", response); err != nil || gaResponse == nil {
 		return guestInfo, err
 	}
 
-	if gaRespose.GuestInfoResponse != "" {
-		if err := json.Unmarshal([]byte(gaRespose.GetGuestInfoResponse()), guestInfo); err != nil {
+	if gaResponse.GuestInfoResponse != "" {
+		if err := json.Unmarshal([]byte(gaResponse.GetGuestInfoResponse()), guestInfo); err != nil {
 			log.Log.Reason(err).Error("error unmarshalling guest agent response")
 			return guestInfo, err
 		}

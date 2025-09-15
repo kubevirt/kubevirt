@@ -35,6 +35,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -143,7 +144,7 @@ type DomainManager interface {
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
 	GetDomainStats() (*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
-	GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo
+	GetGuestInfo(vmi *v1.VirtualMachineInstance, supportedGuestAgentVersions []string) (*v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() []v1.VirtualMachineInstanceGuestOSUser
 	GetFilesystems() []v1.VirtualMachineInstanceFileSystem
 	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance, *cmdv1.VirtualMachineOptions) error
@@ -2343,7 +2344,8 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 }
 
 // GetGuestInfo queries the agent store and return the aggregated data from Guest agent
-func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo {
+func (l *LibvirtDomainManager) GetGuestInfo(vmi *v1.VirtualMachineInstance, supportedGuestAgentVersions []string) (*v1.VirtualMachineInstanceGuestAgentInfo, error) {
+	agentConnectedStatus := l.agentData.GetAgentConnectedStatus()
 	sysInfo := l.agentData.GetSysInfo()
 	fsInfo := l.agentData.GetFS(10)
 	userInfo := l.agentData.GetUsers(10)
@@ -2355,10 +2357,11 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 	gaInfo := l.agentData.GetGA()
 
 	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{
-		GAVersion:         gaInfo.Version,
-		SupportedCommands: gaInfo.SupportedCommands,
-		Hostname:          sysInfo.Hostname,
-		FSFreezeStatus:    fsFreezestatus.Status,
+		GuestAgentConnected: agentConnectedStatus,
+		GAVersion:           gaInfo.Version,
+		SupportedCommands:   gaInfo.SupportedCommands,
+		Hostname:            sysInfo.Hostname,
+		FSFreezeStatus:      fsFreezestatus.Status,
 		OS: v1.VirtualMachineInstanceGuestOSInfo{
 			Name:          sysInfo.OSInfo.Name,
 			KernelRelease: sysInfo.OSInfo.KernelRelease,
@@ -2399,7 +2402,29 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 		})
 	}
 
-	return guestInfo
+	// Determine whether the guest agent is supported
+	var supported = false
+	var reason = ""
+	// For current versions, virt-launcher's supported commands will always contain data.
+	// For backwards compatibility: during upgrade from a previous version of KubeVirt,
+	// virt-launcher might not provide any supported commands. If the list of supported
+	// commands is empty, fall back to previous behavior.
+	if len(guestInfo.SupportedCommands) > 0 {
+		supported, reason = isGuestAgentSupported(vmi, guestInfo.SupportedCommands)
+		log.Log.V(3).Object(vmi).Info(reason)
+	} else {
+		for _, version := range supportedGuestAgentVersions {
+			supported = supported || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
+		}
+		if !supported {
+			reason = fmt.Sprintf("Guest agent version '%s' is not supported", guestInfo.GAVersion)
+		}
+	}
+
+	guestInfo.GuestAgentSupported = supported
+	guestInfo.GuestAgentUnsupportedReason = reason
+
+	return &guestInfo, nil
 }
 
 // InterfacesStatus returns the interfaces Guest Agent reported

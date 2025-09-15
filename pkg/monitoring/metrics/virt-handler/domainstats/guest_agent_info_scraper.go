@@ -58,7 +58,7 @@ func NewGuestAgentInfoScraper() *GuestAgentInfoScraper {
 func (d *GuestAgentInfoScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineInstance) {
 	ts := time.Now()
 
-	vmStats, err := d.gatherMetrics(socketFile)
+	vmStats, err := d.gatherMetrics(socketFile, vmi)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to scrape metrics from %s", socketFile)
 		return
@@ -97,7 +97,7 @@ func (d *GuestAgentInfoScraper) Reset() {
 	}
 }
 
-func (d *GuestAgentInfoScraper) gatherMetrics(socketFile string) (*VirtualMachineInstanceStats, error) {
+func (d *GuestAgentInfoScraper) gatherMetrics(socketFile string, vmi *k6tv1.VirtualMachineInstance) (*VirtualMachineInstanceStats, error) {
 	cached, _, exists := d.getCacheEntry(socketFile)
 	if exists {
 		return cached, nil
@@ -111,7 +111,7 @@ func (d *GuestAgentInfoScraper) gatherMetrics(socketFile string) (*VirtualMachin
 
 	vmStats := &VirtualMachineInstanceStats{}
 
-	vmStats.GuestAgentInfo, err = cli.GetGuestInfo()
+	vmStats.GuestAgentInfo, err = cli.GetGuestInfo(vmi, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get guest agent info: %w", err)
 	}

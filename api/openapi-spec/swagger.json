@@ -17019,6 +17019,18 @@
       "default": {},
       "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemInfo"
      },
+     "guestAgentConnected": {
+      "description": "GuestAgentConnected indicates whether the guest agent is connected",
+      "type": "boolean"
+     },
+     "guestAgentSupported": {
+      "description": "GuestAgentSupported indicates whether the guest agent is supported",
+      "type": "boolean"
+     },
+     "guestAgentUnsupportedReason": {
+      "description": "GuestAgentUnsupportedReason indicates the reason why the guest agent is not supported",
+      "type": "string"
+     },
      "guestAgentVersion": {
       "description": "GAVersion is a version of currently installed guest agent",
       "type": "string"

@@ -432,7 +432,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			//Did not initialize yet
 			controller.launcherClients = &launcherclients.MockLauncherClientManager{
 				Initialized: false,
+				Client:      client,
 			}
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			sanityExecute()
 
 			Expect(mockQueue.Len()).To(Equal(0))
@@ -455,7 +457,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.launcherClients = &launcherclients.MockLauncherClientManager{
 				Initialized:  true,
 				UnResponsive: true,
+				Client:       client,
 			}
+
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 			sanityExecute()
 
@@ -502,6 +507,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			createVMI(vmi)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			client.EXPECT().DeleteDomain(gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
 
@@ -565,6 +571,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi = addActivePods(vmi, podTestUUID, host)
 
 			createVMI(vmi)
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
@@ -594,6 +601,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			addVMI(vmi, domain)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
@@ -634,6 +642,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node).CoreV1()
 			virtClient.EXPECT().CoreV1().Return(fakeClient).AnyTimes()
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 			sanityExecute()
 
@@ -665,24 +674,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
-			domain.Spec.Devices.Channels = []api.Channel{
-				{
-					Type: "unix",
-					Target: &api.ChannelTarget{
-						Name:  "org.qemu.guest_agent.0",
-						State: "connected",
-					},
-				},
-			}
 
 			addVMI(vmi, domain)
+
+			// Make the mock launcher client return GuestAgentInfo with
+			// GuestAgentConnected true and GuestAgentSupported false
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{GuestAgentConnected: true, GuestAgentSupported: false}, nil)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
 				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
-			client.EXPECT().GetGuestInfo().Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
 
@@ -736,24 +739,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
-			domain.Spec.Devices.Channels = []api.Channel{
-				{
-					Type: "unix",
-					Target: &api.ChannelTarget{
-						Name:  "org.qemu.guest_agent.0",
-						State: "connected",
-					},
-				},
-			}
 
 			addVMI(vmi, domain)
 
+			// Make the mock launcher client return GuestAgentInfo with
+			// GuestAgentConnected true and GuestAgentSupported false
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{GuestAgentConnected: true, GuestAgentSupported: false}, nil)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
 				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
-			client.EXPECT().GetGuestInfo().Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
 
@@ -780,18 +776,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
-			domain.Spec.Devices.Channels = []api.Channel{
-				{
-					Type: "unix",
-					Target: &api.ChannelTarget{
-						Name:  "org.qemu.guest_agent.0",
-						State: "disconnected",
-					},
-				},
-			}
 
 			addVMI(vmi, domain)
 
+			// Make the mock launcher client return GuestAgentInfo with
+			// GuestAgentConnected false and GuestAgentSupported false
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{GuestAgentConnected: false, GuestAgentSupported: false}, nil)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
@@ -832,6 +822,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			addVMI(vmi, domain)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -884,6 +875,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			addVMI(vmi, domain)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -920,6 +912,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			addVMI(vmi, domain)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -973,6 +966,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			addVMI(vmi, domain)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil).AnyTimes()
 			client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).AnyTimes()
 			client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any()).AnyTimes()
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil).AnyTimes()
@@ -1045,7 +1039,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.launcherClients = &launcherclients.MockLauncherClientManager{
 				Initialized:  true,
 				UnResponsive: true,
+				Client:       client,
 			}
+
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 			sanityExecute()
 
@@ -1062,6 +1059,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Phase = v1.Running
 
 			createVMI(vmi)
+
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 			sanityExecute()
 
@@ -1084,6 +1083,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.netConf = &netConfStub{SetupError: &neterrors.CriticalNetworkError{}}
 
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			sanityExecute()
 
 			testutils.ExpectEvent(recorder, "failed to configure vmi network:")
@@ -1108,6 +1108,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			createVMI(vmi)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
@@ -1147,6 +1148,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Running
 			addVMI(vmi, domain)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
@@ -1176,6 +1178,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				createVMI(vmi)
 				mockContainerDiskMounter.EXPECT().ContainerDisksReady(vmi, gomock.Any()).Return(false, nil)
+				client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 				mockQueue.ExpectAdds(1)
 				sanityExecute()
@@ -1190,6 +1193,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(notReadySince.Before(time.Now())).To(BeTrue())
 					return false, fmt.Errorf("out of time")
 				})
+				client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 				sanityExecute()
 
@@ -1208,6 +1212,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					return true, nil
 				})
 				mockContainerDiskMounter.EXPECT().MountAndVerify(gomock.Any()).Return(fmt.Errorf("aborting since we only want to reach this point"))
+				client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 				sanityExecute()
 
@@ -1253,6 +1258,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				mockContainerDiskMounter.EXPECT().ComputeChecksums(gomock.Any()).Return(fakeDiskChecksums, nil)
 				client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any()).Return(nil)
 				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), gomock.Any()).Return(nil)
+				client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 				sanityExecute()
 
@@ -1294,6 +1300,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				createVMI(vmi)
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
+				client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 				controller.Execute()
 			})
@@ -1306,6 +1313,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
 				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+				client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 				sanityExecute()
 				testutils.ExpectEvent(recorder, VMIDefined)
@@ -1323,6 +1331,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
 				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+				client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 				sanityExecute()
 			})
@@ -1337,6 +1346,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				addVMI(vmi, domain)
 
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(fmt.Errorf("Error"))
+				client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 				sanityExecute()
 				testutils.ExpectEvent(recorder, v1.SyncFailed.String())
@@ -2479,6 +2489,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should report interfaces status", func() {
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			sanityExecute()
 
 			testutils.ExpectEvent(recorder, VMIStarted)
@@ -2529,6 +2540,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			addVMI(vmi, domain)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
+
 			sanityExecute()
 
 			testutils.ExpectEvent(recorder, VMIStarted)
@@ -2558,6 +2571,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			addVMI(vmi, domain)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
+
 			sanityExecute()
 
 			testutils.ExpectEvent(recorder, VMIStarted)
@@ -2579,6 +2594,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.FSFreezeStatus = api.FSFreeze{Status: guestFSFreeezeStatus}
 
 			addVMI(vmi, domain)
+
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 			sanityExecute()
 
@@ -2608,6 +2625,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			addVMI(vmi, domain)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -2690,6 +2708,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			addVMI(vmi, domain)
 
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -2709,138 +2728,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 					"Target": Equal("vda")},
 				),
 			))
-		})
-	})
-
-	Context("Guest Agent Compatibility", func() {
-		var vmi *v1.VirtualMachineInstance
-		var vmiWithPassword *v1.VirtualMachineInstance
-		var vmiWithSSH *v1.VirtualMachineInstance
-		var basicCommands []v1.GuestAgentCommandInfo
-		var sshCommands []v1.GuestAgentCommandInfo
-		var oldSshCommands []v1.GuestAgentCommandInfo
-		var passwordCommands []v1.GuestAgentCommandInfo
-		const agentSupported = "This guest agent is supported"
-
-		BeforeEach(func() {
-			vmi = &v1.VirtualMachineInstance{}
-			vmiWithPassword = &v1.VirtualMachineInstance{
-				Spec: v1.VirtualMachineInstanceSpec{
-					AccessCredentials: []v1.AccessCredential{
-						{
-							UserPassword: &v1.UserPasswordAccessCredential{
-								PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
-									QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
-								},
-							},
-						},
-					},
-				},
-			}
-			vmiWithSSH = &v1.VirtualMachineInstance{
-				Spec: v1.VirtualMachineInstanceSpec{
-					AccessCredentials: []v1.AccessCredential{
-						{
-							SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
-								PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-									QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{},
-								},
-							},
-						},
-					},
-				},
-			}
-
-			basicCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range requiredGuestAgentCommands {
-				basicCommands = append(basicCommands, v1.GuestAgentCommandInfo{
-					Name:    cmdName,
-					Enabled: true,
-				})
-			}
-
-			sshCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range sshRelatedGuestAgentCommands {
-				sshCommands = append(sshCommands, v1.GuestAgentCommandInfo{
-					Name:    cmdName,
-					Enabled: true,
-				})
-			}
-
-			oldSshCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range oldSSHRelatedGuestAgentCommands {
-				oldSshCommands = append(oldSshCommands, v1.GuestAgentCommandInfo{
-					Name:    cmdName,
-					Enabled: true,
-				})
-			}
-
-			passwordCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range passwordRelatedGuestAgentCommands {
-				passwordCommands = append(passwordCommands, v1.GuestAgentCommandInfo{
-					Name:    cmdName,
-					Enabled: true,
-				})
-			}
-		})
-
-		It("should succeed with empty VMI and basic commands", func() {
-			result, reason := isGuestAgentSupported(vmi, basicCommands)
-			Expect(result).To(BeTrue())
-			Expect(reason).To(Equal(agentSupported))
-		})
-
-		It("should succeed with empty VMI and all commands", func() {
-			var commands []v1.GuestAgentCommandInfo
-			commands = append(commands, basicCommands...)
-			commands = append(commands, sshCommands...)
-			commands = append(commands, passwordCommands...)
-
-			result, reason := isGuestAgentSupported(vmi, commands)
-			Expect(result).To(BeTrue())
-			Expect(reason).To(Equal(agentSupported))
-		})
-
-		It("should fail with password and basic commands", func() {
-			result, reason := isGuestAgentSupported(vmiWithPassword, basicCommands)
-			Expect(result).To(BeFalse())
-			Expect(reason).To(Equal("This guest agent doesn't support required password commands"))
-		})
-
-		It("should succeed with password and required commands", func() {
-			var commands []v1.GuestAgentCommandInfo
-			commands = append(commands, basicCommands...)
-			commands = append(commands, passwordCommands...)
-
-			result, reason := isGuestAgentSupported(vmiWithPassword, commands)
-			Expect(result).To(BeTrue())
-			Expect(reason).To(Equal(agentSupported))
-		})
-
-		It("should fail with SSH and basic commands", func() {
-			result, reason := isGuestAgentSupported(vmiWithSSH, basicCommands)
-			Expect(result).To(BeFalse())
-			Expect(reason).To(Equal("This guest agent doesn't support required public key commands"))
-		})
-
-		It("should succeed with SSH and required commands", func() {
-			var commands []v1.GuestAgentCommandInfo
-			commands = append(commands, basicCommands...)
-			commands = append(commands, sshCommands...)
-
-			result, reason := isGuestAgentSupported(vmiWithSSH, commands)
-			Expect(result).To(BeTrue())
-			Expect(reason).To(Equal(agentSupported))
-		})
-
-		It("should succeed with SSH and old required commands", func() {
-			var commands []v1.GuestAgentCommandInfo
-			commands = append(commands, basicCommands...)
-			commands = append(commands, oldSshCommands...)
-
-			result, reason := isGuestAgentSupported(vmiWithSSH, commands)
-			Expect(result).To(BeTrue())
-			Expect(reason).To(Equal(agentSupported))
 		})
 	})
 
@@ -2927,6 +2814,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			addVMI(vmi, domain)
 
 			By("Executing the controller")
+			client.EXPECT().GetGuestInfo(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 			client.EXPECT().KillVirtualMachine(gomock.Any())
 			sanityExecute()
 			expectEvent("VirtualMachineInstance stopping", true)
