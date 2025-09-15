@@ -38,6 +38,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
+// Minimal stub for label config used by vmstats tests
+type funcLabelsConfig func(string) bool
+
+func (f funcLabelsConfig) ShouldReport(label string) bool { return f(label) }
+
 var _ = Describe("VM Stats Collector", func() {
 	Context("VM status collector", func() {
 		createVM := func(status k6tv1.VirtualMachinePrintableStatus, vmLastTransitionsTime time.Time) *k6tv1.VirtualMachine {
@@ -834,6 +839,164 @@ var _ = Describe("VM Stats Collector", func() {
 			metrics := CollectVmsVnicInfo(cloneVM(vm))
 			Expect(filterResultsByVM(metrics, "test-vm", "test-ns")).To(BeEmpty())
 			Expect(filterResultsByVM(metrics, "test-vm-2", "test-ns")).To(BeEmpty())
+		})
+	})
+
+	Context("VM labels metric", func() {
+		BeforeEach(func() {
+			// Default to allowing all labels; individual tests override as needed
+			vmLabelsCfg = funcLabelsConfig(func(string) bool { return true })
+		})
+
+		It("should collect allowed labels", func() {
+			// default allow-all in BeforeEach is sufficient
+			vms := []*k6tv1.VirtualMachine{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "vm1",
+						Namespace: "default",
+						Labels: map[string]string{
+							"environment": "production",
+							"team":        "backend",
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "vm2",
+						Namespace: "default",
+						Labels: map[string]string{
+							"environment": "staging",
+							"version":     "2.0",
+						},
+					},
+				},
+			}
+
+			allResults := reportVmsStats(vms)
+			var labelResults []operatormetrics.CollectorResult
+			for _, r := range allResults {
+				if r.Metric.GetOpts().Name == "kubevirt_vm_labels" {
+					labelResults = append(labelResults, r)
+				}
+			}
+			Expect(labelResults).To(HaveLen(2))
+
+			var r1, r2 operatormetrics.CollectorResult
+			if labelResults[0].Labels[0] == "vm1" {
+				r1, r2 = labelResults[0], labelResults[1]
+			} else {
+				r1, r2 = labelResults[1], labelResults[0]
+			}
+			Expect(r1.Labels).To(Equal([]string{"vm1", "default"}))
+			Expect(r1.ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
+			Expect(r1.ConstLabels).To(HaveKeyWithValue("label_team", "backend"))
+
+			Expect(r2.Labels).To(Equal([]string{"vm2", "default"}))
+			Expect(r2.ConstLabels).To(HaveKeyWithValue("label_environment", "staging"))
+			Expect(r2.ConstLabels).To(HaveKeyWithValue("label_version", "2.0"))
+		})
+
+		It("should prioritize ignorelist over allowlist when overlapping", func() {
+			vmLabelsCfg = funcLabelsConfig(func(l string) bool {
+				if l == "vm.kubevirt.io/template" {
+					return false
+				}
+				return true
+			})
+
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm",
+					Namespace: "default",
+					Labels: map[string]string{
+						"environment":             "production",
+						"vm.kubevirt.io/template": "tmpl",
+					},
+				},
+			}
+
+			results := reportVmLabels(vm)
+			Expect(results).To(HaveLen(1))
+			res := results[0]
+			Expect(res.ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
+			Expect(res.ConstLabels).ToNot(HaveKey("label_vm_kubevirt_io_template"))
+		})
+
+		It("should change metric output when configuration changes dynamically", func() {
+			// Restrict to specific labels and ignore secret
+			vmLabelsCfg = funcLabelsConfig(func(l string) bool {
+				if l == "secret" {
+					return false
+				}
+				return l == "environment" || l == "team" || l == "version"
+			})
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm",
+					Namespace: "default",
+					Labels: map[string]string{
+						"environment": "production",
+						"team":        "backend",
+						"secret":      "sensitive",
+						"version":     "1.0",
+					},
+				},
+			}
+
+			afterRestrict := reportVmLabels(vm)
+			Expect(afterRestrict).To(HaveLen(1))
+			Expect(afterRestrict[0].ConstLabels).To(HaveLen(3))
+			Expect(afterRestrict[0].ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
+			Expect(afterRestrict[0].ConstLabels).To(HaveKeyWithValue("label_team", "backend"))
+			Expect(afterRestrict[0].ConstLabels).To(HaveKeyWithValue("label_version", "1.0"))
+			Expect(afterRestrict[0].ConstLabels).ToNot(HaveKey("label_secret"))
+		})
+
+		It("should not emit vm labels metric when allowlist is empty", func() {
+			vmLabelsCfg = funcLabelsConfig(func(string) bool { return false })
+
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vm-no-metric",
+					Namespace: "default",
+					Labels: map[string]string{
+						"a": "1",
+					},
+				},
+			}
+
+			allResults := reportVmsStats([]*k6tv1.VirtualMachine{vm})
+			for _, r := range allResults {
+				Expect(r.Metric.GetOpts().Name).ToNot(Equal("kubevirt_vm_labels"))
+			}
+		})
+
+		It("should treat ignorelist '*' as no ignore (wildcards unsupported)", func() {
+			vmLabelsCfg = funcLabelsConfig(func(string) bool { return true })
+
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vm-wildcard-ignore",
+					Namespace: "default",
+					Labels: map[string]string{
+						"environment": "prod",
+						"team":        "be",
+					},
+				},
+			}
+
+			allResults := reportVmsStats([]*k6tv1.VirtualMachine{vm})
+			var labelResults []operatormetrics.CollectorResult
+			for _, r := range allResults {
+				if r.Metric.GetOpts().Name == "kubevirt_vm_labels" {
+					labelResults = append(labelResults, r)
+				}
+			}
+			Expect(labelResults).To(HaveLen(1))
+			res := labelResults[0]
+			Expect(res.ConstLabels).To(HaveKeyWithValue("label_environment", "prod"))
+			Expect(res.ConstLabels).To(HaveKeyWithValue("label_team", "be"))
 		})
 	})
 })

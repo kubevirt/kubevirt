@@ -1,0 +1,38 @@
+name: Wake up Azure VM
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'The environment to deploy to'
+        required: true
+        type: string
+
+jobs:
+  wake-up-vm:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Wake up Azure VM
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az vm start --name ${{ vars.COMPUTE_NAME }} --resource-group ${{ vars.RESOURCE_GROUP }}
+        env:
+          COMPUTE_NAME: ${{ vars.COMPUTE_NAME }}
+          RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+          SUBSCRIPTION_ID: ${{ vars.SUBSCRIPTION_ID }}
+
+      # - name: Wake up Azure VM
+      #   uses: azure/vm@v1
+      #   with:
+      #     name: ${{ vars.COMPUTE_NAME }}
+      #     resource-group: ${{ vars.RESOURCE_GROUP }}
+      #     subscription-id: ${{ vars.SUBSCRIPTION_ID }}
+      #     action: start

@@ -1,0 +1,41 @@
+name: End-to-End Testing Pipeline
+
+on:
+  workflow_dispatch:
+
+env:
+  DOCKER_PREFIX: ghcr.io/${{ github.repository }}
+  DOCKER_TAG: ${{ vars.VERSION }}-l1vh.e2e.${{ github.run_number }}
+  KUBEVIRT_PROVIDER: external
+  KUBECONFIG: ${{ github.workspace }}/k3s-kube-config.yaml
+  KUBEVIRT_LABEL_FILTER: Conformance
+
+jobs:
+
+  Run_Conformance_Tests:
+    runs-on: self-hosted    
+    environment: ephemeral
+    permissions: write-all
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+     # save   KUBECONFIG from respo secret to a file
+      - name: Setup Kubeconfig
+        run: |
+          echo "${{ secrets.K3S_KUBECONFIG }}" | base64 -d > $KUBECONFIG
+           
+
+      - name: Start Ephemeral Environment
+        run: |
+          make cluster-down || make cluster-up
+
+      - name: Deploy To Ephemeral Environment
+        run: |
+          make cluster-deploy
+        env: 
+          FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
+
+      - name: Run Conformance Tests
+        run: |
+          make conformance

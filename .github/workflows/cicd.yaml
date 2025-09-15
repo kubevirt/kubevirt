@@ -3,6 +3,8 @@ name: CICD Pipeline
 on:
   push:
     branches: ["ise","eugene/*"]
+    paths:
+      - '**/workflows/**'
   workflow_dispatch:
 
 env:
@@ -11,84 +13,72 @@ env:
 
   
 jobs:
-  # quality-check:
-  #   uses: ./.github/workflows/pr.yaml
+  quality-check:
+    uses: ./.github/workflows/pr.yaml
     
   Build_Push_Images:
     runs-on: self-hosted
-    # needs: [quality-check]
+    needs: [quality-check]
     permissions: write-all
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      # - name: Login to GHCR
-      #   uses: docker/login-action@v1 
-      #   with:
-      #     registry: ghcr.io
-      #     username: ${{ github.actor }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GHCR
+        uses: docker/login-action@v1 
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          logout: false
+
 
 
       - name: Build Images
         run: |
-          pwd
           make bazel-build-images
-
 
       - name: Push Images
         run: |
           make bazel-push-images
-
-  Deploy_to_Dev:
-    runs-on: ubuntu-latest
+  
+  # wake-up-vm:
+  #   uses: ./.github/workflows/wake-up-vm.yaml
+  #   with:
+  #     environment: dev
+  #   secrets: inherit
+  #   needs: [Build_Push_Images]
+  dev:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: dev
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+    secrets: inherit
     needs: [Build_Push_Images]
-    environment: dev
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
 
-      - name: Generate Manifests with configured Feature Gates
-        run: |          
-          make manifests
-        env: 
-          FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
-      
-      - name: Upload Manifests
-        uses: actions/upload-artifact@v4
-        with:
-          name: dev-manifests
-          path: ${{ github.workspace }}/_out/manifests
+  test-kvm:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: test-kvm
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+    secrets: inherit
+    # needs: [Build_Push_Images]
+    needs: [dev]
 
-      # TODO: implement deploy and test steps
-      - name: Deploy to Dev Cluster
-        run: |
-          echo "Deploying to Dev cluster..."
+  test-emulation:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: test-emulation
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+    secrets: inherit
+    # needs: [Build_Push_Images]
+    needs: [dev]
 
-      - name: Run tests on Dev Cluster
-        run: |
-          echo "Running tests on Dev cluster..."
-
-
-  Deploy_to_Ephemeral:
-    runs-on: self-hosted
-    needs: [Build_Push_Images]
-    environment: ephemeral
-    permissions: write-all
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Start Ephemeral Environment
-        run: |
-          make cluster-up
-
-      - name: Deploy To Ephemeral Environment
-        run: |
-          make cluster-sync
-        env: 
-          FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
-
-      - name: Run Functional Tests
-        run: |
-          make functest
+  test-mshv:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: test-mshv
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+    secrets: inherit
+    # needs: [Build_Push_Images]
+    needs: [dev]
