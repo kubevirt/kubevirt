@@ -34,6 +34,7 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authclientv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
@@ -198,21 +199,15 @@ var _ = Describe("Virt-api", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(body).ToNot(BeEmpty())
 
-			// Parse the body as a JSON object
-			var jsonResponse map[string]interface{}
-			err = json.Unmarshal(body, &jsonResponse)
+			// Parse the body as a APIResourceList object
+			var apiResourceList metav1.APIResourceList
+			err = json.Unmarshal(body, &apiResourceList)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Extract the list of API resources exposed by the API
+			// Extract the list of resource names exposed by the API
 			exposedApiResources := []string{}
-			resources, ok := jsonResponse["resources"].([]interface{})
-			Expect(ok).To(BeTrue(), "Expected 'resources' to be a list of objects")
-			for _, resource := range resources {
-				resourceMap, ok := resource.(map[string]interface{})
-				Expect(ok).To(BeTrue(), "Expected each resource to be a map")
-				resourceStr, ok := resourceMap["name"].(string)
-				Expect(ok).To(BeTrue(), "Expected 'name' to be a string in each resource object")
-				exposedApiResources = append(exposedApiResources, resourceStr)
+			for _, resource := range apiResourceList.APIResources {
+				exposedApiResources = append(exposedApiResources, resource.Name)
 			}
 
 			// List of expected API resources
