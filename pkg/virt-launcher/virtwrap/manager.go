@@ -43,6 +43,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 
 	"libvirt.org/go/libvirt"
 
@@ -1333,14 +1334,14 @@ func (l *LibvirtDomainManager) syncNetwork(
 	}
 
 	networkConfigurator := netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, netsetup.WithDomainAttachments(domainAttachments))
-	networkInterfaceManager := newVirtIOInterfaceManager(dom, networkConfigurator)
-	if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
+	networkInterfaceManager := network.NewVirtIOInterfaceManager(dom, networkConfigurator)
+	if err := networkInterfaceManager.HotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
 		return err
 	}
-	if err := networkInterfaceManager.hotUnplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
+	if err := networkInterfaceManager.HotUnplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
 		return err
 	}
-	if err := networkInterfaceManager.updateDomainLinkState(&api.Domain{Spec: *oldSpec}, domain); err != nil {
+	if err := networkInterfaceManager.UpdateDomainLinkState(&api.Domain{Spec: *oldSpec}, domain); err != nil {
 		return err
 	}
 
@@ -1426,7 +1427,7 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 
 	// leverage existing hotplug nic code to allocate ports
 	// should work for disks and any other devices as well
-	dom, err := withNetworkIfacesResources(vmi, domainSpec, count, setDomainFn)
+	dom, err := network.WithNetworkIfacesResources(vmi, domainSpec, count, setDomainFn)
 	if err != nil {
 		return nil, err
 	}
