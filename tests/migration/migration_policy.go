@@ -117,3 +117,7 @@ func CreateMigrationPolicy(virtClient kubecli.KubevirtClient, policy *migrations
 
 	return policy
 }
+
+func DeleteMigrationPolicy(virtClient kubecli.KubevirtClient, policy *migrationsv1.MigrationPolicy) {
+	ExpectWithOffset(1, virtClient.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{})).To(Succeed())
+}
