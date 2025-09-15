@@ -100,6 +100,10 @@ const (
 	httpStatusNotFoundMessage     = "Not Found"
 	httpStatusBadRequestMessage   = "Bad Request"
 	httpStatusInternalServerError = "Internal Server Error"
+
+	virtualmachineresourcename         = "virtualmachines"
+	virtualmachineinstanceresourcename = "virtualmachineinstances"
+	expandvmresourcename               = "expand-vm-spec"
 )
 
 type VirtApi interface {
@@ -233,9 +237,9 @@ func (app *virtAPIApp) composeSubresources() {
 	var subwss []*restful.WebService
 
 	for _, version := range v1.SubresourceGroupVersions {
-		subresourcesvmGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "virtualmachines"}
-		subresourcesvmiGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "virtualmachineinstances"}
-		expandvmspecGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "expand-vm-spec"}
+		subresourcesvmGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: virtualmachineresourcename}
+		subresourcesvmiGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: virtualmachineinstanceresourcename}
+		expandvmspecGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: expandvmresourcename}
 
 		subws := new(restful.WebService)
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
@@ -611,42 +615,6 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		// Maintain a set of unique strings for which API resources to expose
-		// in the APIResourceList. This is to avoid duplicates in cases where
-		// only the base URI needs to be exposed, e.g., portforward.
-		uniqueApiResourceNames := make(map[string]struct{})
-
-		// Regex to match parameter substrings like /{protocol}
-		// in subresourcePath.
-		paramRegex := regexp.MustCompile("/{(.*?)}")
-		for _, route := range subws.Routes() {
-			pathWithoutBasePath := strings.TrimPrefix(route.Path, definitions.GroupVersionBasePath(version))
-
-			// Add API resources pertaining to the VM and VMI resources
-			for _, subresourceGVR := range []schema.GroupVersionResource{subresourcesvmGVR, subresourcesvmiGVR} {
-				if strings.HasPrefix(pathWithoutBasePath, definitions.NamespacedResourcePath(subresourceGVR)) {
-					subresourcePath := strings.TrimPrefix(pathWithoutBasePath, definitions.NamespacedResourcePath(subresourceGVR)+"/")
-					// Replace parameter substrings like /{protocol} in
-					// subresourcePath with empty string.
-					subresourcePath = paramRegex.ReplaceAllString(subresourcePath, "")
-					uniqueApiResourceNames[subresourceGVR.Resource+"/"+subresourcePath] = struct{}{}
-				}
-			}
-
-			// Add API resources pertaining to the expand-vm-spec resource
-			if strings.HasPrefix(pathWithoutBasePath, definitions.NamespacedResourceBasePath(expandvmspecGVR)) {
-				uniqueApiResourceNames[expandvmspecGVR.Resource] = struct{}{}
-			}
-		}
-
-		apiResourcesToExpose := []metav1.APIResource{}
-		for apiResourceName := range uniqueApiResourceNames {
-			apiResourcesToExpose = append(apiResourcesToExpose, metav1.APIResource{
-				Name:       apiResourceName,
-				Namespaced: true,
-			})
-		}
-
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -660,7 +628,7 @@ func (app *virtAPIApp) composeSubresources() {
 				list.Kind = "APIResourceList"
 				list.GroupVersion = version.Group + "/" + version.Version
 				list.APIVersion = "v1"
-				list.APIResources = apiResourcesToExpose
+				list.APIResources = computeApiResourcesToExpose(subws, version)
 
 				response.WriteAsJson(list)
 			}).
@@ -1193,6 +1161,50 @@ func (app *virtAPIApp) GetGsInfo() func(_ *restful.Request, response *restful.Re
 		})
 		return
 	}
+}
+
+func computeApiResourcesToExpose(subws *restful.WebService, version schema.GroupVersion) []metav1.APIResource {
+	subresourcesvmGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: virtualmachineresourcename}
+	subresourcesvmiGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: virtualmachineinstanceresourcename}
+	expandvmspecGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: expandvmresourcename}
+
+	// Maintain a set of unique strings for which API resources to expose
+	// in the APIResourceList. This is to avoid duplicates in cases where
+	// only the base URI needs to be exposed, e.g., portforward.
+	uniqueApiResourceNames := make(map[string]struct{})
+
+	// Regex to match parameter substrings like /{protocol}
+	// in subresourcePath.
+	paramRegex := regexp.MustCompile("/{(.*?)}")
+	for _, route := range subws.Routes() {
+		pathWithoutBasePath := strings.TrimPrefix(route.Path, definitions.GroupVersionBasePath(version))
+
+		// Add API resources pertaining to the VM and VMI resources
+		for _, subresourceGVR := range []schema.GroupVersionResource{subresourcesvmGVR, subresourcesvmiGVR} {
+			if strings.HasPrefix(pathWithoutBasePath, definitions.NamespacedResourcePath(subresourceGVR)) {
+				subresourcePath := strings.TrimPrefix(pathWithoutBasePath, definitions.NamespacedResourcePath(subresourceGVR)+"/")
+				// Replace parameter substrings like /{protocol} in
+				// subresourcePath with empty string.
+				subresourcePath = paramRegex.ReplaceAllString(subresourcePath, "")
+				uniqueApiResourceNames[subresourceGVR.Resource+"/"+subresourcePath] = struct{}{}
+			}
+		}
+
+		// Add API resources pertaining to the expand-vm-spec resource
+		if strings.HasPrefix(pathWithoutBasePath, definitions.NamespacedResourceBasePath(expandvmspecGVR)) {
+			uniqueApiResourceNames[expandvmspecGVR.Resource] = struct{}{}
+		}
+	}
+
+	apiResourcesToExpose := []metav1.APIResource{}
+	for apiResourceName := range uniqueApiResourceNames {
+		apiResourcesToExpose = append(apiResourcesToExpose, metav1.APIResource{
+			Name:       apiResourceName,
+			Namespaced: true,
+		})
+	}
+
+	return apiResourcesToExpose
 }
 
 func error_guestfs(err error, response *restful.Response) {
