@@ -15,7 +15,7 @@ jobs:
     uses: ./.github/workflows/pr.yaml
     
   Build_Push_Images:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [quality-check]
     permissions: write-all
     steps:
@@ -32,7 +32,6 @@ jobs:
 
       - name: Build Images
         run: |
-          pwd
           make bazel-build-images
 
       - name: Push Images

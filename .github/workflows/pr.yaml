@@ -11,28 +11,15 @@ on:
 jobs:
   Quality_Check:
     name: Quality Check
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v3
 
-      # - name: Linting
-      #   run: |
-      #     make format
-      #     make lint
-
-      - name: Free up Disk Space
+      - name: Linting
         run: |
-          # Remove specific Docker images that are no longer needed
-          docker rmi $(docker images -f "dangling=true" -q) || true
-          
-          # Prune unused Docker objects (images, containers, volumes, and networks)
-          docker system prune -f || true
+          make format
+          make lint
 
-          # Clean up specific directories known to consume a lot of space
-          sudo rm -rf /path/to/large/directory
-
-          # Show disk space usage
-          df -h
           
       - name: Run Unit Tests
         run: |
