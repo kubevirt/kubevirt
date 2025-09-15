@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -38,17 +39,20 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 type MigrationCreateAdmitter struct {
-	virtClient    kubevirt.Interface
-	clusterConfig *virtconfig.ClusterConfig
+	virtClient              kubevirt.Interface
+	clusterConfig           *virtconfig.ClusterConfig
+	kubeVirtServiceAccounts map[string]struct{}
 }
 
-func NewMigrationCreateAdmitter(virtClient kubevirt.Interface, clusterConfig *virtconfig.ClusterConfig) *MigrationCreateAdmitter {
+func NewMigrationCreateAdmitter(virtClient kubevirt.Interface, clusterConfig *virtconfig.ClusterConfig, kubeVirtServiceAccounts map[string]struct{}) *MigrationCreateAdmitter {
 	return &MigrationCreateAdmitter{
-		virtClient:    virtClient,
-		clusterConfig: clusterConfig,
+		virtClient:              virtClient,
+		clusterConfig:           clusterConfig,
+		kubeVirtServiceAccounts: kubeVirtServiceAccounts,
 	}
 }
 

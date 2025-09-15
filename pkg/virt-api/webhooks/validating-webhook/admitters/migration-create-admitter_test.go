@@ -91,7 +91,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 
 		migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
 		virtClient := kubevirtfake.NewSimpleClientset(vmi, inFlightMigration)
-		migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
+		migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
 		ar, err := newAdmissionReviewForVMIMCreation(migration)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -104,7 +104,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			migration := createMigration("default", testMigrationName, "")
 
 			virtClient := kubevirtfake.NewSimpleClientset()
-			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -119,7 +119,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 
 			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -137,7 +137,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 
 			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -151,7 +151,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 
 			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -177,7 +177,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 
 			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
 
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
@@ -207,13 +207,13 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
-				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset(), config).Admit,
+				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset(), config, nil).Admit,
 			),
 			Entry("Migration update",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
-				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset(), config).Admit,
+				admitters.NewMigrationCreateAdmitter(kubevirtfake.NewSimpleClientset(), config, nil).Admit,
 			),
 		)
 	})
@@ -230,7 +230,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			if featureGateEnabled {
 				enableFeatureGate(featuregate.DecentralizedLiveMigration)
 			}
-			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
+			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
 			resp := admitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(Equal(featureGateEnabled && expectAllow))
 			if !featureGateEnabled {
