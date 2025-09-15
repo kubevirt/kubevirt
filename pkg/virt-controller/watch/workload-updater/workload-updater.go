@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8svalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -560,6 +561,10 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 			if isVolumesUpdateInProgress(vmi) {
 				labels = make(map[string]string)
 				labels[virtv1.VolumesUpdateMigration] = vmi.Name
+				if len(vmi.Name) > k8svalidation.DNS1035LabelMaxLength {
+					// Labels are limited to 63 characters, fall back to UID, remain backwards compatible otherwise
+					labels[virtv1.VolumesUpdateMigration] = string(vmi.UID)
+				}
 			}
 			defer wg.Done()
 			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), &virtv1.VirtualMachineInstanceMigration{
