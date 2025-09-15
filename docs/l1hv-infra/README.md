@@ -1,11 +1,7 @@
 # L1HV CI/CD Infrastructure
 
-> Concise documentation of the CI/CD pipeline, environments, feature gates, and test strategy for introducing the L1HV feature.
 
-## 1. Purpose
-Provide a clear view of how L1HV-related changes are validated through layered environments (Dev -> Test variants) with selective test execution to accelerate feedback while safeguarding stability.
-
-## 2. High-Level Flow
+## 1. High-Level Flow
 
 ```mermaid
 graph LR
@@ -16,131 +12,43 @@ graph LR
   E --> F[Promote Artifacts]
   F --> G{Parallel Test Envs}
   G --> KVM[test-kvm]
-  G --> EMU[test-emulation]
+  G --> QEMU[test-emulation]
   G --> MSHV[test-mshv]
 ```
 
-Details:
-- Dev Tests = run only new L1HV tests (FeatureGate ON)
-- test-kvm = existing e2e only (exclude `mshv` label, Gate OFF)
-- test-emulation = all e2e in emulation mode (Gate OFF)
-- test-mshv = all e2e on MSHV (Gate ON)
-
-Legend:
-- Gate ON environments: dev, test-mshv
-- Gate OFF environments: test-kvm, test-emulation
-
-## 3. Environments (GitHub Environments)
+## 2. Environments (GitHub Environments)
 Each environment is a GitHub Environment holding secrets/vars for deploy & test.
 
-| Environment | Purpose | Feature Gate L1HV | Test Scope | Hypervisor Mode |
-|-------------|---------|-------------------|------------|-----------------|
-| `dev` | Fast feedback for new feature coverage | Enabled | New L1HV tests only | Host default (KVM) |
-| `test-kvm` | Regression of existing stable e2e set | Disabled | Existing e2e excluding `mshv`-labeled | KVM |
-| `test-emulation` | Full logical coverage under emulation | Disabled | All e2e (existing + new) | QEMU Emulation |
-| `test-mshv` | Full suite on Microsoft Hyper-V stack | Enabled | All e2e (existing + new) | MSHV |
+| Environment | Purpose | Feature Gate L1HV | Test Scope | Compute | Hypervisor |
+|-------------|---------|-------------------|------------|---------|-----------------|
+| `dev` | Fast feedback for new feature coverage | ✓ | New L1HV tests only | [Azure VM dom0qemu](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-dev-mshv-qemu-k3s-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-dev-mshv-qemu-k3s-vm/overview) | MSHV |
+| `test-mshv` | Full suite on Microsoft Hyper-V stack | ✓ | All e2e (existing + new) | [Azure VM dom0qemu](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-test-mshv-vm-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-test-mshv-vm-k3s/overview) | MSHV |
+| `test-kvm` | Regression of existing stable e2e set |  | Existing e2e only | [AKS](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-rg/providers/Microsoft.ContainerService/managedClusters/kubevirt-e2e-tests-aks/overview) | KVM |
+| `test-emulation` | Full suite under emulation |  | All e2e (existing + new) | [Azure VM dom0qemu](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-e2e-vm-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-e2e-vm-k3s/overview) | QEMU Emulation |
 
-> Note: If a variant named `test-lvm` was referenced earlier, it is assumed to be `test-kvm` (please adjust if different).
 
-## 4. Test Selection Matrix
+## 3. Testing Matrix
 
-| Dimension | dev | test-kvm | test-emulation | test-mshv |
-|-----------|-----|----------|----------------|-----------|
-| L1HV Feature Gate | ON | OFF | OFF | ON |
-| Hypervisor Backend | KVM | KVM | Emulation (QEMU SW) | MSHV |
-| New L1HV Tests | YES | NO | YES (to validate under emu) | YES |
-| Existing Stable e2e | NO | YES | YES | YES |
-| Exclude `mshv`-labeled | N/A | YES | NO | NO |
-| Emulation Mode Flag | OFF | OFF | ON | OFF |
-| Goal | Fast signal on new feature | Regression protection | Broad functional parity | Hypervisor parity + feature validation |
+|  | dev | test-mshv | test-kvm | test-emulation |
+|-----------|-----|-----------|----------|----------------|
+| New L1HV Tests | ✓ | ✓ |  | ✓  |
+| Existing Stable e2e |  | ✓ | ✓ | ✓ |
 
-### Label / Filter Reference (proposed)
-| Purpose | Mechanism |
-|---------|-----------|
-| New L1HV tests | Label: `l1hv-new` or build tag/regex focus |
-| Exclude MSHV-only from KVM regression | Label: `mshv` |
-| Emulation mode activation | Env var / flag (e.g. `KUBEVIRT_EMULATION=true`) |
-| Feature gate control | KubeVirt CR patch / deployment overlay |
 
-## 5. Test Selection Logic (Visual)
+## 4. Azure Resources
 
-```mermaid
-flowchart TD
-  subgraph DEV
-    D1[Select tests: l1hv-new]
-    D2[Enable Gate]
-  end
-  subgraph TEST-KVM
-    K1[Select tests: existing]
-    K2[Skip label: mshv]
-    K3[Gate Off]
-  end
-  subgraph TEST-EMULATION
-    E1[Select: all]
-    E2[Enable Emulation]
-    E3[Gate Off]
-  end
-  subgraph TEST-MSHV
-    M1[Select: all]
-    M2[Backend: MSHV]
-    M3[Gate On]
-  end
-```
+### 4.1 Compute
 
-## 6. Promotion & Artifacts
-1. Images built once after Quality Checks pass.
-2. Dev deployment uses same image digest as Test stages (immutability).
-3. On successful Dev test run, same artifacts are promoted (no rebuild) to parallel test environments.
-4. Each test environment publishes JUnit + logs (path: `_out/artifacts/...`).
+  - [Dev VM](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-dev-mshv-qemu-k3s-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-dev-mshv-qemu-k3s-vm/overview)
+  - [E2E Test mshv VM](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-test-mshv-vm-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-test-mshv-vm-k3s/overview)
+  - [E2E Test Emulation VM](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-e2e-vm-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-e2e-vm-k3s/overview)
+  - [E2E Test KVM AKS](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-rg/providers/Microsoft.ContainerService/managedClusters/kubevirt-e2e-tests-aks/overview)
 
-## 7. Parallel Test Stage Orchestration
+### 4.2 Key Vault
+  - [Key Vault with ssh keys and kubeconfigs](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-rg/providers/Microsoft.KeyVault/vaults/kubevirtkv/overview)
+  
 
-```mermaid
-sequenceDiagram
-    participant PR
-    participant Dev
-    participant KVM as test-kvm
-    participant Emu as test-emulation
-    participant MSHV as test-mshv
-
-    PR->>Dev: Deploy & run new L1HV tests
-    Dev-->>PR: JUnit (new feature signal)
-    PR->>KVM: Deploy artifacts
-    PR->>Emu: Deploy artifacts
-    PR->>MSHV: Deploy artifacts
-    par Parallel Exec
-      KVM->>KVM: Existing e2e (exclude mshv)
-      Emu->>Emu: All e2e (emulation)
-      MSHV->>MSHV: All e2e (mshv, L1HV enabled)
-    end
-    KVM-->>PR: Stable regression results
-    Emu-->>PR: Emulation coverage results
-    MSHV-->>PR: MSHV + L1HV results
-```
-
-## 8. Failure Handling (Suggested)
-| Stage | Action on Failure |
-|-------|-------------------|
-| Dev | Block promotion; annotate PR with failure summary |
-| test-kvm | Mark regression risk; require review |
-| test-emulation | Flag environment-specific issues |
-| test-mshv | Flag hypervisor/feature-specific issues |
-
-## 9. Future Enhancements
-- Flake classification & auto-rerun for known flaky tests.
-- Test focus/skip lists generated dynamically from labels.
-- Dashboard aggregating pass rate per environment.
-- Tighten artifact retention policies with pruning automation.
-- Add mutation/fuzz tests gated behind opt-in label.
-
-## 10. Quick Reference
-| Item | Value |
-|------|-------|
-| Primary workflow file | `.github/workflows/pr.yaml` |
-| Dev-only test focus | New L1HV labeled tests |
-| Parallel environments | `test-kvm`, `test-emulation`, `test-mshv` |
-| L1HV Gate Enabled In | `dev`, `test-mshv` |
-| Artifact test report | `_out/artifacts/junit/junit.unittests.xml` |
-
----
-_Last updated: 2025-09-15_
+### 4.3 GitHub Runners
+  - [kubevirt-gh-actions-runner-1](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-gh-actions-runner-1/overview)
+  - [kubevirt-gh-actions-runner-2](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-gh-actions-runner-2/overview)
+  - [kubevirt-gh-actions-runner-3](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-gh-actions-runner-3/overview)    
