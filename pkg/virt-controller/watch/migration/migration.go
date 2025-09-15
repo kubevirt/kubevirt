@@ -907,7 +907,7 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 	computeImageOverride, ok := migration.Annotations[virtv1.FuncTestMigrationTargetImageOverrideAnnotation]
 	if ok && computeImageOverride != "" {
 		for i, container := range templatePod.Spec.Containers {
-			if container.Name == "compute" {
+			if strings.HasSuffix(container.Name, "compute") {
 				container.Image = computeImageOverride
 				templatePod.Spec.Containers[i] = container
 				break
@@ -2348,7 +2348,7 @@ func (c *Controller) removeHandOffKey(migrationKey string) {
 
 func getComputeContainer(pod *k8sv1.Pod) *k8sv1.Container {
 	for _, container := range pod.Spec.Containers {
-		if container.Name == "compute" {
+		if strings.HasSuffix(container.Name, "compute") {
 			return &container
 		}
 	}

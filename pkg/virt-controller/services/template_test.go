@@ -383,7 +383,7 @@ var _ = Describe("Template", func() {
 				Entry("and contain default container for logging and exec",
 					map[string]string{},
 					map[string]string{
-						"kubectl.kubernetes.io/default-container": "compute",
+						"kubectl.kubernetes.io/default-container": "d8v-compute",
 					},
 				),
 			)
@@ -469,7 +469,7 @@ var _ = Describe("Template", func() {
 					"test":                                               "shouldBeInPod",
 					hooks.HookSidecarListAnnotationName:                  `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
 					"kubevirt.io/migrationTransportUnix":                 "true",
-					"kubectl.kubernetes.io/default-container":            "compute",
+					"kubectl.kubernetes.io/default-container":            "d8v-compute",
 					"descheduler.alpha.kubernetes.io/request-evict-only": "",
 				}))
 				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
@@ -616,7 +616,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				for _, c := range pod.Spec.Containers {
-					if c.Name != "compute" {
+					if c.Name != "d8v-compute" {
 						if enableWorkaround {
 							Expect(c.SecurityContext.SELinuxOptions.Level).To(Equal("s0"), "failed on "+c.Name)
 						} else {
@@ -2644,7 +2644,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 				volumeMountNames := make([]string, len(pod.Spec.Containers[0].VolumeMounts))
 				for _, volumeMount := range pod.Spec.Containers[0].VolumeMounts {
 					volumeMountNames = append(volumeMountNames, volumeMount.Name)
@@ -2740,7 +2740,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
-				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("volumecontainerdisk1"))
 			})
 		})
@@ -3723,7 +3723,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				computeContainer := pod.Spec.Containers[0]
-				Expect(computeContainer.Name).To(Equal("compute"))
+				Expect(computeContainer.Name).To(Equal("d8v-compute"))
 
 				if defineEphemeralStorageLimit {
 					Expect(computeContainer.Resources.Requests).To(HaveKeyWithValue(k8sv1.ResourceEphemeralStorage, ephemeralStorageRequests))
@@ -3763,7 +3763,7 @@ var _ = Describe("Template", func() {
 				containers := pod.Spec.Containers
 				initContainers := pod.Spec.InitContainers
 
-				Expect(hasContainerWithName(initContainers, "container-disk-binary")).To(BeTrue())
+				Expect(hasContainerWithName(initContainers, "d8v-container-disk-binary")).To(BeTrue())
 				Expect(hasContainerWithName(initContainers, "kernel-boot")).To(BeTrue())
 				Expect(hasContainerWithName(containers, "kernel-boot")).To(BeTrue())
 			})
@@ -4008,7 +4008,7 @@ var _ = Describe("Template", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, container := range pod.Spec.Containers {
-				if container.Name == "compute" {
+				if container.Name == "d8v-compute" {
 					Expect(container.SecurityContext.Capabilities.Add).To(ContainElement(k8sv1.Capability("NET_BIND_SERVICE")))
 					return
 				}
@@ -4032,7 +4032,7 @@ var _ = Describe("Template", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, container := range pod.Spec.Containers {
-				if container.Name == "compute" {
+				if container.Name == "d8v-compute" {
 					Expect(container.SecurityContext.Capabilities.Add).To(
 						ContainElement(k8sv1.Capability("NET_BIND_SERVICE")))
 					return
@@ -4062,12 +4062,12 @@ var _ = Describe("Template", func() {
 		},
 			Entry("on a root virt-launcher", func() *v1.VirtualMachineInstance {
 				return api.NewMinimalVMI("fake-vmi")
-			}, "compute", []k8sv1.Capability{CAP_NET_BIND_SERVICE, CAP_SYS_NICE}, nil),
+			}, "d8v-compute", []k8sv1.Capability{CAP_NET_BIND_SERVICE, CAP_SYS_NICE}, nil),
 			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
 				vmi := api.NewMinimalVMI("fake-vmi")
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
 				return vmi
-			}, "compute", []k8sv1.Capability{CAP_NET_BIND_SERVICE}, []k8sv1.Capability{"ALL"}),
+			}, "d8v-compute", []k8sv1.Capability{CAP_NET_BIND_SERVICE}, []k8sv1.Capability{"ALL"}),
 			Entry("on a sidecar container", func() *v1.VirtualMachineInstance {
 				vmi := api.NewMinimalVMI("fake-vmi")
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
@@ -4382,7 +4382,7 @@ var _ = Describe("Template", func() {
 			}
 
 			for _, container := range pod.Spec.Containers {
-				if container.Name == "compute" {
+				if container.Name == "d8v-compute" {
 					continue
 				}
 				Expect(*container.SecurityContext.RunAsNonRoot).To(BeTrue())
@@ -5017,7 +5017,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				cpuRequests := resource.MustParse("200m")
-				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Cmp(cpuRequests)).To(BeZero())
 				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
 			})
@@ -5053,7 +5053,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				cpuLimit := resource.MustParse("2")
-				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Cmp(cpuRequests)).To(BeZero())
 				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Cmp(cpuLimit)).To(BeZero())
 			})
@@ -5089,7 +5089,7 @@ var _ = Describe("Template", func() {
 
 						pod, err := svc.RenderLaunchManifest(&vmi)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+						Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 						Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Value()).To(BeEquivalentTo(expectedCPU.Value()))
 					})
 				})
@@ -5116,7 +5116,7 @@ var _ = Describe("Template", func() {
 
 						pod, err := svc.RenderLaunchManifest(&vmi)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+						Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 						Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Value()).To(BeEquivalentTo(2))
 					})
 				})
@@ -5152,7 +5152,7 @@ var _ = Describe("Template", func() {
 					pod, err := svc.RenderLaunchManifest(&vmi)
 					Expect(err).ToNot(HaveOccurred())
 					cpuRequests := resource.MustParse("200m")
-					Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+					Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 					Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Cmp(cpuRequests)).To(BeZero())
 					Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
 				})
@@ -5232,7 +5232,7 @@ var _ = Describe("Template", func() {
 
 					pod, err := svc.RenderLaunchManifest(&vmi)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+					Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 					expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
 					expectedMemory.Add(GetMemoryOverhead(&vmi, defaultArch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
 					expectedMemory.Add(guestMemory)
@@ -5262,7 +5262,7 @@ var _ = Describe("Template", func() {
 
 						pod, err := svc.RenderLaunchManifest(&vmi)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+						Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 						expectedValue := int64(float64(pod.Spec.Containers[0].Resources.Requests.Memory().Value()) * DefaultMemoryLimitOverheadRatio)
 						Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeEquivalentTo(expectedValue))
 					})
@@ -5314,7 +5314,7 @@ var _ = Describe("Template", func() {
 
 							pod, err := svc.RenderLaunchManifest(&vmi)
 							Expect(err).ToNot(HaveOccurred())
-							Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+							Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 							expectedValue := int64(float64(pod.Spec.Containers[0].Resources.Requests.Memory().Value()) * expectedUsedRatio)
 							Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeEquivalentTo(expectedValue))
 						},
@@ -5344,7 +5344,7 @@ var _ = Describe("Template", func() {
 
 					pod, err := svc.RenderLaunchManifest(&vmi)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+					Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 					Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeZero())
 				})
 			})
@@ -5406,7 +5406,7 @@ var _ = Describe("Template", func() {
 			Expect(pod.Spec.Volumes).ToNot(ContainElement(networkInfoAnnotVolume()),
 				"pod should not have network-info annotation volume")
 
-			Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+			Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
 			Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(ContainElement(networkInfoAnnotVolumeMount()),
 				"pod should not have network-info annotation volume mount")
 		})
@@ -5425,7 +5425,7 @@ var _ = Describe("Template", func() {
 				Expect(netInfoVolumes).To(ConsistOf(networkInfoAnnotVolume()),
 					"should have single network-info annotation volume")
 
-				const computeContainerName = "compute"
+				const computeContainerName = "d8v-compute"
 				Expect(pod.Spec.Containers[0].Name).To(Equal(computeContainerName))
 				netInfoVolumeMounts := filterVolumeMountByName(pod.Spec.Containers[0].VolumeMounts, netInfoAnnotVolName)
 				Expect(netInfoVolumeMounts).To(ConsistOf(networkInfoAnnotVolumeMount()),

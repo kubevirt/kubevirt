@@ -350,7 +350,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			IsPodWithoutVmPayload := WithTransform(
 				func(pod *k8sv1.Pod) string {
 					for _, c := range pod.Spec.Containers {
-						if c.Name == "compute" {
+						if c.Name == "d8v-compute" {
 							return strings.Join(c.Command, " ")
 						}
 					}
@@ -686,7 +686,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			IsPodWithoutVmPayload := WithTransform(
 				func(pod *k8sv1.Pod) string {
 					for _, c := range pod.Spec.Containers {
-						if c.Name == "compute" {
+						if c.Name == "d8v-compute" {
 							return strings.Join(c.Command, " ")
 						}
 					}
@@ -1354,12 +1354,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		},
 			Entry("with running compute container and no infra container",
 				[]k8sv1.ContainerStatus{{
-					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+					Name: "d8v-compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
 				}},
 			),
 			Entry("with running compute container and no ready istio-proxy container",
 				[]k8sv1.ContainerStatus{{
-					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+					Name: "d8v-compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
 				}, {Name: "istio-proxy", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}}, Ready: false}},
 			),
 		)
@@ -1381,10 +1381,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectVMITimestamp(vmi.Namespace, vmi.Name, BeEmpty())
 		},
 			Entry("with not ready infra container and not ready compute container",
-				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}, {Name: "kubevirt-infra", Ready: false}},
+				[]k8sv1.ContainerStatus{{Name: "d8v-compute", Ready: false}, {Name: "kubevirt-infra", Ready: false}},
 			),
 			Entry("with not ready compute container and no infra container",
-				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}},
+				[]k8sv1.ContainerStatus{{Name: "d8v-compute", Ready: false}},
 			),
 		)
 
@@ -1417,7 +1417,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
-				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+				Name: "d8v-compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
 			}}
 			attachmentPod := newPodForVirtlauncher(pod, "hp-test", "abcd", attachmentPodPhase)
 			attachmentPod.Spec.Volumes = append(attachmentPod.Spec.Volumes, k8sv1.Volume{
@@ -1636,7 +1636,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodTerminatingReason)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
-			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{Name: "compute", State: k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{}}}}
+			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{Name: "d8v-compute", State: k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{}}}}
 			vmi.Status.Phase = virtv1.Scheduling
 
 			addVirtualMachine(vmi)
@@ -1752,7 +1752,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			pod.Spec.Containers = append(pod.Spec.Containers, k8sv1.Container{
 				Image: "madeup",
-				Name:  "compute",
+				Name:  "d8v-compute",
 			})
 
 			addVirtualMachine(vmi)
@@ -1787,7 +1787,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			pod.Spec.Containers = append(pod.Spec.Containers, k8sv1.Container{
 				Image: controller.templateService.GetLauncherImage(),
-				Name:  "compute",
+				Name:  "d8v-compute",
 			})
 
 			addVirtualMachine(vmi)
@@ -4242,7 +4242,7 @@ func newPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 		Status: k8sv1.PodStatus{
 			Phase: phase,
 			ContainerStatuses: []k8sv1.ContainerStatus{
-				{Ready: false, Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}}},
+				{Ready: false, Name: "d8v-compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}}},
 			},
 			Conditions: []k8sv1.PodCondition{
 				{

@@ -510,7 +510,7 @@ func IsPodReady(pod *k8sv1.Pod) bool {
 		// The compute container potentially holds a readiness probe for the VMI. Therefore
 		// don't wait for the compute container to become ready (the VMI later on will trigger the change to ready)
 		// and only check that the container started
-		if containerStatus.Name == "compute" {
+		if strings.HasSuffix(containerStatus.Name, "compute") {
 			if containerStatus.State.Running == nil {
 				return false
 			}
@@ -540,7 +540,7 @@ func IsPodFailedOrGoingDown(pod *k8sv1.Pod) bool {
 
 func isComputeContainerDown(pod *k8sv1.Pod) bool {
 	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.Name == "compute" {
+		if strings.HasSuffix(containerStatus.Name, "compute") {
 			return containerStatus.State.Terminated != nil
 		}
 	}
@@ -549,7 +549,7 @@ func isComputeContainerDown(pod *k8sv1.Pod) bool {
 
 func isComputeContainerFailed(pod *k8sv1.Pod) bool {
 	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.Name == "compute" {
+		if strings.HasSuffix(containerStatus.Name, "compute") {
 			return containerStatus.State.Terminated != nil && containerStatus.State.Terminated.ExitCode != 0
 		}
 	}

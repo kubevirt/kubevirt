@@ -751,7 +751,7 @@ func newLauncherPodForVMI(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 		Status: k8sv1.PodStatus{
 			Phase: k8sv1.PodRunning,
 			ContainerStatuses: []k8sv1.ContainerStatus{
-				{Ready: false, Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}}},
+				{Ready: false, Name: "d8v-compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}}},
 			},
 		},
 	}

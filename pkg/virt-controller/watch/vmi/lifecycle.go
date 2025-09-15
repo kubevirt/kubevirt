@@ -298,7 +298,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 	if vmiPodExists {
 		var foundImage string
 		for _, container := range pod.Spec.Containers {
-			if container.Name == "compute" {
+			if strings.HasSuffix(container.Name, "compute") {
 				foundImage = container.Image
 				break
 			}

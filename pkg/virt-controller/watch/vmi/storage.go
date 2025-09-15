@@ -225,7 +225,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 				} else if volume.PersistentVolumeClaim != nil {
 					var isReady bool
 					for _, cs := range attachmentPod.Status.ContainerStatuses {
-						if cs.Name == "hotplug-disk" {
+						if cs.Name == "d8v-hotplug-disk" {
 							isReady = cs.Ready
 							break
 						}

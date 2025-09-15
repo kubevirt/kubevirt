@@ -72,7 +72,7 @@ const (
 	hookSidecarSocks             = "hook-sidecar-sockets"
 	varRun                       = "/var/run"
 	virtBinDir                   = "virt-bin-share-dir"
-	hotplugDisk                  = "hotplug-disk"
+	hotplugDisk                  = "d8v-hotplug-disk"
 	virtExporter                 = "virt-exporter"
 	hotplugContainerDisks        = "hotplug-container-disks"
 	HotplugContainerDisk         = "hotplug-container-disk-"
@@ -809,7 +809,7 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 }
 
 func (t *templateService) newInitContainerRenderer(vmiSpec *v1.VirtualMachineInstance, initContainerVolumeMount k8sv1.VolumeMount, initContainerResources k8sv1.ResourceRequirements, userId int64) *ContainerSpecRenderer {
-	const containerDisk = "container-disk-binary"
+	const containerDisk = "d8v-container-disk-binary"
 	cpInitContainerOpts := []Option{
 		WithVolumeMounts(initContainerVolumeMount),
 		WithResourceRequirements(initContainerResources),
@@ -850,7 +850,7 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 		computeContainerOpts = append(computeContainerOpts, WithLivelinessProbe(vmi))
 	}
 
-	const computeContainerName = "compute"
+	const computeContainerName = "d8v-compute"
 	containerRenderer := NewContainerSpecRenderer(
 		computeContainerName, t.launcherImage, t.clusterConfig.GetImagePullPolicy(), computeContainerOpts...)
 	return containerRenderer
@@ -1471,7 +1471,7 @@ func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string, dockerSEL
 		// feature gate to be set.
 		for i := range pod.Spec.Containers {
 			container := &pod.Spec.Containers[i]
-			if container.Name != "compute" {
+			if !strings.HasSuffix(container.Name, "compute") {
 				generateContainerSecurityContext(selinuxType, container)
 			}
 		}
@@ -1522,7 +1522,7 @@ func (t *templateService) generatePodAnnotations(vmi *v1.VirtualMachineInstance)
 	}
 	maps.Copy(annotationsSet, filterVMIAnnotationsForPod(vmi.Annotations))
 
-	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
+	annotationsSet[podcmd.DefaultContainerAnnotationName] = "d8v-compute"
 
 	// Set this annotation now to indicate that the newly created virt-launchers will use
 	// unix sockets as a transport for migration
