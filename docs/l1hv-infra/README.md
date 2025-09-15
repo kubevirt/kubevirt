@@ -12,17 +12,23 @@ graph LR
   A[PR Open / Update] --> B[Quality Checks]
   B --> C[Build & Push Images]
   C --> D[Deploy to Dev]
-  D --> E[Run Dev Tests (L1HV only; Gate=On)]
+  D --> E[Dev Tests]
   E --> F[Promote Artifacts]
   F --> G{Parallel Test Envs}
-  G --> H1[test-kvm (Existing only; Gate=Off)]
-  G --> H2[test-emulation (All; Emu; Gate=Off)]
-  G --> H3[test-mshv (All; MSHV; Gate=On)]
+  G --> KVM[test-kvm]
+  G --> EMU[test-emulation]
+  G --> MSHV[test-mshv]
 ```
 
+Details:
+- Dev Tests = run only new L1HV tests (FeatureGate ON)
+- test-kvm = existing e2e only (exclude `mshv` label, Gate OFF)
+- test-emulation = all e2e in emulation mode (Gate OFF)
+- test-mshv = all e2e on MSHV (Gate ON)
+
 Legend:
-- Gate=On: L1HV FeatureGate enabled
-- Gate=Off: L1HV FeatureGate disabled
+- Gate ON environments: dev, test-mshv
+- Gate OFF environments: test-kvm, test-emulation
 
 ## 3. Environments (GitHub Environments)
 Each environment is a GitHub Environment holding secrets/vars for deploy & test.

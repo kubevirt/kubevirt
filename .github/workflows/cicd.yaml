@@ -3,6 +3,8 @@ name: CICD Pipeline
 on:
   push:
     branches: ["ise","eugene/*"]
+    paths:
+      - '**/workflows/**'
   workflow_dispatch:
 
 env:
@@ -28,6 +30,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+          logout: false
+
 
 
       - name: Build Images
