@@ -868,7 +868,7 @@ func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) e
 	}
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 	for _, pod := range pods {
-		if pod.DeletionTimestamp != nil && !isPodFinal(pod) || !controller.IsControlledBy(pod, vmi) {
+		if pod.DeletionTimestamp != nil && !isPodFinal(pod) || !v1.IsControlledBy(pod, vmi) {
 			continue
 		}
 		if err = c.deletePod(vmiKey, pod, v1.DeleteOptions{}); err != nil {
@@ -905,7 +905,7 @@ func (c *Controller) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virtv1.
 	activePods := make(map[types.UID]string)
 	count := 0
 	for _, pod := range pods {
-		if !controller.IsControlledBy(pod, vmi) {
+		if !v1.IsControlledBy(pod, vmi) {
 			continue
 		}
 		count++
@@ -924,7 +924,7 @@ func (c *Controller) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, e
 		return false, err
 	}
 	for _, pod := range pods {
-		if controller.IsControlledBy(pod, vmi) {
+		if v1.IsControlledBy(pod, vmi) {
 			return false, nil
 		}
 	}
@@ -1003,7 +1003,7 @@ func (c *Controller) waitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachin
 		if !isTempPod(pod) {
 			continue
 		}
-		if controller.IsControlledBy(pod, vmi) {
+		if v1.IsControlledBy(pod, vmi) {
 			temporaryPods = append(temporaryPods, pod)
 		}
 		if ownerRef := v1.GetControllerOf(pod); ownerRef != nil && ownerRef.UID == virtLauncherPod.UID {

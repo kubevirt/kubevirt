@@ -332,7 +332,7 @@ func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k
 
 	var curPod *k8sv1.Pod = nil
 	for _, pod := range pods {
-		if !IsControlledBy(pod, vmi) {
+		if !metav1.IsControlledBy(pod, vmi) {
 			continue
 		}
 
@@ -366,7 +366,7 @@ func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodIndexer cache.Inde
 		if pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
 			// not interested in terminated pods
 			continue
-		} else if !IsControlledBy(pod, vmi) {
+		} else if !metav1.IsControlledBy(pod, vmi) {
 			// not interested pods not associated with the vmi
 			continue
 		}
