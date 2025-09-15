@@ -9,19 +9,15 @@ Provide a clear view of how L1HV-related changes are validated through layered e
 
 ```mermaid
 graph LR
-  A[PR Open / Update] --> B[Quality Checks (pr.yaml)]
+  A[PR Open / Update] --> B[Quality Checks]
   B --> C[Build & Push Images]
   C --> D[Deploy to Dev]
-  D --> E[Run Dev Tests]\n(New L1HV only; Gate=On]
+  D --> E[Run Dev Tests (L1HV only; Gate=On)]
   E --> F[Promote Artifacts]
-  F --> G{Parallel Test Environments}
-  G --> H1[test-kvm]\n(Existing only; Gate=Off)
-  G --> H2[test-emulation]\n(All e2e; Emulation; Gate=Off)
-  G --> H3[test-mshv]\n(All e2e; MSHV; Gate=On)
-  classDef gateOn fill=#dff6dd,stroke=#22863a,color=#044b1d;
-  classDef gateOff fill=#f6f8fa,stroke=#666,color=#24292e;
-  class E,H3 gateOn;
-  class H1,H2 D gateOff;
+  F --> G{Parallel Test Envs}
+  G --> H1[test-kvm (Existing only; Gate=Off)]
+  G --> H2[test-emulation (All; Emu; Gate=Off)]
+  G --> H3[test-mshv (All; MSHV; Gate=On)]
 ```
 
 Legend:
