@@ -25,3 +25,13 @@ jobs:
         run: |
           make test
 
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: success() || failure()    # run this step even if previous step failed
+        with:
+          name: Unit Test Results
+          path: _out/artifacts/junit/junit.unittests.xml
+          reporter: java-junit
+          fail-on-error: false
+          max-annotations: 50
+
