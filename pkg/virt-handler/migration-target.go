@@ -684,9 +684,15 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
 	}
 
-	shouldReturn, err := c.checkLauncherClient(vmi)
-	if shouldReturn {
-		return err
+	if vmi.Status.Phase == v1.WaitingForSync {
+		// clear the start timestamp to avoid the migration being considered as running
+		log.Log.Object(vmi).Infof("clearing the start timestamp to avoid the migration being considered as running")
+		vmi.Status.MigrationState.StartTimestamp = nil
+	} else {
+		shouldReturn, err := c.checkLauncherClient(vmi)
+		if shouldReturn {
+			return err
+		}
 	}
 
 	if migrations.IsMigrating(vmi) {
