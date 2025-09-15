@@ -8,7 +8,7 @@ on:
 env:
   DOCKER_PREFIX: ghcr.io/${{ github.repository }}
   DOCKER_TAG: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
-
+  CUSTOM_LIBVIRT_IMAGE: ${{ format('ghcr.io/{0}/libvirt-rpms:{1}', github.repository, 'qemu-mshv') }}
   
 jobs:
   quality-check:
@@ -45,6 +45,53 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup Custom libvirt RPMs
+        run: |
+          echo "Setting up custom libvirt RPMs from pre-built image..."
+          
+          # Pull the pre-built RPMs container
+          docker pull ${{ env.CUSTOM_LIBVIRT_IMAGE }}
+          
+          # Start HTTP server with the RPMs
+          docker run -dit \
+            --name rpms-http-server \
+            -p 8080:80 \
+            ${{ env.CUSTOM_LIBVIRT_IMAGE }}
+          
+          # Wait for HTTP server to start
+          sleep 5
+          
+          # Get HTTP server IP
+          SERVER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' rpms-http-server)
+          echo "RPMs HTTP server IP: $SERVER_IP"
+          
+          # Create custom repository configuration
+          cat > custom-repo.yaml <<EOF
+          repositories:
+          - arch: x86_64
+            baseurl: http://$SERVER_IP:80/x86_64/
+            name: custom-build
+            gpgcheck: 0
+            repo_gpgcheck: 0
+          EOF
+          
+          echo "Custom repository configuration created:"
+          cat custom-repo.yaml
+          
+          # Verify RPMs are accessible
+          curl -f "http://localhost:8080/x86_64/repodata/repomd.xml" || {
+            echo "Error: Custom repository is not accessible"
+            exit 1
+          }
+          
+          # Get libvirt version from build info if available
+          LIBVIRT_VERSION=$(curl -s "http://localhost:8080/build-info.json" | jq -r '.libvirt_version' 2>/dev/null)
+          echo "Using libvirt version: $LIBVIRT_VERSION"
+          
+          # Update KubeVirt RPM dependencies with custom libvirt
+          make CUSTOM_REPO=custom-repo.yaml LIBVIRT_VERSION="$LIBVIRT_VERSION" SINGLE_ARCH="x86_64" rpm-deps
+          
+          echo "Workspace and RPM/BUILD.bazel updated successfully."
 
       - name: Build Images
         run: |
@@ -54,6 +101,13 @@ jobs:
       - name: Push Images
         run: |
           make bazel-push-images
+
+      - name: Cleanup Custom libvirt Build
+        if: always() && vars.USE_CUSTOM_LIBVIRT == 'true'
+        run: |
+          # Clean up HTTP server container
+          docker rm -f rpms-http-server 2>/dev/null || true
+          echo "Custom libvirt cleanup completed"
 
   Deploy_to_Dev:
     runs-on: ubuntu-latest
