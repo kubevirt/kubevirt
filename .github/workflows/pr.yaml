@@ -8,6 +8,9 @@ on:
   workflow_dispatch:
   workflow_call:
 
+env:
+  JUNIT_REPORT_FILE: _out/artifacts/junit/junit.unittests.xml
+
 jobs:
   Quality_Check:
     name: Quality Check
@@ -22,8 +25,8 @@ jobs:
 
           
       - name: Run Unit Tests
-        run: |
-          rm _out/artifacts/junit/junit.unittests.xml
+        run: |  
+          rm -f $JUNIT_REPORT_FILE
           make test
 
 
@@ -32,7 +35,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: junit-test-results
-          path: _out/artifacts/junit/junit.unittests.xml
+          path: ${{ env.JUNIT_REPORT_FILE }}
           retention-days: 30
 
       - name: Publish Test Results
@@ -40,7 +43,7 @@ jobs:
         if: success() || failure()    # run this step even if previous step failed
         with:
           name: "Unit Tests"
-          path: _out/artifacts/junit/junit.unittests.xml
+          path: ${{ env.JUNIT_REPORT_FILE }}
           reporter: java-junit
           fail-on-error: false
           max-annotations: 50
