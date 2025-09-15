@@ -20,26 +20,13 @@ package controller
 import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
 // GetControllerOf returns the controllerRef if controllee has a controller,
 // otherwise returns nil.
 func GetControllerOf(pod *k8sv1.Pod) *metav1.OwnerReference {
-	controllerRef := metav1.GetControllerOf(pod)
-	if controllerRef != nil {
-		return controllerRef
-	}
-	// We may find pods that are only using CreatedByLabel and not set with an OwnerReference
-	if createdBy := pod.Labels[virtv1.CreatedByLabel]; len(createdBy) > 0 {
-		name := pod.Annotations[virtv1.DomainAnnotation]
-		uid := types.UID(createdBy)
-		vmi := virtv1.NewVMI(name, uid)
-		return metav1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind)
-	}
-	return nil
+	return metav1.GetControllerOf(pod)
 }
 
 func IsControlledBy(pod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance) bool {
