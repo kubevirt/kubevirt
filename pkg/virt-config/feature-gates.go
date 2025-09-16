@@ -221,6 +221,10 @@ func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
 }
 
+func (config *ClusterConfig) HyperVLayeredEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.HyperVLayered)
+}
+
 func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
 }
