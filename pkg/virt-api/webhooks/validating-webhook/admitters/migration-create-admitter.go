@@ -109,6 +109,28 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	if migration.Spec.Priority != nil {
+		if !admitter.clusterConfig.MigrationPriorityQueueEnabled() {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+				{
+					Type:    metav1.CauseTypeForbidden,
+					Message: "MigrationPriorityQueue feature gate is not enabled in kubevirt resource",
+					Field:   "spec.migrationPriority",
+				},
+			})
+		}
+
+		if !hasRequestOriginatedFromVirtController(ar.Request.UserInfo.Username, admitter.kubeVirtServiceAccounts) {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+				{
+					Type:    metav1.CauseTypeForbidden,
+					Message: "Migration priority queue, only virt-controller is allowed to set priority field",
+					Field:   "spec.migrationPriority",
+				},
+			})
+		}
+	}
+
 	vmi, err := admitter.virtClient.KubevirtV1().VirtualMachineInstances(migration.Namespace).Get(ctx, migration.Spec.VMIName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// ensure VMI exists for the migration
@@ -197,4 +219,12 @@ func ValidateVirtualMachineInstanceMigrationSpec(field *k8sfield.Path, spec *v1.
 	}
 
 	return causes
+}
+
+func hasRequestOriginatedFromVirtController(requestUsername string, kubeVirtServiceAccounts map[string]struct{}) bool {
+	if _, isKubeVirtServiceAccount := kubeVirtServiceAccounts[requestUsername]; isKubeVirtServiceAccount {
+		return strings.HasSuffix(requestUsername, components.ControllerServiceAccountName)
+	}
+
+	return false
 }
