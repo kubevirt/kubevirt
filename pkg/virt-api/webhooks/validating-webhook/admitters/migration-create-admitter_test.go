@@ -22,9 +22,11 @@ package admitters_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +36,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -218,7 +221,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		)
 	})
 
-	Context("feature gate", func() {
+	Context("DecentralizedLiveMigration feature gate", func() {
 		DescribeTable("should handle migration correctly based on featuregate", func(modifyMigration func(*v1.VirtualMachineInstanceMigration), featureGateEnabled, expectAllow bool) {
 			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			vmi.Status.Phase = v1.Running
@@ -284,6 +287,57 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 					}
 				}, true, false),
 		)
+	})
+
+	Context("handling priority field", func() {
+		When("MigrationPriorityQueue feature gate is disabled", func() {
+			BeforeEach(func() {
+				disableFeatureGates()
+			})
+
+			DescribeTable("should reject the", func(user string) {
+				vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+				vmi.Status.Phase = v1.Running
+				virtClient := kubevirtfake.NewSimpleClientset(vmi)
+				migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
+				migration.Spec.Priority = pointer.P(v1.MigrationPriority("system-critical"))
+				ar, err := newAdmissionReviewForVMIMCreation(migration)
+				ar.Request.UserInfo.Username = user
+				Expect(err).ToNot(HaveOccurred())
+				admitter := admitters.NewMigrationCreateAdmitter(virtClient, config, webhooks.KubeVirtServiceAccounts("kubevirt"))
+				resp := admitter.Admit(context.Background(), ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Message).To(ContainSubstring("MigrationPriorityQueue feature gate is not enabled in kubevirt resource"))
+			},
+				Entry("virt-controller requests", "system:serviceaccount:kubevirt:kubevirt-controller"),
+				Entry("external requests", "system:serviceaccount:external-user"),
+			)
+		})
+		When("MigrationPriorityQueue feature gate is enabled", func() {
+			BeforeEach(func() {
+				enableFeatureGate(featuregate.MigrationPriorityQueue)
+			})
+
+			DescribeTable("should", func(user string, matcher types.GomegaMatcher) {
+				vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+				vmi.Status.Phase = v1.Running
+				virtClient := kubevirtfake.NewSimpleClientset(vmi)
+				migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
+				migration.Spec.Priority = pointer.P(v1.MigrationPriority("system-critical"))
+				ar, err := newAdmissionReviewForVMIMCreation(migration)
+				ar.Request.UserInfo.Username = user
+				Expect(err).ToNot(HaveOccurred())
+				admitter := admitters.NewMigrationCreateAdmitter(virtClient, config, webhooks.KubeVirtServiceAccounts("kubevirt"))
+				resp := admitter.Admit(context.Background(), ar)
+				Expect(resp.Allowed).To(matcher)
+				if matcher == BeFalse() {
+					Expect(resp.Result.Message).To(ContainSubstring("Migration priority queue, only virt-controller is allowed to set priority field"))
+				}
+			},
+				Entry("reject the external requests", "system:serviceaccount:external-user", BeFalse()),
+				Entry("allow the virt-controller requests", fmt.Sprintf("system:serviceaccount:kubevirt:kubevirt-controller"), BeTrue()),
+			)
+		})
 	})
 })
 
