@@ -324,9 +324,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				var dstPVC *k8sv1.PersistentVolumeClaim
 				switch mode {
 				case fsPVC:
-					dstPVC = libstorage.CreateFSPVC(destPVC, ns, size, nil, libstorage.WithStorageProfile())
+					dstPVC = libstorage.CreateFSPVC(destPVC, ns, size, nil)
 				case blockPVC:
-					dstPVC = libstorage.CreateBlockPVC(destPVC, ns, size, libstorage.WithStorageProfile())
+					dstPVC = libstorage.CreateBlockPVC(destPVC, ns, size)
 				default:
 					Fail("Unrecognized mode")
 				}
@@ -474,7 +474,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			}, 120*time.Second, time.Second).Should(Equal(virtv1.MigrationPending))
 
 			By("Create the destination PVC")
-			libstorage.CreateFSPVC(destPVC, ns, "2Gi", nil, libstorage.WithStorageProfile())
+			libstorage.CreateFSPVC(destPVC, ns, "2Gi", nil)
 
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 
@@ -564,8 +564,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		It("should migrate a PVC with a VM using a containerdisk", func() {
 			volName := "volume"
 			srcPVC := "src-" + rand.String(5)
-			libstorage.CreateFSPVC(srcPVC, ns, size, nil, libstorage.WithStorageProfile())
-			libstorage.CreateFSPVC(destPVC, ns, size, nil, libstorage.WithStorageProfile())
+			libstorage.CreateFSPVC(srcPVC, ns, size, nil)
+			libstorage.CreateFSPVC(destPVC, ns, size, nil)
 			vmi := libvmifact.NewCirros(
 				libvmi.WithNamespace(ns),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -832,7 +832,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 			It("when the copy of the destination volumes was successful", func() {
 				dv := createDV()
-				libstorage.CreateFSPVC(destPVC, ns, size, nil, libstorage.WithStorageProfile())
+				libstorage.CreateFSPVC(destPVC, ns, size, nil)
 				vm := createAndStartVM(dv)
 
 				By("Update volumes")
@@ -1235,7 +1235,7 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 	virtCli := kubevirt.Client()
 	vmi, err := virtCli.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ShouldNot(HaveOccurred())
-	libstorage.CreateFSPVC(name, vmi.Namespace, size, nil, libstorage.WithStorageProfile())
+	libstorage.CreateFSPVC(name, vmi.Namespace, size, nil)
 	vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 	Expect(err).ShouldNot(HaveOccurred())
 	volume := k8sv1.Volume{
