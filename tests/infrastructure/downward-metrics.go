@@ -38,7 +38,7 @@ import (
 )
 
 var _ = Describe(SIG("downwardMetrics", func() {
-	const vmiStartTimeout = 180
+	const vmiStartTimeout = libvmops.StartupTimeoutSecondsXLarge
 
 	DescribeTable("should start a vmi and get the metrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
 		vmi := libvmifact.NewFedora(via)

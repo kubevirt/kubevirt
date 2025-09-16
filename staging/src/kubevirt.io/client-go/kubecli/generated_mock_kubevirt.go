@@ -1803,18 +1803,18 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) UserList(ctx, name an
 }
 
 // VNC mocks base method.
-func (m *MockVirtualMachineInstanceInterface) VNC(name string) (v122.StreamInterface, error) {
+func (m *MockVirtualMachineInstanceInterface) VNC(name string, preserveSession bool) (v122.StreamInterface, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VNC", name)
+	ret := m.ctrl.Call(m, "VNC", name, preserveSession)
 	ret0, _ := ret[0].(v122.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // VNC indicates an expected call of VNC.
-func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) VNC(name any) *gomock.Call {
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) VNC(name, preserveSession any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VNC", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).VNC), name)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VNC", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).VNC), name, preserveSession)
 }
 
 // VSOCK mocks base method.

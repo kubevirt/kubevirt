@@ -503,6 +503,54 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.volumeRestorePolicy"))
 			})
 
+			It("should accept correct volume ownership policy", func() {
+				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     vmName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+						VolumeOwnershipPolicy:      pointer.P(snapshotv1.VolumeOwnershipPolicyNone),
+					},
+				}
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+
+			It("should reject invalid volume ownership policy", func() {
+				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     vmName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+						VolumeOwnershipPolicy:      pointer.P(snapshotv1.VolumeOwnershipPolicy("invalid")),
+					},
+				}
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
+				Expect(resp.Result.Details.Causes).ToNot(BeNil())
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.volumeOwnershipPolicy"))
+			})
+
 			DescribeTable("Should reject restore when using backend storage and restoring to different VM", func(doesTargetExist bool) {
 				const targetVMName = "new-test-vm"
 				targetVM := &v1.VirtualMachine{}

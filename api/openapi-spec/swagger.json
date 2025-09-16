@@ -8997,6 +8997,9 @@
      },
      {
       "$ref": "#/parameters/namespace-nfszEHZ0"
+     },
+     {
+      "$ref": "#/parameters/preserveSession-FJbSIuEU"
      }
     ]
    },
@@ -10593,6 +10596,9 @@
      },
      {
       "$ref": "#/parameters/namespace-nfszEHZ0"
+     },
+     {
+      "$ref": "#/parameters/preserveSession-FJbSIuEU"
      }
     ]
    },
@@ -12832,6 +12838,7 @@
       "type": "string"
      },
      "ppc64le": {
+      "description": "Deprecated: ppc64le architecture is no longer supported.",
       "$ref": "#/definitions/v1.ArchSpecificConfiguration"
      },
      "s390x": {
@@ -20694,6 +20701,9 @@
       "type": "string",
       "default": ""
      },
+     "volumeOwnershipPolicy": {
+      "type": "string"
+     },
      "volumeRestoreOverrides": {
       "description": "VolumeRestoreOverrides gives the option to change properties of each restored volume For example, specifying the name of the restored volume, or adding labels/annotations to it",
       "type": "array",
@@ -21170,6 +21180,13 @@
     "name": "port",
     "in": "query",
     "required": true
+   },
+   "preserveSession-FJbSIuEU": {
+    "uniqueItems": true,
+    "type": "boolean",
+    "description": "Connect only if ongoing session is not disturbed.",
+    "name": "preserveSession",
+    "in": "query"
    },
    "propagationPolicy-6jk3prlO": {
     "uniqueItems": true,

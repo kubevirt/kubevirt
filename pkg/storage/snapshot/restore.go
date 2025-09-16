@@ -343,7 +343,7 @@ func (ctrl *VMRestoreController) doUpdateErrorWithFailure(restore *snapshotv1.Vi
 
 func (ctrl *VMRestoreController) doUpdateStatus(original, updated *snapshotv1.VirtualMachineRestore) error {
 	if !equality.Semantic.DeepEqual(original.Status, updated.Status) {
-		if err := ctrl.VMRestoreStatusUpdater.UpdateStatus(updated); err != nil {
+		if _, err := ctrl.Client.VirtualMachineRestore(updated.Namespace).UpdateStatus(context.Background(), updated, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -1496,7 +1496,7 @@ func (ctrl *VMRestoreController) createRestorePVC(
 
 		// By setting this annotation, the CDI will set ownership of the PVC to the DV
 		pvc.Annotations[populatedForPVCAnnotation] = dvOwner
-	} else { // PVC is owned by the VM
+	} else if !isVolumeOwnershipPolicyNone(vmRestore) { // PVC is owned by the VM
 		target.Own(pvc)
 	}
 
@@ -1719,6 +1719,16 @@ func (ctrl *VMRestoreController) prepopulateDataVolume(namespace, dataVolume, re
 	// Patch the DataVolume
 	_, err = ctrl.Client.CdiClient().CdiV1beta1().DataVolumes(namespace).Patch(context.Background(), dataVolume, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	return err
+}
+
+// isVolumeOwnershipPolicyNone determines if the VolumeOwnershipPolicy is set to "None"
+// If this is the case, the restored volumes will not be owned by the restored VM
+func isVolumeOwnershipPolicyNone(vmRestore *snapshotv1.VirtualMachineRestore) bool {
+	if vmRestore.Spec.VolumeOwnershipPolicy == nil {
+		return false
+	}
+
+	return *vmRestore.Spec.VolumeOwnershipPolicy == snapshotv1.VolumeOwnershipPolicyNone
 }
 
 func setLegacyFirmwareUUID(vm *kubevirtv1.VirtualMachine) {

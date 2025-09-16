@@ -28,7 +28,7 @@ import (
 type SidecarCreatorFunc func(*v1.VirtualMachineInstance, *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error)
 
 func WithSidecarCreator(sidecarCreator SidecarCreatorFunc) templateServiceOption {
-	return func(t *templateService) {
+	return func(t *TemplateService) {
 		t.sidecarCreators = append(t.sidecarCreators, sidecarCreator)
 	}
 }

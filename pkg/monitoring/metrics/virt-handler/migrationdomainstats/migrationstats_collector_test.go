@@ -56,7 +56,7 @@ var _ = Describe("migration metrics", func() {
 			Entry("kubevirt_vmi_migration_data_remaining_bytes", migrateVMIDataRemaining, 1.0),
 			Entry("kubevirt_vmi_migration_data_processed_bytes", migrateVMIDataProcessed, 2.0),
 			Entry("kubevirt_vmi_migration_dirty_memory_rate_bytes", migrateVmiDirtyMemoryRate, 3.0),
-			Entry("kubevirt_vmi_migration_disk_transfer_rate_bytes", migrateVmiMemoryTransferRate, 4.0),
+			Entry("kubevirt_vmi_migration_memory_transfer_rate_bytes", migrateVmiMemoryTransferRate, 4.0),
 		)
 
 		It("result should be empty if stat not populated or set is false", func() {

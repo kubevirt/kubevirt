@@ -46,9 +46,10 @@ var _ = Describe("Port forward", func() {
 		Entry("kind vms", "vms/testvm", "", "testvm", "vm", ""),
 		Entry("kind virtualmachine", "virtualmachine/testvm", "", "testvm", "vm", ""),
 		Entry("kind virtualmachines", "virtualmachines/testvm", "", "testvm", "vm", ""),
-		// Legacy parsing
-		Entry("name with dots", "vmi/testvmi.with.dots", "dots", "testvmi.with", "vmi", ""),
-		Entry("kind vmi with name and namespace (legacy)", "vmi/testvmi.default", "default", "testvmi", "vmi", ""),
-		Entry("kind vm with name and namespace (legacy)", "vm/testvm.default", "default", "testvm", "vm", ""),
+		// Before 1.7 these syntaxes resulted in the last part after a dot being parsed as the namespace.
+		// This was changed in 1.7 to not parse as namespace anymore.
+		Entry("name with dots", "vmi/testvmi.with.dots", "", "testvmi.with.dots", "vmi", ""),
+		Entry("kind vmi with name with dot", "vmi/testvmi.default", "", "testvmi.default", "vmi", ""),
+		Entry("kind vm with name with dot", "vm/testvm.default", "", "testvm.default", "vm", ""),
 	)
 })

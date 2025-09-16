@@ -24,7 +24,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	rt "runtime"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -55,7 +54,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 )
 
 var _ = Describe("Validating VM Admitter", func() {
@@ -1378,10 +1376,12 @@ var _ = Describe("Validating VM Admitter", func() {
 			disableFeatureGates()
 		})
 
-		Context("CPU", func() {
+		DescribeTableSubtree("CPU on supported arch", func(arch string) {
 			const maximumSockets uint32 = 24
 
 			BeforeEach(func() {
+				enableFeatureGate(featuregate.MultiArchitecture)
+				vm.Spec.Template.Spec.Architecture = arch
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					MaxSockets: maximumSockets,
 				}
@@ -1400,13 +1400,15 @@ var _ = Describe("Validating VM Admitter", func() {
 					vm.Status.Ready = true
 				})
 			})
-		})
+		},
+			Entry("amd64", "amd64"),
+			Entry("s390x", "s390x"),
+		)
 
-		Context("Memory", func() {
+		DescribeTableSubtree("Memory on supported arch", func(arch string) {
 			var maxGuest resource.Quantity
 
 			BeforeEach(func() {
-				checks.SkipIfS390X(rt.GOARCH, "Memory hotplug is not supported for s390x")
 				guest := resource.MustParse("1Gi")
 				maxGuest = resource.MustParse("4Gi")
 
@@ -1414,7 +1416,8 @@ var _ = Describe("Validating VM Admitter", func() {
 					Guest:    &guest,
 					MaxGuest: &maxGuest,
 				}
-				vm.Spec.Template.Spec.Architecture = rt.GOARCH
+				enableFeatureGate(featuregate.MultiArchitecture)
+				vm.Spec.Template.Spec.Architecture = arch
 				vm.Spec.Template.Spec.Domain.Resources.Limits = nil
 				vm.Spec.Template.Spec.Domain.Resources.Requests = nil
 				vm.Status.Ready = true
@@ -1508,13 +1511,13 @@ var _ = Describe("Validating VM Admitter", func() {
 					Field:   "spec.template.spec.domain.memory.guest",
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(memory.Hotplug1GHugePagesBlockAlignmentBytes, resource.BinarySI)),
 				}),
-				Entry("architecture is not amd64 or arm64", func(vm *v1.VirtualMachine) {
+				Entry("architecture is not amd64", func(vm *v1.VirtualMachine) {
 					enableFeatureGate(featuregate.MultiArchitecture)
-					vm.Spec.Template.Spec.Architecture = "risc-v"
+					vm.Spec.Template.Spec.Architecture = "arm64"
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Field:   "spec.template.spec.domain.memory.guest",
-					Message: "Memory hotplug is only available for x86_64 and arm64 VMs",
+					Message: "Memory hotplug is only available for x86_64 VMs",
 				}),
 				Entry("guest memory is less than 1Gi", func(vm *v1.VirtualMachine) {
 					vm.Spec.Template.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("512Mi"))
@@ -1524,7 +1527,9 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is only available for VMs with at least 1Gi of guest memory",
 				}),
 			)
-		})
+		},
+			Entry("amd64", "amd64"),
+		)
 
 	})
 

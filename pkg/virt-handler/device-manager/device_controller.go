@@ -351,9 +351,13 @@ func (c *DeviceController) refreshPermittedDevices() {
 		debugDevRemoved = append(debugDevRemoved, resourceName)
 	}
 
-	logger.Info("refreshed device plugins for permitted/forbidden host devices")
-	logger.Infof("enabled device-plugins for: %v", debugDevAdded)
-	logger.Infof("disabled device-plugins for: %v", debugDevRemoved)
+	logger.V(3).Info("refreshed device plugins for permitted/forbidden host devices")
+	if len(debugDevAdded) > 0 {
+		logger.Infof("enabled device-plugins for: %v", debugDevAdded)
+	}
+	if len(debugDevRemoved) > 0 {
+		logger.Infof("disabled device-plugins for: %v", debugDevRemoved)
+	}
 }
 
 func (c *DeviceController) startDevice(resourceName string, dev Device) {

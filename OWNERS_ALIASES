@@ -45,13 +45,16 @@ aliases:
     - enp0s3
     - xpivarc
     - 0xFelix
+    - orelmisan
   sig-test-approvers:
+    - akalenyu
     - kbidarkar
     - phoracek
     - enp0s3
     - xpivarc
     - dhiller
     - 0xFelix
+    - orelmisan
   sig-test-emeritus_approvers:
     - AlonaKaplan
 
@@ -87,6 +90,7 @@ aliases:
     - mhenriks
     - akalenyu
     - ShellyKa13
+    - awels
   sig-storage-reviewers:
     - awels
     - akalenyu

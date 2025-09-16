@@ -29,18 +29,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net"
-	"net/rpc"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -48,10 +42,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"golang.org/x/sys/unix"
+
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -114,6 +110,7 @@ type LauncherClient interface {
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 	SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	GetDomainDirtyRateStats() (dirtyRateMbps int64, err error)
+	GetScreenshot(*v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 }
 
 type VirtLauncherClient struct {
@@ -139,27 +136,36 @@ func SocketsDirectory() string {
 }
 
 func IsSocketUnresponsive(socket string) bool {
-	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
-	exists, _ := diskutils.FileExists(file)
+	dir, err := safepath.NewPathNoFollow(filepath.Dir(socket))
+	fileNotExists := errors.Is(err, unix.ENOENT)
+	if err != nil {
+		return fileNotExists
+	}
+
+	_, err = safepath.JoinNoFollow(dir, StandardLauncherUnresponsiveFileName)
+	unresponsive := !errors.Is(err, unix.ENOENT)
 	// if the unresponsive socket monitor marked this socket
 	// as being unresponsive, return true
-	if exists {
+	if unresponsive {
 		return true
 	}
 
-	exists, _ = diskutils.FileExists(socket)
+	_, err = safepath.JoinNoFollow(dir, filepath.Base(socket))
+	fileNotExists = errors.Is(err, unix.ENOENT)
 	// if the socket file doesn't exist, it's definitely unresponsive as well
-	return !exists
+	return fileNotExists
 }
 
 func MarkSocketUnresponsive(socket string) error {
-	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
-	f, err := os.Create(file)
+	dir, err := safepath.NewPathNoFollow(filepath.Dir(socket))
 	if err != nil {
 		return err
 	}
-	f.Close()
-	return nil
+	err = safepath.TouchAtNoFollow(dir, StandardLauncherUnresponsiveFileName, 0666)
+	if errors.Is(err, unix.EEXIST) {
+		return nil
+	}
+	return err
 }
 
 func SocketDirectoryOnHost(podUID string) string {
@@ -182,8 +188,8 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance, socketDirFunc func(string)
 	for podUID := range vmi.Status.ActivePods {
 		socketPodDir := socketDirFunc(string(podUID))
 		socketDirsForErrorReporting = append(socketDirsForErrorReporting, socketPodDir)
-		exists, _ := diskutils.FileExists(socketPodDir)
-		if exists {
+		_, err := safepath.NewPathNoFollow(socketPodDir)
+		if err == nil {
 			return socketPodDir, nil
 		}
 	}
@@ -207,8 +213,8 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance, host string) (string, erro
 			continue
 		}
 		socket := SocketFilePathOnHost(string(podUID))
-		exists, _ := diskutils.FileExists(socket)
-		if exists {
+		_, err := safepath.NewPathNoFollow(socket)
+		if err == nil {
 			foundSocket = socket
 			socketsFound++
 		}
@@ -228,17 +234,6 @@ func FindSocket(vmi *v1.VirtualMachineInstance) (string, error) {
 	host, _ := os.LookupEnv("NODE_NAME")
 	return FindSocketOnHost(vmi, host)
 }
-
-func SocketOnGuest() string {
-	sockFile := StandardLauncherSocketFileName
-	return filepath.Join(SocketsDirectory(), sockFile)
-}
-
-func UninitializedSocketOnGuest() string {
-	sockFile := StandardInitLauncherSocketFileName
-	return filepath.Join(SocketsDirectory(), sockFile)
-}
-
 func NewClient(socketPath string) (LauncherClient, error) {
 	// dial socket
 	conn, err := grpcutil.DialSocket(socketPath)
@@ -307,60 +302,6 @@ func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,
 
 	err = handleError(err, cmdName, response)
 	return err
-}
-
-func IsUnimplemented(err error) bool {
-	if grpcStatus, ok := status.FromError(err); ok {
-		if grpcStatus.Code() == codes.Unimplemented {
-			return true
-		}
-	}
-	return false
-}
-func handleError(err error, cmdName string, response *cmdv1.Response) error {
-	if IsDisconnected(err) {
-		return err
-	} else if IsUnimplemented(err) {
-		return err
-	} else if err != nil {
-		msg := fmt.Sprintf("unknown error encountered sending command %s: %s", cmdName, err.Error())
-		return fmt.Errorf(msg)
-	} else if response != nil && !response.Success {
-		return fmt.Errorf("server error. command %s failed: %q", cmdName, response.Message)
-	}
-	return nil
-}
-
-func IsDisconnected(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	if err == rpc.ErrShutdown || err == io.ErrUnexpectedEOF || err == io.EOF {
-		return true
-	}
-
-	if opErr, ok := err.(*net.OpError); ok {
-		if syscallErr, ok := opErr.Err.(*os.SyscallError); ok {
-			// catches "connection reset by peer"
-			if syscallErr.Err == syscall.ECONNRESET {
-				return true
-			}
-		}
-	}
-
-	if grpcStatus, ok := status.FromError(err); ok {
-
-		// see https://github.com/grpc/grpc-go/blob/master/codes/codes.go
-		switch grpcStatus.Code() {
-		case codes.Canceled:
-			// e.g. v1client connection closing
-			return true
-		}
-
-	}
-
-	return false
 }
 
 func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
@@ -735,6 +676,24 @@ func (c *VirtLauncherClient) GuestPing(domainName string, timeoutSeconds int32) 
 
 	_, err := c.v1client.GuestPing(ctx, request)
 	return err
+}
+
+func (c *VirtLauncherClient) GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error) {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	request := &cmdv1.VMIRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	return c.v1client.GetScreenshot(ctx, request)
 }
 
 func (c *VirtLauncherClient) GetSEVInfo() (*v1.SEVPlatformInfo, error) {

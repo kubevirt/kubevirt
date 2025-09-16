@@ -68,7 +68,7 @@ var (
 
 	migrateVmiMemoryTransferRate = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_migration_disk_transfer_rate_bytes",
+			Name: "kubevirt_vmi_migration_memory_transfer_rate_bytes",
 			Help: "The rate at which the memory is being transferred.",
 		},
 	)

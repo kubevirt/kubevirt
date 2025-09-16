@@ -174,6 +174,13 @@ func WithPVCSource(namespace, name string) dvOption {
 	})
 }
 
+// WithUploadSource is a dvOption to add a DataVolumeSource to the DataVolume, with an Upload source
+func WithUploadSource() dvOption {
+	return withSource(v1beta1.DataVolumeSource{
+		Upload: &v1beta1.DataVolumeSourceUpload{},
+	})
+}
+
 // WithForceBindAnnotation adds the "cdi.kubevirt.io/storage.bind.immediate.requested" annotation to the DV,
 // with the value of "true"
 func WithForceBindAnnotation() dvOption {

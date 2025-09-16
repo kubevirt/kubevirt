@@ -27,6 +27,7 @@ import (
 	"time"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -61,7 +62,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 )
 
 var _ = Describe("Migration watcher", func() {
@@ -2123,79 +2123,6 @@ var _ = Describe("Migration watcher", func() {
 		)
 	})
 
-	Context("Descheduler annotations", func() {
-		var vmi *virtv1.VirtualMachineInstance
-
-		It("should not add eviction-in-progress annotation in case of non evacuation migration", func() {
-			vmi = newVirtualMachine("testvmi", virtv1.Running)
-			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-
-			addMigration(migration)
-			addVirtualMachineInstance(vmi)
-			sourcePod := newSourcePodForVirtualMachine(vmi)
-			addPod(sourcePod)
-
-			sanityExecute()
-
-			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
-			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
-			updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedSourcePod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
-		})
-
-		Context("with an evacuation migration", func() {
-			It("should add eviction-in-progress annotation only to source virt-launcher pod", func() {
-				vmi = newVirtualMachine("testvmi", virtv1.Running)
-				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-				setAnnotation(virtv1.EvacuationMigrationAnnotation, migration)
-
-				addMigration(migration)
-				addVirtualMachineInstance(vmi)
-				sourcePod := newSourcePodForVirtualMachine(vmi)
-				addPod(sourcePod)
-
-				sanityExecute()
-
-				testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
-				expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
-				updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(updatedSourcePod.Annotations).To(HaveKeyWithValue(descheduler.EvictionInProgressAnnotation, "kubevirt"))
-
-				pods, err := kubeClient.CoreV1().Pods(migration.Namespace).List(context.Background(), metav1.ListOptions{
-					LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, string(migration.UID), virtv1.CreatedByLabel, string(vmi.UID)),
-				})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(pods.Items).To(HaveLen(1))
-				targetPod := pods.Items[0]
-				Expect(targetPod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
-			})
-
-			It("should remove eviction-in-progress annotation from source virt-launcher pod in case of failure", func() {
-				By("Create a pending migration")
-				vmi = newVirtualMachine("testvmi", virtv1.Running)
-				sourcePod := newSourcePodForVirtualMachine(vmi)
-				sourcePod.Annotations[descheduler.EvictionInProgressAnnotation] = "kubevirt"
-				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
-				migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-					SourcePod: sourcePod.Name,
-				}
-				setAnnotation(virtv1.EvacuationMigrationAnnotation, migration)
-
-				addMigration(migration)
-				addVirtualMachineInstance(vmi)
-				addPod(sourcePod)
-
-				sanityExecute()
-
-				updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(updatedSourcePod.Annotations).ToNot(HaveKeyWithValue(descheduler.EvictionInProgressAnnotation, ""))
-			})
-		})
-	})
-
 	Context("Migration target SELinux level", func() {
 		expectTargetPodWithSELinuxLevel := func(namespace string, uid types.UID, migrationUid types.UID, level string) {
 			pods, err := kubeClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
@@ -2281,9 +2208,70 @@ var _ = Describe("Migration watcher", func() {
 			}
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(Equal("default/testmigrationpending"))
-			Expect(priority).To(Equal(-100))
+			Expect(priority).To(Equal(pendingPriority))
 			Expect(shutdown).To(BeFalse())
 		})
+
+		It("existing items should keep low priority after regular Add", func() {
+			controller.Queue.AddWithOpts(priorityqueue.AddOpts{
+				Priority: pendingPriority,
+			}, "default/testmigrationpending")
+
+			// Simulating what we do with informer handler
+			controller.Queue.Add("default/testmigrationpending")
+			item, priority, shutdown := controller.Queue.GetWithPriority()
+			Expect(item).To(Equal("default/testmigrationpending"))
+			Expect(priority).To(BeNumerically("<", activePriority))
+			Expect(shutdown).To(BeFalse())
+		})
+
+		It("new items should have a priority strictly lower than active and higher than pending", func() {
+			controller.Queue.Add("default/testmigrationpending")
+			item, priority, shutdown := controller.Queue.GetWithPriority()
+			Expect(item).To(Equal("default/testmigrationpending"))
+			Expect(priority).To(BeNumerically("<", activePriority))
+			Expect(priority).To(BeNumerically(">", pendingPriority))
+			Expect(shutdown).To(BeFalse())
+		})
+
+		It("should get items in order based on priority", func() {
+			for i := range 5 {
+				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
+					Priority: pendingPriority,
+				}, fmt.Sprintf("default/pending%d", i))
+			}
+			for i := range 5 {
+				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
+					Priority: activePriority,
+				}, fmt.Sprintf("default/active%d", i))
+			}
+			// Add should not change active3's priority
+			controller.Queue.Add("default/active3")
+			// Add should bump pending3 higher than pending but lower than active
+			controller.Queue.Add("default/pending3")
+
+			for i := range 5 {
+				item, priority, shutdown := controller.Queue.GetWithPriority()
+				Expect(item).To(BeEquivalentTo(fmt.Sprintf("default/active%d", i)))
+				Expect(priority).To(Equal(activePriority))
+				Expect(shutdown).To(BeFalse())
+			}
+			item, priority, shutdown := controller.Queue.GetWithPriority()
+			Expect(item).To(BeEquivalentTo("default/pending3"))
+			Expect(priority).To(BeNumerically("<", activePriority))
+			Expect(priority).To(BeNumerically(">", pendingPriority))
+			Expect(shutdown).To(BeFalse())
+			for i := range 5 {
+				if i == 3 {
+					continue
+				}
+				item, priority, shutdown := controller.Queue.GetWithPriority()
+				Expect(item).To(BeEquivalentTo(fmt.Sprintf("default/pending%d", i)))
+				Expect(priority).To(Equal(pendingPriority))
+				Expect(shutdown).To(BeFalse())
+			}
+		})
+
 	})
 })
 

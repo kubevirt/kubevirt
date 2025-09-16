@@ -1771,6 +1771,35 @@ var _ = Describe("Manager", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
+
+		It("should update grace period metadata if cached value differs", func() {
+			const initialGracePeriod int64 = 30
+			const updatedGracePeriod int64 = 0
+
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.TerminationGracePeriodSeconds = virtpointer.P(updatedGracePeriod)
+
+			metadataCache.GracePeriod.WithSafeBlock(func(gp *api.GracePeriodMetadata, _ bool) {
+				gp.DeletionGracePeriodSeconds = initialGracePeriod
+			})
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil)
+			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Any()).Return("<domain></domain>", nil)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
+			mockLibvirt.DomainEXPECT().Free()
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			_, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			var actualGracePeriod int64
+			metadataCache.GracePeriod.WithSafeBlock(func(gp *api.GracePeriodMetadata, _ bool) {
+				actualGracePeriod = gp.DeletionGracePeriodSeconds
+			})
+
+			Expect(actualGracePeriod).To(Equal(updatedGracePeriod))
+		})
 	})
 	Context("test marking graceful shutdown", func() {
 		It("Should set metadata when calling MarkGracefulShutdown api", func() {

@@ -27,7 +27,7 @@ import (
 )
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] InstancetypeReferencePolicy",
-	decorators.SigCompute, Serial, func() {
+	decorators.SigCompute, decorators.SigComputeInstancetype, Serial, func() {
 		var virtClient kubecli.KubevirtClient
 
 		BeforeEach(func() {

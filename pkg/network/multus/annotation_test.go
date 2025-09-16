@@ -28,8 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Multus annotations", func() {
@@ -44,11 +42,11 @@ var _ = Describe("Multus annotations", func() {
 					{Name: "default", Binding: &v1.PluginBinding{Name: "test-binding"}},
 				}
 
-				config := testsClusterConfig(map[string]v1.InterfaceBindingPlugin{
+				registeredBindinPlugins := map[string]v1.InterfaceBindingPlugin{
 					"another-test-binding": {NetworkAttachmentDefinition: "another-test-binding-net"},
-				})
+				}
 
-				_, err := multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)
+				_, err := multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, registeredBindinPlugins)
 
 				Expect(err).To(HaveOccurred())
 			})
@@ -66,11 +64,15 @@ var _ = Describe("Multus annotations", func() {
 					{Name: "red"},
 				}
 
-				config := testsClusterConfig(map[string]v1.InterfaceBindingPlugin{
+				registeredBindinPlugins := map[string]v1.InterfaceBindingPlugin{
 					"test-binding": {NetworkAttachmentDefinition: "test-binding-net"},
-				})
+				}
 
-				Expect(multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)).To(MatchJSON(
+				Expect(multus.GenerateCNIAnnotation(
+					vmi.Namespace,
+					vmi.Spec.Domain.Devices.Interfaces,
+					vmi.Spec.Networks,
+					registeredBindinPlugins)).To(MatchJSON(
 					`[
 						{"name": "test-binding-net","namespace": "default", "cni-args": {"logicNetworkName": "default"}},
 						{"name": "test1","namespace": "default","interface": "pod16477688c0e"},
@@ -87,12 +89,12 @@ var _ = Describe("Multus annotations", func() {
 						{Name: "default", Binding: &v1.PluginBinding{Name: "test-binding"}},
 					}
 
-					config := testsClusterConfig(map[string]v1.InterfaceBindingPlugin{
+					registeredBindinPlugins := map[string]v1.InterfaceBindingPlugin{
 						"test-binding": {NetworkAttachmentDefinition: netAttachDefRawName},
-					})
+					}
 
 					Expect(
-						multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config),
+						multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, registeredBindinPlugins),
 					).To(MatchJSON(expectedAnnot))
 				},
 				Entry("name with no namespace", "my-binding",
@@ -103,17 +105,3 @@ var _ = Describe("Multus annotations", func() {
 		})
 	})
 })
-
-func testsClusterConfig(plugins map[string]v1.InterfaceBindingPlugin) *virtconfig.ClusterConfig {
-	kvConfig := &v1.KubeVirtConfiguration{
-		DeveloperConfiguration: &v1.DeveloperConfiguration{
-			FeatureGates: []string{"NetworkBindingPlugins"},
-		},
-		NetworkConfiguration: &v1.NetworkConfiguration{
-			Binding: plugins,
-		},
-	}
-	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
-
-	return config
-}

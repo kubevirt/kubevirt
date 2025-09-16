@@ -16,7 +16,7 @@ Amount of active Console connections, broken down by namespace and vmi name. Typ
 Version information. Type: Gauge.
 
 ### kubevirt_memory_delta_from_requested_bytes
-The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api and virt-operator. Type: Gauge.
+The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api, virt-operator and compute(virt-launcher). Type: Gauge.
 
 ### kubevirt_node_deprecated_machine_types
 List of deprecated machine types based on the capabilities of individual nodes, as detected by virt-handler. Type: Gauge.
@@ -75,11 +75,11 @@ Indication for a virt-operator that is ready to take the lead. Type: Gauge.
 ### kubevirt_virt_operator_up
 The number of virt-operator pods that are up. Type: Gauge.
 
-### kubevirt_vm_container_free_memory_bytes_based_on_rss
-The current available memory of the VM containers based on the rss. Type: Gauge.
+### kubevirt_vm_container_memory_request_margin_based_on_rss_bytes
+Difference between requested memory and rss for VM containers (request margin). Can be negative when usage exceeds request. Type: Gauge.
 
-### kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes
-The current available memory of the VM containers based on the working set. Type: Gauge.
+### kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes
+Difference between requested memory and working set for VM containers (request margin). Can be negative when usage exceeds request. Type: Gauge.
 
 ### kubevirt_vm_create_date_timestamp_seconds
 Virtual Machine creation timestamp. Type: Gauge.
@@ -98,6 +98,9 @@ Virtual Machine last transition timestamp to error status. Type: Counter.
 
 ### kubevirt_vm_info
 Information about Virtual Machines. Type: Gauge.
+
+### kubevirt_vm_labels
+The metric exposes the VM labels as Prometheus labels. Configure allowed and ignored labels via the 'kubevirt-vm-labels-config' ConfigMap. Type: Gauge.
 
 ### kubevirt_vm_migrating_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to migrating status. Type: Counter.
@@ -207,14 +210,14 @@ The total Guest OS data to be migrated to the new VM. Type: Counter.
 ### kubevirt_vmi_migration_dirty_memory_rate_bytes
 The rate of memory being dirty in the Guest OS. Type: Gauge.
 
-### kubevirt_vmi_migration_disk_transfer_rate_bytes
-The rate at which the memory is being transferred. Type: Gauge.
-
 ### kubevirt_vmi_migration_end_time_seconds
 The time at which the migration ended. Type: Gauge.
 
 ### kubevirt_vmi_migration_failed
 Indicates if the VMI migration failed. Type: Gauge.
+
+### kubevirt_vmi_migration_memory_transfer_rate_bytes
+The rate at which the memory is being transferred. Type: Gauge.
 
 ### kubevirt_vmi_migration_phase_transition_time_from_creation_seconds
 Histogram of VM migration phase transitions duration from creation time in seconds. Type: Histogram.
@@ -341,6 +344,27 @@ Returns the timestamp of successful virtual machine snapshot. Type: Gauge.
 
 ### kubevirt_vnc_active_connections
 Amount of active VNC connections, broken down by namespace and vmi name. Type: Gauge.
+
+### kubevirt_workqueue_adds_total
+Total number of adds handled by workqueue Type: Counter.
+
+### kubevirt_workqueue_depth
+Current depth of workqueue Type: Gauge.
+
+### kubevirt_workqueue_longest_running_processor_seconds
+How many seconds has the longest running processor for workqueue been running. Type: Gauge.
+
+### kubevirt_workqueue_queue_duration_seconds
+How long an item stays in workqueue before being requested. Type: Histogram.
+
+### kubevirt_workqueue_retries_total
+Total number of retries handled by workqueue Type: Counter.
+
+### kubevirt_workqueue_unfinished_work_seconds
+How many seconds of work has done that is in progress and hasn't been observed by work_duration. Large values indicate stuck threads. One can deduce the number of stuck threads by observing the rate at which this increases. Type: Gauge.
+
+### kubevirt_workqueue_work_duration_seconds
+How long in seconds processing an item from workqueue takes. Type: Histogram.
 
 ## Developing new metrics
 

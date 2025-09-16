@@ -22,7 +22,6 @@ const (
 
 type ContainerSpecRenderer struct {
 	imgPullPolicy     k8sv1.PullPolicy
-	isPrivileged      bool
 	launcherImg       string
 	name              string
 	userID            int64
@@ -58,7 +57,7 @@ func (csr *ContainerSpecRenderer) Render(cmd []string) k8sv1.Container {
 		Name:                     csr.name,
 		Image:                    csr.launcherImg,
 		ImagePullPolicy:          csr.imgPullPolicy,
-		SecurityContext:          securityContext(csr.userID, csr.isPrivileged, csr.capabilities),
+		SecurityContext:          securityContext(csr.userID, csr.capabilities),
 		Command:                  cmd,
 		VolumeDevices:            csr.volumeDevices,
 		VolumeMounts:             csr.volumeMounts,
@@ -95,12 +94,6 @@ func (csr *ContainerSpecRenderer) envVars() []k8sv1.EnvVar {
 func WithNonRoot(userID int64) Option {
 	return func(renderer *ContainerSpecRenderer) {
 		renderer.userID = userID
-	}
-}
-
-func WithPrivileged() Option {
-	return func(renderer *ContainerSpecRenderer) {
-		renderer.isPrivileged = true
 	}
 }
 
@@ -220,23 +213,17 @@ func xdgEnvironmentVariables() []k8sv1.EnvVar {
 	}
 }
 
-func securityContext(userId int64, privileged bool, requiredCapabilities *k8sv1.Capabilities) *k8sv1.SecurityContext {
+func securityContext(userId int64, requiredCapabilities *k8sv1.Capabilities) *k8sv1.SecurityContext {
 	isNonRoot := userId != 0
 	context := &k8sv1.SecurityContext{
 		RunAsUser:    &userId,
 		RunAsNonRoot: &isNonRoot,
-		Privileged:   &privileged,
 		Capabilities: requiredCapabilities,
 	}
 
 	if isNonRoot {
 		context.RunAsGroup = &userId
 		context.AllowPrivilegeEscalation = pointer.P(false)
-	}
-	// As privileged is already the highest privilege, allowPrivilegeEscalation makes no sense.
-	// Therefore kubernetes enforces that a pod can only have one of those attributes.
-	if context.AllowPrivilegeEscalation != nil && privileged {
-		context.AllowPrivilegeEscalation = &privileged
 	}
 
 	return context

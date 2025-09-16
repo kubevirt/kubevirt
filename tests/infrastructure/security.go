@@ -56,10 +56,9 @@ var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulable
 		if len(nodes) < minNodesWithVirtHandler {
 			Fail("Requires multiple nodes with virt-handler running")
 		}
-		startTimeout := 60
 
 		vmi := libvmifact.NewAlpine()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, startTimeout)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 
 		node := vmi.Status.NodeName
 

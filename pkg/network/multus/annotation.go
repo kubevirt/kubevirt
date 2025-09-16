@@ -28,9 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
-	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -48,9 +46,15 @@ func GenerateCNIAnnotation(
 	namespace string,
 	interfaces []v1.Interface,
 	networks []v1.Network,
-	config *virtconfig.ClusterConfig,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
 ) (string, error) {
-	return GenerateCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks), config)
+	return GenerateCNIAnnotationFromNameScheme(
+		namespace,
+		interfaces,
+		networks,
+		namescheme.CreateHashedNetworkNameScheme(networks),
+		registeredBindingPlugins,
+	)
 }
 
 func GenerateCNIAnnotationFromNameScheme(
@@ -58,54 +62,41 @@ func GenerateCNIAnnotationFromNameScheme(
 	interfaces []v1.Interface,
 	networks []v1.Network,
 	networkNameScheme map[string]string,
-	config *virtconfig.ClusterConfig,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
 ) (string, error) {
-	multusNetworkAnnotationPool := networkAnnotationPool{}
+	var networkSelectionElements []networkv1.NetworkSelectionElement
 
 	for _, network := range networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]
-			multusNetworkAnnotationPool.Add(
-				newAnnotationData(namespace, interfaces, network, podInterfaceName))
+			networkSelectionElements = append(networkSelectionElements, newAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
 
-		if config != nil {
-			if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
-				bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
-					config.GetConfig(), iface.Binding.Name, namespace, network.Name)
-				if err != nil {
-					return "", err
-				}
-				if bindingPluginAnnotationData != nil {
-					multusNetworkAnnotationPool.Add(*bindingPluginAnnotationData)
-				}
+		if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
+			bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
+				registeredBindingPlugins,
+				iface.Binding.Name,
+				namespace,
+				network.Name,
+			)
+			if err != nil {
+				return "", err
+			}
+			if bindingPluginAnnotationData != nil {
+				networkSelectionElements = append(networkSelectionElements, *bindingPluginAnnotationData)
 			}
 		}
 	}
 
-	if !multusNetworkAnnotationPool.IsEmpty() {
-		return multusNetworkAnnotationPool.ToString()
+	if len(networkSelectionElements) == 0 {
+		return "", nil
 	}
-	return "", nil
-}
 
-type networkAnnotationPool struct {
-	pool []networkv1.NetworkSelectionElement
-}
-
-func (nap *networkAnnotationPool) Add(multusNetworkAnnotation networkv1.NetworkSelectionElement) {
-	nap.pool = append(nap.pool, multusNetworkAnnotation)
-}
-
-func (nap *networkAnnotationPool) IsEmpty() bool {
-	return len(nap.pool) == 0
-}
-
-func (nap *networkAnnotationPool) ToString() (string, error) {
-	multusNetworksAnnotation, err := json.Marshal(nap.pool)
+	multusNetworksAnnotation, err := json.Marshal(networkSelectionElements)
 	if err != nil {
-		return "", fmt.Errorf("failed to create JSON list from multus interface pool %v", nap.pool)
+		return "", fmt.Errorf("failed to create JSON list from networkSelectionElements: %v", networkSelectionElements)
 	}
+
 	return string(multusNetworksAnnotation), nil
 }
 
@@ -130,11 +121,13 @@ func newAnnotationData(
 }
 
 func newBindingPluginAnnotationData(
-	kvConfig *v1.KubeVirtConfiguration,
-	pluginName, namespace, networkName string,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
+	pluginName,
+	namespace,
+	networkName string,
 ) (*networkv1.NetworkSelectionElement, error) {
-	plugin := netbinding.ReadNetBindingPluginConfiguration(kvConfig, pluginName)
-	if plugin == nil {
+	plugin, exists := registeredBindingPlugins[pluginName]
+	if !exists {
 		return nil, fmt.Errorf("unable to find the network binding plugin '%s' in Kubevirt configuration", pluginName)
 	}
 

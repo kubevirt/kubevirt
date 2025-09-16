@@ -340,7 +340,7 @@ var istioTests = func(vmType VmType) {
 					libvmi.WithNamespace(namespace),
 				)
 				By("Starting VirtualMachineInstance")
-				serverVMI = libvmops.RunVMIAndExpectLaunch(serverVMI, 240)
+				serverVMI = libvmops.RunVMIAndExpectLaunch(serverVMI, libvmops.StartupTimeoutSecondsHuge)
 
 				serverVMIService := netservice.BuildSpec("vmi-server", vmiServerTestPort, vmiServerTestPort, vmiAppSelectorKey, vmiServerAppSelectorValue)
 				_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
@@ -455,11 +455,13 @@ var istioTestsWithPasstBinding = func() {
 		const passtBindingName = "passt"
 		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
-		err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
-			SidecarImage:                passtSidecarImage,
-			NetworkAttachmentDefinition: passtNetAttDefName,
-			Migration:                   &v1.InterfaceBindingMigration{},
-		})
+		err := config.RegisterKubevirtConfigChange(
+			config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
+				SidecarImage:                passtSidecarImage,
+				NetworkAttachmentDefinition: passtNetAttDefName,
+				Migration:                   &v1.InterfaceBindingMigration{},
+			}),
+		)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

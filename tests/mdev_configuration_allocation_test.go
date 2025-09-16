@@ -281,35 +281,6 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should be on")
 			Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
 		})
-		It("Should successfully passthrough a mediated device with a disabled display", func() {
-			_false := false
-			By("Creating a Fedora VMI")
-			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
-			vGPUs := []v1.GPU{
-				{
-					Name:       "gpu2",
-					DeviceName: deviceName,
-					VirtualGPUOptions: &v1.VGPUOptions{
-						Display: &v1.VGPUDisplayOptions{
-							Enabled: &_false,
-						},
-					},
-				},
-			}
-			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			vmi = createdVmi
-			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			// make sure that another mdev explicitly turned off its display
-			By("Maiking sure that a boot display is disabled")
-			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should not be enabled")
-			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should not be enabled")
-		})
 		It("Should override default mdev configuration on a specific node", func() {
 			newDesiredMdevTypeName := "nvidia-223"
 			newExpectedInstancesNum := 8

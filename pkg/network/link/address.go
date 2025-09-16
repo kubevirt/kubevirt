@@ -28,7 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/netmachinery"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -111,23 +110,4 @@ func GetFakeBridgeIP(vmiSpecIfaces []v1.Interface, vmiSpecIface *v1.Interface) s
 		}
 	}
 	return ""
-}
-
-// FilterPodNetworkRoutes filters out irrelevant routes
-func FilterPodNetworkRoutes(routes []netlink.Route, nic *cache.DHCPConfig) (filteredRoutes []netlink.Route) {
-	for _, route := range routes {
-		log.Log.V(5).Infof("route: %s", route.String())
-		// don't create empty static routes
-		if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
-			continue
-		}
-
-		// don't create static route for src == nic
-		if route.Src != nil && route.Src.Equal(nic.IP.IP) {
-			continue
-		}
-
-		filteredRoutes = append(filteredRoutes, route)
-	}
-	return
 }

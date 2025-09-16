@@ -46,6 +46,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -56,11 +58,11 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	workqueuemetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 )
@@ -93,14 +95,21 @@ const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
 // given to active migrations. When a pending migration gets re-enqueued for
 // capacity reasons, we need to ensure it doesn't get re-processed as long as
 // capacity hasn't freed up, or it will delay processing of active migrations.
-// Active migrations default to a priority of 0. -100 leaves plenty of room
-// for potential future "semi-low" priority values.
-const lowPriority = -100
+// The informer will preserve priorities above 0 but bump negative ones to 0.
+const pendingPriority = -100
+const activePriority = 100
 
 var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 
+type templateService interface {
+	RenderMigrationManifest(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
+	RenderLaunchManifest(vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volumes []*virtv1.Volume, ownerPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
+	GetLauncherImage() string
+}
+
 type Controller struct {
-	templateService      services.TemplateService
+	templateService      templateService
 	clientset            kubecli.KubevirtClient
 	Queue                priorityqueue.PriorityQueue[string]
 	vmiStore             cache.Store
@@ -129,7 +138,7 @@ type Controller struct {
 	catchAllPendingTimeoutSeconds      int64
 }
 
-func NewController(templateService services.TemplateService,
+func NewController(templateService templateService,
 	vmiInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
@@ -149,6 +158,7 @@ func NewController(templateService services.TemplateService,
 		templateService: templateService,
 		Queue: priorityqueue.New[string]("virt-controller-migration", func(o *priorityqueue.Opts[string]) {
 			o.RateLimiter = workqueue.DefaultTypedControllerRateLimiter[string]()
+			o.MetricProvider = workqueuemetrics.NewPrometheusMetricsProvider()
 		}),
 		vmiStore:             vmiInformer.GetStore(),
 		podIndexer:           podInformer.GetIndexer(),
@@ -215,6 +225,9 @@ func NewController(templateService services.TemplateService,
 	_, err = pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: c.addPVC,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	_, err = resourceQuotaInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateResourceQuota,
@@ -514,6 +527,9 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		}
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because target pod shutdown during migration")
 		log.Log.Object(migration).Errorf("target pod %s/%s shutdown during migration", pod.Namespace, pod.Name)
+		if err := c.handlePostHandoffMigrationCancel(migration, vmi); err != nil {
+			return err
+		}
 	} else if migration.TargetIsCreated() && !podExists && migration.IsLocalOrDecentralizedTarget() {
 		err := c.interruptMigration(migrationCopy, vmi)
 		if err != nil {
@@ -565,12 +581,6 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 	} else {
 		err := c.processMigrationPhase(migration, migrationCopy, pod, attachmentPod, vmi, syncError)
 		if err != nil {
-			return err
-		}
-	}
-
-	if migrationCopy.Status.Phase == virtv1.MigrationFailed {
-		if err := descheduler.MarkSourcePodEvictionCompleted(c.clientset, migrationCopy, c.podIndexer); err != nil {
 			return err
 		}
 	}
@@ -707,7 +717,7 @@ func (c *Controller) processMigrationPhase(
 			migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
 		}
 	case virtv1.MigrationPreparingTarget:
-		if (migration.IsLocalOrDecentralizedSource() && vmi.IsMigrationSourceSynchronized()) ||
+		if (migration.IsLocalOrDecentralizedSource() && vmi.IsMigrationSourceSynchronized() && vmi.Status.MigrationState.TargetState.NodeAddress != nil) ||
 			(migration.IsLocalOrDecentralizedTarget() && vmi.Status.MigrationState.TargetNode != "" && vmi.Status.MigrationState.TargetNodeAddress != "") {
 			migrationCopy.Status.Phase = virtv1.MigrationTargetReady
 		}
@@ -979,7 +989,7 @@ func (c *Controller) handleMigrationBackoff(key string, vmi *virtv1.VirtualMachi
 
 	if backoff > 0 {
 		log.Log.Object(vmi).Errorf("vmi in migration backoff, re-enqueueing after %v", backoff)
-		c.Queue.AddAfter(key, backoff)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority, After: backoff}, key)
 		return migrationBackoffError
 	}
 	return nil
@@ -1189,11 +1199,11 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 
 	// Don't start new migrations if we wait for cache updates on migration target pods
 	if c.podExpectations.AllPendingCreations() > 0 {
-		c.Queue.AddAfter(key, 1*time.Second)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority, After: 1 * time.Second}, key)
 		return nil
 	} else if controller.VMIActivePodsCount(vmi, c.podIndexer) > 1 {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for migration because there are already multiple pods running for vmi %s/%s", vmi.Namespace, vmi.Name)
-		c.Queue.AddAfter(key, 1*time.Second)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority, After: 1 * time.Second}, key)
 		return nil
 
 	}
@@ -1208,7 +1218,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel migration count [%d] is currently at the global cluster limit.", vmi.Namespace, vmi.Name, len(runningMigrations))
 		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
-		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: lowPriority, After: 5 * time.Second}, key)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pendingPriority, After: 5 * time.Second}, key)
 		return nil
 	}
 
@@ -1218,7 +1228,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 		// XXX: Make this configurable, think about inbound migration limit, bandwidth per migration, and so on.
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
 		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
-		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: lowPriority, After: 5 * time.Second}, key)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pendingPriority, After: 5 * time.Second}, key)
 		return nil
 	}
 
@@ -1242,9 +1252,11 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 	if migration.Status.MigrationState == nil {
 		migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
-	migration.Status.MigrationState.SourcePersistentStatePVCName = backendstorage.CurrentPVCName(vmi)
-	if migration.Status.MigrationState.SourcePersistentStatePVCName == "" {
-		return fmt.Errorf("no backend-storage PVC found in VMI volume status")
+	if !vmi.IsDecentralizedMigration() || vmi.IsMigrationSource() {
+		migration.Status.MigrationState.SourcePersistentStatePVCName = backendstorage.CurrentPVCName(vmi)
+		if migration.Status.MigrationState.SourcePersistentStatePVCName == "" {
+			return fmt.Errorf("no backend-storage PVC found in VMI volume status")
+		}
 	}
 
 	pvc := backendstorage.PVCForMigrationTarget(c.pvcStore, migration)
@@ -1256,20 +1268,17 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 		return nil
 	}
 	bs := backendstorage.NewBackendStorage(c.clientset, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
-	vmiKey, err := controller.KeyFunc(vmi)
-	if err != nil {
-		return err
-	}
-	c.pvcExpectations.ExpectCreations(vmiKey, 1)
+	key := controller.MigrationKey(migration)
+	c.pvcExpectations.ExpectCreations(key, 1)
 	backendStoragePVC, err := bs.CreatePVCForMigrationTarget(vmi, migration.Name)
 	if err != nil {
-		c.pvcExpectations.CreationObserved(vmiKey)
+		c.pvcExpectations.CreationObserved(key)
 		return err
 	}
 	migration.Status.MigrationState.TargetPersistentStatePVCName = backendStoragePVC.Name
 	if migration.Status.MigrationState.SourcePersistentStatePVCName == migration.Status.MigrationState.TargetPersistentStatePVCName {
 		// The PVC is shared between source and target, satisfy the expectation since the creation will never happen
-		c.pvcExpectations.CreationObserved(vmiKey)
+		c.pvcExpectations.CreationObserved(key)
 	}
 
 	return nil
@@ -1428,7 +1437,8 @@ func (c *Controller) handlePendingPodTimeout(migration *virtv1.VirtualMachineIns
 			return c.deleteTimedOutTargetPod(migration, vmi, pod, fmt.Sprintf("unschedulable pod %s/%s timeout period exceeded", pod.Namespace, pod.Name))
 		} else {
 			// Make sure we check this again after some time
-			c.Queue.AddAfter(migrationKey, time.Second*time.Duration(unschedulableTimeout-secondsSpentPending))
+			delay := time.Second * time.Duration(unschedulableTimeout-secondsSpentPending)
+			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority, After: delay}, migrationKey)
 		}
 	}
 
@@ -1436,7 +1446,8 @@ func (c *Controller) handlePendingPodTimeout(migration *virtv1.VirtualMachineIns
 		return c.deleteTimedOutTargetPod(migration, vmi, pod, fmt.Sprintf("pending pod %s/%s timeout period exceeded", pod.Namespace, pod.Name))
 	} else {
 		// Make sure we check this again after some time
-		c.Queue.AddAfter(migrationKey, time.Second*time.Duration(catchAllTimeout-secondsSpentPending))
+		delay := time.Second * time.Duration(catchAllTimeout-secondsSpentPending)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority, After: delay}, migrationKey)
 	}
 
 	return nil
@@ -1501,15 +1512,22 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 				}
 			} else {
 				log.Log.Object(vmi).V(5).Info("decentralized migration creating target pod in vmi namespace, source pod based on target VMI")
-				// This is a decentralized target, generate the source pod template
-				sourcePod, err = c.templateService.RenderLaunchManifest(vmi)
-				if err != nil {
-					return fmt.Errorf("failed to render launch manifest: %v", err)
+				vmiCopy := vmi.DeepCopy()
+				if tpm.HasPersistentDevice(&vmiCopy.Spec) {
+					// This is a decentralized target, generate the source pod template, we don't care about
+					// the backend-storage PVC here because it will be created in the target namespace/cluster.
+					// this is purely a fake source pod template.
+					vmiCopy.Spec.Domain.Devices.TPM.Enabled = pointer.P(false)
 				}
-			}
-			if _, exists := migration.GetAnnotations()[virtv1.EvacuationMigrationAnnotation]; exists {
-				if err = descheduler.MarkEvictionInProgress(c.clientset, sourcePod); err != nil {
-					return err
+				if backendstorage.HasPersistentEFI(&vmiCopy.Spec) {
+					// This is a decentralized target, generate the source pod template, we don't care about
+					// the backend-storage PVC here because it will be created in the target namespace/cluster.
+					// this is purely a fake source pod template.
+					vmiCopy.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(false)
+				}
+				sourcePod, err = c.templateService.RenderLaunchManifest(vmiCopy)
+				if err != nil {
+					return fmt.Errorf("failed to render fake source pod launch manifest: %v", err)
 				}
 			}
 			// patch VMI annotations and set RuntimeUser in preparation for target pod creation
@@ -1576,12 +1594,8 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 				return err
 			}
 		}
+		return nil
 
-		if migration.Status.Phase != virtv1.MigrationFailed {
-			return nil
-		}
-
-		return descheduler.MarkSourcePodEvictionCompleted(c.clientset, migration, c.podIndexer)
 	case virtv1.MigrationRunning:
 		if migration.DeletionTimestamp != nil && vmi.IsMigrationSynchronized(migration) {
 			err = c.markMigrationAbortInVmiStatus(migration, vmi)
@@ -1680,7 +1694,14 @@ func (c *Controller) enqueueMigration(obj interface{}) {
 		logger.Object(migration).Reason(err).Error("Failed to extract key from migration.")
 		return
 	}
-	c.Queue.Add(key)
+	// If the key is already in the queue at active priority or higher, it will keep that priority.
+	// If the key is already in the queue at pending priority, it will be bumped to 0 (still below all active ones).
+	// If the key is not present in the queue, it will default to the active priority if the migration is running, 0 otherwise.
+	if migration.Status.Phase == virtv1.MigrationRunning {
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority}, key)
+	} else {
+		c.Queue.Add(key)
+	}
 }
 
 func (c *Controller) getControllerOf(pod *k8sv1.Pod) *v1.OwnerReference {
@@ -1741,7 +1762,7 @@ func (c *Controller) addPod(obj interface{}) {
 	}
 	log.Log.V(4).Object(pod).Infof("Pod created for key %s", migrationKey)
 	c.podExpectations.CreationObserved(migrationKey)
-	c.enqueueMigration(migration)
+	c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority}, migrationKey)
 }
 
 // When a pod is updated, figure out what migration manages it and wake them
@@ -1782,8 +1803,11 @@ func (c *Controller) updatePod(old, cur interface{}) {
 		return
 	}
 	log.Log.V(4).Object(curPod).Infof("Pod updated")
-	c.enqueueMigration(migration)
-	return
+	migrationKey, err := controller.KeyFunc(migration)
+	if err != nil {
+		return
+	}
+	c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: activePriority}, migrationKey)
 }
 
 // When a resourceQuota is updated, figure out if there are pending migration in the namespace

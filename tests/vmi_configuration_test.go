@@ -124,7 +124,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithTablet("tablet1", "usb"),
 			)
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -203,45 +203,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
-		DescribeTable("with memory configuration", func(vmiOptions []libvmi.Option, expectedGuestMemory int) {
-			vmi := libvmi.New(vmiOptions...)
-
-			By("Starting a VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 60)
-			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			expectedMemoryInKiB := expectedGuestMemory * 1024
-			expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
-
-			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
-
-		},
-			Entry("provided by domain spec directly",
-				[]libvmi.Option{
-					libvmi.WithGuestMemory("512Mi"),
-				},
-				512,
-			),
-			Entry("provided by resources limits",
-				[]libvmi.Option{
-					libvmi.WithMemoryLimit("256Mi"),
-					libvmi.WithCPULimit("1"),
-				},
-				256,
-			),
-			Entry("provided by resources requests and limits",
-				[]libvmi.Option{
-					libvmi.WithCPURequest("1"),
-					libvmi.WithCPULimit("1"),
-					libvmi.WithMemoryRequest("64Mi"),
-					libvmi.WithMemoryLimit("256Mi"),
-				},
-				64,
-			),
-		)
-
 		Context("[rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", Serial, func() {
 			var availableNumberOfCPUs int
 
@@ -288,22 +249,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				Expect(computeContainer).ToNot(BeNil(), "could not find the compute container")
 				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(399)))
-			})
-			It("[test_id:4624]should set a correct memory units", func() {
-				vmi := libvmifact.NewAlpine(
-					libvmi.WithMemoryRequest("128Mi"),
-				)
-				expectedMemoryInKiB := 128 * 1024
-				expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
-
-				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
 			})
 
 			It("[test_id:1660]should report 3 sockets under guest OS", func() {
@@ -404,9 +349,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("queues='3'"))
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Check block device queues in guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls /sys/block/vda/mq | wc -l\n"},
+					&expect.BExp{R: console.RetValue("3")},
+				}, 15)).To(Succeed())
 			})
 
 			It("[test_id:1665]should map cores to virtio net queues", func() {
@@ -428,11 +378,20 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("driver name='vhost' queues='3'"))
-				// make sure that there are not block queues configured
-				Expect(domXml).ToNot(ContainSubstring("cache='none' queues='3'"))
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Check network interface queues in guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls /sys/class/net/eth0/queues/ | grep rx | wc -l\n"},
+					&expect.BExp{R: console.RetValue("3")},
+				}, 15)).To(Succeed())
+
+				By("Check block device does not have multiple queues")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls -1 /sys/block/vda/mq | wc -l\n"},
+					&expect.BExp{R: console.RetValue("1")},
+				}, 15)).To(Succeed())
 			})
 
 			It("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", func() {
@@ -451,9 +410,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).ToNot(ContainSubstring("queues='"))
+				By("Expecting console")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls /sys/block/vda/mq | wc -l\n"},
+					&expect.BExp{R: console.RetValue("1")},
+				}, 15)).To(Succeed())
 			})
 		})
 
@@ -578,7 +541,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						SlicNameRef: volumeSlicSecretName,
 					},
 				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 360)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the guest ACPI SLIC table matches the one provided")
@@ -622,7 +585,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						MsdmNameRef: volumeMsdmSecretName,
 					},
 				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 360)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the guest ACPI MSDM table matches the one provided")
@@ -669,48 +632,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("[test_id:4437]should enable EFI secure boot", Serial, fedoraWithUefiSecuredBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
 		)
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
-			It("[test_id:1669]should show the requested guest memory inside the VMI", func() {
-				vmi := libvmifact.NewCirros()
-				guestMemory := resource.MustParse("256Mi")
-				vmi.Spec.Domain.Memory = &v1.Memory{
-					Guest: &guestMemory,
-				}
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
-
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: console.RetValue("225")},
-				}, 10)).To(Succeed())
-
-			})
-		})
-
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory", func() {
-			It("[test_id:3115]should show the memory request inside the VMI", func() {
-				vmi := libvmifact.NewCirros(
-					libvmi.WithMemoryRequest("256Mi"),
-					libvmi.WithMemoryLimit("512Mi"),
-				)
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
-
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: console.RetValue("225")},
-				}, 10)).To(Succeed())
-
-			})
-		})
-
 		Context("[rfe_id:989]test cpu_allocation_ratio", func() {
 			It("virt-launchers pod cpu requests should be proportional to the number of vCPUs", func() {
 				vmi := libvmifact.NewCirros()
@@ -744,67 +665,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		})
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with support memory over commitment", func() {
-			It("[test_id:755]should show the requested memory different than guest memory", func() {
-				vmi := libvmifact.NewCirros(overcommitGuestOverhead())
-				guestMemory := resource.MustParse("256Mi")
-				vmi.Spec.Domain.Memory = &v1.Memory{
-					Guest: &guestMemory,
-				}
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
-
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass'\n"},
-					&expect.BExp{R: console.RetValue("pass")},
-					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=100k\n"},
-					&expect.BExp{R: console.PromptExpression},
-					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 15)).To(Succeed())
-
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				podMemoryUsage, err := getPodMemoryUsage(pod)
-				Expect(err).ToNot(HaveOccurred())
-				By("Converting pod memory usage")
-				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
-				Expect(err).ToNot(HaveOccurred())
-				By("Checking if pod memory usage is > 64Mi")
-				Expect(m).To(BeNumerically(">", 67108864), "67108864 B = 64 Mi")
-			})
-
-		})
-
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
-
-			startOverCommitGuestOverheadVMI := func() (*v1.VirtualMachineInstance, error) {
-				vmi := libvmifact.NewCirros(overcommitGuestOverhead())
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				if err != nil {
-					return nil, err
-				}
-				return libwait.WaitForSuccessfulVMIStart(vmi), nil
-			}
-
-			It("[test_id:730]Check OverCommit VM Created and Started", func() {
-				overcommitVmi, err := startOverCommitGuestOverheadVMI()
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(overcommitVmi)
-			})
-			It("[test_id:731]Check OverCommit status on VMI", func() {
-				overcommitVmi, err := startOverCommitGuestOverheadVMI()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(overcommitVmi.Spec.Domain.Resources.OvercommitGuestOverhead).To(BeTrue())
-			})
 			It("[test_id:732]Check Free memory on the VMI", func() {
-				overcommitVmi, err := startOverCommitGuestOverheadVMI()
+				overcommitVmi := libvmifact.NewCirros(overcommitGuestOverhead())
+				overcommitVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(overcommitVmi)).Create(context.Background(), overcommitVmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				overcommitVmi = libwait.WaitForSuccessfulVMIStart(overcommitVmi)
+				Expect(overcommitVmi.Spec.Domain.Resources.OvercommitGuestOverhead).To(BeTrue())
 				By("Expecting console")
 				Expect(console.LoginToCirros(overcommitVmi)).To(Succeed())
 
@@ -1386,7 +1253,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					},
 				}
 				By("Expecting the VirtualMachineInstance start")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 				By("Checking the TSC frequency on the VMI")
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -1512,7 +1379,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration
 			Expect(config.DefaultRuntimeClass).To(BeEmpty())
 			By("Creating a VMI")
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), 60)
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), libvmops.StartupTimeoutSecondsSmall)
 
 			By("Checking for absence of runtimeClassName")
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -1708,34 +1575,29 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			config := kv.Spec.Configuration
 			config.MachineType = ""
-			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, Ppc64le: &v1.ArchSpecificConfiguration{}, S390x: &v1.ArchSpecificConfiguration{}}
+			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, S390x: &v1.ArchSpecificConfiguration{}}
 			config.ArchitectureConfiguration.Amd64.EmulatedMachines = testEmulatedMachines
 			config.ArchitectureConfiguration.Arm64.EmulatedMachines = testEmulatedMachines
-			config.ArchitectureConfiguration.Ppc64le.EmulatedMachines = testEmulatedMachines
 			config.ArchitectureConfiguration.S390x.EmulatedMachines = testEmulatedMachines
 
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 		})
 
-		It("[test_id:3124]should set machine type from VMI spec", func() {
+		It("[test_id:3124]should set status.machine to the resolved QEMU machine type after VMI start", func() {
 			vmi := libvmi.New(
 				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
 				withMachineType("pc"),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
 
 			Expect(vmi.Status.Machine).ToNot(BeNil())
-			Expect(vmi.Status.Machine.Type).To(Equal(runningVMISpec.OS.Type.Machine))
+			Expect(vmi.Status.Machine.Type).To(ContainSubstring("pc-i440"))
 		})
 
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {
 			vmi := libvmifact.NewGuestless()
 			vmi.Spec.Domain.Machine = nil
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1749,7 +1611,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				withMachineType(""),
 			)
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1762,19 +1624,17 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			config := kv.Spec.Configuration
 
-			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, Ppc64le: &v1.ArchSpecificConfiguration{}, S390x: &v1.ArchSpecificConfiguration{}}
+			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, S390x: &v1.ArchSpecificConfiguration{}}
 			config.ArchitectureConfiguration.Amd64.MachineType = "pc"
 			config.ArchitectureConfiguration.Arm64.MachineType = "pc"
-			config.ArchitectureConfiguration.Ppc64le.MachineType = "pc"
 			config.ArchitectureConfiguration.S390x.MachineType = "pc"
 			config.ArchitectureConfiguration.Amd64.EmulatedMachines = testEmulatedMachines
 			config.ArchitectureConfiguration.Arm64.EmulatedMachines = testEmulatedMachines
-			config.ArchitectureConfiguration.Ppc64le.EmulatedMachines = testEmulatedMachines
 			config.ArchitectureConfiguration.S390x.EmulatedMachines = testEmulatedMachines
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := libvmifact.NewGuestless()
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1986,7 +1846,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			// ephemeral-disk5
 			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2054,7 +1914,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
 			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2129,7 +1989,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("initializing the VM")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2173,7 +2033,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("initializing the VM")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2227,7 +2087,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("initializing the VM")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2779,11 +2639,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Check values on domain XML")
-			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
 
 			By("Expecting console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())

@@ -9,7 +9,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -127,7 +126,7 @@ func RelabelFilesUnprivileged(continueOnError bool, files ...*safepath.Path) err
 }
 
 func GetVirtLauncherContext(vmi *v1.VirtualMachineInstance) (string, error) {
-	detector := isolation.NewSocketBasedIsolationDetector(util.VirtShareDir)
+	detector := isolation.NewSocketBasedIsolationDetector()
 	isolationRes, err := detector.Detect(vmi)
 	if err != nil {
 		return "", err

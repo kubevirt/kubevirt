@@ -256,11 +256,6 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 				EmulatedMachines: strings.Split(DefaultAARCH64EmulatedMachines, ","),
 				MachineType:      DefaultAARCH64MachineType,
 			},
-			Ppc64le: &v1.ArchSpecificConfiguration{
-				OVMFPath:         DefaultARCHOVMFPath,
-				EmulatedMachines: strings.Split(DefaultPPC64LEEmulatedMachines, ","),
-				MachineType:      DefaultPPC64LEMachineType,
-			},
 			S390x: &v1.ArchSpecificConfiguration{
 				OVMFPath:         DefaultS390xOVMFPath,
 				EmulatedMachines: strings.Split(DefaultS390XEmulatedMachines, ","),

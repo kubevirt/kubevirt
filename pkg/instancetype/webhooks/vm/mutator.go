@@ -29,7 +29,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	"kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -44,7 +44,7 @@ type inferHandler interface {
 }
 
 type findPreferenceSpecHandler interface {
-	FindPreference(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
+	FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
 }
 
 type mutator struct {
@@ -69,7 +69,45 @@ func (m *mutator) Mutate(vm, oldVM *virtv1.VirtualMachine, ar *admissionv1.Admis
 		return response
 	}
 
+	preferenceSpec, _ := m.FindPreference(vm)
+	mutateMachineType(vm, preferenceSpec)
+	mutateDataVolumeTemplates(vm, preferenceSpec)
+
 	return nil
+}
+
+// NOTE(lyarwood): We mutate the preferred machine type value into the VM early
+// ahead of existing default mutation code running in the main vm mutation
+// webhook.
+func mutateMachineType(vm *virtv1.VirtualMachine, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) {
+	if vm.Spec.Template == nil {
+		return
+	}
+	if machine := vm.Spec.Template.Spec.Domain.Machine; machine != nil && machine.Type != "" {
+		return
+	}
+	if preferenceSpec != nil && preferenceSpec.Machine != nil && preferenceSpec.Machine.PreferredMachineType != "" {
+		if vm.Spec.Template.Spec.Domain.Machine == nil {
+			vm.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{}
+		}
+		vm.Spec.Template.Spec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
+	}
+}
+
+// NOTE(lyarwood): We have to mutate any preferred storage class value into the
+// DataVolumeTemplates within the VM as it's obviously too late to do this
+// during VMI creation with the rest of the preferred preference values
+func mutateDataVolumeTemplates(vm *virtv1.VirtualMachine, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) {
+	if preferenceSpec != nil && preferenceSpec.Volumes != nil && preferenceSpec.Volumes.PreferredStorageClassName != "" {
+		for _, dv := range vm.Spec.DataVolumeTemplates {
+			if dv.Spec.PVC != nil && dv.Spec.PVC.StorageClassName == nil {
+				dv.Spec.PVC.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
+			}
+			if dv.Spec.Storage != nil && dv.Spec.Storage.StorageClassName == nil {
+				dv.Spec.Storage.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
+			}
+		}
+	}
 }
 
 func (m *mutator) validateMatchers(vm, oldVM *virtv1.VirtualMachine, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -156,15 +194,15 @@ func validateInstancetypeMatcher(vm *virtv1.VirtualMachine) []metav1.StatusCause
 	if vm.Spec.Instancetype.InferFromVolume != "" {
 		if vm.Spec.Instancetype.Name != "" {
 			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Name should not be provided when InferFromVolume is used within the InstancetypeMatcher",
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "Name already set, should be cleared before setting inferFromVolume",
 				Field:   k8sfield.NewPath("spec", "instancetype", "name").String(),
 			})
 		}
 		if vm.Spec.Instancetype.Kind != "" {
 			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Kind should not be provided when InferFromVolume is used within the InstancetypeMatcher",
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "Kind already set, should be cleared before setting inferFromVolume",
 				Field:   k8sfield.NewPath("spec", "instancetype", "kind").String(),
 			})
 		}
@@ -198,15 +236,15 @@ func validatePreferenceMatcher(vm *virtv1.VirtualMachine) []metav1.StatusCause {
 	if vm.Spec.Preference.InferFromVolume != "" {
 		if vm.Spec.Preference.Name != "" {
 			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Name should not be provided when InferFromVolume is used within the PreferenceMatcher",
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "Name already set, should be cleared before setting inferFromVolume",
 				Field:   k8sfield.NewPath("spec", "preference", "name").String(),
 			})
 		}
 		if vm.Spec.Preference.Kind != "" {
 			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Kind should not be provided when InferFromVolume is used within the PreferenceMatcher",
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "Kind already set, should be cleared before setting inferFromVolume",
 				Field:   k8sfield.NewPath("spec", "preference", "kind").String(),
 			})
 		}

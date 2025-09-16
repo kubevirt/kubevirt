@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -42,7 +41,6 @@ import (
 
 type instancetypeVMsMutator interface {
 	Mutate(vm, oldVM *v1.VirtualMachine, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
-	FindPreference(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 }
 
 type VMsMutator struct {
@@ -87,14 +85,13 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	// On update, the mutator does not modify the UUID field to avoid
 	// race conditions with the VM controller.
 	if ar.Request.Operation == admissionv1.Create {
-		setFirmwareUUIDIfEmpty(vm)
+		setFirmwareDefaultsIfEmpty(vm)
 	}
 
 	// Set VM defaults
 	log.Log.Object(vm).V(4).Info("Apply defaults")
 
-	preferenceSpec, _ := mutator.instancetypeMutator.FindPreference(vm)
-	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig, preferenceSpec)
+	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig)
 
 	patchBytes, err := patch.New(
 		patch.WithReplace("/spec", vm.Spec),
@@ -119,11 +116,17 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	}
 }
 
-func setFirmwareUUIDIfEmpty(vm *v1.VirtualMachine) {
+func setFirmwareDefaultsIfEmpty(vm *v1.VirtualMachine) {
 	if vm.Spec.Template.Spec.Domain.Firmware == nil {
 		vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
 	}
-	if vm.Spec.Template.Spec.Domain.Firmware.UUID == "" {
-		vm.Spec.Template.Spec.Domain.Firmware.UUID = types.UID(uuid.New().String())
+	fw := vm.Spec.Template.Spec.Domain.Firmware
+
+	if fw.UUID == "" {
+		fw.UUID = types.UID(uuid.New().String())
+	}
+
+	if fw.Serial == "" {
+		fw.Serial = uuid.New().String()
 	}
 }

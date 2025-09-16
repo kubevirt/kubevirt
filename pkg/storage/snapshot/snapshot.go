@@ -448,7 +448,6 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 	created, ready := true, true
 	errorMessage := ""
-	contentCpy.Status.Error = nil
 
 	if len(deletedSnapshots) > 0 {
 		created, ready = false, false
@@ -481,10 +480,14 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	}
 
 	if errorMessage != "" && !ready {
-		contentCpy.Status.Error = &snapshotv1.Error{
-			Time:    currentTime(),
-			Message: &errorMessage,
+		if shouldUpdateError(contentCpy, errorMessage) {
+			contentCpy.Status.Error = &snapshotv1.Error{
+				Time:    currentTime(),
+				Message: &errorMessage,
+			}
 		}
+	} else if errorMessage == "" {
+		contentCpy.Status.Error = nil
 	}
 
 	contentCpy.Status.ReadyToUse = &ready
@@ -493,9 +496,13 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	return 0, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
 }
 
+func shouldUpdateError(contentCpy *snapshotv1.VirtualMachineSnapshotContent, errorMessage string) bool {
+	return contentCpy.Status.Error == nil || contentCpy.Status.Error.Message == nil || *contentCpy.Status.Error.Message != errorMessage
+}
+
 func (ctrl *VMSnapshotController) updateVmSnapshotContentStatus(oldContent, newContent *snapshotv1.VirtualMachineSnapshotContent) error {
 	if !equality.Semantic.DeepEqual(oldContent.Status, newContent.Status) {
-		if err := ctrl.vmSnapshotContentStatusUpdater.UpdateStatus(newContent); err != nil {
+		if _, err := ctrl.Client.VirtualMachineSnapshotContent(newContent.Namespace).UpdateStatus(context.Background(), newContent, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -819,7 +826,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	}
 
 	if !equality.Semantic.DeepEqual(vmSnapshot.Status, vmSnapshotCpy.Status) {
-		if err := ctrl.vmSnapshotStatusUpdater.UpdateStatus(vmSnapshotCpy); err != nil {
+		if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).UpdateStatus(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
 			return nil, err
 		}
 		return vmSnapshotCpy, nil

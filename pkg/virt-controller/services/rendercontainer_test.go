@@ -27,17 +27,6 @@ var _ = Describe("Container spec renderer", func() {
 		nonRootUser   = 207
 	)
 
-	Context("without any options", func() {
-		BeforeEach(func() {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy)
-		})
-
-		It("should have the unprivileged root user security context", func() {
-			Expect(specRenderer.Render(exampleCommand).SecurityContext).Should(
-				Equal(unprivilegedRootUserSecurityContext()))
-		})
-	})
-
 	Context("with non root user option", func() {
 		BeforeEach(func() {
 			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithNonRoot(nonRootUser))
@@ -57,27 +46,6 @@ var _ = Describe("Container spec renderer", func() {
 						Value: varRun,
 					},
 				))
-		})
-
-		It("AllowPrivilegeEscalation should be set to false", func() {
-			Expect(*specRenderer.Render(exampleCommand).SecurityContext.AllowPrivilegeEscalation).Should(BeFalse())
-		})
-	})
-
-	Context("with privileged option", func() {
-		BeforeEach(func() {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithPrivileged())
-		})
-
-		It("should feature a privileged security context", func() {
-			Expect(specRenderer.Render(exampleCommand).SecurityContext).Should(
-				Equal(privilegedRootUserSecurityContext()),
-			)
-		})
-
-		It("should set allowPrivilegeEscalation to true when non root", func() {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithPrivileged(), WithNonRoot(nonRootUser))
-			Expect(*specRenderer.Render(exampleCommand).SecurityContext.AllowPrivilegeEscalation).Should(BeTrue())
 		})
 	})
 
@@ -322,14 +290,6 @@ func simplestVMI() *v1.VirtualMachineInstance {
 	return &v1.VirtualMachineInstance{
 		Spec: v1.VirtualMachineInstanceSpec{},
 	}
-}
-
-func unprivilegedRootUserSecurityContext() *k8sv1.SecurityContext {
-	return securityContext(util.RootUser, false, nil)
-}
-
-func privilegedRootUserSecurityContext() *k8sv1.SecurityContext {
-	return securityContext(util.RootUser, true, nil)
 }
 
 func volumeDevice(name string, path string) k8sv1.VolumeDevice {

@@ -52,7 +52,7 @@ func netBindingPluginSidecar(vmi *v1.VirtualMachineInstance, config *v1.KubeVirt
 			}
 
 			if !exist {
-				return nil, fmt.Errorf("couldn't find configuration for network bindining: %s", iface.Binding.Name)
+				return nil, fmt.Errorf("couldn't find configuration for network binding: %s", iface.Binding.Name)
 			}
 		}
 	}
@@ -68,14 +68,4 @@ func netBindingPluginSidecar(vmi *v1.VirtualMachineInstance, config *v1.KubeVirt
 	}
 
 	return pluginSidecars, nil
-}
-
-func ReadNetBindingPluginConfiguration(kvConfig *v1.KubeVirtConfiguration, pluginName string) *v1.InterfaceBindingPlugin {
-	if kvConfig != nil && kvConfig.NetworkConfiguration != nil && kvConfig.NetworkConfiguration.Binding != nil {
-		if plugin, exist := kvConfig.NetworkConfiguration.Binding[pluginName]; exist {
-			return &plugin
-		}
-	}
-
-	return nil
 }

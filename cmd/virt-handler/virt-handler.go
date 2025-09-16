@@ -156,6 +156,7 @@ type virtHandlerApp struct {
 	clusterConfig         *virtconfig.ClusterConfig
 	reloadableRateLimiter *ratelimiter.ReloadableRateLimiter
 	caManager             kvtls.ClientCAManager
+	enableNodeLabeller    bool
 }
 
 var (
@@ -263,7 +264,7 @@ func (app *virtHandlerApp) Run() {
 		os.Exit(2)
 	}
 
-	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
+	podIsolationDetector := isolation.NewSocketBasedIsolationDetector()
 	app.clusterConfig, err = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
 	if err != nil {
 		panic(err)
@@ -328,7 +329,9 @@ func (app *virtHandlerApp) Run() {
 
 	hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
 
-	go nodeLabellerController.Run(10, stop)
+	if app.enableNodeLabeller {
+		go nodeLabellerController.Run(10, stop)
+	}
 
 	migrationIpAddress := app.PodIpAddress
 	migrationIpAddress, err = virthandler.FindMigrationIP(migrationIpAddress)
@@ -586,7 +589,9 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.ConsoleHandler, lifecycleHandler *rest.LifecycleHandler) {
 	ws := new(restful.WebService)
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console").To(consoleHandler.SerialHandler))
-	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc").To(consoleHandler.VNCHandler))
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc").To(consoleHandler.VNCHandler).
+		Param(restful.QueryParameter("preserveSession", "Connect only if ongoing session is not disturbed")))
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc/screenshot").To(lifecycleHandler.ScreenshotRequestHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/usbredir").To(consoleHandler.USBRedirHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/pause").To(lifecycleHandler.PauseHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unpause").To(lifecycleHandler.UnpauseHandler))
@@ -676,6 +681,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.IntVar(&app.gracefulShutdownSeconds, "graceful-shutdown-seconds", defaultGracefulShutdownSeconds,
 		"The number of seconds to wait for existing migration connections to close before shutting down virt-handler.")
+
+	flag.BoolVar(&app.enableNodeLabeller, "enable-node-labeller", true,
+		"Enable Node Labeller controller.")
 }
 
 func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {

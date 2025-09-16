@@ -45,7 +45,7 @@ var _ = Describe("[sig-compute]Watchdog", decorators.SigCompute, func() {
 
 		It("[test_id:4641]should be shut down when the watchdog expires", decorators.Conformance, decorators.WgS390x, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(
-				libvmifact.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionPoweroff, libnode.GetArch())), 360)
+				libvmifact.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionPoweroff, libnode.GetArch())), libvmops.StartupTimeoutSecondsXHuge)
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())

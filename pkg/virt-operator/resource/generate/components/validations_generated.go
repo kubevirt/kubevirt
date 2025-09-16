@@ -765,6 +765,7 @@ var CRDsValidation map[string]string = map[string]string{
                 defaultArchitecture:
                   type: string
                 ppc64le:
+                  description: 'Deprecated: ppc64le architecture is no longer supported.'
                   properties:
                     emulatedMachines:
                       items:
@@ -25824,6 +25825,10 @@ var CRDsValidation map[string]string = map[string]string{
             the target is not ready
           type: string
         virtualMachineSnapshotName:
+          type: string
+        volumeOwnershipPolicy:
+          description: VolumeOwnershipPolicy defines what owns volumes once they're
+            restored
           type: string
         volumeRestoreOverrides:
           description: |-

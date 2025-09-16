@@ -27,16 +27,16 @@ import (
 var vmRecordingRules = []operatorrules.RecordingRule{
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes",
-			Help: "The current available memory of the VM containers based on the working set.",
+			Name: "kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes",
+			Help: "Difference between requested memory and working set for VM containers (request margin). Can be negative when usage exceeds request.",
 		},
 		MetricType: operatormetrics.GaugeType,
 		Expr:       intstr.FromString("sum by(pod, container, namespace) (kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container, namespace) max by(pod, container, namespace) (container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'}))"),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_vm_container_free_memory_bytes_based_on_rss",
-			Help: "The current available memory of the VM containers based on the rss.",
+			Name: "kubevirt_vm_container_memory_request_margin_based_on_rss_bytes",
+			Help: "Difference between requested memory and rss for VM containers (request margin). Can be negative when usage exceeds request.",
 		},
 		MetricType: operatormetrics.GaugeType,
 		Expr:       intstr.FromString("sum by(pod, container, namespace) (kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container, namespace) container_memory_rss{pod=~'virt-launcher-.*', container='compute'})"),

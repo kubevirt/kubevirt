@@ -34,16 +34,19 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-type Generator struct {
-	clusterConfig *virtconfig.ClusterConfig
+type clusterConfigurer interface {
+	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
 }
 
-func NewGenerator(clusterConfig *virtconfig.ClusterConfig) Generator {
+type Generator struct {
+	clusterConfigurer clusterConfigurer
+}
+
+func NewGenerator(clusterConfigurer clusterConfigurer) Generator {
 	return Generator{
-		clusterConfig: clusterConfig,
+		clusterConfigurer: clusterConfigurer,
 	}
 }
 
@@ -53,7 +56,12 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := multus.GenerateCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, g.clusterConfig)
+	multusAnnotation, err := multus.GenerateCNIAnnotation(
+		vmi.Namespace,
+		nonAbsentIfaces,
+		nonAbsentNets,
+		g.clusterConfigurer.GetNetworkBindings(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +100,7 @@ func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod 
 		vmi.Spec.Domain.Devices.Interfaces,
 		vmi.Spec.Networks,
 		ordinalNameScheme,
-		g.clusterConfig,
+		g.clusterConfigurer.GetNetworkBindings(),
 	)
 	if err != nil {
 		return nil, err
@@ -128,7 +136,7 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 		vmiSpecIfaces,
 		vmiSpecNets,
 		podIfaceNamesByNetworkName,
-		g.clusterConfig,
+		g.clusterConfigurer.GetNetworkBindings(),
 	)
 	if err != nil {
 		return "", false
@@ -152,7 +160,7 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 
 func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
 	ifaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.SRIOV != nil || vmispec.HasBindingPluginDeviceInfo(iface, g.clusterConfig.GetNetworkBindings())
+		return iface.SRIOV != nil || vmispec.HasBindingPluginDeviceInfo(iface, g.clusterConfigurer.GetNetworkBindings())
 	})
 
 	networkDeviceInfoMap := deviceinfo.MapNetworkNameToDeviceInfo(vmi.Spec.Networks, ifaces, multus.NetworkStatusesFromPod(pod))
