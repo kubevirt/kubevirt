@@ -250,6 +250,21 @@ func (mr *MockLauncherClientMockRecorder) GetSEVInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSEVInfo", reflect.TypeOf((*MockLauncherClient)(nil).GetSEVInfo))
 }
 
+// GetScreenshot mocks base method.
+func (m *MockLauncherClient) GetScreenshot(arg0 *v1.VirtualMachineInstance) (*v10.ScreenshotResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetScreenshot", arg0)
+	ret0, _ := ret[0].(*v10.ScreenshotResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetScreenshot indicates an expected call of GetScreenshot.
+func (mr *MockLauncherClientMockRecorder) GetScreenshot(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetScreenshot", reflect.TypeOf((*MockLauncherClient)(nil).GetScreenshot), arg0)
+}
+
 // GetUsers mocks base method.
 func (m *MockLauncherClient) GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error) {
 	m.ctrl.T.Helper()

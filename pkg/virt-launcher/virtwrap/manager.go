@@ -160,6 +160,7 @@ type DomainManager interface {
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 	UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error
 	GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error)
+	GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 }
 
 type LibvirtDomainManager struct {
@@ -2445,6 +2446,42 @@ func (l *LibvirtDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileS
 	}
 
 	return fsList
+}
+
+func (l *LibvirtDomainManager) GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error) {
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedGetDomain)
+		return nil, err
+	}
+	defer dom.Free()
+
+	stream, err := l.virConn.NewStream(0)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to create stream")
+		return nil, err
+	}
+	defer stream.Close()
+
+	// Primary display only; Flags are unused
+	// https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainScreenshot
+	mime, err := dom.Screenshot(stream.UnderlyingStream(), 0, 0)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to call libvirt's Screenshot API")
+		return nil, err
+	}
+
+	data, err := io.ReadAll(stream)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("ReadAll from stream failed")
+		return nil, err
+	}
+	log.Log.Object(vmi).V(4).Infof("Screenshot successful: %d bytes, mime: %s", len(data), mime)
+	return &cmdv1.ScreenshotResponse{
+		Mime: mime,
+		Data: data,
+	}, nil
 }
 
 func (l *LibvirtDomainManager) GetSEVInfo() (*v1.SEVPlatformInfo, error) {
