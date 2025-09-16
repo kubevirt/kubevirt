@@ -34,6 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 )
 
 const (
@@ -116,6 +117,7 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 			writeError(err, response)
 			return
 		}
+		metrics.NewEphemeralHotplugVolume(namespace, name)
 	} else if app.clusterConfig.HotplugVolumesEnabled() {
 		if err := app.vmVolumePatchStatus(name, namespace, &volumeRequest); err != nil {
 			writeError(err, response)

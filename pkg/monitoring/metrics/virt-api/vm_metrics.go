@@ -27,6 +27,7 @@ import (
 var (
 	vmMetrics = []operatormetrics.Metric{
 		vmsCreatedCounter,
+		ephemeralHotplugVolumeTotal,
 	}
 
 	vmsCreatedCounter = operatormetrics.NewCounterVec(
@@ -36,8 +37,20 @@ var (
 		},
 		[]string{"namespace"},
 	)
+
+	ephemeralHotplugVolumeTotal = operatormetrics.NewCounterVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_ephemeral_hotplug_volume_total",
+			Help: "The total number of ephemeral hotplug volumes",
+		},
+		[]string{"namespace", "vmi-name"},
+	)
 )
 
 func NewVMCreated(vm *v1.VirtualMachine) {
 	vmsCreatedCounter.WithLabelValues(vm.Namespace).Inc()
+}
+
+func NewEphemeralHotplugVolume(namespace, vmiName string) {
+	ephemeralHotplugVolumeTotal.WithLabelValues(namespace, vmiName).Inc()
 }
