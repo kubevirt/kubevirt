@@ -18,14 +18,10 @@ env:
   KUBEVIRT_PROVIDER: external
   KUBECONFIG: ${{ github.workspace }}/kube-config
   KUBEVIRT_WITH_ETC_IN_MEMORY: "true"
+  JUNIT_REPORT_FILE: _out/artifacts/junit/junit.functest.xml
 
   
 jobs:
-  # wake-up-vm:
-  #   uses: ./.github/workflows/wake-up-vm.yaml    
-  #   with:
-  #     environment: ${{ inputs.environment }}
-
   Deploy_and_Test:
     environment: ${{ inputs.environment }}
     runs-on: self-hosted
@@ -53,8 +49,6 @@ jobs:
 
       - name: Deploy
         run: |
-          # make sure all nodes are labeled as control-plane (required by KubeVirt)                             
-          # kubectl label nodes --all 'node-role.kubernetes.io/control-plane=control-plane' --overwrite
           make cluster-up
           make cluster-deploy
 
@@ -69,6 +63,7 @@ jobs:
 
       - name: Test
         run: |
+          rm -f $JUNIT_REPORT_FILE
           make cluster-up
           FUNC_TEST_ARGS=--no-color \
           FUNC_TEST_LABEL_FILTER='--label-filter=(!flake-check)&&('"${TEST_FOCUS}"'&&!(single-replica)&&(!QUARANTINE)&&(!requireHugepages2Mi)&&(!requireHugepages1Gi)&&(!SwapTest))' make functest
@@ -76,4 +71,22 @@ jobs:
           TEST_FOCUS: ${{ vars.TEST_FOCUS }}
           KUBEVIRT_E2E_SKIP: ${{ vars.TEST_SKIP }}
           
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.environment }}-func-test-results
+          path: ${{ env.JUNIT_REPORT_FILE }}
+          retention-days: 30
+
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: success() || failure()    # run this step even if previous step failed
+        with:
+          name: "Functional Tests ${{ inputs.environment }}"
+          path: ${{ env.JUNIT_REPORT_FILE }}
+          reporter: java-junit
+          fail-on-error: false
+          max-annotations: 50
+
 

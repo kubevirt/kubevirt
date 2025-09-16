@@ -164,6 +164,7 @@ func Execute() int {
 	return 0
 }
 
+// Unit Test fix. To be addressed at the upstream Kubevirt repo
 func checkClientServerVersion(ctx context.Context) error {
 	raw_version := client_version.Get().GitVersion
 	var clientSemVer *semver.Version

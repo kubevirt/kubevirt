@@ -1,3 +1,4 @@
+# This workflow is not used at this point
 name: Wake up Azure VM
 
 on:
@@ -29,10 +30,3 @@ jobs:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           SUBSCRIPTION_ID: ${{ vars.SUBSCRIPTION_ID }}
 
-      # - name: Wake up Azure VM
-      #   uses: azure/vm@v1
-      #   with:
-      #     name: ${{ vars.COMPUTE_NAME }}
-      #     resource-group: ${{ vars.RESOURCE_GROUP }}
-      #     subscription-id: ${{ vars.SUBSCRIPTION_ID }}
-      #     action: start

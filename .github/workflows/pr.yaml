@@ -34,7 +34,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: junit-test-results
+          name: unit-test-results
           path: ${{ env.JUNIT_REPORT_FILE }}
           retention-days: 30
 
