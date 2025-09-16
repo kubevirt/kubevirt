@@ -45,6 +45,7 @@ aliases:
     - enp0s3
     - xpivarc
     - 0xFelix
+    - orelmisan
   sig-test-approvers:
     - akalenyu
     - kbidarkar
@@ -53,6 +54,7 @@ aliases:
     - xpivarc
     - dhiller
     - 0xFelix
+    - orelmisan
   sig-test-emeritus_approvers:
     - AlonaKaplan
 
