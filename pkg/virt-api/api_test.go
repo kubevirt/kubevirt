@@ -22,7 +22,6 @@ package virt_api
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -249,16 +248,10 @@ var _ = Describe("Virt-api", func() {
 			}
 
 			// Check if all expected resources are present in the exposedApiResources
-			for _, expectedResource := range expectedApiResources {
-				Expect(exposedApiResources).To(ContainElement(expectedResource),
-					fmt.Sprintf("Expected resource '%s' to be exposed, but it was not found in the response", expectedResource))
-			}
+			Expect(exposedApiResources).To(ConsistOf(expectedApiResources))
 
 			// Check if there are no additional resources in exposedApiResources that were not expected by the test
-			for _, exposedResource := range exposedApiResources {
-				Expect(expectedApiResources).To(ContainElement(exposedResource),
-					fmt.Sprintf("Unexpected resource '%s' found in the response", exposedResource))
-			}
+			Expect(expectedApiResources).To(ConsistOf(exposedApiResources))
 		})
 
 		It("should return info on the API group", func() {
