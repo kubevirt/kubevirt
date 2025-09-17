@@ -97,6 +97,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -120,6 +121,8 @@ type vmYamlDefinition struct {
 	yamlFile    string
 	vmSnapshots []vmSnapshotDef
 }
+
+const secondaryNetworkName = "secondarynet"
 
 var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func() {
 
@@ -799,6 +802,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 			}
 
+			netAttachDef := libnet.NewBridgeNetAttachDef(secondaryNetworkName, secondaryNetworkName)
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(migratableVMIs[0]), netAttachDef)
+			Expect(err).NotTo(HaveOccurred())
+
 			By("Starting multiple migratable VMIs before performing update")
 			migratableVMIs = createRunningVMIs(migratableVMIs)
 
@@ -981,7 +988,11 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			if checks.HasAtLeastTwoNodes() {
 				vmis, err = generateMigratableVMIs(2)
 				Expect(err).ToNot(HaveOccurred())
-				vmis = createRunningVMIs(vmis)
+
+				netAttachDef := libnet.NewBridgeNetAttachDef(secondaryNetworkName, secondaryNetworkName)
+				_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(vmis[0]), netAttachDef)
+				Expect(err).NotTo(HaveOccurred())
+				createRunningVMIs(vmis)
 			}
 
 			By("Deleting KubeVirt object")
@@ -1098,10 +1109,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 
 		// this test ensures that we can deal with image prefixes in case they are not used for tests already
-		//
-		// decorated with no-flake-check since CNAO is enabled on the check-tests-for-flakes-lane
-		// see https://github.com/kubevirt/kubevirt/pull/15333
-		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, decorators.NoFlakeCheck, func() {
+		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
 
 			if flags.ImagePrefixAlt == "" {
 				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
@@ -1170,9 +1178,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			allKvInfraPodsAreReady(kv)
 		})
 
-		// decorated with no-flake-check since CNAO is enabled on the check-tests-for-flakes-lane
-		// see https://github.com/kubevirt/kubevirt/pull/15333
-		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, decorators.NoFlakeCheck, func() {
+		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
@@ -1215,7 +1221,14 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			sanityCheckDeploymentsExist()
 
 			By("Starting multiple migratable VMIs before performing update")
-			vmis = createRunningVMIs(vmis)
+
+			if len(vmis) > 0 {
+				netAttachDef := libnet.NewBridgeNetAttachDef(secondaryNetworkName, secondaryNetworkName)
+				_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(vmis[0]), netAttachDef)
+				Expect(err).NotTo(HaveOccurred())
+				vmis = createRunningVMIs(vmis)
+			}
+
 			vmisNonMigratable = createRunningVMIs(vmisNonMigratable)
 
 			By("Updating KubeVirtObject With Alt Tag")
@@ -1248,10 +1261,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		// NOTE - this test verifies new operators can grab the leader election lease
 		// during operator updates. The only way the new infrastructure is deployed
 		// is if the update operator is capable of getting the lease.
-		//
-		// decorated with no-flake-check since CNAO is enabled on the check-tests-for-flakes-lane
-		// see https://github.com/kubevirt/kubevirt/pull/15333
-		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, decorators.NoFlakeCheck, func() {
+		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
@@ -3089,13 +3099,13 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 
 		var err error
 		cm := libconfigmap.New(configMapName, configData)
-		cm, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+		_, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 
 		secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
-		secret, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+		_, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return nil, err
 		}
@@ -3117,7 +3127,17 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 		vmis = append(vmis, vmi)
 	}
 
+	addSecondaryNetworkToLastVMI(vmis, secondaryNetworkName, "tenant-blue")
+
 	return vmis, nil
+}
+
+func addSecondaryNetworkToLastVMI(vmis []*v1.VirtualMachineInstance, nadName, networkName string) {
+	lastVMIIndex := len(vmis) - 1
+	vmi := vmis[lastVMIIndex]
+
+	libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName))(vmi)
+	libvmi.WithNetwork(libvmi.MultusNetwork(networkName, nadName))(vmi)
 }
 
 func verifyVMIsUpdated(vmis []*v1.VirtualMachineInstance) {

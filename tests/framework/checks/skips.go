@@ -33,16 +33,6 @@ func RecycleImageOrFail(virtClient kubecli.KubevirtClient, imageName string) {
 	}
 }
 
-// Deprecated: SkipIfUseFlannel should be converted to check & fail
-func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
-	labelSelector := "app=flannel"
-	flannelpod, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	if len(flannelpod.Items) > 0 {
-		ginkgo.Skip("Skip networkpolicy test for flannel network")
-	}
-}
-
 // Deprecated: SkipIfPrometheusRuleIsNotEnabled should be converted to check & fail
 func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 	ext, err := clientset.NewForConfig(virtClient.Config())
