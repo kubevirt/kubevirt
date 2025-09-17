@@ -429,26 +429,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", Serial, func() {
-			BeforeEach(func() {
-				kv := libkubevirt.GetCurrentKv(virtClient)
-
-				config := kv.Spec.Configuration
-				config.DeveloperConfiguration.MemoryOvercommit = 200
-				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-			})
-
-			It("[test_id:3114]should set requested amount of memory according to the specified virtual memory", func() {
-				vmi := libvmi.New()
-				guestMemory := resource.MustParse("4096M")
-				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("2048M"))
-			})
-		})
-
 		Context("with BIOS bootloader method and no disk", func() {
 			It("[test_id:5265]should find no bootable device by default", func() {
 				By("Creating a VMI with no disk and an explicit network interface")

@@ -2177,7 +2177,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("3"))
 			})
-			It("should allocate proportinal amount of cpus to vmipod as vcpus with allocation_ratio set to 10", func() {
+			It("should allocate proportional amount of cpus to vmipod as vcpus with allocation_ratio set to 10", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -2228,6 +2228,58 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("150m"))
+			})
+
+			It("should honor memoryOvercommit when set in the CR", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+
+				By("Creating a VMI")
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Memory: &v1.Memory{
+								Guest: pointer.P(resource.MustParse("1Gi")),
+							},
+							Resources: v1.ResourceRequirements{
+								Requests: k8sv1.ResourceList{
+									// This would usually be set by the mutating webhook
+									k8sv1.ResourceMemory: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				}
+
+				By("Checking how much memory the pod requests by default")
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				mem100 := pod.Spec.Containers[0].Resources.Requests.Memory()
+
+				By("Setting a memory overcommit of 110% in the CR")
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.MemoryOvercommit = 110
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				By("Checking how much memory the pod requests now")
+				pod, err = svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				mem110 := pod.Spec.Containers[0].Resources.Requests.Memory()
+
+				By("Ensuring the memory was overcommitted by 110%")
+				overhead := mem100.DeepCopy()
+				overhead.Sub(*vmi.Spec.Domain.Memory.Guest)
+				mem100.Sub(overhead)
+				mem110.Sub(overhead)
+				mem100int, res := mem100.AsInt64()
+				Expect(res).To(BeTrue())
+				mem110int, res := mem110.AsInt64()
+				Expect(res).To(BeTrue())
+				Expect(mem100int * 100 / 110).To(Equal(mem110int))
 			})
 		})
 
