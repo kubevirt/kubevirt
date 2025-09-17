@@ -29,7 +29,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/migrationdomainstats"
 )
 
-func SetupMetrics(virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInformer cache.SharedIndexInformer, machines []libvirtxml.CapsGuestMachine) error {
+func SetupMetrics(nodeName string, MaxRequestsInFlight int, vmiInformer cache.SharedIndexInformer, machines []libvirtxml.CapsGuestMachine) error {
 	if err := workqueue.SetupMetrics(); err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func SetupMetrics(virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInf
 	SetVersionInfo()
 	ReportDeprecatedMachineTypes(machines, nodeName)
 
-	domainstats.SetupDomainStatsCollector(virtShareDir, nodeName, MaxRequestsInFlight, vmiInformer)
+	domainstats.SetupDomainStatsCollector(MaxRequestsInFlight, vmiInformer)
 
 	if err := migrationdomainstats.SetupMigrationStatsCollector(vmiInformer); err != nil {
 		return err
