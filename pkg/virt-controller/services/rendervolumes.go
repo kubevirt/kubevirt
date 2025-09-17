@@ -1,9 +1,15 @@
 package services
 
 import (
+	"context"
 	"fmt"
+	golog "log"
 	"path/filepath"
 	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"kubevirt.io/client-go/kubecli"
+
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/tpm"
 
@@ -81,6 +87,40 @@ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
 }
 
 func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		golog.Fatal("debug client construction failure\n", err)
+	}
+
+	debugPVC := &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:    vr.namespace,
+			GenerateName: debugVolume,
+		},
+
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{
+				k8sv1.ReadWriteOnce,
+			},
+			Resources: k8sv1.VolumeResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+				},
+			},
+			VolumeMode: &([]k8sv1.PersistentVolumeMode{k8sv1.PersistentVolumeFilesystem})[0],
+		},
+	}
+
+	fmt.Println("DEBUG creating debug volume")
+	debugPVC, err = virtClient.CoreV1().PersistentVolumeClaims(vr.namespace).Create(context.Background(), debugPVC, metav1.CreateOptions{})
+	if err != nil {
+		fmt.Printf("DEBUG: error creating debug volume: %v\n", err)
+		golog.Fatal("failed to create PVC\n", err)
+	}
+
+	fmt.Printf("DEBUG created debug volume %+v\n", debugPVC)
+
 	volumes := []k8sv1.Volume{
 		emptyDirVolume("private"),
 		emptyDirVolume("public"),
@@ -91,9 +131,9 @@ func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
 		{
 			Name: debugVolume,
 			VolumeSource: k8sv1.VolumeSource{
-				HostPath: &k8sv1.HostPathVolumeSource{
-					Path: "/tmp/debug/",
-					Type: &([]k8sv1.HostPathType{k8sv1.HostPathDirectoryOrCreate})[0],
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: debugPVC.Name,
+					ReadOnly:  false,
 				},
 			},
 		},
