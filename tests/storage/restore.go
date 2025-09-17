@@ -1300,9 +1300,22 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				if checks.IsARM64(testsuite.Arch) {
 					memory = "256Mi"
 				}
-				vmi = libstorage.RenderVMIWithDataVolume(originalPVCName, testsuite.GetTestNamespace(nil),
+				vmi = libstorage.RenderVMIWithPVC(originalPVCName, testsuite.GetTestNamespace(nil),
 					libvmi.WithMemoryRequest(memory), libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))
 				vm, vmi = createAndStartVM(libvmi.NewVirtualMachine(vmi))
+				By("Ensuring the PVC is owned by the VM")
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				pvc.OwnerReferences = []metav1.OwnerReference{
+					{
+						APIVersion: v1.GroupVersion.String(),
+						Kind:       "VirtualMachine",
+						Name:       vm.Name,
+						UID:        vm.UID,
+					},
+				}
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
@@ -1318,18 +1331,17 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				targetVM, err = virtClient.VirtualMachine(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				if !restoreToNewVM {
-					for _, v := range targetVM.Spec.Template.Spec.Volumes {
-						if v.PersistentVolumeClaim != nil {
-							Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
-							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
-							Expect(err).ToNot(HaveOccurred())
-							Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
-							Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
-							Expect(pvc.OwnerReferences[0].Name).To(Equal(vm.Name))
-							Expect(pvc.OwnerReferences[0].UID).To(Equal(vm.UID))
-							Expect(pvc.Labels["restore.kubevirt.io/source-vm-name"]).To(Equal(vm.Name))
-						}
+				for _, v := range targetVM.Spec.Template.Spec.Volumes {
+					if v.PersistentVolumeClaim != nil {
+						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
+						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(pvc.OwnerReferences).ToNot(BeEmpty())
+						Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
+						Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
+						Expect(pvc.OwnerReferences[0].Name).To(Equal(targetVM.Name))
+						Expect(pvc.OwnerReferences[0].UID).To(Equal(targetVM.UID))
+						Expect(pvc.Labels["restore.kubevirt.io/source-vm-name"]).To(Equal(vm.Name))
 					}
 				}
 			},
