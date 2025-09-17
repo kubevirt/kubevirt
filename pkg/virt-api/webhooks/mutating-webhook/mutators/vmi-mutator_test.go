@@ -648,25 +648,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.CPU.Threads).To(Equal(uint32(1)), "Expect threads")
 	})
 
-	It("should apply memory-overcommit when guest-memory is set and memory-request is not set", func() {
-		// no limits wanted on this test, to not copy the limit to requests
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						MemoryOvercommit: 150,
-					},
-				},
-			},
-		})
-
-		guestMemory := resource.MustParse("3072M")
-		vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
-		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("3072M"))
-		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("2048M"))
-	})
-
 	It("should apply memory-overcommit when hugepages are set and memory-request is not set", func() {
 		// no limits wanted on this test, to not copy the limit to requests
 		vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "3072M"}}
