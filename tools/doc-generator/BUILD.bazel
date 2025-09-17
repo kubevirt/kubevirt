@@ -6,11 +6,8 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tools/doc-generator",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/monitoring/metrics/virt-api:go_default_library",
-        "//pkg/monitoring/metrics/virt-controller:go_default_library",
-        "//pkg/monitoring/metrics/virt-handler:go_default_library",
-        "//pkg/monitoring/metrics/virt-operator:go_default_library",
         "//pkg/monitoring/rules:go_default_library",
+        "//tests/libmonitoring:go_default_library",
         "//vendor/github.com/machadovilaca/operator-observability/pkg/docs:go_default_library",
         "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
     ],
