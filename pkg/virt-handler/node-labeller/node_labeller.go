@@ -67,7 +67,7 @@ type NodeLabeller struct {
 	logger                  *log.FilteredLogger
 	clusterConfig           *virtconfig.ClusterConfig
 	hypervFeatures          supportedFeatures
-	hostCapabilities        supportedFeatures
+	hostCapabilities        supportedModels
 	queue                   workqueue.RateLimitingInterface
 	supportedFeatures       []string
 	cpuModelVendor          string
@@ -237,11 +237,10 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 
 	for _, value := range cpuModels {
 		newLabels[kubevirtv1.CPUModelLabel+value] = "true"
-		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
 	}
 
-	if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; !hostModelObsolete {
-		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+hostCpuModel.Name] = "true"
+	for _, value := range n.getKnownCpuModels(obsoleteCPUsx86) {
+		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
 	}
 
 	for _, key := range n.hypervFeatures.items {
