@@ -326,7 +326,7 @@ func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to get logical block size from device %v: %v", path, err)
 	}
-	physicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKBSZGET)
+	physicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKPBSZGET)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get physical block size from device %v: %v", path, err)
 	}
