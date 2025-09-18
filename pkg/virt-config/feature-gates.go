@@ -212,3 +212,7 @@ func (config *ClusterConfig) GPUsWithDRAGateEnabled() bool {
 func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
 }
+
+func (config *ClusterConfig) HyperVLayeredEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.HyperVLayered)
+}
