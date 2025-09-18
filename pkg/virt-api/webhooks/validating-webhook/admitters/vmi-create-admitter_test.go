@@ -491,23 +491,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		BeforeEach(func() {
 			vmi = api.NewMinimalVMI("testvmi")
 		})
-		It("should accept valid machine type", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			if webhooks.IsPPC64(&vmi.Spec) {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "pseries"}
-			} else if webhooks.IsARM64(&vmi.Spec) {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "virt"}
-			} else if webhooks.IsS390X(&vmi.Spec) {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "s390-ccw-virtio"}
-			} else {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
-			}
+
+		DescribeTable("should accept valid machine type", func(arch string, machineType string) {
+			enableFeatureGate(featuregate.MultiArchitecture)
+
+			vmi.Spec.Architecture = arch
+			vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
-		})
+		},
+			Entry("when architecture is amd64", "amd64", "q35"),
+			Entry("when architecture is arm64", "arm64", "virt"),
+			Entry("when architecture is ppc64le", "ppc64le", "pseries"),
+			Entry("when architecture is s390x", "s390x", "s390-ccw-virtio"),
+		)
+
 		It("should reject invalid machine type", func() {
-			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: "test"}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -1500,9 +1500,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "arm64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.architecture"))
-			Expect(causes[0].Message).To(Equal("threads must not be greater than 1 at fake.domain.cpu.threads (got 2) when fake.architecture is arm64"))
+			Expect(causes).To(ContainElement(
+				metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "fake.architecture",
+					Message: "threads must not be greater than 1 at fake.domain.cpu.threads (got 2) when fake.architecture is arm64",
+				},
+			))
 		})
 
 		It("should accept vmi with threads == 1 for arm64 arch", func() {
@@ -1541,8 +1545,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				k8sv1.ResourceCPU: resource.MustParse("12"),
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(ContainSubstring("Not more than two threads must be provided at fake.domain.cpu.threads (got 3) when DedicatedCPUPlacement is true"))
+			Expect(causes).To(ContainElement(
+				metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "fake.domain.cpu.dedicatedCpuPlacement",
+					Message: "Not more than two threads must be provided at fake.domain.cpu.threads (got 3) when DedicatedCPUPlacement is true",
+				},
+			))
 		})
 
 		It("should reject specs without cpu reqirements", func() {
@@ -2024,7 +2033,19 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 
-		DescribeTable("should reject cd-roms using", func(bus string, matcher types.GomegaMatcher) {
+		virtioUnsupportedMatcher := gstruct.MatchFields(
+			gstruct.IgnoreExtras,
+			gstruct.Fields{"Message": Equal("Bus type virtio is invalid for CD-ROM device")},
+		)
+
+		ideUnsupportedMatcher := gstruct.MatchFields(
+			gstruct.IgnoreExtras,
+			gstruct.Fields{"Message": Equal("IDE bus is not supported")},
+		)
+
+		DescribeTable("should reject cd-roms using", func(bus, arch string, matcher types.GomegaMatcher) {
+			enableFeatureGate(featuregate.MultiArchitecture)
+			vmi.Spec.Architecture = arch
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testcdrom",
 				DiskDevice: v1.DiskDevice{
@@ -2049,15 +2070,24 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].cdrom.bus"))
 
 		},
-			Entry("virtio bus", "virtio", gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"Message": Equal("Bus type virtio is invalid for CD-ROM device"),
-			})),
-			Entry("ide bus", "ide", gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"Message": Equal("IDE bus is not supported"),
-			})),
+			Entry("virtio bus on amd64", "virtio", "amd64", virtioUnsupportedMatcher),
+			Entry("ide bus on amd64", "ide", "amd64", ideUnsupportedMatcher),
+			Entry("virtio bus on s390x", "virtio", "s390x", virtioUnsupportedMatcher),
+			Entry("ide bus on s390x", "ide", "s390x", ideUnsupportedMatcher),
+			Entry("virtio bus on arm64", "virtio", "arm64", virtioUnsupportedMatcher),
+			Entry("ide bus on arm64", "ide", "arm64", ideUnsupportedMatcher),
+			// FIXME(lyarwood): Align with the above errors
+			Entry("sata bus on arm64", "sata", "arm64",
+				gstruct.MatchFields(
+					gstruct.IgnoreExtras,
+					gstruct.Fields{"Message": Equal("Arm64 not support this disk bus type, please use virtio or scsi")},
+				),
+			),
 		)
 
-		DescribeTable("should accept cd-roms using", func(bus string) {
+		DescribeTable("should accept cd-roms using", func(bus, arch string) {
+			enableFeatureGate(featuregate.MultiArchitecture)
+			vmi.Spec.Architecture = arch
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testcdrom",
 				DiskDevice: v1.DiskDevice{
@@ -2079,8 +2109,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue(), "The VMI should be allowed")
 		},
-			Entry("sata bus", "sata"),
-			Entry("scsi bus", "scsi"),
+			Entry("sata bus on amd64", "sata", "amd64"),
+			Entry("scsi bus on amd64", "scsi", "amd64"),
+			Entry("sata bus on s390x", "sata", "s390x"),
+			Entry("scsi bus on s390x", "scsi", "s390x"),
+			Entry("scsi bus on arm64", "scsi", "arm64"),
 		)
 
 		It("should accept a boot order greater than '0'", func() {
