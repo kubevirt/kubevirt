@@ -2,9 +2,9 @@ name: CICD Pipeline
 
 on:
   push:
-    branches: ["main"]
+    branches: ["ise"]
   workflow_dispatch:
-
+  
 env:
   DOCKER_PREFIX: ghcr.io/${{ github.repository }}
   DOCKER_TAG: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
@@ -15,35 +15,20 @@ jobs:
     uses: ./.github/workflows/pr.yaml
     
   Build_Push_Images:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [quality-check]
-    permissions:
-      contents: read
-      packages: write
+    permissions: write-all
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-
-      - name: Free up Disk Space
-        run: |
-          # Remove specific Docker images that are no longer needed
-          docker rmi $(docker images -f "dangling=true" -q) || true
-          
-          # Prune unused Docker objects (images, containers, volumes, and networks)
-          docker system prune -f || true
-
-          # Clean up specific directories known to consume a lot of space
-          sudo rm -rf /path/to/large/directory
-
-          # Show disk space usage
-          df -h
 
       - name: Login to GHCR
         uses: docker/login-action@v1 
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GH_PAT }}
+
 
       - name: Setup Custom libvirt RPMs
         run: |
@@ -52,14 +37,20 @@ jobs:
           # Pull the pre-built RPMs container
           docker pull ${{ env.CUSTOM_LIBVIRT_IMAGE }}
           
-          # Start HTTP server with the RPMs
-          docker run -dit \
-            --name rpms-http-server \
-            -p 8080:80 \
-            ${{ env.CUSTOM_LIBVIRT_IMAGE }}
-          
-          # Wait for HTTP server to start
-          sleep 5
+          if [ "$(docker ps -q -f name=rpms-http-server)" ]; then
+            echo "RPMs HTTP server is already running."
+          else
+            echo "Starting RPMs HTTP server..." 
+
+            # Start HTTP server with the RPMs
+            docker run --rm -dit \
+              --name rpms-http-server \
+              -p 8080:80 \
+              ${{ env.CUSTOM_LIBVIRT_IMAGE }} 
+            
+            # Wait for HTTP server to start
+            sleep 5
+          fi
           
           # Get HTTP server IP
           SERVER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' rpms-http-server)
@@ -87,16 +78,16 @@ jobs:
           # Get libvirt version from build info if available
           LIBVIRT_VERSION=$(curl -s "http://localhost:8080/build-info.json" | jq -r '.libvirt_version' 2>/dev/null)
           echo "Using libvirt version: $LIBVIRT_VERSION"
-          
+                    
           # Update KubeVirt RPM dependencies with custom libvirt
           make CUSTOM_REPO=custom-repo.yaml LIBVIRT_VERSION="$LIBVIRT_VERSION" SINGLE_ARCH="x86_64" rpm-deps
           
           echo "Workspace and RPM/BUILD.bazel updated successfully."
+          
 
       - name: Build Images
         run: |
           make bazel-build-images
-
 
       - name: Push Images
         run: |
@@ -109,68 +100,36 @@ jobs:
           docker rm -f rpms-http-server 2>/dev/null || true
           echo "Custom libvirt cleanup completed"
 
-  Deploy_to_Dev:
-    runs-on: ubuntu-latest
+
+  
+  dev:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: dev
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+    secrets: inherit
     needs: [Build_Push_Images]
-    environment: dev
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
 
-      - name: Generate Manifests with configured Feature Gates
-        run: |          
-          make manifests
-        env: 
-          FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
-      
-      - name: Upload Manifests
-        uses: actions/upload-artifact@v4
-        with:
-          name: dev-manifests
-          path: ${{ github.workspace }}/_out/manifests
+  test-kvm:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: test-kvm
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+    secrets: inherit
+    needs: [dev]
 
-      # TODO: implement deploy and test steps
-      - name: Deploy to Dev Cluster
-        run: |
-          echo "Deploying to Dev cluster..."
+  test-emulation:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: test-emulation
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+    secrets: inherit
+    needs: [dev]
 
-      - name: Run tests on Dev Cluster
-        run: |
-          echo "Running tests on Dev cluster..."
-
-
-  Deploy_to_Ephemeral:
-    runs-on: ubuntu-latest
-    needs: [Build_Push_Images]
-    environment: ephemeral
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Free up Disk Space
-        run: |
-          # Remove specific Docker images that are no longer needed
-          docker rmi $(docker images -f "dangling=true" -q) || true
-          
-          # Prune unused Docker objects (images, containers, volumes, and networks)
-          docker system prune -f || true
-
-          # Clean up specific directories known to consume a lot of space
-          sudo rm -rf /path/to/large/directory
-
-          # Show disk space usage
-          df -h
-
-      - name: Start Ephemeral Environment
-        run: |
-          make cluster-up
-
-      - name: Deploy To Ephemeral Environment
-        run: |
-          make cluster-sync
-        env: 
-          FEATURE_GATES: ${{ vars.FEATURE_GATES }}  
-
-      - name: Run Functional Tests
-        run: |
-          make functest
+  test-mshv:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: test-mshv
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+    secrets: inherit
+    needs: [dev]

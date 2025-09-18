@@ -1,15 +1,18 @@
 name: PR Quality Check
 
 on:
-  pull_request:
-    branches: ["main"]
-  workflow_dispatch:
   workflow_call:
+  pull_request:
+    branches:
+      - ise
+
+env:
+  JUNIT_REPORT_FILE: _out/artifacts/junit/junit.unittests.xml
 
 jobs:
   Quality_Check:
     name: Quality Check
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v3
 
@@ -18,7 +21,28 @@ jobs:
           make format
           make lint
 
-      # There is 1 failing test that need to be fixed, so commenting out for now.
-      # - name: Run Unit Tests
-      #   run: |
-      #     make test
+          
+      - name: Run Unit Tests
+        run: |  
+          rm -f $JUNIT_REPORT_FILE
+          make test
+
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: ${{ env.JUNIT_REPORT_FILE }}
+          retention-days: 30
+
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: success() || failure()    # run this step even if previous step failed
+        with:
+          name: "Unit Tests"
+          path: ${{ env.JUNIT_REPORT_FILE }}
+          reporter: java-junit
+          fail-on-error: false
+          max-annotations: 50
+
