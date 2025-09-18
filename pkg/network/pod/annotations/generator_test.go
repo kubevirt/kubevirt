@@ -164,6 +164,7 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(annotations).To(HaveKeyWithValue(istio.KubeVirtTrafficAnnotation, "k6t-eth0"))
+			Expect(annotations).To(HaveKeyWithValue(istio.RerouteVirtualInterfacesAnnotation, "k6t-eth0"))
 		})
 
 		DescribeTable("should not generate Istio annotation", func(vmi *v1.VirtualMachineInstance) {
@@ -172,6 +173,7 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(annotations).To(Not(HaveKey(istio.KubeVirtTrafficAnnotation)))
+			Expect(annotations).To(Not(HaveKey(istio.RerouteVirtualInterfacesAnnotation)))
 		},
 			Entry("when VMI is not connected any network", libvmi.New()),
 			Entry("when VMI is connected to pod network and not using masquerade binding",
