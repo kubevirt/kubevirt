@@ -57,6 +57,7 @@ import (
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -571,19 +572,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		When("backend storage no RWX support", func() {
 			var vmi *virtv1.VirtualMachineInstance
 
-			BeforeEach(func() {
+			DescribeTable("should create a corresponding RWO PVC on VMI creation", func(alterVMI func(*virtv1.VirtualMachineInstance)) {
 				vmi = newPendingVirtualMachine("testvmi")
-				vmi.Spec.Domain.Firmware = &virtv1.Firmware{
-					Bootloader: &virtv1.Bootloader{
-						EFI: &virtv1.EFI{
-							Persistent: pointer.P(true),
-						},
-					},
-				}
+				alterVMI(vmi)
 				addVirtualMachine(vmi)
-			})
 
-			It("should create a corresponding RWO PVC on VMI creation", func() {
 				sc := &storagev1.StorageClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testsc123",
@@ -623,6 +616,40 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Expect(pvc.Spec.StorageClassName).To(HaveValue(Equal(sc.Name)))
 				Expect(pvc.Spec.AccessModes).To(HaveLen(1))
 				Expect(pvc.Spec.AccessModes[0]).To(Equal(k8sv1.ReadWriteOnce))
+			},
+				Entry("with EFI", func(vmi *virtv1.VirtualMachineInstance) {
+					vmi.Spec.Domain.Firmware = &virtv1.Firmware{
+						Bootloader: &virtv1.Bootloader{
+							EFI: &virtv1.EFI{
+								Persistent: pointer.P(true),
+							},
+						},
+					}
+				}),
+				Entry("with CBT", func(vmi *virtv1.VirtualMachineInstance) {
+					cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, virtv1.ChangedBlockTrackingInitializing)
+				}),
+			)
+			It("should delete backend PVC if cbt is no longer enabled on VMI creation", func() {
+				vmi = newPendingVirtualMachine("testvmi")
+				cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, virtv1.ChangedBlockTrackingDisabled)
+				addVirtualMachine(vmi)
+				pvc := newPvc(vmi.Namespace, "vm-state-pvc")
+				pvc.Labels = map[string]string{"persistent-state-for": vmi.Name}
+				addDataVolumePVC(pvc)
+				pvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+					LabelSelector: "persistent-state-for=" + vmi.Name,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvcs.Items).To(HaveLen(1))
+
+				sanityExecute()
+				testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+				pvcs, err = kubeClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+					LabelSelector: "persistent-state-for=" + vmi.Name,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvcs.Items).To(BeEmpty())
 			})
 		})
 	})

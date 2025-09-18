@@ -78,6 +78,14 @@ const (
 	// bind mounts in virt-handler.
 	ImageVolume = "ImageVolume"
 
+	// Owner: @shellyka13
+	// Alpha: v1.6.0
+	//
+	// IncrementalBackup feature gate enables creating full and incremental backups for virtual machines.
+	// These backups leverage libvirt's native backup capabilities, providing a storage-agnostic solution.
+	// To support incremental backups, a QCOW2 overlay must be created on top of the VM's raw disk image.
+	IncrementalBackupGate = "IncrementalBackup"
+
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 
@@ -161,4 +169,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 }

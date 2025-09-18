@@ -1,4 +1,4 @@
-package libnet
+package libnamespace
 
 import (
 	"context"

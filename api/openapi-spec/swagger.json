@@ -13025,6 +13025,33 @@
      }
     }
    },
+   "v1.ChangedBlockTrackingSelectors": {
+    "type": "object",
+    "properties": {
+     "namespaceLabelSelector": {
+      "description": "NamespaceSelector will enable changedBlockTracking on all VMs running inside namespaces that match the label selector.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
+     "virtualMachineLabelSelector": {
+      "description": "VirtualMachineSelector will enable changedBlockTracking on all VMs that match the label selector.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     }
+    }
+   },
+   "v1.ChangedBlockTrackingStatus": {
+    "description": "ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM",
+    "type": "object",
+    "required": [
+     "state"
+    ],
+    "properties": {
+     "state": {
+      "description": "State represents the current CBT state",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1.Chassis": {
     "description": "Chassis specifies the chassis info passed to the domain.",
     "type": "object",
@@ -13745,6 +13772,10 @@
      "cdrom": {
       "description": "Attach a volume as a cdrom to the vmi.",
       "$ref": "#/definitions/v1.CDRomTarget"
+     },
+     "changedBlockTracking": {
+      "description": "ChangedBlockTracking indicates this disk should have CBT option Defaults to false.",
+      "type": "boolean"
      },
      "dedicatedIOThread": {
       "description": "dedicatedIOThread indicates this disk should have an exclusive IO Thread. Enabling this implies useIOThreads = true. Defaults to false.",
@@ -14839,6 +14870,10 @@
      "autoCPULimitNamespaceLabelSelector": {
       "description": "When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside namespaces that match the label selector. The CPU limit will equal the number of requested vCPUs. This setting does not apply to VMIs with dedicated CPUs.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
+     "changedBlockTrackingLabelSelectors": {
+      "description": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled. Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.",
+      "$ref": "#/definitions/v1.ChangedBlockTrackingSelectors"
      },
      "commonInstancetypesDeployment": {
       "description": "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources",
@@ -18107,6 +18142,10 @@
        "default": ""
       }
      },
+     "changedBlockTracking": {
+      "description": "ChangedBlockTracking represents the status of the changedBlockTracking",
+      "$ref": "#/definitions/v1.ChangedBlockTrackingStatus"
+     },
      "conditions": {
       "description": "Conditions are specific points in VirtualMachineInstance's pod runtime.",
       "type": "array",
@@ -18421,6 +18460,10 @@
     "type": "object",
     "nullable": true,
     "properties": {
+     "changedBlockTracking": {
+      "description": "ChangedBlockTracking represents the status of the changedBlockTracking",
+      "$ref": "#/definitions/v1.ChangedBlockTrackingStatus"
+     },
      "conditions": {
       "description": "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
       "type": "array",

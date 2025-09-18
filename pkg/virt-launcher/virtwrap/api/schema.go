@@ -723,6 +723,7 @@ type DiskSource struct {
 	Host          *DiskSourceHost `xml:"host,omitempty"`
 	Reservations  *Reservations   `xml:"reservations,omitempty"`
 	Slices        []Slice         `xml:"slices,omitempty"`
+	DataStore     *DataStore      `xml:"dataStore,omitempty"`
 }
 
 type DiskTarget struct {
@@ -755,6 +756,16 @@ type DiskIOThread struct {
 type DiskSourceHost struct {
 	Name string `xml:"name,attr"`
 	Port string `xml:"port,attr,omitempty"`
+}
+
+type DataStore struct {
+	Type   string           `xml:"type,attr,omitempty"`
+	Format *DataStoreFormat `xml:"format,omitempty"`
+	Source *DiskSource      `xml:"source,omitempty"`
+}
+
+type DataStoreFormat struct {
+	Type string `xml:"type,attr"`
 }
 
 type BackingStore struct {

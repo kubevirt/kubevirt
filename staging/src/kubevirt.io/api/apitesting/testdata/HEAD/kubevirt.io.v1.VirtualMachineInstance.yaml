@@ -253,6 +253,7 @@ spec:
           bus: busValue
           readonly: true
           tray: trayValue
+        changedBlockTracking: true
         dedicatedIOThread: true
         disk:
           bus: busValue
@@ -597,6 +598,8 @@ status:
   VSOCKCID: 4294967288
   activePods:
     activePodsKey: activePodsValue
+  changedBlockTracking:
+    state: stateValue
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"
     lastTransitionTime: "1982-01-01T01:01:01Z"

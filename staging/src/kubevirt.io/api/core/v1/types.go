@@ -322,6 +322,11 @@ type VirtualMachineInstanceStatus struct {
 	// This feature is in alpha.
 	// +optional
 	DeviceStatus *DeviceStatus `json:"deviceStatus,omitempty"`
+
+	// ChangedBlockTracking represents the status of the changedBlockTracking
+	// +nullable
+	// +optional
+	ChangedBlockTracking *ChangedBlockTrackingStatus `json:"changedBlockTracking,omitempty" optional:"true"`
 }
 
 // DeviceStatus has the information of all devices allocated spec.domain.devices
@@ -2004,6 +2009,11 @@ type VirtualMachineStatus struct {
 	// updates related to the volumeUpdateStrategy
 	VolumeUpdateState *VolumeUpdateState `json:"volumeUpdateState,omitempty" optional:"true"`
 
+	// ChangedBlockTracking represents the status of the changedBlockTracking
+	// +nullable
+	// +optional
+	ChangedBlockTracking *ChangedBlockTrackingStatus `json:"changedBlockTracking,omitempty" optional:"true"`
+
 	// InstancetypeRef captures the state of any referenced instance type from the VirtualMachine
 	//+nullable
 	//+optional
@@ -2040,6 +2050,36 @@ type InstancetypeStatusRef struct {
 	//
 	// +optional
 	InferFromVolumeFailurePolicy *InferFromVolumeFailurePolicy `json:"inferFromVolumeFailurePolicy,omitempty"`
+}
+
+type ChangedBlockTrackingState string
+
+const (
+	// ChangedBlockTrackingUndefined indicates no updates for changedBlockTracking was made
+	ChangedBlockTrackingUndefined ChangedBlockTrackingState = ""
+
+	// ChangedBlockTrackingPendingRestart indicates the VM needs a restart for the changes to take effect. This state field will be deprecated once dynamic QCOW2 overylay addition will be supported
+	ChangedBlockTrackingPendingRestart ChangedBlockTrackingState = "PendingRestart"
+
+	// ChangedBlockTrackingInitializing VM restart has occurred, necessary steps for changedBlockTracking are in progress
+	ChangedBlockTrackingInitializing ChangedBlockTrackingState = "Initializing"
+
+	// ChangedBlockTrackingEnabled the VM's supported volumes now have Changed Block Tracking enabled with a QCOW2 overlay
+	ChangedBlockTrackingEnabled ChangedBlockTrackingState = "Enabled"
+
+	// ChangedBlockTrackingDisabled VM no longer matches changedBlockTracking label selector
+	ChangedBlockTrackingDisabled ChangedBlockTrackingState = "Disabled"
+
+	// ChangedBlockTrackingFGDisabled indicates the vm matches the labelselector but the IncrementalBackupGate is disabled
+	// so until the gate is enabled no changed will be made.
+	ChangedBlockTrackingFGDisabled ChangedBlockTrackingState = "IncrementalBackupFeatureGateDisabled"
+)
+
+// ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM
+// +k8s:openapi-gen=true
+type ChangedBlockTrackingStatus struct {
+	// State represents the current CBT state
+	State ChangedBlockTrackingState `json:"state"`
 }
 
 type VolumeUpdateState struct {
@@ -2920,6 +2960,20 @@ type KubeVirtConfiguration struct {
 	// Instancetype configuration
 	// +nullable
 	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
+
+	// ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.
+	// Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.
+	// +nullable
+	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
+}
+
+type ChangedBlockTrackingSelectors struct {
+	// NamespaceSelector will enable changedBlockTracking on all VMs running inside namespaces that match the label selector.
+	//+optional
+	NamespaceLabelSelector *metav1.LabelSelector `json:"namespaceLabelSelector,omitempty"`
+	// VirtualMachineSelector will enable changedBlockTracking on all VMs that match the label selector.
+	//+optional
+	VirtualMachineLabelSelector *metav1.LabelSelector `json:"virtualMachineLabelSelector,omitempty"`
 }
 
 type InstancetypeConfiguration struct {

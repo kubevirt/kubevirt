@@ -50,6 +50,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -66,6 +67,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -131,7 +133,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	dataSourceInformer cache.SharedIndexInformer,
-	namespaceStore cache.Store,
+	kubeVirtInformer cache.SharedIndexInformer,
+	namespaceInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
@@ -151,7 +154,7 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 		vmIndexer:              vmInformer.GetIndexer(),
 		dataVolumeStore:        dataVolumeInformer.GetStore(),
 		dataSourceStore:        dataSourceInformer.GetStore(),
-		namespaceStore:         namespaceStore,
+		namespaceStore:         namespaceInformer.GetStore(),
 		pvcStore:               pvcInformer.GetStore(),
 		crIndexer:              crInformer.GetIndexer(),
 		instancetypeController: instancetypeController,
@@ -203,6 +206,20 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 
 	_, err = pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: c.addPVC,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.handleKubeVirtUpdate,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = namespaceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.handleNamespaceUpdate,
 	})
 	if err != nil {
 		return nil, err
@@ -1287,6 +1304,8 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
 		return vm, err
 	}
+
+	cbt.SetChangedBlockTrackingOnVMI(vm, vmi, c.clusterConfig, c.namespaceStore)
 
 	AutoAttachInputDevice(vmi)
 
@@ -2472,6 +2491,7 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	syncVolumeMigration(vm, vmi)
 	syncConditions(vm, vmi, syncErr)
 	c.setPrintableStatus(vm, vmi)
+	cbt.SyncVMChangedBlockTrackingState(vm, vmi, c.clusterConfig, c.namespaceStore)
 
 	// only update if necessary
 	if !equality.Semantic.DeepEqual(vm.Status, vmOrig.Status) {
@@ -3434,4 +3454,69 @@ func (c *Controller) handleDeclarativeVolumeHotplug(vm *virtv1.VirtualMachine, v
 	}
 
 	return storagehotplug.HandleDeclarativeVolumes(c.clientset, vm, vmi)
+}
+
+func (c *Controller) handleKubeVirtUpdate(oldObj, newObj interface{}) {
+	okv, ok := oldObj.(*virtv1.KubeVirt)
+	if !ok {
+		return
+	}
+
+	nkv, ok := newObj.(*virtv1.KubeVirt)
+	if !ok {
+		return
+	}
+	oldCBTSelectors := okv.Spec.Configuration.ChangedBlockTrackingLabelSelectors
+	newCBTSelectors := nkv.Spec.Configuration.ChangedBlockTrackingLabelSelectors
+	if equality.Semantic.DeepEqual(oldCBTSelectors, newCBTSelectors) {
+		return
+	}
+
+	// In case the ChangedBlockTrackingLabelSelectors has changed,
+	// we need to re-queue all the VMs as the CBT might have changed for them
+	keys := c.vmIndexer.ListKeys()
+	for _, key := range keys {
+		c.Queue.Add(key)
+	}
+}
+
+func (c *Controller) handleNamespaceUpdate(oldObj, newObj interface{}) {
+	oldNS, ok := oldObj.(*k8score.Namespace)
+	if !ok {
+		return
+	}
+	newNS, ok := newObj.(*k8score.Namespace)
+	if !ok {
+		return
+	}
+	oldNSLabels := oldNS.Labels
+	newNSLabels := newNS.Labels
+	if equality.Semantic.DeepEqual(oldNSLabels, newNSLabels) {
+		return
+	}
+	labelSelectors := c.clusterConfig.GetConfig().ChangedBlockTrackingLabelSelectors
+	if labelSelectors == nil {
+		return
+	}
+	namespaceSelector := labelSelectors.NamespaceLabelSelector
+	if namespaceSelector == nil {
+		return
+	}
+	nsSelector, err := metav1.LabelSelectorAsSelector(namespaceSelector)
+	if err != nil {
+		return
+	}
+
+	if nsSelector.Matches(labels.Set(oldNS.Labels)) ==
+		nsSelector.Matches(labels.Set(newNS.Labels)) {
+		return
+	}
+
+	vmKeys, err := c.vmIndexer.IndexKeys(cache.NamespaceIndex, newNS.Name)
+	if err != nil {
+		return
+	}
+	for _, vmKey := range vmKeys {
+		c.Queue.Add(vmKey)
+	}
 }

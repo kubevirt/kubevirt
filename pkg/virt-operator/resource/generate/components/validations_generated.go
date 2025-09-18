@@ -840,6 +840,107 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
               type: object
               x-kubernetes-map-type: atomic
+            changedBlockTrackingLabelSelectors:
+              description: |-
+                ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.
+                Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.
+              nullable: true
+              properties:
+                namespaceLabelSelector:
+                  description: NamespaceSelector will enable changedBlockTracking
+                    on all VMs running inside namespaces that match the label selector.
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: |-
+                          A label selector requirement is a selector that contains values, a key, and an operator that
+                          relates the key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: |-
+                              operator represents a key's relationship to a set of values.
+                              Valid operators are In, NotIn, Exists and DoesNotExist.
+                            type: string
+                          values:
+                            description: |-
+                              values is an array of string values. If the operator is In or NotIn,
+                              the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                              the values array must be empty. This array is replaced during a strategic
+                              merge patch.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                        - key
+                        - operator
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                        map is equivalent to an element of matchExpressions, whose key field is "key", the
+                        operator is "In", and the values array contains only "value". The requirements are ANDed.
+                      type: object
+                  type: object
+                  x-kubernetes-map-type: atomic
+                virtualMachineLabelSelector:
+                  description: VirtualMachineSelector will enable changedBlockTracking
+                    on all VMs that match the label selector.
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: |-
+                          A label selector requirement is a selector that contains values, a key, and an operator that
+                          relates the key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: |-
+                              operator represents a key's relationship to a set of values.
+                              Valid operators are In, NotIn, Exists and DoesNotExist.
+                            type: string
+                          values:
+                            description: |-
+                              values is an array of string values. If the operator is In or NotIn,
+                              the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                              the values array must be empty. This array is replaced during a strategic
+                              merge patch.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                        - key
+                        - operator
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                        map is equivalent to an element of matchExpressions, whose key field is "key", the
+                        operator is "In", and the values array contains only "value". The requirements are ANDed.
+                      type: object
+                  type: object
+                  x-kubernetes-map-type: atomic
+              type: object
             commonInstancetypesDeployment:
               description: CommonInstancetypesDeployment controls the deployment of
                 common-instancetypes resources
@@ -6099,6 +6200,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       Defaults to closed.
                                     type: string
                                 type: object
+                              changedBlockTracking:
+                                description: |-
+                                  ChangedBlockTracking indicates this disk should have CBT option
+                                  Defaults to false.
+                                type: boolean
                               dedicatedIOThread:
                                 description: |-
                                   dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -8162,6 +8268,16 @@ var CRDsValidation map[string]string = map[string]string{
         Status holds the current state of the controller and brief information
         about its associated VirtualMachineInstance
       properties:
+        changedBlockTracking:
+          description: ChangedBlockTracking represents the status of the changedBlockTracking
+          nullable: true
+          properties:
+            state:
+              description: State represents the current CBT state
+              type: string
+          required:
+          - state
+          type: object
         conditions:
           description: Hold the state information of the VirtualMachine and its VirtualMachineInstance
           items:
@@ -8439,6 +8555,11 @@ var CRDsValidation map[string]string = map[string]string{
                               Defaults to closed.
                             type: string
                         type: object
+                      changedBlockTracking:
+                        description: |-
+                          ChangedBlockTracking indicates this disk should have CBT option
+                          Defaults to false.
+                        type: boolean
                       dedicatedIOThread:
                         description: |-
                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -11552,6 +11673,11 @@ var CRDsValidation map[string]string = map[string]string{
                               Defaults to closed.
                             type: string
                         type: object
+                      changedBlockTracking:
+                        description: |-
+                          ChangedBlockTracking indicates this disk should have CBT option
+                          Defaults to false.
+                        type: boolean
                       dedicatedIOThread:
                         description: |-
                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -13593,6 +13719,16 @@ var CRDsValidation map[string]string = map[string]string{
             ActivePods is a mapping of pod UID to node name.
             It is possible for multiple pods to be running for a single VMI during migration.
           type: object
+        changedBlockTracking:
+          description: ChangedBlockTracking represents the status of the changedBlockTracking
+          nullable: true
+          properties:
+            state:
+              description: State represents the current CBT state
+              type: string
+          required:
+          - state
+          type: object
         conditions:
           description: Conditions are specific points in VirtualMachineInstance's
             pod runtime.
@@ -15251,6 +15387,11 @@ var CRDsValidation map[string]string = map[string]string{
                               Defaults to closed.
                             type: string
                         type: object
+                      changedBlockTracking:
+                        description: |-
+                          ChangedBlockTracking indicates this disk should have CBT option
+                          Defaults to false.
+                        type: boolean
                       dedicatedIOThread:
                         description: |-
                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -17735,6 +17876,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       Defaults to closed.
                                     type: string
                                 type: object
+                              changedBlockTracking:
+                                description: |-
+                                  ChangedBlockTracking indicates this disk should have CBT option
+                                  Defaults to false.
+                                type: boolean
                               dedicatedIOThread:
                                 description: |-
                                   dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -22398,6 +22544,11 @@ var CRDsValidation map[string]string = map[string]string{
                                               Defaults to closed.
                                             type: string
                                         type: object
+                                      changedBlockTracking:
+                                        description: |-
+                                          ChangedBlockTracking indicates this disk should have CBT option
+                                          Defaults to false.
+                                        type: boolean
                                       dedicatedIOThread:
                                         description: |-
                                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -27753,6 +27904,11 @@ var CRDsValidation map[string]string = map[string]string{
                                                   Defaults to closed.
                                                 type: string
                                             type: object
+                                          changedBlockTracking:
+                                            description: |-
+                                              ChangedBlockTracking indicates this disk should have CBT option
+                                              Defaults to false.
+                                            type: boolean
                                           dedicatedIOThread:
                                             description: |-
                                               dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -29871,6 +30027,17 @@ var CRDsValidation map[string]string = map[string]string{
                     Status holds the current state of the controller and brief information
                     about its associated VirtualMachineInstance
                   properties:
+                    changedBlockTracking:
+                      description: ChangedBlockTracking represents the status of the
+                        changedBlockTracking
+                      nullable: true
+                      properties:
+                        state:
+                          description: State represents the current CBT state
+                          type: string
+                      required:
+                      - state
+                      type: object
                     conditions:
                       description: Hold the state information of the VirtualMachine
                         and its VirtualMachineInstance
@@ -30159,6 +30326,11 @@ var CRDsValidation map[string]string = map[string]string{
                                           Defaults to closed.
                                         type: string
                                     type: object
+                                  changedBlockTracking:
+                                    description: |-
+                                      ChangedBlockTracking indicates this disk should have CBT option
+                                      Defaults to false.
+                                    type: boolean
                                   dedicatedIOThread:
                                     description: |-
                                       dedicatedIOThread indicates this disk should have an exclusive IO Thread.
