@@ -21,6 +21,7 @@ package vmi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -32,6 +33,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/trace"
@@ -789,14 +791,14 @@ func (c *Controller) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstanc
 	}
 }
 
-func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance, originalPod *k8sv1.Pod) error {
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	podConditions := controller.NewPodConditionManager()
-	podCopy := pod.DeepCopy()
+	newPod := originalPod.DeepCopy()
 	now := v1.Now()
 	if vmiConditions.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstancePaused, k8sv1.ConditionTrue) {
-		if podConditions.HasConditionWithStatus(pod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
-			podConditions.UpdateCondition(podCopy, &k8sv1.PodCondition{
+		if podConditions.HasConditionWithStatus(originalPod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
+			podConditions.UpdateCondition(newPod, &k8sv1.PodCondition{
 				Type:               virtv1.VirtualMachineUnpaused,
 				Status:             k8sv1.ConditionFalse,
 				Reason:             "Paused",
@@ -806,8 +808,8 @@ func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance
 			})
 		}
 	} else {
-		if !podConditions.HasConditionWithStatus(pod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
-			podConditions.UpdateCondition(podCopy, &k8sv1.PodCondition{
+		if !podConditions.HasConditionWithStatus(originalPod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
+			podConditions.UpdateCondition(newPod, &k8sv1.PodCondition{
 				Type:               virtv1.VirtualMachineUnpaused,
 				Status:             k8sv1.ConditionTrue,
 				Reason:             "NotPaused",
@@ -817,21 +819,25 @@ func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance
 			})
 		}
 	}
-	patchSet := preparePodPatch(pod, podCopy)
-	if patchSet.IsEmpty() {
+	if podConditions.ConditionsEqual(originalPod, newPod) {
 		return nil
 	}
-	patchBytes, err := patchSet.GeneratePayload()
+	originalBytes, err := json.Marshal(originalPod)
+	if err != nil {
+		return fmt.Errorf("could not serialize original object: %v", err)
+	}
+	modifiedBytes, err := json.Marshal(newPod)
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalBytes, modifiedBytes, k8sv1.Pod{})
 	if err != nil {
 		return fmt.Errorf("error preparing pod patch: %v", err)
 	}
-	log.Log.V(3).Object(pod).Infof("Patching pod conditions")
-	_, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}, "status")
+	log.Log.V(3).Object(originalPod).Infof("Patching pod conditions")
+	_, err = c.clientset.CoreV1().Pods(originalPod.Namespace).Patch(context.TODO(), originalPod.Name, types.StrategicMergePatchType, patchBytes, v1.PatchOptions{}, "status")
 	// We could not retry if the "test" fails but we have no sane way to detect that right now:
 	// https://github.com/kubernetes/kubernetes/issues/68202 for details
 	// So just retry like with any other errors
 	if err != nil {
-		log.Log.Object(pod).Errorf("Patching of pod conditions failed: %v", err)
+		log.Log.Object(originalPod).Errorf("Patching of pod conditions failed: %v", err)
 		return fmt.Errorf("patching of pod conditions failed: %v", err)
 	}
 	return nil
@@ -1087,15 +1093,4 @@ func newMigrationRequiredCondition(status k8sv1.ConditionStatus) *virtv1.Virtual
 		Reason:             reason,
 		Message:            "",
 	}
-}
-
-func preparePodPatch(oldPod, newPod *k8sv1.Pod) *patch.PatchSet {
-	podConditions := controller.NewPodConditionManager()
-	if podConditions.ConditionsEqual(oldPod, newPod) {
-		return patch.New()
-	}
-	return patch.New(
-		patch.WithTest("/status/conditions", oldPod.Status.Conditions),
-		patch.WithReplace("/status/conditions", newPod.Status.Conditions),
-	)
 }
