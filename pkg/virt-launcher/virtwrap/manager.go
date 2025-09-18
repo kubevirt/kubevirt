@@ -1209,7 +1209,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
-	if err := l.syncNetwork(domain, oldSpec, dom, vmi, options); err != nil {
+	var domainAttachments map[string]string
+	if options != nil {
+		domainAttachments = options.GetInterfaceDomainAttachment()
+	}
+	if err := l.syncNetwork(domain, oldSpec, dom, vmi, domainAttachments); err != nil {
 		return nil, err
 	}
 
@@ -1323,14 +1327,10 @@ func (l *LibvirtDomainManager) syncNetwork(
 	oldSpec *api.DomainSpec,
 	dom cli.VirDomain,
 	vmi *v1.VirtualMachineInstance,
-	options *cmdv1.VirtualMachineOptions,
+	domainAttachments map[string]string,
 ) error {
 	if !vmi.IsRunning() {
 		return nil
-	}
-	var domainAttachments map[string]string
-	if options != nil {
-		domainAttachments = options.GetInterfaceDomainAttachment()
 	}
 
 	networkConfigurator := netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, netsetup.WithDomainAttachments(domainAttachments))
