@@ -3,6 +3,7 @@ name: Build Custom libvirt RPMs
 on:
   workflow_dispatch:
   push:
+    branches: ["ise"]
     paths:
       - '.github/workflows/build-libvirt-rpms.yaml'
 

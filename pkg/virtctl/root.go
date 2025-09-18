@@ -164,10 +164,17 @@ func Execute() int {
 	return 0
 }
 
+// Unit Test fix. To be addressed at the upstream Kubevirt repo
 func checkClientServerVersion(ctx context.Context) error {
-	clientSemVer, err := semver.NewVersion(strings.TrimPrefix(client_version.Get().GitVersion, "v"))
-	if err != nil {
-		return err
+	raw_version := client_version.Get().GitVersion
+	var clientSemVer *semver.Version
+	if raw_version != "" {
+		var err error
+		raw_version = strings.TrimPrefix(raw_version, "v")
+		clientSemVer, err = semver.NewVersion(raw_version)
+		if err != nil {
+			return err
+		}
 	}
 
 	virtClient, _, _, err := clientconfig.ClientAndNamespaceFromContext(ctx)
@@ -183,7 +190,7 @@ func checkClientServerVersion(ctx context.Context) error {
 		return err
 	}
 
-	if clientSemVer.Major != serverSemVer.Major || clientSemVer.Minor != serverSemVer.Minor {
+	if clientSemVer == nil || clientSemVer.Major != serverSemVer.Major || clientSemVer.Minor != serverSemVer.Minor {
 		return fmt.Errorf("You are using a client virtctl version that is different from the KubeVirt version running in the cluster\nClient Version: %s\nServer Version: %s\n", client_version.Get(), *serverVersion)
 	}
 
