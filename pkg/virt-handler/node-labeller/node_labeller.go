@@ -69,7 +69,7 @@ type NodeLabeller struct {
 	logger                  *log.FilteredLogger
 	clusterConfig           *virtconfig.ClusterConfig
 	hypervFeatures          supportedFeatures
-	hostCapabilities        supportedFeatures
+	hostCapabilities        supportedModels
 	queue                   workqueue.TypedRateLimitingInterface[string]
 	supportedFeatures       []string
 	cpuModelVendor          string
@@ -246,6 +246,8 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 	if n.arch.supportsNamedModels() {
 		for _, value := range n.getSupportedCpuModels(obsoleteCPUsx86) {
 			newLabels[kubevirtv1.CPUModelLabel+value] = "true"
+		}
+		for _, value := range n.getKnownCpuModels(obsoleteCPUsx86) {
 			newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
 		}
 	}
@@ -265,9 +267,7 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 	}
 
 	if n.arch.supportsHostModel() {
-		if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; !hostModelObsolete {
-			newLabels[kubevirtv1.SupportedHostModelMigrationCPU+hostCpuModel.Name] = "true"
-		} else {
+		if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; hostModelObsolete {
 			newLabels[kubevirtv1.NodeHostModelIsObsoleteLabel] = "true"
 			err := n.alertIfHostModelIsObsolete(node, hostCpuModel.Name, obsoleteCPUsx86)
 			if err != nil {
