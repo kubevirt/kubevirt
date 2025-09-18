@@ -64,6 +64,8 @@ const (
 	successMessage = "success"
 
 	maxCloseRetries = 10
+
+	SynchronizationFinalizer = "synchronization.kubevirt.io/migrationFinalizer"
 )
 
 type SynchronizationController struct {
@@ -196,10 +198,12 @@ func (s *SynchronizationController) deleteMigrationFunc(delObj interface{}) {
 			return
 		}
 		if migration.Spec.Receive != nil {
+			log.Log.V(4).Object(migration).Infof("closing receiving connection for migrationID %s", migration.Spec.Receive.MigrationID)
 			if err := s.closeConnectionForMigrationID(s.syncReceivingConnectionMap, migration.Spec.Receive.MigrationID); err != nil {
 				log.Log.Reason(err).Infof("unable to close connection for migrationID %s, possibly leaked connection", migration.Spec.Receive.MigrationID)
 			}
 		} else if migration.Spec.SendTo != nil {
+			log.Log.V(4).Object(migration).Infof("closing outbound connection for migrationID %s", migration.Spec.SendTo.MigrationID)
 			if err := s.closeConnectionForMigrationID(s.syncOutboundConnectionMap, migration.Spec.SendTo.MigrationID); err != nil {
 				log.Log.Reason(err).Infof("unable to close connection for migrationID %s, possibly leaked connection", migration.Spec.SendTo.MigrationID)
 			}
@@ -337,12 +341,31 @@ func (s *SynchronizationController) execute(key string) error {
 		return err
 	}
 	if migration != nil && migration.IsDecentralized() {
+		if err := s.handleMigrationFinalizer(migration); err != nil {
+			return err
+		}
 		if migration.IsDecentralizedSource() {
+			if migration.DeletionTimestamp != nil {
+				log.Log.V(2).Object(migration).Infof("migration is being deleted, informing the target that the migration is canceled")
+				// migration is being deleted, inform the target that the migration is canceled
+				if err := s.cancelTargetRemoteMigration(vmi, migration); err != nil {
+					return err
+				}
+				return nil
+			}
 			if err := s.handleSourceState(vmi.DeepCopy(), migration); err != nil {
 				return err
 			}
 		}
 		if migration.IsDecentralizedTarget() {
+			if migration.DeletionTimestamp != nil {
+				log.Log.V(2).Object(migration).Infof("migration is being deleted, informing the source that the migration is canceled")
+				// migration is being deleted, inform the target that the migration is canceled
+				if err := s.cancelSourceRemoteMigration(vmi, migration); err != nil {
+					return err
+				}
+				return nil
+			}
 			return s.handleTargetState(vmi.DeepCopy(), migration)
 		}
 		return nil
@@ -351,6 +374,74 @@ func (s *SynchronizationController) execute(key string) error {
 		log.Log.Object(vmi).V(4).Info("no active decentralized migration found for VMI")
 		return nil
 	}
+}
+
+func (s *SynchronizationController) handleMigrationFinalizer(migration *virtv1.VirtualMachineInstanceMigration) error {
+	originalMigration := migration.DeepCopy()
+	if !migration.IsFinal() {
+		controller.AddFinalizer(migration, SynchronizationFinalizer)
+	} else {
+		controller.RemoveFinalizer(migration, SynchronizationFinalizer)
+	}
+	if !apiequality.Semantic.DeepEqual(originalMigration.ObjectMeta, migration.ObjectMeta) {
+		log.Log.V(4).Object(migration).Infof("adding or removing finalizer to migration, %v", migration.Finalizers)
+		patchSet := patch.New()
+		patchSet.AddOption(
+			patch.WithReplace("/metadata/finalizers", migration.Finalizers),
+		)
+		patchBytes, err := patchSet.GeneratePayload()
+		if err != nil {
+			return err
+		}
+		if _, err := s.client.VirtualMachineInstanceMigration(migration.Namespace).Patch(context.Background(), migration.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *SynchronizationController) cancelSourceRemoteMigration(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration) error {
+	if vmi == nil || vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceState == nil || vmi.Status.MigrationState.SourceState.MigrationUID == "" {
+		return nil
+	}
+	if migration.UID == vmi.Status.MigrationState.SourceState.MigrationUID {
+		return fmt.Errorf("source migration UID %s is the same as the VMI's migration UID %s", migration.UID, vmi.Status.MigrationState.SourceState.MigrationUID)
+	}
+	log.Log.V(4).Object(migration).Infof("cancelling source remote migration for VMI %s/%s", vmi.Namespace, vmi.Name)
+	return s.cancelRemoteMigration(vmi.Status.MigrationState.SourceState.MigrationUID, migration.Spec.Receive.MigrationID, s.syncOutboundConnectionMap)
+}
+
+func (s *SynchronizationController) cancelTargetRemoteMigration(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration) error {
+	if vmi == nil || vmi.Status.MigrationState == nil || vmi.Status.MigrationState.TargetState == nil || vmi.Status.MigrationState.TargetState.MigrationUID == "" {
+		return nil
+	}
+	if migration.UID == vmi.Status.MigrationState.TargetState.MigrationUID {
+		return fmt.Errorf("target migration UID %s is the same as the VMI's migration UID %s", migration.UID, vmi.Status.MigrationState.TargetState.MigrationUID)
+	}
+	log.Log.V(4).Object(migration).Infof("cancelling target remote migration for VMI %s/%s", vmi.Namespace, vmi.Name)
+	return s.cancelRemoteMigration(vmi.Status.MigrationState.TargetState.MigrationUID, migration.Spec.SendTo.MigrationID, s.syncReceivingConnectionMap)
+}
+
+func (s *SynchronizationController) cancelRemoteMigration(migrationUID types.UID, migrationID string, connectionMap *sync.Map) error {
+	obj, ok := connectionMap.Load(migrationID)
+	if !ok {
+		// No connection found, don't do anything
+		return nil
+	}
+	conn, ok := obj.(*SynchronizationConnection)
+	if !ok {
+		return fmt.Errorf("found unknown object in outbound connection cache %#v", conn)
+	}
+	client := syncv1.NewSynchronizeClient(conn.grpcClientConnection)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.timeout)*time.Second)
+	defer cancel()
+	_, err := client.CancelMigration(ctx, &syncv1.MigrationCancelRequest{
+		MigrationUID: string(migrationUID),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *SynchronizationController) getMigrationIDFromUID(migrationUID types.UID) (string, error) {
@@ -932,9 +1023,6 @@ func indexByVmiName(obj interface{}) ([]string, error) {
 	if !ok {
 		return nil, nil
 	}
-	if migration.DeletionTimestamp != nil {
-		return nil, nil
-	}
 	return []string{migration.Spec.VMIName}, nil
 }
 
@@ -1036,4 +1124,27 @@ func (s *SynchronizationController) runConnectionCleanup() {
 		}
 		return true
 	})
+}
+
+func (s *SynchronizationController) CancelMigration(ctx context.Context, request *syncv1.MigrationCancelRequest) (*syncv1.MigrationCancelResponse, error) {
+	migrationUID := request.MigrationUID
+
+	migration, err := s.findMigrationFromMigrationIDByIndex("byUID", migrationUID)
+	if err != nil {
+		return &syncv1.MigrationCancelResponse{
+			Message: fmt.Sprintf("unable to find migration to cancel for migrationUID %s", migrationUID),
+		}, err
+	}
+	if migration != nil {
+		log.Log.V(2).Object(migration).Infof("found migration to cancel for migrationUID %s", migrationUID)
+		if err := s.client.VirtualMachineInstanceMigration(migration.Namespace).Delete(ctx, migration.Name, metav1.DeleteOptions{}); err != nil {
+			return &syncv1.MigrationCancelResponse{
+				Message: fmt.Sprintf("unable to cancel migration for migrationUID %s", migrationUID),
+			}, err
+		}
+		log.Log.V(2).Object(migration).Infof("successfully deleted migration %s/%s for migrationUID %s", migration.Namespace, migration.Name, migrationUID)
+	}
+	return &syncv1.MigrationCancelResponse{
+		Message: "migration canceled",
+	}, nil
 }
