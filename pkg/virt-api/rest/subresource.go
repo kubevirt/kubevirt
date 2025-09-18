@@ -48,6 +48,7 @@ import (
 const (
 	unmarshalRequestErrFmt                   = "Can not unmarshal Request body to struct, error: %s"
 	vmNotRunning                             = "VM is not running"
+	vmSnapshotInprogress                     = "VM snapshot is in progress"
 	patchingVMFmt                            = "Patching VM: %s"
 	jsonpatchTestErr                         = "jsonpatch test operation does not apply"
 	patchingVMStatusFmt                      = "Patching VM status: %s"
