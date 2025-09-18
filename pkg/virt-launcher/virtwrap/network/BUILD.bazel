@@ -26,12 +26,17 @@ go_test(
 
 go_library(
     name = "go_default_library",
-    srcs = ["nichotplug.go"],
+    srcs = [
+        "manager.go",
+        "nichotplug.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/network/cache:go_default_library",
         "//pkg/network/link:go_default_library",
         "//pkg/network/namescheme:go_default_library",
+        "//pkg/network/setup:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",

@@ -53,7 +53,7 @@ const (
 	affectDeviceLiveAndConfigLibvirtFlags = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
 )
 
-func NewVirtIOInterfaceManager(
+func newVirtIOInterfaceManager(
 	libvirtClient cli.VirDomain,
 	configurator vmConfigurator,
 ) *virtIOInterfaceManager {
@@ -63,7 +63,7 @@ func NewVirtIOInterfaceManager(
 	}
 }
 
-func (vim *virtIOInterfaceManager) HotplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain) error {
+func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain) error {
 	for _, network := range networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, indexedDomainInterfaces(currentDomain)) {
 		log.Log.Infof("will hot plug %s", network.Name)
 
@@ -94,7 +94,7 @@ func (vim *virtIOInterfaceManager) HotplugVirtioInterface(vmi *v1.VirtualMachine
 	return nil
 }
 
-func (vim *virtIOInterfaceManager) UpdateDomainLinkState(currentDomain, desiredDomain *api.Domain) error {
+func (vim *virtIOInterfaceManager) updateDomainLinkState(currentDomain, desiredDomain *api.Domain) error {
 
 	currentDomainIfacesByAlias := indexedDomainInterfaces(currentDomain)
 	for _, desiredIface := range desiredDomain.Spec.Devices.Interfaces {
@@ -128,7 +128,7 @@ func (vim *virtIOInterfaceManager) updateIfaceInDomain(domIfaceToUpdate *api.Int
 	return nil
 }
 
-func (vim *virtIOInterfaceManager) HotUnplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain) error {
+func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain) error {
 	for _, domainIface := range interfacesToHotUnplug(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, currentDomain.Spec.Devices.Interfaces) {
 		log.Log.Infof("preparing to hot-unplug %s", domainIface.Alias.GetName())
 

@@ -146,7 +146,7 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 	)
 
 	It("hotplugVirtioInterface SUCCEEDS with link state down", func() {
-		networkInterfaceManager := NewVirtIOInterfaceManager(
+		networkInterfaceManager := newVirtIOInterfaceManager(
 			expectAttachDeviceLinkStateDown(gomock.NewController(GinkgoT())).VirtDomain,
 			&fakeVMConfigurator{},
 		)
@@ -166,7 +166,7 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 				)),
 			),
 		)
-		Expect(networkInterfaceManager.HotplugVirtioInterface(
+		Expect(networkInterfaceManager.hotplugVirtioInterface(
 			vmi,
 			dummyDomain(),
 			newDomain(newDeviceInterface(networkName, libvirtInterfaceLinkStateDown)),
@@ -176,11 +176,11 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 	DescribeTable(
 		"hotplugVirtioInterface SUCCEEDS for",
 		func(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain, result libvirtClientResult) {
-			networkInterfaceManager := NewVirtIOInterfaceManager(
+			networkInterfaceManager := newVirtIOInterfaceManager(
 				mockLibvirtClient(gomock.NewController(GinkgoT()), result).VirtDomain,
 				&fakeVMConfigurator{},
 			)
-			Expect(networkInterfaceManager.HotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(Succeed())
+			Expect(networkInterfaceManager.hotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(Succeed())
 		},
 		Entry(
 			"VMI without networks, whose domain also doesn't have interfaces, does **not** attach any device",
@@ -200,11 +200,11 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 	DescribeTable(
 		"hotplugVirtioInterface FAILS when",
 		func(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain, configurator vmConfigurator, result libvirtClientResult) {
-			networkInterfaceManager := NewVirtIOInterfaceManager(
+			networkInterfaceManager := newVirtIOInterfaceManager(
 				mockLibvirtClient(gomock.NewController(GinkgoT()), result).VirtDomain,
 				configurator,
 			)
-			Expect(networkInterfaceManager.HotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(MatchError("boom"))
+			Expect(networkInterfaceManager.hotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(MatchError("boom"))
 		},
 		Entry("the VM network configurator ERRORs invoking setup networking phase#2",
 			vmiWithSingleBridgeInterfaceWithPodInterfaceReady(networkName, nadName),
@@ -331,10 +331,10 @@ var _ = Describe("interface link state update", func() {
 			domainTo *api.Domain,
 			expectMockFunc func(*gomock.Controller) *testing.Libvirt) {
 
-			networkInterfaceManager := NewVirtIOInterfaceManager(
+			networkInterfaceManager := newVirtIOInterfaceManager(
 				expectMockFunc(gomock.NewController(GinkgoT())).VirtDomain,
 				&fakeVMConfigurator{})
-			Expect(networkInterfaceManager.UpdateDomainLinkState(domainFrom, domainTo)).To(Succeed())
+			Expect(networkInterfaceManager.updateDomainLinkState(domainFrom, domainTo)).To(Succeed())
 		},
 
 		Entry("none to none",
