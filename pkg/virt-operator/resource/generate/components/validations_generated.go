@@ -6044,13 +6044,12 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: CustomBlockSize represents the desired
                                       logical and physical block size for a VM disk.
                                     properties:
+                                      discardGranularity:
+                                        type: integer
                                       logical:
                                         type: integer
                                       physical:
                                         type: integer
-                                    required:
-                                    - logical
-                                    - physical
                                     type: object
                                   matchVolume:
                                     description: Represents if a feature is enabled
@@ -8385,13 +8384,12 @@ var CRDsValidation map[string]string = map[string]string{
                             description: CustomBlockSize represents the desired logical
                               and physical block size for a VM disk.
                             properties:
+                              discardGranularity:
+                                type: integer
                               logical:
                                 type: integer
                               physical:
                                 type: integer
-                            required:
-                            - logical
-                            - physical
                             type: object
                           matchVolume:
                             description: Represents if a feature is enabled or disabled.
@@ -9420,13 +9418,12 @@ var CRDsValidation map[string]string = map[string]string{
                   description: CustomBlockSize represents the desired logical and
                     physical block size for a VM disk.
                   properties:
+                    discardGranularity:
+                      type: integer
                     logical:
                       type: integer
                     physical:
                       type: integer
-                  required:
-                  - logical
-                  - physical
                   type: object
                 matchVolume:
                   description: Represents if a feature is enabled or disabled.
@@ -11498,13 +11495,12 @@ var CRDsValidation map[string]string = map[string]string{
                             description: CustomBlockSize represents the desired logical
                               and physical block size for a VM disk.
                             properties:
+                              discardGranularity:
+                                type: integer
                               logical:
                                 type: integer
                               physical:
                                 type: integer
-                            required:
-                            - logical
-                            - physical
                             type: object
                           matchVolume:
                             description: Represents if a feature is enabled or disabled.
@@ -15197,13 +15193,12 @@ var CRDsValidation map[string]string = map[string]string{
                             description: CustomBlockSize represents the desired logical
                               and physical block size for a VM disk.
                             properties:
+                              discardGranularity:
+                                type: integer
                               logical:
                                 type: integer
                               physical:
                                 type: integer
-                            required:
-                            - logical
-                            - physical
                             type: object
                           matchVolume:
                             description: Represents if a feature is enabled or disabled.
@@ -17680,13 +17675,12 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: CustomBlockSize represents the desired
                                       logical and physical block size for a VM disk.
                                     properties:
+                                      discardGranularity:
+                                        type: integer
                                       logical:
                                         type: integer
                                       physical:
                                         type: integer
-                                    required:
-                                    - logical
-                                    - physical
                                     type: object
                                   matchVolume:
                                     description: Represents if a feature is enabled
@@ -22342,13 +22336,12 @@ var CRDsValidation map[string]string = map[string]string{
                                               the desired logical and physical block
                                               size for a VM disk.
                                             properties:
+                                              discardGranularity:
+                                                type: integer
                                               logical:
                                                 type: integer
                                               physical:
                                                 type: integer
-                                            required:
-                                            - logical
-                                            - physical
                                             type: object
                                           matchVolume:
                                             description: Represents if a feature is
@@ -24760,13 +24753,12 @@ var CRDsValidation map[string]string = map[string]string{
                   description: CustomBlockSize represents the desired logical and
                     physical block size for a VM disk.
                   properties:
+                    discardGranularity:
+                      type: integer
                     logical:
                       type: integer
                     physical:
                       type: integer
-                  required:
-                  - logical
-                  - physical
                   type: object
                 matchVolume:
                   description: Represents if a feature is enabled or disabled.
@@ -27697,13 +27689,12 @@ var CRDsValidation map[string]string = map[string]string{
                                                   the desired logical and physical
                                                   block size for a VM disk.
                                                 properties:
+                                                  discardGranularity:
+                                                    type: integer
                                                   logical:
                                                     type: integer
                                                   physical:
                                                     type: integer
-                                                required:
-                                                - logical
-                                                - physical
                                                 type: object
                                               matchVolume:
                                                 description: Represents if a feature
@@ -30103,13 +30094,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           desired logical and physical block size
                                           for a VM disk.
                                         properties:
+                                          discardGranularity:
+                                            type: integer
                                           logical:
                                             type: integer
                                           physical:
                                             type: integer
-                                        required:
-                                        - logical
-                                        - physical
                                         type: object
                                       matchVolume:
                                         description: Represents if a feature is enabled

@@ -18616,20 +18616,23 @@ func schema_kubevirtio_api_core_v1_CustomBlockSize(ref common.ReferenceCallback)
 				Properties: map[string]spec.Schema{
 					"logical": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
+							Type:   []string{"integer"},
+							Format: "int32",
 						},
 					},
 					"physical": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"discardGranularity": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
 						},
 					},
 				},
-				Required: []string{"logical", "physical"},
 			},
 		},
 	}

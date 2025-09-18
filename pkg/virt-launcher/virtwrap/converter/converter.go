@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/tpm"
@@ -295,6 +296,12 @@ func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk) error 
 			LogicalBlockSize:  blockSize.Logical,
 			PhysicalBlockSize: blockSize.Physical,
 		}
+		// TODO: as of the time of writing this, KubeVirt uses libvirt < v11.6.0
+		// which means that a discard_granularity value of 0 is omitted.
+		// remove this comment once upgraded.
+		if blockSize.DiscardGranularity != nil {
+			disk.BlockIO.DiscardGranularity = pointer.P(*blockSize.DiscardGranularity)
+		}
 	} else if matchFeature := source.BlockSize.MatchVolume; matchFeature != nil && (matchFeature.Enabled == nil || *matchFeature.Enabled) {
 		blockIO, err := getOptimalBlockIO(disk)
 		if err != nil {
@@ -314,31 +321,49 @@ func getOptimalBlockIO(disk *api.Disk) (*api.BlockIO, error) {
 	return nil, fmt.Errorf("disk is neither a block device nor a file")
 }
 
-// getOptimalBlockIOForDevice determines the optimal sizes based on the physical device properties.
 func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
-	f, err := os.OpenFile(path, syscall.O_RDONLY, 0)
+	safePath, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open device %v: %v", path, err)
+		return nil, err
 	}
-	defer util.CloseIOAndCheckErr(f, nil)
+	fd, err := safepath.OpenAtNoFollow(safePath)
+	if err != nil {
+		return nil, fmt.Errorf("could not open file %s. Reason: %w", safePath, err)
+	}
+	defer util.CloseIOAndCheckErr(fd, nil)
+
+	f, err := os.OpenFile(fd.SafePath(), os.O_RDONLY, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer util.CloseIOAndCheckErr(f, &err)
 
 	logicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKSSZGET)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get logical block size from device %v: %v", path, err)
+		return nil, fmt.Errorf("unable to get logical block size from device %s: %w", path, err)
 	}
 	physicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKPBSZGET)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get physical block size from device %v: %v", path, err)
+		return nil, fmt.Errorf("unable to get physical block size from device %s: %w", path, err)
 	}
 
-	log.Log.Infof("Detected logical size of %d and physical size of %d for device %v", logicalSize, physicalSize, path)
+	log.Log.Infof("Detected logical size of %d and physical size of %d for device %s", logicalSize, physicalSize, path)
 
 	if logicalSize == 0 && physicalSize == 0 {
 		return nil, fmt.Errorf("block sizes returned by device %v are 0", path)
 	}
+
+	discardGranularity, err := getDiscardGranularity(safePath)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Log.Infof("Detected discard granularity of %d for device %v", discardGranularity, path)
+
 	blockIO := &api.BlockIO{
-		LogicalBlockSize:  uint(logicalSize),
-		PhysicalBlockSize: uint(physicalSize),
+		LogicalBlockSize:   uint(logicalSize),
+		PhysicalBlockSize:  uint(physicalSize),
+		DiscardGranularity: pointer.P(uint(discardGranularity)),
 	}
 	if logicalSize == 0 || physicalSize == 0 {
 		if logicalSize > physicalSize {
@@ -349,7 +374,32 @@ func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
 			blockIO.LogicalBlockSize = uint(physicalSize)
 		}
 	}
+	if *blockIO.DiscardGranularity%blockIO.LogicalBlockSize != 0 {
+		log.Log.Infof("Invalid discard granularity %d. Matching it to physical size %d", *blockIO.DiscardGranularity, blockIO.PhysicalBlockSize)
+		blockIO.DiscardGranularity = pointer.P(uint(physicalSize))
+	}
 	return blockIO, nil
+}
+
+func getDiscardGranularity(safePath *safepath.Path) (uint64, error) {
+	fileInfo, err := safepath.StatAtNoFollow(safePath)
+	if err != nil {
+		return 0, fmt.Errorf("could not stat file %s. Reason: %w", safePath.String(), err)
+	}
+	stat := fileInfo.Sys().(*syscall.Stat_t)
+	major := unix.Major(stat.Rdev)
+	minor := unix.Minor(stat.Rdev)
+
+	raw, err := os.ReadFile(fmt.Sprintf("/sys/dev/block/%d:%d/queue/discard_granularity", major, minor))
+	if err != nil {
+		return 0, fmt.Errorf("cannot read discard granularity for device %s: %w", safePath.String(), err)
+	}
+	discardGranularity, err := strconv.ParseUint(strings.TrimSpace(string(raw)), 10, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	return discardGranularity, err
 }
 
 // getOptimalBlockIOForFile determines the optimal sizes based on the filesystem settings
@@ -362,8 +412,9 @@ func getOptimalBlockIOForFile(path string) (*api.BlockIO, error) {
 		return nil, fmt.Errorf("failed to stat file %v: %v", path, err)
 	}
 	return &api.BlockIO{
-		LogicalBlockSize:  uint(statfs.Bsize),
-		PhysicalBlockSize: uint(statfs.Bsize),
+		LogicalBlockSize:   uint(statfs.Bsize),
+		PhysicalBlockSize:  uint(statfs.Bsize),
+		DiscardGranularity: pointer.P(uint(statfs.Bsize)),
 	}, nil
 }
 
