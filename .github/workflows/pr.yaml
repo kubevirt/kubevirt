@@ -13,6 +13,7 @@ jobs:
   Quality_Check:
     name: Quality Check
     runs-on: self-hosted
+    permissions: write-all
     steps:
       - uses: actions/checkout@v3
 
