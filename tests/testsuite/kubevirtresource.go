@@ -83,6 +83,13 @@ func AdjustKubeVirtResource() {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{}
 	}
 
+	kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
+		VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
+			CustomProfile: &v1.CustomProfile{
+				LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
+			},
+		},
+	}
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
 		virtconfig.CPUManager,
 		virtconfig.IgnitionGate,
@@ -98,6 +105,7 @@ func AdjustKubeVirtResource() {
 		virtconfig.ExpandDisksGate,
 		virtconfig.WorkloadEncryptionSEV,
 		virtconfig.VMExportGate,
+		virtconfig.KubevirtSeccompProfile,
 		virtconfig.HotplugNetworkIfacesGate,
 		virtconfig.VMPersistentState,
 		virtconfig.VMLiveUpdateFeaturesGate,
@@ -106,19 +114,6 @@ func AdjustKubeVirtResource() {
 	if flags.DisableCustomSELinuxPolicy {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
 			virtconfig.DisableCustomSELinuxPolicy,
-		)
-	}
-
-	if flags.UseCustomSeccompProfile {
-		kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
-			VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
-				CustomProfile: &v1.CustomProfile{
-					LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
-				},
-			},
-		}
-		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-			virtconfig.KubevirtSeccompProfile,
 		)
 	}
 

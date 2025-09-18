@@ -481,9 +481,6 @@ spec:
 EOF
 fi
 
-if [ "${KUBEVIRT_PSA:-false}" = "false" ]; then
-  add_to_label_filter '(!CustomSeccomp)' '&&'
-fi
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER='--label-filter='${label_filter} make functest
