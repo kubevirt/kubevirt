@@ -1213,7 +1213,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	if options != nil {
 		domainAttachments = options.GetInterfaceDomainAttachment()
 	}
-	if err := l.syncNetwork(domain, oldSpec, dom, vmi, domainAttachments); err != nil {
+	if err := network.Sync(domain, oldSpec, dom, vmi, domainAttachments); err != nil {
 		return nil, err
 	}
 
@@ -1317,32 +1317,6 @@ func (l *LibvirtDomainManager) syncDisks(
 				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
 			}
 		}
-	}
-
-	return nil
-}
-
-func (l *LibvirtDomainManager) syncNetwork(
-	domain *api.Domain,
-	oldSpec *api.DomainSpec,
-	dom cli.VirDomain,
-	vmi *v1.VirtualMachineInstance,
-	domainAttachments map[string]string,
-) error {
-	if !vmi.IsRunning() {
-		return nil
-	}
-
-	networkConfigurator := netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, netsetup.WithDomainAttachments(domainAttachments))
-	networkInterfaceManager := network.NewVirtIOInterfaceManager(dom, networkConfigurator)
-	if err := networkInterfaceManager.HotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
-		return err
-	}
-	if err := networkInterfaceManager.HotUnplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
-		return err
-	}
-	if err := networkInterfaceManager.UpdateDomainLinkState(&api.Domain{Spec: *oldSpec}, domain); err != nil {
-		return err
 	}
 
 	return nil
