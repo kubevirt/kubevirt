@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -57,7 +56,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -871,14 +869,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Triggering a segfault in qemu")
-				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				emulator := filepath.Base(domSpec.Devices.Emulator)
-				libpod.RunCommandOnVmiPod(vmi, []string{"killall", "-11", emulator})
-
-				By("Ensuring the VM stops")
-				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusStopped))
+				By("Killing the VirtualMachineInstance")
+				Expect(pkillVMI(kubevirt.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
+				// Wait for stop event of the VirtualMachineInstance
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				objectEventWatcher := watcher.New(vmi).Timeout(60 * time.Second).SinceWatchedObjectResourceVersion()
+				Expect(objectEventWatcher).ToNot(BeNil(), "There should be a shutdown event")
+				objectEventWatcher.WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
 
 				By("Waiting for VM to start again")
 				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusRunning))
@@ -898,11 +896,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Triggering a segfault in qemu")
-				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				emulator := filepath.Base(domSpec.Devices.Emulator)
-				libpod.RunCommandOnVmiPod(vmi, []string{"killall", "-11", emulator})
+				By("Killing the VirtualMachineInstance")
+				Expect(pkillVMI(kubevirt.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
+				// Wait for stop event of the VirtualMachineInstance
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				objectEventWatcher := watcher.New(vmi).Timeout(60 * time.Second).SinceWatchedObjectResourceVersion()
+				Expect(objectEventWatcher).ToNot(BeNil(), "There should be a shutdown event")
+				objectEventWatcher.WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
 
 				By("Ensuring the VirtualMachineInstance enters Failed phase")
 				Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeInPhase(v1.Failed))
