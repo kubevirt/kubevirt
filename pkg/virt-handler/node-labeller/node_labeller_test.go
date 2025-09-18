@@ -39,7 +39,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 const nodeName = "testNode"
@@ -223,6 +223,17 @@ var _ = Describe("Node-labeller ", func() {
 			HaveKey(v1.HostModelCPULabel+"Skylake-Client-IBRS"),
 			HaveKey(v1.CPUModelLabel+"Skylake-Client-IBRS"),
 			HaveKey(v1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS"),
+		))
+	})
+
+	It("should not include non-usable CPU models with the CPU model label but include them with the SupportedHostModelMigrationCPU label", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(SatisfyAll(
+			Not(HaveKey(v1.CPUModelLabel+"EPYC-IBPB")),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"EPYC-IBPB"),
 		))
 	})
 

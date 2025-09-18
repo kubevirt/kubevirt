@@ -24,6 +24,11 @@ type supportedFeatures struct {
 	items []string
 }
 
+type supportedModels struct {
+	usableModels []string
+	knownModels  []string
+}
+
 type hostCPUModel struct {
 	Name             string
 	fallback         string
