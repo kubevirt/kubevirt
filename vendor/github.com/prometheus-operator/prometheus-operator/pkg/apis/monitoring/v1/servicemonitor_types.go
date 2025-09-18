@@ -29,7 +29,14 @@ const (
 // +k8s:openapi-gen=true
 // +kubebuilder:resource:categories="prometheus-operator",shortName="smon"
 
-// ServiceMonitor defines monitoring for a set of services.
+// The `ServiceMonitor` custom resource definition (CRD) defines how `Prometheus` and `PrometheusAgent` can scrape metrics from a group of services.
+// Among other things, it allows to specify:
+// * The services to scrape via label selectors.
+// * The container ports to scrape.
+// * Authentication credentials to use.
+// * Target and metric relabeling.
+//
+// `Prometheus` and `PrometheusAgent` objects select `ServiceMonitor` objects using label and namespace selectors.
 type ServiceMonitor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -43,45 +50,104 @@ func (l *ServiceMonitor) DeepCopyObject() runtime.Object {
 	return l.DeepCopy()
 }
 
-// ServiceMonitorSpec contains specification parameters for a ServiceMonitor.
+// ServiceMonitorSpec defines the specification parameters for a ServiceMonitor.
 // +k8s:openapi-gen=true
 type ServiceMonitorSpec struct {
-	// JobLabel selects the label from the associated Kubernetes service which will be used as the `job` label for all metrics.
+	// `jobLabel` selects the label from the associated Kubernetes `Service`
+	// object which will be used as the `job` label for all metrics.
 	//
-	// For example:
-	// If in `ServiceMonitor.spec.jobLabel: foo` and in `Service.metadata.labels.foo: bar`,
-	// then the `job="bar"` label is added to all metrics.
+	// For example if `jobLabel` is set to `foo` and the Kubernetes `Service`
+	// object is labeled with `foo: bar`, then Prometheus adds the `job="bar"`
+	// label to all ingested metrics.
 	//
-	// If the value of this field is empty or if the label doesn't exist for the given Service, the `job` label of the metrics defaults to the name of the Kubernetes Service.
+	// If the value of this field is empty or if the label doesn't exist for
+	// the given Service, the `job` label of the metrics defaults to the name
+	// of the associated Kubernetes `Service`.
 	JobLabel string `json:"jobLabel,omitempty"`
-	// TargetLabels transfers labels from the Kubernetes `Service` onto the created metrics.
+
+	// `targetLabels` defines the labels which are transferred from the
+	// associated Kubernetes `Service` object onto the ingested metrics.
+	//
+	// +optional
 	TargetLabels []string `json:"targetLabels,omitempty"`
-	// PodTargetLabels transfers labels on the Kubernetes `Pod` onto the created metrics.
+	// `podTargetLabels` defines the labels which are transferred from the
+	// associated Kubernetes `Pod` object onto the ingested metrics.
+	//
+	// +optional
 	PodTargetLabels []string `json:"podTargetLabels,omitempty"`
-	// A list of endpoints allowed as part of this ServiceMonitor.
+
+	// List of endpoints part of this ServiceMonitor.
+	// Defines how to scrape metrics from Kubernetes [Endpoints](https://kubernetes.io/docs/concepts/services-networking/service/#endpoints) objects.
+	// In most cases, an Endpoints object is backed by a Kubernetes [Service](https://kubernetes.io/docs/concepts/services-networking/service/) object with the same name and labels.
 	Endpoints []Endpoint `json:"endpoints"`
-	// Selector to select Endpoints objects.
+
+	// Label selector to select the Kubernetes `Endpoints` objects to scrape metrics from.
 	Selector metav1.LabelSelector `json:"selector"`
-	// Selector to select which namespaces the Kubernetes Endpoints objects are discovered from.
+
+	// Mechanism used to select the endpoints to scrape.
+	// By default, the selection process relies on relabel configurations to filter the discovered targets.
+	// Alternatively, you can opt in for role selectors, which may offer better efficiency in large clusters.
+	// Which strategy is best for your use case needs to be carefully evaluated.
+	//
+	// It requires Prometheus >= v2.17.0.
+	//
+	// +optional
+	SelectorMechanism *SelectorMechanism `json:"selectorMechanism,omitempty"`
+
+	// `namespaceSelector` defines in which namespace(s) Prometheus should discover the services.
+	// By default, the services are discovered in the same namespace as the `ServiceMonitor` object but it is possible to select pods across different/all namespaces.
 	NamespaceSelector NamespaceSelector `json:"namespaceSelector,omitempty"`
-	// SampleLimit defines per-scrape limit on number of scraped samples that will be accepted.
+
+	// `sampleLimit` defines a per-scrape limit on the number of scraped samples
+	// that will be accepted.
+	//
 	// +optional
 	SampleLimit *uint64 `json:"sampleLimit,omitempty"`
-	// TargetLimit defines a limit on the number of scraped targets that will be accepted.
+
+	// `scrapeProtocols` defines the protocols to negotiate during a scrape. It tells clients the
+	// protocols supported by Prometheus in order of preference (from most to least preferred).
+	//
+	// If unset, Prometheus uses its default value.
+	//
+	// It requires Prometheus >= v2.49.0.
+	//
+	// +listType=set
+	// +optional
+	ScrapeProtocols []ScrapeProtocol `json:"scrapeProtocols,omitempty"`
+
+	// The protocol to use if a scrape returns blank, unparseable, or otherwise invalid Content-Type.
+	//
+	// It requires Prometheus >= v3.0.0.
+	// +optional
+	FallbackScrapeProtocol *ScrapeProtocol `json:"fallbackScrapeProtocol,omitempty"`
+
+	// `targetLimit` defines a limit on the number of scraped targets that will
+	// be accepted.
+	//
 	// +optional
 	TargetLimit *uint64 `json:"targetLimit,omitempty"`
+
 	// Per-scrape limit on number of labels that will be accepted for a sample.
-	// Only valid in Prometheus versions 2.27.0 and newer.
+	//
+	// It requires Prometheus >= v2.27.0.
+	//
 	// +optional
 	LabelLimit *uint64 `json:"labelLimit,omitempty"`
 	// Per-scrape limit on length of labels name that will be accepted for a sample.
-	// Only valid in Prometheus versions 2.27.0 and newer.
+	//
+	// It requires Prometheus >= v2.27.0.
+	//
 	// +optional
 	LabelNameLengthLimit *uint64 `json:"labelNameLengthLimit,omitempty"`
 	// Per-scrape limit on length of labels value that will be accepted for a sample.
-	// Only valid in Prometheus versions 2.27.0 and newer.
+	//
+	// It requires Prometheus >= v2.27.0.
+	//
 	// +optional
 	LabelValueLengthLimit *uint64 `json:"labelValueLengthLimit,omitempty"`
+
+	NativeHistogramConfig `json:",inline"`
+
 	// Per-scrape limit on the number of targets dropped by relabeling
 	// that will be kept in memory. 0 means no limit.
 	//
@@ -89,9 +155,27 @@ type ServiceMonitorSpec struct {
 	//
 	// +optional
 	KeepDroppedTargets *uint64 `json:"keepDroppedTargets,omitempty"`
-	// Attaches node metadata to discovered targets.
-	// Requires Prometheus v2.37.0 and above.
+
+	// `attachMetadata` defines additional metadata which is added to the
+	// discovered targets.
+	//
+	// It requires Prometheus >= v2.37.0.
+	//
+	// +optional
 	AttachMetadata *AttachMetadata `json:"attachMetadata,omitempty"`
+
+	// The scrape class to apply.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	ScrapeClassName *string `json:"scrapeClass,omitempty"`
+
+	// When defined, bodySizeLimit specifies a job level limit on the size
+	// of uncompressed response body that will be accepted by Prometheus.
+	//
+	// It requires Prometheus >= v2.28.0.
+	//
+	// +optional
+	BodySizeLimit *ByteSize `json:"bodySizeLimit,omitempty"`
 }
 
 // ServiceMonitorList is a list of ServiceMonitors.
@@ -102,7 +186,7 @@ type ServiceMonitorList struct {
 	// More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ListMeta `json:"metadata,omitempty"`
 	// List of ServiceMonitors
-	Items []*ServiceMonitor `json:"items"`
+	Items []ServiceMonitor `json:"items"`
 }
 
 // DeepCopyObject implements the runtime.Object interface.
