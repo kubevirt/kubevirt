@@ -1,5 +1,8 @@
 # KubeVirt metrics
 
+### cluster:kubevirt_virt_controller_pods_running:count
+The number of virt-controller pods that are running. Type: Gauge.
+
 ### kubevirt_allocatable_nodes
 The number of allocatable nodes in the cluster. Type: Gauge.
 
