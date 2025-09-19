@@ -57,13 +57,13 @@ func GenerateCNIAnnotation(
 	)
 }
 
-func GenerateCNIAnnotationFromNameScheme(
+func GenerateNetSelectorsForCNIAnnotation(
 	namespace string,
 	interfaces []v1.Interface,
 	networks []v1.Network,
 	networkNameScheme map[string]string,
 	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
-) (string, error) {
+) ([]networkv1.NetworkSelectionElement, error) {
 	var networkSelectionElements []networkv1.NetworkSelectionElement
 
 	for _, network := range networks {
@@ -80,14 +80,33 @@ func GenerateCNIAnnotationFromNameScheme(
 				network.Name,
 			)
 			if err != nil {
-				return "", err
+				return networkSelectionElements, err
 			}
 			if bindingPluginAnnotationData != nil {
 				networkSelectionElements = append(networkSelectionElements, *bindingPluginAnnotationData)
 			}
 		}
 	}
+	return networkSelectionElements, nil
+}
 
+func GenerateCNIAnnotationFromNameScheme(
+	namespace string,
+	interfaces []v1.Interface,
+	networks []v1.Network,
+	networkNameScheme map[string]string,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
+) (string, error) {
+	networkSelectionElements, err := GenerateNetSelectorsForCNIAnnotation(
+		namespace,
+		interfaces,
+		networks,
+		networkNameScheme,
+		registeredBindingPlugins,
+	)
+	if err != nil {
+		return "", err
+	}
 	if len(networkSelectionElements) == 0 {
 		return "", nil
 	}
