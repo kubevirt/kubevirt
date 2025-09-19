@@ -2807,6 +2807,7 @@ type DeveloperConfiguration struct {
 	// "see" 2% more memory than its parent pod. Values under 100 are effectively "undercommits".
 	// Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.
 	// Defaults to 100
+	// +kubebuilder:validation:Minimum:=10
 	MemoryOvercommit int `json:"memoryOvercommit,omitempty"`
 	// NodeSelectors allows restricting VMI creation to nodes that match a set of labels.
 	// Defaults to none
