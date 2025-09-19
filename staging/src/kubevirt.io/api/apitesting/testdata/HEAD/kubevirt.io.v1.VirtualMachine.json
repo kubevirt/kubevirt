@@ -1028,7 +1028,10 @@
               "imageStream": "imageStreamValue",
               "pullMethod": "pullMethodValue",
               "secretRef": "secretRefValue",
-              "certConfigMap": "certConfigMapValue"
+              "certConfigMap": "certConfigMapValue",
+              "platform": {
+                "architecture": "architectureValue"
+              }
             },
             "pvc": {
               "namespace": "namespaceValue",
@@ -1048,7 +1051,8 @@
               "backingFile": "backingFileValue",
               "thumbprint": "thumbprintValue",
               "secretRef": "secretRefValue",
-              "initImageURL": "initImageURLValue"
+              "initImageURL": "initImageURLValue",
+              "extraArgs": "extraArgsValue"
             },
             "snapshot": {
               "namespace": "namespaceValue",
