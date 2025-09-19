@@ -958,6 +958,7 @@ var CRDsValidation map[string]string = map[string]string{
                     "see" 2% more memory than its parent pod. Values under 100 are effectively "undercommits".
                     Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.
                     Defaults to 100
+                  minimum: 10
                   type: integer
                 minimumClusterTSCFrequency:
                   description: |-
