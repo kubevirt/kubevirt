@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "tail.go",
+        "tail_posix.go",
+        "tail_windows.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/nxadm/tail",
+    importpath = "github.com/nxadm/tail",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/nxadm/tail/ratelimiter:go_default_library",
+        "//vendor/github.com/nxadm/tail/util:go_default_library",
+        "//vendor/github.com/nxadm/tail/watch:go_default_library",
+        "//vendor/gopkg.in/tomb.v1:go_default_library",
+    ] + select({
+        "@io_bazel_rules_go//go/platform:windows": [
+            "//vendor/github.com/nxadm/tail/winfile:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

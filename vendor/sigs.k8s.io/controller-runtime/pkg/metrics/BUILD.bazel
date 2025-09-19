@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "client_go_adapter.go",
+        "doc.go",
+        "leaderelection.go",
+        "registry.go",
+        "workqueue.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/controller-runtime/pkg/metrics",
+    importpath = "sigs.k8s.io/controller-runtime/pkg/metrics",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/k8s.io/client-go/tools/leaderelection:go_default_library",
+        "//vendor/k8s.io/client-go/tools/metrics:go_default_library",
+    ],
+)

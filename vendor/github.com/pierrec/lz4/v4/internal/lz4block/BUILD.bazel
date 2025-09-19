@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "block.go",
+        "blocks.go",
+        "decode_amd64.s",
+        "decode_arm.s",
+        "decode_arm64.s",
+        "decode_asm.go",
+        "decode_other.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/pierrec/lz4/v4/internal/lz4block",
+    importpath = "github.com/pierrec/lz4/v4/internal/lz4block",
+    visibility = ["//vendor/github.com/pierrec/lz4/v4:__subpackages__"],
+    deps = ["//vendor/github.com/pierrec/lz4/v4/internal/lz4errors:go_default_library"],
+)

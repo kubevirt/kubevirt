@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1alpha2
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,31 +39,36 @@ type VirtualMachineInstancetypesGetter interface {
 
 // VirtualMachineInstancetypeInterface has methods to work with VirtualMachineInstancetype resources.
 type VirtualMachineInstancetypeInterface interface {
-	Create(ctx context.Context, virtualMachineInstancetype *v1alpha2.VirtualMachineInstancetype, opts v1.CreateOptions) (*v1alpha2.VirtualMachineInstancetype, error)
-	Update(ctx context.Context, virtualMachineInstancetype *v1alpha2.VirtualMachineInstancetype, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineInstancetype, error)
+	Create(ctx context.Context, virtualMachineInstancetype *instancetypev1alpha2.VirtualMachineInstancetype, opts v1.CreateOptions) (*instancetypev1alpha2.VirtualMachineInstancetype, error)
+	Update(ctx context.Context, virtualMachineInstancetype *instancetypev1alpha2.VirtualMachineInstancetype, opts v1.UpdateOptions) (*instancetypev1alpha2.VirtualMachineInstancetype, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha2.VirtualMachineInstancetype, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha2.VirtualMachineInstancetypeList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*instancetypev1alpha2.VirtualMachineInstancetype, error)
+	List(ctx context.Context, opts v1.ListOptions) (*instancetypev1alpha2.VirtualMachineInstancetypeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineInstancetype, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *instancetypev1alpha2.VirtualMachineInstancetype, err error)
 	VirtualMachineInstancetypeExpansion
 }
 
 // virtualMachineInstancetypes implements VirtualMachineInstancetypeInterface
 type virtualMachineInstancetypes struct {
-	*gentype.ClientWithList[*v1alpha2.VirtualMachineInstancetype, *v1alpha2.VirtualMachineInstancetypeList]
+	*gentype.ClientWithList[*instancetypev1alpha2.VirtualMachineInstancetype, *instancetypev1alpha2.VirtualMachineInstancetypeList]
 }
 
 // newVirtualMachineInstancetypes returns a VirtualMachineInstancetypes
 func newVirtualMachineInstancetypes(c *InstancetypeV1alpha2Client, namespace string) *virtualMachineInstancetypes {
 	return &virtualMachineInstancetypes{
-		gentype.NewClientWithList[*v1alpha2.VirtualMachineInstancetype, *v1alpha2.VirtualMachineInstancetypeList](
+		gentype.NewClientWithList[*instancetypev1alpha2.VirtualMachineInstancetype, *instancetypev1alpha2.VirtualMachineInstancetypeList](
 			"virtualmachineinstancetypes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha2.VirtualMachineInstancetype { return &v1alpha2.VirtualMachineInstancetype{} },
-			func() *v1alpha2.VirtualMachineInstancetypeList { return &v1alpha2.VirtualMachineInstancetypeList{} }),
+			func() *instancetypev1alpha2.VirtualMachineInstancetype {
+				return &instancetypev1alpha2.VirtualMachineInstancetype{}
+			},
+			func() *instancetypev1alpha2.VirtualMachineInstancetypeList {
+				return &instancetypev1alpha2.VirtualMachineInstancetypeList{}
+			},
+		),
 	}
 }

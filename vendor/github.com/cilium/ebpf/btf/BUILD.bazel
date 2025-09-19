@@ -1,0 +1,31 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "btf.go",
+        "btf_types.go",
+        "btf_types_string.go",
+        "core.go",
+        "doc.go",
+        "ext_info.go",
+        "format.go",
+        "handle.go",
+        "marshal.go",
+        "strings.go",
+        "traversal.go",
+        "types.go",
+        "workarounds.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/cilium/ebpf/btf",
+    importpath = "github.com/cilium/ebpf/btf",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/cilium/ebpf/asm:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal/sys:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal/unix:go_default_library",
+        "//vendor/golang.org/x/exp/maps:go_default_library",
+        "//vendor/golang.org/x/exp/slices:go_default_library",
+    ],
+)
