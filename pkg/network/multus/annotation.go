@@ -158,7 +158,7 @@ func GenerateNetSelectorsForCNIAnnotation(
 				network.Name,
 			)
 			if err != nil {
-				return networkSelectionElements, err
+				return nil, err
 			}
 			if bindingPluginAnnotationData != nil {
 				networkSelectionElements = append(networkSelectionElements, *bindingPluginAnnotationData)
