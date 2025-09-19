@@ -483,3 +483,7 @@ func (c *ClusterConfig) ClusterProfilerEnabled() bool {
 	return c.GetConfig().DeveloperConfiguration.ClusterProfiler ||
 		c.isFeatureGateDefined(featuregate.ClusterProfiler)
 }
+
+func (c *ClusterConfig) GetHypervisor() *v1.HypervisorConfiguration {
+	return c.GetConfig().HypervisorConfiguration
+}

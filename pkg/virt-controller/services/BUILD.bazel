@@ -21,6 +21,7 @@ go_library(
         "//pkg/dra:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/host-disk:go_default_library",
+        "//pkg/hypervisor:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/network/downwardapi:go_default_library",
         "//pkg/network/istio:go_default_library",
