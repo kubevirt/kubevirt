@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "hypervisor.go",
+        "hypervisor-kvm.go",
+        "hypervisor-mshv-l1vh.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/hypervisor",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/util:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+    ],
+)
