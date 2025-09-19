@@ -14422,6 +14422,16 @@
      }
     }
    },
+   "v1.HypervisorConfiguration": {
+    "description": "HypervisorConfiguration holds information regarding the hypervisor present on cluster nodes.",
+    "type": "object",
+    "properties": {
+     "name": {
+      "description": "Name is the name of the hypervisor. Supported values are: \"kvm\", \"mshv\", \"mshv-l1vh\".",
+      "type": "string"
+     }
+    }
+   },
    "v1.I6300ESBWatchdog": {
     "description": "i6300esb watchdog device.",
     "type": "object",
@@ -14873,6 +14883,10 @@
      },
      "handlerConfiguration": {
       "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
+     },
+     "hypervisorConfiguration": {
+      "description": "HypervisorConfiguration holds information regarding the hypervisor present on all cluster nodes.",
+      "$ref": "#/definitions/v1.HypervisorConfiguration"
      },
      "imagePullPolicy": {
       "description": "Possible enum values:\n - `\"Always\"` means that kubelet always attempts to pull the latest image. Container will fail If the pull fails.\n - `\"IfNotPresent\"` means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.\n - `\"Never\"` means that kubelet never pulls an image, but only uses a local image. Container will fail if the image isn't present",

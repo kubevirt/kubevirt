@@ -88,6 +88,8 @@ const (
 
 	DefaultMaxHotplugRatio   = 4
 	DefaultVMRolloutStrategy = v1.VMRolloutStrategyLiveUpdate
+
+	DefaultHypervisorName = v1.KvmHypervisorName
 )
 
 func IsARM64(arch string) bool {

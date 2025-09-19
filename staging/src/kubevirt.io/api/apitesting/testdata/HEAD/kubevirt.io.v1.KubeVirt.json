@@ -372,6 +372,9 @@
       },
       "instancetype": {
         "referencePolicy": "referencePolicyValue"
+      },
+      "hypervisorConfiguration": {
+        "name": "nameValue"
       }
     },
     "infra": {
