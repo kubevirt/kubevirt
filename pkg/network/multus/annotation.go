@@ -64,30 +64,16 @@ func GenerateCNIAnnotationFromNameScheme(
 	networkNameScheme map[string]string,
 	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
 ) (string, error) {
-	var networkSelectionElements []networkv1.NetworkSelectionElement
-
-	for _, network := range networks {
-		if vmispec.IsSecondaryMultusNetwork(network) {
-			podInterfaceName := networkNameScheme[network.Name]
-			networkSelectionElements = append(networkSelectionElements, newAnnotationData(namespace, interfaces, network, podInterfaceName))
-		}
-
-		if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
-			bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
-				registeredBindingPlugins,
-				iface.Binding.Name,
-				namespace,
-				network.Name,
-			)
-			if err != nil {
-				return "", err
-			}
-			if bindingPluginAnnotationData != nil {
-				networkSelectionElements = append(networkSelectionElements, *bindingPluginAnnotationData)
-			}
-		}
+	networkSelectionElements, err := GenerateNetSelectorsForCNIAnnotation(
+		namespace,
+		interfaces,
+		networks,
+		networkNameScheme,
+		registeredBindingPlugins,
+	)
+	if err != nil {
+		return "", err
 	}
-
 	if len(networkSelectionElements) == 0 {
 		return "", nil
 	}
@@ -147,4 +133,37 @@ func newBindingPluginAnnotationData(
 			cniArgNetworkName: networkName,
 		},
 	}, nil
+}
+
+func GenerateNetSelectorsForCNIAnnotation(
+	namespace string,
+	interfaces []v1.Interface,
+	networks []v1.Network,
+	networkNameScheme map[string]string,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
+) ([]networkv1.NetworkSelectionElement, error) {
+	var networkSelectionElements []networkv1.NetworkSelectionElement
+
+	for _, network := range networks {
+		if vmispec.IsSecondaryMultusNetwork(network) {
+			podInterfaceName := networkNameScheme[network.Name]
+			networkSelectionElements = append(networkSelectionElements, newAnnotationData(namespace, interfaces, network, podInterfaceName))
+		}
+
+		if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
+			bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
+				registeredBindingPlugins,
+				iface.Binding.Name,
+				namespace,
+				network.Name,
+			)
+			if err != nil {
+				return nil, err
+			}
+			if bindingPluginAnnotationData != nil {
+				networkSelectionElements = append(networkSelectionElements, *bindingPluginAnnotationData)
+			}
+		}
+	}
+	return networkSelectionElements, nil
 }
