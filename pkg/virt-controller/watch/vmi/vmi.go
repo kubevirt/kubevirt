@@ -351,7 +351,7 @@ func (c *Controller) addPod(obj interface{}) {
 		return
 	}
 
-	controllerRef := controller.GetControllerOf(pod)
+	controllerRef := v1.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
 		return
@@ -388,8 +388,8 @@ func (c *Controller) updatePod(old, cur interface{}) {
 		return
 	}
 
-	curControllerRef := controller.GetControllerOf(curPod)
-	oldControllerRef := controller.GetControllerOf(oldPod)
+	curControllerRef := v1.GetControllerOf(curPod)
+	oldControllerRef := v1.GetControllerOf(oldPod)
 	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged {
 		// The ControllerRef was changed. Sync the old controller, if any.
@@ -428,7 +428,7 @@ func (c *Controller) onPodDelete(obj interface{}) {
 		}
 	}
 
-	controllerRef := controller.GetControllerOf(pod)
+	controllerRef := v1.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
 		return
@@ -506,7 +506,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *v1.Ow
 			return nil
 		}
 		pod, _ := obj.(*k8sv1.Pod)
-		controllerRef = controller.GetControllerOf(pod)
+		controllerRef = v1.GetControllerOf(pod)
 	}
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it is nil or the wrong Kind.

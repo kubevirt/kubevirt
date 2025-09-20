@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "conditions.go",
         "controller.go",
-        "controller_ref.go",
         "controller_ref_manager.go",
         "expectations.go",
         "keys.go",

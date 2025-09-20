@@ -553,6 +553,7 @@ func newPod(vmi *v1.VirtualMachineInstance, name string, phase k8sv1.PodPhase, o
 		pod.Annotations = map[string]string{
 			v1.DomainAnnotation: vmi.Name,
 		}
+		pod.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)}
 	}
 
 	return pod

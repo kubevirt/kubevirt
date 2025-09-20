@@ -747,6 +747,7 @@ func newLauncherPodForVMI(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 			Annotations: map[string]string{
 				v1.DomainAnnotation: vmi.Name,
 			},
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)},
 		},
 		Status: k8sv1.PodStatus{
 			Phase: k8sv1.PodRunning,
