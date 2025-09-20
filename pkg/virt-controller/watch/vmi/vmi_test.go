@@ -2318,6 +2318,83 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 		})
 
+		Context("Eviction condition", func() {
+			It("should set VirtualMachineInstanceEvictionRequested condition when VMI is marked for eviction", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.EvacuationNodeName = "test"
+				vmi.Status.NodeName = "test"
+
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				addActivePods(vmi, pod.UID, "")
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name,
+					ContainElement(
+						MatchFields(IgnoreExtras, Fields{
+							"Type":    Equal(virtv1.VirtualMachineInstanceEvictionRequested),
+							"Status":  Equal(k8sv1.ConditionTrue),
+							"Reason":  Equal(virtv1.VirtualMachineInstanceReasonEvictionRequested),
+							"Message": Equal("VMI is marked for eviction"),
+						}),
+					),
+				)
+			})
+
+			It("should remove VirtualMachineInstanceEvictionRequested condition when VMI is not marked for eviction", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.EvacuationNodeName = ""
+
+				// Add the condition first
+				kvcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+					Type:    virtv1.VirtualMachineInstanceEvictionRequested,
+					Status:  k8sv1.ConditionTrue,
+					Reason:  virtv1.VirtualMachineInstanceReasonEvictionRequested,
+					Message: "VMI is marked for eviction",
+				})
+
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				addActivePods(vmi, pod.UID, "")
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name,
+					Not(ContainElement(
+						MatchFields(IgnoreExtras, Fields{
+							"Type": Equal(virtv1.VirtualMachineInstanceEvictionRequested),
+						}),
+					)),
+				)
+			})
+
+			It("should not set VirtualMachineInstanceEvictionRequested condition when VMI is not marked for eviction", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.EvacuationNodeName = ""
+
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				addActivePods(vmi, pod.UID, "")
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name,
+					Not(ContainElement(
+						MatchFields(IgnoreExtras, Fields{
+							"Type": Equal(virtv1.VirtualMachineInstanceEvictionRequested),
+						}),
+					)),
+				)
+			})
+		})
+
 		DescribeTable("should set VirtualMachineUnpaused=False pod condition when VMI is paused", func(currUnpausedStatus k8sv1.ConditionStatus) {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Running
