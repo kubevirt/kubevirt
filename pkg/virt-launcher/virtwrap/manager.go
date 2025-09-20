@@ -44,6 +44,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 
 	"libvirt.org/go/libvirt"
 
@@ -1222,7 +1223,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
-	if err := l.syncNetwork(domain, oldSpec, dom, vmi, options); err != nil {
+	var domainAttachments map[string]string
+	if options != nil {
+		domainAttachments = options.GetInterfaceDomainAttachment()
+	}
+	if err := network.Sync(domain, oldSpec, dom, vmi, domainAttachments); err != nil {
 		return nil, err
 	}
 
@@ -1433,36 +1438,6 @@ func (l *LibvirtDomainManager) syncDisks(
 	return nil
 }
 
-func (l *LibvirtDomainManager) syncNetwork(
-	domain *api.Domain,
-	oldSpec *api.DomainSpec,
-	dom cli.VirDomain,
-	vmi *v1.VirtualMachineInstance,
-	options *cmdv1.VirtualMachineOptions,
-) error {
-	if !vmi.IsRunning() {
-		return nil
-	}
-	var domainAttachments map[string]string
-	if options != nil {
-		domainAttachments = options.GetInterfaceDomainAttachment()
-	}
-
-	networkConfigurator := netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, netsetup.WithDomainAttachments(domainAttachments))
-	networkInterfaceManager := newVirtIOInterfaceManager(dom, networkConfigurator)
-	if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
-		return err
-	}
-	if err := networkInterfaceManager.hotUnplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
-		return err
-	}
-	if err := networkInterfaceManager.updateDomainLinkState(&api.Domain{Spec: *oldSpec}, domain); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (l *LibvirtDomainManager) startDomain(
 	vmi *v1.VirtualMachineInstance,
 	dom cli.VirDomain,
@@ -1542,7 +1517,7 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 
 	// leverage existing hotplug nic code to allocate ports
 	// should work for disks and any other devices as well
-	dom, err := withNetworkIfacesResources(vmi, domainSpec, count, setDomainFn)
+	dom, err := network.WithNetworkIfacesResources(vmi, domainSpec, count, setDomainFn)
 	if err != nil {
 		return nil, err
 	}
