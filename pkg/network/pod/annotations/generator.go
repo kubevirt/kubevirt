@@ -20,6 +20,10 @@
 package annotations
 
 import (
+	"encoding/json"
+	"fmt"
+	"reflect"
+
 	k8scorev1 "k8s.io/api/core/v1"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -144,20 +148,114 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 		return "", false
 	}
 
-	currentMultusAnnotation := pod.Annotations[networkv1.NetworkAttachmentAnnot]
+	// TODO: Check what happens if networkv1.NetworkAttachmentAnnot doesnt exist
+	currentMultusNetSel, err := parseAnnotation(pod.Annotations[networkv1.NetworkAttachmentAnnot])
+	if err != nil {
+		// TODO: decide what to do
+		log.Log.Errorf("failed to parse pod multus annotations: %v", err)
+	}
+	origMultusNetSel := deepCopy(currentMultusNetSel)
+
+	updatedNetSel, err := parseAnnotation(updatedMultusAnnotation)
+	if err != nil {
+		log.Log.Errorf("failed to parse updated multus annotations: %v", err)
+	}
+
+	currentMultusNetSel = mergeMultusAnnotations(currentMultusNetSel, updatedNetSel)
+	for _, net := range netSelectorsToRemoveFromMultusAnnotation(
+		podIfaceNamesByNetworkName,
+		vmi,
+		g.clusterConfigurer.GetNetworkBindings()) {
+		delete(currentMultusNetSel, net)
+	}
+
+	if reflect.DeepEqual(currentMultusNetSel, origMultusNetSel) {
+		return "", false
+	}
+
+	jsonAnnotation, err := json.Marshal(createAnnotationFromElements(currentMultusNetSel))
+	if err != nil {
+		log.Log.Errorf("could not generate multus annotation string, skipping: %v", err)
+		return "", false
+	}
+	if string(jsonAnnotation) != "null" {
+		updatedMultusAnnotation = string(jsonAnnotation)
+	} else {
+		updatedMultusAnnotation = ""
+	}
 
 	const logLevel = 4
 	log.Log.Object(pod).V(logLevel).Infof(
 		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
-		currentMultusAnnotation,
+		pod.Annotations[networkv1.NetworkAttachmentAnnot],
 		updatedMultusAnnotation,
 	)
 
-	if updatedMultusAnnotation == currentMultusAnnotation {
-		return "", false
+	return updatedMultusAnnotation, true
+}
+
+func mergeMultusAnnotations(
+	currentMultusNetSel map[string]map[string]interface{},
+	desiredMultusAnnotation map[string]map[string]interface{},
+) map[string]map[string]interface{} {
+	for key, val := range desiredMultusAnnotation {
+		// TODO: Do we want to preserve extra fields added to desiredNeSel by third party
+		currentMultusNetSel[key] = val
+	}
+	return currentMultusNetSel
+}
+
+func parseAnnotation(s string) (map[string]map[string]interface{}, error) {
+	var netSelElements []map[string]interface{}
+	if s == "" {
+		return map[string]map[string]interface{}{}, nil
+	}
+	if err := json.Unmarshal([]byte(s), &netSelElements); err != nil {
+		return map[string]map[string]interface{}{}, err
 	}
 
-	return updatedMultusAnnotation, true
+	netSelElementMap := make(map[string]map[string]interface{})
+	for _, element := range netSelElements {
+		name, exists := element["name"]
+		if !exists {
+			return map[string]map[string]interface{}{}, fmt.Errorf("netSelElements does not contain name: %s", s)
+		}
+		namespace, exists := element["namespace"]
+		if !exists {
+			namespace = "na"
+		}
+		// TODO: externalize this if replicated
+		key := fmt.Sprintf("%s/%s", name, namespace)
+		netSelElementMap[key] = element
+	}
+	return netSelElementMap, nil
+}
+
+func createAnnotationFromElements(elementsMap map[string]map[string]interface{}) []map[string]interface{} {
+	var elements []map[string]interface{}
+	for _, v := range elementsMap {
+		elements = append(elements, v)
+	}
+	return elements
+}
+
+func deepCopy(src map[string]map[string]interface{}) map[string]map[string]interface{} {
+	if src == nil {
+		return nil
+	}
+	dest := make(map[string]map[string]interface{})
+	for k, v := range src {
+		if v == nil {
+			dest[k] = nil
+			continue
+		}
+		innerMap := make(map[string]interface{})
+		for key, val := range v {
+			innerMap[key] = val
+		}
+		dest[k] = innerMap
+	}
+	return dest
 }
 
 func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
@@ -207,4 +305,46 @@ func ifacesAndNetsForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v
 		return nil, nil, false
 	}
 	return ifacesToAnnotate, networksToAnnotate, ifaceChangeRequired
+}
+
+func netSelectorsToRemoveFromMultusAnnotation(
+	networkNameScheme map[string]string,
+	vmi *v1.VirtualMachineInstance,
+	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
+) []string {
+	ifacesFromSpec := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+
+	ifacesToHotUnplug := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State == v1.InterfaceStateAbsent
+	})
+	networksToUnplug := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToHotUnplug)
+
+	if len(vmi.Spec.Domain.Devices.Interfaces) > len(ifacesFromSpec) {
+		netSelectorsToUnplug, err := multus.GenerateNetSelectorsForCNIAnnotation(
+			vmi.Namespace,
+			ifacesToHotUnplug,
+			networksToUnplug,
+			networkNameScheme,
+			registeredBindingPlugins,
+		)
+		if err != nil {
+			// TODO: Decide what to do in case of err
+			log.Log.Errorf("failed to generate net selectors to be hot unplugged: %v", err)
+			return nil
+		}
+		var keysToRemove []string
+		for _, net := range netSelectorsToUnplug {
+			namespace := net.Namespace
+			if namespace == "" {
+				namespace = "NA"
+			}
+			key := fmt.Sprintf("%s/%s", net.Name, namespace)
+			keysToRemove = append(keysToRemove, key)
+		}
+		return keysToRemove
+	}
+
+	return []string{}
 }
