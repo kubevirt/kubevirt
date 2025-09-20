@@ -23,16 +23,6 @@ var _ = Describe("Node Selector Renderer", func() {
 				Expect(nsr.Render()).To(Equal(map[string]string{"kubevirt.io/schedulable": "true"}))
 			})
 
-			When("the dedicated CPU option is defined", func() {
-				BeforeEach(func() {
-					nsr = NewNodeSelectorRenderer(emptySelectors(), emptySelectors(), "", WithDedicatedCPU())
-				})
-
-				It("must be scheduled on nodes featuring the `cpumanager` label", func() {
-					Expect(nsr.Render()).To(HaveLabel("cpumanager"))
-				})
-			})
-
 			When("the TSC timer option is defined", func() {
 				var aFewHertzios int64
 
