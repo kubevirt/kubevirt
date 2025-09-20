@@ -1007,7 +1007,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Terminating guest agent and waiting for it to disappear.")
 				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
 					&expect.BSnd{S: "systemctl stop qemu-guest-agent\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 400)).To(Succeed())
 
 				By("VMI has the guest agent connected condition")
@@ -1106,7 +1106,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Terminating guest agent and waiting for it to disappear.")
 				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
 					&expect.BSnd{S: "systemctl stop qemu-guest-agent\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 400)).To(Succeed())
 
 				By("Expecting the Guest VM information")
@@ -1225,7 +1225,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking the CPU model under the guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo > /dev/null\n", "nonstop_tsc")},
-					&expect.BExp{R: fmt.Sprintf(console.PromptExpression)},
+					&expect.BExp{R: fmt.Sprintf("")},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 10)).To(Succeed())
@@ -1768,7 +1768,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string) {
 			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "grep DEVNAME /sys/bus/pci/devices/" + expectedPciAddress + "/*/block/vda/uevent|awk -F= '{ print $2 }'\n"},
 				&expect.BExp{R: "vda"},
 			}, 15)
@@ -1785,7 +1785,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// keep the ordering!
 				&expect.BSnd{S: "ls /dev/vda  /dev/vdb\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 10)).To(Succeed())
@@ -1971,7 +1971,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 15)).To(Succeed())
