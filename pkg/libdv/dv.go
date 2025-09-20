@@ -214,9 +214,13 @@ func WithDefaultPreference(kind, name string) dvOption {
 
 func WithDataVolumeSourceRef(kind, namespace, name string) dvOption {
 	return func(dv *v1beta1.DataVolume) {
+		var sourceRefNamespace *string
+		if namespace != "" {
+			sourceRefNamespace = pointer.P(namespace)
+		}
 		dv.Spec.SourceRef = &v1beta1.DataVolumeSourceRef{
 			Kind:      kind,
-			Namespace: pointer.P(namespace),
+			Namespace: sourceRefNamespace,
 			Name:      name,
 		}
 	}
