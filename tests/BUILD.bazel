@@ -1,37 +1,41 @@
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
 load("@io_bazel_rules_go//go:def.bzl", "go_test")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
-container_image(
+pkg_tar(
+    name = "conformance-config",
+    testonly = True,
+    srcs = [":conformance-config.json"],
+    package_dir = "/",
+)
+
+pkg_tar(
+    name = "conformance-tests",
+    testonly = True,
+    srcs = [
+        ":go_default_test",
+        "//tests/conformance",
+    ],
+    package_dir = "/usr/bin",
+)
+
+oci_image(
     name = "conformance_image_base",
     testonly = True,
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
     base = "//:passwd-image",
-    directory = "/",
-    files = [
-        ":conformance-config.json",
+    tars = [
+        ":conformance-config",
     ],
     visibility = ["//visibility:public"],
 )
 
-container_image(
+oci_image(
     name = "conformance_image",
     testonly = True,
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
     base = ":conformance_image_base",
-    directory = "/usr/bin",
     entrypoint = ["/usr/bin/conformance"],
-    files = [
-        ":go_default_test",
-        "//tests/conformance",
+    tars = [
+        ":conformance-tests",
     ],
     visibility = ["//visibility:public"],
 )
