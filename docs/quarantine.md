@@ -87,21 +87,26 @@ test itself doesn't need changes to be fixed (maybe the fix needs to be done on
 other parts of the code base or in a separate repo). In any case, the team
 assigned must communicate when the test is expected to be stable.
 
-A test must be put out of quarantine when:
-* It hasn't failed on any of the periodic lanes in the two weeks after the time
-indicated by the team assigned to bring the test back to the stable suite.
+A test is eligible for de-quarantining once it demonstrates a failure rate of 0.1% or less.
 
+If the SIG believes the flakyness is resolved they can trigger the pull-kubevirt-check-dequarantine-test job by
+commenting /test pull-kubevirt-check-dequarantine-test[^1] directly on the dequarantine pull request.
 
-After two weeks with successful executions has passed, a quarantined tests will
-be ready to join the stable suite again. A member of the team assigned to each
-quarantined tests will propose a PR to remove the text `[QUARANTINE]` and the
+If the periodic test runs confirm the failure rate meets the above criteria the SIG can open a dequarantine PR.
+
+[^1]: The lane
+  [`pull-kubevirt-check-dequarantine-test`](https://github.com/kubevirt/project-infra/blob/a4eeae570d8c2eabbde7286c663972ad09002571/github/ci/prow-deploy/files/jobs/kubevirt/kubevirt/kubevirt-presubmits.yaml#L369)
+  has the goal of speeding up the process in showing the stability of a test by
+  executing the test repeatedly.
+  It leverages the technique from the `pull-kubevirt-check-tests-for-flakes`
+  lane that determines the changed test from available changeset data in the
+  pull request.
+
+Quarantined tests satisfying the criteria will be ready to join the stable suite
+again. A member of the team assigned to each
+quarantined test will propose a PR to remove the text `[QUARANTINE]` and the
 label decorator from the test description in the code.
 After merging this PR the test will be out of quarantine.
-
-[1]: https://martinfowler.com/articles/nonDeterminism.html#Quarantine
-[2]: https://www.thoughtworks.com/en-us/insights/blog/no-more-flaky-tests-go-team
-[3]: https://docs.gitlab.com/ee/development/testing_guide/flaky_tests.html#quarantined-tests
-[on testgrid]: https://testgrid.k8s.io/kubevirt-periodics
 
 # Test Lane Quarantine
 
@@ -131,3 +136,9 @@ not receiving the required attention from the responsible SIG, SIG CI can take a
 decision to hold merge queue PRs from the responsible SIG that are not related to a fix.
 * Once the fix is merged and the test lane returns to an acceptable failure
 rate, the test lane should be set back to required as soon as possible
+
+
+[1]: https://martinfowler.com/articles/nonDeterminism.html#Quarantine
+[2]: https://www.thoughtworks.com/en-us/insights/blog/no-more-flaky-tests-go-team
+[3]: https://docs.gitlab.com/ee/development/testing_guide/flaky_tests.html#quarantined-tests
+[on testgrid]: https://testgrid.k8s.io/kubevirt-periodics
