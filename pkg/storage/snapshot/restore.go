@@ -78,6 +78,8 @@ const (
 
 	restoreDataVolumeCreateErrorEvent = "RestoreDataVolumeCreateError"
 
+	restoreOwnedByVMLabel = "restore.kubevirt.io/owned-by-vm"
+
 	defaultPvcRestorePrefix = "restore"
 
 	waitEventuallyMessage = "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore"
@@ -276,6 +278,10 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		return 0, ctrl.doUpdateError(vmRestoreIn, err)
 	}
 	if updated {
+		if err := ctrl.updateRestorePVCOwnership(vmRestoreOut, target); err != nil {
+			logger.Reason(err).Error("Error updating restore pvc ownership")
+			return 0, ctrl.doUpdateError(vmRestoreIn, err)
+		}
 		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Updating target spec"))
 		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Waiting for target update"))
 		return 0, ctrl.doUpdateStatus(vmRestoreIn, vmRestoreOut)
@@ -307,6 +313,36 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 	updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
 
 	return 0, ctrl.doUpdateStatus(vmRestoreIn, vmRestoreOut)
+}
+
+func (ctrl *VMRestoreController) updateRestorePVCOwnership(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
+	if isVolumeOwnershipPolicyNone(vmRestore) || !target.Exists() {
+		return nil
+	}
+	for _, volume := range target.VirtualMachine().Spec.Template.Spec.Volumes {
+		if volume.PersistentVolumeClaim != nil {
+			pvc, err := ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Get(context.Background(), volume.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			// Check if the PVC is already owned by something else
+			if len(pvc.OwnerReferences) == 0 {
+				// Only set the owner reference if the PVC was originally owned by the source VM
+				if pvc.Annotations[restoreOwnedByVMLabel] == "true" {
+					target.Own(pvc)
+				}
+				delete(pvc.Annotations, restoreOwnedByVMLabel)
+
+				// Update the PVC to have the owner reference
+				_, err = ctrl.Client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (ctrl *VMRestoreController) doUpdateError(restore *snapshotv1.VirtualMachineRestore, err error) error {
@@ -1488,16 +1524,19 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	if err != nil {
 		return err
 	}
+	if pvc.Annotations == nil {
+		pvc.Annotations = make(map[string]string)
+	}
 
 	if dvOwner != "" { // PVC is owned by a DV
-		if pvc.Annotations == nil {
-			pvc.Annotations = make(map[string]string)
-		}
-
 		// By setting this annotation, the CDI will set ownership of the PVC to the DV
 		pvc.Annotations[populatedForPVCAnnotation] = dvOwner
 	} else if !isVolumeOwnershipPolicyNone(vmRestore) { // PVC is owned by the VM
-		target.Own(pvc)
+		if target.Exists() {
+			target.Own(pvc)
+		} else if len(volumeBackup.PersistentVolumeClaim.OwnerReferences) > 0 {
+			pvc.Annotations[restoreOwnedByVMLabel] = "true"
+		}
 	}
 
 	_, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})

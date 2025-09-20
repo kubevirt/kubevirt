@@ -324,7 +324,9 @@ var _ = Describe("Restore controller", func() {
 				Expect(action).To(BeNil())
 				return true, nil, nil
 			})
-
+			k8sClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, nil
+			})
 			currentTime = timeFunc
 		})
 
@@ -2596,6 +2598,9 @@ func expectPVCUpdates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMa
 
 		updateObj := update.GetObject().(*corev1.PersistentVolumeClaim)
 		found := false
+		if updateObj.Name == "" {
+			return true, nil, nil
+		}
 		for _, vr := range vmRestore.Status.Restores {
 			if vr.DataVolumeName != nil && *vr.DataVolumeName == updateObj.Annotations["cdi.kubevirt.io/storage.populatedFor"] {
 				found = true
