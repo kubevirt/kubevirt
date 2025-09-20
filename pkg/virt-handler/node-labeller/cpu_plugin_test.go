@@ -22,6 +22,7 @@
 package nodelabeller
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 
@@ -96,6 +97,26 @@ var _ = Describe("Node-labeller config", func() {
 		Expect(cpuModels).To(BeEmpty(), "no CPU models are expected to be supported")
 
 		Expect(cpuFeatures).To(HaveLen(4), "number of features doesn't match")
+		fmt.Println(fmt.Sprintf("cpuFeatures: %v", cpuFeatures))
+	})
+
+	It("should mark all CPU models from domCapabilities as known, regardless of usability", func() {
+		nlController.domCapabilitiesFileName = "virsh_domcapabilities.xml"
+
+		err := nlController.loadDomCapabilities()
+		Expect(err).ToNot(HaveOccurred())
+
+		knownCpuModels := nlController.getKnownCpuModels(nlController.clusterConfig.GetObsoleteCPUModels())
+
+		Expect(knownCpuModels).To(ConsistOf(
+			"Skylake-Client-IBRS",
+			"EPYC-IBPB",
+			"fake-model-without-usable",
+			"Penryn",
+			"IvyBridge",
+			"Haswell",
+			"Skylake-Client-IBRS",
+		), "expected all CPU models from domCapabilities to be marked as known")
 	})
 
 	It("Should return the cpu features on s390x even without policy='require' property", func() {
