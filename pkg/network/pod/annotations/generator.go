@@ -20,6 +20,8 @@
 package annotations
 
 import (
+	"encoding/json"
+
 	k8scorev1 "k8s.io/api/core/v1"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -119,7 +121,8 @@ func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8
 		annotations[downwardapi.NetworkInfoAnnot] = deviceInfoAnnotation
 	}
 
-	if updatedMultusAnnotation, shouldUpdate := g.generateMultusAnnotation(vmi, pod); shouldUpdate {
+	updatedMultusAnnotation, shouldUpdate := g.generateMultusAnnotation(vmi, pod)
+	if shouldUpdate {
 		annotations[networkv1.NetworkAttachmentAnnot] = updatedMultusAnnotation
 	}
 
@@ -128,8 +131,49 @@ func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8
 
 func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) (string, bool) {
 	vmiSpecIfaces, vmiSpecNets, ifaceChangeRequired := ifacesAndNetsForMultusAnnotationUpdate(vmi)
+
+	currentMultusAnnotation := pod.Annotations[networkv1.NetworkAttachmentAnnot]
+
+	// If no interface change is required, we're done
 	if !ifaceChangeRequired {
 		return "", false
+	}
+
+	// Check if we have secondary interfaces (non-default networks) in the filtered VMI spec
+	hasSecondaryInterfaces := false
+	for _, network := range vmiSpecNets {
+		if network.Pod != nil {
+			continue // Skip default pod network
+		}
+		if network.Multus != nil {
+			hasSecondaryInterfaces = true
+			break
+		}
+	}
+
+	// If there are no secondary interfaces but we have an existing annotation,
+	// we need to clear it (hot unplug scenario)
+	if !hasSecondaryInterfaces && currentMultusAnnotation != "" {
+		return "", true // Return empty string to clear the annotation
+	}
+
+	// If we have secondary interfaces and an existing annotation, check if it's already correct
+	if hasSecondaryInterfaces && currentMultusAnnotation != "" {
+		// Generate what the annotation should be to compare with existing
+		podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(vmiSpecNets, multus.NetworkStatusesFromPod(pod))
+		expectedAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
+			vmi.Namespace,
+			vmiSpecIfaces,
+			vmiSpecNets,
+			podIfaceNamesByNetworkName,
+			g.clusterConfigurer.GetNetworkBindings(),
+		)
+		if err == nil {
+			// Compare annotations by normalizing JSON to handle formatting differences
+			if annotationsAreEqual(currentMultusAnnotation, expectedAnnotation) {
+				return "", false
+			}
+		}
 	}
 
 	podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(vmiSpecNets, multus.NetworkStatusesFromPod(pod))
@@ -144,20 +188,30 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 		return "", false
 	}
 
-	currentMultusAnnotation := pod.Annotations[networkv1.NetworkAttachmentAnnot]
-
-	const logLevel = 4
+	const logLevel = 2
 	log.Log.Object(pod).V(logLevel).Infof(
-		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
+		"current multus annotation for pod: %s; new multus annotation: %s",
 		currentMultusAnnotation,
 		updatedMultusAnnotation,
 	)
 
-	if updatedMultusAnnotation == currentMultusAnnotation {
+	// Use merge logic instead of complete overwrite
+	mergedAnnotation, err := multus.MergeMultusAnnotations(currentMultusAnnotation, updatedMultusAnnotation)
+	if err != nil {
+		log.Log.Object(pod).Errorf("failed to merge multus annotations: %v", err)
 		return "", false
 	}
 
-	return updatedMultusAnnotation, true
+	if mergedAnnotation == currentMultusAnnotation {
+		return "", false
+	}
+
+	log.Log.Object(pod).V(logLevel).Infof(
+		"merged multus annotation: %s",
+		mergedAnnotation,
+	)
+
+	return mergedAnnotation, true
 }
 
 func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
@@ -207,4 +261,36 @@ func ifacesAndNetsForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v
 		return nil, nil, false
 	}
 	return ifacesToAnnotate, networksToAnnotate, ifaceChangeRequired
+}
+
+// annotationsAreEqual compares two Multus annotations by normalizing JSON
+func annotationsAreEqual(annotation1, annotation2 string) bool {
+	if annotation1 == annotation2 {
+		return true
+	}
+
+	// Normalize both annotations by parsing and re-marshaling
+	normalized1, err := normalizeJSON(annotation1)
+	if err != nil {
+		return false
+	}
+	normalized2, err := normalizeJSON(annotation2)
+	if err != nil {
+		return false
+	}
+
+	return normalized1 == normalized2
+}
+
+// normalizeJSON parses and re-marshals JSON to normalize formatting
+func normalizeJSON(jsonStr string) (string, error) {
+	var data interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
+		return "", err
+	}
+	normalized, err := json.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+	return string(normalized), nil
 }
