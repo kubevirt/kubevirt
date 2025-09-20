@@ -1365,6 +1365,44 @@ const (
 	// DisablePCIHole64 indicates that the 64-Bit PCI hole should be disabled on a VirtualMachineInstance.
 	// This annotation might be deprecated in the future if we decided to add a struct for it.
 	DisablePCIHole64 string = "kubevirt.io/disablePCIHole64"
+
+	// AllowAccessClusterServicesNPLabel indicates if the virt components requires access to the cluster services in
+	// case of usage of strict network policy.
+	// This label can be used as pod selector to create a NP, allowing access to the cluster services (apiserver/dns).
+	// An example of a NP might be:
+	// ---
+	// apiVersion: networking.k8s.io/v1
+	// kind: NetworkPolicy
+	// metadata:
+	//   name: kv-allow-egress-to-api-server
+	//   namespace: kubevirt
+	// spec:
+	//   podSelector:
+	//     matchExpressions:
+	//       - key: np.kubevirt.io/allow-access-cluster-services
+	//         operator: In
+	//         values:
+	//           - "true"
+	//   policyTypes:
+	//     - Egress
+	//   egress:
+	//     - ports:
+	//         - protocol: TCP
+	//           port: 6443
+	//     - to:
+	//         # allow talking to the kube-dns pods in kubevirt
+	//         - namespaceSelector:
+	//             matchLabels:
+	//               kubernetes.io/metadata.name: kube-system
+	//           podSelector:
+	//             matchLabels:
+	//               k8s-app: kube-dns
+	//       ports:
+	//         - protocol: TCP
+	//           port: dns-tcp
+	//         - protocol: UDP
+	//           port: dns
+	AllowAccessClusterServicesNPLabel string = "np.kubevirt.io/allow-access-cluster-services"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
