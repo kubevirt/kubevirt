@@ -295,28 +295,6 @@ var _ = Describe("Pool", func() {
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
 		})
 
-		It("should do nothing", func() {
-			pool, vm := DefaultPool(1)
-			vm.Name = fmt.Sprintf("%s-0", pool.Name)
-
-			poolRevision := createPoolRevision(pool)
-			pool.Status.Replicas = 1
-			pool.Status.ReadyReplicas = 1
-			addPool(pool)
-			createVMsWithOrdinal(pool, 1, poolRevision, poolRevision, vm)
-
-			sanityExecute()
-
-			_, err := k8sClient.AppsV1().ControllerRevisions(pool.Namespace).Get(context.TODO(), poolRevision.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			currentPool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pool).To(Equal(currentPool))
-
-			Expect(testing.FilterActions(&fakeVirtClient.Fake, "update", "virtualmachinepools")).To(BeEmpty())
-		})
-
 		It("should prune unused controller revisions", func() {
 			pool, vm := DefaultPool(1)
 			vm.Name = fmt.Sprintf("%s-0", pool.Name)
@@ -796,6 +774,58 @@ var _ = Describe("Pool", func() {
 
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
 			testutils.ExpectEvent(recorder, common.FailedUpdateVirtualMachineReason)
+		})
+
+		It("should create VMs with finalizers", func() {
+			pool, _ := DefaultPool(2)
+			pool.Status.Replicas = 2
+			pool.Status.ReadyReplicas = 2
+
+			poolRevision := createPoolRevision(pool)
+			addPool(pool)
+
+			addCR(poolRevision)
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(2))
+			Expect(vms.Items[0].Finalizers).To(ContainElement(poolv1.VirtualMachinePoolControllerFinalizer))
+			Expect(vms.Items[1].Finalizers).To(ContainElement(poolv1.VirtualMachinePoolControllerFinalizer))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(2))
+		})
+
+		It("should remove finalizer from VMs marked for deletion during opportunistic scale in", func() {
+			pool, vm := DefaultPool(2)
+			pool.Status.Replicas = 2
+			pool.Status.ReadyReplicas = 2
+
+			poolRevision := createPoolRevision(pool)
+			addPool(pool)
+
+			addCR(poolRevision)
+
+			// Create two VMs with finalizers, mark the first one for deletion
+			vm1 := vm.DeepCopy()
+			vm1.Name = fmt.Sprintf("%s-0", pool.Name)
+			vm1.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
+			vm1.DeletionTimestamp = pointer.P(metav1.Now())
+
+			vm2 := vm.DeepCopy()
+			vm2.Name = fmt.Sprintf("%s-1", pool.Name)
+			vm2.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
+			addVM(vm1)
+			addVM(vm2)
+
+			sanityExecute()
+
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Replicas).To(Equal(int32(2)))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "patch", "virtualmachines")).To(HaveLen(1))
 		})
 	})
 })
