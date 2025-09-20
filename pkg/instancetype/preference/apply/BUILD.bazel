@@ -38,6 +38,7 @@ go_test(
         "subdomain_test.go",
         "termination_test.go",
     ],
+    race = "on",
     deps = [
         "//pkg/instancetype/apply:go_default_library",
         "//pkg/libvmi:go_default_library",

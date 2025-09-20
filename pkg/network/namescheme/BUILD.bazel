@@ -18,6 +18,7 @@ go_test(
         "networknamescheme_suite_test.go",
         "networknamescheme_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",

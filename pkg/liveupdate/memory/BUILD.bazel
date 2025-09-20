@@ -20,6 +20,7 @@ go_test(
         "memory_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/libvmi:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
