@@ -152,7 +152,7 @@ var _ = Describe("VirtualMachine", func() {
 				config,
 				nil,
 				nil,
-				instancetypecontroller.NewMockController(),
+				instancetypecontroller.NewControllerStub(),
 			)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
