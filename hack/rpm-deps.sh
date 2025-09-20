@@ -127,7 +127,6 @@ launcherbase_extra="
 
 handlerbase_main="
   qemu-img-${QEMU_VERSION}
-  passt-${PASST_VERSION}
 "
 handlerbase_extra="
   findutils
@@ -242,6 +241,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $handlerbase_main \
         $handlerbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name passt_tree \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        passt-${PASST_VERSION}
 
     bazel run \
         //:bazeldnf -- rpmtree \
