@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/api/core/v1"
+	corev1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 )
 
@@ -41,25 +41,25 @@ type VirtualMachineInstanceExpansion interface {
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	USBRedir(vmiName string) (StreamInterface, error)
 	VNC(name string, preserveSession bool) (StreamInterface, error)
-	Screenshot(ctx context.Context, name string, options *v1.ScreenshotOptions) ([]byte, error)
+	Screenshot(ctx context.Context, name string, options *corev1.ScreenshotOptions) ([]byte, error)
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
-	Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error
-	Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error
+	Pause(ctx context.Context, name string, pauseOptions *corev1.PauseOptions) error
+	Unpause(ctx context.Context, name string, unpauseOptions *corev1.UnpauseOptions) error
 	Freeze(ctx context.Context, name string, unfreezeTimeout time.Duration) error
 	Unfreeze(ctx context.Context, name string) error
 	Reset(ctx context.Context, name string) error
 	SoftReboot(ctx context.Context, name string) error
-	GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
-	UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
-	FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error)
-	ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error)
-	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
-	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
-	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
-	SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error)
-	SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error)
-	SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error
-	SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v1.SEVSecretOptions) error
+	GuestOsInfo(ctx context.Context, name string) (corev1.VirtualMachineInstanceGuestAgentInfo, error)
+	UserList(ctx context.Context, name string) (corev1.VirtualMachineInstanceGuestOSUserList, error)
+	FilesystemList(ctx context.Context, name string) (corev1.VirtualMachineInstanceFileSystemList, error)
+	ObjectGraph(ctx context.Context, name string, objectGraphOptions *corev1.ObjectGraphOptions) (corev1.ObjectGraphNode, error)
+	AddVolume(ctx context.Context, name string, addVolumeOptions *corev1.AddVolumeOptions) error
+	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *corev1.RemoveVolumeOptions) error
+	VSOCK(name string, options *corev1.VSOCKOptions) (StreamInterface, error)
+	SEVFetchCertChain(ctx context.Context, name string) (corev1.SEVPlatformInfo, error)
+	SEVQueryLaunchMeasurement(ctx context.Context, name string) (corev1.SEVMeasurementInfo, error)
+	SEVSetupSession(ctx context.Context, name string, sevSessionOptions *corev1.SEVSessionOptions) error
+	SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *corev1.SEVSecretOptions) error
 }
 
 func (c *virtualMachineInstances) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
@@ -80,13 +80,13 @@ func (c *virtualMachineInstances) VNC(name string, preserveSession bool) (Stream
 	return nil, fmt.Errorf("VNC is not implemented yet in generated client")
 }
 
-func (c *virtualMachineInstances) Screenshot(ctx context.Context, name string, options *v1.ScreenshotOptions) ([]byte, error) {
+func (c *virtualMachineInstances) Screenshot(ctx context.Context, name string, options *corev1.ScreenshotOptions) ([]byte, error) {
 	moveCursor := "false"
 	if options.MoveCursor == true {
 		moveCursor = "true"
 	}
 	res := c.GetClient().Get().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -108,14 +108,14 @@ func (c *virtualMachineInstances) PortForward(name string, port int, protocol st
 	return nil, fmt.Errorf("PortForward is not implemented yet in generated client")
 }
 
-func (c *virtualMachineInstances) Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error {
+func (c *virtualMachineInstances) Pause(ctx context.Context, name string, pauseOptions *corev1.PauseOptions) error {
 	body, err := json.Marshal(pauseOptions)
 	if err != nil {
 		return err
 	}
 
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -125,14 +125,14 @@ func (c *virtualMachineInstances) Pause(ctx context.Context, name string, pauseO
 		Error()
 }
 
-func (c *virtualMachineInstances) Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error {
+func (c *virtualMachineInstances) Unpause(ctx context.Context, name string, unpauseOptions *corev1.UnpauseOptions) error {
 	body, err := json.Marshal(unpauseOptions)
 	if err != nil {
 		return err
 	}
 
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -144,7 +144,7 @@ func (c *virtualMachineInstances) Unpause(ctx context.Context, name string, unpa
 
 func (c *virtualMachineInstances) Freeze(ctx context.Context, name string, unfreezeTimeout time.Duration) error {
 	log.Log.Infof("Freeze VMI %s", name)
-	freezeUnfreezeTimeout := &v1.FreezeUnfreezeTimeout{
+	freezeUnfreezeTimeout := &corev1.FreezeUnfreezeTimeout{
 		UnfreezeTimeout: &metav1.Duration{
 			Duration: unfreezeTimeout,
 		},
@@ -156,7 +156,7 @@ func (c *virtualMachineInstances) Freeze(ctx context.Context, name string, unfre
 	}
 
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -169,7 +169,7 @@ func (c *virtualMachineInstances) Freeze(ctx context.Context, name string, unfre
 func (c *virtualMachineInstances) Unfreeze(ctx context.Context, name string) error {
 	log.Log.Infof("Unfreeze VMI %s", name)
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -181,7 +181,7 @@ func (c *virtualMachineInstances) Unfreeze(ctx context.Context, name string) err
 func (c *virtualMachineInstances) Reset(ctx context.Context, name string) error {
 	log.Log.Infof("Reset VMI")
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -193,7 +193,7 @@ func (c *virtualMachineInstances) Reset(ctx context.Context, name string) error 
 func (c *virtualMachineInstances) SoftReboot(ctx context.Context, name string) error {
 	log.Log.Infof("SoftReboot VMI")
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -202,8 +202,8 @@ func (c *virtualMachineInstances) SoftReboot(ctx context.Context, name string) e
 		Error()
 }
 
-func (c *virtualMachineInstances) GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error) {
-	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{}
+func (c *virtualMachineInstances) GuestOsInfo(ctx context.Context, name string) (corev1.VirtualMachineInstanceGuestAgentInfo, error) {
+	guestInfo := corev1.VirtualMachineInstanceGuestAgentInfo{}
 	// WORKAROUND:
 	// When doing c.GetClient().Get().RequestURI(uri).Do(ctx).Into(guestInfo)
 	// k8s client-go requires the object to have metav1.ObjectMeta inlined and deepcopy generated
@@ -229,7 +229,7 @@ func (c *virtualMachineInstances) GuestOsInfo(ctx context.Context, name string) 
 	//		Do(ctx).
 	//		Into(&guestInfo)
 	res := c.GetClient().Get().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -249,10 +249,10 @@ func (c *virtualMachineInstances) GuestOsInfo(ctx context.Context, name string) 
 	return guestInfo, err
 }
 
-func (c *virtualMachineInstances) UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error) {
-	userList := v1.VirtualMachineInstanceGuestOSUserList{}
+func (c *virtualMachineInstances) UserList(ctx context.Context, name string) (corev1.VirtualMachineInstanceGuestOSUserList, error) {
+	userList := corev1.VirtualMachineInstanceGuestOSUserList{}
 	err := c.GetClient().Get().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -262,10 +262,10 @@ func (c *virtualMachineInstances) UserList(ctx context.Context, name string) (v1
 	return userList, err
 }
 
-func (c *virtualMachineInstances) FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error) {
-	fsList := v1.VirtualMachineInstanceFileSystemList{}
+func (c *virtualMachineInstances) FilesystemList(ctx context.Context, name string) (corev1.VirtualMachineInstanceFileSystemList, error) {
+	fsList := corev1.VirtualMachineInstanceFileSystemList{}
 	err := c.GetClient().Get().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -276,8 +276,8 @@ func (c *virtualMachineInstances) FilesystemList(ctx context.Context, name strin
 	return fsList, err
 }
 
-func (c *virtualMachineInstances) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error) {
-	objectGraph := v1.ObjectGraphNode{}
+func (c *virtualMachineInstances) ObjectGraph(ctx context.Context, name string, objectGraphOptions *corev1.ObjectGraphOptions) (corev1.ObjectGraphNode, error) {
+	objectGraph := corev1.ObjectGraphNode{}
 
 	body, err := json.Marshal(objectGraphOptions)
 	if err != nil {
@@ -285,7 +285,7 @@ func (c *virtualMachineInstances) ObjectGraph(ctx context.Context, name string, 
 	}
 
 	err = c.GetClient().Get().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -297,14 +297,14 @@ func (c *virtualMachineInstances) ObjectGraph(ctx context.Context, name string, 
 	return objectGraph, err
 }
 
-func (c *virtualMachineInstances) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error {
+func (c *virtualMachineInstances) AddVolume(ctx context.Context, name string, addVolumeOptions *corev1.AddVolumeOptions) error {
 	body, err := json.Marshal(addVolumeOptions)
 	if err != nil {
 		return err
 	}
 
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -314,14 +314,14 @@ func (c *virtualMachineInstances) AddVolume(ctx context.Context, name string, ad
 		Error()
 }
 
-func (c *virtualMachineInstances) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
+func (c *virtualMachineInstances) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *corev1.RemoveVolumeOptions) error {
 	body, err := json.Marshal(removeVolumeOptions)
 	if err != nil {
 		return err
 	}
 
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -331,16 +331,16 @@ func (c *virtualMachineInstances) RemoveVolume(ctx context.Context, name string,
 		Error()
 }
 
-func (c *virtualMachineInstances) VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error) {
+func (c *virtualMachineInstances) VSOCK(name string, options *corev1.VSOCKOptions) (StreamInterface, error) {
 	// TODO not implemented yet
 	//  requires clientConfig
 	return nil, fmt.Errorf("VSOCK is not implemented yet in generated client")
 }
 
-func (c *virtualMachineInstances) SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error) {
-	sevPlatformInfo := v1.SEVPlatformInfo{}
+func (c *virtualMachineInstances) SEVFetchCertChain(ctx context.Context, name string) (corev1.SEVPlatformInfo, error) {
+	sevPlatformInfo := corev1.SEVPlatformInfo{}
 	err := c.GetClient().Get().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -351,10 +351,10 @@ func (c *virtualMachineInstances) SEVFetchCertChain(ctx context.Context, name st
 	return sevPlatformInfo, err
 }
 
-func (c *virtualMachineInstances) SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error) {
-	sevMeasurementInfo := v1.SEVMeasurementInfo{}
+func (c *virtualMachineInstances) SEVQueryLaunchMeasurement(ctx context.Context, name string) (corev1.SEVMeasurementInfo, error) {
+	sevMeasurementInfo := corev1.SEVMeasurementInfo{}
 	err := c.GetClient().Get().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -365,14 +365,14 @@ func (c *virtualMachineInstances) SEVQueryLaunchMeasurement(ctx context.Context,
 	return sevMeasurementInfo, err
 }
 
-func (c *virtualMachineInstances) SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error {
+func (c *virtualMachineInstances) SEVSetupSession(ctx context.Context, name string, sevSessionOptions *corev1.SEVSessionOptions) error {
 	body, err := json.Marshal(sevSessionOptions)
 	if err != nil {
 		return fmt.Errorf("cannot Marshal to json: %s", err)
 	}
 
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
@@ -382,13 +382,13 @@ func (c *virtualMachineInstances) SEVSetupSession(ctx context.Context, name stri
 		Error()
 }
 
-func (c *virtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v1.SEVSecretOptions) error {
+func (c *virtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *corev1.SEVSecretOptions) error {
 	body, err := json.Marshal(sevSecretOptions)
 	if err != nil {
 		return fmt.Errorf("cannot Marshal to json: %s", err)
 	}
 	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, corev1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).

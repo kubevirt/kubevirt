@@ -21,116 +21,34 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha2 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1alpha2"
 )
 
-// FakeVirtualMachineInstancetypes implements VirtualMachineInstancetypeInterface
-type FakeVirtualMachineInstancetypes struct {
+// fakeVirtualMachineInstancetypes implements VirtualMachineInstancetypeInterface
+type fakeVirtualMachineInstancetypes struct {
+	*gentype.FakeClientWithList[*v1alpha2.VirtualMachineInstancetype, *v1alpha2.VirtualMachineInstancetypeList]
 	Fake *FakeInstancetypeV1alpha2
-	ns   string
 }
 
-var virtualmachineinstancetypesResource = v1alpha2.SchemeGroupVersion.WithResource("virtualmachineinstancetypes")
-
-var virtualmachineinstancetypesKind = v1alpha2.SchemeGroupVersion.WithKind("VirtualMachineInstancetype")
-
-// Get takes name of the virtualMachineInstancetype, and returns the corresponding virtualMachineInstancetype object, and an error if there is any.
-func (c *FakeVirtualMachineInstancetypes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualMachineInstancetype, err error) {
-	emptyResult := &v1alpha2.VirtualMachineInstancetype{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(virtualmachineinstancetypesResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeVirtualMachineInstancetypes(fake *FakeInstancetypeV1alpha2, namespace string) instancetypev1alpha2.VirtualMachineInstancetypeInterface {
+	return &fakeVirtualMachineInstancetypes{
+		gentype.NewFakeClientWithList[*v1alpha2.VirtualMachineInstancetype, *v1alpha2.VirtualMachineInstancetypeList](
+			fake.Fake,
+			namespace,
+			v1alpha2.SchemeGroupVersion.WithResource("virtualmachineinstancetypes"),
+			v1alpha2.SchemeGroupVersion.WithKind("VirtualMachineInstancetype"),
+			func() *v1alpha2.VirtualMachineInstancetype { return &v1alpha2.VirtualMachineInstancetype{} },
+			func() *v1alpha2.VirtualMachineInstancetypeList { return &v1alpha2.VirtualMachineInstancetypeList{} },
+			func(dst, src *v1alpha2.VirtualMachineInstancetypeList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha2.VirtualMachineInstancetypeList) []*v1alpha2.VirtualMachineInstancetype {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha2.VirtualMachineInstancetypeList, items []*v1alpha2.VirtualMachineInstancetype) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha2.VirtualMachineInstancetype), err
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachineInstancetypes that match those selectors.
-func (c *FakeVirtualMachineInstancetypes) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualMachineInstancetypeList, err error) {
-	emptyResult := &v1alpha2.VirtualMachineInstancetypeList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(virtualmachineinstancetypesResource, virtualmachineinstancetypesKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha2.VirtualMachineInstancetypeList{ListMeta: obj.(*v1alpha2.VirtualMachineInstancetypeList).ListMeta}
-	for _, item := range obj.(*v1alpha2.VirtualMachineInstancetypeList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachineInstancetypes.
-func (c *FakeVirtualMachineInstancetypes) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(virtualmachineinstancetypesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a virtualMachineInstancetype and creates it.  Returns the server's representation of the virtualMachineInstancetype, and an error, if there is any.
-func (c *FakeVirtualMachineInstancetypes) Create(ctx context.Context, virtualMachineInstancetype *v1alpha2.VirtualMachineInstancetype, opts v1.CreateOptions) (result *v1alpha2.VirtualMachineInstancetype, err error) {
-	emptyResult := &v1alpha2.VirtualMachineInstancetype{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(virtualmachineinstancetypesResource, c.ns, virtualMachineInstancetype, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha2.VirtualMachineInstancetype), err
-}
-
-// Update takes the representation of a virtualMachineInstancetype and updates it. Returns the server's representation of the virtualMachineInstancetype, and an error, if there is any.
-func (c *FakeVirtualMachineInstancetypes) Update(ctx context.Context, virtualMachineInstancetype *v1alpha2.VirtualMachineInstancetype, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineInstancetype, err error) {
-	emptyResult := &v1alpha2.VirtualMachineInstancetype{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(virtualmachineinstancetypesResource, c.ns, virtualMachineInstancetype, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha2.VirtualMachineInstancetype), err
-}
-
-// Delete takes name of the virtualMachineInstancetype and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualMachineInstancetypes) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(virtualmachineinstancetypesResource, c.ns, name, opts), &v1alpha2.VirtualMachineInstancetype{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualMachineInstancetypes) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(virtualmachineinstancetypesResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha2.VirtualMachineInstancetypeList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched virtualMachineInstancetype.
-func (c *FakeVirtualMachineInstancetypes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineInstancetype, err error) {
-	emptyResult := &v1alpha2.VirtualMachineInstancetype{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(virtualmachineinstancetypesResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha2.VirtualMachineInstancetype), err
 }
