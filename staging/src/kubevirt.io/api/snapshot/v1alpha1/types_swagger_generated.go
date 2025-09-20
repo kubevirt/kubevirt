@@ -17,6 +17,14 @@ func (VirtualMachineSnapshotSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (SourceIndications) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "SourceIndications provides an indication with its message for better user experience",
+		"indication": "Indication is the indication type",
+		"message":    "Message provides a human-readable message for the indication",
+	}
+}
+
 func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                  "VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource",
@@ -27,7 +35,8 @@ func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 		"readyToUse":                        "+optional",
 		"error":                             "+optional",
 		"conditions":                        "+optional",
-		"indications":                       "+optional\n+listType=set",
+		"indications":                       "Deprecated: Use SourceIndications instead. This field will be removed in a future version.\n+optional\n+listType=set",
+		"sourceIndications":                 "+optional\n+listType=atomic",
 		"snapshotVolumes":                   "+optional",
 	}
 }
