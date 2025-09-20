@@ -461,7 +461,8 @@ var istioTestsWithPasstBinding = func() {
 				SidecarImage:                passtSidecarImage,
 				NetworkAttachmentDefinition: passtNetAttDefName,
 				Migration:                   &v1.InterfaceBindingMigration{},
-			}),
+			},
+				false),
 		)
 		Expect(err).NotTo(HaveOccurred())
 	})

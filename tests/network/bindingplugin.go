@@ -55,7 +55,8 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 					SidecarImage:                passtSidecarImage,
 					NetworkAttachmentDefinition: passtNetAttDefName,
-				}),
+				},
+					false),
 			)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -113,7 +114,8 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			err := config.RegisterKubevirtConfigChange(
 				config.WithNetBindingPlugin(macvtapBindingName, v1.InterfaceBindingPlugin{
 					DomainAttachmentType: v1.Tap,
-				}),
+				},
+					false),
 			)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -156,7 +158,8 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			err := config.RegisterKubevirtConfigChange(
 				config.WithNetBindingPlugin(bindingName, v1.InterfaceBindingPlugin{
 					DomainAttachmentType: v1.ManagedTap,
-				}),
+				},
+					false),
 			)
 			Expect(err).NotTo(HaveOccurred())
 		})
