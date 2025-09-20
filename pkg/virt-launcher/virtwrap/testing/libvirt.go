@@ -22,6 +22,7 @@ package testing
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -54,7 +55,17 @@ func NewLibvirt(ctrl *gomock.Controller) *Libvirt {
 		cs,
 	}
 	ginkgo.DeferCleanup(func() {
-		gomega.ExpectWithOffset(1, mockLibvirt.callStackEmpty()).To(gomega.Succeed(), "You are introducing a leak. A Domain resource was not freed.")
+		// A test failure was caused because when the agent poller's Stop()
+		// method is called, it only closes the channel but doesn't wait for
+		// background goroutines to finish their domain lookups and call the
+		// deferred domain.Free(). This DeferCleanup check ran before these
+		// async Free() calls complete, detecting the domain resource leak.
+		gomega.EventuallyWithOffset(1, func() error {
+			return mockLibvirt.callStackEmpty()
+		}).
+			WithPolling(500*time.Millisecond).
+			WithTimeout(5*time.Second).
+			Should(gomega.Succeed(), "You are introducing a leak. A Domain resource was not freed.")
 	})
 	return mockLibvirt
 }
