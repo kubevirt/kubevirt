@@ -187,6 +187,14 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
+pkg_tar(
+    name = "passt-script-tar",
+    srcs = [
+        "passt",
+    ],
+    package_dir = "/usr/local/bin",
+)
+
 # Workaround for https://github.com/moby/moby/issues/44106
 # Need to create the directory upfront, otherwise it gets assigned wrong
 # permissions when unpacked.
@@ -245,6 +253,7 @@ oci_image(
             ":libvirt-hook-client-tar",
             ":qemu-kvm-modules-dir-tar",
             ":var-run-symlink-tar",
+            ":passt-script-tar",
         ],
     }),
 )
