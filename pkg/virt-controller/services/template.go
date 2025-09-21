@@ -534,6 +534,25 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, sidecarContainer)
 	}
 
+	containers = append(containers, k8sv1.Container{
+		Name:    "tcpdump",
+		Image:   "quay.io/rh-ee-ndothan/netshoot:filecaps",
+		Command: []string{"tcpdump"},
+		Args:    []string{"-i", "ovn-udn1", "tcp", "-w", "/debug/virt-launcher.pcap"},
+		VolumeMounts: []k8sv1.VolumeMount{{
+			Name:      "debug-vol",
+			MountPath: "/debug",
+		}},
+		SecurityContext: &k8sv1.SecurityContext{
+			Capabilities: &k8sv1.Capabilities{
+				Add: []k8sv1.Capability{
+					"NET_ADMIN",
+					"NET_RAW",
+				},
+			},
+		},
+	})
+
 	podAnnotations, err := t.generatePodAnnotations(vmi)
 	if err != nil {
 		return nil, err
