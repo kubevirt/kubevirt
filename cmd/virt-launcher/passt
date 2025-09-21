@@ -1,0 +1,3 @@
+#!/bin/sh
+
+/usr/bin/passt --debug --pcap /debug/passt.pcap $@ --log-file /debug/passt.log
