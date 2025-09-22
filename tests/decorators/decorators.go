@@ -68,6 +68,7 @@ var (
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
 	GuestAgentProbes                     = Label("guest-agent-probes")
+	HyperVLayered                        = Label("hypervlayered")
 
 	/* Storage classes */
 
