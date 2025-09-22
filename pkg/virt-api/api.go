@@ -628,7 +628,7 @@ func (app *virtAPIApp) composeSubresources() {
 				list.Kind = "APIResourceList"
 				list.GroupVersion = version.Group + "/" + version.Version
 				list.APIVersion = "v1"
-				list.APIResources = computeApiResourcesToExpose(subws, version)
+				list.APIResources = computeApiResourcesToExpose(subws, version, subresourcesvmGVR, subresourcesvmiGVR, expandvmspecGVR)
 
 				response.WriteAsJson(list)
 			}).
@@ -1163,11 +1163,7 @@ func (app *virtAPIApp) GetGsInfo() func(_ *restful.Request, response *restful.Re
 	}
 }
 
-func computeApiResourcesToExpose(subws *restful.WebService, version schema.GroupVersion) []metav1.APIResource {
-	subresourcesvmGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: virtualmachineresourcename}
-	subresourcesvmiGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: virtualmachineinstanceresourcename}
-	expandvmspecGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: expandvmresourcename}
-
+func computeApiResourcesToExpose(subws *restful.WebService, version schema.GroupVersion, subresourcesvmGVR, subresourcesvmiGVR, expandvmspecGVR schema.GroupVersionResource) []metav1.APIResource {
 	// Maintain a set of unique strings for which API resources to expose
 	// in the APIResourceList. This is to avoid duplicates in cases where
 	// only the base URI needs to be exposed, e.g., portforward.
