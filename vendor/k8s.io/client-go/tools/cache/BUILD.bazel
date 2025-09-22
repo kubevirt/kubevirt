@@ -23,6 +23,7 @@ go_library(
         "retry_with_deadline.go",
         "shared_informer.go",
         "store.go",
+        "the_real_fifo.go",
         "thread_safe_store.go",
         "undelta_store.go",
     ],

@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "doc.go",
         "fake_deviceclass.go",
+        "fake_devicetaintrule.go",
         "fake_resource_client.go",
         "fake_resourceclaim.go",
         "fake_resourceclaimtemplate.go",

@@ -7,6 +7,7 @@ go_library(
         "fake_certificates_client.go",
         "fake_certificatesigningrequest.go",
         "fake_certificatesigningrequest_expansion.go",
+        "fake_clustertrustbundle.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/kubernetes/typed/certificates/v1beta1/fake",
     importpath = "k8s.io/client-go/kubernetes/typed/certificates/v1beta1/fake",
