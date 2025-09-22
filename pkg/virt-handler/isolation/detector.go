@@ -1,5 +1,5 @@
 /*
- * This file is part of the kubevirt project
+ * This file is part of the KubeVirt project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
