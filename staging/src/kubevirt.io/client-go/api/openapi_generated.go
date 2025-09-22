@@ -684,6 +684,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolCondition":                                  schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolCondition(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolList":                                       schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolList(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolNameGeneration":                             schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolNameGeneration(ref),
+		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolOpportunisticScaleInStrategy":               schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolOpportunisticScaleInStrategy(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolOrderedPolicy":                              schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolOrderedPolicy(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolProactiveScaleInStrategy":                   schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolProactiveScaleInStrategy(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolProactiveUpdateStrategy":                    schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolProactiveUpdateStrategy(ref),
@@ -33364,6 +33365,33 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolNameGeneration(ref co
 	}
 }
 
+func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolOpportunisticScaleInStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePoolOpportunisticScaleInStrategy represents opportunistic scale-in strategy",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enable or disable opportunistic scale-in.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"statePreservation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies if and how to preserve the state of the VMs selected during scale-in.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolOrderedPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -33411,6 +33439,13 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolProactiveScaleInStrat
 							Ref:         ref("kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolSelectionPolicy"),
 						},
 					},
+					"statePreservation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies if and how to preserve the state of the VMs selected during scale-in.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -33447,6 +33482,19 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolScaleInStrategy(ref c
 				Description: "VirtualMachinePoolScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"unmanaged": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The VM is never touched after creation. Users are responsible for scaling in the pool manually.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"opportunistic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Opportunistic scale-in is a strategy when vms are deleted by some other means than the scale-in action. For example, when the VM is deleted by the user or when the VM is deleted by the node that is hosting the VM.",
+							Ref:         ref("kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolOpportunisticScaleInStrategy"),
+						},
+					},
 					"proactive": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Proactive scale-in by forcing VMs to shutdown during scale-in (Default)",
@@ -33457,7 +33505,7 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolScaleInStrategy(ref c
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolProactiveScaleInStrategy"},
+			"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolOpportunisticScaleInStrategy", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolProactiveScaleInStrategy"},
 	}
 }
 

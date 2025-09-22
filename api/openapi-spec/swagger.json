@@ -18972,6 +18972,20 @@
      }
     }
    },
+   "v1alpha1.VirtualMachinePoolOpportunisticScaleInStrategy": {
+    "description": "VirtualMachinePoolOpportunisticScaleInStrategy represents opportunistic scale-in strategy",
+    "type": "object",
+    "properties": {
+     "enabled": {
+      "description": "Enable or disable opportunistic scale-in.",
+      "type": "boolean"
+     },
+     "statePreservation": {
+      "description": "Specifies if and how to preserve the state of the VMs selected during scale-in.",
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.VirtualMachinePoolOrderedPolicy": {
     "type": "object",
     "properties": {
@@ -18996,6 +19010,10 @@
      "selectionPolicy": {
       "description": "SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in Defaults to \"Random\" base policy when no SelectionPolicy is configured",
       "$ref": "#/definitions/v1alpha1.VirtualMachinePoolSelectionPolicy"
+     },
+     "statePreservation": {
+      "description": "Specifies if and how to preserve the state of the VMs selected during scale-in.",
+      "type": "string"
      }
     }
    },
@@ -19013,9 +19031,17 @@
     "description": "VirtualMachinePoolScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool",
     "type": "object",
     "properties": {
+     "opportunistic": {
+      "description": "Opportunistic scale-in is a strategy when vms are deleted by some other means than the scale-in action. For example, when the VM is deleted by the user or when the VM is deleted by the node that is hosting the VM.",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolOpportunisticScaleInStrategy"
+     },
      "proactive": {
       "description": "Proactive scale-in by forcing VMs to shutdown during scale-in (Default)",
       "$ref": "#/definitions/v1alpha1.VirtualMachinePoolProactiveScaleInStrategy"
+     },
+     "unmanaged": {
+      "description": "The VM is never touched after creation. Users are responsible for scaling in the pool manually.",
+      "type": "boolean"
      }
     }
    },
