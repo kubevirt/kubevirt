@@ -128,5 +128,30 @@ var (
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
+		{
+			Alert: "GuestFilesystemAlmostOutOfSpace",
+			Expr:  intstr.FromString("(kubevirt_vmi_filesystem_used_bytes / kubevirt_vmi_filesystem_capacity_bytes)*100 >= 85 < 95"),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				"summary":     "Guest filesystem is running out of space",
+				"description": "VirtualMachineInstance {{ $labels.name }} in namespace {{ $labels.namespace }} has filesystem {{ $labels.disk_name }} ({{ $labels.mount_point }}) usage above 85% (current: {{ $value }}%).",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "GuestFilesystemAlmostOutOfSpace",
+			Expr:  intstr.FromString("(kubevirt_vmi_filesystem_used_bytes / kubevirt_vmi_filesystem_capacity_bytes)*100 >= 95"),
+			Annotations: map[string]string{
+				"summary":     "Guest filesystem is critically low on space",
+				"description": "VirtualMachineInstance {{ $labels.name }} in namespace {{ $labels.namespace }} has filesystem {{ $labels.disk_name }} ({{ $labels.mount_point }}) usage above 95% (current: {{ $value }}%).",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
 	}
 )
