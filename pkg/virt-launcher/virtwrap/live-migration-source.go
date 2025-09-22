@@ -415,11 +415,6 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason stri
 		return domainerrors.MigrationAbortInProgressError
 	}
 
-	if migrationMetadata.EndTimestamp != nil {
-		// the migration result has already been reported and should not be overwritten
-		return nil
-	}
-
 	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
 		if failed {
 			migrationMetadata.Failed = true
@@ -428,7 +423,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason stri
 
 		migrationMetadata.AbortStatus = string(abortStatus)
 
-		if abortStatus == "" || abortStatus == v1.MigrationAbortSucceeded {
+		if migrationMetadata.EndTimestamp == nil && (abortStatus == "" || abortStatus == v1.MigrationAbortSucceeded) {
 			// only mark the migration as complete if there was no abortion or
 			// the abortion succeeded
 			migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
