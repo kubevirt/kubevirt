@@ -349,7 +349,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 				client.SendDomainEvent(event)
 				updateEvents(event, domain, events)
 			} else if (libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_RESUMED && libvirt.DomainEventResumedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_RESUMED_MIGRATED) ||
-				(libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirt.DomainEventSuspendedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED) {
+				(libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirt.DomainEventSuspendedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_SUSPENDED_POSTCOPY_FAILED) {
 				// This is a libvirt event that only the target can see, and it means that the migration has completed
 				// we just set the EndTimestamp here so that the source can finalize the migration.
 				// Usually this is performed by the source launcher/handler. However, in case of upgrade, this is not
