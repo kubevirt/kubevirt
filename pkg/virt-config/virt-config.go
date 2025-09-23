@@ -83,7 +83,7 @@ const (
 	DefaultVirtControllerBurst            = 400
 	DefaultVirtAPIQPS             float32 = 200
 	DefaultVirtAPIBurst                   = 400
-	DefaultVirtAPIAuthorizorQPS           = 200
+	DefaultVirtAPIAuthorizorQPS   float32 = 200
 	DefaultVirtAPIAuthorizorBurst         = 400
 
 	DefaultMaxHotplugRatio   = 4
