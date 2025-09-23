@@ -1,8 +1,6 @@
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 go_library(
     name = "go_default_library",
@@ -30,26 +28,28 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
-container_image(
+pkg_tar(
+    name = "sidecar-shim-tar",
+    srcs = [":sidecar-shim"],
+    package_dir = "/",
+)
+
+oci_image(
     name = "sidecar-shim-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
     base = "//:passwd-image",
-    directory = "/",
     entrypoint = ["/sidecar-shim"],
-    files = [":sidecar-shim"],
     tars = select({
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             "//rpm:sidecar-shim_s390x",
+            ":sidecar-shim-tar",
         ],
         "@io_bazel_rules_go//go/platform:linux_arm64": [
             "//rpm:sidecar-shim_aarch64",
+            ":sidecar-shim-tar",
         ],
         "//conditions:default": [
             "//rpm:sidecar-shim_x86_64",
+            ":sidecar-shim-tar",
         ],
     }),
     visibility = ["//visibility:public"],

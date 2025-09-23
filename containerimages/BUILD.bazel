@@ -1,4 +1,4 @@
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
@@ -13,13 +13,14 @@ pkg_tar(
     package_dir = "/disk",
 )
 
-container_image(
+oci_image(
     name = "alpine-container-disk-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
+    os = "linux",
     tars = [":alpine-image-tar"],
     visibility = ["//visibility:public"],
 )
@@ -35,12 +36,13 @@ pkg_tar(
     package_dir = "/disk",
 )
 
-container_image(
+oci_image(
     name = "cirros-container-disk-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
+    os = "linux",
     tars = [":cirros-image-tar"],
     visibility = ["//visibility:public"],
 )
@@ -57,12 +59,13 @@ pkg_tar(
 )
 
 # used for e2e testing of custom base baths
-container_image(
+oci_image(
     name = "cirros-custom-container-disk-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
+    os = "linux",
     tars = [":cirros-custom-image-tar"],
     visibility = ["//visibility:public"],
 )
@@ -75,62 +78,54 @@ pkg_tar(
     package_dir = "/disk",
 )
 
-container_image(
+oci_image(
     name = "virtio-container-disk-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
+    os = "linux",
     tars = [":virtio-image-tar"],
     visibility = ["//visibility:public"],
 )
 
-container_image(
+oci_image(
     name = "fedora-with-test-tooling",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
     base = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_with_test_tooling_aarch64//image",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "@fedora_with_test_tooling_s390x//image",
-        "//conditions:default": "@fedora_with_test_tooling//image",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_with_test_tooling_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@fedora_with_test_tooling_s390x",
+        "//conditions:default": "@fedora_with_test_tooling",
     }),
-    mode = "444",
     visibility = ["//visibility:public"],
 )
 
-container_image(
+oci_image(
     name = "alpine-with-test-tooling",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@alpine_with_test_tooling",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@alpine_with_test_tooling",
+        "//conditions:default": "@alpine_with_test_tooling",
     }),
-    base = "@alpine_with_test_tooling//image",
-    mode = "444",
     visibility = ["//visibility:public"],
 )
 
-container_image(
+oci_image(
     name = "alpine-ext-kernel-boot-demo-container",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@alpine-ext-kernel-boot-demo-container-base",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@alpine-ext-kernel-boot-demo-container-base",
+        "//conditions:default": "@alpine-ext-kernel-boot-demo-container-base",
     }),
-    base = "@alpine-ext-kernel-boot-demo-container-base//image",
-    mode = "444",
     tars = [":alpine-image-tar"],
     visibility = ["//visibility:public"],
 )
 
-container_image(
+oci_image(
     name = "fedora-realtime",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_realtime",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@fedora_realtime",
+        "//conditions:default": "@fedora_realtime",
     }),
-    base = "@fedora_realtime//image",
-    mode = "444",
     visibility = ["//visibility:public"],
 )

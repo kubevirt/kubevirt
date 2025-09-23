@@ -1,27 +1,28 @@
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
+load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
-container_image(
+oci_image(
     name = "kubevirt-testing-base",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
+    os = "linux",
     tars = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
-            ":passwd-tar",
             "//rpm:testimage_aarch64",
+            ":passwd-tar",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
-            ":passwd-tar",
             "//rpm:testimage_s390x",
+            ":passwd-tar",
         ],
         "//conditions:default": [
-            ":passwd-tar",
             "//rpm:testimage_x86_64",
+            ":passwd-tar",
         ],
     }),
     visibility = ["//visibility:public"],
