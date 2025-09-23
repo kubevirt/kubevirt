@@ -1,0 +1,81 @@
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineInstancetype
+metadata:
+  annotations:
+    annotationsKey: annotationsValue
+  creationTimestamp: "2008-01-01T01:01:01Z"
+  deletionGracePeriodSeconds: 10
+  deletionTimestamp: "2009-01-01T01:01:01Z"
+  finalizers:
+  - finalizersValue
+  generateName: generateNameValue
+  generation: 7
+  labels:
+    labelsKey: labelsValue
+  managedFields:
+  - apiVersion: apiVersionValue
+    fieldsType: fieldsTypeValue
+    fieldsV1: {}
+    manager: managerValue
+    operation: operationValue
+    subresource: subresourceValue
+    time: "2004-01-01T01:01:01Z"
+  name: nameValue
+  namespace: namespaceValue
+  ownerReferences:
+  - apiVersion: apiVersionValue
+    blockOwnerDeletion: true
+    controller: true
+    kind: kindValue
+    name: nameValue
+    uid: uidValue
+  resourceVersion: resourceVersionValue
+  selfLink: selfLinkValue
+  uid: uidValue
+spec:
+  annotations:
+    annotationsKey: annotationsValue
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 4294967291
+    isolateEmulatorThread: true
+    maxSockets: 4294967286
+    model: modelValue
+    numa:
+      guestMappingPassthrough: {}
+    realtime:
+      mask: maskValue
+  gpus:
+  - claimName: claimNameValue
+    deviceName: deviceNameValue
+    name: nameValue
+    requestName: requestNameValue
+    tag: tagValue
+    virtualGPUOptions:
+      display:
+        enabled: true
+        ramFB:
+          enabled: true
+  hostDevices:
+  - claimName: claimNameValue
+    deviceName: deviceNameValue
+    name: nameValue
+    requestName: requestNameValue
+    tag: tagValue
+  ioThreadsPolicy: ioThreadsPolicyValue
+  launchSecurity:
+    sev:
+      attestation: {}
+      dhCert: dhCertValue
+      policy:
+        encryptedState: true
+      session: sessionValue
+  memory:
+    guest: "0"
+    hugepages:
+      pageSize: pageSizeValue
+    maxGuest: "0"
+    overcommitPercent: -17
+  nodeSelector:
+    nodeSelectorKey: nodeSelectorValue
+  schedulerName: schedulerNameValue

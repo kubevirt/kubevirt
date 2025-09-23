@@ -1,0 +1,113 @@
+{
+  "kind": "VirtualMachineClusterInstancetype",
+  "apiVersion": "instancetype.kubevirt.io/v1beta1",
+  "metadata": {
+    "name": "nameValue",
+    "generateName": "generateNameValue",
+    "namespace": "namespaceValue",
+    "selfLink": "selfLinkValue",
+    "uid": "uidValue",
+    "resourceVersion": "resourceVersionValue",
+    "generation": 7,
+    "creationTimestamp": "2008-01-01T01:01:01Z",
+    "deletionTimestamp": "2009-01-01T01:01:01Z",
+    "deletionGracePeriodSeconds": 10,
+    "labels": {
+      "labelsKey": "labelsValue"
+    },
+    "annotations": {
+      "annotationsKey": "annotationsValue"
+    },
+    "ownerReferences": [
+      {
+        "apiVersion": "apiVersionValue",
+        "kind": "kindValue",
+        "name": "nameValue",
+        "uid": "uidValue",
+        "controller": true,
+        "blockOwnerDeletion": true
+      }
+    ],
+    "finalizers": [
+      "finalizersValue"
+    ],
+    "managedFields": [
+      {
+        "manager": "managerValue",
+        "operation": "operationValue",
+        "apiVersion": "apiVersionValue",
+        "time": "2004-01-01T01:01:01Z",
+        "fieldsType": "fieldsTypeValue",
+        "fieldsV1": {},
+        "subresource": "subresourceValue"
+      }
+    ]
+  },
+  "spec": {
+    "nodeSelector": {
+      "nodeSelectorKey": "nodeSelectorValue"
+    },
+    "schedulerName": "schedulerNameValue",
+    "cpu": {
+      "guest": 4294967291,
+      "model": "modelValue",
+      "dedicatedCPUPlacement": true,
+      "numa": {
+        "guestMappingPassthrough": {}
+      },
+      "isolateEmulatorThread": true,
+      "realtime": {
+        "mask": "maskValue"
+      },
+      "maxSockets": 4294967286
+    },
+    "memory": {
+      "guest": "0",
+      "hugepages": {
+        "pageSize": "pageSizeValue"
+      },
+      "overcommitPercent": -17,
+      "maxGuest": "0"
+    },
+    "gpus": [
+      {
+        "name": "nameValue",
+        "deviceName": "deviceNameValue",
+        "claimName": "claimNameValue",
+        "requestName": "requestNameValue",
+        "virtualGPUOptions": {
+          "display": {
+            "enabled": true,
+            "ramFB": {
+              "enabled": true
+            }
+          }
+        },
+        "tag": "tagValue"
+      }
+    ],
+    "hostDevices": [
+      {
+        "name": "nameValue",
+        "deviceName": "deviceNameValue",
+        "claimName": "claimNameValue",
+        "requestName": "requestNameValue",
+        "tag": "tagValue"
+      }
+    ],
+    "ioThreadsPolicy": "ioThreadsPolicyValue",
+    "launchSecurity": {
+      "sev": {
+        "policy": {
+          "encryptedState": true
+        },
+        "attestation": {},
+        "session": "sessionValue",
+        "dhCert": "dhCertValue"
+      }
+    },
+    "annotations": {
+      "annotationsKey": "annotationsValue"
+    }
+  }
+}

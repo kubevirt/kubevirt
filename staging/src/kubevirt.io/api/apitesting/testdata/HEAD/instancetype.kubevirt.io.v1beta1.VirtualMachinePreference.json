@@ -1,0 +1,232 @@
+{
+  "kind": "VirtualMachinePreference",
+  "apiVersion": "instancetype.kubevirt.io/v1beta1",
+  "metadata": {
+    "name": "nameValue",
+    "generateName": "generateNameValue",
+    "namespace": "namespaceValue",
+    "selfLink": "selfLinkValue",
+    "uid": "uidValue",
+    "resourceVersion": "resourceVersionValue",
+    "generation": 7,
+    "creationTimestamp": "2008-01-01T01:01:01Z",
+    "deletionTimestamp": "2009-01-01T01:01:01Z",
+    "deletionGracePeriodSeconds": 10,
+    "labels": {
+      "labelsKey": "labelsValue"
+    },
+    "annotations": {
+      "annotationsKey": "annotationsValue"
+    },
+    "ownerReferences": [
+      {
+        "apiVersion": "apiVersionValue",
+        "kind": "kindValue",
+        "name": "nameValue",
+        "uid": "uidValue",
+        "controller": true,
+        "blockOwnerDeletion": true
+      }
+    ],
+    "finalizers": [
+      "finalizersValue"
+    ],
+    "managedFields": [
+      {
+        "manager": "managerValue",
+        "operation": "operationValue",
+        "apiVersion": "apiVersionValue",
+        "time": "2004-01-01T01:01:01Z",
+        "fieldsType": "fieldsTypeValue",
+        "fieldsV1": {},
+        "subresource": "subresourceValue"
+      }
+    ]
+  },
+  "spec": {
+    "clock": {
+      "preferredClockOffset": {
+        "utc": {
+          "offsetSeconds": -13
+        },
+        "timezone": "timezoneValue"
+      },
+      "preferredTimer": {
+        "hpet": {
+          "tickPolicy": "tickPolicyValue",
+          "present": true
+        },
+        "kvm": {
+          "present": true
+        },
+        "pit": {
+          "tickPolicy": "tickPolicyValue",
+          "present": true
+        },
+        "rtc": {
+          "tickPolicy": "tickPolicyValue",
+          "present": true,
+          "track": "trackValue"
+        },
+        "hyperv": {
+          "present": true
+        }
+      }
+    },
+    "cpu": {
+      "preferredCPUTopology": "preferredCPUTopologyValue",
+      "spreadOptions": {
+        "across": "acrossValue",
+        "ratio": 4294967291
+      },
+      "preferredCPUFeatures": [
+        {
+          "name": "nameValue",
+          "policy": "policyValue"
+        }
+      ]
+    },
+    "devices": {
+      "preferredAutoattachGraphicsDevice": true,
+      "preferredAutoattachMemBalloon": true,
+      "preferredAutoattachPodInterface": true,
+      "preferredAutoattachSerialConsole": true,
+      "preferredAutoattachInputDevice": true,
+      "preferredDisableHotplug": true,
+      "preferredVirtualGPUOptions": {
+        "display": {
+          "enabled": true,
+          "ramFB": {
+            "enabled": true
+          }
+        }
+      },
+      "preferredSoundModel": "preferredSoundModelValue",
+      "preferredUseVirtioTransitional": true,
+      "preferredInputBus": "preferredInputBusValue",
+      "preferredInputType": "preferredInputTypeValue",
+      "preferredDiskBus": "preferredDiskBusValue",
+      "preferredLunBus": "preferredLunBusValue",
+      "preferredCdromBus": "preferredCdromBusValue",
+      "preferredDiskDedicatedIoThread": true,
+      "preferredDiskCache": "preferredDiskCacheValue",
+      "preferredDiskIO": "preferredDiskIOValue",
+      "preferredDiskBlockSize": {
+        "custom": {
+          "logical": 18446744073709551609,
+          "physical": 18446744073709551608
+        },
+        "matchVolume": {
+          "enabled": true
+        }
+      },
+      "preferredInterfaceModel": "preferredInterfaceModelValue",
+      "preferredRng": {},
+      "preferredBlockMultiQueue": true,
+      "preferredNetworkInterfaceMultiQueue": true,
+      "preferredTPM": {
+        "enabled": true,
+        "persistent": true
+      },
+      "preferredInterfaceMasquerade": {},
+      "preferredPanicDeviceModel": "preferredPanicDeviceModelValue"
+    },
+    "features": {
+      "preferredAcpi": {
+        "enabled": true
+      },
+      "preferredApic": {
+        "enabled": true,
+        "endOfInterrupt": true
+      },
+      "preferredHyperv": {
+        "relaxed": {
+          "enabled": true
+        },
+        "vapic": {
+          "enabled": true
+        },
+        "spinlocks": {
+          "enabled": true,
+          "spinlocks": 4294967287
+        },
+        "vpindex": {
+          "enabled": true
+        },
+        "runtime": {
+          "enabled": true
+        },
+        "synic": {
+          "enabled": true
+        },
+        "synictimer": {
+          "enabled": true,
+          "direct": {
+            "enabled": true
+          }
+        },
+        "reset": {
+          "enabled": true
+        },
+        "vendorid": {
+          "enabled": true,
+          "vendorid": "vendoridValue"
+        },
+        "frequencies": {
+          "enabled": true
+        },
+        "reenlightenment": {
+          "enabled": true
+        },
+        "tlbflush": {
+          "enabled": true
+        },
+        "ipi": {
+          "enabled": true
+        },
+        "evmcs": {
+          "enabled": true
+        }
+      },
+      "preferredKvm": {
+        "hidden": true
+      },
+      "preferredPvspinlock": {
+        "enabled": true
+      },
+      "preferredSmm": {
+        "enabled": true
+      }
+    },
+    "firmware": {
+      "preferredUseBios": true,
+      "preferredUseBiosSerial": true,
+      "preferredUseEfi": true,
+      "preferredUseSecureBoot": true,
+      "preferredEfi": {
+        "secureBoot": true,
+        "persistent": true
+      }
+    },
+    "machine": {
+      "preferredMachineType": "preferredMachineTypeValue"
+    },
+    "volumes": {
+      "preferredStorageClassName": "preferredStorageClassNameValue"
+    },
+    "preferredSubdomain": "preferredSubdomainValue",
+    "preferredTerminationGracePeriodSeconds": -38,
+    "requirements": {
+      "cpu": {
+        "guest": 4294967291
+      },
+      "memory": {
+        "guest": "0"
+      }
+    },
+    "annotations": {
+      "annotationsKey": "annotationsValue"
+    },
+    "preferSpreadSocketToCoreRatio": 4294967267
+  }
+}

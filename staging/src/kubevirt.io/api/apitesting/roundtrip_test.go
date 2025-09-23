@@ -21,12 +21,15 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"kubevirt.io/api/apitesting/roundtrip"
 	kubevirtv1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/api/apitesting/roundtrip"
 )
 
 var groups = []runtime.SchemeBuilder{
 	kubevirtv1.SchemeBuilder,
+	instancetypev1beta1.SchemeBuilder,
 }
 
 func TestCompatibility(t *testing.T) {

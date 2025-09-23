@@ -1,0 +1,167 @@
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    annotationsKey: annotationsValue
+  creationTimestamp: "2008-01-01T01:01:01Z"
+  deletionGracePeriodSeconds: 10
+  deletionTimestamp: "2009-01-01T01:01:01Z"
+  finalizers:
+  - finalizersValue
+  generateName: generateNameValue
+  generation: 7
+  labels:
+    labelsKey: labelsValue
+  managedFields:
+  - apiVersion: apiVersionValue
+    fieldsType: fieldsTypeValue
+    fieldsV1: {}
+    manager: managerValue
+    operation: operationValue
+    subresource: subresourceValue
+    time: "2004-01-01T01:01:01Z"
+  name: nameValue
+  namespace: namespaceValue
+  ownerReferences:
+  - apiVersion: apiVersionValue
+    blockOwnerDeletion: true
+    controller: true
+    kind: kindValue
+    name: nameValue
+    uid: uidValue
+  resourceVersion: resourceVersionValue
+  selfLink: selfLinkValue
+  uid: uidValue
+spec:
+  annotations:
+    annotationsKey: annotationsValue
+  clock:
+    preferredClockOffset:
+      timezone: timezoneValue
+      utc:
+        offsetSeconds: -13
+    preferredTimer:
+      hpet:
+        present: true
+        tickPolicy: tickPolicyValue
+      hyperv:
+        present: true
+      kvm:
+        present: true
+      pit:
+        present: true
+        tickPolicy: tickPolicyValue
+      rtc:
+        present: true
+        tickPolicy: tickPolicyValue
+        track: trackValue
+  cpu:
+    preferredCPUFeatures:
+    - name: nameValue
+      policy: policyValue
+    preferredCPUTopology: preferredCPUTopologyValue
+    spreadOptions:
+      across: acrossValue
+      ratio: 4294967291
+  devices:
+    preferredAutoattachGraphicsDevice: true
+    preferredAutoattachInputDevice: true
+    preferredAutoattachMemBalloon: true
+    preferredAutoattachPodInterface: true
+    preferredAutoattachSerialConsole: true
+    preferredBlockMultiQueue: true
+    preferredCdromBus: preferredCdromBusValue
+    preferredDisableHotplug: true
+    preferredDiskBlockSize:
+      custom:
+        logical: 18446744073709551609
+        physical: 18446744073709551608
+      matchVolume:
+        enabled: true
+    preferredDiskBus: preferredDiskBusValue
+    preferredDiskCache: preferredDiskCacheValue
+    preferredDiskDedicatedIoThread: true
+    preferredDiskIO: preferredDiskIOValue
+    preferredInputBus: preferredInputBusValue
+    preferredInputType: preferredInputTypeValue
+    preferredInterfaceMasquerade: {}
+    preferredInterfaceModel: preferredInterfaceModelValue
+    preferredLunBus: preferredLunBusValue
+    preferredNetworkInterfaceMultiQueue: true
+    preferredPanicDeviceModel: preferredPanicDeviceModelValue
+    preferredRng: {}
+    preferredSoundModel: preferredSoundModelValue
+    preferredTPM:
+      enabled: true
+      persistent: true
+    preferredUseVirtioTransitional: true
+    preferredVirtualGPUOptions:
+      display:
+        enabled: true
+        ramFB:
+          enabled: true
+  features:
+    preferredAcpi:
+      enabled: true
+    preferredApic:
+      enabled: true
+      endOfInterrupt: true
+    preferredHyperv:
+      evmcs:
+        enabled: true
+      frequencies:
+        enabled: true
+      ipi:
+        enabled: true
+      reenlightenment:
+        enabled: true
+      relaxed:
+        enabled: true
+      reset:
+        enabled: true
+      runtime:
+        enabled: true
+      spinlocks:
+        enabled: true
+        spinlocks: 4294967287
+      synic:
+        enabled: true
+      synictimer:
+        direct:
+          enabled: true
+        enabled: true
+      tlbflush:
+        enabled: true
+      vapic:
+        enabled: true
+      vendorid:
+        enabled: true
+        vendorid: vendoridValue
+      vpindex:
+        enabled: true
+    preferredKvm:
+      hidden: true
+    preferredPvspinlock:
+      enabled: true
+    preferredSmm:
+      enabled: true
+  firmware:
+    preferredEfi:
+      persistent: true
+      secureBoot: true
+    preferredUseBios: true
+    preferredUseBiosSerial: true
+    preferredUseEfi: true
+    preferredUseSecureBoot: true
+  machine:
+    preferredMachineType: preferredMachineTypeValue
+  preferSpreadSocketToCoreRatio: 4294967267
+  preferredSubdomain: preferredSubdomainValue
+  preferredTerminationGracePeriodSeconds: -38
+  requirements:
+    cpu:
+      guest: 4294967291
+    memory:
+      guest: "0"
+  volumes:
+    preferredStorageClassName: preferredStorageClassNameValue
