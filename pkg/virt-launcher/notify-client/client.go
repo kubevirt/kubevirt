@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 
 	"google.golang.org/grpc"
@@ -355,21 +354,8 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 				// Usually this is performed by the source launcher/handler. However, in case of upgrade, this is not
 				// guaranteed as the cluster will have an updated virt-handler together with outdated launchers, this
 				// makes sure that migrations actually finish in those cases.
-				migrationMetadata, exists := metadataCache.Migration.Load()
-				if exists && migrationMetadata.EndTimestamp == nil {
-					metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
-						migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
-					})
-				} else if !exists {
-					migrationMetadata := api.MigrationMetadata{
-						EndTimestamp: pointer.P(metav1.Now()),
-					}
-					metadataCache.Migration.Store(migrationMetadata)
-				}
-
-				event := watch.Event{Type: watch.Modified, Object: domain}
-				client.SendDomainEvent(event)
-				updateEvents(event, domain, events)
+				monitor := newTargetMigrationMonitor(c, events, vmi, domain, metadataCache, client)
+				monitor.startMonitor()
 			}
 		}
 		if interfaceStatus != nil {
