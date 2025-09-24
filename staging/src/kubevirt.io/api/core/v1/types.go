@@ -828,6 +828,10 @@ func (m *VirtualMachineInstanceMigration) IsRunning() bool {
 	switch m.Status.Phase {
 	case MigrationFailed, MigrationPending, MigrationPhaseUnset, MigrationSucceeded, MigrationWaitingForSync, MigrationSynchronizing:
 		return false
+	case MigrationScheduling:
+		if m.IsDecentralizedSource() {
+			return false
+		}
 	}
 	return true
 }
