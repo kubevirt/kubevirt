@@ -58,6 +58,7 @@ const (
 	defaultEventuallyPollingInterval = 1 * time.Second
 	defaultKubevirtReadyTimeout      = 5 * time.Minute
 	defaultKWOKNodeCount             = 100
+	defaultMachineType               = "q35"
 )
 
 const HostPathBase = "/tmp/hostImages"
@@ -260,15 +261,16 @@ func newFakeKWOKNode(nodeName string) *k8sv1.Node {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
 			Labels: map[string]string{
-				"beta.kubernetes.io/arch":       "amd64",
-				"beta.kubernetes.io/os":         "linux",
-				"kubernetes.io/arch":            "amd64",
-				"kubernetes.io/hostname":        nodeName,
-				"kubernetes.io/os":              "linux",
-				"kubernetes.io/role":            "agent",
-				"node-role.kubernetes.io/agent": "",
-				"kubevirt.io/schedulable":       "true",
-				"type":                          "kwok",
+				"beta.kubernetes.io/arch":                         "amd64",
+				"beta.kubernetes.io/os":                           "linux",
+				"kubernetes.io/arch":                              "amd64",
+				"kubernetes.io/hostname":                          nodeName,
+				"kubernetes.io/os":                                "linux",
+				"kubernetes.io/role":                              "agent",
+				"node-role.kubernetes.io/agent":                   "",
+				v1.NodeSchedulable:                                "true",
+				v1.SupportedMachineTypeLabel + defaultMachineType: "true",
+				"type": "kwok",
 			},
 			Annotations: map[string]string{
 				"node.alpha.kubernetes.io/ttl": "0",
