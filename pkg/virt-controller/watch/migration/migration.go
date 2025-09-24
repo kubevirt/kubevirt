@@ -29,8 +29,6 @@ import (
 	"sync"
 	"time"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-
 	"github.com/opencontainers/selinux/go-selinux"
 
 	"kubevirt.io/api/migrations/v1alpha1"
@@ -61,6 +59,8 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	workqueuemetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
@@ -152,6 +152,7 @@ func NewController(templateService services.TemplateService,
 		templateService: templateService,
 		Queue: priorityqueue.New[string]("virt-controller-migration", func(o *priorityqueue.Opts[string]) {
 			o.RateLimiter = workqueue.DefaultTypedControllerRateLimiter[string]()
+			o.MetricProvider = workqueuemetrics.NewPrometheusMetricsProvider()
 		}),
 		vmiStore:             vmiInformer.GetStore(),
 		podIndexer:           podInformer.GetIndexer(),
