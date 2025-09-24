@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -257,6 +258,20 @@ func (e *eventCaller) updateStatus(status *api.DomainStatus) {
 	e.domainStatusChangeReason = status.Reason
 }
 
+type eventNotifier struct {
+	client *Notifier
+	domain *api.Domain
+	events chan watch.Event
+}
+
+func (e eventNotifier) SendEvent(event watch.Event) error {
+	return e.client.SendDomainEvent(event)
+}
+
+func (e eventNotifier) UpdateEvents(event watch.Event) {
+	updateEvents(event, e.domain, e.events)
+}
+
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
 	metadataCache *metadata.Cache) {
@@ -354,8 +369,13 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 				// Usually this is performed by the source launcher/handler. However, in case of upgrade, this is not
 				// guaranteed as the cluster will have an updated virt-handler together with outdated launchers, this
 				// makes sure that migrations actually finish in those cases.
-				monitor := newTargetMigrationMonitor(c, events, vmi, domain, metadataCache, client)
-				monitor.startMonitor()
+				notifier := eventNotifier{
+					client: client,
+					domain: domain,
+					events: events,
+				}
+				monitor := virtwrap.NewTargetMigrationMonitor(c, events, vmi, domain, metadataCache, notifier)
+				monitor.StartMonitor()
 			}
 		}
 		if interfaceStatus != nil {
