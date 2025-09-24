@@ -42,6 +42,7 @@ func (VirtualMachinePoolSpec) SwaggerDoc() map[string]string {
 		"nameGeneration":         "Options for the name generation in a pool.\n+optional",
 		"maxUnavailable":         "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.\n+optional",
 		"scaleInStrategy":        "ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool\n+optional",
+		"updateStrategy":         "UpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool\n+optional",
 	}
 }
 
@@ -73,7 +74,32 @@ func (VirtualMachinePoolProactiveScaleInStrategy) SwaggerDoc() map[string]string
 
 func (VirtualMachinePoolSelectionPolicy) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for scale-in\n+k8s:openapi-gen=true",
-		"basePolicy": "BasePolicy is a catch-all policy [Random|DescendingOrder]\n+optional\n+kubebuilder:validation:Enum=Random;DescendingOrder",
+		"":                "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for proactive scale-in or update\n+k8s:openapi-gen=true",
+		"basePolicy":      "BasePolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]\n+optional\n+kubebuilder:validation:Enum=AscendingOrder;DescendingOrder;Newest;Oldest;Random",
+		"orderedPolicies": "OrderedPolicies is a Ordered list of selection policies.\n+optional",
+	}
+}
+
+func (VirtualMachinePoolOrderedPolicy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                               "+k8s:openapi-gen=true",
+		"labelSelector":                  "LabelSelector is a list of label selector for VMs.\n+optional",
+		"nodeSelectorRequirementMatcher": "NodeSelectorRequirementMatcher is a list of node selector requirement for VMs.\n+optional",
+	}
+}
+
+func (VirtualMachinePoolUpdateStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "VirtualMachinePoolUpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool\n+k8s:openapi-gen=true",
+		"unmanaged":     "Unmanaged indicates that no automatic update of VMs within a VMPool is performed, by default it is false\n+optional",
+		"opportunistic": "Opportunistic update by updating the VMs in a pool in a non-blocking manner\n+optional",
+		"proactive":     "Proactive update by forcing the VMs to restart during update\n+optional",
+	}
+}
+
+func (VirtualMachinePoolProactiveUpdateStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                "VirtualMachinePoolProactiveUpdateStrategy represents proactive update strategy\n+k8s:openapi-gen=true",
+		"selectionPolicy": "SelectionPolicy defines the priority in which VM instances are selected for proactive update\nDefaults to \"Random\" base policy when no SelectionPolicy is configured\n+optional",
 	}
 }
