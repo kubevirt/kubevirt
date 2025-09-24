@@ -8,6 +8,7 @@ pkg_tar(
         "@io_bazel_rules_go//go/platform:linux_s390x": ["@alpine_image_s390x//file"],
         "//conditions:default": ["@alpine_image//file"],
     }),
+    extension = "tar.gz",
     mode = "440",
     owner = "107.107",
     package_dir = "/disk",

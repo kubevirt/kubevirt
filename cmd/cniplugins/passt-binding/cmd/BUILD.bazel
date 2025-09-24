@@ -27,6 +27,7 @@ pkg_tar(
     srcs = [
         ":kubevirt-passt-binding",
     ],
+    extension = "tar.gz",
     package_dir = "/cni",
 )
 
