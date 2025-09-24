@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -13,6 +13,22 @@ go_library(
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/common/workqueue:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/github.com/prometheus/client_model/go:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "virt_api_suite_test.go",
+        "vm_metrics_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics:go_default_library",
     ],
 )

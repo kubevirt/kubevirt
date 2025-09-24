@@ -20,6 +20,7 @@
 package virt_api
 
 import (
+	ioprometheusclient "github.com/prometheus/client_model/go"
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -38,12 +39,11 @@ var (
 		[]string{"namespace"},
 	)
 
-	ephemeralHotplugVolumeTotal = operatormetrics.NewCounterVec(
+	ephemeralHotplugVolumeTotal = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_ephemeral_hotplug_volume_total",
 			Help: "The total number of ephemeral hotplug volumes",
 		},
-		[]string{"namespace", "vmi-name"},
 	)
 )
 
@@ -51,6 +51,14 @@ func NewVMCreated(vm *v1.VirtualMachine) {
 	vmsCreatedCounter.WithLabelValues(vm.Namespace).Inc()
 }
 
-func NewEphemeralHotplugVolume(namespace, vmiName string) {
-	ephemeralHotplugVolumeTotal.WithLabelValues(namespace, vmiName).Inc()
+func NewEphemeralHotplugVolume() {
+	ephemeralHotplugVolumeTotal.Inc()
+}
+
+func GetEphemeralHotplugVolumeTotal() (float64, error) {
+	dto := &ioprometheusclient.Metric{}
+	if err := ephemeralHotplugVolumeTotal.Write(dto); err != nil {
+		return -1, err
+	}
+	return *dto.Counter.Value, nil
 }

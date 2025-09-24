@@ -117,7 +117,7 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 			writeError(err, response)
 			return
 		}
-		metrics.NewEphemeralHotplugVolume(namespace, name)
+		metrics.NewEphemeralHotplugVolume()
 	} else if app.clusterConfig.HotplugVolumesEnabled() {
 		if err := app.vmVolumePatchStatus(name, namespace, &volumeRequest); err != nil {
 			writeError(err, response)
