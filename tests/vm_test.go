@@ -114,9 +114,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 			sc, foundSC := libstorage.GetAvailableRWBlockStorageClass()
-			if !foundSC {
-				Skip("Block storage is not present")
-			}
+			Expect(foundSC).To(BeTrue(), "Block storage (RW) is not present")
 			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), sc, k8sv1.PersistentVolumeBlock)
 		}
 
