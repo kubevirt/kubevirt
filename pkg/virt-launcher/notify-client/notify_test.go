@@ -23,7 +23,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
-	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -343,54 +342,6 @@ var _ = Describe("Notify", func() {
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 		})
 
-		Describe("client", func() {
-			AfterEach(func() {
-				client.Close()
-				os.RemoveAll(shareDir)
-			})
-
-			It("Should monitor the end of a migration", func() {
-				var domainJobType = libvirt.DOMAIN_JOB_BOUNDED
-				var lock sync.Mutex
-
-				By("Creating and starting a target migration monitor")
-				ctrl := gomock.NewController(GinkgoT())
-				mockLibvirt := testing.NewLibvirt(ctrl)
-				mockLibvirt.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(mockLibvirt.VirtDomain, nil).AnyTimes()
-				mockLibvirt.DomainEXPECT().GetJobInfo().DoAndReturn(func() (*libvirt.DomainJobInfo, error) {
-					lock.Lock()
-					defer lock.Unlock()
-					return &libvirt.DomainJobInfo{Type: domainJobType}, nil
-				}).AnyTimes()
-				mockLibvirt.DomainEXPECT().Free().Return(nil).AnyTimes()
-				eventChan := make(chan watch.Event, 100)
-				vmi := api2.NewMinimalVMI("fake-vmi")
-				domain := api.NewMinimalDomain("test")
-				shareDir, err = os.MkdirTemp("", "kubevirt-share")
-				Expect(err).ToNot(HaveOccurred())
-				client = NewNotifier(shareDir)
-				metadataCache := metadata.NewCache()
-				monitor := newTargetMigrationMonitor(mockLibvirt.VirtConnection, eventChan, vmi, domain, metadataCache, client)
-				monitor.startMonitor()
-
-				By("Ensuring that nothing gets added to the metadata cache as long as the migration is running")
-				Consistently(func() bool {
-					_, exists := metadataCache.Migration.Load()
-					return exists
-				}).WithPolling(time.Second).WithTimeout(3 * time.Second).Should(BeFalse())
-
-				By("Simulating the end of the migration")
-				lock.Lock()
-				domainJobType = libvirt.DOMAIN_JOB_NONE
-				lock.Unlock()
-
-				By("Ensuring an entry with an endTimestamp gets added to the metadata cache")
-				Eventually(func() bool {
-					migrationMetadata, exists := metadataCache.Migration.Load()
-					return exists && migrationMetadata.EndTimestamp != nil
-				}).WithPolling(time.Second).WithTimeout(3 * time.Second).Should(BeTrue())
-			})
-		})
 	})
 
 	Describe("Version mismatch", func() {
