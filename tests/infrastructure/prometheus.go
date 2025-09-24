@@ -331,7 +331,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		ip := libnet.GetIP(handlerMetricIPs, family)
 
 		if netutils.IsIPv6String(ip) {
-			Skip("Skip testing with IPv6 until https://github.com/kubevirt/kubevirt/issues/4145 is fixed")
+			Fail("Testing with IPv6 until https://github.com/kubevirt/kubevirt/issues/4145 is fixed")
 		}
 
 		concurrency := 100 // random value "much higher" than maxRequestsInFlight
