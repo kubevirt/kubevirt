@@ -119,6 +119,7 @@ func (networkMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operato
 			iface = net.Alias
 		}
 		netLabels := map[string]string{"interface": iface}
+		netLabels["network"] = vmiReport.networkNameByIface(iface)
 
 		if net.RxBytesSet {
 			deprecatedLabels := map[string]string{"interface": iface, "type": "rx"}

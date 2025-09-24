@@ -37,6 +37,9 @@ var _ = Describe("network metrics", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-vmi-1",
 				Namespace: "test-ns-1",
+				Annotations: map[string]string{
+					"network.deckhouse.io/networks-spec": `[{"type":"Network","name":"test-1","ifName":"vnet0"}]`,
+				},
 			},
 		}
 
@@ -68,6 +71,10 @@ var _ = Describe("network metrics", func() {
 		}
 
 		vmiReport := newVirtualMachineInstanceReport(vmi, vmiStats)
+
+		It("should parse network names from annotation", func() {
+			Expect(vmiReport.networkNameByIface("vnet0")).To(Equal("test-1"))
+		})
 
 		DescribeTable("should collect metrics values", func(metric operatormetrics.Metric, expectedValue float64) {
 			crs := networkMetrics{}.Collect(vmiReport)
