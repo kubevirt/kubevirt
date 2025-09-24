@@ -76,21 +76,21 @@ This shows the basic principle on how remote debugging can be done.
 
 A go debugger can be attached to kubevirt processes in the following manners:
 ## Local execution of the kubevirt process
-Not all processses can easily be executed locally, since some of the processes require specific 
+Not all processes can easily be executed locally, since some of the processes require specific 
 dependencies that exist in the runtime pod and node
 For processes that are easily executed locally, such as `virt-controler`, the following program arguments
 can be passed to virt-controller `--kubeconfig /path/to/kubeconfig --leader-elect-lease-duration 99h` in order 
-to successfully debug. Since virt-contoller and other control plane components rely on leader election to achive
+to successfully debug. Since virt-controller and other control plane components rely on leader election to achieve
 consensus among multiple replicas, and we only want our local replica to be the leader, even in the absence of other 
 replicas, we can temporarily grant control to our local replica by specifying the `--leader-elect-lease-duration` 
 argument, as shown above, with an example value of `99h`, granting the lease for 99 hours.    
-> **Note** `/path/to/kubeconfig` must point to a running kubrenetes cluster with kubevirt installed
+> **Note** `/path/to/kubeconfig` must point to a running kubernetes cluster with kubevirt installed
 > 
 > **Note** It is recommended to scale down both `virt-controller` and also `virt-operator` deployments to
 0 replicas, because otherwise it will override the `virt-controller` deployment manifest.
 ## Remote debugging running pods
 Remote debugging may be more complex to setup, but has the advantage of executing the procesess in its
-real runtime environment, where all dependencies ae satisfied, therefore it can work for any go process 
+real runtime environment, where all dependencies are satisfied, therefore it can work for any go process 
 ### Step 1 - recompile go code, build and publish container image
 Compile the required go [cmd](https://github.com/kubevirt/kubevirt/tree/main/cmd) with `-gcflags='all=-N -l'` to produce 
 a debuggable binary.  
@@ -101,12 +101,12 @@ build command.
 Build a container image, with the compiled binary and publish to a registry that is accessible to the cluster
 consider adding `dlv` executable to the image for step 2
 ### Step 2 - modify workload manifest to consume debug container image and execute delve
-Having scaled down virt-operator, patch or edit the respetive k8s workload manifest 
+Having scaled down virt-operator, patch or edit the respective k8s workload manifest 
 (e.g. `virt-controller` Deployment, `virt-handler` Daemonset ) to:
 - Consume the debug image
 - Execute `dlv`, either in a separate container, and attach to the debugged process as shown above.
   [kubectl debug](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_debug/) can be used, to easily
-  add another containr to the pod. 
+  add another container to the pod. 
   Note that `shareProcessNamespace: true` is necessary, for dlv to be able to debug a process running in another container.
   The other alternative is to modify the app container `cmd` to have `dlv` `exec` the process in the same container:
   `dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec <binary>`
@@ -181,7 +181,7 @@ dlv attach $(pgrep virt-controller) --headless --accept-multiclient --api-versio
 ]'
 ```
 
-### Step 3 - port-forward a local port to the target pod desgnated debug port
+### Step 3 - port-forward a local port to the target pod designated debug port
 `kubectl port-forward <pod> 2345`
 
 ### Step 4 - connect to localhost:2345 with your debugger
