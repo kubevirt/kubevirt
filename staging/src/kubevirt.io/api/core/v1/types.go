@@ -3063,10 +3063,27 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
 
+	// HypervisorConfiguration holds information regarding the hypervisor present on all cluster nodes.
+	HypervisorConfiguration *HypervisorConfiguration `json:"hypervisorConfiguration,omitempty"`
+
 	// ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.
 	// Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.
 	// +nullable
 	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
+}
+
+const (
+	// KVM is the default and most common hypervisor used with KubeVirt.
+	KvmHypervisorName string = "kvm"
+	// HyperV with L1 Virtualization Host support.
+	HyperVLayeredHypervisorName string = "hyperv-layered"
+)
+
+// HypervisorConfiguration holds information regarding the hypervisor present on cluster nodes.
+type HypervisorConfiguration struct {
+	// Name is the name of the hypervisor.
+	// Supported values are: "kvm", "hyperv-layered".
+	Name string `json:"name,omitempty"`
 }
 
 type ChangedBlockTrackingSelectors struct {

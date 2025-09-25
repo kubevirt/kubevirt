@@ -142,6 +142,8 @@ spec:
           tokenBucketRateLimiter:
             burst: -5
             qps: -3
+    hypervisorConfiguration:
+      name: nameValue
     imagePullPolicy: imagePullPolicyValue
     instancetype:
       referencePolicy: referencePolicyValue

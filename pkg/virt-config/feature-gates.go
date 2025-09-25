@@ -225,6 +225,10 @@ func (config *ClusterConfig) HyperVLayeredEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HyperVLayered)
 }
 
+func (config *ClusterConfig) ConfigurableHypervisorEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.ConfigurableHypervisor)
+}
+
 func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
 }
