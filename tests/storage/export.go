@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -572,8 +573,22 @@ var _ = Describe(SIG("Export", func() {
 		}
 		By(fmt.Sprintf("Downloading from URL: %s", downloadUrl))
 		Eventually(ThisPod(downloadPod), 30*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
+		var out, stderr string
+		// Eventual consistency will bail us out in the unlikely event that the proxy certs rotate mid test
+		// And take some time to reload in the download pod
+		var regenOnce sync.Once
+		Eventually(func() error {
+			out, stderr, err = exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
+			if err != nil {
+				regenOnce.Do(func() {
+					By("Regenerating the CA bundle so download pod will pick up the new certs")
+					caBundleGenerator("export-cacerts", targetPvc.Namespace, export)
+				})
+			}
+			return err
+		}, 5*time.Minute, 1*time.Second).Should(Succeed(), func() string {
+			return fmt.Sprintf("download command should succeed; out: %s stderr: %s\n", out, stderr)
+		})
 
 		verifyFunction(fileName, comparison, downloadPod, volumeMode)
 	},
