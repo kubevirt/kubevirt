@@ -656,6 +656,7 @@ type Controller struct {
 	Alias     *Alias            `xml:"alias,omitempty"`
 	Address   *Address          `xml:"address,omitempty"`
 	PCIHole64 *PCIHole64        `xml:"pcihole64,omitempty"`
+	Ports     *uint             `xml:"ports,attr,omitempty"`
 }
 
 // END Controller -----------------------------
