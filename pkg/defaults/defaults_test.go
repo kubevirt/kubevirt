@@ -32,7 +32,7 @@ var _ = Describe("Defaults", func() {
 
 			const (
 				userProvidedArch     = "userArch"
-				templateProvidedArch = "templateArch"
+				templateProvidedArch = "arm64"
 				configProvidedArch   = "configArch"
 			)
 
@@ -69,6 +69,24 @@ var _ = Describe("Defaults", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return ds
 			}
+
+			It("should ignore unknown arch provided by DataSource", func() {
+				ds := createDataSource()
+				ds.ObjectMeta.Labels["template.kubevirt.io/architecture"] = "foobar"
+				ds, err := virtClient.CdiClient().CdiV1beta1().DataSources(ds.Namespace).Update(context.Background(), ds, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm := libvmi.NewVirtualMachine(
+					libvmi.New(),
+					libvmi.WithDataVolumeTemplate(
+						libdv.NewDataVolume(
+							libdv.WithDataVolumeSourceRef("DataSource", ds.Namespace, ds.Name),
+						),
+					),
+				)
+				defaults.SetVirtualMachineDefaults(vm, clusterConfig, virtClient)
+				Expect(vm.Spec.Template.Spec.Architecture).To(Equal(configProvidedArch))
+			})
 
 			DescribeTable("should default to", func(createVM func() *v1.VirtualMachine, expectedArch string) {
 				vm := createVM()
