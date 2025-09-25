@@ -21,7 +21,6 @@ package virtexportserver
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -38,6 +37,7 @@ import (
 	"strings"
 	"time"
 
+	gzip "github.com/klauspost/pgzip"
 	flag "github.com/spf13/pflag"
 	"sigs.k8s.io/yaml"
 
