@@ -83,7 +83,7 @@ bazel build \
 rm -rf ${DIGESTS_DIR}/${ARCHITECTURE}
 mkdir -p ${DIGESTS_DIR}/${ARCHITECTURE}
 
-for f in $(find bazel-bin/ -name '*.digest'); do
+for f in $(find bazel-bin/ -name '*.json.sha256' | grep -v 'version-container'); do
     dir=${DIGESTS_DIR}/${ARCHITECTURE}/$(dirname $f)
     mkdir -p ${dir}
     cp -f ${f} ${dir}/$(basename ${f})
