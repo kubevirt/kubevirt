@@ -64,7 +64,10 @@ var _ = Describe("client", func() {
 		mockLibvirt.DomainEXPECT().GetJobInfo().DoAndReturn(func() (*libvirt.DomainJobInfo, error) {
 			lock.Lock()
 			defer lock.Unlock()
-			return &libvirt.DomainJobInfo{Type: domainJobType}, nil
+			return &libvirt.DomainJobInfo{
+				Type:      domainJobType,
+				Operation: libvirt.DOMAIN_JOB_OPERATION_MIGRATION_IN,
+			}, nil
 		}).AnyTimes()
 		mockLibvirt.DomainEXPECT().Free().Return(nil).AnyTimes()
 		eventChan := make(chan watch.Event, 100)

@@ -357,7 +357,7 @@ func (m *TargetMigrationMonitor) StartMonitor() {
 				if err != nil {
 					return false, err
 				}
-				if jobInfo.Type == libvirt.DOMAIN_JOB_NONE {
+				if jobInfo.Type == libvirt.DOMAIN_JOB_NONE || jobInfo.Operation != libvirt.DOMAIN_JOB_OPERATION_MIGRATION_IN {
 					return true, nil
 				}
 				log.Log.Object(m.vmi).V(4).Infof("Incoming migration job active (type %d), waiting...", jobInfo.Type)
