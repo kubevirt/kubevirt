@@ -26,8 +26,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 
-	"libvirt.org/go/libvirt"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -35,8 +33,6 @@ import (
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 type vmConfigurator interface {
@@ -204,56 +200,6 @@ func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
 		domainInterfaces[iface.Alias.GetName()] = iface
 	}
 	return domainInterfaces
-}
-
-// withNetworkIfacesResources adds network interfaces as placeholders to the domain spec
-// to trigger the addition of the dependent resources/devices (e.g. PCI controllers).
-// As its last step, it reads the generated configuration and removes the network interfaces
-// so none will be created with the domain creation.
-// The dependent devices are left in the configuration, to allow future hotplug.
-func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
-	if count > 0 {
-		domainSpecWithIfacesResource := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
-		dom, err := f(vmi, domainSpecWithIfacesResource)
-		if err != nil {
-			return nil, err
-		}
-
-		defer dom.Free()
-
-		domainSpecWithoutIfacePlaceholders, err := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
-		if err != nil {
-			return nil, err
-		}
-		domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
-		// Only the devices are taken into account because some parameters are not assured to be returned when
-		// getting the domain spec (e.g. the `qemu:commandline` section).
-		domainSpecWithoutIfacePlaceholders.Devices.DeepCopyInto(&domainSpec.Devices)
-	}
-
-	return f(vmi, domainSpec)
-}
-
-func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int) *api.DomainSpec {
-	domainSpecWithIfacesResource := domainSpec.DeepCopy()
-	for i := 0; i < count; i++ {
-		domainSpecWithIfacesResource.Devices.Interfaces = append(
-			domainSpecWithIfacesResource.Devices.Interfaces,
-			newInterfacePlaceholder(i, converter.InterpretTransitionalModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional, vmi.Spec.Architecture)),
-		)
-	}
-	return domainSpecWithIfacesResource
-}
-
-func newInterfacePlaceholder(index int, modelType string) api.Interface {
-	return api.Interface{
-		Type:  "ethernet",
-		Model: &api.Model{Type: modelType},
-		Target: &api.InterfaceTarget{
-			Device:  fmt.Sprintf("placeholder-%d", index),
-			Managed: "no",
-		},
-	}
 }
 
 func isLinkStateEqual(iface1, iface2 api.Interface) bool {
