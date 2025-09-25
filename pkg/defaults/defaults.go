@@ -382,6 +382,7 @@ func setDefaultArchitectureFromDataSource(clusterConfig *virtconfig.ClusterConfi
 		dataSourceKind        = "datasource"
 		templateArchLabel     = "template.kubevirt.io/architecture"
 		ignoreFailureErrorFmt = "ignoring failure to find datasource during vm mutation: %v"
+		ignoreUnknownArchFmt  = "ignoring unknown architecture %s provided by DataSource %s in namespace %s"
 	)
 	if vm.Spec.Template.Spec.Architecture != "" {
 		return
@@ -409,9 +410,17 @@ func setDefaultArchitectureFromDataSource(clusterConfig *virtconfig.ClusterConfi
 				continue
 			}
 		}
-		if arch, ok := ds.Labels[templateArchLabel]; ok {
-			vm.Spec.Template.Spec.Architecture = arch
-			return
+		arch, ok := ds.Labels[templateArchLabel]
+		if !ok {
+			continue
 		}
+		switch arch {
+		case "amd64", "arm64", "s390x":
+			vm.Spec.Template.Spec.Architecture = arch
+		default:
+			log.Log.Warningf(ignoreUnknownArchFmt, arch, ds.Name, ds.Namespace)
+			continue
+		}
+		return
 	}
 }
