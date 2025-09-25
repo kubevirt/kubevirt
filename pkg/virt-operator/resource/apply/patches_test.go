@@ -220,6 +220,18 @@ var _ = Describe("Patches", func() {
 			Expect(strings.Join(fa, " ")).To(ContainSubstring("--bool-flag"))
 		})
 
+		It("should return flags in sorted order", func() {
+			Consistently(func() []string {
+				return flagsToArray(flags)
+			}).Should(HaveExactElements(
+				"--bool-flag",
+				"--flag",
+				"3",
+				"--flag-one",
+				"1",
+			))
+		})
+
 		It("should add flag patch", func() {
 			patches := addFlagsPatch(components.VirtAPIName, resource, flags, []v1.CustomizeComponentsPatch{})
 			Expect(patches).To(HaveLen(1))
