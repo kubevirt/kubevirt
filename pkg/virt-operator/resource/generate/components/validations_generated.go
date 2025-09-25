@@ -1147,6 +1147,16 @@ var CRDsValidation map[string]string = map[string]string{
                       type: object
                   type: object
               type: object
+            hypervisorConfiguration:
+              description: HypervisorConfiguration holds information regarding the
+                hypervisor present on all cluster nodes.
+              properties:
+                name:
+                  description: |-
+                    Name is the name of the hypervisor.
+                    Supported values are: "kvm", "hyperv-layered".
+                  type: string
+              type: object
             imagePullPolicy:
               description: PullPolicy describes a policy for if/when to pull a container
                 image

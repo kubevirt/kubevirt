@@ -142,6 +142,14 @@ const (
 	// This feature is disabled by default. When enabled, it allows setting specific Hyper-V
 	// fields on the VMI spec which are otherwise restricted.
 	HyperVLayered = "HyperVLayered"
+
+	// Owner: @harshitgupta1337
+	// Alpha: v1.?.0
+	// This feature is disabled by default. When enabled, it allows using a
+	// hypervisor other than KVM for running VMs.
+	// Details of the new hypervisor should be specified via the
+	// HypervisorConfiguration field in KubeVirtConfiguration.
+	ConfigurableHypervisor = "ConfigurableHypervisor"
 )
 
 func init() {
@@ -176,5 +184,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HyperVLayered, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 }
