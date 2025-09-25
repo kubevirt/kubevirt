@@ -20,11 +20,14 @@ set -euo pipefail
 
 # According to https://dl.acm.org/doi/abs/10.1145/3476105
 #
-# * almost all flaky tests were independent of the execution platform, so environmental issues should be considered with higher priority
+# * almost all flaky tests were independent of the execution platform,
+#   so environmental issues should be considered with higher priority
 # * devs may be unaware of many flakes due to order-dependent tests
-# * simple techniques of reversing or shuffling the test order may be more efficient and effective than more sophisticated approaches
-# * “One study found that 88% of flaky tests were found to consecutively fail up to a maximum of five times before passing,
-#    though another reported finding new flaky tests even after 10,000 test suite runs.”
+# * simple techniques of reversing or shuffling the test order may be more
+#   efficient and effective than more sophisticated approaches
+# * "One study found that 88% of flaky tests were found to consecutively fail
+#    up to a maximum of five times before passing, though another reported
+#    finding new flaky tests even after 10,000 test suite runs."
 #
 # Therefore we by default
 # * use only latest kubevirtci provider,
@@ -48,27 +51,32 @@ function usage() {
     cat <<EOF
 usage: [NUM_TESTS=x] \
        [NEW_TESTS=file_name.json] \
-       [TARGET_COMMIT_RANGE=a1b2c3d4] $0 [TEST_LANE] [--dry-run]
+       [TARGET_COMMIT_RANGE=a1b2c3d4..e5f60718] $0 [TEST_LANE] [--dry-run]
 
     run set of tests repeatedly using a json file containing the names of the tests that have been
     changed or added since last merge commit
     hint: set NEW_TESTS to explicitly name the json file containing test names to run
 
     options:
-        CANNIER_IMAGE       the container image to use to execute cannier command
-        NUM_TESTS           how many times the test lane is run, default is 5
-        NEW_TESTS           the json file containing the (textual) names of the
-                            tests to run, according to what is shown in the
-                            junit.xml file
-        TARGET_COMMIT_RANGE the commit id to use when fetching the changed
-                            test files
-                            note: leaving TARGET_COMMIT_RANGE empty only works
-                            if on a git branch different from main.
-                            If /clonerefs is at work you need to provide a
-                            target commit, as then the latest commit is a
-                            merge commit (resulting in no changes detected)
-        TEST_LANE           the kubevirtci provider to use, if not given,
-                            use latest stable one
+        CANNIER_IMAGE        the container image to use to execute cannier
+                             command
+        NUM_TESTS            how many times the test lane is run, default is 5
+        INVOKE_FUNCTEST_ONCE if set to 'true', instead of invoking functests
+                             binary NUM_TESTS amount times, invoke it only once
+                             and use the Ginkgo flag '--repeat' instead to run
+                             the test NUM_TESTS times
+        NEW_TESTS            the json file containing the (textual) names of the
+                             tests to run, according to what is shown in the
+                             junit.xml file
+        TARGET_COMMIT_RANGE  the commit id to use when fetching the changed
+                             test files
+                             note: leaving TARGET_COMMIT_RANGE empty only works
+                             if on a git branch different from main.
+                             If /clonerefs is at work you need to provide a
+                             target commit, as then the latest commit is a
+                             merge commit (resulting in no changes detected)
+        TEST_LANE            the kubevirtci provider to use, if not given,
+                             use latest stable one
 
     examples:
 
@@ -89,7 +97,7 @@ function new_tests() {
     local target_commit_range
     target_commit_range="$1"
     if [ -n "${target_commit_range}" ]; then
-        target_commit_range='-r '"${target_commit_range}"
+        target_commit_range=('-r' "${target_commit_range}")
     fi
 
     # The CANNIER project provides (among others) the command `extract changed-tests` that extracts the names of
@@ -104,7 +112,7 @@ function new_tests() {
         -v "${KUBEVIRT_ROOT}:/kubevirt/" \
         -v "${tmp_dir}:/tmp" \
         "${CANNIER_IMAGE}" \
-        extract changed-tests ${target_commit_range} \
+        extract changed-tests "${target_commit_range[@]}" \
         -p /kubevirt \
         -t /kubevirt/tests/ \
         -o /tmp/changed-tests.json
@@ -221,9 +229,9 @@ add_to_label_filter() {
     local label=$1
     local separator=$2
     if [[ -z $label_filter ]]; then
-        label_filter="${1}"
+        label_filter="${label}"
     else
-        label_filter="${label_filter}${separator}${1}"
+        label_filter="${label_filter}${separator}${label}"
     fi
 }
 
@@ -272,10 +280,19 @@ else
     NUM_TESTS=1
 fi
 
-for i in $(seq 1 "$NUM_TESTS"); do
-    echo "Test lane: ${TEST_LANE}, run: $i"
-    if ! FUNC_TEST_ARGS="$ginkgo_params" make functest; then
-        echo "Test lane: ${TEST_LANE}, run: $i, tests failed!"
+INVOKE_FUNCTEST_ONCE="${INVOKE_FUNCTEST_ONCE-}"
+if [[ "$INVOKE_FUNCTEST_ONCE" == 'true' ]]; then
+    echo "Test lane: ${TEST_LANE}"
+    if ! FUNC_TEST_ARGS="--repeat=$(( NUM_TESTS - 1 )) $ginkgo_params" make functest; then
+        echo "Test lane: ${TEST_LANE}, tests failed!"
         exit 1
     fi
-done
+else
+    for i in $(seq 1 "$NUM_TESTS"); do
+        echo "Test lane: ${TEST_LANE}, run: $i"
+        if ! FUNC_TEST_ARGS="$ginkgo_params" make functest; then
+            echo "Test lane: ${TEST_LANE}, run: $i, tests failed!"
+            exit 1
+        fi
+    done
+fi
