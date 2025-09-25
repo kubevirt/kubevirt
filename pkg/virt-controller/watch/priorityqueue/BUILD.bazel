@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "metrics.go",
+        "priorityqueue.go",
+        "workqueue.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/priorityqueue",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/go-logr/logr:go_default_library",
+        "//vendor/github.com/google/btree:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
+        "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
+        "//vendor/k8s.io/utils/clock:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
+    ],
+)
