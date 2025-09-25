@@ -247,6 +247,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 		controller.queue.Add(key)
 	}
 
+	updateDomain := func(domain *api.Domain) {
+		Expect(controller.domainStore.Update(domain)).To(Succeed())
+		key, err := virtcontroller.KeyFunc(domain)
+		Expect(err).ToNot(HaveOccurred())
+		controller.queue.Add(key)
+	}
+
 	sanityExecute := func() {
 		controllertesting.SanityExecute(controller, []cache.Store{
 			controller.domainStore, controller.vmiStore,
@@ -371,6 +378,29 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
+		})
+
+		It("should only emit one graceful shutdown event", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			initGracePeriodHelper(600, vmi, domain)
+
+			client.EXPECT().ShutdownVirtualMachine(libvmi.New(libvmi.WithName("testvmi"), libvmi.WithUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault))).Times(2)
+			addDomain(domain)
+
+			sanityExecute()
+			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
+
+			// Set the DeletionTimestamp within the domain so this is treated as a graceful shutdown retry
+			domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			updateDomain(domain)
+
+			// AfterEach will assert that no additional events are seen
+			sanityExecute()
 		})
 
 		It("should attempt graceful shutdown and take the VMI grace period over the cached Domain grace", func() {
