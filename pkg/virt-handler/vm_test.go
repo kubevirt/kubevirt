@@ -2940,6 +2940,45 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Phase).To(Equal(v1.Failed))
 		})
 	})
+
+	Context("on VM stop / VMI delete during migration", func() {
+		It("should kill the VM", func() {
+			By("Creating a migrating VMI with a domain in failed post-copy migration state")
+			now := metav1.Now()
+			vmi := libvmi.New(
+				libvmi.WithUID(vmiTestUUID),
+				libvmi.WithNamespace("default"),
+				libvmi.WithName("testvmi"),
+				libvmi.WithHostname(host),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithPhase(v1.Running),
+						libvmistatus.WithMigrationState(
+							v1.VirtualMachineInstanceMigrationState{
+								TargetNode:                     "abc",
+								TargetNodeAddress:              "127.0.0.1:12345",
+								SourceNode:                     host,
+								MigrationUID:                   "123",
+								TargetNodeDomainDetected:       true,
+								TargetNodeDomainReadyTimestamp: &now,
+								StartTimestamp:                 &now,
+							},
+						),
+					),
+				),
+			)
+			vmi.DeletionTimestamp = &now
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domain.Status.Reason = api.ReasonUnknown
+			addVMI(vmi, domain)
+
+			By("Executing the controller")
+			client.EXPECT().KillVirtualMachine(gomock.Any())
+			sanityExecute()
+			expectEvent("VirtualMachineInstance stopping", true)
+		})
+	})
 })
 
 var _ = Describe("CurrentMemory in Libvirt Domain", func() {

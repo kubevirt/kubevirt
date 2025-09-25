@@ -506,8 +506,10 @@ func (c *MigrationTargetController) execute(key string) error {
 
 	if vmi.IsFinal() || vmi.DeletionTimestamp != nil {
 		log.Log.V(4).Infof("vmi for key %v is terminating or final, doing only a best-effort cleanup", key)
+		_ = c.unmountVolumes(vmi)
 		_ = c.netConf.Teardown(vmi)
 		c.netStat.Teardown(vmi)
+		c.launcherClients.CloseLauncherClient(vmi)
 		return nil
 	}
 
