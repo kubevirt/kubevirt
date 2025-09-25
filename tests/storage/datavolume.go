@@ -1040,11 +1040,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			return dv
 		}
 		addThickProvisionedTrueAnnotation := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
-			dv.Annotations = map[string]string{"user.custom.annotation/storage.thick-provisioned": "true"}
+			dv.Annotations["user.custom.annotation/storage.thick-provisioned"] = "true"
 			return dv
 		}
 		addThickProvisionedFalseAnnotation := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
-			dv.Annotations = map[string]string{"user.custom.annotation/storage.thick-provisioned": "false"}
+			dv.Annotations["user.custom.annotation/storage.thick-provisioned"] = "false"
 			return dv
 		}
 		DescribeTable("[rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
@@ -1056,6 +1056,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.FedoraVolumeSize)),
+				libdv.WithForceBindAnnotation(), // So we can wait for DV to finish before starting the VMI
 			)
 
 			dataVolume = dvChange(dataVolume)
@@ -1068,6 +1069,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+
+			// Importing Fedora is so slow that we get "resourceVersion too old" when trying
+			// to watch for events between the VMI creation and VMI starting.
+			By("Making sure the slow Fedora import is complete before creating the VMI")
+			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
 
 			vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 
