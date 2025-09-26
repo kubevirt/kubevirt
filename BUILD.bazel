@@ -250,7 +250,7 @@ oci_push(
 
 oci_push(
     name = "push-pr-helper",
-    image = "//cmd/pr-helper:pr-helper",
+    image = "//cmd/pr-helper:pr-helper-image",
     repository = "quay.io/kubevirt/pr-helper",
 )
 

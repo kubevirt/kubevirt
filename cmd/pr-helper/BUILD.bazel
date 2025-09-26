@@ -41,7 +41,7 @@ oci_image(
 )
 
 oci_image(
-    name = "pr-helper",
+    name = "pr-helper-image",
     base = ":version-container",
     entrypoint = ["/usr/bin/qemu-pr-helper"],
     visibility = ["//visibility:public"],
