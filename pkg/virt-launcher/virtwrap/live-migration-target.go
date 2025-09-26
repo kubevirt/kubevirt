@@ -20,6 +20,7 @@
 package virtwrap
 
 import (
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -29,15 +30,24 @@ import (
 	"strconv"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"libvirt.org/go/libvirt"
+
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -297,4 +307,90 @@ func getVMIHotplugCount(vmi *v1.VirtualMachineInstance) int {
 		}
 	}
 	return hotplugCount
+}
+
+type TargetMigrationMonitor struct {
+	c             cli.Connection
+	events        chan watch.Event
+	vmi           *v1.VirtualMachineInstance
+	domain        *api.Domain
+	metadataCache *metadata.Cache
+	notifier      MigrationEventNotifier
+}
+
+type MigrationEventNotifier interface {
+	SendEvent(event watch.Event) error
+	UpdateEvents(event watch.Event)
+}
+
+func NewTargetMigrationMonitor(
+	c cli.Connection,
+	events chan watch.Event,
+	vmi *v1.VirtualMachineInstance,
+	domain *api.Domain,
+	metadataCache *metadata.Cache,
+	notifier MigrationEventNotifier,
+) *TargetMigrationMonitor {
+	return &TargetMigrationMonitor{
+		c:             c,
+		events:        events,
+		vmi:           vmi,
+		domain:        domain,
+		metadataCache: metadataCache,
+		notifier:      notifier}
+}
+
+var retryDelays = []time.Duration{10 * time.Second, 20 * time.Second, 30 * time.Second}
+
+func (m *TargetMigrationMonitor) StartMonitor() {
+	go func() {
+		var err error
+		domName := api.VMINamespaceKeyFunc(m.vmi)
+		for attempt := 0; attempt <= len(retryDelays); attempt++ {
+			err = virtwait.PollImmediately(50*time.Millisecond, 30*time.Second, func(context context.Context) (bool, error) {
+				dom, err := m.c.LookupDomainByName(domName)
+				if err != nil {
+					return false, err
+				}
+				defer dom.Free()
+				jobInfo, err := dom.GetJobInfo()
+				if err != nil {
+					return false, err
+				}
+				if jobInfo.Type == libvirt.DOMAIN_JOB_NONE || jobInfo.Operation != libvirt.DOMAIN_JOB_OPERATION_MIGRATION_IN {
+					return true, nil
+				}
+				log.Log.Object(m.vmi).V(4).Infof("Incoming migration job active (type %d), waiting...", jobInfo.Type)
+				return false, nil
+			})
+			if err == nil || !k8serrors.IsTimeout(err) || attempt == len(retryDelays) {
+				break
+			}
+			log.Log.Object(m.vmi).Info("A migration job is still active, retrying after delay")
+			time.Sleep(retryDelays[attempt])
+		}
+		if err != nil {
+			log.Log.Object(m.vmi).Info("Error polling libvirt, setting EndTimestamp anyway to unblock migration")
+		} else {
+			log.Log.Object(m.vmi).Info("Incoming migration job completed, setting EndTimestamp")
+		}
+		setEndTimestamp(m.metadataCache)
+		event := watch.Event{Type: watch.Modified, Object: m.domain}
+		m.notifier.SendEvent(event)
+		m.notifier.UpdateEvents(event)
+	}()
+}
+
+func setEndTimestamp(metadataCache *metadata.Cache) {
+	migrationMetadata, exists := metadataCache.Migration.Load()
+	if exists && migrationMetadata.EndTimestamp == nil {
+		metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
+			migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
+		})
+	} else if !exists {
+		migrationMetadata := api.MigrationMetadata{
+			EndTimestamp: pointer.P(metav1.Now()),
+		}
+		metadataCache.Migration.Store(migrationMetadata)
+	}
 }
