@@ -20,6 +20,7 @@
 package virtwrap
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -53,8 +54,10 @@ var _ = Describe("client", func() {
 		os.RemoveAll(shareDir)
 	})
 
-	It("Should monitor the end of a migration", func() {
-		var domainJobType = libvirt.DOMAIN_JOB_BOUNDED
+	DescribeTable("Should monitor the end of a migration", func(type1, type2 libvirt.DomainJobType, op1, op2 libvirt.DomainJobOperationType, err error) {
+		var domainJobType = type1
+		var domainJobOperation = op1
+		var domainJobError = err
 		var lock sync.Mutex
 
 		By("Creating and starting a target migration monitor")
@@ -66,8 +69,8 @@ var _ = Describe("client", func() {
 			defer lock.Unlock()
 			return &libvirt.DomainJobInfo{
 				Type:      domainJobType,
-				Operation: libvirt.DOMAIN_JOB_OPERATION_MIGRATION_IN,
-			}, nil
+				Operation: domainJobOperation,
+			}, domainJobError
 		}).AnyTimes()
 		mockLibvirt.DomainEXPECT().Free().Return(nil).AnyTimes()
 		eventChan := make(chan watch.Event, 100)
@@ -82,17 +85,31 @@ var _ = Describe("client", func() {
 		Consistently(func() bool {
 			_, exists := metadataCache.Migration.Load()
 			return exists
-		}).WithPolling(time.Second).WithTimeout(3 * time.Second).Should(BeFalse())
+		}).WithPolling(200 * time.Millisecond).WithTimeout(2 * time.Second).Should(BeFalse())
 
 		By("Simulating the end of the migration")
 		lock.Lock()
-		domainJobType = libvirt.DOMAIN_JOB_NONE
+		domainJobType = type2
+		domainJobOperation = op2
+		domainJobError = nil
 		lock.Unlock()
 
 		By("Ensuring an entry with an endTimestamp gets added to the metadata cache")
 		Eventually(func() bool {
 			migrationMetadata, exists := metadataCache.Migration.Load()
 			return exists && migrationMetadata.EndTimestamp != nil
-		}).WithPolling(time.Second).WithTimeout(3 * time.Second).Should(BeTrue())
-	})
+		}).WithPolling(200 * time.Millisecond).WithTimeout(2 * time.Second).Should(BeTrue())
+	},
+		Entry("with a migration then no migration", libvirt.DOMAIN_JOB_BOUNDED, libvirt.DOMAIN_JOB_NONE,
+			libvirt.DOMAIN_JOB_OPERATION_MIGRATION_IN, libvirt.DOMAIN_JOB_OPERATION_UNKNOWN,
+			nil),
+		Entry("with an error then no migration", libvirt.DOMAIN_JOB_NONE, libvirt.DOMAIN_JOB_NONE,
+			libvirt.DOMAIN_JOB_OPERATION_UNKNOWN, libvirt.DOMAIN_JOB_OPERATION_UNKNOWN,
+			fmt.Errorf("error")),
+		Entry("with a migration then another operation", libvirt.DOMAIN_JOB_BOUNDED, libvirt.DOMAIN_JOB_BOUNDED,
+			libvirt.DOMAIN_JOB_OPERATION_MIGRATION_IN, libvirt.DOMAIN_JOB_OPERATION_BACKUP,
+			nil),
+		Entry("with an error then another operation", libvirt.DOMAIN_JOB_NONE, libvirt.DOMAIN_JOB_BOUNDED,
+			libvirt.DOMAIN_JOB_OPERATION_UNKNOWN, libvirt.DOMAIN_JOB_OPERATION_BACKUP,
+			fmt.Errorf("error")))
 })
