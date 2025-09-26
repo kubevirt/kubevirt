@@ -18896,6 +18896,20 @@
      }
     }
    },
+   "v1alpha1.VirtualMachinePoolAutohealingStrategy": {
+    "type": "object",
+    "properties": {
+     "minFailingToStartDuration": {
+      "description": "minFailingToStartDuration is the minimum duration a VM has to be failing to start up before it is considered failed Defaults to 5 minutes",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "startUpFailureThreshold": {
+      "description": "startUpFailureThreshold is the number of times a VM has failed to start up before it is considered failed Defaults to 3",
+      "type": "integer",
+      "format": "int64"
+     }
+    }
+   },
    "v1alpha1.VirtualMachinePoolCondition": {
     "type": "object",
     "required": [
@@ -19007,6 +19021,10 @@
      "virtualMachineTemplate"
     ],
     "properties": {
+     "autohealing": {
+      "description": "Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolAutohealingStrategy"
+     },
      "maxUnavailable": {
       "description": "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.util.intstr.IntOrString"

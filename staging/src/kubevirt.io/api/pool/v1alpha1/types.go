@@ -128,6 +128,23 @@ type VirtualMachinePoolSpec struct {
 	// ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool
 	// +optional
 	ScaleInStrategy *VirtualMachinePoolScaleInStrategy `json:"scaleInStrategy,omitempty"`
+
+	// Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance
+	// +optional
+	Autohealing *VirtualMachinePoolAutohealingStrategy `json:"autohealing,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type VirtualMachinePoolAutohealingStrategy struct {
+	// startUpFailureThreshold is the number of times a VM has failed to start up before it is considered failed
+	// Defaults to 3
+	// +optional
+	StartUpFailureThreshold *uint32 `json:"startUpFailureThreshold,omitempty"`
+
+	//minFailingToStartDuration is the minimum duration a VM has to be failing to start up before it is considered failed
+	// Defaults to 5 minutes
+	// +optional
+	MinFailingToStartDuration *metav1.Duration `json:"minFailingToStartDuration,omitempty"`
 }
 
 // +k8s:openapi-gen=true

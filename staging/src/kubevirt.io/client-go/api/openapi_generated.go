@@ -642,6 +642,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicyStatus":                                       schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyStatus(ref),
 		"kubevirt.io/api/migrations/v1alpha1.Selectors":                                                   schema_kubevirtio_api_migrations_v1alpha1_Selectors(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePool":                                                schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePool(ref),
+		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolAutohealingStrategy":                             schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolAutohealingStrategy(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolCondition":                                       schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolCondition(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolList":                                            schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolList(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolNameGeneration":                                  schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolNameGeneration(ref),
@@ -31278,6 +31279,33 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePool(ref common.Reference
 	}
 }
 
+func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolAutohealingStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"startUpFailureThreshold": {
+						SchemaProps: spec.SchemaProps{
+							Description: "startUpFailureThreshold is the number of times a VM has failed to start up before it is considered failed Defaults to 3",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"minFailingToStartDuration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "minFailingToStartDuration is the minimum duration a VM has to be failing to start up before it is considered failed Defaults to 5 minutes",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
+	}
+}
+
 func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -31514,12 +31542,18 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolSpec(ref common.Refer
 							Ref:         ref("kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolScaleInStrategy"),
 						},
 					},
+					"autohealing": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance",
+							Ref:         ref("kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolAutohealingStrategy"),
+						},
+					},
 				},
 				Required: []string{"selector", "virtualMachineTemplate"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "k8s.io/apimachinery/pkg/util/intstr.IntOrString", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolNameGeneration", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolScaleInStrategy", "kubevirt.io/api/pool/v1alpha1.VirtualMachineTemplateSpec"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "k8s.io/apimachinery/pkg/util/intstr.IntOrString", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolAutohealingStrategy", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolNameGeneration", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolScaleInStrategy", "kubevirt.io/api/pool/v1alpha1.VirtualMachineTemplateSpec"},
 	}
 }
 

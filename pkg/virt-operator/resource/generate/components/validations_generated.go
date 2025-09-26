@@ -20318,6 +20318,22 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        autohealing:
+          description: Autohealing specifies when a VMpool should replace a failing
+            VM with a reprovisioned instance
+          properties:
+            minFailingToStartDuration:
+              description: |-
+                minFailingToStartDuration is the minimum duration a VM has to be failing to start up before it is considered failed
+                Defaults to 5 minutes
+              type: string
+            startUpFailureThreshold:
+              description: |-
+                startUpFailureThreshold is the number of times a VM has failed to start up before it is considered failed
+                Defaults to 3
+              format: int32
+              type: integer
+          type: object
         maxUnavailable:
           anyOf:
           - type: integer
