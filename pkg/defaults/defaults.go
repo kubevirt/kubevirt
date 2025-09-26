@@ -20,12 +20,15 @@
 package defaults
 
 import (
+	"context"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
@@ -34,7 +37,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) {
+func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) {
+	setDefaultArchitectureFromDataSource(clusterConfig, vm, virtClient)
 	setDefaultArchitecture(clusterConfig, &vm.Spec.Template.Spec)
 	setVMDefaultMachineType(vm, clusterConfig)
 }
@@ -349,5 +353,53 @@ func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.Virtua
 func setDefaultArchitecture(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	if spec.Architecture == "" {
 		spec.Architecture = clusterConfig.GetDefaultArchitecture()
+	}
+}
+
+func setDefaultArchitectureFromDataSource(clusterConfig *virtconfig.ClusterConfig, vm *v1.VirtualMachine, virtClient kubecli.KubevirtClient) {
+	const (
+		dataSourceKind        = "datasource"
+		templateArchLabel     = "template.kubevirt.io/architecture"
+		ignoreFailureErrorFmt = "ignoring failure to find datasource during vm mutation: %v"
+		ignoreUnknownArchFmt  = "ignoring unknown architecture %s provided by DataSource %s in namespace %s"
+	)
+	if vm.Spec.Template.Spec.Architecture != "" {
+		return
+	}
+	for _, template := range vm.Spec.DataVolumeTemplates {
+		if template.Spec.SourceRef == nil || !strings.EqualFold(template.Spec.SourceRef.Kind, dataSourceKind) {
+			continue
+		}
+		namespace := vm.Namespace
+		templateNamespace := template.Spec.SourceRef.Namespace
+		if templateNamespace != nil && *templateNamespace != "" {
+			namespace = *templateNamespace
+		}
+		ds, err := virtClient.CdiClient().CdiV1beta1().DataSources(namespace).Get(
+			context.Background(), template.Spec.SourceRef.Name, metav1.GetOptions{})
+		if err != nil {
+			log.Log.Errorf(ignoreFailureErrorFmt, err)
+			continue
+		}
+		if ds.Spec.Source.DataSource != nil {
+			ds, err = virtClient.CdiClient().CdiV1beta1().DataSources(ds.Spec.Source.DataSource.Namespace).Get(
+				context.Background(), ds.Spec.Source.DataSource.Name, metav1.GetOptions{})
+			if err != nil {
+				log.Log.Errorf(ignoreFailureErrorFmt, err)
+				continue
+			}
+		}
+		arch, ok := ds.Labels[templateArchLabel]
+		if !ok {
+			continue
+		}
+		switch arch {
+		case "amd64", "arm64", "s390x":
+			vm.Spec.Template.Spec.Architecture = arch
+		default:
+			log.Log.Warningf(ignoreUnknownArchFmt, arch, ds.Name, ds.Namespace)
+			continue
+		}
+		return
 	}
 }
