@@ -1388,7 +1388,20 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		const vmiLaunchTimeout = 360
 
 		It("soft reboot vmi with agent connected should succeed", decorators.Conformance, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
+			// NOTE: ACPI is deliberately disabled here (withoutACPI()) to validate the guest-agent-only
+			// soft reboot path (i.e. success without relying on an ACPI reboot event). On the q35
+			// machine type KubeVirt normally attaches virtio devices behind PCIe root ports; enumerating
+			// those ports (and thus seeing the virtio-blk root disk) depends on ACPI tables. With ACPI
+			// disabled the guest failed to discover the boot disk and the test could not even start.
+			// The annotation kubevirt.io/placePCIDevicesOnRootComplex=true forces all virtio devices onto
+			// the legacy root bus (00:xx) so Linux can enumerate them without ACPI, allowing the VM to
+			// boot while still keeping ACPI disabled for the purpose of isolating the agent-based reboot
+			// mechanism. Remove only if q35 topology changes to make ACPI-less enumeration viable again.
+
+			vmi := libvmifact.NewFedora(withoutACPI(),
+				libvmi.WithAnnotation(v1.PlacePCIDevicesOnRootComplex, "true"))
+
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiLaunchTimeout)
 
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -1416,7 +1429,14 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		It("soft reboot vmi neither have the agent connected nor the ACPI feature enabled should fail", decorators.Conformance, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(withoutACPI()), vmiLaunchTimeout)
+			// Same enumeration issue as above: place devices on root complex so the Cirros disk is visible
+			// even with ACPI disabled; in this case we want soft reboot to fail because neither ACPI nor
+			// the guest agent is available.
+
+			vmi := libvmifact.NewCirros(withoutACPI(),
+				libvmi.WithAnnotation(v1.PlacePCIDevicesOnRootComplex, "true"))
+
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiLaunchTimeout)
 
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
