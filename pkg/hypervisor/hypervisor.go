@@ -28,6 +28,9 @@ import (
 
 type Hypervisor interface {
 	AdjustDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain)
+
+	// Returns the hypervisor device
+	GetDevice() string
 }
 
 func NewHypervisor(hypervisor string) Hypervisor {

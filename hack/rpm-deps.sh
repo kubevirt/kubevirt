@@ -3,7 +3,6 @@
 # 2. to keep things simple
 # 3. good enough for our purposes
 
-
 #!/usr/bin/env bash
 
 set -ex

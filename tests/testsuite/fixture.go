@@ -44,6 +44,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/hypervisor"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -211,14 +212,13 @@ func shouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
 func EnsureHypervisorDevice() {
 	virtClient := kubevirt.Client()
 
-	device := hypervisor.GetDevice(virtClient)
+	deviceName := hypervisor.GetDevice(virtClient)
+	deviceK8sResource := k8sv1.ResourceName(fmt.Sprintf("%s/%s", device_manager.DeviceNamespace, deviceName))
 
 	if !shouldAllowEmulation(virtClient) {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 		virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-		deviceName := filepath.Base(string(device))
 
 		EventuallyWithOffset(1, func() bool {
 			ready := true
@@ -227,7 +227,7 @@ func EnsureHypervisorDevice() {
 				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				allocatable, ok1 := virtHandlerNode.Status.Allocatable[device]
+				allocatable, ok1 := virtHandlerNode.Status.Allocatable[deviceK8sResource]
 				vhostNetAllocatable, ok2 := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
 				ready = ready && ok1 && ok2
 				ready = ready && (allocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)

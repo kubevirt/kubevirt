@@ -139,6 +139,7 @@ go_test(
         "//tests/flags:go_default_library",
         "//tests/framework/checks:go_default_library",
         "//tests/framework/cleanup:go_default_library",
+        "//tests/framework/hypervisor:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/guestlog:go_default_library",

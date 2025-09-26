@@ -51,12 +51,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/hypervisor"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -1281,7 +1281,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("VM Accelerated Mode", decorators.WgS390x, func() {
 
-			It("[test_id:1648]Should provide KVM via plugin framework", func() {
+			It("[test_id:1648]Should provide hypervisor via plugin framework", func() {
 				nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
 
 				if len(nodeList.Items) == 0 {
@@ -1289,11 +1289,14 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 				node := nodeList.Items[0]
 
-				_, ok := node.Status.Allocatable[services.KvmDevice]
-				Expect(ok).To(BeTrue(), "KVM devices not allocatable on node: %s", node.Name)
+				deviceName := hypervisor.GetDevice(kubevirt.Client())
+				deviceK8sResource := k8sv1.ResourceName(fmt.Sprintf("%s/%s", device_manager.DeviceNamespace, deviceName))
 
-				_, ok = node.Status.Capacity[services.KvmDevice]
-				Expect(ok).To(BeTrue(), "No Capacity for KVM devices on node: %s", node.Name)
+				_, ok := node.Status.Allocatable[deviceK8sResource]
+				Expect(ok).To(BeTrue(), "%s devices not allocatable on node: %s", deviceName, node.Name)
+
+				_, ok = node.Status.Capacity[deviceK8sResource]
+				Expect(ok).To(BeTrue(), "No Capacity for %s devices on node: %s", deviceName, node.Name)
 			})
 		})
 	})

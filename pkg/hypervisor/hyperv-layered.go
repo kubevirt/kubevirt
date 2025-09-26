@@ -35,3 +35,7 @@ func (h *HyperVLayeredHypervisor) AdjustDomain(vmi *v1.VirtualMachineInstance, d
 	domain.Spec.Type = "hyperv"
 	log.Log.Infof("Adjusting domain for HyperV Layered")
 }
+
+func (*HyperVLayeredHypervisor) GetDevice() string {
+	return "mshv"
+}
