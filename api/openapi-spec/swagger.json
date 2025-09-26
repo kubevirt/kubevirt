@@ -19009,6 +19009,10 @@
      "virtualMachineTemplate"
     ],
     "properties": {
+     "autohealing": {
+      "description": "Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance",
+      "type": "boolean"
+     },
      "maxUnavailable": {
       "description": "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.util.intstr.IntOrString"
