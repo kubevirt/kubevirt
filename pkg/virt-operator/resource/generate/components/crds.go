@@ -40,8 +40,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1alpha1 "kubevirt.io/api/export/v1alpha1"
 	exportv1beta1 "kubevirt.io/api/export/v1beta1"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -678,18 +676,6 @@ func NewVirtualMachineInstancetypeCrd() (*extv1.CustomResourceDefinition, error)
 			Strategy: extv1.NoneConverter,
 		},
 		Versions: []extv1.CustomResourceDefinitionVersion{{
-			Name:               instancetypev1alpha1.SchemeGroupVersion.Version,
-			Served:             false,
-			Storage:            false,
-			Deprecated:         true,
-			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha1 VirtualMachineInstancetypes is now deprecated and will be removed in v1."),
-		}, {
-			Name:               instancetypev1alpha2.SchemeGroupVersion.Version,
-			Served:             false,
-			Storage:            false,
-			Deprecated:         true,
-			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha2 VirtualMachineInstancetypes is now deprecated and will be removed in v1."),
-		}, {
 			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
 			Served:  true,
 			Storage: true,
@@ -719,18 +705,6 @@ func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition,
 			Strategy: extv1.NoneConverter,
 		},
 		Versions: []extv1.CustomResourceDefinitionVersion{{
-			Name:               instancetypev1alpha1.SchemeGroupVersion.Version,
-			Served:             false,
-			Storage:            false,
-			Deprecated:         true,
-			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha1 VirtualMachineClusterInstanceTypes is now deprecated and will be removed in v1."),
-		}, {
-			Name:               instancetypev1alpha2.SchemeGroupVersion.Version,
-			Served:             false,
-			Storage:            false,
-			Deprecated:         true,
-			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha2 VirtualMachineClusterInstanceTypes is now deprecated and will be removed in v1."),
-		}, {
 			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
 			Served:  true,
 			Storage: true,
@@ -761,18 +735,6 @@ func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
 			Strategy: extv1.NoneConverter,
 		},
 		Versions: []extv1.CustomResourceDefinitionVersion{{
-			Name:               instancetypev1alpha1.SchemeGroupVersion.Version,
-			Served:             false,
-			Storage:            false,
-			Deprecated:         true,
-			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha1 VirtualMachinePreferences is now deprecated and will be removed in v1."),
-		}, {
-			Name:               instancetypev1alpha2.SchemeGroupVersion.Version,
-			Served:             false,
-			Storage:            false,
-			Deprecated:         true,
-			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha2 VirtualMachinePreferences is now deprecated and will be removed in v1."),
-		}, {
 			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
 			Served:  true,
 			Storage: true,
@@ -802,18 +764,6 @@ func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, e
 			Strategy: extv1.NoneConverter,
 		},
 		Versions: []extv1.CustomResourceDefinitionVersion{{
-			Name:               instancetypev1alpha1.SchemeGroupVersion.Version,
-			Served:             false,
-			Storage:            false,
-			Deprecated:         true,
-			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha1 VirtualMachineClusterPreferences is now deprecated and will be removed in v1."),
-		}, {
-			Name:               instancetypev1alpha2.SchemeGroupVersion.Version,
-			Served:             false,
-			Storage:            false,
-			Deprecated:         true,
-			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha2 VirtualMachineClusterPreferences is now deprecated and will be removed in v1."),
-		}, {
 			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
 			Served:  true,
 			Storage: true,
