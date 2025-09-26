@@ -389,6 +389,21 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	// Bootstrapping. From here on the startup order matters
+
+	factory.Start(stop)
+	go domainSharedInformer.Run(stop)
+
+	cache.WaitForCacheSync(
+		stop,
+		vmiInformer.HasSynced,
+		vmiSourceInformer.HasSynced,
+		vmiTargetInformer.HasSynced,
+		domainSharedInformer.HasSynced,
+		factory.CRD().HasSynced,
+		factory.KubeVirt().HasSynced,
+	)
+
 	vmController, err := virthandler.NewVirtualMachineController(
 		recorder,
 		app.virtCli,
@@ -425,11 +440,6 @@ func (app *virtHandlerApp) Run() {
 	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()
 
-	// Bootstrapping. From here on the startup order matters
-
-	factory.Start(stop)
-	go domainSharedInformer.Run(stop)
-
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
 		// relabel tun device
@@ -461,7 +471,7 @@ func (app *virtHandlerApp) Run() {
 		factory.KubeVirt().HasSynced,
 	)
 
-	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
+	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
 		panic(err)
 	}
 

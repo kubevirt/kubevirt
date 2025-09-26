@@ -21,6 +21,7 @@ package device_manager
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"strings"
@@ -103,16 +104,16 @@ func (c *controlledDevice) GetName() string {
 	return c.devicePlugin.GetDeviceName()
 }
 
-func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
+func PermanentHostDevicePlugins(hypervisorDevice string, maxDevices int, permissions string) []Device {
 	var permanentDevicePluginPaths = map[string]string{
-		"kvm":       "/dev/kvm",
-		"tun":       "/dev/net/tun",
-		"vhost-net": "/dev/vhost-net",
+		hypervisorDevice: fmt.Sprintf("/dev/%s", hypervisorDevice),
+		"tun":            "/dev/net/tun",
+		"vhost-net":      "/dev/vhost-net",
 	}
 
 	ret := make([]Device, 0, len(permanentDevicePluginPaths))
 	for name, path := range permanentDevicePluginPaths {
-		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, name != "kvm"))
+		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, name != hypervisorDevice))
 	}
 	return ret
 }

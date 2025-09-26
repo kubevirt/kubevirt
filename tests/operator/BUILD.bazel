@@ -14,6 +14,7 @@ go_library(
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
+        "//pkg/virt-handler/device-manager:go_default_library",
         "//pkg/virt-operator/resource/apply:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//pkg/virt-operator/util:go_default_library",

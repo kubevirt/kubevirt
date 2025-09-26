@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/framework/hypervisor"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -60,14 +61,14 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		nodesWithHypervisor = libnode.GetNodesWithHypervisor()
+		nodesWithHypervisor = libnode.GetNodesWithHypervisor(hypervisor.GetDevice(virtClient))
 		if len(nodesWithHypervisor) == 0 {
 			Fail("No nodes with hypervisor")
 		}
 	})
 
 	AfterEach(func() {
-		nodesWithHypervisor = libnode.GetNodesWithHypervisor()
+		nodesWithHypervisor = libnode.GetNodesWithHypervisor(hypervisor.GetDevice(virtClient))
 
 		for _, node := range nodesWithHypervisor {
 			libnode.RemoveLabelFromNode(node.Name, nonExistingCPUModelLabel)
@@ -143,7 +144,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			config.UpdateKubeVirtConfigValueAndWait(kvConfig)
 
 			Eventually(func() bool {
-				nodesWithHypervisor = libnode.GetNodesWithHypervisor()
+				nodesWithHypervisor = libnode.GetNodesWithHypervisor(hypervisor.GetDevice(virtClient))
 
 				for _, node := range nodesWithHypervisor {
 					_, skipAnnotationFound := node.Annotations[v1.LabellerSkipNodeAnnotation]
