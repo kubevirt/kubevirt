@@ -50,6 +50,7 @@ import (
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -117,6 +118,7 @@ type ConverterContext struct {
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
 	DomainAttachmentByInterfaceName map[string]string
+	Hypervisor                      hypervisor.Hypervisor
 }
 
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
@@ -1869,6 +1871,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	setIOThreads(vmi, domain, vcpus)
+
+	if c.Hypervisor != nil {
+		c.Hypervisor.AdjustDomain(vmi, domain)
+	}
 
 	return nil
 }
