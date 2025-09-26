@@ -43,7 +43,7 @@ type EvacuationController struct {
 	Queue                 workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer            cache.Indexer
 	vmiPodIndexer         cache.Indexer
-	migrationStore        cache.Store
+	migrationIndexer      cache.Indexer
 	recorder              record.EventRecorder
 	migrationExpectations *controller.UIDTrackingControllerExpectations
 	nodeStore             cache.Store
@@ -67,7 +67,7 @@ func NewEvacuationController(
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-evacuation"},
 		),
 		vmiIndexer:            vmiInformer.GetIndexer(),
-		migrationStore:        migrationInformer.GetStore(),
+		migrationIndexer:      migrationInformer.GetIndexer(),
 		nodeStore:             nodeInformer.GetStore(),
 		vmiPodIndexer:         vmiPodInformer.GetIndexer(),
 		recorder:              recorder,
@@ -351,7 +351,7 @@ func (c *EvacuationController) execute(key string) error {
 		return fmt.Errorf("failed to list VMIs on node: %v", err)
 	}
 
-	migrations := migrationutils.ListUnfinishedMigrations(c.migrationStore)
+	migrations := migrationutils.ListUnfinishedMigrations(c.migrationIndexer)
 
 	return c.sync(node, vmis, migrations)
 }

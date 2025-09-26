@@ -139,7 +139,7 @@ func NewSynchronizationController(
 
 	if err := syncController.migrationInformer.AddIndexers(map[string]cache.IndexFunc{
 		"byUID":               indexByMigrationUID,
-		"byVMIName":           indexByVmiName,
+		"byActiveVMIName":     indexByActiveVmiName,
 		"byTargetMigrationID": indexByTargetMigrationID,
 		"bySourceMigrationID": indexBySourceMigrationID,
 	}); err != nil {
@@ -628,7 +628,7 @@ func (s *SynchronizationController) handleTargetState(vmi *virtv1.VirtualMachine
 }
 
 func (s *SynchronizationController) getMigrationForVMI(vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstanceMigration, error) {
-	objects, err := s.migrationInformer.GetIndexer().ByIndex("byVMIName", vmi.Name)
+	objects, err := s.migrationInformer.GetIndexer().ByIndex("byActiveVMIName", vmi.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -1018,7 +1018,7 @@ func indexByMigrationUID(obj interface{}) ([]string, error) {
 	return []string{string(migration.UID)}, nil
 }
 
-func indexByVmiName(obj interface{}) ([]string, error) {
+func indexByActiveVmiName(obj interface{}) ([]string, error) {
 	migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
 	if !ok {
 		return nil, nil
