@@ -106,6 +106,7 @@ go_library(
         "//vendor/k8s.io/client-go/kubernetes/typed/rbac/v1beta1:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/typed/resource/v1alpha3:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/typed/resource/v1beta1:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/typed/resource/v1beta2:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/typed/scheduling/v1:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/typed/scheduling/v1beta1:go_default_library",
