@@ -1629,14 +1629,15 @@ func (c *Controller) removePoolFinalizer(pool *poolv1.VirtualMachinePool) error 
 }
 
 func (c *Controller) cleanupVMs(vms []*virtv1.VirtualMachine) error {
+	var lastErr error
 	for _, vm := range vms {
 		if err := c.removeFinalizer(vm); err != nil {
 			log.Log.Object(vm).Errorf("Failed to remove finalizer: %v", err)
-			return err
+			lastErr = err
 		}
 	}
 
-	return nil
+	return lastErr
 }
 
 func (c *Controller) handlePoolDeletion(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {

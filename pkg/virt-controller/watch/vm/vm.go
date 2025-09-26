@@ -61,6 +61,7 @@ import (
 	"k8s.io/utils/trace"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -2334,8 +2335,13 @@ func (c *Controller) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) erro
 	return err
 }
 
-func (c *Controller) removeVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
-	if !controller.HasFinalizer(vm, virtv1.VirtualMachineControllerFinalizer) {
+func (c *Controller) removeVMAndPoolFinalizer(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+	// Someimes the orphaned VM owned by a pool is stuck with the pool finalizer, so we need to remove it too
+	removePoolFinalizer := false
+	if len(vm.OwnerReferences) == 0 && controller.HasFinalizer(vm, poolv1.VirtualMachinePoolControllerFinalizer) {
+		removePoolFinalizer = true
+	}
+	if !removePoolFinalizer && !controller.HasFinalizer(vm, virtv1.VirtualMachineControllerFinalizer) {
 		return vm, nil
 	}
 
@@ -2344,7 +2350,8 @@ func (c *Controller) removeVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Virtu
 	newFinalizers := []string{}
 
 	for _, fin := range vm.Finalizers {
-		if fin != virtv1.VirtualMachineControllerFinalizer {
+		if (!removePoolFinalizer && fin != virtv1.VirtualMachineControllerFinalizer) ||
+			(removePoolFinalizer && fin != poolv1.VirtualMachinePoolControllerFinalizer) {
 			newFinalizers = append(newFinalizers, fin)
 		}
 	}
@@ -3134,7 +3141,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	if vm.DeletionTimestamp != nil {
 		if vmi == nil || controller.HasFinalizer(vm, metav1.FinalizerOrphanDependents) {
-			vm, err = c.removeVMFinalizer(vm)
+			vm, err = c.removeVMAndPoolFinalizer(vm)
 			if err != nil {
 				return vm, vmi, nil, err
 			}

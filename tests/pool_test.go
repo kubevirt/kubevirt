@@ -514,13 +514,25 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: labelSelectorToString(newPool.Spec.Selector),
 		})
+		Expect(err).ToNot(HaveOccurred())
 		Expect(vms.Items).To(HaveLen(2))
 
 		By("Checking a VirtualMachine owner references")
 		for _, vm := range vms.Items {
 			Expect(vm.OwnerReferences).To(BeEmpty())
 		}
+
+		By("Checking VirtualMachines are not blocked by pool finalizer")
+		err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+			LabelSelector: labelSelectorToString(newPool.Spec.Selector),
+		})
 		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() ([]v1.VirtualMachine, error) {
+			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelectorToString(newPool.Spec.Selector),
+			})
+			return vms.Items, err
+		}, 60*time.Second, 1*time.Second).Should(BeEmpty())
 	})
 
 	It("should not scale when paused and scale when resume", func() {
