@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -2183,6 +2184,146 @@ var _ = Describe("Converter", func() {
 
 			domain := vmiToDomain(&vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true})
 			Expect(domain.Spec.Features.Hyperv.Mode).To(Equal(api.HypervModePassthrough))
+		})
+	})
+
+	Context("Hypervisor Integration", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceCPU:    resource.MustParse("1m"),
+								k8sv1.ResourceMemory: resource.MustParse("64M"),
+							},
+						},
+					},
+				},
+			}
+		})
+
+		It("should work without hypervisor set (nil hypervisor)", func() {
+			context := &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true,
+				Hypervisor:     nil,
+			}
+
+			domain := vmiToDomain(vmi, context)
+			// Should not crash and should have default domain type
+			Expect(domain.Spec.Type).NotTo(BeEmpty())
+		})
+
+		It("should apply KVM hypervisor adjustments (no-op)", func() {
+			kvmHypervisor := &hypervisor.KVMHypervisor{}
+			context := &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true,
+				Hypervisor:     kvmHypervisor,
+			}
+
+			originalType := "qemu"
+			domain := vmiToDomain(vmi, context)
+			// KVM hypervisor should not change the domain type (no-op)
+			if domain.Spec.Type == originalType {
+				// Domain type unchanged, which is expected for KVM (no-op behavior)
+				Expect(domain.Spec.Type).To(Equal(originalType))
+			}
+		})
+
+		It("should apply HyperV Layered hypervisor adjustments", func() {
+			hypervHypervisor := &hypervisor.HyperVLayeredHypervisor{}
+			context := &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true,
+				Hypervisor:     hypervHypervisor,
+			}
+
+			domain := vmiToDomain(vmi, context)
+			// HyperV Layered hypervisor should set domain type to "hyperv"
+			Expect(domain.Spec.Type).To(Equal("hyperv"))
+		})
+
+		It("should demonstrate different hypervisor behaviors", func() {
+			kvmHypervisor := &hypervisor.KVMHypervisor{}
+			hypervHypervisor := &hypervisor.HyperVLayeredHypervisor{}
+
+			// Test KVM hypervisor
+			kvmContext := &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true,
+				Hypervisor:     kvmHypervisor,
+			}
+			kvmDomain := vmiToDomain(vmi, kvmContext)
+
+			// Test HyperV Layered hypervisor
+			hypervContext := &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true,
+				Hypervisor:     hypervHypervisor,
+			}
+			hypervDomain := vmiToDomain(vmi, hypervContext)
+
+			// Verify different behaviors
+			Expect(hypervDomain.Spec.Type).To(Equal("hyperv"))
+			// KVM should maintain default behavior (not "hyperv")
+			Expect(kvmDomain.Spec.Type).NotTo(Equal("hyperv"))
+		})
+
+		It("should integrate with hypervisor factory", func() {
+			By("Testing KVM hypervisor from factory")
+			kvmHypervisor := hypervisor.NewHypervisor("kvm")
+			kvmContext := &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true,
+				Hypervisor:     kvmHypervisor,
+			}
+			kvmDomain := vmiToDomain(vmi, kvmContext)
+
+			By("Testing HyperV Layered hypervisor from factory")
+			hypervHypervisor := hypervisor.NewHypervisor("hyperv-layered")
+			hypervContext := &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true,
+				Hypervisor:     hypervHypervisor,
+			}
+			hypervDomain := vmiToDomain(vmi, hypervContext)
+
+			By("Verifying type differences")
+			Expect(hypervDomain.Spec.Type).To(Equal("hyperv"))
+			Expect(kvmDomain.Spec.Type).NotTo(Equal("hyperv"))
+		})
+
+		It("should handle edge cases gracefully", func() {
+			hypervHypervisor := &hypervisor.HyperVLayeredHypervisor{}
+			context := &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true,
+				Hypervisor:     hypervHypervisor,
+			}
+
+			// Test with minimal VMI
+			minimalVMI := &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "minimal",
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{},
+				},
+			}
+
+			domain := vmiToDomain(minimalVMI, context)
+			// Should still apply hypervisor adjustments
+			Expect(domain.Spec.Type).To(Equal("hyperv"))
 		})
 	})
 

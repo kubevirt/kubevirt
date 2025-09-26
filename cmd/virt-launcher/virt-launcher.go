@@ -47,6 +47,7 @@ import (
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	hv "kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	putil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -359,6 +360,7 @@ func main() {
 	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5*time.Second, "Interval between consecutive qemu agent calls for fsfreeze status command")
 	simulateCrash := pflag.Bool("simulate-crash", false, "Causes virt-launcher to immediately crash. This is used by functional tests to simulate crash loop scenarios.")
 	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
+	hypervisorName := pflag.String("hypervisor", "kvm", "The hypervisor to use. Supported values are 'kvm' and 'hyperv-layered'.")
 
 	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
 	pflag.Parse()
@@ -429,11 +431,12 @@ func main() {
 	metadataCache := metadata.NewCache()
 
 	signalStopChan := make(chan struct{})
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled)
+	log.Log.Infof("Creating domain manager with hypervisor %s", *hypervisorName)
+	hypervisor := hv.NewHypervisor(*hypervisorName)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, hypervisor)
 	if err != nil {
 		panic(err)
 	}
-
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines

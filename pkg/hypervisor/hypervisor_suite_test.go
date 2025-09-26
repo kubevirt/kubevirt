@@ -20,13 +20,11 @@
 package hypervisor
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	"testing"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/client-go/testutils"
 )
 
-type KVMHypervisor struct{}
-
-func (k *KVMHypervisor) AdjustDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	// no adjustments needed for KVM
+func TestHypervisor(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }

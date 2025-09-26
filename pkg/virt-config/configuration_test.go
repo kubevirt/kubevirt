@@ -773,4 +773,31 @@ var _ = Describe("test configuration", func() {
 		Entry("reference when InstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, v1.Reference),
 		Entry("expand InstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, v1.Expand),
 	)
+
+	Context("GetHypervisor", func() {
+		DescribeTable("should return correct hypervisor name based on feature gate and configuration",
+			func(featureGateEnabled bool, hypervisorConfig *v1.HypervisorConfiguration, expectedName string) {
+				var featureGates []string
+				if featureGateEnabled {
+					featureGates = []string{"ConfigurableHypervisor"}
+				}
+
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: featureGates,
+					},
+					HypervisorConfiguration: hypervisorConfig,
+				})
+
+				Expect(clusterConfig.GetHypervisor().Name).To(Equal(expectedName))
+			},
+			Entry("should return kvm when feature gate is disabled and no config", false, nil, v1.KvmHypervisorName),
+			Entry("should return kvm when feature gate is disabled with kvm config", false, &v1.HypervisorConfiguration{Name: v1.KvmHypervisorName}, v1.KvmHypervisorName),
+			Entry("should return kvm when feature gate is disabled with hyperv config", false, &v1.HypervisorConfiguration{Name: v1.HyperVLayeredHypervisorName}, v1.KvmHypervisorName),
+			Entry("should return kvm when feature gate is enabled and no config", true, nil, v1.KvmHypervisorName),
+			Entry("should return kvm when feature gate is enabled with empty config name", true, &v1.HypervisorConfiguration{Name: ""}, v1.KvmHypervisorName),
+			Entry("should return kvm when feature gate is enabled with kvm config", true, &v1.HypervisorConfiguration{Name: v1.KvmHypervisorName}, v1.KvmHypervisorName),
+			Entry("should return hyperv-layered when feature gate is enabled with hyperv config", true, &v1.HypervisorConfiguration{Name: v1.HyperVLayeredHypervisorName}, v1.HyperVLayeredHypervisorName),
+		)
+	})
 })

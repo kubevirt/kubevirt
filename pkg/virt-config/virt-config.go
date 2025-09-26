@@ -485,5 +485,8 @@ func (c *ClusterConfig) ClusterProfilerEnabled() bool {
 }
 
 func (c *ClusterConfig) GetHypervisor() *v1.HypervisorConfiguration {
-	return c.GetConfig().HypervisorConfiguration
+	if c.ConfigurableHypervisorEnabled() {
+		return c.GetConfig().HypervisorConfiguration
+	}
+	return &v1.HypervisorConfiguration{Name: DefaultHypervisorName}
 }
