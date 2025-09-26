@@ -17,7 +17,7 @@
  *
  */
 
-package virtwrap
+package network
 
 import (
 	"encoding/xml"
@@ -49,7 +49,8 @@ type virtIOInterfaceManager struct {
 }
 
 const (
-	libvirtInterfaceLinkStateDown = "down"
+	libvirtInterfaceLinkStateDown         = "down"
+	affectDeviceLiveAndConfigLibvirtFlags = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
 )
 
 func newVirtIOInterfaceManager(
@@ -206,14 +207,14 @@ func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
 	return domainInterfaces
 }
 
-// withNetworkIfacesResources adds network interfaces as placeholders to the domain spec
+// WithNetworkIfacesResources adds network interfaces as placeholders to the domain spec
 // to trigger the addition of the dependent resources/devices (e.g. PCI controllers).
 // As its last step, it reads the generated configuration and removes the network interfaces
 // so none will be created with the domain creation.
 // The dependent devices are left in the configuration, to allow future hotplug.
-func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
+func WithNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
 	if count > 0 {
-		domainSpecWithIfacesResource := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
+		domainSpecWithIfacesResource := AppendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
 		dom, err := f(vmi, domainSpecWithIfacesResource)
 		if err != nil {
 			return nil, err
@@ -234,7 +235,7 @@ func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.
 	return f(vmi, domainSpec)
 }
 
-func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int) *api.DomainSpec {
+func AppendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int) *api.DomainSpec {
 	domainSpecWithIfacesResource := domainSpec.DeepCopy()
 	for i := 0; i < count; i++ {
 		domainSpecWithIfacesResource.Devices.Interfaces = append(

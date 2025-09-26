@@ -38,6 +38,8 @@ import (
 	"libvirt.org/go/libvirt"
 	"libvirt.org/go/libvirtxml"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -447,7 +449,7 @@ var _ = Describe("Manager", func() {
 		addPlaceHolderInterfaces := func(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
 			count, err := calculateHotplugPortCount(vmi, domainSpec)
 			Expect(err).ToNot(HaveOccurred())
-			return appendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
+			return network.AppendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
 		}
 
 		setDomainExpectations := func(vmi *v1.VirtualMachineInstance) {
