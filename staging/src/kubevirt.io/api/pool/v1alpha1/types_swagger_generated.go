@@ -43,6 +43,15 @@ func (VirtualMachinePoolSpec) SwaggerDoc() map[string]string {
 		"maxUnavailable":         "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.\n+optional",
 		"scaleInStrategy":        "ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool\n+optional",
 		"updateStrategy":         "UpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool\n+optional",
+		"autohealing":            "Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance\n+optional",
+	}
+}
+
+func (VirtualMachinePoolAutohealingStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                          "+k8s:openapi-gen=true",
+		"startUpFailureThreshold":   "StartUpFailureThreshold is the number of consecutive VMI start failures (it tracks the value of Status.StartFailure.ConsecutiveFailCount field) before replacing the VM.\nDefaults to 3\n+optional\n+kubebuilder:validation:Minimum=1",
+		"minFailingToStartDuration": "MinFailingToStartDuration is the minimum time a VM must be in a failing status (applies to status conditions like CrashLoopBackOff, Unschedulable) before being replaced.\nIt measures the duration since the VM's Ready condition transitioned to False.\nDefaults to 5 minutes\n+optional",
 	}
 }
 
