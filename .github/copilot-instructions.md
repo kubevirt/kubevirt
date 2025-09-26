@@ -2,6 +2,13 @@
 
 Purpose: Give an AI agent just enough KubeVirt context to be productive fast and avoid common pitfalls. Keep answers and code changes aligned with established build + packaging + controller patterns.
 
+### 0. Quick Start for AI Assistants
+- **Primary Language**: Go (with Bazel build system)
+- **Key Commands**: `make generate`, `make bazel-build`, `make bazel-test`, `hack/dockerized`
+- **Never** manually edit generated files (look for `// Code generated` headers)
+- **Always** use `hack/dockerized` for reproducible builds
+- **Security**: Follow established patterns, never introduce vulnerabilities
+
 ### 1. Big Picture
 - KubeVirt adds VM primitives to Kubernetes via CRDs (core object: `VirtualMachineInstance` plus higher-level `VirtualMachine`, `VirtualMachineInstanceReplicaSet`, etc.).
 - Control-plane components run as pods: `virt-api` (admission/defaulting/validation), `virt-controller` (cluster‑wide orchestration), `virt-handler` (node agent), per‑VMI `virt-launcher` pods (run libvirt + qemu inside container cgroups), optional sidecars/tools.
@@ -32,6 +39,8 @@ Purpose: Give an AI agent just enough KubeVirt context to be productive fast and
 - Image content: Do NOT apt/yum install inside Dockerfiles—rootfs is constructed from rpmtrees. Add packages by extending lists in `hack/rpm-deps.sh` & regenerating.
 - Vendoring: Use `make deps-update` / `deps-update-patch`; don’t manually edit `go.mod` then forget Bazel sync.
 - Multi-arch: Avoid architecture conditionals in Go unless absolutely required; check existing patterns (e.g., build tags) before adding new ones.
+- **Code Style**: Follow Go standards + `.golangci.yml` linter config. Run `make lint` before submitting.
+- **Security**: Never introduce security vulnerabilities. Follow security guidelines in `SECURITY.md`. Use `gosec` linter findings seriously.
 
 ### 5. Typical Change Flows (Examples)
 - Add a new field to VMI spec:
@@ -63,7 +72,13 @@ Before proposing edits, mentally confirm:
 - Does change require regenerating code or updating rpm-deps? Run required Make targets.
 - Are tests or docs needed to accompany change? Provide minimal but complete coverage.
 
-### 10. Provide Responses This Way
+### 10. Contribution Guidelines
+- **DCO Requirement**: All commits must be signed off with `git commit --signoff` for Developer Certificate of Origin compliance.
+- **PR Guidelines**: Follow `CONTRIBUTING.md`. Consider opening draft PRs for work-in-progress changes.
+- **Testing**: "Untested features do not exist" – always include appropriate unit and functional tests.
+- **Review Process**: PRs require maintainer approval. New contributors need `/ok-to-test` comment for CI.
+
+### 11. Provide Responses This Way
 - Cite concrete files (`hack/rpm-deps.sh`, `Makefile`, `cmd/virt-controller/...`) rather than generic advice.
 - Offer exact Make targets instead of raw `bazel`/`go build` commands.
 - For multi-step edits, outline sequence (edit -> generate -> test) succinctly.
