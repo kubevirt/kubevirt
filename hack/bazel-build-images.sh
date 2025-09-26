@@ -40,7 +40,7 @@ other_images_x86_64_aarch64="
     //cmd/sidecars/network-slirp-binding:network-slirp-binding-image
     //cmd/sidecars/network-passt-binding:network-passt-binding-image
     //cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image
-    //cmd/pr-helper:pr-helper
+    //cmd/pr-helper:pr-helper-image
     //containerimages:cirros-container-disk-image
     //containerimages:cirros-custom-container-disk-image
     //containerimages:virtio-container-disk-image
