@@ -35,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
@@ -279,7 +280,7 @@ var _ = Describe("domain network interfaces resources", func() {
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{}}
 		domainSpec := &api.DomainSpec{}
 		countCalls := 0
-		_, _ = network.WithNetworkIfacesResources(vmi, domainSpec, 0, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+		_, _ = virtwrap.WithNetworkIfacesResources(vmi, domainSpec, 0, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
 			countCalls++
 			return nil, nil
 		})
@@ -306,7 +307,7 @@ var _ = Describe("domain network interfaces resources", func() {
 
 		originalDomainSpec := domainSpec.DeepCopy()
 		countCalls := 0
-		_, err = network.WithNetworkIfacesResources(vmi, domainSpec, 3, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+		_, err = virtwrap.WithNetworkIfacesResources(vmi, domainSpec, 3, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
 			// Tracking the behavior of the tested function.
 			// It is expected that the callback function is called twice when placeholders are needed.
 			// The first time it is called with the placeholders in place.
