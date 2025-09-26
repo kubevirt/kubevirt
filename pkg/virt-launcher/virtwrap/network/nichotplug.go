@@ -44,8 +44,15 @@ type vmConfigurator interface {
 }
 
 type virtIOInterfaceManager struct {
-	dom          cli.VirDomain
+	dom          libvirtClientDeviceActions
 	configurator vmConfigurator
+}
+
+type libvirtClientDeviceActions interface {
+	AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
+	UpdateDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
+	DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
+	Free() error
 }
 
 const (
@@ -54,7 +61,7 @@ const (
 )
 
 func newVirtIOInterfaceManager(
-	libvirtClient cli.VirDomain,
+	libvirtClient libvirtClientDeviceActions,
 	configurator vmConfigurator,
 ) *virtIOInterfaceManager {
 	return &virtIOInterfaceManager{
