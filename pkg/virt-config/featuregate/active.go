@@ -35,9 +35,16 @@ const (
 	// Owner: sig-storage
 	// Alpha: v0.55.0
 	// Beta: v1.3.0
-	VMExportGate       = "VMExport"
+	VMExportGate = "VMExport"
+
+	// Owner: sig-storage
+	// Alpha: v0.55.0
+	HostDiskGate = "HostDisk"
+
+	// Owner: sig-storage
+	// Alpha: v0.55.0
+	// Deprecated: v1.6.0
 	HotplugVolumesGate = "HotplugVolumes"
-	HostDiskGate       = "HostDisk"
 
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	Root                       = "Root"
