@@ -3469,7 +3469,8 @@ var _ = Describe("Template", func() {
 								DisableHotplug: true,
 								Filesystems: []v1.Filesystem{
 									{
-										Name: "fakeVol1",
+										Name:     "fakeVol1",
+										Virtiofs: &v1.FilesystemVirtiofs{},
 									},
 								},
 							},
