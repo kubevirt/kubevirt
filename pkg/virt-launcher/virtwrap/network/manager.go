@@ -25,13 +25,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
 
 func Sync(
 	domain *api.Domain,
 	oldSpec *api.DomainSpec,
-	dom cli.VirDomain,
+	dom libvirtClientDeviceActions,
 	vmi *v1.VirtualMachineInstance,
 	domainAttachments map[string]string,
 ) error {
@@ -40,14 +39,14 @@ func Sync(
 	}
 
 	networkConfigurator := netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, netsetup.WithDomainAttachments(domainAttachments))
-	networkInterfaceManager := newVirtIOInterfaceManager(dom, networkConfigurator)
-	if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
+	networkInterfaceManager := NewVirtIOInterfaceManager(dom, networkConfigurator)
+	if err := networkInterfaceManager.HotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
 		return err
 	}
 	if err := networkInterfaceManager.hotUnplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
 		return err
 	}
-	if err := networkInterfaceManager.updateDomainLinkState(&api.Domain{Spec: *oldSpec}, domain); err != nil {
+	if err := networkInterfaceManager.UpdateDomainLinkState(&api.Domain{Spec: *oldSpec}, domain); err != nil {
 		return err
 	}
 
