@@ -3,7 +3,7 @@ try-import ci.bazelrc
 try-import .bazeldnf/sandbox.bazelrc
 
 # Set common values for all builds (run, test and coverage inherit from build)
-build --stamp --workspace_status_command=./hack/print-workspace-status.sh --host_force_python=PY3
+build --stamp --noenable_bzlmod --workspace_status_command=./hack/print-workspace-status.sh --host_force_python=PY3
 
 # Bazel has a rule of precedence so we can specify / overwrite architecture specific commands if needed
 build:x86_64 --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo
