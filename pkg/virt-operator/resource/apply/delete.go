@@ -22,6 +22,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	routev1 "github.com/openshift/api/route/v1"
@@ -499,7 +500,7 @@ func DeleteAll(kv *v1.KubeVirt,
 		}
 	}
 
-	if err = deleteKubeVirtLabelsFromNodes(clientset); err != nil {
+	if err = deleteNodeLabelsAndAnnotations(clientset); err != nil {
 		return err
 	}
 
@@ -510,21 +511,31 @@ func DeleteAll(kv *v1.KubeVirt,
 	return nil
 }
 
-func deleteKubeVirtLabelsFromNodes(clientset kubecli.KubevirtClient) error {
+func deleteNodeLabelsAndAnnotations(clientset kubecli.KubevirtClient) error {
 	nodeList, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable})
 	if err != nil {
 		return fmt.Errorf("failed to list nodes: %v", err)
 	}
 
+	// regex to match all kubevirt related labels and annotations
+	kubevirtRegex := regexp.MustCompile(`.*kubevirt\.io/.*`)
+
 	for _, node := range nodeList.Items {
-		labels := node.GetLabels()
-		if labels == nil {
-			continue
-		}
 		patchSet := patch.New()
+
+		// determine set of labels that need to be deleted
+		labels := node.GetLabels()
 		for labelkey := range labels {
-			if strings.HasPrefix(labelkey, "kubevirt.io/") {
+			if kubevirtRegex.MatchString(labelkey) {
 				patchSet.AddOption(patch.WithRemove(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(labelkey))))
+			}
+		}
+
+		// determine set of annotations that need to be deleted
+		annotations := node.GetAnnotations()
+		for annotationKey := range annotations {
+			if kubevirtRegex.MatchString(annotationKey) {
+				patchSet.AddOption(patch.WithRemove(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(annotationKey))))
 			}
 		}
 

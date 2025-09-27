@@ -200,9 +200,10 @@ var _ = Describe("Deletion", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "node1",
 							Labels: map[string]string{
-								"kubevirt.io/schedulable": "true",
-								"kubevirt.io/some-label":  "value",
-								"other-label":             "value",
+								"kubevirt.io/schedulable":            "true",
+								"kubevirt.io/some-label":             "value",
+								"cpu-feature.kubevirt.io/some-label": "value",
+								"other-label":                        "value",
 							},
 						},
 					},
@@ -210,8 +211,9 @@ var _ = Describe("Deletion", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "node2",
 							Labels: map[string]string{
-								"kubevirt.io/schedulable":   "true",
-								"kubevirt.io/another-label": "value",
+								"kubevirt.io/schedulable":            "true",
+								"kubevirt.io/another-label":          "value",
+								"cpu-feature.kubevirt.io/some-label": "value",
 							},
 						},
 					},
@@ -231,7 +233,7 @@ var _ = Describe("Deletion", func() {
 			_, err = clientset.CoreV1().Nodes().Create(context.Background(), &nodes.Items[2], metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			err = deleteKubeVirtLabelsFromNodes(kubevirtClient)
+			err = deleteNodeLabelsAndAnnotations(kubevirtClient)
 			Expect(err).ToNot(HaveOccurred())
 
 			updatedNode1, err := clientset.CoreV1().Nodes().Get(context.Background(), "node1", metav1.GetOptions{})
