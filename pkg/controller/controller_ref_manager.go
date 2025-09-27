@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -471,9 +472,17 @@ func (m *VirtualMachineControllerRefManager) AdoptVirtualMachine(vm *virtv1.Virt
 func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachine(vm *virtv1.VirtualMachine) error {
 	log.Log.V(2).Object(vm).Infof("patching vm to remove its controllerRef to %s/%s:%s",
 		m.controllerKind.GroupVersion(), m.controllerKind.Kind, m.Controller.GetName())
+	// when the vm is owned by a pool and is being released, we need to remove the pool finalizer too, if not pool finalizer will stay forever until user manually removes it
+	var newFinalizers []string
+	for _, fin := range vm.Finalizers {
+		if fin != poolv1.VirtualMachinePoolControllerFinalizer {
+			newFinalizers = append(newFinalizers, fin)
+		}
+	}
+
 	// TODO CRDs don't support strategic merge, therefore replace the onwerReferences list with a merge patch
-	deleteOwnerRefPatch := fmt.Sprint(`{"metadata":{"ownerReferences":[]}}`)
-	err := m.virtualMachineControl.PatchVirtualMachine(vm.Namespace, vm.Name, []byte(deleteOwnerRefPatch))
+	releaseVMPatch := fmt.Sprintf(`{"metadata":{"ownerReferences":[],"finalizers":%s}}`, newFinalizers)
+	err := m.virtualMachineControl.PatchVirtualMachine(vm.Namespace, vm.Name, []byte(releaseVMPatch))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// If the vm no longer exists, ignore it.
