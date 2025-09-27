@@ -21746,8 +21746,9 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"minCPUModel": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "deprecated",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"obsoleteCPUModels": {
