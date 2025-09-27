@@ -2432,7 +2432,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		It("Should find vmi, from virt-launcher pod", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			controllerRef := kvcontroller.GetControllerOf(pod)
+			controllerRef := metav1.GetControllerOf(pod)
 			addVirtualMachine(vmi)
 
 			result := controller.resolveControllerRef(k8sv1.NamespaceDefault, controllerRef)
@@ -2443,7 +2443,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			attachmentPod := newPodForVirtlauncher(pod, "hp-test", "abcd", k8sv1.PodRunning)
-			controllerRef := kvcontroller.GetControllerOf(attachmentPod)
+			controllerRef := metav1.GetControllerOf(attachmentPod)
 			addVirtualMachine(vmi)
 			addPod(pod)
 
@@ -4249,6 +4249,9 @@ func newPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 				virtv1.CreatedByLabel: string(vmi.UID),
 			},
 			Annotations: podAnnotations,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
+			},
 		},
 		Status: k8sv1.PodStatus{
 			Phase: phase,

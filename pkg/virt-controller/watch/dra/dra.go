@@ -190,7 +190,7 @@ func (c *DRAStatusController) addPod(obj interface{}) {
 		return
 	}
 
-	controllerRef := controller.GetControllerOf(pod)
+	controllerRef := metav1.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
 		return
@@ -218,7 +218,7 @@ func (c *DRAStatusController) deletePod(obj interface{}) {
 		}
 	}
 
-	controllerRef := controller.GetControllerOf(pod)
+	controllerRef := metav1.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
 		return
@@ -244,8 +244,8 @@ func (c *DRAStatusController) updatePod(old interface{}, cur interface{}) {
 		return
 	}
 
-	curControllerRef := controller.GetControllerOf(curPod)
-	oldControllerRef := controller.GetControllerOf(oldPod)
+	curControllerRef := metav1.GetControllerOf(curPod)
+	oldControllerRef := metav1.GetControllerOf(oldPod)
 	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged {
 		// The ControllerRef was changed. Sync the old controller, if any.
@@ -275,7 +275,7 @@ func (c *DRAStatusController) resolveControllerRef(namespace string, controllerR
 			return nil
 		}
 		pod, _ := obj.(*k8sv1.Pod)
-		controllerRef = controller.GetControllerOf(pod)
+		controllerRef = metav1.GetControllerOf(pod)
 	}
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it is nil or the wrong Kind.
