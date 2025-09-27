@@ -108,6 +108,8 @@ elif [[ $TARGET =~ wg-s390x ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-wg-s390x}
 elif [[ $TARGET =~ wg-arm64 ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
+    export KUBEVIRT_DEPLOY_PROMETHEUS=true
+    export KUBEVIRT_FUNC_TEST_GINKGO_ARGS="-vv"
 elif [[ $TARGET =~ sev ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-sev}
 else
@@ -314,6 +316,10 @@ echo "Nodes are ready:"
 kubectl get nodes
 
 ionice --class idle make cluster-sync
+
+kubectl patch kubevirt kubevirt -n kubevirt --type=merge \
+  -p '{"spec":{"configuration":{"developerConfiguration":{"logVerbosity":{"virtAPI":6,"virtController":6,"virtHandler":6,"virtLauncher":6,"virtOperator":6}}}}}'
+
 
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)
