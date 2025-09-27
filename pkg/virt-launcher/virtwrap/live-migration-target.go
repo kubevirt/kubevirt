@@ -30,7 +30,6 @@ import (
 	"strconv"
 	"time"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -309,6 +308,12 @@ func getVMIHotplugCount(vmi *v1.VirtualMachineInstance) int {
 	return hotplugCount
 }
 
+// The TargetMigrationMonitor is expected to be created and started at the very end of a migration,
+// after the target domain has been resumed.
+// It will poll the current libvirt job on the domain to ensure the migration is really over.
+// This is because a migration isn't truly over even when the target has been resumed.
+// Once no migration job is observed on the domain, the monitor will trigger the notifier.
+// See https://issues.redhat.com/browse/RHEL-117250
 type TargetMigrationMonitor struct {
 	c             cli.Connection
 	events        chan watch.Event
@@ -340,14 +345,14 @@ func NewTargetMigrationMonitor(
 		notifier:      notifier}
 }
 
-var retryDelays = []time.Duration{10 * time.Second, 20 * time.Second, 30 * time.Second}
+var retryDelays = []time.Duration{1 * time.Second, 2 * time.Second, 3 * time.Second}
 
 func (m *TargetMigrationMonitor) StartMonitor() {
 	go func() {
 		var err error
 		domName := api.VMINamespaceKeyFunc(m.vmi)
 		for attempt := 0; attempt <= len(retryDelays); attempt++ {
-			err = virtwait.PollImmediately(50*time.Millisecond, 30*time.Second, func(context context.Context) (bool, error) {
+			err = virtwait.PollImmediately(100*time.Millisecond, 3*time.Second, func(context context.Context) (bool, error) {
 				dom, err := m.c.LookupDomainByName(domName)
 				if err != nil {
 					return false, err
@@ -355,15 +360,18 @@ func (m *TargetMigrationMonitor) StartMonitor() {
 				defer dom.Free()
 				jobInfo, err := dom.GetJobInfo()
 				if err != nil {
-					return false, err
+					log.Log.Object(m.vmi).V(4).Reason(err).Info("Failed to get domain job info")
+					// This can happen if the current job doesn't support `GetJobInfo()`, let's try again
+					return false, nil
 				}
 				if jobInfo.Type == libvirt.DOMAIN_JOB_NONE || jobInfo.Operation != libvirt.DOMAIN_JOB_OPERATION_MIGRATION_IN {
+					// No migration job is currently running
 					return true, nil
 				}
-				log.Log.Object(m.vmi).V(4).Infof("Incoming migration job active (type %d), waiting...", jobInfo.Type)
+				log.Log.Object(m.vmi).V(4).Infof("Incoming migration job active (type %d)", jobInfo.Type)
 				return false, nil
 			})
-			if err == nil || !k8serrors.IsTimeout(err) || attempt == len(retryDelays) {
+			if err == nil || attempt == len(retryDelays) {
 				break
 			}
 			log.Log.Object(m.vmi).Info("A migration job is still active, retrying after delay")
@@ -388,7 +396,7 @@ func setEndTimestamp(metadataCache *metadata.Cache) {
 			migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
 		})
 	} else if !exists {
-		migrationMetadata := api.MigrationMetadata{
+		migrationMetadata = api.MigrationMetadata{
 			EndTimestamp: pointer.P(metav1.Now()),
 		}
 		metadataCache.Migration.Store(migrationMetadata)
