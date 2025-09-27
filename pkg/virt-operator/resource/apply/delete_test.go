@@ -200,10 +200,15 @@ var _ = Describe("Deletion", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "node1",
 							Labels: map[string]string{
-								"kubevirt.io/schedulable":            "true",
-								"kubevirt.io/some-label":             "value",
-								"cpu-feature.kubevirt.io/some-label": "value",
-								"other-label":                        "value",
+								"kubevirt.io/schedulable":          "true",
+								"kubevirt.io/some-label":           "value",
+								"prefix.kubevirt.io/another-label": "value",
+								"other-label":                      "value",
+							},
+							Annotations: map[string]string{
+								"kubevirt.io/some-annotation":           "value",
+								"prefix.kubevirt.io/another-annotation": "value",
+								"other-annotation":                      "value",
 							},
 						},
 					},
@@ -211,9 +216,13 @@ var _ = Describe("Deletion", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "node2",
 							Labels: map[string]string{
-								"kubevirt.io/schedulable":            "true",
-								"kubevirt.io/another-label":          "value",
-								"cpu-feature.kubevirt.io/some-label": "value",
+								"kubevirt.io/schedulable":          "true",
+								"kubevirt.io/some-label":           "value",
+								"prefix.kubevirt.io/another-label": "value",
+							},
+							Annotations: map[string]string{
+								"kubevirt.io/some-annotation":           "value",
+								"prefix-kubevirt.io/another-annotation": "value",
 							},
 						},
 					},
@@ -239,11 +248,16 @@ var _ = Describe("Deletion", func() {
 			updatedNode1, err := clientset.CoreV1().Nodes().Get(context.Background(), "node1", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updatedNode1.Labels).ToNot(HaveKey("kubevirt.io/some-label"))
+			Expect(updatedNode1.Labels).ToNot(HaveKey("prefix.kubevirt.io/another-label"))
 			Expect(updatedNode1.Labels).To(HaveKey("other-label"))
+			Expect(updatedNode1.Annotations).ToNot(HaveKey("kubevirt.io/some-annotation"))
+			Expect(updatedNode1.Annotations).ToNot(HaveKey("prefix.kubevirt.io/another-annotation"))
+			Expect(updatedNode1.Annotations).To(HaveKey("other-annotation"))
 
 			updatedNode2, err := clientset.CoreV1().Nodes().Get(context.Background(), "node2", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updatedNode2.Labels).To(BeEmpty())
+			Expect(updatedNode2.Annotations).To(BeEmpty())
 
 			Expect(clientset.Actions()).To(WithTransform(func(actions []testing.Action) []testing.Action {
 				var node3patchActions []testing.Action
