@@ -30,6 +30,7 @@ go_test(
         "find_suite_test.go",
         "spec_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/instancetype/revision:go_default_library",

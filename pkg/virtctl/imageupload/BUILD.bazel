@@ -34,6 +34,7 @@ go_test(
         "imageupload_suite_test.go",
         "imageupload_test.go",
     ],
+    race = "on",
     tags = ["cov"],
     deps = [
         ":go_default_library",

@@ -27,6 +27,7 @@ go_test(
         "hostdevice_suite_test.go",
         "hotplug_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/pointer:go_default_library",
