@@ -626,6 +626,11 @@ func (in *Controller) DeepCopyInto(out *Controller) {
 		*out = new(PCIHole64)
 		**out = **in
 	}
+	if in.Ports != nil {
+		in, out := &in.Ports, &out.Ports
+		*out = new(uint)
+		**out = **in
+	}
 	return
 }
 
