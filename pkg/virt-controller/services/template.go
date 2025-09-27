@@ -164,6 +164,10 @@ func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 func setNodeAffinityForPod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	setNodeAffinityForHostModelCpuModel(vmi, pod)
 	setNodeAffinityForbiddenFeaturePolicy(vmi, pod)
+
+	if vmi.IsCPUDedicated() {
+		setNodeAffinityForCPUManager(pod)
+	}
 }
 
 func setNodeAffinityForHostModelCpuModel(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
@@ -181,6 +185,56 @@ func setNodeAffinityForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *
 		if feature.Policy == "forbid" {
 			pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, v1.CPUFeatureLabel+feature.Name)
 		}
+	}
+}
+
+func setNodeAffinityForCPUManager(pod *k8sv1.Pod) {
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &k8sv1.Affinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity == nil {
+		pod.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+	}
+
+	if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{}
+	}
+
+	oldLabel := k8sv1.NodeSelectorRequirement{
+		Key:      v1.DeprecatedCPUManager,
+		Operator: k8sv1.NodeSelectorOpIn,
+		Values:   []string{"true"},
+	}
+	newLabel := k8sv1.NodeSelectorRequirement{
+		Key:      v1.CPUManager,
+		Operator: k8sv1.NodeSelectorOpIn,
+		Values:   []string{"true"},
+	}
+
+	if len(pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms) == 0 {
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms =
+			[]k8sv1.NodeSelectorTerm{
+				{
+					MatchExpressions: []k8sv1.NodeSelectorRequirement{oldLabel},
+				},
+				{
+					MatchExpressions: []k8sv1.NodeSelectorRequirement{newLabel},
+				},
+			}
+	} else {
+		copies := []k8sv1.NodeSelectorTerm{}
+		for i := range pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+			newTerm := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].DeepCopy()
+			newTerm.MatchExpressions = append(newTerm.MatchExpressions, oldLabel)
+
+			pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions = append(
+				pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions, newLabel)
+			copies =
+				append(copies,
+					*newTerm,
+				)
+		}
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, copies...)
 	}
 }
 
@@ -660,9 +714,6 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance) *NodeSelectorRenderer {
 	var opts []NodeSelectorRendererOption
-	if vmi.IsCPUDedicated() {
-		opts = append(opts, WithDedicatedCPU())
-	}
 	if t.clusterConfig.HypervStrictCheckEnabled() {
 		opts = append(opts, WithHyperv(vmi.Spec.Domain.Features))
 	}

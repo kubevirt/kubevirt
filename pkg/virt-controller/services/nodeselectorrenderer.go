@@ -15,7 +15,6 @@ type NodeSelectorRenderer struct {
 	cpuFeatureLabels       []string
 	cpuModelLabel          string
 	machineTypeLabel       string
-	hasDedicatedCPU        bool
 	hyperv                 bool
 	podNodeSelectors       map[string]string
 	tscFrequency           *int64
@@ -50,9 +49,6 @@ func NewNodeSelectorRenderer(
 }
 
 func (nsr *NodeSelectorRenderer) Render() map[string]string {
-	if nsr.hasDedicatedCPU {
-		nsr.enableSelectorLabel(v1.CPUManager)
-	}
 	if nsr.hyperv {
 		maps.Copy(nsr.podNodeSelectors, hypervNodeSelectors(nsr.vmiFeatures))
 	}
@@ -114,12 +110,6 @@ func WithSEVESSelector() NodeSelectorRendererOption {
 func WithSecureExecutionSelector() NodeSelectorRendererOption {
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.SecureExecutionEnabled = true
-	}
-}
-
-func WithDedicatedCPU() NodeSelectorRendererOption {
-	return func(renderer *NodeSelectorRenderer) {
-		renderer.hasDedicatedCPU = true
 	}
 }
 
