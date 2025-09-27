@@ -241,8 +241,8 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		},
 		WebhookConfiguration: &v1.ReloadableComponentConfiguration{
 			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
-				QPS:   DefaultVirtWebhookClientQPS,
-				Burst: DefaultVirtWebhookClientBurst,
+				QPS:   DefaultVirtAPIAuthorizorQPS,
+				Burst: DefaultVirtAPIAuthorizorBurst,
 			}}},
 		},
 		ArchitectureConfiguration: &v1.ArchConfiguration{
