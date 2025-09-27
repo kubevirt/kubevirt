@@ -31489,6 +31489,13 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolSpec(ref common.Refer
 							Ref:         ref("kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolScaleInStrategy"),
 						},
 					},
+					"autohealing": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"selector", "virtualMachineTemplate"},
 			},
