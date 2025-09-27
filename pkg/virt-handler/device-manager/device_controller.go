@@ -180,6 +180,9 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 		IsAllowed func() bool
 	}{
 		{"sev", "/dev/sev", c.virtConfig.WorkloadEncryptionSEVEnabled},
+		{"sgx_enclave", "/dev/sgx_enclave", c.virtConfig.WorkloadEncryptionTDXEnabled},
+		{"sgx_provision", "/dev/sgx_provision", c.virtConfig.WorkloadEncryptionTDXEnabled},
+		{"sgx_vepc", "/dev/sgx_vepc", c.virtConfig.WorkloadEncryptionTDXEnabled},
 		{"vhost-vsock", "/dev/vhost-vsock", c.virtConfig.VSOCKEnabled},
 	}
 	for _, dev := range featureGatedDevices {
