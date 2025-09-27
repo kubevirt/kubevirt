@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -48,7 +49,7 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 		virtClient = kubevirt.Client()
 	})
 
-	Context("CriticalAddonsOnly taint set on a node", func() {
+	Context("CriticalAddonsOnly taint set on a node", decorators.RequiresDedicatedWorkerNodes, func() {
 		var (
 			possiblyTaintedNodeName string
 			kubevirtPodsOnNode      []string
