@@ -2680,7 +2680,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			var kvTestData KubeVirtTestData
 			const (
 				CustomizedReplicas              int32 = 4
-				numOfNodes                            = 1000
+				numOfUnschedulableNodes               = 1000
+				numOfSchedulableNodes                 = 1000
 				expectedReplicasForLargeCluster int32 = 100
 			)
 
@@ -2691,11 +2692,17 @@ var _ = Describe("KubeVirt Operator", func() {
 
 				var testNodes []k8sv1.Node
 
-				for i := range numOfNodes {
+				totalNodes := numOfSchedulableNodes + numOfUnschedulableNodes
+				for i := range totalNodes {
 					node := k8sv1.Node{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: fmt.Sprintf("testnode-%d", i),
 						},
+					}
+					if i < numOfSchedulableNodes {
+						node.Labels = map[string]string{
+							v1.NodeSchedulable: "true",
+						}
 					}
 					testNodes = append(testNodes, node)
 				}
