@@ -221,7 +221,13 @@ type DomainSpec struct {
 	// Launch Security setting of the vmi.
 	// +optional
 	LaunchSecurity *LaunchSecurity `json:"launchSecurity,omitempty"`
+	// OemStrings represents block 11 of SMBIOS.
+	// +optional
+	OemStrings OemStringList `json:"oemStrings,omitempty"`
 }
+
+// OemStringList represents a list of OEM strings.
+type OemStringList []string
 
 // Chassis specifies the chassis info passed to the domain.
 type Chassis struct {

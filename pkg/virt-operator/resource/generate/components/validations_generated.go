@@ -7111,6 +7111,11 @@ var CRDsValidation map[string]string = map[string]string{
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                       type: object
+                    oemStrings:
+                      description: OemStrings represents block 11 of SMBIOS.
+                      items:
+                        type: string
+                      type: array
                     resources:
                       description: Resources describes the Compute Resources required
                         by this vmi.
@@ -12571,6 +12576,11 @@ var CRDsValidation map[string]string = map[string]string{
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
               type: object
+            oemStrings:
+              description: OemStrings represents block 11 of SMBIOS.
+              items:
+                type: string
+              type: array
             resources:
               description: Resources describes the Compute Resources required by this
                 vmi.
@@ -16285,6 +16295,11 @@ var CRDsValidation map[string]string = map[string]string{
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
               type: object
+            oemStrings:
+              description: OemStrings represents block 11 of SMBIOS.
+              items:
+                type: string
+              type: array
             resources:
               description: Resources describes the Compute Resources required by this
                 vmi.
@@ -18787,6 +18802,11 @@ var CRDsValidation map[string]string = map[string]string{
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                       type: object
+                    oemStrings:
+                      description: OemStrings represents block 11 of SMBIOS.
+                      items:
+                        type: string
+                      type: array
                     resources:
                       description: Resources describes the Compute Resources required
                         by this vmi.
@@ -23479,6 +23499,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               type: object
+                            oemStrings:
+                              description: OemStrings represents block 11 of SMBIOS.
+                              items:
+                                type: string
+                              type: array
                             resources:
                               description: Resources describes the Compute Resources
                                 required by this vmi.
@@ -28847,6 +28872,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
+                                oemStrings:
+                                  description: OemStrings represents block 11 of SMBIOS.
+                                  items:
+                                    type: string
+                                  type: array
                                 resources:
                                   description: Resources describes the Compute Resources
                                     required by this vmi.
