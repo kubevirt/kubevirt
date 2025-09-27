@@ -29,8 +29,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
 )
@@ -76,22 +74,6 @@ func (n NetPod) storeBridgeBindingDHCPInterfaceData(currentStatus *nmstate.Statu
 	log.Log.V(4).Infof("The generated dhcpConfig: %s\nRoutes: %+v", dhcpConfig.String(), dhcpConfig.Routes)
 	if err := cache.WriteDHCPInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), podIfaceName, &dhcpConfig); err != nil {
 		return fmt.Errorf("failed to save DHCP configuration: %v", err)
-	}
-
-	return nil
-}
-
-func (n NetPod) storeBridgeDomainInterfaceData(podIfaceStatus nmstate.Interface, vmiSpecIface v1.Interface) error {
-	mac, err := resolveMacAddress(podIfaceStatus.MacAddress, vmiSpecIface.MacAddress)
-	if err != nil {
-		return err
-	}
-
-	domainIface := api.Interface{MAC: &api.MAC{MAC: mac.String()}}
-
-	log.Log.V(4).Infof("The generated domain interface data: mac = %s", domainIface.MAC.MAC)
-	if err := cache.WriteDomainInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), vmiSpecIface.Name, &domainIface); err != nil {
-		return fmt.Errorf("failed to save domain interface data: %v", err)
 	}
 
 	return nil
