@@ -50,6 +50,7 @@ var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
 type KernelBootSocketPathGetter func(vmi *v1.VirtualMachineInstance) (string, error)
 
+const LauncherVolume = "launcher-volume"
 const KernelBootName = "kernel-boot"
 const KernelBootVolumeName = KernelBootName + "-volume"
 
@@ -385,7 +386,7 @@ func getContainerDiskSocketBasePath(baseDir, podUID string) string {
 
 // ExtractImageIDsFromSourcePod takes the VMI and its source pod to determine the exact image used by containerdisks and boot container images,
 // which is recorded in the status section of a started pod
-func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kubev1.Pod) (imageIDs map[string]string, err error) {
+func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kubev1.Pod, imageVolumeEnabled bool) (imageIDs map[string]string, err error) {
 	imageIDs = map[string]string{}
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk == nil {
@@ -398,7 +399,29 @@ func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kub
 		imageIDs[KernelBootVolumeName] = vmi.Spec.Domain.Firmware.KernelBoot.Container.Image
 	}
 
-	for _, status := range sourcePod.Status.ContainerStatuses {
+	containersToCheck := append([]kubev1.ContainerStatus{}, sourcePod.Status.ContainerStatuses...)
+	if imageVolumeEnabled {
+		// When imageVolume is Enabled, there are two cases:
+		// 1. First migration: the Pod was created before the digest was known, so the volumes do not include it.
+		//    We include the initContainerStatuses in containersToCheck so that the loop below can extract the digest
+		//    from the statuses and update imageIDs (similar to how we handle standard containerDisk sidecars When imageVolume is disabled).
+		// 2. Subsequent migrations: the digest is already available in the Pod volumes.
+		//    The init containers no longer exist at this point and are not needed; we take the full image including the digest directly from the volumes.
+		//
+		// TODO: Once the KEP https://github.com/kubernetes/enhancements/pull/5375 is fully implemented and stable
+		// in all Kubernetes versions supported by KubeVirt, this entire init containers logic should be removed,
+		// and the digest can be fetched directly from the Pod volume status.
+		containersToCheck = append(containersToCheck, sourcePod.Status.InitContainerStatuses...)
+		for _, vol := range sourcePod.Spec.Volumes {
+			_, isContainerDiskVolume := imageIDs[vol.Name]
+			if vol.Image == nil || !strings.Contains(vol.Image.Reference, "@sha256:") || !isContainerDiskVolume {
+				continue
+			}
+			imageIDs[vol.Name] = vol.Image.Reference
+		}
+	}
+
+	for _, status := range containersToCheck {
 		if !isImageVolume(status.Name) {
 			continue
 		}
