@@ -18972,12 +18972,39 @@
      }
     }
    },
+   "v1alpha1.VirtualMachinePoolOrderedPolicy": {
+    "type": "object",
+    "properties": {
+     "labelSelector": {
+      "description": "LabelSelector is a list of label selector for VMs.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
+     "nodeSelectorRequirementMatcher": {
+      "description": "NodeSelectorRequirementMatcher is a list of node selector requirement for VMs.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/k8s.io.api.core.v1.NodeSelectorRequirement"
+      }
+     }
+    }
+   },
    "v1alpha1.VirtualMachinePoolProactiveScaleInStrategy": {
     "description": "VirtualMachinePoolProactiveScaleInStrategy represents proactive scale-in strategy",
     "type": "object",
     "properties": {
      "selectionPolicy": {
       "description": "SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in Defaults to \"Random\" base policy when no SelectionPolicy is configured",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolSelectionPolicy"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachinePoolProactiveUpdateStrategy": {
+    "description": "VirtualMachinePoolProactiveUpdateStrategy represents proactive update strategy",
+    "type": "object",
+    "properties": {
+     "selectionPolicy": {
+      "description": "SelectionPolicy defines the priority in which VM instances are selected for proactive update Defaults to \"Random\" base policy when no SelectionPolicy is configured",
       "$ref": "#/definitions/v1alpha1.VirtualMachinePoolSelectionPolicy"
      }
     }
@@ -18993,12 +19020,16 @@
     }
    },
    "v1alpha1.VirtualMachinePoolSelectionPolicy": {
-    "description": "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for scale-in",
+    "description": "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for proactive scale-in or update",
     "type": "object",
     "properties": {
      "basePolicy": {
-      "description": "BasePolicy is a catch-all policy [Random|DescendingOrder]",
+      "description": "BasePolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]",
       "type": "string"
+     },
+     "orderedPolicies": {
+      "description": "OrderedPolicies is a Ordered list of selection policies.",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolOrderedPolicy"
      }
     }
    },
@@ -19034,6 +19065,10 @@
       "description": "Label selector for pods. Existing Poolss whose pods are selected by this will be the ones affected by this deployment.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
+     "updateStrategy": {
+      "description": "UpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolUpdateStrategy"
+     },
      "virtualMachineTemplate": {
       "description": "Template describes the VM that will be created.",
       "$ref": "#/definitions/v1alpha1.VirtualMachineTemplateSpec"
@@ -19063,6 +19098,24 @@
      "replicas": {
       "type": "integer",
       "format": "int32"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachinePoolUpdateStrategy": {
+    "description": "VirtualMachinePoolUpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool",
+    "type": "object",
+    "properties": {
+     "opportunistic": {
+      "description": "Opportunistic update by updating the VMs in a pool in a non-blocking manner",
+      "type": "boolean"
+     },
+     "proactive": {
+      "description": "Proactive update by forcing the VMs to restart during update",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolProactiveUpdateStrategy"
+     },
+     "unmanaged": {
+      "description": "Unmanaged indicates that no automatic update of VMs within a VMPool is performed, by default it is false",
+      "type": "boolean"
      }
     }
    },
