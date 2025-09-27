@@ -5559,6 +5559,46 @@ var _ = Describe("Template", func() {
 			Expect(targetPod.Annotations).To(HaveKeyWithValue(testKey, updatedValue))
 		})
 
+		It("Should copy network-info annotation from source pod to target pod during migration", func() {
+			const networkInfoKey = "kubevirt.io/network-info"
+			const networkInfoValue = `{"interfaces":[{"network":"net1","deviceInfo":{"type":"pci","pci":{"pci-address":"0000:00:02.0"}}}]}`
+
+			generator := stubTargetAnnotationsGenerator{
+				annotations: map[string]string{networkInfoKey: networkInfoValue},
+			}
+
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				WithNetTargetAnnotationsGenerator(generator),
+			)
+
+			vmi := libvmi.New(libvmi.WithNamespace(testNamespace))
+
+			sourcePod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Simulate source pod having network-info annotation
+			sourcePod.Annotations[networkInfoKey] = networkInfoValue
+
+			targetPod, err := svc.RenderMigrationManifest(vmi, nil, sourcePod)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify that the network-info annotation is copied to the target pod
+			Expect(targetPod.Annotations).To(HaveKeyWithValue(networkInfoKey, networkInfoValue))
+		})
+
 		It("Should fail templating a migration target pod when network target annotations generator fails", func() {
 			expectedErr := errors.New("some err")
 
@@ -5747,4 +5787,8 @@ type stubTargetAnnotationsGenerator struct {
 
 func (stag stubTargetAnnotationsGenerator) GenerateFromSource(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) (map[string]string, error) {
 	return stag.annotations, stag.generationErr
+}
+
+func (stag stubTargetAnnotationsGenerator) GenerateFromActivePod(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
+	return stag.annotations
 }
