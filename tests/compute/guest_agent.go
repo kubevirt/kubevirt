@@ -262,6 +262,6 @@ func guestAgentOperation(vmi *v1.VirtualMachineInstance, startStopOperation stri
 	guestAgentSysctlString := fmt.Sprintf("sudo systemctl %s qemu-guest-agent\n", startStopOperation)
 	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: guestAgentSysctlString},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 	}, 120)
 }

@@ -362,7 +362,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				Eventually(func() error {
 					err := console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "\n"},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: "[ $(lsblk /dev/vda -o SIZE -n |sed -e \"s/ //g\") == \"4G\" ] && true\n"},
 						&expect.BExp{R: "0"},
 					}, 10)
