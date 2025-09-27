@@ -142,10 +142,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			destPVC string
 		)
 		const (
-			fsPVC            = "filesystem"
-			blockPVC         = "block"
-			size             = "1Gi"
-			sizeWithOverhead = "1.2Gi"
+			fsPVC    = "filesystem"
+			blockPVC = "block"
+			size     = "1Gi"
 		)
 
 		waitMigrationToNotExist := func(vmiName, ns string) {
@@ -325,8 +324,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				var dstPVC *k8sv1.PersistentVolumeClaim
 				switch mode {
 				case fsPVC:
-					// Add some overhead to the target PVC for filesystem.
-					dstPVC = libstorage.CreateFSPVC(destPVC, ns, sizeWithOverhead, nil)
+					dstPVC = libstorage.CreateFSPVC(destPVC, ns, size, nil)
 				case blockPVC:
 					dstPVC = libstorage.CreateBlockPVC(destPVC, ns, size)
 				default:
@@ -834,7 +832,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 			It("when the copy of the destination volumes was successful", func() {
 				dv := createDV()
-				libstorage.CreateFSPVC(destPVC, ns, sizeWithOverhead, nil)
+				libstorage.CreateFSPVC(destPVC, ns, size, nil)
 				vm := createAndStartVM(dv)
 
 				By("Update volumes")
