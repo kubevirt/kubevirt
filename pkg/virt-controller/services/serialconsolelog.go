@@ -23,7 +23,7 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 		guestConsoleLog := &k8sv1.Container{
 			Name:            "guest-console-log",
 			Image:           image,
-			ImagePullPolicy: k8sv1.PullIfNotPresent,
+			ImagePullPolicy: config.GetImagePullPolicy(),
 			Command:         []string{"/usr/bin/virt-tail"},
 			Args:            []string{"--logfile", logFile},
 			VolumeMounts: []k8sv1.VolumeMount{
