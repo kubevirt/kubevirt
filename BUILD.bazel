@@ -244,7 +244,7 @@ oci_push(
 
 oci_push(
     name = "push-virt-synchronization-controller",
-    image = "//cmd/synchronization-controller:synchronization-controller-image",
+    image = "//cmd/synchronization-controller:virt-synchronization-controller-image",
     repository = "quay.io/kubevirt/virt-synchronization-controller",
 )
 

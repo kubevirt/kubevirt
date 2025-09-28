@@ -64,7 +64,7 @@ oci_image(
 )
 
 oci_image(
-    name = "synchronization-controller-image",
+    name = "virt-synchronization-controller-image",
     base = ":version-container",
     entrypoint = ["/usr/bin/synchronization-controller"],
     tars = [":virt-synchronization-tar"],
