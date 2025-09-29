@@ -73,15 +73,22 @@ const (
 	failedKeyFromObjectFmt = "failed to get key from object: %v, %v"
 	enqueuedForSyncFmt     = "enqueued %q for sync"
 
-	pvcNotFoundReason  = "PVCNotFound"
-	pvcBoundReason     = "PVCBound"
-	pvcPendingReason   = "PVCPending"
-	unknownReason      = "Unknown"
-	initializingReason = "Initializing"
-	inUseReason        = "InUse"
-	podPendingReason   = "PodPending"
-	podReadyReason     = "PodReady"
-	podCompletedReason = "PodCompleted"
+	pvcNotFoundReason           = "PVCNotFound"
+	pvcBoundReason              = "PVCBound"
+	pvcPendingReason            = "PVCPending"
+	unknownReason               = "Unknown"
+	initializingReason          = "Initializing"
+	inUseReason                 = "InUse"
+	podPendingReason            = "PodPending"
+	podReadyReason              = "PodReady"
+	podCompletedReason          = "PodCompleted"
+	vmNotFoundReason            = "VMNotFound"
+	volumesNotPopulatedReason   = "VolumesNotPopulated"
+	vmDeletedDuringExportReason = "VMDeletedDuringExport"
+	noVolumeVMReason            = "VMNoVolumes"
+	noVolumeSnapshotReason      = "VMSnapshotNoVolumes"
+	notAllPVCsCreatedReason     = "NotAllPVCsCreated"
+	VMSnapshotNotFoundReason    = "VMSnapshotNotFound"
 
 	exportServiceLabel = "kubevirt.io.virt-export-service"
 
@@ -168,11 +175,11 @@ func dirURI(pvc *corev1.PersistentVolumeClaim) string {
 }
 
 type sourceVolumes struct {
-	volumes          []*corev1.PersistentVolumeClaim
-	inUse            bool
-	isPopulated      bool
-	readyCondition   exportv1.Condition
-	sourceCondition  exportv1.Condition
+	volumes         []*corev1.PersistentVolumeClaim
+	inUse           bool
+	isPopulated     bool
+	readyCondition  exportv1.Condition
+	sourceCondition exportv1.Condition
 }
 
 func (sv *sourceVolumes) isSourceAvailable() bool {
