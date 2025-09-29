@@ -35,15 +35,13 @@ import (
 )
 
 var _ = Describe("Socket device", func() {
-	var workDir string
 	var dpi *SocketDevicePlugin
-	var stop chan struct{}
 	var sockDevPath string
 	const socket = "fake-test.sock"
 
 	BeforeEach(func() {
 		var err error
-		workDir = GinkgoT().TempDir()
+		workDir := GinkgoT().TempDir()
 		Expect(err).ToNot(HaveOccurred())
 		sockDevPath = path.Join(workDir, socket)
 		createFile(sockDevPath)
@@ -61,12 +59,9 @@ var _ = Describe("Socket device", func() {
 		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
 		createFile(dpi.socketPath)
 		dpi.done = make(chan struct{})
-		stop = make(chan struct{})
+		stop := make(chan struct{})
 		dpi.stop = stop
-	})
-
-	AfterEach(func() {
-		close(stop)
+		DeferCleanup(func() { close(stop) })
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
