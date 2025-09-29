@@ -571,7 +571,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
 						vmiPod, err := libpod.GetPodByVirtualMachineInstance(newvmi, vmi.Namespace)
 						Expect(err).NotTo(HaveOccurred())
-						return libnet.ValidateVMIandPodIPMatch(newvmi, vmiPod)
+						return libnet.AssertAllPodIPsReportedOnVMI(newvmi, vmiPod)
 					}, 180*time.Second, time.Second).Should(Succeed(), "Should have updated IP and IPs fields")
 				}
 			})
