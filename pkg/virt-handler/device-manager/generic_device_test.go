@@ -33,14 +33,11 @@ import (
 )
 
 var _ = Describe("Generic Device", func() {
-	var workDir string
-	var err error
 	var dpi *GenericDevicePlugin
-	var stop chan struct{}
 	var devicePath string
 
 	BeforeEach(func() {
-		workDir, err = os.MkdirTemp("", "kubevirt-test")
+		workDir, err := os.MkdirTemp("", "kubevirt-test")
 		Expect(err).ToNot(HaveOccurred())
 
 		devicePath = path.Join(workDir, "foo")
@@ -53,14 +50,13 @@ var _ = Describe("Generic Device", func() {
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.done = make(chan struct{})
 		dpi.deviceRoot = "/"
-		stop = make(chan struct{})
+		stop := make(chan struct{})
 		dpi.stop = stop
+		DeferCleanup(func() {
+			close(stop)
+			os.RemoveAll(workDir)
+		})
 
-	})
-
-	AfterEach(func() {
-		close(stop)
-		os.RemoveAll(workDir)
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
