@@ -44,6 +44,8 @@ type KubeVirtTestsConfiguration struct {
 	StorageRWOBlock string `json:"storageRWOBlock"`
 	// StorageClass supporting snapshot
 	StorageSnapshot string `json:"storageSnapshot"`
+	// StorageClass supporting CSI
+	StorageClassCSI string `json:"storageClassCSI"`
 }
 
 const kubevirtIoTest = "kubevirt.io/test"
