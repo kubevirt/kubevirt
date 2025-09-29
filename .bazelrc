@@ -3,7 +3,7 @@ try-import ci.bazelrc
 try-import .bazeldnf/sandbox.bazelrc
 
 # Set common values for all builds (run, test and coverage inherit from build)
-build --stamp --workspace_status_command=./hack/print-workspace-status.sh --host_force_python=PY3
+build --stamp --workspace_status_command=./hack/print-workspace-status.sh --host_force_python=PY3 --host_linkopt=-lstdc++
 
 # Bazel has a rule of precedence so we can specify / overwrite architecture specific commands if needed
 build:x86_64 --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo
@@ -29,7 +29,7 @@ test:crossbuild-s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_c
 build --define gotags=selinux
 
 # let our unit tests produce our own junit reports
-test --action_env=GO_TEST_WRAP=0
+test --action_env=GO_TEST_WRAP=0 --host_linkopt=-lstdc++
 
 test --test_tag_filters=-cov,-fuzz
 test:fuzz --test_tag_filters=fuzz
