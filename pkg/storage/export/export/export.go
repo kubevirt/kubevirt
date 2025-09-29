@@ -171,7 +171,8 @@ type sourceVolumes struct {
 	volumes          []*corev1.PersistentVolumeClaim
 	inUse            bool
 	isPopulated      bool
-	availableMessage string
+	readyCondition   exportv1.Condition
+	sourceCondition  exportv1.Condition
 }
 
 func (sv *sourceVolumes) isSourceAvailable() bool {
@@ -595,7 +596,7 @@ func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMach
 			}
 		} else {
 			// source is not available, stop the exporter pod if started
-			if err := ctrl.deleteExporterPod(vmExport, pod, ExportPaused, sourceVolumes.availableMessage); err != nil {
+			if err := ctrl.deleteExporterPod(vmExport, pod, ExportPaused, sourceVolumes.sourceCondition.Message); err != nil {
 				return nil, err
 			}
 			pod = nil
@@ -1249,7 +1250,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 	vmExportCopy.Status.ServiceName = service.Name
 	vmExportCopy.Status.Links = &exportv1.VirtualMachineExportLinks{}
 	if exporterPod == nil {
-		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, inUseReason, sourceVolumes.availableMessage))
+		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, sourceVolumes.readyCondition)
 		vmExportCopy.Status.Phase = exportv1.Pending
 	} else {
 		if optutil.PodIsReady(exporterPod) {
