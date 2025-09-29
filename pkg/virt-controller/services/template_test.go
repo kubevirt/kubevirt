@@ -220,6 +220,7 @@ var _ = Describe("Template", func() {
 				testNamespace        = "default"
 				computeContainerName = "compute"
 				kvmResource          = "devices.kubevirt.io/kvm"
+				mshvResource         = "devices.kubevirt.io/mshv"
 				allowEmulationOption = "--allow-emulation"
 			)
 
@@ -235,6 +236,29 @@ var _ = Describe("Template", func() {
 				containers := pod.Spec.Containers
 				Expect(containers[0].Name).To(Equal(computeContainerName))
 				Expect(*containers[0].Resources.Limits.Name(kvmResource, resource.DecimalSI)).To(Equal(resource.MustParse("1")))
+				Expect(containers[0].Command).NotTo(ContainElements(allowEmulationOption))
+			})
+
+			It("should add the mshv resource when emulation is disabled and HypervisorConfiguration and feature-gate are set", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.UseEmulation = false
+
+				kvConfig.Spec.Configuration.HypervisorConfiguration = &v1.HypervisorConfiguration{
+					Name: v1.HyperVLayeredHypervisorName,
+				}
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates, featuregate.ConfigurableHypervisor)
+
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
+				Expect(err).NotTo(HaveOccurred())
+
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(*containers[0].Resources.Limits.Name(mshvResource, resource.DecimalSI)).To(Equal(resource.MustParse("1")))
+				// kvm resource should not be set when mshv is used
+				Expect(containers[0].Resources.Limits.Name(kvmResource, resource.DecimalSI)).To(Equal(resource.NewQuantity(0, resource.DecimalSI)))
 				Expect(containers[0].Command).NotTo(ContainElements(allowEmulationOption))
 			})
 

@@ -553,7 +553,7 @@ func calcVCPUs(cpu *v1.CPU) int64 {
 	return int64(1)
 }
 
-func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k8sv1.ResourceList {
+func getRequiredResources(vmi *v1.VirtualMachineInstance, hypervisorDevice string, allowEmulation bool) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
 	if netvmispec.RequiresTunDevice(vmi) {
 		res[TunDevice] = resource.MustParse("1")
@@ -566,7 +566,7 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k
 		res[VhostNetDevice] = resource.MustParse("1")
 	}
 	if !allowEmulation {
-		res[KvmDevice] = resource.MustParse("1")
+		res[k8sv1.ResourceName(fmt.Sprintf("%s/%s", DevicePrefix, hypervisorDevice))] = resource.MustParse("1")
 	}
 	if util.IsAutoAttachVSOCK(vmi) {
 		res[VhostVsockDevice] = resource.MustParse("1")

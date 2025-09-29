@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/client-go/precond"
 
 	drautil "kubevirt.io/kubevirt/pkg/dra"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -75,6 +76,7 @@ const (
 	virtExporter     = "virt-exporter"
 )
 
+const DevicePrefix = "devices.kubevirt.io"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
@@ -856,9 +858,10 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 
 func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) (*ResourceRenderer, error) {
 	vmiResources := vmi.Spec.Domain.Resources
+	hypervisorDevice := hypervisor.NewHypervisor(t.clusterConfig.GetHypervisor().Name).GetDevice()
 	baseOptions := []ResourceRendererOption{
 		WithEphemeralStorageRequest(),
-		WithVirtualizationResources(getRequiredResources(vmi, t.clusterConfig.AllowEmulation())),
+		WithVirtualizationResources(getRequiredResources(vmi, hypervisorDevice, t.clusterConfig.AllowEmulation())),
 	}
 
 	if err := validatePermittedHostDevices(&vmi.Spec, t.clusterConfig); err != nil {
