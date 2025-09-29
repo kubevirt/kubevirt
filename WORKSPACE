@@ -251,7 +251,7 @@ bazeldnf_register_toolchains(
 go_rules_dependencies()
 
 go_register_toolchains(
-    go_version = "1.23.9",
+    go_version = "1.24.7",
     nogo = "@//:nogo_vet",
 )
 
