@@ -1341,6 +1341,7 @@ sigs.k8s.io/yaml/goyaml.v2
 # k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.32.5
 # k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.32.5
 # k8s.io/sample-controller => k8s.io/sample-controller v0.32.5
+# vbom.ml/util => github.com/fvbommel/util v0.0.0-20180919145318-efcd4e0f9787
 # github.com/nxadm/tail => github.com/nxadm/tail v0.0.0-20211216163028-4472660a31a6
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20210105115604-44119421ec6b
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
