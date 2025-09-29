@@ -1856,19 +1856,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(domXML).To(ContainSubstring("<hint-dedicated state='on'/>"), "should container the hint-dedicated feature")
 			})
 			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
-				cpuVmi := libvmifact.NewCirros()
-				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					Sockets:               2,
-					Cores:                 1,
-					DedicatedCPUPlacement: true,
-				}
-				guestMemory := resource.MustParse("64M")
-				cpuVmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: k8sv1.ResourceList{
-						k8sv1.ResourceMemory: resource.MustParse("80M"),
-					},
-				}
+				cpuVmi := libvmifact.NewCirros(
+					libvmi.WithCPUCount(1, 1, 2),
+					libvmi.WithDedicatedCPUPlacement(),
+					libvmi.WithGuestMemory("256M"),
+					libvmi.WithMemoryRequest("300M"),
+				)
 
 				By("Starting a VirtualMachineInstance")
 				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
