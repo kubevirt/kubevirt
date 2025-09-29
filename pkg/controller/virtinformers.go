@@ -81,6 +81,11 @@ const (
 	NotOperatorLabel = kubev1.ManagedByLabel + " notin (" + kubev1.ManagedByLabelOperatorValue + "," + kubev1.ManagedByLabelOperatorOldValue + " )"
 )
 
+const (
+	ByVMINameIndex  = "byVMIName"
+	UnfinishedIndex = "unfinished"
+)
+
 var unexpectedObjectError = errors.New("unexpected object")
 
 type newSharedInformer func() cache.SharedIndexInformer
@@ -522,10 +527,33 @@ func (f *kubeInformerFactory) VirtualMachinePreset() cache.SharedIndexInformer {
 	})
 }
 
+func GetVirtualMachineInstanceMigrationInformerIndexers() cache.Indexers {
+	return cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		ByVMINameIndex: func(obj interface{}) ([]string, error) {
+			migration, ok := obj.(*kubev1.VirtualMachineInstanceMigration)
+			if !ok {
+				return nil, nil
+			}
+			return []string{fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName)}, nil
+		},
+		UnfinishedIndex: func(obj interface{}) ([]string, error) {
+			migration, ok := obj.(*kubev1.VirtualMachineInstanceMigration)
+			if !ok {
+				return nil, nil
+			}
+			if !migration.IsFinal() {
+				return []string{UnfinishedIndex}, nil
+			}
+			return nil, nil
+		},
+	}
+}
+
 func (f *kubeInformerFactory) VirtualMachineInstanceMigration() cache.SharedIndexInformer {
 	return f.getInformer("vmimInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachineinstancemigrations", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineInstanceMigration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineInstanceMigration{}, f.defaultResync, GetVirtualMachineInstanceMigrationInformerIndexers())
 	})
 }
 

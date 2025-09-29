@@ -1,19 +1,27 @@
 package migrations
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const CancelMigrationFailedVmiNotMigratingErr = "failed to cancel migration - vmi is not migrating"
 
-func ListUnfinishedMigrations(store cache.Store) []*v1.VirtualMachineInstanceMigration {
-	objs := store.List()
-	migrations := []*v1.VirtualMachineInstanceMigration{}
+func ListUnfinishedMigrations(indexer cache.Indexer) []*v1.VirtualMachineInstanceMigration {
+	objs, err := indexer.ByIndex(controller.UnfinishedIndex, controller.UnfinishedIndex)
+	if err != nil {
+		log.Log.Reason(err).Errorf("Failed to use unfinished index")
+		return nil
+	}
+
+	var migrations []*v1.VirtualMachineInstanceMigration
 	for _, obj := range objs {
 		migration := obj.(*v1.VirtualMachineInstanceMigration)
 		if !migration.IsFinal() {
@@ -23,18 +31,17 @@ func ListUnfinishedMigrations(store cache.Store) []*v1.VirtualMachineInstanceMig
 	return migrations
 }
 
-func ListWorkloadUpdateMigrations(store cache.Store, vmiName, ns string) []v1.VirtualMachineInstanceMigration {
-	objs := store.List()
+func ListWorkloadUpdateMigrations(indexer cache.Indexer, vmiName, ns string) []v1.VirtualMachineInstanceMigration {
+	objs, err := indexer.ByIndex(controller.ByVMINameIndex, fmt.Sprintf("%s/%s", ns, vmiName))
+	if err != nil {
+		log.Log.Reason(err).Errorf("Failed to use byVMIName index for workload migrations")
+		return nil
+	}
+
 	migrations := []v1.VirtualMachineInstanceMigration{}
 	for _, obj := range objs {
 		migration := obj.(*v1.VirtualMachineInstanceMigration)
 		if migration.IsFinal() {
-			continue
-		}
-		if migration.Namespace != ns {
-			continue
-		}
-		if migration.Spec.VMIName != vmiName {
 			continue
 		}
 		if !metav1.HasAnnotation(migration.ObjectMeta, v1.WorkloadUpdateMigrationAnnotation) {
@@ -112,16 +119,15 @@ func VMIMigratableOnEviction(clusterConfig *virtconfig.ClusterConfig, vmi *v1.Vi
 }
 
 func ActiveMigrationExistsForVMI(migrationIndexer cache.Indexer, vmi *v1.VirtualMachineInstance) (bool, error) {
-	objs, err := migrationIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := migrationIndexer.ByIndex(controller.ByVMINameIndex, fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name))
 	if err != nil {
 		return false, err
 	}
 	for _, obj := range objs {
 		migration := obj.(*v1.VirtualMachineInstanceMigration)
-		if migration.Spec.VMIName == vmi.Name && migration.IsRunning() {
+		if migration.IsRunning() {
 			return true, nil
 		}
 	}
-
 	return false, nil
 }

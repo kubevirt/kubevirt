@@ -986,7 +986,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 		res, err := indexByMigrationUID("invalid")
 		Expect(res).To(BeNil())
 		Expect(err).ToNot(HaveOccurred())
-		res, err = indexByVmiName("invalid")
+		res, err = indexByActiveVmiName("invalid")
 		Expect(res).To(BeNil())
 		Expect(err).ToNot(HaveOccurred())
 		res, err = indexBySourceMigrationID("invalid")

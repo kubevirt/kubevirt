@@ -24,6 +24,7 @@ import (
 
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -88,7 +89,7 @@ var _ = Describe("Evacuation", func() {
 				return []string{obj.(*v1.VirtualMachineInstance).Status.NodeName}, nil
 			},
 		})
-		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		migrationInformer, migrationSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstanceMigration{}, virtcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
 		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&k8sv1.Node{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
@@ -117,7 +118,7 @@ var _ = Describe("Evacuation", func() {
 
 	sanityExecute := func() {
 		controllertesting.SanityExecute(controller, []cache.Store{
-			controller.vmiIndexer, controller.vmiPodIndexer, controller.migrationStore, controller.nodeStore,
+			controller.vmiIndexer, controller.vmiPodIndexer, controller.migrationIndexer, controller.nodeStore,
 		}, Default)
 
 	}
