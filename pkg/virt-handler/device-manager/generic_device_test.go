@@ -68,7 +68,7 @@ var _ = Describe("Generic Device", func() {
 		}(errChan)
 		Consistently(func() string {
 			return dpi.devs[0].Health
-		}, 2*time.Second, 500*time.Millisecond).Should(Equal(pluginapi.Healthy))
+		}, 500*time.Millisecond, 100*time.Millisecond).Should(Equal(pluginapi.Healthy))
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
 		Expect(<-errChan).ToNot(HaveOccurred())
@@ -81,7 +81,6 @@ var _ = Describe("Generic Device", func() {
 		go dpi.healthCheck()
 		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Healthy))
 
-		time.Sleep(1 * time.Second)
 		By("Removing a (fake) device node")
 		os.Remove(devicePath)
 
