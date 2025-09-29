@@ -102,6 +102,7 @@ go_test(
         "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/libvmi/replicaset:go_default_library",
         "//pkg/network/dns:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util/hardware:go_default_library",
