@@ -71,7 +71,7 @@ var _ = Describe("Socket device", func() {
 		}(errChan)
 		Consistently(func() string {
 			return dpi.devs[0].Health
-		}, 2*time.Second, 500*time.Millisecond).Should(Equal(pluginapi.Healthy))
+		}, 500*time.Millisecond, 100*time.Millisecond).Should(Equal(pluginapi.Healthy))
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
 		Expect(<-errChan).ToNot(HaveOccurred())
