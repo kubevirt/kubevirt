@@ -19,20 +19,20 @@ mkdir -p "$LOCAL_DIR"
 
 echo "Getting PVCs with debug-vol prefix..."
 
-# Get PVCs with debug-vol prefix, sort by AGE (newest first), take first 2
-# Use --sort-by=.metadata.creationTimestamp to sort by actual creation time
-LATEST_PVCS=$(kubectl get pvc --sort-by=.metadata.creationTimestamp | grep "debug-vol" | tail -2 | awk '{print $1}')
+# Get PVCs with debug-vol prefix, sort by creation timestamp, take first 2
+# First get all PVCs, then filter for debug-vol prefix and get the last 2
+PVC_DATA=$(kubectl get pvc --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' | grep "debug-vol" | tail -2)
 
-if [ -z "$LATEST_PVCS" ]; then
+if [ -z "$PVC_DATA" ]; then
     echo "No PVCs with debug-vol prefix found"
     exit 1
 fi
 
-echo "Found latest PVCs:"
-echo "$LATEST_PVCS"
+echo "Found latest PVCs with timestamps:"
+echo "$PVC_DATA"
 
 # Process each PVC
-for pvc in $LATEST_PVCS; do
+echo "$PVC_DATA" | while IFS=$'\t' read -r pvc timestamp; do
     echo "Processing PVC: $pvc"
     
     # Create a temporary pod to mount the PVC
@@ -64,8 +64,12 @@ EOF
     kubectl wait --for=condition=Ready pod/$POD_NAME --timeout=60s
     
     if [ $? -eq 0 ]; then
-        # Create local directory for this PVC
-        PVC_DIR="$LOCAL_DIR/$pvc"
+        # Convert timestamp to readable format (YYYY-MM-DD-HH-MM-SS)
+        # Remove the 'T' and 'Z' from ISO timestamp and replace with hyphens
+        FORMATTED_TIMESTAMP=$(echo "$timestamp" | sed 's/T/-/g' | sed 's/Z$//' | sed 's/:/./g')
+        
+        # Create local directory for this PVC with timestamp
+        PVC_DIR="$LOCAL_DIR/${pvc}_${FORMATTED_TIMESTAMP}"
         mkdir -p "$PVC_DIR"
         
         # Copy content from the pod
