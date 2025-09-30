@@ -28,6 +28,7 @@ go_test(
         "spec_test.go",
         "status_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/network/driver/netlink/fake:go_default_library",

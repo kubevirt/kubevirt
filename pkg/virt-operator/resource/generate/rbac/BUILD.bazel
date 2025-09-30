@@ -40,6 +40,7 @@ go_test(
         "synchronizationcontroller_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//staging/src/kubevirt.io/api/clone:go_default_library",

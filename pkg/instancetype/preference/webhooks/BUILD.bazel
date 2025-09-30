@@ -24,6 +24,7 @@ go_test(
         "admitter_test.go",
         "webhooks_suite_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/pointer:go_default_library",

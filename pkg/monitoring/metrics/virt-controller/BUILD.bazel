@@ -55,6 +55,7 @@ go_test(
         "vmstats_collector_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/instancetype/apply:go_default_library",
         "//pkg/instancetype/find:go_default_library",

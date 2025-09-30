@@ -37,6 +37,7 @@ go_test(
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/safepath:go_default_library",
         "//pkg/unsafepath:go_default_library",

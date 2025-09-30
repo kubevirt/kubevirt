@@ -17,6 +17,7 @@ go_test(
         "clientconfig_suite_test.go",
         "clientconfig_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",

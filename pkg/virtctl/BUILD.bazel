@@ -46,6 +46,7 @@ go_test(
         "root_suite_test.go",
         "root_test.go",
     ],
+    race = "on",
     x_defs = version_x_defs(),
     deps = [
         ":go_default_library",

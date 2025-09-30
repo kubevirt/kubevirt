@@ -28,6 +28,7 @@ go_test(
         "launcher-clients_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/testutils:go_default_library",
         "//pkg/virt-handler/notify-server:go_default_library",

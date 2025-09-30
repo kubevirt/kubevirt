@@ -24,6 +24,7 @@ go_test(
         "cbt_suite_test.go",
         "cbt_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/libvmi:go_default_library",

@@ -32,6 +32,7 @@ go_test(
         "manager_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/hooks/info:go_default_library",
         "//pkg/hooks/v1alpha3:go_default_library",

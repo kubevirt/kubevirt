@@ -22,6 +22,7 @@ go_test(
         "virt-freezer_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

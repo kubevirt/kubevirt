@@ -37,6 +37,7 @@ go_test(
         "netpod_test.go",
         "state_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",

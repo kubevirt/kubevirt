@@ -24,6 +24,7 @@ go_test(
         "serverv6_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/insomniacslk/dhcp/dhcpv6:go_default_library",

@@ -23,6 +23,7 @@ go_test(
         "preference_suite_test.go",
         "preference_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/instancetype/preference/webhooks:go_default_library",

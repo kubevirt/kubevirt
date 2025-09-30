@@ -28,6 +28,7 @@ go_test(
         "virt_handler_suite_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

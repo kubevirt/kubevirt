@@ -18,6 +18,7 @@ go_test(
         "annotations_suite_test.go",
         "annotations_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/instancetype/apply:go_default_library",

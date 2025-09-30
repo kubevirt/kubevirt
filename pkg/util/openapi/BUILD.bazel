@@ -27,6 +27,7 @@ go_test(
         "openapi_suite_test.go",
         "openapi_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/virt-api/definitions:go_default_library",

@@ -67,6 +67,7 @@ go_test(
         "virt_operator_suite_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     tags = ["cov"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
