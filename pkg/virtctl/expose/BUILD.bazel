@@ -6,6 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/expose",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery:go_default_library",
         "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -25,6 +26,7 @@ go_test(
     ],
     deps = [
         ":go_default_library",
+        "//pkg/apimachinery:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/virtctl/testing:go_default_library",
