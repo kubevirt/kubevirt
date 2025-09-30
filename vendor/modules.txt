@@ -1270,8 +1270,8 @@ k8s.io/utils/trace
 ## explicit; go 1.23.0
 # kubevirt.io/client-go v0.0.0-00010101000000-000000000000 => ./staging/src/kubevirt.io/client-go
 ## explicit; go 1.23.0
-# kubevirt.io/containerized-data-importer-api v1.60.3-0.20241105012228-50fbed985de9
-## explicit; go 1.22.0
+# kubevirt.io/containerized-data-importer-api v1.63.1
+## explicit; go 1.23.0
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
 kubevirt.io/containerized-data-importer-api/pkg/apis/upload
