@@ -70,5 +70,5 @@ func linkByNames(handler driver.NetworkHandler, names []string) (netlink.Link, e
 	if len(errs) == 0 {
 		return nil, nil
 	}
-	return nil, fmt.Errorf(strings.Join(errs, ", "))
+	return nil, fmt.Errorf("%s", strings.Join(errs, ", "))
 }

@@ -164,14 +164,14 @@ func (n *NodeLabeller) loadAll() error {
 	if n.arch.hasHostSupportedFeatures() {
 		err := n.loadHostSupportedFeatures()
 		if err != nil {
-			n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
+			n.logger.Errorf("node-labeller could not load supported features: %s", err.Error())
 			return err
 		}
 	}
 
 	err := n.loadDomCapabilities()
 	if err != nil {
-		n.logger.Errorf("node-labeller could not load host dom capabilities: " + err.Error())
+		n.logger.Errorf("node-labeller could not load host dom capabilities: %s", err.Error())
 		return err
 	}
 

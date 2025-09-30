@@ -405,7 +405,7 @@ func (l *Launcher) HotplugHostDevices(_ context.Context, request *cmdv1.VMIReque
 	}
 
 	if err := l.domainManager.HotplugHostDevices(vmi); err != nil {
-		log.Log.Object(vmi).Errorf(err.Error())
+		log.Log.Object(vmi).Errorf("%s", err.Error())
 		response.Success = false
 		response.Message = getErrorMessage(err)
 		return response, nil

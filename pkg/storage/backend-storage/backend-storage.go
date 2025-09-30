@@ -170,7 +170,7 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 					_ = client.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
 						PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
 					})
-					return fmt.Errorf(c.Message)
+					return fmt.Errorf("%s", c.Message)
 				}
 			}
 		default:
