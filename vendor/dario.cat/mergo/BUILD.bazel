@@ -8,7 +8,7 @@ go_library(
         "merge.go",
         "mergo.go",
     ],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/imdario/mergo",
-    importpath = "github.com/imdario/mergo",
+    importmap = "kubevirt.io/kubevirt/vendor/dario.cat/mergo",
+    importpath = "dario.cat/mergo",
     visibility = ["//visibility:public"],
 )
