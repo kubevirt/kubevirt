@@ -1308,6 +1308,7 @@ const (
 	VirtualMachinePoolRevisionName string = "kubevirt.io/vm-pool-revision-name"
 
 	// VirtualMachineNameLabel is the name of the Virtual Machine
+	// Deprecated: Use VirtualMachineInstanceSelectorLabel instead. Kept for backwards compatibility.
 	VirtualMachineNameLabel string = "vm.kubevirt.io/name"
 
 	// VirtualMachineInstanceSelectorLabel is applied to virt-launcher pods to provide a
