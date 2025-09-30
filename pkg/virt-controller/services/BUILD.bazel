@@ -15,6 +15,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/services",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/downwardmetrics:go_default_library",
