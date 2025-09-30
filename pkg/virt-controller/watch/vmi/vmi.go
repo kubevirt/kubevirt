@@ -435,6 +435,22 @@ func (c *Controller) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInstance
 
 }
 
+func (c *Controller) getOwnerVM(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachine {
+	controllerRef := v1.GetControllerOf(vmi)
+	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
+		return nil
+	}
+	obj, exists, _ := c.vmStore.GetByKey(controller.NamespacedKey(vmi.Namespace, controllerRef.Name))
+	if !exists {
+		return nil
+	}
+	ownerVM := obj.(*virtv1.VirtualMachine)
+	if controllerRef.UID == ownerVM.UID {
+		return ownerVM.DeepCopy()
+	}
+	return nil
+}
+
 func (c *Controller) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
 	controllerRef := v1.GetControllerOf(vmi)
 	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
@@ -674,6 +690,8 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		if c.requireVolumesUpdate(vmiCopy) {
 			c.syncVolumesUpdate(vmiCopy)
 		}
+
+		c.checkEphemeralHotplugVolumes(vmiCopy)
 
 	case vmi.IsScheduled():
 		if !vmiPodExists {
@@ -2332,6 +2350,40 @@ func (c *Controller) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMachi
 
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	vmiConditions.UpdateCondition(vmiCopy, &dvsReadyCondition)
+}
+
+func (c *Controller) checkEphemeralHotplugVolumes(vmi *virtv1.VirtualMachineInstance) {
+	vm := c.getOwnerVM(vmi)
+	if vmi == nil || vm == nil {
+		return
+	}
+
+	vmVolumeMap := map[string]struct{}{}
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		vmVolumeMap[volume.Name] = struct{}{}
+	}
+
+	labels := vmi.Labels
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	// check if the vmi has any volumes that are not in the vm spec
+	for _, volume := range vmi.Spec.Volumes {
+		if !storagetypes.IsHotplugVolume(&volume) {
+			continue
+		}
+		if _, exists := vmVolumeMap[volume.Name]; !exists {
+			if _, ok := labels[virtv1.EphemeralHotplugLabel]; !ok {
+				// will be patched at the end of updateStatus
+				labels[virtv1.EphemeralHotplugLabel] = "true"
+				vmi.Labels = labels
+				return
+			}
+		}
+	}
+
+	// no ephemeral hotplugs were found, remove label if it exists
+	delete(vmi.Labels, virtv1.EphemeralHotplugLabel)
 }
 
 func statusOfReadyCondition(conditions []cdiv1.DataVolumeCondition) k8sv1.ConditionStatus {
