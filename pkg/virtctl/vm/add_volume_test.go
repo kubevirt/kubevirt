@@ -196,15 +196,15 @@ var _ = Describe("Add volume command", func() {
 				Expect(runCmd(false, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachineinstances", "addvolume")).To(HaveLen(1))
 			},
-				Entry("no args", "", verifyDiskSerial(volumeName)),
-				Entry("dry-run", "--dry-run", verifyDiskSerial(volumeName), verifyDryRun),
-				Entry("disk-type disk", "--disk-type=disk", verifyDiskSerial(volumeName), verifyDiskTypeDisk),
-				Entry("disk-type lun", "--disk-type=lun", verifyDiskSerial(volumeName), verifyDiskTypeLun),
+				Entry("no args", ""),
+				Entry("dry-run", "--dry-run", verifyDryRun),
+				Entry("disk-type disk", "--disk-type=disk", verifyDiskTypeDisk),
+				Entry("disk-type lun", "--disk-type=lun", verifyDiskTypeLun),
 				Entry("serial", "--serial=test", verifyDiskSerial("test")),
-				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
-				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
-				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
-				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
+				Entry("cache none", "--cache=none", verifyCache(v1.CacheNone)),
+				Entry("cache writethrough", "--cache=writethrough", verifyCache(v1.CacheWriteThrough)),
+				Entry("cache writeback", "--cache=writeback", verifyCache(v1.CacheWriteBack)),
+				Entry("virtio bus", "--bus=virtio", verifyBus(v1.DiskBusVirtio)),
 			)
 
 			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
@@ -213,15 +213,15 @@ var _ = Describe("Add volume command", func() {
 				Expect(runCmd(true, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
-				Entry("no args", "", verifyDiskSerial(volumeName)),
-				Entry("dry-run", "--dry-run", verifyDiskSerial(volumeName), verifyDryRun),
-				Entry("disk-type disk", "--disk-type=disk", verifyDiskSerial(volumeName), verifyDiskTypeDisk),
-				Entry("disk-type lun", "--disk-type=lun", verifyDiskSerial(volumeName), verifyDiskTypeLun),
+				Entry("no args", ""),
+				Entry("dry-run", "--dry-run", verifyDryRun),
+				Entry("disk-type disk", "--disk-type=disk", verifyDiskTypeDisk),
+				Entry("disk-type lun", "--disk-type=lun", verifyDiskTypeLun),
 				Entry("serial", "--serial=test", verifyDiskSerial("test")),
-				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
-				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
-				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
-				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
+				Entry("cache none", "--cache=none", verifyCache(v1.CacheNone)),
+				Entry("cache writethrough", "--cache=writethrough", verifyCache(v1.CacheWriteThrough)),
+				Entry("cache writeback", "--cache=writeback", verifyCache(v1.CacheWriteBack)),
+				Entry("virtio bus", "--bus=virtio", verifyBus(v1.DiskBusVirtio)),
 			)
 
 			It("should fail immediately on non concurrent error", func() {
@@ -282,15 +282,15 @@ var _ = Describe("Add volume command", func() {
 				Expect(runCmd(false, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachineinstances", "addvolume")).To(HaveLen(1))
 			},
-				Entry("no args", "", verifyDiskSerial(volumeName)),
-				Entry("dry-run", "--dry-run", verifyDiskSerial(volumeName), verifyDryRun),
-				Entry("disk-type disk", "--disk-type=disk", verifyDiskSerial(volumeName), verifyDiskTypeDisk),
-				Entry("disk-type lun", "--disk-type=lun", verifyDiskSerial(volumeName), verifyDiskTypeLun),
+				Entry("no args", ""),
+				Entry("dry-run", "--dry-run", verifyDryRun),
+				Entry("disk-type disk", "--disk-type=disk", verifyDiskTypeDisk),
+				Entry("disk-type lun", "--disk-type=lun", verifyDiskTypeLun),
 				Entry("serial", "--serial=test", verifyDiskSerial("test")),
-				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
-				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
-				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
-				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
+				Entry("cache none", "--cache=none", verifyCache(v1.CacheNone)),
+				Entry("cache writethrough", "--cache=writethrough", verifyCache(v1.CacheWriteThrough)),
+				Entry("cache writeback", "--cache=writeback", verifyCache(v1.CacheWriteBack)),
+				Entry("virtio bus", "--bus=virtio", verifyBus(v1.DiskBusVirtio)),
 			)
 
 			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
@@ -299,15 +299,15 @@ var _ = Describe("Add volume command", func() {
 				Expect(runCmd(true, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
-				Entry("no args", "", verifyDiskSerial(volumeName)),
-				Entry("dry-run", "--dry-run", verifyDiskSerial(volumeName), verifyDryRun),
-				Entry("disk-type disk", "--disk-type=disk", verifyDiskSerial(volumeName), verifyDiskTypeDisk),
-				Entry("disk-type lun", "--disk-type=lun", verifyDiskSerial(volumeName), verifyDiskTypeLun),
+				Entry("no args", ""),
+				Entry("dry-run", "--dry-run", verifyDryRun),
+				Entry("disk-type disk", "--disk-type=disk", verifyDiskTypeDisk),
+				Entry("disk-type lun", "--disk-type=lun", verifyDiskTypeLun),
 				Entry("serial", "--serial=test", verifyDiskSerial("test")),
-				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
-				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
-				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
-				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
+				Entry("cache none", "--cache=none", verifyCache(v1.CacheNone)),
+				Entry("cache writethrough", "--cache=writethrough", verifyCache(v1.CacheWriteThrough)),
+				Entry("cache writeback", "--cache=writeback", verifyCache(v1.CacheWriteBack)),
+				Entry("virtio bus", "--bus=virtio", verifyBus(v1.DiskBusVirtio)),
 			)
 		})
 	})

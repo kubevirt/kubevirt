@@ -108,6 +108,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/kubevirt/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/emicklei/go-restful/v3:go_default_library",
+        "//vendor/github.com/google/uuid:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

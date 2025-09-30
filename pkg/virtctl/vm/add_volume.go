@@ -162,9 +162,8 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 
 	if serial != "" {
 		hotplugRequest.Disk.Serial = serial
-	} else {
-		hotplugRequest.Disk.Serial = volumeName
 	}
+
 	if cache != "" {
 		hotplugRequest.Disk.Cache = v1.DriverCache(cache)
 		// Verify if cache mode is valid

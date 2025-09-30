@@ -273,6 +273,12 @@ func WithDedicatedIOThreads(enabled bool) DiskOption {
 	}
 }
 
+func WithSerial(serial string) DiskOption {
+	return func(d *v1.Disk) {
+		d.Serial = serial
+	}
+}
+
 func newCDRom(name string, bus v1.DiskBus) v1.Disk {
 	return v1.Disk{
 		Name: name,
