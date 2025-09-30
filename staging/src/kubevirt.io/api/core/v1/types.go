@@ -1310,6 +1310,12 @@ const (
 	// VirtualMachineNameLabel is the name of the Virtual Machine
 	VirtualMachineNameLabel string = "vm.kubevirt.io/name"
 
+	// VirtualMachineInstanceIDLabel is applied to virt-launcher pods to provide a
+	// stable and unique identifier for a VMI, suitable for use in service selectors.
+	// For VMI names longer than 63 characters, its value is a truncated and hashed
+	// representation of the name to ensure uniqueness.
+	VirtualMachineInstanceIDLabel = "vmi.kubevirt.io/id"
+
 	// PVCMemoryDumpAnnotation is the name of the memory dump representing the vm name,
 	// pvc name and the timestamp the memory dump was collected
 	PVCMemoryDumpAnnotation string = "kubevirt.io/memory-dump"
