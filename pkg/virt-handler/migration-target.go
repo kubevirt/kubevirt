@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -710,7 +711,7 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
 	}
 
-	if err := c.setupDevicesOwnerships(vmi, c.recorder); err != nil {
+	if err := c.setupDevicesOwnerships(vmi, c.recorder, hypervisor.NewHypervisor(c.clusterConfig.GetHypervisor().Name).GetDevice()); err != nil {
 		return err
 	}
 

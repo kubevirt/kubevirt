@@ -2924,7 +2924,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			p, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.claimDeviceOwnership(p, "kvm")
+			err = controller.claimHypervisorDeviceOwnership(p, "kvm")
 			if softEmulation {
 				Expect(err).NotTo(HaveOccurred())
 			} else {
