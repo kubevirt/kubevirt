@@ -32,6 +32,13 @@ var (
 		vmiLauncherMemoryOverhead,
 	}
 
+	ephemeralVolumeMetrics = operatormetrics.Collector{
+		Metrics: []operatormetrics.Metric{
+			vmiEphemeralHotplugVolumeTotal,
+		},
+		CollectCallback: EphemeralVolumeMetricsCallback,
+	}
+
 	vmiLauncherMemoryOverhead = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_launcher_memory_overhead_bytes",
@@ -39,7 +46,39 @@ var (
 		},
 		[]string{"namespace", "name"},
 	)
+
+	vmiEphemeralHotplugVolumeTotal = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_ephemeral_hotplug_volume_total",
+			Help: "Total number of VMIs that contain ephemeral hotplugs",
+		},
+		[]string{"namespace", "vmi_name"},
+	)
 )
+
+func EphemeralVolumeMetricsCallback() []operatormetrics.CollectorResult {
+	results := []operatormetrics.CollectorResult{}
+	cachedObjs := stores.VMI.List()
+
+	if len(cachedObjs) == 0 {
+		return results
+	}
+
+	for _, obj := range cachedObjs {
+		vmi := obj.(*v1.VirtualMachineInstance)
+
+		labels := vmi.GetLabels()
+		if _, exists := labels[v1.EphemeralHotplugLabel]; exists {
+			results = append(results, operatormetrics.CollectorResult{
+				Metric: vmiEphemeralHotplugVolumeTotal,
+				Labels: []string{vmi.Namespace, vmi.Name},
+				Value:  float64(1),
+			})
+		}
+	}
+
+	return results
+}
 
 func SetVmiLaucherMemoryOverhead(vmi *v1.VirtualMachineInstance, memoryOverhead resource.Quantity) {
 	vmiLauncherMemoryOverhead.
