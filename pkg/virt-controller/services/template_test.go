@@ -459,10 +459,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers).To(HaveLen(2))
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					v1.AppLabel:                      "virt-launcher",
-					v1.CreatedByLabel:                "1234",
-					v1.VirtualMachineNameLabel:       "testvmi",
-					v1.VirtualMachineInstanceIDLabel: "testvmi",
+					v1.AppLabel:                          "virt-launcher",
+					v1.CreatedByLabel:                    "1234",
+					v1.DeprecatedVirtualMachineNameLabel: "testvmi",
+					v1.VirtualMachineInstanceIDLabel:     "testvmi",
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					v1.DomainAnnotation:                                  "testvmi",
@@ -1073,10 +1073,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					v1.AppLabel:                      "virt-launcher",
-					v1.CreatedByLabel:                "1234",
-					v1.VirtualMachineNameLabel:       "testvmi",
-					v1.VirtualMachineInstanceIDLabel: "testvmi",
+					v1.AppLabel:                          "virt-launcher",
+					v1.CreatedByLabel:                    "1234",
+					v1.DeprecatedVirtualMachineNameLabel: "testvmi",
+					v1.VirtualMachineInstanceIDLabel:     "testvmi",
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
@@ -1893,12 +1893,12 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Labels).To(Equal(
 					map[string]string{
-						"key1":                           "val1",
-						"key2":                           "val2",
-						v1.AppLabel:                      "virt-launcher",
-						v1.CreatedByLabel:                "1234",
-						v1.VirtualMachineNameLabel:       "testvmi",
-						v1.VirtualMachineInstanceIDLabel: "testvmi",
+						"key1":                               "val1",
+						"key2":                               "val2",
+						v1.AppLabel:                          "virt-launcher",
+						v1.CreatedByLabel:                    "1234",
+						v1.DeprecatedVirtualMachineNameLabel: "testvmi",
+						v1.VirtualMachineInstanceIDLabel:     "testvmi",
 					},
 				))
 			})
@@ -4358,14 +4358,14 @@ var _ = Describe("Template", func() {
 						Namespace: "default",
 						UID:       "1234",
 						Labels: map[string]string{
-							v1.VirtualMachineNameLabel: "random_name",
+							v1.DeprecatedVirtualMachineNameLabel: "random_name",
 						},
 					},
 				}
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
+				vmNameLabel, ok := pod.Labels[v1.DeprecatedVirtualMachineNameLabel]
 				Expect(ok).To(BeTrue())
 				Expect(vmNameLabel).To(Equal(vmi.Name))
 			})
@@ -4386,7 +4386,7 @@ var _ = Describe("Template", func() {
 					pod, err := svc.RenderLaunchManifest(&vmi)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(pod.Spec.Containers).To(HaveLen(1))
-					vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
+					vmNameLabel, ok := pod.Labels[v1.DeprecatedVirtualMachineNameLabel]
 					Expect(ok).To(BeTrue())
 					Expect(vmNameLabel).To(Equal(vmi.Name))
 				})
@@ -4408,7 +4408,7 @@ var _ = Describe("Template", func() {
 					pod, err := svc.RenderLaunchManifest(&vmi)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(pod.Spec.Containers).To(HaveLen(1))
-					vmNameLabel, ok := pod.Labels[v1.VirtualMachineNameLabel]
+					vmNameLabel, ok := pod.Labels[v1.DeprecatedVirtualMachineNameLabel]
 					Expect(ok).To(BeTrue())
 					Expect(vmNameLabel).To(Equal(name[:validation.DNS1123LabelMaxLength]))
 				})
