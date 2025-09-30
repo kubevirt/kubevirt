@@ -206,6 +206,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateBootOrder(field, spec, config)...)
 
 	causes = append(causes, validateInputDevices(field, spec)...)
+
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
 	causes = append(causes, validateProbe(field.Child("readinessProbe"), spec.ReadinessProbe)...)
 	causes = append(causes, validateProbe(field.Child("livenessProbe"), spec.LivenessProbe)...)
@@ -218,6 +219,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 	causes = append(causes, storageadmitters.ValidateContainerDisks(field, spec)...)
+	causes = append(causes, storageadmitters.ValidateUtilityVolumesNotPresentOnCreation(field, spec)...)
 
 	causes = append(causes, validateAccessCredentials(field.Child("accessCredentials"), spec.AccessCredentials, spec.Volumes)...)
 
