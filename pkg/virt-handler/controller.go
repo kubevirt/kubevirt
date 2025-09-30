@@ -196,17 +196,25 @@ func (c *BaseController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool 
 		!vmi.Status.MigrationState.Completed
 }
 
-func (c *BaseController) claimDeviceOwnership(virtLauncherRootMount *safepath.Path, deviceName string) error {
+func (c *BaseController) tryClaimDeviceOwnership(virtLauncherRootMount *safepath.Path, deviceName string, isHypervisorDevice bool) error {
 	softwareEmulation := c.clusterConfig.AllowEmulation()
 	devicePath, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", deviceName))
 	if err != nil {
-		if softwareEmulation && deviceName == "kvm" {
+		if softwareEmulation && isHypervisorDevice {
 			return nil
 		}
 		return err
 	}
 
 	return diskutils.DefaultOwnershipManager.SetFileOwnership(devicePath)
+}
+
+func (c *BaseController) claimDeviceOwnership(virtLauncherRootMount *safepath.Path, deviceName string) error {
+	return c.tryClaimDeviceOwnership(virtLauncherRootMount, deviceName, false)
+}
+
+func (c *BaseController) claimHypervisorDeviceOwnership(virtLauncherRootMount *safepath.Path, deviceName string) error {
+	return c.tryClaimDeviceOwnership(virtLauncherRootMount, deviceName, true)
 }
 
 func (c *BaseController) configureHostDisks(
@@ -249,7 +257,7 @@ func (c *BaseController) configureVirtioFS(vmi *v1.VirtualMachineInstance, isola
 	return nil
 }
 
-func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, recorder record.EventRecorder) error {
+func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, recorder record.EventRecorder, hypervisorDevice string) error {
 	isolationRes, err := c.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
@@ -260,9 +268,9 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 		return err
 	}
 
-	err = c.claimDeviceOwnership(virtLauncherRootMount, "kvm")
+	err = c.claimHypervisorDeviceOwnership(virtLauncherRootMount, hypervisorDevice)
 	if err != nil {
-		return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
+		return fmt.Errorf("failed to set up file ownership for /dev/%s: %v", hypervisorDevice, err)
 	}
 
 	if util.IsAutoAttachVSOCK(vmi) {

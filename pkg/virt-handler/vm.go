@@ -2069,7 +2069,7 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, fmt.Errorf("failed to configure vmi network: %w", err)
 	}
 
-	if err := c.setupDevicesOwnerships(vmi, c.recorder); err != nil {
+	if err := c.setupDevicesOwnerships(vmi, c.recorder, hypervisor.NewHypervisor(c.clusterConfig.GetHypervisor().Name).GetDevice()); err != nil {
 		return false, err
 	}
 
