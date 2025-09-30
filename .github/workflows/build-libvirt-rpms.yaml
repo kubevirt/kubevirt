@@ -8,10 +8,10 @@ on:
       - '.github/workflows/build-libvirt-rpms.yaml'
 
 env:
-  LIBVIRT_REPO: https://github.com/praveen-pk/libvirt.git
+  LIBVIRT_REPO: https://github.com/kaizentm/libvirt.git
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/libvirt-rpms
-  LIBVERT_TAG: 'qemu_mshv'
+  LIBVERT_TAG: 'qemu_mshv_v1'
   RPM_IMAGE_TAG: 'qemu-mshv'
 
 jobs:
