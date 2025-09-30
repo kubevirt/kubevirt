@@ -138,6 +138,9 @@ Total CPU time spent in user mode. Type: Counter.
 ### kubevirt_vmi_dirty_rate_bytes_per_second
 Guest dirty-rate in bytes per second. Type: Gauge.
 
+### kubevirt_vmi_ephemeral_hotplug_volume
+VMIs that contain an ephemeral hotplug volume. Type: Gauge.
+
 ### kubevirt_vmi_filesystem_capacity_bytes
 Total VM filesystem capacity in bytes. Type: Gauge.
 
