@@ -52,14 +52,14 @@ jobs:
           make cluster-up
           make cluster-deploy
 
-          # if EMULATION is set to true, deploy the emulation configmap
-          if [ "$EMULATION" = "true" ]; then
-             kubectl -n kubevirt patch kubevirt kubevirt \
-              --type=merge \
-               --patch '{"spec":{"configuration":{"developerConfiguration":{"useEmulation":true}}}}'
+          # if KUBEVIRT_CR env varaibale is set, deploy the custom KubeVirt CR
+          if [ -n "${KUBEVIRT_CR:-}" ]; then
+            echo "Applying custom KubeVirt CR from KUBEVIRT_CR environment variable"
+            echo "$KUBEVIRT_CR" | ./kubevirtci/cluster-up/kubectl.sh apply -f -
           fi
+          
         env:
-          EMULATION: ${{ vars.EMULATION }}  
+          KUBEVIRT_CR: ${{ vars.KUBEVIRT_CR }}  
 
       - name: Test
         run: |
