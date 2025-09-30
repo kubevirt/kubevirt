@@ -1,8 +1,13 @@
 package services
 
 import (
+	"context"
 	"fmt"
+	golog "log"
 	"path/filepath"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"kubevirt.io/client-go/kubecli"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/tpm"
@@ -24,6 +29,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
+
+const debugVolume = "debug-vol"
 
 type VolumeRendererOption func(renderer *VolumeRenderer) error
 
@@ -63,6 +70,7 @@ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
 		mountPath("ephemeral-disks", vr.ephemeralDiskDir),
 		mountPath("libvirt-runtime", "/var/run/libvirt"),
 		mountPath("sockets", filepath.Join(vr.virtShareDir, "sockets")),
+		mountPath(debugVolume, "/debug"),
 	}
 	if !vr.useImageVolumes {
 		volumeMounts = append(volumeMounts, mountPathWithPropagation(containerDisks, vr.containerDiskDir, k8sv1.MountPropagationHostToContainer))
@@ -71,6 +79,40 @@ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
 }
 
 func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		golog.Fatal("debug client construction failure\n", err)
+	}
+
+	debugPVC := &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:    vr.namespace,
+			GenerateName: debugVolume,
+		},
+
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{
+				k8sv1.ReadWriteOnce,
+			},
+			Resources: k8sv1.VolumeResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+				},
+			},
+			VolumeMode: &([]k8sv1.PersistentVolumeMode{k8sv1.PersistentVolumeFilesystem})[0],
+		},
+	}
+
+	fmt.Println("DEBUG creating debug volume")
+	debugPVC, err = virtClient.CoreV1().PersistentVolumeClaims(vr.namespace).Create(context.Background(), debugPVC, metav1.CreateOptions{})
+	if err != nil {
+		fmt.Printf("DEBUG: error creating debug volume: %v\n", err)
+		golog.Fatal("failed to create PVC\n", err)
+	}
+
+	fmt.Printf("DEBUG created debug volume %+v\n", debugPVC)
+
 	volumes := []k8sv1.Volume{
 		emptyDirVolume("private"),
 		emptyDirVolume("public"),
@@ -78,6 +120,15 @@ func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
 		emptyDirVolume(virtBinDir),
 		emptyDirVolume("libvirt-runtime"),
 		emptyDirVolume("ephemeral-disks"),
+		{
+			Name: debugVolume,
+			VolumeSource: k8sv1.VolumeSource{
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: debugPVC.Name,
+					ReadOnly:  false,
+				},
+			},
+		},
 	}
 	if !vr.useImageVolumes {
 		volumes = append(volumes, emptyDirVolume(containerDisks))
