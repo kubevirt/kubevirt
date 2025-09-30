@@ -259,6 +259,40 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 	return nil
 }
 
+func (c *Controller) checkEphemeralHotplugVolumes(vmi *virtv1.VirtualMachineInstance) {
+	vm := c.getOwnerVM(vmi)
+	if vmi == nil || vm == nil {
+		return
+	}
+
+	vmVolumeMap := map[string]struct{}{}
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		vmVolumeMap[volume.Name] = struct{}{}
+	}
+
+	labels := vmi.Labels
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	// check if the vmi has any volumes that are not in the vm spec
+	for _, volume := range vmi.Spec.Volumes {
+		if !storagetypes.IsHotplugVolume(&volume) {
+			continue
+		}
+		if _, exists := vmVolumeMap[volume.Name]; !exists {
+			if _, ok := labels[virtv1.EphemeralHotplugLabel]; !ok {
+				// will be patched at the end of updateStatus
+				labels[virtv1.EphemeralHotplugLabel] = "true"
+				vmi.Labels = labels
+				return
+			}
+		}
+	}
+
+	// no ephemeral hotplugs were found, remove label if it exists
+	delete(vmi.Labels, virtv1.EphemeralHotplugLabel)
+}
+
 func phaseForUnpluggedVolume(phase virtv1.VolumePhase) virtv1.VolumePhase {
 	switch phase {
 	case virtv1.VolumeReady:

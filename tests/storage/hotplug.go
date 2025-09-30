@@ -25,6 +25,7 @@ import (
 	"math"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,8 +55,11 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -998,6 +1002,116 @@ var _ = Describe(SIG("Hotplug", func() {
 					Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
 					Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
 				)
+
+				Context("Ephemeral Metrics", decorators.RequiresRWXBlock, func() {
+
+					checkMetrics := func(nodeName string, expectedCount int) {
+						pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
+						Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+
+						// only want to query endpoint from the leader controller, ie the one that will know about the vms
+						By("Finding the virt-controller prometheus endpoint")
+						virtControllerLeaderPodName := libinfra.GetLeader()
+						leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
+							context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
+
+						targetIp := ""
+						for _, ip := range leaderPod.Status.PodIPs {
+							// ignore IPv6
+							if strings.Contains(ip.IP, ":") {
+								continue
+							}
+							targetIp = ip.IP
+						}
+
+						Expect(targetIp).ToNot(Equal(""), "Could not find virt-controller IP")
+
+						// Query the metrics endpoint and filter for ephemeral volume metric ignoring the commented descriptions
+						shellCmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics | grep -v '#' | grep kubevirt_vmi_contains_ephemeral_hotplug_volume", targetIp)
+
+						// Wait for the ephemeral volume metric to appear
+						Eventually(func() int {
+							stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", []string{"/bin/sh", "-c", shellCmd})
+							if err != nil {
+								log.Log.Warningf("curl command error: %v, stderr: %s", err, stderr)
+								return 0
+							}
+
+							// each new line is a new metric
+							metrics := 0
+							for _, line := range strings.Split(stdout, "\n") {
+								// avoid trailing empty string from curl output
+								if line != "" {
+									metrics++
+								}
+							}
+							return metrics
+						}, 30*time.Second, 1*time.Second).Should(Equal(expectedCount))
+					}
+
+					It("should count only vmis with hotplug ephemeral volumes, ignoring persistent volumes and unplugs", Serial, func() {
+						kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+						kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
+						ephemeralCount := 0
+
+						By("Creating hotplug volume that will persist")
+						dvPersistent := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+						addDVVolumeVM(vm.Name, vm.Namespace, "persistent-volume", dvPersistent.Name, v1.DiskBusSCSI, false, "")
+
+						By("Creating hotplug volume that will be unplugged")
+						dvUnplug := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+						addDVVolumeVM(vm.Name, vm.Namespace, "unplug-volume", dvUnplug.Name, v1.DiskBusSCSI, false, "")
+						removeVolumeVM(vm.Name, vm.Namespace, "unplug-volume", false)
+
+						By("Creating ephemeral hotplug volume")
+						dvEphemeral := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+						addDVVolumeVMI(vm.Name, vm.Namespace, "ephemeral-volume", dvEphemeral.Name, v1.DiskBusSCSI, false, "")
+						ephemeralCount++
+
+						vmi := libvmifact.NewCirros()
+						vm2, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						Eventually(matcher.ThisVM(vm2)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+						By("Creating second ephemeral hotplug volume on seperate vm")
+						dvEphemeral2 := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+						addDVVolumeVMI(vm2.Name, vm2.Namespace, "ephemeral-volume2", dvEphemeral2.Name, v1.DiskBusSCSI, false, "")
+						ephemeralCount++
+
+						vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						nodeName := vmi.Status.NodeName
+
+						By(fmt.Sprintf("Expecting metrics to be %d", ephemeralCount))
+						checkMetrics(nodeName, ephemeralCount)
+
+						By("Removing ephemeral volume")
+						removeVolumeVMI(vm2.Name, vm2.Namespace, "ephemeral-volume2", false)
+						ephemeralCount--
+
+						By("Expecting metric to have decremented")
+						checkMetrics(nodeName, ephemeralCount)
+					})
+
+					It("should ignore delcarative hotplugs", Serial, func() {
+						kvconfig.EnableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+						kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
+
+						By("Adding delcarative hotplug")
+						dvPersistent := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+						addDVVolumeVM(vm.Name, vm.Namespace, "persistent-volume", dvPersistent.Name, v1.DiskBusSCSI, false, "")
+
+						vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						nodeName := vmi.Status.NodeName
+						By("Expecting no ephemeral metrics")
+						checkMetrics(nodeName, 0)
+					})
+				})
 			})
 
 			Context("with declarative hotplug", func() {
