@@ -62,7 +62,7 @@ function docker_push_manifest() {
 }
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
-for image in $(find ${DIGESTS_DIR} -name '*.json.sha256' -printf '%f\n' | sed s/\-image.json.sha256$//g | sort -u); do
+for image in $(find ${DIGESTS_DIR} -name '*.image' -printf '%f\n' | sed s/\.image$//g | sort -u); do
     if [ "${KUBEVIRT_CRI}" = "podman" ]; then
         podman_push_manifest $image
     else
