@@ -13,7 +13,9 @@ go_library(
     importpath = "github.com/prometheus/client_golang/prometheus/promhttp",
     visibility = ["//visibility:public"],
     deps = [
+        "//vendor/github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus/promhttp/internal:go_default_library",
         "//vendor/github.com/prometheus/client_model/go:go_default_library",
         "//vendor/github.com/prometheus/common/expfmt:go_default_library",
     ],
