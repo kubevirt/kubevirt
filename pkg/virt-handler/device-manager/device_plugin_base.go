@@ -31,10 +31,22 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
+
 	"kubevirt.io/client-go/log"
 
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
+
+const connectionTimeout = 5 * time.Second
+
+type Device interface {
+	Start(stop <-chan struct{}) error
+	ListAndWatch(*pluginapi.Empty, pluginapi.DevicePlugin_ListAndWatchServer) error
+	PreStartContainer(context.Context, *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error)
+	Allocate(context.Context, *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error)
+	GetDeviceName() string
+	GetInitialized() bool
+}
 
 type DevicePluginBase struct {
 	devs         []*pluginapi.Device
