@@ -73,7 +73,7 @@ require (
 replace (
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210105115604-44119421ec6b
 
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20240430033511-f0e62f92d13f
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff
 
 	kubevirt.io/api => ../api
 )

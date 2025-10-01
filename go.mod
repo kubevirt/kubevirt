@@ -108,7 +108,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang/glog v1.2.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
-	github.com/google/gnostic-models v0.6.8 // indirect
+	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
 	github.com/google/renameio/v2 v2.0.0 // indirect
@@ -151,14 +151,14 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiserver v0.32.5 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
 	mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.5.0 // indirect
+	sigs.k8s.io/randfill v1.0.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
 
 require (
@@ -186,7 +186,7 @@ replace (
 	k8s.io/klog => k8s.io/klog v0.4.0
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.32.5
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.32.5
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20240430033511-f0e62f92d13f
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.32.5
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.32.5
 	k8s.io/kubectl => k8s.io/kubectl v0.32.5
