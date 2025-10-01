@@ -11,7 +11,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1
 	github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.80.1
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/mock v0.5.1
 	k8s.io/api v0.32.5
