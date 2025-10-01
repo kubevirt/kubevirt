@@ -108,6 +108,7 @@ elif [[ $TARGET =~ wg-s390x ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-wg-s390x}
 elif [[ $TARGET =~ wg-arm64 ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
+    export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
 elif [[ $TARGET =~ sev ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-sev}
 else
