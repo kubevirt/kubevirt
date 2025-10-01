@@ -315,7 +315,7 @@ func (c *Controller) deleteOrphanedAttachmentPods(vmi *v1.VirtualMachineInstance
 	}
 
 	for _, pod := range pods {
-		if !controller.IsControlledBy(pod, vmi) {
+		if !metav1.IsControlledBy(pod, vmi) {
 			continue
 		}
 
