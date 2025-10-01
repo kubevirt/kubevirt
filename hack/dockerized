@@ -12,7 +12,7 @@ fi
 
 fail_if_cri_bin_missing
 
-kubevirt_builder_version="2509301022-a78045058e"
+kubevirt_builder_version="2510011624-8eb9610e4b"
 default_kubevirt_builder_image="quay.io/kubevirt/builder:${kubevirt_builder_version}"
 kubevirt_cross_compile_image="quay.io/kubevirt/builder-cross:${kubevirt_builder_version}"
 
