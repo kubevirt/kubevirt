@@ -252,15 +252,17 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 	r.logVirtualMachinePools(virtCli)
 	r.logMigrationPolicies(virtCli)
 
-	// Collect containerd and cri-o stacks from all nodes, not just nodes with test pods
-	allNodeNames := []string{}
-	if nodes != nil {
-		for _, node := range nodes.Items {
-			allNodeNames = append(allNodeNames, node.Name)
-		}
+	r.logContainerRuntimeDebug(virtCli, nodesDir, nodes)
+}
+
+const KubeVirtEnableRuntimeDebugEnv = "KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG"
+
+func (r *KubernetesReporter) logContainerRuntimeDebug(virtCli kubecli.KubevirtClient, nodesDir string, nodes *v1.NodeList) {
+	if v := os.Getenv(KubeVirtEnableRuntimeDebugEnv); strings.ToLower(v) != "true" {
+		return
 	}
-	r.logContainerdStacks(virtCli, nodesDir, allNodeNames)
-	r.logCrioStacks(virtCli, nodesDir, allNodeNames)
+	r.logContainerdStacks(virtCli, nodesDir, nodes)
+	r.logCrioStacks(virtCli, nodesDir, nodes)
 }
 
 // Cleanup cleans up the current content of the artifactsDir
@@ -607,17 +609,18 @@ func (r *KubernetesReporter) logNodeCommands(virtCli kubecli.KubevirtClient, nod
 	}
 }
 
-func (r *KubernetesReporter) logContainerdStacks(virtCli kubecli.KubevirtClient, logsdir string, nodes []string) {
+func (r *KubernetesReporter) logContainerdStacks(virtCli kubecli.KubevirtClient, logsdir string, nodes *v1.NodeList) {
 
 	if logsdir == "" {
 		printError("logsdir is empty, skipping logContainerdStacks")
 		return
 	}
 
-	for _, node := range nodes {
-		pod, err := libnode.GetVirtHandlerPod(virtCli, node)
+	for _, nodeName := range nodes.Items {
+		nodeName := nodeName.Name
+		pod, err := libnode.GetVirtHandlerPod(virtCli, nodeName)
 		if err != nil {
-			printError(failedGetVirtHandlerPodFmt, node, err)
+			printError(failedGetVirtHandlerPodFmt, nodeName, err)
 			continue
 		}
 
@@ -634,7 +637,7 @@ func (r *KubernetesReporter) logContainerdStacks(virtCli kubecli.KubevirtClient,
 
 		stdout, _, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, checkCommand)
 		if err != nil || stdout == "" {
-			printInfo("containerd not running on node %s, skipping containerd debug collection", node)
+			printInfo("containerd not running on node %s, skipping containerd debug collection", nodeName)
 			continue
 		}
 
@@ -652,7 +655,7 @@ func (r *KubernetesReporter) logContainerdStacks(virtCli kubecli.KubevirtClient,
 
 		_, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, signalCommand)
 		if err != nil {
-			printError("failed to send USR1 to containerd on node %s, stderr: %s, error: %v", node, stderr, err)
+			printError("failed to send USR1 to containerd on node %s, stderr: %s, error: %v", nodeName, stderr, err)
 			continue
 		}
 
@@ -673,10 +676,10 @@ func (r *KubernetesReporter) logContainerdStacks(virtCli kubecli.KubevirtClient,
 
 		stdout, _, err = exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, stackFilesCommand)
 		if err == nil && stdout != "" {
-			fileName := fmt.Sprintf(logFileNameFmt, r.failureCount, "containerd-stacks", node)
+			fileName := fmt.Sprintf(logFileNameFmt, r.failureCount, "containerd-stacks", nodeName)
 			err = writeStringToFile(filepath.Join(logsdir, fileName), stdout)
 			if err != nil {
-				printError("failed to write containerd stack files for node %s: %v", node, err)
+				printError("failed to write containerd stack files for node %s: %v", nodeName, err)
 			}
 		}
 
@@ -697,19 +700,19 @@ func (r *KubernetesReporter) logContainerdStacks(virtCli kubecli.KubevirtClient,
 
 		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, journalCommand)
 		if err != nil {
-			printError("failed to collect containerd logs on node %s, stderr: %s, error: %v", node, stderr, err)
+			printError("failed to collect containerd logs on node %s, stderr: %s, error: %v", nodeName, stderr, err)
 			continue
 		}
 
-		fileName := fmt.Sprintf(logFileNameFmt, r.failureCount, "containerd-journal", node)
+		fileName := fmt.Sprintf(logFileNameFmt, r.failureCount, "containerd-journal", nodeName)
 		err = writeStringToFile(filepath.Join(logsdir, fileName), stdout)
 		if err != nil {
-			printError("failed to write containerd journal for node %s: %v", node, err)
+			printError("failed to write containerd journal for node %s: %v", nodeName, err)
 			continue
 		}
 
 		// Collect crictl debug information
-		r.logContainerdCrictl(pod, node, logsdir)
+		r.logContainerdCrictl(pod, nodeName, logsdir)
 	}
 }
 
@@ -757,17 +760,18 @@ func (r *KubernetesReporter) logContainerdCrictl(pod *v1.Pod, node string, logsd
 	}
 }
 
-func (r *KubernetesReporter) logCrioStacks(virtCli kubecli.KubevirtClient, logsdir string, nodes []string) {
+func (r *KubernetesReporter) logCrioStacks(virtCli kubecli.KubevirtClient, logsdir string, nodes *v1.NodeList) {
 
 	if logsdir == "" {
 		printError("logsdir is empty, skipping logCrioStacks")
 		return
 	}
 
-	for _, node := range nodes {
-		pod, err := libnode.GetVirtHandlerPod(virtCli, node)
+	for _, node := range nodes.Items {
+		nodeName := node.Name
+		pod, err := libnode.GetVirtHandlerPod(virtCli, nodeName)
 		if err != nil {
-			printError(failedGetVirtHandlerPodFmt, node, err)
+			printError(failedGetVirtHandlerPodFmt, nodeName, err)
 			continue
 		}
 
@@ -784,7 +788,7 @@ func (r *KubernetesReporter) logCrioStacks(virtCli kubecli.KubevirtClient, logsd
 
 		stdout, _, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, checkCommand)
 		if err != nil || stdout == "" {
-			printInfo("cri-o not running on node %s, skipping cri-o debug collection", node)
+			printInfo("cri-o not running on node %s, skipping cri-o debug collection", nodeName)
 			continue
 		}
 
@@ -802,7 +806,7 @@ func (r *KubernetesReporter) logCrioStacks(virtCli kubecli.KubevirtClient, logsd
 
 		_, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, signalCommand)
 		if err != nil {
-			printError("failed to send USR1 to crio on node %s, stderr: %s, error: %v", node, stderr, err)
+			printError("failed to send USR1 to crio on node %s, stderr: %s, error: %v", nodeName, stderr, err)
 			continue
 		}
 
@@ -826,19 +830,19 @@ func (r *KubernetesReporter) logCrioStacks(virtCli kubecli.KubevirtClient, logsd
 
 		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, journalCommand)
 		if err != nil {
-			printError("failed to collect crio logs on node %s, stderr: %s, error: %v", node, stderr, err)
+			printError("failed to collect crio logs on node %s, stderr: %s, error: %v", nodeName, stderr, err)
 			continue
 		}
 
-		fileName := fmt.Sprintf(logFileNameFmt, r.failureCount, "crio-journal", node)
+		fileName := fmt.Sprintf(logFileNameFmt, r.failureCount, "crio-journal", nodeName)
 		err = writeStringToFile(filepath.Join(logsdir, fileName), stdout)
 		if err != nil {
-			printError("failed to write crio journal for node %s: %v", node, err)
+			printError("failed to write crio journal for node %s: %v", nodeName, err)
 			continue
 		}
 
 		// Collect crictl debug information
-		r.logCrioCrictl(pod, node, logsdir)
+		r.logCrioCrictl(pod, nodeName, logsdir)
 	}
 }
 
