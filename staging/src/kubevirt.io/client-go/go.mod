@@ -15,9 +15,9 @@ require (
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/mock v0.5.1
 	k8s.io/api v0.33.5
-	k8s.io/apiextensions-apiserver v0.32.5
+	k8s.io/apiextensions-apiserver v0.33.5
 	k8s.io/apimachinery v0.33.5
-	k8s.io/apiserver v0.32.5
+	k8s.io/apiserver v0.33.5
 	k8s.io/client-go v0.33.5
 	k8s.io/kube-openapi v0.31.0
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
