@@ -19,7 +19,7 @@
 
 package kubecli
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+//go:generate mockgen -destination=generated_mock_$GOFILE -package=$GOPACKAGE kubevirt.io/client-go/kubecli KubevirtClient
 
 /*
  ATTENTION: Rerun code generators when interface signatures are modified.
