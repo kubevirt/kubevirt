@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,36 @@ type VirtualMachineClusterPreferencesGetter interface {
 
 // VirtualMachineClusterPreferenceInterface has methods to work with VirtualMachineClusterPreference resources.
 type VirtualMachineClusterPreferenceInterface interface {
-	Create(ctx context.Context, virtualMachineClusterPreference *v1beta1.VirtualMachineClusterPreference, opts v1.CreateOptions) (*v1beta1.VirtualMachineClusterPreference, error)
-	Update(ctx context.Context, virtualMachineClusterPreference *v1beta1.VirtualMachineClusterPreference, opts v1.UpdateOptions) (*v1beta1.VirtualMachineClusterPreference, error)
+	Create(ctx context.Context, virtualMachineClusterPreference *instancetypev1beta1.VirtualMachineClusterPreference, opts v1.CreateOptions) (*instancetypev1beta1.VirtualMachineClusterPreference, error)
+	Update(ctx context.Context, virtualMachineClusterPreference *instancetypev1beta1.VirtualMachineClusterPreference, opts v1.UpdateOptions) (*instancetypev1beta1.VirtualMachineClusterPreference, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.VirtualMachineClusterPreference, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.VirtualMachineClusterPreferenceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*instancetypev1beta1.VirtualMachineClusterPreference, error)
+	List(ctx context.Context, opts v1.ListOptions) (*instancetypev1beta1.VirtualMachineClusterPreferenceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.VirtualMachineClusterPreference, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *instancetypev1beta1.VirtualMachineClusterPreference, err error)
 	VirtualMachineClusterPreferenceExpansion
 }
 
 // virtualMachineClusterPreferences implements VirtualMachineClusterPreferenceInterface
 type virtualMachineClusterPreferences struct {
-	*gentype.ClientWithList[*v1beta1.VirtualMachineClusterPreference, *v1beta1.VirtualMachineClusterPreferenceList]
+	*gentype.ClientWithList[*instancetypev1beta1.VirtualMachineClusterPreference, *instancetypev1beta1.VirtualMachineClusterPreferenceList]
 }
 
 // newVirtualMachineClusterPreferences returns a VirtualMachineClusterPreferences
 func newVirtualMachineClusterPreferences(c *InstancetypeV1beta1Client) *virtualMachineClusterPreferences {
 	return &virtualMachineClusterPreferences{
-		gentype.NewClientWithList[*v1beta1.VirtualMachineClusterPreference, *v1beta1.VirtualMachineClusterPreferenceList](
+		gentype.NewClientWithList[*instancetypev1beta1.VirtualMachineClusterPreference, *instancetypev1beta1.VirtualMachineClusterPreferenceList](
 			"virtualmachineclusterpreferences",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1beta1.VirtualMachineClusterPreference { return &v1beta1.VirtualMachineClusterPreference{} },
-			func() *v1beta1.VirtualMachineClusterPreferenceList {
-				return &v1beta1.VirtualMachineClusterPreferenceList{}
-			}),
+			func() *instancetypev1beta1.VirtualMachineClusterPreference {
+				return &instancetypev1beta1.VirtualMachineClusterPreference{}
+			},
+			func() *instancetypev1beta1.VirtualMachineClusterPreferenceList {
+				return &instancetypev1beta1.VirtualMachineClusterPreferenceList{}
+			},
+		),
 	}
 }

@@ -14,10 +14,10 @@ go_library(
     importpath = "github.com/google/gnostic-models/compiler",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/github.com/golang/protobuf/proto:go_default_library",
-        "//vendor/github.com/golang/protobuf/ptypes/any:go_default_library",
         "//vendor/github.com/google/gnostic-models/extensions:go_default_library",
         "//vendor/github.com/google/gnostic-models/jsonschema:go_default_library",
+        "//vendor/google.golang.org/protobuf/proto:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/anypb:go_default_library",
         "//vendor/gopkg.in/yaml.v3:go_default_library",
     ],
 )
