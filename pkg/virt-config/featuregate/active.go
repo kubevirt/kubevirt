@@ -153,12 +153,6 @@ const (
 	//
 	MigrationPriorityQueue = "MigrationPriorityQueue"
 
-	// Owner: @DariuszPorowski
-	// Alpha: v1.?.0
-	// This feature is disabled by default. When enabled, it allows setting specific Hyper-V
-	// fields on the VMI spec which are otherwise restricted.
-	HyperVLayered = "HyperVLayered"
-
 	// Owner: @harshitgupta1337
 	// Alpha: v1.?.0
 	// This feature is disabled by default. When enabled, it allows using a
@@ -201,7 +195,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: HyperVLayered, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Alpha})
