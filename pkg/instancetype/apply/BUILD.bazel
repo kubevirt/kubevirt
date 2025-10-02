@@ -8,6 +8,7 @@ go_library(
         "gpu.go",
         "hostdevices.go",
         "iothreadpolicy.go",
+        "iothreads.go",
         "launchsecurity.go",
         "memory.go",
         "nodeselector.go",
@@ -20,6 +21,7 @@ go_library(
     deps = [
         "//pkg/instancetype/conflict:go_default_library",
         "//pkg/instancetype/preference/apply:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
@@ -38,6 +40,7 @@ go_test(
         "gpu_test.go",
         "hostdevices_test.go",
         "iothreadpolicy_test.go",
+        "iothreads_test.go",
         "launchsecurity_test.go",
         "memory_test.go",
         "nodeselector_test.go",
