@@ -1629,18 +1629,38 @@ func (c *Controller) removePoolFinalizer(pool *poolv1.VirtualMachinePool) error 
 }
 
 func (c *Controller) cleanupVMs(vms []*virtv1.VirtualMachine) error {
+	var lastErr error
 	for _, vm := range vms {
 		if err := c.removeFinalizer(vm); err != nil {
 			log.Log.Object(vm).Errorf("Failed to remove finalizer: %v", err)
-			return err
+			lastErr = err
 		}
 	}
 
-	return nil
+	return lastErr
 }
 
 func (c *Controller) handlePoolDeletion(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
-	if err := c.cleanupVMs(vms); err != nil {
+	vms, err := c.listVMsFromNamespace(pool.ObjectMeta.Namespace)
+	if err != nil {
+		return err
+	}
+	var vmsToClean []*virtv1.VirtualMachine
+	for _, vm := range vms {
+		selector, err := metav1.LabelSelectorAsSelector(pool.Spec.Selector)
+		if err != nil {
+			return err
+		}
+		if !selector.Matches(labels.Set(vm.Labels)) {
+			continue
+		}
+		if !controller.HasFinalizer(vm, poolv1.VirtualMachinePoolControllerFinalizer) {
+			continue
+		}
+		vmsToClean = append(vmsToClean, vm)
+	}
+
+	if err := c.cleanupVMs(vmsToClean); err != nil {
 		return err
 	}
 

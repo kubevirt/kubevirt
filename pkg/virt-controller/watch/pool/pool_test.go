@@ -201,6 +201,7 @@ var _ = Describe("Pool", func() {
 				vmCopy.Annotations = maps.Clone(updatedPoolSpec.VirtualMachineTemplate.ObjectMeta.Annotations)
 				vmCopy.Spec = *indexVMSpec(&updatedPoolSpec, i)
 				vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, newPoolRevision.Name)
+				vmCopy.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
 
 				markVmAsReady(vmCopy)
 				vmi := createReadyVMI(vmCopy, oldPoolRevision)
@@ -669,6 +670,28 @@ var _ = Describe("Pool", func() {
 			Entry("do not append index if set to false", pointer.P(false)),
 			Entry("append index if set to true", pointer.P(true)),
 		)
+		It("should remove finalizer on vms when pool is marked for deletion and VMs are orphaned", func() {
+			pool, vm := DefaultPool(3)
+			addPool(pool)
+			poolRevision := createPoolRevision(pool)
+			vm.OwnerReferences = []metav1.OwnerReference{}
+			createVMsWithOrdinal(pool, 3, poolRevision, poolRevision, vm)
+
+			pool.DeletionTimestamp = pointer.P(metav1.Now())
+			pool.ObjectMeta.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
+
+			_, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Update(context.TODO(), pool, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(3))
+			for _, vm := range vms.Items {
+				Expect(vm.Finalizers).To(BeEmpty())
+			}
+		})
 
 		It("should respect maxUnavailable limit during proactive updates", func() {
 			pool, vm := DefaultPool(4)
