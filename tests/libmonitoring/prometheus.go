@@ -78,7 +78,7 @@ func WaitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, 
 			return -1
 		}
 		return i
-	}, 3*time.Minute, 1*time.Second).Should(BeNumerically("==", expectedValue))
+	}, 3*time.Minute, 1*time.Second).Should(Equal(expectedValue), "Metric %s with labels %v has value %f, not the expected %f", metric, labels, expectedValue, expectedValue)
 }
 
 func WaitForMetricValueWithLabelsToBe(client kubecli.KubevirtClient, metric string, labels map[string]string, offset int, comparator string, expectedValue float64) {
