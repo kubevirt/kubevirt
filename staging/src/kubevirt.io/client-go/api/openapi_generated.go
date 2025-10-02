@@ -30757,6 +30757,12 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineInstancetypeSpec(r
 							Format:      "",
 						},
 					},
+					"ioThreads": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally specifies the IOThreads options to be used by the instancetype.",
+							Ref:         ref("kubevirt.io/api/core/v1.DiskIOThreads"),
+						},
+					},
 					"launchSecurity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Optionally defines the LaunchSecurity to be used by the instancetype.",
@@ -30784,7 +30790,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineInstancetypeSpec(r
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.HostDevice", "kubevirt.io/api/core/v1.LaunchSecurity", "kubevirt.io/api/instancetype/v1beta1.CPUInstancetype", "kubevirt.io/api/instancetype/v1beta1.MemoryInstancetype"},
+			"kubevirt.io/api/core/v1.DiskIOThreads", "kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.HostDevice", "kubevirt.io/api/core/v1.LaunchSecurity", "kubevirt.io/api/instancetype/v1beta1.CPUInstancetype", "kubevirt.io/api/instancetype/v1beta1.MemoryInstancetype"},
 	}
 }
 

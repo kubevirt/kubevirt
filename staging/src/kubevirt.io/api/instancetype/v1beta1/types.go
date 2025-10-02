@@ -112,6 +112,10 @@ type VirtualMachineInstancetypeSpec struct {
 	// +optional
 	IOThreadsPolicy *v1.IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
 
+	// Optionally specifies the IOThreads options to be used by the instancetype.
+	// +optional
+	IOThreads *v1.DiskIOThreads `json:"ioThreads,omitempty"`
+
 	// Optionally defines the LaunchSecurity to be used by the instancetype.
 	//
 	// +optional

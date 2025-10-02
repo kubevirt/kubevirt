@@ -20529,6 +20529,10 @@
       },
       "x-kubernetes-list-type": "atomic"
      },
+     "ioThreads": {
+      "description": "Optionally specifies the IOThreads options to be used by the instancetype.",
+      "$ref": "#/definitions/v1.DiskIOThreads"
+     },
      "ioThreadsPolicy": {
       "description": "Optionally defines the IOThreadsPolicy to be used by the instancetype.",
       "type": "string"

@@ -9246,6 +9246,16 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        ioThreads:
+          description: Optionally specifies the IOThreads options to be used by the
+            instancetype.
+          properties:
+            supplementalPoolThreadCount:
+              description: SupplementalPoolThreadCount specifies how many iothreads
+                are allocated for the supplementalPool policy.
+              format: int32
+              type: integer
+          type: object
         ioThreadsPolicy:
           description: Optionally defines the IOThreadsPolicy to be used by the instancetype.
           type: string
@@ -20175,6 +20185,16 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        ioThreads:
+          description: Optionally specifies the IOThreads options to be used by the
+            instancetype.
+          properties:
+            supplementalPoolThreadCount:
+              description: SupplementalPoolThreadCount specifies how many iothreads
+                are allocated for the supplementalPool policy.
+              format: int32
+              type: integer
+          type: object
         ioThreadsPolicy:
           description: Optionally defines the IOThreadsPolicy to be used by the instancetype.
           type: string

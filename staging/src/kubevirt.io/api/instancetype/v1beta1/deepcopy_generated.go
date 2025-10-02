@@ -653,6 +653,11 @@ func (in *VirtualMachineInstancetypeSpec) DeepCopyInto(out *VirtualMachineInstan
 		*out = new(v1.IOThreadsPolicy)
 		**out = **in
 	}
+	if in.IOThreads != nil {
+		in, out := &in.IOThreads, &out.IOThreads
+		*out = new(v1.DiskIOThreads)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.LaunchSecurity != nil {
 		in, out := &in.LaunchSecurity, &out.LaunchSecurity
 		*out = new(v1.LaunchSecurity)
