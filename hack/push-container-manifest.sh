@@ -34,7 +34,12 @@ function podman_push_manifest() {
     ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
     for ARCH in ${BUILD_ARCH//,/ }; do
         FORMATTED_ARCH=$(format_archname ${ARCH} tag)
-        ${KUBEVIRT_CRI} manifest add ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}-${FORMATTED_ARCH}
+        TAGGED_IMAGE="${DOCKER_PREFIX}/${image}:${DOCKER_TAG}-${FORMATTED_ARCH}"
+        if skopeo inspect docker://${TAGGED_IMAGE} &>/dev/null; then
+            ${KUBEVIRT_CRI} manifest add ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${TAGGED_IMAGE}
+        else
+            echo "Warning: Image ${TAGGED_IMAGE} does not exist, skipping"
+        fi
     done
     ${KUBEVIRT_CRI} manifest push --all ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
 }
@@ -44,7 +49,12 @@ function docker_push_manifest() {
     MANIFEST_IMAGES=""
     for ARCH in ${BUILD_ARCH//,/ }; do
         FORMATTED_ARCH=$(format_archname ${ARCH} tag)
-        MANIFEST_IMAGES="${MANIFEST_IMAGES} --amend ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}-${FORMATTED_ARCH}"
+        TAGGED_IMAGE="${DOCKER_PREFIX}/${image}:${DOCKER_TAG}-${FORMATTED_ARCH}"
+        if skopeo inspect docker://${TAGGED_IMAGE} &>/dev/null; then
+            MANIFEST_IMAGES="${MANIFEST_IMAGES} --amend ${TAGGED_IMAGE}"
+        else
+            echo "Warning: Image ${TAGGED_IMAGE} does not exist, skipping"
+        fi
     done
     echo ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${MANIFEST_IMAGES}
     ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${MANIFEST_IMAGES}
@@ -52,7 +62,7 @@ function docker_push_manifest() {
 }
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
-for image in $(find ${DIGESTS_DIR} -name '*.json.sha256' -printf '%f\n' | sed s/\-image.json.sha256$//g | sort -u); do
+for image in $(find ${DIGESTS_DIR} -name '*.image' -printf '%f\n' | sed s/\.image$//g | sort -u); do
     if [ "${KUBEVIRT_CRI}" = "podman" ]; then
         podman_push_manifest $image
     else
