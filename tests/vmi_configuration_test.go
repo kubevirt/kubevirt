@@ -1939,11 +1939,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				// -------------------------------------------------------------------
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
+				// Verify that the total memory is below guest memory and not request.
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
+					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 256 ] && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
-					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
-					&expect.BExp{R: ""},
+					// Write 100M to shared memory, the available memory can change per OS version
+					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=100k\n"},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 15)).To(Succeed())
