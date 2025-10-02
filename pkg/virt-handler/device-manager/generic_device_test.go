@@ -79,7 +79,9 @@ var _ = Describe("Generic Device", func() {
 		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
 
 		go dpi.healthCheck()
-		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Healthy))
+		Consistently(func() string {
+			return dpi.devs[0].Health
+		}, 500*time.Millisecond, 100*time.Millisecond).Should(Equal(pluginapi.Healthy))
 
 		By("Removing a (fake) device node")
 		os.Remove(devicePath)
