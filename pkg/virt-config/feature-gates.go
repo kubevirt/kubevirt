@@ -213,10 +213,6 @@ func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
 }
 
-func (config *ClusterConfig) HyperVLayeredEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.HyperVLayered)
-}
-
 func (config *ClusterConfig) ConfigurableHypervisorEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.ConfigurableHypervisor)
 }
