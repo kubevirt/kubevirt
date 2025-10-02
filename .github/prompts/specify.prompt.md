@@ -12,7 +12,7 @@ The text the user typed after `/specify` in the triggering message **is** the fe
 
 Given that feature description, do this:
 
-1. Run the script `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"` from repo root and parse its JSON output for BRANCH_NAME and SPEC_FILE. All file paths must be absolute.
+1. Run the script `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"` (Linux or macOS) or `.specify/scripts/powershell/create-new-feature.ps1 --json "$ARGUMENTS"` (Windows) from repo root and parse its JSON output for BRANCH_NAME and SPEC_FILE. All file paths must be absolute.
    **IMPORTANT** You must only ever run this script once. The JSON is provided in the terminal as output - always refer to it to get the actual content you're looking for.
 2. Load `.specify/templates/spec-template.md` to understand required sections.
 3. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
