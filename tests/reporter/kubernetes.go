@@ -723,6 +723,7 @@ func (r *KubernetesReporter) logContainerdCrictl(pod *v1.Pod, node string, logsd
 		{command: "crictl pods", fileNameSuffix: "crictl-pods"},
 		{command: "crictl images", fileNameSuffix: "crictl-images"},
 		{command: "crictl stats -a", fileNameSuffix: "crictl-stats"},
+		{command: "crictl imagefsinfo", fileNameSuffix: "crictl-imagefsinfo"},
 		{command: "crictl version", fileNameSuffix: "crictl-version"},
 		{command: "ctr -n k8s.io containers list", fileNameSuffix: "ctr-containers"},
 		{command: "ctr -n k8s.io tasks list", fileNameSuffix: "ctr-tasks"},
