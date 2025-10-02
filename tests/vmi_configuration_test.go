@@ -1856,7 +1856,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(domXML).To(ContainSubstring("<hint-dedicated state='on'/>"), "should container the hint-dedicated feature")
 			})
 			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
-				Skip("Skip test till issue https://github.com/kubevirt/kubevirt/issues/3910 is fixed")
 				cpuVmi := libvmifact.NewAlpine(
 					libvmi.WithCPUCount(1, 1, 2),
 					libvmi.WithDedicatedCPUPlacement(),
@@ -1886,11 +1885,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				// -------------------------------------------------------------------
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
+				// Verify that the total memory is below guest memory and not request.
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
+					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 256 ] && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
-					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
-					&expect.BExp{R: ""},
+					// Write 100M to shared memory, the available memory can change per OS version
+					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=100k && echo 'pass'\n"},
+					&expect.BExp{R: console.RetValue("pass")},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 15)).To(Succeed())
