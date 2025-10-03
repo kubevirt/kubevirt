@@ -4,8 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "admitter.go",
-        "mock.go",
         "mutator.go",
+        "stub.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm",
     visibility = ["//visibility:public"],

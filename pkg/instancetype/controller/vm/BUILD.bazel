@@ -4,7 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "controller.go",
-        "mock.go",
+        "stub.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/instancetype/controller/vm",
     visibility = ["//visibility:public"],
