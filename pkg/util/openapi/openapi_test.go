@@ -12,14 +12,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
+var validator *openapi.Validator
+
+var _ = BeforeSuite(func() {
+	validator = openapi.CreateOpenAPIValidator(definitions.ComposeAPIDefinitions())
+})
+
 var _ = Describe("Openapi", func() {
 
-	var validator *openapi.Validator
 	var vmi *v1.VirtualMachineInstance
 	var obj *unstructured.Unstructured
 
 	BeforeEach(func() {
-		validator = openapi.CreateOpenAPIValidator(definitions.ComposeAPIDefinitions())
 		vmi = v1.NewVMI("testvm", "")
 		obj = &unstructured.Unstructured{}
 	})
