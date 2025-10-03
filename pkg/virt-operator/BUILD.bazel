@@ -60,6 +60,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    size = "large",
     timeout = "long",
     srcs = [
         "application_test.go",
