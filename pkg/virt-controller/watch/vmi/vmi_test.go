@@ -242,6 +242,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			stubNetStatusUpdate,
 			validateNetVMISpecStub(),
 			stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+			[]string{},
+			[]string{},
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -2019,19 +2021,38 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		Context("should update pod annotations and labels", func() {
+			var (
+				initialAdditionalLauncherAnnotationsSync []string
+				initialAdditionalLauncherLabelsSync      []string
+			)
+
+			BeforeEach(func() {
+				initialAdditionalLauncherAnnotationsSync = controller.additionalLauncherAnnotationsSync
+				initialAdditionalLauncherLabelsSync = controller.additionalLauncherLabelsSync
+			})
+
+			AfterEach(func() {
+				controller.additionalLauncherAnnotationsSync = initialAdditionalLauncherAnnotationsSync
+				controller.additionalLauncherLabelsSync = initialAdditionalLauncherLabelsSync
+			})
 
 			type testData struct {
-				vmiAnnotations      map[string]string
-				podAnnotations      map[string]string
-				vmiLabels           map[string]string
-				podLabels           map[string]string
-				expectedPatch       bool
-				expectedAnnotations map[string]string
-				expectedLabels      map[string]string
+				vmiAnnotations                    map[string]string
+				podAnnotations                    map[string]string
+				vmiLabels                         map[string]string
+				podLabels                         map[string]string
+				expectedPatch                     bool
+				expectedAnnotations               map[string]string
+				expectedLabels                    map[string]string
+				additionalLauncherAnnotationsSync []string
+				additionalLauncherLabelsSync      []string
 			}
 			DescribeTable("when VMI dynamic annotations and label sets changes", func(td *testData) {
 				vmi := newPendingVirtualMachine("testvmi")
 				vmi.Status.Phase = virtv1.Running
+
+				controller.additionalLauncherAnnotationsSync = td.additionalLauncherAnnotationsSync
+				controller.additionalLauncherLabelsSync = td.additionalLauncherLabelsSync
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -2258,6 +2279,48 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 							descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction: "false",
 						},
 						expectedPatch: true,
+					},
+				),
+				Entry("when VMI and pod custom annotations differ",
+					&testData{
+						vmiAnnotations: map[string]string{
+							"custom/annotation": "false",
+						},
+						podAnnotations: map[string]string{
+							"custom/annotation": "true",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+							"custom/annotation":             "false",
+						},
+						expectedPatch:                     true,
+						additionalLauncherAnnotationsSync: []string{"custom/annotation"},
+					},
+				),
+				Entry("when VMI and pod custom labels differ",
+					&testData{
+						vmiLabels: map[string]string{
+							"custom/label": "node2",
+						},
+						podLabels: map[string]string{
+							"custom/label": "node1",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+							"custom/label":           "node2",
+						},
+						expectedPatch:                true,
+						additionalLauncherLabelsSync: []string{"custom/label"},
 					},
 				),
 			)

@@ -664,13 +664,18 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 		}
 	}
 
+	dynamicLabels := []string{virtv1.NodeNameLabel, virtv1.OutdatedLauncherImageLabel}
+	dynamicLabels = append(dynamicLabels, c.additionalLauncherLabelsSync...)
+	dynamicAnnotations := []string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction}
+	dynamicAnnotations = append(dynamicAnnotations, c.additionalLauncherAnnotationsSync...)
+
 	syncMap(
-		[]string{virtv1.NodeNameLabel, virtv1.OutdatedLauncherImageLabel},
+		dynamicLabels,
 		vmi.Labels, newPodLabels, pod.ObjectMeta.Labels, "labels",
 	)
 
 	syncMap(
-		[]string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction},
+		dynamicAnnotations,
 		vmi.Annotations, newPodAnnotations, pod.ObjectMeta.Annotations, "annotations",
 	)
 
