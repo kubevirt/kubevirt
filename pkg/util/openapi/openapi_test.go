@@ -22,12 +22,14 @@ var _ = Describe("Openapi", func() {
 
 	var expectValidationsToSucceed = func(obj *unstructured.Unstructured) {
 		Expect(validator.Validate(obj.GroupVersionKind(), obj.Object)).To(BeEmpty())
+		Expect(validator.ValidateSpec(obj.GroupVersionKind(), obj.Object)).To(BeEmpty())
 		Expect(validator.ValidateStatus(obj.GroupVersionKind(), obj.Object)).To(BeEmpty())
 	}
 
 	var expectValidationsToFail = func(obj *unstructured.Unstructured) {
 		Expect(validator.Validate(obj.GroupVersionKind(), obj.Object)).ToNot(BeEmpty())
 		Expect(validator.ValidateSpec(obj.GroupVersionKind(), obj.Object)).ToNot(BeEmpty())
+		Expect(validator.ValidateStatus(obj.GroupVersionKind(), obj.Object)).To(BeEmpty())
 	}
 
 	It("should accept unknown fields in the status", func() {
