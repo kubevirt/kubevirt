@@ -5358,8 +5358,9 @@ var _ = Describe("Template", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pod).ToNot(BeNil())
 			containGCL := ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"Name":          Equal("guest-console-log"),
-				"RestartPolicy": Equal(pointer.P(k8sv1.ContainerRestartPolicyAlways)),
+				"Name":            Equal("guest-console-log"),
+				"RestartPolicy":   Equal(pointer.P(k8sv1.ContainerRestartPolicyAlways)),
+				"ImagePullPolicy": Equal(config.GetImagePullPolicy()),
 			}))
 			if expected {
 				Expect(pod.Spec.InitContainers).To(containGCL)
