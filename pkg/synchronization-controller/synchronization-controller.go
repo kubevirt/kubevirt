@@ -336,9 +336,15 @@ func (s *SynchronizationController) execute(key string) error {
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 
+	log.Log.Object(vmi).V(1).Infof("executing synchronization controller")
 	migration, err := s.getMigrationForVMI(vmi)
 	if err != nil {
 		return err
+	}
+	if migration != nil {
+		log.Log.Object(vmi).V(1).Infof("migration found: %s/%s", migration.Namespace, migration.Name)
+	} else {
+		log.Log.Object(vmi).V(1).Infof("no migration found")
 	}
 	if migration != nil && migration.IsDecentralized() {
 		if err := s.handleMigrationFinalizer(migration); err != nil {
@@ -377,14 +383,18 @@ func (s *SynchronizationController) execute(key string) error {
 }
 
 func (s *SynchronizationController) handleMigrationFinalizer(migration *virtv1.VirtualMachineInstanceMigration) error {
+	log.Log.V(1).Infof("handling migration finalizer")
 	originalMigration := migration.DeepCopy()
-	if !migration.IsFinal() {
+	if !migration.IsFinal() && migration.DeletionTimestamp == nil {
+		log.Log.V(1).Infof("adding finalizer to migration %s/%s", migration.Namespace, migration.Name)
 		controller.AddFinalizer(migration, SynchronizationFinalizer)
 	} else {
+		log.Log.V(1).Infof("removing finalizer from migration %s/%s", migration.Namespace, migration.Name)
 		controller.RemoveFinalizer(migration, SynchronizationFinalizer)
 	}
 	if !apiequality.Semantic.DeepEqual(originalMigration.ObjectMeta, migration.ObjectMeta) {
 		log.Log.V(4).Object(migration).Infof("adding or removing finalizer to migration, %v", migration.Finalizers)
+		log.Log.V(1).Object(migration).Infof("adding or removing finalizer to migration, %v", migration.Finalizers)
 		patchSet := patch.New()
 		patchSet.AddOption(
 			patch.WithReplace("/metadata/finalizers", migration.Finalizers),
@@ -394,6 +404,7 @@ func (s *SynchronizationController) handleMigrationFinalizer(migration *virtv1.V
 			return err
 		}
 		if _, err := s.client.VirtualMachineInstanceMigration(migration.Namespace).Patch(context.Background(), migration.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+			log.Log.V(1).Object(migration).Infof("failed to patch migration %s/%s, %v", migration.Namespace, migration.Name, err)
 			return err
 		}
 	}
