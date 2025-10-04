@@ -34,9 +34,17 @@ func ValidateVMIandPodIPMatch(vmi *v1.VirtualMachineInstance, vmiPod *k8sv1.Pod)
 			vmi.Status.Interfaces[0].IP, vmiPod.Status.PodIP)
 	}
 
-	if len(vmi.Status.Interfaces[0].IPs) != len(vmiPod.Status.PodIPs) {
-		return fmt.Errorf("VMI Status.Interfaces[0].IPs %s len does not equal pod's Status.PodIPs %s len",
-			vmi.Status.Interfaces[0].IPs, vmiPod.Status.PodIPs)
+	podIP := vmiPod.Status.PodIP
+	found := false
+	for _, vmiIP := range vmi.Status.Interfaces[0].IPs {
+		if vmiIP == podIP {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("pod IP %s not found in VMI Status.Interfaces[0].IPs %v",
+			podIP, vmi.Status.Interfaces[0].IPs)
 	}
 
 	if len(vmi.Status.Interfaces[0].IPs) == 0 {
