@@ -31,7 +31,7 @@ if [[ ! -z "$SKIP_OUTSIDE_CONN_TESTS" ]]; then
 fi
 
 if [[ ! -z "$RUN_ON_ARM64_INFRA" ]]; then
-    label_filter+="&&(wg-arm64)&&!(ACPI,requires-two-schedulable-nodes,cpumodel,requires-two-worker-nodes-with-cpu-manager,requires-amd64)&&!(RequiresOutsideConnectivity && IPv6)"
+    label_filter+="&&!(ACPI,requires-two-schedulable-nodes,cpumodel,requires-two-worker-nodes-with-cpu-manager,requires-amd64)&&!(RequiresOutsideConnectivity && IPv6)"
 fi
 
 if [[ ! -z "$SKIP_BLOCK_STORAGE_TESTS" ]]; then
