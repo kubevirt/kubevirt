@@ -101,6 +101,21 @@ function _insecure-registry-config-cmd() {
     echo "sed -i '/\[plugins.cri.registry.mirrors\]/a\        [plugins.cri.registry.mirrors.\"registry:5000\"]\n\          endpoint = [\"http://registry:5000\"]' /etc/containerd/config.toml"
 }
 
+function _configure_overlayfs_on_node() {
+    local -r node=${1}
+    _configure_overlayfs_mount_options "${NODE_CMD} ${node} bash -c"
+}
+
+function _configure_overlayfs_mount_options() {
+    local cmd_context="${1}" # context to run command e.g. sudo, docker exec
+    ${cmd_context} "$(_overlayfs_volatile_cmd)"
+    ${cmd_context} "$(_reload-containerd-daemon-cmd)"
+}
+
+ function _overlayfs_volatile_cmd(){
+    echo "sed -i '/^\[plugins\]$/a\  [plugins.\"io.containerd.snapshotter.v1.overlayfs\"]\n    mount_options = [\"volatile\"]' /etc/containerd/config.toml"
+ }
+
 # this works since the nodes use the same names as containers
 function _ssh_into_node() {
     if [[ $2 != "" ]]; then
@@ -249,6 +264,7 @@ function setup_kind() {
     _run_registry "$KIND_DEFAULT_NETWORK"
 
     for node in $(_get_nodes | awk '{print $1}'); do
+        _configure_overlayfs_on_node "$node"
         _configure_registry_on_node "$node" "$KIND_DEFAULT_NETWORK"
         _configure_network "$node"
     done
