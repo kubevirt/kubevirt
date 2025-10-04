@@ -76,7 +76,7 @@ func (vols *invalidVols) errorMessage() error {
 		s.WriteString(fmt.Sprintf(" DV storage class isn't a CSI or not using volume populators: %v", vols.noCSIDVs))
 	}
 
-	return fmt.Errorf(s.String())
+	return fmt.Errorf("%s", s.String())
 }
 
 // updatedVolumesMapping returns a mapping with the volume names and the old claims that have been updated in the VM

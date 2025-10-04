@@ -80,7 +80,7 @@ func NewVirtctlCommandFn() *cobra.Command {
 		Use:    "options",
 		Hidden: true,
 		Run: func(cmd *cobra.Command, _ []string) {
-			cmd.Printf(cmd.UsageString())
+			cmd.Printf("%s", cmd.UsageString())
 		},
 	}
 	optionsCmd.SetUsageTemplate(templates.OptionsUsageTemplate())
@@ -91,7 +91,7 @@ func NewVirtctlCommandFn() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, _ []string) {
-			cmd.Printf(cmd.UsageString())
+			cmd.Printf("%s", cmd.UsageString())
 		},
 	}
 	addVerbosityFlag(rootCmd.PersistentFlags())

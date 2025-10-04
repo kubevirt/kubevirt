@@ -3933,7 +3933,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			// Mock createQCOW2Overlay to return error
 			createQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
 				createQCOW2OverlayCalled++
-				return fmt.Errorf(errMsg)
+				return fmt.Errorf("%s", errMsg)
 			}
 
 			err := applyChangedBlockTracking(vmi, converterContext)

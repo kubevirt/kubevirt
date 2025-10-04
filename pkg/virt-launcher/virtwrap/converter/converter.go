@@ -1266,13 +1266,13 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 		log.Log.Object(vmi).Infof("kernel boot defined for VMI. Converting to domain XML")
 		if kb.Container.KernelPath != "" {
 			kernelPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.KernelPath)
-			log.Log.Object(vmi).Infof("setting kernel path for kernel boot: " + kernelPath)
+			log.Log.Object(vmi).Infof("setting kernel path for kernel boot: %s", kernelPath)
 			domain.Spec.OS.Kernel = kernelPath
 		}
 
 		if kb.Container.InitrdPath != "" {
 			initrdPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.InitrdPath)
-			log.Log.Object(vmi).Infof("setting initrd path for kernel boot: " + initrdPath)
+			log.Log.Object(vmi).Infof("setting initrd path for kernel boot: %s", initrdPath)
 			domain.Spec.OS.Initrd = initrdPath
 		}
 
@@ -1280,7 +1280,7 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 
 	// Define custom command-line arguments even if kernel-boot container is not defined
 	if firmware.KernelBoot != nil {
-		log.Log.Object(vmi).Infof("setting custom kernel arguments: " + firmware.KernelBoot.KernelArgs)
+		log.Log.Object(vmi).Infof("setting custom kernel arguments: %s", firmware.KernelBoot.KernelArgs)
 		domain.Spec.OS.KernelArgs = firmware.KernelBoot.KernelArgs
 	}
 

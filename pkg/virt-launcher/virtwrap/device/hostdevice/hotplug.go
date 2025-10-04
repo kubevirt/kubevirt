@@ -174,7 +174,7 @@ func buildAttachHostDevicesErrorMessage(errors []error) error {
 	for _, err := range errors {
 		errorMessageBuilder.WriteString(err.Error() + "\n")
 	}
-	return fmt.Errorf(errorMessageBuilder.String())
+	return fmt.Errorf("%s", errorMessageBuilder.String())
 }
 
 // DifferenceHostDevicesByAlias given two slices of host-devices, according to Alias.Name,

@@ -2390,7 +2390,7 @@ func expectVMCreateFailure(client *kubevirtfake.Clientset, failureMsg string) *i
 
 		calls++
 
-		return true, nil, fmt.Errorf(failureMsg)
+		return true, nil, fmt.Errorf("%s", failureMsg)
 	})
 	return &calls
 }

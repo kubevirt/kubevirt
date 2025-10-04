@@ -76,7 +76,13 @@ go_library(
         "@io_bazel_rules_go//go/platform:openbsd": [
             "//vendor/github.com/prometheus/procfs:go_default_library",
         ],
+        "@io_bazel_rules_go//go/platform:osx": [
+            "//vendor/github.com/prometheus/procfs:go_default_library",
+        ],
         "@io_bazel_rules_go//go/platform:plan9": [
+            "//vendor/github.com/prometheus/procfs:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:qnx": [
             "//vendor/github.com/prometheus/procfs:go_default_library",
         ],
         "@io_bazel_rules_go//go/platform:solaris": [

@@ -5,7 +5,7 @@ ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
 ENV BAZEL_VERSION=6.5.0
-ENV GIMME_GO_VERSION=1.23.9
+ENV GIMME_GO_VERSION=1.24.7
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
 ENV GOLANGCI_LINT_VERSION=v2.2.2
@@ -83,7 +83,7 @@ RUN set -x && \
     go install -v k8s.io/code-generator/cmd/client-gen@v0.31.1 && \
     go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
     go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.3 && \
-    go install -v github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@e2be790 && \
+    go install -v github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@a4b5158 && \
     go clean -cache -modcache
 
 RUN set -x && \

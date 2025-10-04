@@ -1477,7 +1477,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
 				addVolumeSnapshotClass(volumeSnapshotClass)
 
-				vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, 0*time.Second).Return(fmt.Errorf(errorMessage)).Times(1)
+				vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, 0*time.Second).Return(fmt.Errorf("%s", errorMessage)).Times(1)
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
 
 				controller.processVMSnapshotContentWorkItem()

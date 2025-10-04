@@ -2402,7 +2402,7 @@ func (c *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineI
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == v1.CPUModeHostModel {
 		if c.hostCpuModel == "" {
 			err := fmt.Errorf("the node \"%s\" does not allow migration with host-model", vmi.Status.NodeName)
-			c.logger.Object(vmi).Errorf(err.Error())
+			c.logger.Object(vmi).Errorf("%s", err.Error())
 			return err
 		}
 	}

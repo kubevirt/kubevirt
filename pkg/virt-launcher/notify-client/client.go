@@ -229,7 +229,7 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 		return err
 	} else if response.Success != true {
 		msg := fmt.Sprintf("failed to notify domain event: %s", response.Message)
-		return fmt.Errorf(msg)
+		return fmt.Errorf("%s", msg)
 	}
 
 	return nil
@@ -646,7 +646,7 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 		return err
 	} else if response.Success != true {
 		msg := fmt.Sprintf("failed to notify k8s event: %s", response.Message)
-		return fmt.Errorf(msg)
+		return fmt.Errorf("%s", msg)
 	}
 
 	return nil

@@ -21,6 +21,28 @@ http_archive(
     ],
 )
 
+http_archive(
+    name = "rules_oci",
+    sha256 = "acbf8f40e062f707f8754e914dcb0013803c6e5e3679d3e05b571a9f5c7e0b43",
+    strip_prefix = "rules_oci-2.0.1",
+    urls = [
+        "https://github.com/bazel-contrib/rules_oci/releases/download/v2.0.1/rules_oci-v2.0.1.tar.gz",
+        "https://storage.googleapis.com/builddeps/acbf8f40e062f707f8754e914dcb0013803c6e5e3679d3e05b571a9f5c7e0b43",
+    ],
+)
+
+load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
+
+rules_oci_dependencies()
+
+load("@rules_oci//oci:repositories.bzl", "oci_register_toolchains")
+
+oci_register_toolchains(
+    name = "oci",
+)
+
+load("@rules_oci//oci:pull.bzl", "oci_pull")
+
 # Bazel buildtools prebuilt binaries
 http_archive(
     name = "buildifier_prebuilt",
@@ -37,31 +59,67 @@ load("@buildifier_prebuilt//:deps.bzl", "buildifier_prebuilt_deps")
 buildifier_prebuilt_deps()
 
 # Additional bazel rules
+
 http_archive(
     name = "rules_proto",
-    sha256 = "bc12122a5ae4b517fa423ea03a8d82ea6352d5127ea48cb54bc324e8ab78493c",
-    strip_prefix = "rules_proto-af6481970a34554c6942d993e194a9aed7987780",
-    urls = [
-        "https://github.com/bazelbuild/rules_proto/archive/af6481970a34554c6942d993e194a9aed7987780.tar.gz",
-        "https://storage.googleapis.com/builddeps/bc12122a5ae4b517fa423ea03a8d82ea6352d5127ea48cb54bc324e8ab78493c",
-    ],
+    sha256 = "303e86e722a520f6f326a50b41cfc16b98fe6d1955ce46642a5b7a67c11c0f5d",
+    strip_prefix = "rules_proto-6.0.0",
+    url = "https://github.com/bazelbuild/rules_proto/releases/download/6.0.0/rules_proto-6.0.0.tar.gz",
 )
 
-load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
 
 rules_proto_dependencies()
+
+load("@rules_proto//proto:toolchains.bzl", "rules_proto_toolchains")
 
 rules_proto_toolchains()
 
 http_archive(
-    name = "io_bazel_rules_go",
-    sha256 = "80a98277ad1311dacd837f9b16db62887702e9f1d1c4c9f796d0121a46c8e184",
+    name = "toolchains_protoc",
+    sha256 = "1f3cd768bbb92164952301228bac5e5079743843488598f2b17fecd41163cadb",
+    strip_prefix = "toolchains_protoc-0.2.4",
+    url = "https://github.com/aspect-build/toolchains_protoc/releases/download/v0.2.4/toolchains_protoc-v0.2.4.tar.gz",
+)
+
+load("@toolchains_protoc//protoc:toolchain.bzl", "protoc_toolchains")
+
+protoc_toolchains(
+    name = "protoc_toolchains",
+    version = "v25.3",
+)
+
+http_archive(
+    name = "platforms",
+    sha256 = "3384eb1c30762704fbe38e440204e114154086c8fc8a8c2e3e28441028c019a8",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.46.0/rules_go-v0.46.0.zip",
-        "https://github.com/bazelbuild/rules_go/releases/download/v0.46.0/rules_go-v0.46.0.zip",
-        "https://storage.googleapis.com/builddeps/80a98277ad1311dacd837f9b16db62887702e9f1d1c4c9f796d0121a46c8e184",
+        "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/1.0.0/platforms-1.0.0.tar.gz",
+        "https://github.com/bazelbuild/platforms/releases/download/1.0.0/platforms-1.0.0.tar.gz",
     ],
 )
+
+http_archive(
+    name = "io_bazel_rules_go",
+    sha256 = "130739704540caa14e77c54810b9f01d6d9ae897d53eedceb40fd6b75efc3c23",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazel-contrib/rules_go/releases/download/v0.54.1/rules_go-v0.54.1.zip",
+        "https://github.com/bazel-contrib/rules_go/releases/download/v0.54.1/rules_go-v0.54.1.zip",
+    ],
+)
+
+http_archive(
+    name = "com_google_protobuf",
+    sha256 = "75be42bd736f4df6d702a0e4e4d30de9ee40eac024c4b845d17ae4cc831fe4ae",
+    strip_prefix = "protobuf-21.7",
+    urls = [
+        "https://github.com/protocolbuffers/protobuf/archive/v21.7.tar.gz",
+        "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v21.7.tar.gz",
+    ],
+)
+
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
+protobuf_deps()
 
 load("@buildifier_prebuilt//:defs.bzl", "buildifier_prebuilt_register_toolchains", "buildtools_assets")
 
@@ -101,11 +159,10 @@ buildifier_prebuilt_register_toolchains(
 
 http_archive(
     name = "bazel_gazelle",
-    sha256 = "d3fa66a39028e97d76f9e2db8f1b0c11c099e8e01bf363a923074784e451f809",
+    sha256 = "b760f7fe75173886007f7c2e616a21241208f3d90e8657dc65d36a771e916b6a",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.33.0/bazel-gazelle-v0.33.0.tar.gz",
-        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.33.0/bazel-gazelle-v0.33.0.tar.gz",
-        "https://storage.googleapis.com/builddeps/d3fa66a39028e97d76f9e2db8f1b0c11c099e8e01bf363a923074784e451f809",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.39.1/bazel-gazelle-v0.39.1.tar.gz",
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.39.1/bazel-gazelle-v0.39.1.tar.gz",
     ],
 )
 
@@ -132,28 +189,6 @@ http_archive(
         "https://storage.googleapis.com/builddeps/95d39fd84ff4474babaf190450ee034d958202043e366b9fc38f438c9e6c3334",
     ],
 )
-
-http_archive(
-    name = "rules_oci",
-    sha256 = "acbf8f40e062f707f8754e914dcb0013803c6e5e3679d3e05b571a9f5c7e0b43",
-    strip_prefix = "rules_oci-2.0.1",
-    urls = [
-        "https://github.com/bazel-contrib/rules_oci/releases/download/v2.0.1/rules_oci-v2.0.1.tar.gz",
-        "https://storage.googleapis.com/builddeps/acbf8f40e062f707f8754e914dcb0013803c6e5e3679d3e05b571a9f5c7e0b43",
-    ],
-)
-
-load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
-
-rules_oci_dependencies()
-
-load("@rules_oci//oci:repositories.bzl", "oci_register_toolchains")
-
-oci_register_toolchains(
-    name = "oci",
-)
-
-load("@rules_oci//oci:pull.bzl", "oci_pull")
 
 http_archive(
     name = "com_github_ash2k_bazel_tools",
@@ -251,7 +286,7 @@ bazeldnf_register_toolchains(
 go_rules_dependencies()
 
 go_register_toolchains(
-    go_version = "1.23.9",
+    go_version = "1.24.7",
     nogo = "@//:nogo_vet",
 )
 
@@ -281,7 +316,7 @@ go_repository(
     version = "v0.0.0-20230822172742-b8732ec3820d",
 )
 
-gazelle_dependencies()
+gazelle_dependencies(go_sdk = "go_sdk")
 
 bazeldnf_dependencies()
 

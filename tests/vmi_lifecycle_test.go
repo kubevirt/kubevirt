@@ -1680,7 +1680,7 @@ func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()
 
-	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+	labelSelector := fmt.Sprintf("%s=%s", v1.CreatedByLabel, string(uid))
 
 	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 	Expect(err).ToNot(HaveOccurred(), "Should list pods")
