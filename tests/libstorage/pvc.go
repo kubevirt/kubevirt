@@ -33,7 +33,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -180,38 +182,62 @@ func createPVC(pvc *k8sv1.PersistentVolumeClaim, namespace string) *k8sv1.Persis
 	return createdPvc
 }
 
-func CreateFSPVC(name, namespace, size string, labels map[string]string) *k8sv1.PersistentVolumeClaim {
+func CreateFSPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
 	sc, _ := GetRWOFileSystemStorageClass()
-	pvc := NewPVC(name, size, sc)
-	volumeMode := k8sv1.PersistentVolumeFilesystem
-	pvc.Spec.VolumeMode = &volumeMode
-	if labels != nil && pvc.Labels == nil {
-		pvc.Labels = map[string]string{}
-	}
+	return createPVC(NewPVC(name, size, sc), namespace)
+}
 
+func CreateFSPVCWithDataVolume(name, namespace, size string, labels map[string]string) *k8sv1.PersistentVolumeClaim {
+	sc, _ := GetRWOFileSystemStorageClass()
+	dv := libdv.NewDataVolume(
+		libdv.WithNamespace(namespace),
+		libdv.WithName(name),
+		libdv.WithBlankImageSource(),
+		libdv.WithStorage(
+			libdv.StorageWithVolumeSize(size),
+			libdv.StorageWithStorageClass(sc),
+			libdv.StorageWithFilesystemVolumeMode(),
+		),
+	)
+	if labels != nil && dv.Labels == nil {
+		dv.Labels = map[string]string{}
+	}
 	for key, value := range labels {
-		pvc.Labels[key] = value
+		dv.Labels[key] = value
 	}
 
-	return createPVC(pvc, namespace)
+	return createPVCWithDataVolume(dv, namespace)
 }
 
-func CreateRWXFSPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
-	sc, _ := GetRWXFileSystemStorageClass()
-	pvc := NewPVC(name, size, sc)
-	pvc.Spec.VolumeMode = pointer.P(k8sv1.PersistentVolumeFilesystem)
-	pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}
-
-	return createPVC(pvc, namespace)
-}
-
-func CreateBlockPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
+func CreateBlockPVCWithDataVolume(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
 	sc, _ := GetRWOBlockStorageClass()
-	pvc := NewPVC(name, size, sc)
-	volumeMode := k8sv1.PersistentVolumeBlock
-	pvc.Spec.VolumeMode = &volumeMode
+	dv := libdv.NewDataVolume(
+		libdv.WithNamespace(namespace),
+		libdv.WithName(name),
+		libdv.WithBlankImageSource(),
+		libdv.WithStorage(
+			libdv.StorageWithVolumeSize(size),
+			libdv.StorageWithStorageClass(sc),
+			libdv.StorageWithBlockVolumeMode(),
+		),
+	)
 
-	return createPVC(pvc, namespace)
+	return createPVCWithDataVolume(dv, namespace)
+}
+
+func createPVCWithDataVolume(dv *v1beta1.DataVolume, namespace string) *k8sv1.PersistentVolumeClaim {
+	virtClient := kubevirt.Client()
+
+	dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	var pvc *k8sv1.PersistentVolumeClaim
+	Eventually(func() error {
+		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+		return err
+	}, time.Minute, time.Second).Should(Succeed())
+
+	return pvc
 }
 
 func CreateHostPathPVC(os, namespace, size string) {

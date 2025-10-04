@@ -82,7 +82,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 		createPVC := func(namespace, name string) {
 			sc, foundSC := libstorage.GetAvailableRWFileSystemStorageClass()
 			Expect(foundSC).To(BeTrue(), "Unable to get a FileSystem Storage Class")
-			pvc := libstorage.NewPVC(name, "1Gi", sc)
+			pvc := libstorage.NewPVC(name, "1Gi", sc, libstorage.WithStorageProfile())
 			_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).NotTo(HaveOccurred())
 		}
