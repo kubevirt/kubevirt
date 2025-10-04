@@ -17,6 +17,7 @@ go_library(
         "//pkg/util:go_default_library",
         "//pkg/util/migrations:go_default_library",
         "//pkg/util/pdbs:go_default_library",
+        "//pkg/util/trace:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-controller/watch/descheduler:go_default_library",
@@ -36,6 +37,7 @@ go_library(
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
+        "//vendor/k8s.io/utils/trace:go_default_library",
         "//vendor/sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue:go_default_library",
     ],
 )
