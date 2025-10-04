@@ -25,6 +25,7 @@ import (
 	"math"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,11 +55,14 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
@@ -998,6 +1002,111 @@ var _ = Describe(SIG("Hotplug", func() {
 					Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
 					Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
 				)
+
+				Context("Ephemeral Metrics", decorators.RequiresRWXBlock, func() {
+
+					checkMetrics := func(endpointIP string, pod *k8sv1.Pod, expectedCount int) {
+						// Wait for the ephemeral volume metric to appear
+						Eventually(func() int {
+							// Query the metrics endpoint and filter for ephemeral volume metric
+							shellCmd := fmt.Sprintf("curl -s -L -k https://%s:8443/metrics | grep -v '^#' | grep kubevirt_vmi_ephemeral_hotplug_volume_total", endpointIP)
+							stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", []string{"/bin/sh", "-c", shellCmd})
+
+							if err != nil {
+								if strings.Contains(err.Error(), "exit code 1") {
+									return 0
+								}
+								log.Log.Warningf("curl command error: %v, stderr: %s", err, stderr)
+								return 0
+							}
+
+							// Count the number of lines (each line is a metric)
+							lines := strings.Split(strings.TrimSpace(stdout), "\n")
+							hotplugCount := 0
+							for _, line := range lines {
+								if line != "" {
+									hotplugCount++
+									log.Log.Infof("Found ephemeral volume metric: %s", line)
+								}
+							}
+							return hotplugCount
+						}, 15*time.Second, 2*time.Second).Should(Equal(expectedCount))
+					}
+
+					It("should count only ephemeral volumes, ignoring persistent volumes", Serial, func() {
+						kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+						kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
+
+						hotplugToVM := addDVVolumeVM
+						hotplugToVMI := addDVVolumeVMI
+
+						dvPersistent := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+						hotplugToVM(vm.Name, vm.Namespace, "persistent-volume", dvPersistent.Name, v1.DiskBusSCSI, false, "")
+
+						dvEphemeral := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+						hotplugToVMI(vm.Name, vm.Namespace, "ephemeral-volume", dvEphemeral.Name, v1.DiskBusSCSI, false, "")
+
+						dvEphemeral2 := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+						hotplugToVMI(vm.Name, vm.Namespace, "ephemeral-volume2", dvEphemeral2.Name, v1.DiskBusSCSI, false, "")
+
+						endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(
+							context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						nodeName := vmi.Status.NodeName
+						pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
+						Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+
+						endpointIP := ""
+						for _, ep := range endpoint.Subsets[0].Addresses {
+							if !strings.HasPrefix(ep.TargetRef.Name, "virt-controller") {
+								continue
+							}
+							endpointIP = libnet.FormatIPForURL(ep.IP)
+							break
+						}
+
+						checkMetrics(endpointIP, pod, 2)
+					})
+
+					It("should  ignore delcarative hotplugs as well as unplugged volumes", Serial, func() {
+						kvconfig.EnableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+						kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
+
+						hotplugToVM := addDVVolumeVM
+
+						dvPersistent := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+						hotplugToVM(vm.Name, vm.Namespace, "persistent-volume", dvPersistent.Name, v1.DiskBusSCSI, false, "")
+
+						// test that unplugged volumes are not counted towards metric
+						verifyAttachDetachVolume(vm, addDVVolumeVM, removeVolumeVM, sc, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, false)
+
+						endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(
+							context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						nodeName := vmi.Status.NodeName
+						pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
+						Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+
+						endpointIP := ""
+						for _, ep := range endpoint.Subsets[0].Addresses {
+							if !strings.HasPrefix(ep.TargetRef.Name, "virt-controller") {
+								continue
+							}
+							endpointIP = libnet.FormatIPForURL(ep.IP)
+							break
+						}
+
+						checkMetrics(endpointIP, pod, 0)
+					})
+				})
 			})
 
 			Context("with declarative hotplug", func() {

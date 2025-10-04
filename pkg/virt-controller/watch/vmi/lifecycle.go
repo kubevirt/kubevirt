@@ -46,6 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -208,6 +209,8 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 			return common.NewSyncError(fmt.Errorf("failed to get attachment pods: %v", err), controller.FailedHotplugSyncReason), pod
 		}
 
+		c.checkEphemeralHotplugVolumes(vmi)
+
 		if pod.DeletionTimestamp == nil && needsHandleHotplug(hotplugVolumes, hotplugAttachmentPods) {
 			var hotplugSyncErr common.SyncError
 			hotplugSyncErr = c.handleHotplugVolumes(hotplugVolumes, hotplugAttachmentPods, vmi, pod, dataVolumes)
@@ -224,6 +227,34 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 	}
 	return nil, pod
+}
+
+func (c *Controller) checkEphemeralHotplugVolumes(vmi *virtv1.VirtualMachineInstance) {
+	// checking for ephemeral hotplug volumes
+	// get the owner VM
+	vm := c.getOwnerVM(vmi)
+	if vm == nil {
+		// VMI is ephemeral, tbd? TODO
+		return
+	}
+
+	metrics.UpdateEphemeralVolumeCount(vmi, vm)
+}
+
+func (c *Controller) getOwnerVM(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachine {
+	controllerRef := v1.GetControllerOf(vmi)
+	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
+		return nil
+	}
+	obj, exists, _ := c.vmStore.GetByKey(controller.NamespacedKey(vmi.Namespace, controllerRef.Name))
+	if !exists {
+		return nil
+	}
+	ownerVM := obj.(*virtv1.VirtualMachine)
+	if controllerRef.UID == ownerVM.UID {
+		return ownerVM
+	}
+	return nil
 }
 
 // updateStatus handles the VMI's lifecycle status updates.
