@@ -27,5 +27,6 @@
           <maxGuests>15</maxGuests>
           <maxESGuests>15</maxESGuests>
         </sev>
+        <tdx supported='no'/>
     </features>
 </domainCapabilities>
