@@ -125,6 +125,7 @@ go_test(
 
 ginkgo_test(
     name = "go_parallel_test",
+    timeout = "long",
     ginkgo_args = ["-p"],
     go_test = ":go_default_test",
     tags = ["nocov"],
