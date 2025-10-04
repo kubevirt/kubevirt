@@ -1564,7 +1564,12 @@ func podLabels(vmi *v1.VirtualMachineInstance, hostName string) map[string]strin
 	}
 	labels[v1.AppLabel] = "virt-launcher"
 	labels[v1.CreatedByLabel] = string(vmi.UID)
-	labels[v1.VirtualMachineNameLabel] = hostName
+	// Use VM name for the vm.kubevirt.io/name label, applying DNS length limits
+	vmName := vmi.Name
+	if len(vmName) > validation.DNS1123LabelMaxLength {
+		vmName = vmName[:validation.DNS1123LabelMaxLength]
+	}
+	labels[v1.VirtualMachineNameLabel] = vmName
 	if val, exists := vmi.Annotations[istio.InjectSidecarAnnotation]; exists {
 		labels[istio.InjectSidecarLabel] = val
 	}
