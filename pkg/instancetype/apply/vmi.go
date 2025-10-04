@@ -61,6 +61,7 @@ func (a *vmiApplier) ApplyToVMI(
 		conflicts = append(conflicts, applySchedulerName(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyCPU(baseConflict, instancetypeSpec, preferenceSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyMemory(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyIOThreads(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyIOThreadPolicy(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyLaunchSecurity(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyGPUs(baseConflict, instancetypeSpec, vmiSpec)...)
