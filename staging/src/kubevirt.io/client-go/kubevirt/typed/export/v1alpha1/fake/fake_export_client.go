@@ -31,7 +31,7 @@ type FakeExportV1alpha1 struct {
 }
 
 func (c *FakeExportV1alpha1) VirtualMachineExports(namespace string) v1alpha1.VirtualMachineExportInterface {
-	return &FakeVirtualMachineExports{c, namespace}
+	return newFakeVirtualMachineExports(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -21,108 +21,34 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
 	v1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
+	volumesnapshotv1 "kubevirt.io/client-go/externalsnapshotter/typed/volumesnapshot/v1"
 )
 
-// FakeVolumeSnapshotClasses implements VolumeSnapshotClassInterface
-type FakeVolumeSnapshotClasses struct {
+// fakeVolumeSnapshotClasses implements VolumeSnapshotClassInterface
+type fakeVolumeSnapshotClasses struct {
+	*gentype.FakeClientWithList[*v1.VolumeSnapshotClass, *v1.VolumeSnapshotClassList]
 	Fake *FakeSnapshotV1
 }
 
-var volumesnapshotclassesResource = v1.SchemeGroupVersion.WithResource("volumesnapshotclasses")
-
-var volumesnapshotclassesKind = v1.SchemeGroupVersion.WithKind("VolumeSnapshotClass")
-
-// Get takes name of the volumeSnapshotClass, and returns the corresponding volumeSnapshotClass object, and an error if there is any.
-func (c *FakeVolumeSnapshotClasses) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.VolumeSnapshotClass, err error) {
-	emptyResult := &v1.VolumeSnapshotClass{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(volumesnapshotclassesResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeVolumeSnapshotClasses(fake *FakeSnapshotV1) volumesnapshotv1.VolumeSnapshotClassInterface {
+	return &fakeVolumeSnapshotClasses{
+		gentype.NewFakeClientWithList[*v1.VolumeSnapshotClass, *v1.VolumeSnapshotClassList](
+			fake.Fake,
+			"",
+			v1.SchemeGroupVersion.WithResource("volumesnapshotclasses"),
+			v1.SchemeGroupVersion.WithKind("VolumeSnapshotClass"),
+			func() *v1.VolumeSnapshotClass { return &v1.VolumeSnapshotClass{} },
+			func() *v1.VolumeSnapshotClassList { return &v1.VolumeSnapshotClassList{} },
+			func(dst, src *v1.VolumeSnapshotClassList) { dst.ListMeta = src.ListMeta },
+			func(list *v1.VolumeSnapshotClassList) []*v1.VolumeSnapshotClass {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1.VolumeSnapshotClassList, items []*v1.VolumeSnapshotClass) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1.VolumeSnapshotClass), err
-}
-
-// List takes label and field selectors, and returns the list of VolumeSnapshotClasses that match those selectors.
-func (c *FakeVolumeSnapshotClasses) List(ctx context.Context, opts metav1.ListOptions) (result *v1.VolumeSnapshotClassList, err error) {
-	emptyResult := &v1.VolumeSnapshotClassList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(volumesnapshotclassesResource, volumesnapshotclassesKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1.VolumeSnapshotClassList{ListMeta: obj.(*v1.VolumeSnapshotClassList).ListMeta}
-	for _, item := range obj.(*v1.VolumeSnapshotClassList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested volumeSnapshotClasses.
-func (c *FakeVolumeSnapshotClasses) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(volumesnapshotclassesResource, opts))
-}
-
-// Create takes the representation of a volumeSnapshotClass and creates it.  Returns the server's representation of the volumeSnapshotClass, and an error, if there is any.
-func (c *FakeVolumeSnapshotClasses) Create(ctx context.Context, volumeSnapshotClass *v1.VolumeSnapshotClass, opts metav1.CreateOptions) (result *v1.VolumeSnapshotClass, err error) {
-	emptyResult := &v1.VolumeSnapshotClass{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(volumesnapshotclassesResource, volumeSnapshotClass, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.VolumeSnapshotClass), err
-}
-
-// Update takes the representation of a volumeSnapshotClass and updates it. Returns the server's representation of the volumeSnapshotClass, and an error, if there is any.
-func (c *FakeVolumeSnapshotClasses) Update(ctx context.Context, volumeSnapshotClass *v1.VolumeSnapshotClass, opts metav1.UpdateOptions) (result *v1.VolumeSnapshotClass, err error) {
-	emptyResult := &v1.VolumeSnapshotClass{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(volumesnapshotclassesResource, volumeSnapshotClass, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.VolumeSnapshotClass), err
-}
-
-// Delete takes name of the volumeSnapshotClass and deletes it. Returns an error if one occurs.
-func (c *FakeVolumeSnapshotClasses) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(volumesnapshotclassesResource, name, opts), &v1.VolumeSnapshotClass{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVolumeSnapshotClasses) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(volumesnapshotclassesResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1.VolumeSnapshotClassList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched volumeSnapshotClass.
-func (c *FakeVolumeSnapshotClasses) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.VolumeSnapshotClass, err error) {
-	emptyResult := &v1.VolumeSnapshotClass{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(volumesnapshotclassesResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.VolumeSnapshotClass), err
 }
