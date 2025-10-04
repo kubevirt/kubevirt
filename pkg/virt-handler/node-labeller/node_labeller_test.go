@@ -79,7 +79,6 @@ var _ = Describe("Node-labeller ", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
-					MinCPUModel:       "Penryn",
 				},
 			},
 		})
