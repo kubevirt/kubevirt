@@ -1630,7 +1630,7 @@ func (r *KubernetesReporter) executeCloudInitCommands(vmi v12.VirtualMachineInst
 		cmds = append(cmds, []commands{
 			{command: "cat /var/log/cloud-init.log", fileNameSuffix: "cloud-init-log"},
 			{command: "cat /var/log/cloud-init-output.log", fileNameSuffix: "cloud-init-output"},
-			{command: "cat /var/run/cloud-init/status.json", fileNameSuffix: "cloud-init-status"},
+			{command: "cat /var/lib/cloud/data/status.json", fileNameSuffix: "cloud-init-status"},
 		}...)
 	}
 	for _, cmd := range cmds {
