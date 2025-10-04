@@ -300,7 +300,8 @@
                 "blockSize": {
                   "custom": {
                     "logical": 18446744073709551609,
-                    "physical": 18446744073709551608
+                    "physical": 18446744073709551608,
+                    "discardGranularity": 18446744073709551598
                   },
                   "matchVolume": {
                     "enabled": true
@@ -1218,7 +1219,8 @@
             "blockSize": {
               "custom": {
                 "logical": 18446744073709551609,
-                "physical": 18446744073709551608
+                "physical": 18446744073709551608,
+                "discardGranularity": 18446744073709551598
               },
               "matchVolume": {
                 "enabled": true
