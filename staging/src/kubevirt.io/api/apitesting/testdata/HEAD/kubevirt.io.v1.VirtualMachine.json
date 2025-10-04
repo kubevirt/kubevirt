@@ -449,7 +449,10 @@
               "session": "sessionValue",
               "dhCert": "dhCertValue"
             }
-          }
+          },
+          "oemStrings": [
+            "oemStringsValue"
+          ]
         },
         "nodeSelector": {
           "nodeSelectorKey": "nodeSelectorValue"
