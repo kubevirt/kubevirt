@@ -128,6 +128,10 @@ type VirtualMachinePoolSpec struct {
 	// ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool
 	// +optional
 	ScaleInStrategy *VirtualMachinePoolScaleInStrategy `json:"scaleInStrategy,omitempty"`
+
+	// Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance
+	// +optional
+	Autohealing *bool `json:"autohealing,omitempty"`
 }
 
 // +k8s:openapi-gen=true

@@ -61,8 +61,9 @@ const (
 	FailedUpdateVirtualMachineReason     = "FailedUpdate"
 	SuccessfulUpdateVirtualMachineReason = "SuccessfulUpdate"
 
-	defaultAddDelay   = 1 * time.Second
-	defaultRetryDelay = 3 * time.Second
+	defaultAddDelay                = 1 * time.Second
+	defaultRetryDelay              = 3 * time.Second
+	defaultStartUpFailureThreshold = 3
 )
 
 const (
@@ -1423,6 +1424,12 @@ func (c *Controller) execute(key string) error {
 		return err
 	}
 
+	if isAutohealingEnabled(pool) {
+		if err := c.autoHealFailingVMs(pool, vms); err != nil {
+			return err
+		}
+	}
+
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
@@ -1668,5 +1675,42 @@ func (c *Controller) handlePoolDeletion(pool *poolv1.VirtualMachinePool, vms []*
 		return err
 	}
 
+	return nil
+}
+
+func isAutohealingEnabled(pool *poolv1.VirtualMachinePool) bool {
+	return pool.Spec.Autohealing != nil && *pool.Spec.Autohealing
+}
+
+func (c *Controller) autoHealFailingVMs(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
+	vmsToCleanup := filterVMs(vms, func(vm *virtv1.VirtualMachine) bool {
+		return vm.Status.StartFailure != nil && vm.Status.StartFailure.ConsecutiveFailCount >= defaultStartUpFailureThreshold
+	})
+
+	if len(vmsToCleanup) > 0 {
+		basePolicy := resolveBasePolicy(pool.Spec.ScaleInStrategy)
+		sortVMsForDownscale(vmsToCleanup, basePolicy)
+
+		for _, vm := range vmsToCleanup {
+			if err := c.cleanupFailingVM(vm); err != nil {
+				log.Log.Object(vm).Errorf("Failed to cleanUp VM: %v", err)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) cleanupFailingVM(vm *virtv1.VirtualMachine) error {
+	if err := c.removeFinalizer(vm); err != nil {
+		log.Log.Object(vm).Errorf("Failed to remove finalizer: %v", err)
+		return err
+	}
+
+	if err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(metav1.DeletePropagationForeground)}); err != nil {
+		log.Log.Object(vm).Errorf("Failed to delete VM: %v", err)
+		return err
+	}
 	return nil
 }
