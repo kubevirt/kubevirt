@@ -561,6 +561,40 @@ var _ = Describe("Resource pod spec renderer", func() {
 	)
 })
 
+var _ = Describe("Tolerations pod spec renderer", func() {
+	DescribeTable("Tolerations for hotplug pod", func(kvConfig v1.KubeVirtConfiguration, expectedTolerations []kubev1.Toleration) {
+		Expect(hotplugPodTolerations()).To(BeEquivalentTo(expectedTolerations))
+	},
+		Entry("empty tolerations, fallback to default", v1.KubeVirtConfiguration{}, []kubev1.Toleration{
+			{
+				Key:      kubev1.TaintNodeUnschedulable,
+				Operator: kubev1.TolerationOpExists,
+				Effect:   kubev1.TaintEffectNoSchedule,
+			},
+			{
+				Key:      kubev1.TaintNodeNetworkUnavailable,
+				Operator: kubev1.TolerationOpExists,
+				Effect:   kubev1.TaintEffectNoSchedule,
+			},
+			{
+				Key:      kubev1.TaintNodeDiskPressure,
+				Operator: kubev1.TolerationOpExists,
+				Effect:   kubev1.TaintEffectNoSchedule,
+			},
+			{
+				Key:      kubev1.TaintNodeMemoryPressure,
+				Operator: kubev1.TolerationOpExists,
+				Effect:   kubev1.TaintEffectNoSchedule,
+			},
+			{
+				Key:      kubev1.TaintNodePIDPressure,
+				Operator: kubev1.TolerationOpExists,
+				Effect:   kubev1.TaintEffectNoSchedule,
+			},
+		}),
+	)
+})
+
 var _ = Describe("GetMemoryOverhead calculation", func() {
 	// VirtLauncherMonitorOverhead + VirtLauncherOverhead + VirtlogdOverhead + VirtqemudOverhead + QemuOverhead + IothreadsOverhead
 	const staticOverheadString = "223Mi"
