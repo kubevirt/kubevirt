@@ -36,8 +36,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	expect "github.com/google/goexpect"
+
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -159,6 +162,48 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 
 			By("Verifying the alert disappears")
 			libmonitoring.WaitUntilAlertDoesNotExistWithCustomTime(virtClient, 15*time.Minute, "KubeVirtDeprecatedAPIRequested")
+		})
+	})
+
+	Context("VM Memory Alerts", func() {
+		BeforeEach(func() {
+			libmonitoring.ReduceAlertPendingTime(virtClient)
+		})
+
+		It("KubeVirtVMGuestMemoryAvailableLow should fire without swap under sustained memory pressure", func() {
+			By("Starting a Fedora VMI with low memory and no swap")
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest("256Mi"))
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+			By("Disabling swap and allocating most of the memory to keep usable very low")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "sudo swapoff -a || true\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "mem_k=$(awk '/MemTotal/{print int($2*95/100)}' /proc/meminfo); sudo stress-ng --vm 1 --vm-bytes ${mem_k}k --vm-keep &\n"},
+				&expect.BExp{R: console.PromptExpression},
+			}, 30)).To(Succeed())
+
+			By("Waiting for the low available memory alert")
+			libmonitoring.VerifyAlertExistWithCustomTime(virtClient, "KubeVirtVMGuestMemoryAvailableLow", 5*time.Minute)
+		})
+
+		It("KubeVirtVMGuestMemoryPressure should fire with swap and heavy memory stress", func() {
+			By("Starting a Fedora VMI and enabling swap")
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest("512Mi"))
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+			By("Creating a 512M swapfile, enabling swap, and stressing memory to induce pressure")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "sudo fallocate -l 512M /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "mem_k=$(awk '/MemTotal/{print int($2*140/100)}' /proc/meminfo); sudo stress-ng --vm 1 --vm-bytes ${mem_k}k --vm-keep &\n"},
+				&expect.BExp{R: console.PromptExpression},
+			}, 60)).To(Succeed())
+
+			By("Waiting for the memory pressure alert")
+			libmonitoring.VerifyAlertExistWithCustomTime(virtClient, "KubeVirtVMGuestMemoryPressure", 5*time.Minute)
 		})
 	})
 
