@@ -19798,6 +19798,10 @@
    "v1beta1.PreferenceRequirements": {
     "type": "object",
     "properties": {
+     "architecture": {
+      "description": "Required Architecture of the VM referencing this preference",
+      "type": "string"
+     },
      "cpu": {
       "description": "Required CPU related attributes of the instancetype.",
       "$ref": "#/definitions/v1beta1.CPUPreferenceRequirement"
@@ -20651,6 +20655,10 @@
       "description": "PreferSpreadSocketToCoreRatio defines the ratio to spread vCPUs between cores and sockets, it defaults to 2.",
       "type": "integer",
       "format": "int64"
+     },
+     "preferredArchitecture": {
+      "description": "PreferredArchitecture defines a prefeerred architecture for the VirtualMachine",
+      "type": "string"
      },
      "preferredSubdomain": {
       "description": "Subdomain of the VirtualMachineInstance",

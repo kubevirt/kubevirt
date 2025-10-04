@@ -14,6 +14,7 @@ go_library(
         "//pkg/instancetype/conflict:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/infer:go_default_library",
+        "//pkg/instancetype/preference/apply:go_default_library",
         "//pkg/instancetype/preference/find:go_default_library",
         "//pkg/instancetype/preference/requirements:go_default_library",
         "//pkg/instancetype/preference/validation:go_default_library",

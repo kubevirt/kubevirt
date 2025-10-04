@@ -9970,6 +9970,10 @@ var CRDsValidation map[string]string = map[string]string{
             between cores and sockets, it defaults to 2.
           format: int32
           type: integer
+        preferredArchitecture:
+          description: PreferredArchitecture defines a prefeerred architecture for
+            the VirtualMachine
+          type: string
         preferredSubdomain:
           description: Subdomain of the VirtualMachineInstance
           type: string
@@ -9982,6 +9986,9 @@ var CRDsValidation map[string]string = map[string]string{
           description: Requirements defines the minium amount of instance type defined
             resources required by a set of preferences
           properties:
+            architecture:
+              description: Required Architecture of the VM referencing this preference
+              type: string
             cpu:
               description: Required CPU related attributes of the instancetype.
               properties:
@@ -25354,6 +25361,10 @@ var CRDsValidation map[string]string = map[string]string{
             between cores and sockets, it defaults to 2.
           format: int32
           type: integer
+        preferredArchitecture:
+          description: PreferredArchitecture defines a prefeerred architecture for
+            the VirtualMachine
+          type: string
         preferredSubdomain:
           description: Subdomain of the VirtualMachineInstance
           type: string
@@ -25366,6 +25377,9 @@ var CRDsValidation map[string]string = map[string]string{
           description: Requirements defines the minium amount of instance type defined
             resources required by a set of preferences
           properties:
+            architecture:
+              description: Required Architecture of the VM referencing this preference
+              type: string
             cpu:
               description: Required CPU related attributes of the instancetype.
               properties:
