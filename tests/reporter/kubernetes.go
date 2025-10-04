@@ -251,6 +251,18 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 	r.logCloudInit(virtCli, vmiNamespaces)
 	r.logVirtualMachinePools(virtCli)
 	r.logMigrationPolicies(virtCli)
+
+	r.logContainerRuntimeDebug(virtCli, nodesDir, nodes)
+}
+
+const KubeVirtEnableRuntimeDebugEnv = "KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG"
+
+func (r *KubernetesReporter) logContainerRuntimeDebug(virtCli kubecli.KubevirtClient, nodesDir string, nodes *v1.NodeList) {
+	if v := os.Getenv(KubeVirtEnableRuntimeDebugEnv); strings.ToLower(v) != "true" {
+		return
+	}
+	r.logContainerdStacks(virtCli, nodesDir, nodes)
+	r.logCrioStacks(virtCli, nodesDir, nodes)
 }
 
 // Cleanup cleans up the current content of the artifactsDir
@@ -594,6 +606,285 @@ func (r *KubernetesReporter) logNodeCommands(virtCli kubecli.KubevirtClient, nod
 		}
 
 		r.executeNodeCommands(virtCli, logsdir, pod)
+	}
+}
+
+func (r *KubernetesReporter) logContainerdStacks(virtCli kubecli.KubevirtClient, logsdir string, nodes *v1.NodeList) {
+
+	if logsdir == "" {
+		printError("logsdir is empty, skipping logContainerdStacks")
+		return
+	}
+
+	for _, nodeName := range nodes.Items {
+		nodeName := nodeName.Name
+		pod, err := libnode.GetVirtHandlerPod(virtCli, nodeName)
+		if err != nil {
+			printError(failedGetVirtHandlerPodFmt, nodeName, err)
+			continue
+		}
+
+		// Check if containerd is running on the node
+		checkCommand := []string{
+			virt_chroot.GetChrootBinaryPath(),
+			"--mount",
+			virt_chroot.GetChrootNSMountPath(),
+			"exec",
+			"--",
+			"/usr/bin/pgrep",
+			"containerd",
+		}
+
+		stdout, _, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, checkCommand)
+		if err != nil || stdout == "" {
+			printInfo("containerd not running on node %s, skipping containerd debug collection", nodeName)
+			continue
+		}
+
+		// Send USR1 signal to containerd to trigger stack dump
+		signalCommand := []string{
+			virt_chroot.GetChrootBinaryPath(),
+			"--mount",
+			virt_chroot.GetChrootNSMountPath(),
+			"exec",
+			"--",
+			"/usr/bin/pkill",
+			"-USR1",
+			"containerd",
+		}
+
+		_, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, signalCommand)
+		if err != nil {
+			printError("failed to send USR1 to containerd on node %s, stderr: %s, error: %v", nodeName, stderr, err)
+			continue
+		}
+
+		// Wait a moment for containerd to write the stacks
+		time.Sleep(2 * time.Second)
+
+		// Collect containerd stack dump files from /tmp
+		stackFilesCommand := []string{
+			virt_chroot.GetChrootBinaryPath(),
+			"--mount",
+			virt_chroot.GetChrootNSMountPath(),
+			"exec",
+			"--",
+			"/bin/bash",
+			"-c",
+			"cat /proc/1/root/tmp/containerd.*.stacks.log 2>/dev/null || true",
+		}
+
+		stdout, _, err = exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, stackFilesCommand)
+		if err == nil && stdout != "" {
+			fileName := fmt.Sprintf(logFileNameFmt, r.failureCount, "containerd-stacks", nodeName)
+			err = writeStringToFile(filepath.Join(logsdir, fileName), stdout)
+			if err != nil {
+				printError("failed to write containerd stack files for node %s: %v", nodeName, err)
+			}
+		}
+
+		// Collect containerd logs which should also contain the stack traces
+		journalCommand := []string{
+			virt_chroot.GetChrootBinaryPath(),
+			"--mount",
+			virt_chroot.GetChrootNSMountPath(),
+			"exec",
+			"--",
+			"/usr/bin/journalctl",
+			"-u",
+			"containerd",
+			"--since",
+			"-30s",
+			"--no-pager",
+		}
+
+		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, journalCommand)
+		if err != nil {
+			printError("failed to collect containerd logs on node %s, stderr: %s, error: %v", nodeName, stderr, err)
+			continue
+		}
+
+		fileName := fmt.Sprintf(logFileNameFmt, r.failureCount, "containerd-journal", nodeName)
+		err = writeStringToFile(filepath.Join(logsdir, fileName), stdout)
+		if err != nil {
+			printError("failed to write containerd journal for node %s: %v", nodeName, err)
+			continue
+		}
+
+		// Collect crictl debug information
+		r.logContainerdCrictl(pod, nodeName, logsdir)
+	}
+}
+
+func (r *KubernetesReporter) logContainerdCrictl(pod *v1.Pod, node string, logsdir string) {
+	criCommands := []commands{
+		{command: "crictl info", fileNameSuffix: "crictl-info"},
+		{command: "crictl ps -a", fileNameSuffix: "crictl-ps"},
+		{command: "crictl pods", fileNameSuffix: "crictl-pods"},
+		{command: "crictl images", fileNameSuffix: "crictl-images"},
+		{command: "crictl stats -a", fileNameSuffix: "crictl-stats"},
+		{command: "crictl imagefsinfo", fileNameSuffix: "crictl-imagefsinfo"},
+		{command: "crictl version", fileNameSuffix: "crictl-version"},
+		{command: "ctr -n k8s.io containers list", fileNameSuffix: "ctr-containers"},
+		{command: "ctr -n k8s.io tasks list", fileNameSuffix: "ctr-tasks"},
+		{command: "ctr -n k8s.io namespaces list", fileNameSuffix: "ctr-namespaces"},
+	}
+
+	for _, cmd := range criCommands {
+		command := []string{
+			virt_chroot.GetChrootBinaryPath(),
+			"--mount",
+			virt_chroot.GetChrootNSMountPath(),
+			"exec",
+			"--",
+			"/bin/bash",
+			"-c",
+			cmd.command,
+		}
+
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, command)
+		if err != nil {
+			printError("failed to execute %s on node %s, stderr: %s, error: %v", cmd.command, node, stderr, err)
+			continue
+		}
+
+		if stdout == "" {
+			continue
+		}
+
+		fileName := fmt.Sprintf(logFileNameFmt, r.failureCount, node, cmd.fileNameSuffix)
+		err = writeStringToFile(filepath.Join(logsdir, fileName), stdout)
+		if err != nil {
+			printError("failed to write %s for node %s: %v", cmd.fileNameSuffix, node, err)
+			continue
+		}
+	}
+}
+
+func (r *KubernetesReporter) logCrioStacks(virtCli kubecli.KubevirtClient, logsdir string, nodes *v1.NodeList) {
+
+	if logsdir == "" {
+		printError("logsdir is empty, skipping logCrioStacks")
+		return
+	}
+
+	for _, node := range nodes.Items {
+		nodeName := node.Name
+		pod, err := libnode.GetVirtHandlerPod(virtCli, nodeName)
+		if err != nil {
+			printError(failedGetVirtHandlerPodFmt, nodeName, err)
+			continue
+		}
+
+		// Check if cri-o is running on the node
+		checkCommand := []string{
+			virt_chroot.GetChrootBinaryPath(),
+			"--mount",
+			virt_chroot.GetChrootNSMountPath(),
+			"exec",
+			"--",
+			"/usr/bin/pgrep",
+			"crio",
+		}
+
+		stdout, _, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, checkCommand)
+		if err != nil || stdout == "" {
+			printInfo("cri-o not running on node %s, skipping cri-o debug collection", nodeName)
+			continue
+		}
+
+		// Send USR1 signal to crio to trigger stack dump
+		signalCommand := []string{
+			virt_chroot.GetChrootBinaryPath(),
+			"--mount",
+			virt_chroot.GetChrootNSMountPath(),
+			"exec",
+			"--",
+			"/usr/bin/pkill",
+			"-USR1",
+			"crio",
+		}
+
+		_, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, signalCommand)
+		if err != nil {
+			printError("failed to send USR1 to crio on node %s, stderr: %s, error: %v", nodeName, stderr, err)
+			continue
+		}
+
+		// Wait a moment for cri-o to write the stacks
+		time.Sleep(2 * time.Second)
+
+		// Collect cri-o logs which should contain the stack traces
+		journalCommand := []string{
+			virt_chroot.GetChrootBinaryPath(),
+			"--mount",
+			virt_chroot.GetChrootNSMountPath(),
+			"exec",
+			"--",
+			"/usr/bin/journalctl",
+			"-u",
+			"crio",
+			"--since",
+			"-30s",
+			"--no-pager",
+		}
+
+		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, journalCommand)
+		if err != nil {
+			printError("failed to collect crio logs on node %s, stderr: %s, error: %v", nodeName, stderr, err)
+			continue
+		}
+
+		fileName := fmt.Sprintf(logFileNameFmt, r.failureCount, "crio-journal", nodeName)
+		err = writeStringToFile(filepath.Join(logsdir, fileName), stdout)
+		if err != nil {
+			printError("failed to write crio journal for node %s: %v", nodeName, err)
+			continue
+		}
+
+		// Collect crictl debug information
+		r.logCrioCrictl(pod, nodeName, logsdir)
+	}
+}
+
+func (r *KubernetesReporter) logCrioCrictl(pod *v1.Pod, node string, logsdir string) {
+	criCommands := []commands{
+		{command: "crictl info", fileNameSuffix: "crictl-info"},
+		{command: "crictl ps -a", fileNameSuffix: "crictl-ps"},
+		{command: "crictl pods", fileNameSuffix: "crictl-pods"},
+		{command: "crictl images", fileNameSuffix: "crictl-images"},
+		{command: "crictl stats -a", fileNameSuffix: "crictl-stats"},
+		{command: "crictl version", fileNameSuffix: "crictl-version"},
+	}
+
+	for _, cmd := range criCommands {
+		command := []string{
+			virt_chroot.GetChrootBinaryPath(),
+			"--mount",
+			virt_chroot.GetChrootNSMountPath(),
+			"exec",
+			"--",
+			"/bin/bash",
+			"-c",
+			cmd.command,
+		}
+
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, command)
+		if err != nil {
+			printError("failed to execute %s on node %s, stderr: %s, error: %v", cmd.command, node, stderr, err)
+			continue
+		}
+
+		if stdout == "" {
+			continue
+		}
+
+		fileName := fmt.Sprintf(logFileNameFmt, r.failureCount, node, cmd.fileNameSuffix)
+		err = writeStringToFile(filepath.Join(logsdir, fileName), stdout)
+		if err != nil {
+			printError("failed to write %s for node %s: %v", cmd.fileNameSuffix, node, err)
+			continue
+		}
 	}
 }
 
@@ -1221,6 +1512,8 @@ func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient,
 		{command: networkPrefix + bridgeJVlanShow, fileNameSuffix: "brvlan"},
 		{command: networkPrefix + bridgeFdb, fileNameSuffix: "brfdb"},
 		{command: networkPrefix + "nft list ruleset", fileNameSuffix: "nftlist"},
+		{command: "lsfd --summary", fileNameSuffix: "lsfd-summary"},
+		{command: "ulimit -a", fileNameSuffix: "ulimit-a"},
 	}
 
 	if checks.IsRunningOnKindInfra() {
