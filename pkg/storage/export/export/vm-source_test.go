@@ -535,7 +535,7 @@ var _ = Describe("PVC source", func() {
 			for _, condition := range vmExport.Status.Conditions {
 				if condition.Type == exportv1.ConditionReady {
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-					Expect(condition.Reason).To(Equal(inUseReason))
+					Expect(condition.Reason).To(Equal(volumesNotPopulatedReason))
 					Expect(condition.Message).To(Equal(fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", vm.Namespace, vm.Name)))
 				}
 			}
