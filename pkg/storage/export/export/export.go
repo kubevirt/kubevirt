@@ -73,15 +73,21 @@ const (
 	failedKeyFromObjectFmt = "failed to get key from object: %v, %v"
 	enqueuedForSyncFmt     = "enqueued %q for sync"
 
-	pvcNotFoundReason  = "PVCNotFound"
-	pvcBoundReason     = "PVCBound"
-	pvcPendingReason   = "PVCPending"
-	unknownReason      = "Unknown"
-	initializingReason = "Initializing"
-	inUseReason        = "InUse"
-	podPendingReason   = "PodPending"
-	podReadyReason     = "PodReady"
-	podCompletedReason = "PodCompleted"
+	pvcNotFoundReason         = "PVCNotFound"
+	pvcBoundReason            = "PVCBound"
+	pvcPendingReason          = "PVCPending"
+	unknownReason             = "Unknown"
+	initializingReason        = "Initializing"
+	inUseReason               = "InUse"
+	podPendingReason          = "PodPending"
+	podReadyReason            = "PodReady"
+	podCompletedReason        = "PodCompleted"
+	vmNotFoundReason          = "VMNotFound"
+	volumesNotPopulatedReason = "VolumesNotPopulated"
+	noVolumeVMReason          = "VMNoVolumes"
+	noVolumeSnapshotReason    = "VMSnapshotNoVolumes"
+	notAllPVCsCreatedReason   = "NotAllPVCsCreated"
+	VMSnapshotNotFoundReason  = "VMSnapshotNotFound"
 
 	exportServiceLabel = "kubevirt.io.virt-export-service"
 
@@ -168,10 +174,11 @@ func dirURI(pvc *corev1.PersistentVolumeClaim) string {
 }
 
 type sourceVolumes struct {
-	volumes          []*corev1.PersistentVolumeClaim
-	inUse            bool
-	isPopulated      bool
-	availableMessage string
+	volumes         []*corev1.PersistentVolumeClaim
+	inUse           bool
+	isPopulated     bool
+	readyCondition  exportv1.Condition
+	sourceCondition exportv1.Condition
 }
 
 func (sv *sourceVolumes) isSourceAvailable() bool {
@@ -496,16 +503,16 @@ func (ctrl *VMExportController) handleKubeVirt(oldObj, newObj interface{}) {
 	}
 }
 
-func (ctrl *VMExportController) getPVCsFromName(namespace, name string) *corev1.PersistentVolumeClaim {
+func (ctrl *VMExportController) getPVCsFromName(namespace, name string) (*corev1.PersistentVolumeClaim, error) {
 	pvc, exists, err := ctrl.getPvc(namespace, name)
 	if err != nil {
 		log.Log.V(3).Infof("Error getting pvc by name %v", err)
-		return nil
+		return nil, err
 	}
 	if exists {
-		return pvc
+		return pvc, nil
 	}
-	return nil
+	return nil, nil
 }
 
 func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachineExport) (time.Duration, error) {
@@ -591,7 +598,7 @@ func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMach
 			}
 		} else {
 			// source is not available, stop the exporter pod if started
-			if err := ctrl.deleteExporterPod(vmExport, pod, ExportPaused, sourceVolumes.availableMessage); err != nil {
+			if err := ctrl.deleteExporterPod(vmExport, pod, ExportPaused, sourceVolumes.sourceCondition.Message); err != nil {
 				return nil, err
 			}
 			pod = nil
@@ -1245,7 +1252,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 	vmExportCopy.Status.ServiceName = service.Name
 	vmExportCopy.Status.Links = &exportv1.VirtualMachineExportLinks{}
 	if exporterPod == nil {
-		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, inUseReason, sourceVolumes.availableMessage))
+		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, sourceVolumes.readyCondition)
 		vmExportCopy.Status.Phase = exportv1.Pending
 	} else {
 		if optutil.PodIsReady(exporterPod) {
@@ -1302,7 +1309,6 @@ func populateInitialVMExportStatus(vmExport *exportv1.VirtualMachineExport) {
 		Phase: exportv1.Pending,
 		Conditions: []exportv1.Condition{
 			newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
-			newPvcCondition(corev1.ConditionFalse, unknownReason, ""),
 		},
 		TTLExpirationTime: &expireAt,
 	}
@@ -1497,17 +1503,26 @@ func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMach
 				}
 			}
 			if !found {
-				res = append(res, ctrl.createExportHttpDvFromPVC(vm.Namespace, volumeName))
+				dv, err := ctrl.createExportHttpDvFromPVC(vm.Namespace, volumeName)
+				if err != nil {
+					return nil, err
+				}
+				if dv != nil {
+					res = append(res, dv)
+				}
 			}
 		}
 	}
 	return res, nil
 }
 
-func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string) *cdiv1.DataVolume {
-	pvc := ctrl.getPVCsFromName(namespace, name)
+func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string) (*cdiv1.DataVolume, error) {
+	pvc, err := ctrl.getPVCsFromName(namespace, name)
+	if err != nil {
+		return nil, err
+	}
 	if pvc == nil {
-		return nil
+		return nil, nil
 	}
 
 	return &cdiv1.DataVolume{
@@ -1527,5 +1542,5 @@ func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string
 				Resources:   pvc.Spec.Resources,
 			},
 		},
-	}
+	}, nil
 }

@@ -38,10 +38,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
-const (
-	noVolumeVMReason = "VMNoVolumes"
-)
-
 func (ctrl *VMExportController) handleVMExport(obj interface{}) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
@@ -113,7 +109,9 @@ func (ctrl *VMExportController) getPVCsFromVMI(vmi *virtv1.VirtualMachineInstanc
 
 	for _, volume := range volumes {
 		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
-		if pvc := ctrl.getPVCsFromName(vmi.Namespace, pvcName); pvc != nil {
+		if pvc, err := ctrl.getPVCsFromName(vmi.Namespace, pvcName); err != nil {
+			log.Log.V(3).Infof("Error getting PVC %s/%s: %v", vmi.Namespace, pvcName, err)
+		} else if pvc != nil {
 			pvcs = append(pvcs, pvc)
 		}
 	}
@@ -161,38 +159,52 @@ func (ctrl *VMExportController) isSourceInUseVM(vmExport *exportv1.VirtualMachin
 }
 
 func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMachineExport) (*sourceVolumes, error) {
-	pvcs, allPopulated, err := ctrl.getPVCsFromVM(vmExport.Namespace, vmExport.Spec.Source.Name)
+	sourceVolumes := &sourceVolumes{
+		volumes:         []*corev1.PersistentVolumeClaim{},
+		inUse:           false,
+		isPopulated:     false,
+		readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
+		sourceCondition: exportv1.Condition{},
+	}
+
+	vm, _, err := ctrl.getVm(vmExport.Namespace, vmExport.Spec.Source.Name)
 	if err != nil {
-		return &sourceVolumes{}, err
+		return nil, err
+	}
+
+	pvcs, allPopulated, err := ctrl.getPVCsFromVM(vm)
+	if err != nil {
+		return nil, err
 	}
 	log.Log.V(3).Infof("Number of volumes found for VM %s/%s, %d, allPopulated %t", vmExport.Namespace, vmExport.Spec.Source.Name, len(pvcs), allPopulated)
-	if len(pvcs) > 0 && !allPopulated {
-		return &sourceVolumes{
-			volumes:          pvcs,
-			inUse:            false,
-			isPopulated:      allPopulated,
-			availableMessage: fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
+
+	sourceVolumes.volumes = pvcs
+	sourceVolumes.isPopulated = allPopulated
+
+	if len(pvcs) == 0 {
+		sourceVolumes.isPopulated = true
+		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, noVolumeVMReason,
+			fmt.Sprintf("Virtual Machine %s/%s has no volumes", vmExport.Namespace, vmExport.Spec.Source.Name))
+	} else if !allPopulated {
+		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, volumesNotPopulatedReason,
+			fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", vmExport.Namespace, vmExport.Spec.Source.Name))
+	} else {
+		inUse, availableMessage, err := ctrl.isSourceInUseVM(vmExport)
+		if err != nil {
+			return nil, err
+		}
+		sourceVolumes.inUse = inUse
+
+		if inUse {
+			sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, inUseReason, availableMessage)
+		}
 	}
-	inUse, availableMessage, err := ctrl.isSourceInUseVM(vmExport)
-	if err != nil {
-		return &sourceVolumes{}, err
-	}
-	return &sourceVolumes{
-		volumes:          pvcs,
-		inUse:            inUse,
-		isPopulated:      allPopulated,
-		availableMessage: availableMessage}, nil
+
+	return sourceVolumes, nil
 }
 
-func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*corev1.PersistentVolumeClaim, bool, error) {
+func (ctrl *VMExportController) getPVCsFromVM(vm *virtv1.VirtualMachine) ([]*corev1.PersistentVolumeClaim, bool, error) {
 	var pvcs []*corev1.PersistentVolumeClaim
-	vm, exists, err := ctrl.getVm(vmNamespace, vmName)
-	if err != nil {
-		return nil, false, err
-	}
-	if !exists {
-		return nil, false, nil
-	}
 	allPopulated := true
 
 	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithAllVolumes)
@@ -209,9 +221,9 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 		if pvcName == "" {
 			continue
 		}
-		pvc, exists, err := ctrl.getPvc(vmNamespace, pvcName)
+		pvc, exists, err := ctrl.getPvc(vm.Namespace, pvcName)
 		if err != nil {
-			return nil, false, nil
+			return nil, false, err
 		}
 		if exists {
 			populated, err := ctrl.isPVCPopulated(pvc)
@@ -239,11 +251,12 @@ func (ctrl *VMExportController) updateVMExportVMStatus(vmExport *exportv1.Virtua
 
 	vmExportCopy := vmExport.DeepCopy()
 	vmExportCopy.Status.VirtualMachineName = pointer.P(vmExport.Spec.Source.Name)
+
 	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes, getVolumeName); err != nil {
 		return requeue, err
 	}
+
 	if len(sourceVolumes.volumes) == 0 {
-		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, noVolumeVMReason, sourceVolumes.availableMessage))
 		vmExportCopy.Status.Phase = exportv1.Skipped
 	}
 	if !sourceVolumes.isPopulated {
