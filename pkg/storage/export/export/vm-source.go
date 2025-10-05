@@ -157,9 +157,18 @@ func (ctrl *VMExportController) isSourceInUseVM(vmExport *exportv1.VirtualMachin
 }
 
 func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMachineExport) (*sourceVolumes, error) {
-	vm, _, err := ctrl.getVm(vmExport.Namespace, vmExport.Spec.Source.Name)
+	vm, exists, err := ctrl.getVm(vmExport.Namespace, vmExport.Spec.Source.Name)
 	if err != nil {
 		return &sourceVolumes{}, err
+	}
+	if !exists {
+		return &sourceVolumes{
+			volumes:         []*corev1.PersistentVolumeClaim{},
+			inUse:           false,
+			isPopulated:     true, // Don't retry for missing VM
+			readyCondition:  newReadyCondition(corev1.ConditionFalse, vmNotFoundReason, fmt.Sprintf("Virtual Machine %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name)),
+			sourceCondition: exportv1.Condition{},
+		}, nil
 	}
 
 	pvcs, allPopulated, err := ctrl.getPVCsFromVM(vm)

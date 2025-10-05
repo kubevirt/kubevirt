@@ -240,7 +240,6 @@ func (ctrl *VMExportController) getVmNameFromVmSnapshot(vmExport *exportv1.Virtu
 	return ""
 }
 
-
 func (ctrl *VMExportController) isSourceVMSnapshot(source *exportv1.VirtualMachineExportSpec) bool {
 	return source != nil && source.Source.APIGroup != nil && *source.Source.APIGroup == snapshotv1.SchemeGroupVersion.Group && source.Source.Kind == "VirtualMachineSnapshot"
 }
