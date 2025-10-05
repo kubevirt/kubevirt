@@ -167,9 +167,14 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 		sourceCondition: exportv1.Condition{},
 	}
 
-	vm, _, err := ctrl.getVm(vmExport.Namespace, vmExport.Spec.Source.Name)
+	vm, exists, err := ctrl.getVm(vmExport.Namespace, vmExport.Spec.Source.Name)
 	if err != nil {
 		return nil, err
+	}
+	if !exists {
+		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, vmNotFoundReason,
+			fmt.Sprintf("Virtual Machine %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name))
+		return sourceVolumes, nil
 	}
 
 	pvcs, allPopulated, err := ctrl.getPVCsFromVM(vm)
@@ -259,7 +264,7 @@ func (ctrl *VMExportController) updateVMExportVMStatus(vmExport *exportv1.Virtua
 	if len(sourceVolumes.volumes) == 0 {
 		vmExportCopy.Status.Phase = exportv1.Skipped
 	}
-	if !sourceVolumes.isPopulated {
+	if !sourceVolumes.isPopulated && sourceVolumes.readyCondition.Reason != vmNotFoundReason {
 		requeue = requeueTime
 	}
 	if err := ctrl.updateVMExportStatus(vmExport, vmExportCopy); err != nil {

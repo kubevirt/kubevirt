@@ -1511,7 +1511,7 @@ var _ = Describe(SIG("Export", func() {
 			Type:    exportv1.ConditionReady,
 			Status:  k8sv1.ConditionFalse,
 			Reason:  inUseReason,
-			Message: fmt.Sprintf("pvc %s/%s is in use", namespace, name),
+			Message: fmt.Sprintf("PersistentVolumeClaim %s/%s is in use", namespace, name),
 		})
 	}
 
