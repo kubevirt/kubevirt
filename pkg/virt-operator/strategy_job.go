@@ -7,6 +7,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -103,6 +104,9 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
 									Name:  util.TargetDeploymentConfig,
 									Value: deploymentConfigJson,
 								},
+							},
+							SecurityContext: &k8sv1.SecurityContext{
+								ReadOnlyRootFilesystem: pointer.Bool(true),
 							},
 						},
 					},
