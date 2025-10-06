@@ -24,14 +24,13 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
-
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -44,7 +43,7 @@ type vmConfigurator interface {
 }
 
 type virtIOInterfaceManager struct {
-	dom          cli.VirDomain
+	dom          domainClient
 	configurator vmConfigurator
 }
 
@@ -54,7 +53,7 @@ const (
 )
 
 func newVirtIOInterfaceManager(
-	libvirtClient cli.VirDomain,
+	libvirtClient domainClient,
 	configurator vmConfigurator,
 ) *virtIOInterfaceManager {
 	return &virtIOInterfaceManager{
