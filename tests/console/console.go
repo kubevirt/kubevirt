@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -267,6 +268,7 @@ func NewExpecter(
 // ExpectBatchWithValidatedSend adds the expect.BSnd command to the expect.BExp expression.
 // It is done to make sure the match was found in the result of the expect.BSnd
 // command and not in a leftover that wasn't removed from the buffer.
+// It also assures that the first expect.BSnd command meets a prompt.
 // NOTE: the method contains the following limitations:
 //   - Use of `BatchSwitchCase`
 //   - Multiline commands
@@ -312,7 +314,30 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 		}
 	}
 
+	// Detect the first `BatchSend` and inject before an expectation for the prompt.
+	// This should avoid cases where a previous command has not waited for the prompt.
+	bsndIndex := slices.IndexFunc(batch, func(b expect.Batcher) bool {
+		return b.Cmd() == expect.BatchSend
+	})
+	if bsndIndex > -1 {
+		var bsndNewLine expect.Batcher = &expect.BSnd{S: "\n"}
+		var bexpPrompt expect.Batcher = &expect.BExp{R: PromptExpression}
+		batch = slices.Insert(batch, bsndIndex, bsndNewLine, bexpPrompt)
+	}
+
 	res, err := expecter.ExpectBatch(batch, timeout)
+	if err != nil {
+		return res, err
+	}
+	// Due to the injection of the prompt expectation earlier, we should take out the added result.
+	if bsndIndex > -1 {
+		resIndex2Delete := slices.IndexFunc(res, func(b expect.BatchRes) bool {
+			return b.Idx == bsndIndex+1
+		})
+		if resIndex2Delete > -1 {
+			res = slices.Delete(res, resIndex2Delete, resIndex2Delete+1)
+		}
+	}
 	return res, err
 }
 
