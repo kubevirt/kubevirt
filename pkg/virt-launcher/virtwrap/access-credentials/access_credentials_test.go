@@ -17,6 +17,9 @@
  *
  */
 
+// Ignoring long lines warning, because there are a lot of long strings that cannot be easily split to multiple lines.
+// This functionality is deprecated, and they will be removed in the future.
+
 //nolint:lll
 package accesscredentials
 

@@ -17,7 +17,7 @@
  *
  */
 
-//nolint:funlen,gocyclo,lll
+//nolint:funlen,gocyclo
 package accesscredentials
 
 import (
@@ -484,7 +484,9 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				reload = true
 				reportedErr = true
 				logger.Reason(err).Errorf("Error encountered writing access credentials using guest agent")
-				l.reportAccessCredentialResult(false, fmt.Sprintf("Error encountered writing ssh pub key access credentials for user [%s]: %v", user, err))
+				l.reportAccessCredentialResult(false, fmt.Sprintf(
+					"Error encountered writing ssh pub key access credentials for user [%s]: %v",
+					user, err))
 				continue
 			}
 		}
