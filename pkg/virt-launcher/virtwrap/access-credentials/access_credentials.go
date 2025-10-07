@@ -17,7 +17,7 @@
  *
  */
 
-//nolint:funlen,gocyclo,lll,unused
+//nolint:funlen,gocyclo,lll
 package accesscredentials
 
 import (
@@ -259,20 +259,6 @@ func (l *AccessCredentialManager) agentGetUserInfo(domName, user string) (filePa
 	gid = entries[3]
 	log.Log.Infof("Detected home directory %s for user %s", filePath, user)
 	return filePath, uid, gid, nil
-}
-
-func (l *AccessCredentialManager) agentGetFileOwnership(domName, filePath string) (string, error) {
-	ownerStr, err := l.agentGuestExec(domName, "stat", []string{"-c", "%U:%G", filePath})
-	if err != nil {
-		return "", fmt.Errorf("unable to detect ownership of access credential at %s: %s", filePath, err.Error())
-	}
-	ownerStr = strings.TrimSpace(ownerStr)
-	if ownerStr == "" {
-		return "", fmt.Errorf("unable to detect ownership of access credential at %s", filePath)
-	}
-
-	log.Log.Infof("Detected owner %s for quest path %s", ownerStr, filePath)
-	return ownerStr, nil
 }
 
 // Requires usage of chown, chmod
