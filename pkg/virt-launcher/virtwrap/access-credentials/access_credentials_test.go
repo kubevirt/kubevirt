@@ -17,7 +17,7 @@
  *
  */
 
-//nolint:gosec,lll
+//nolint:lll
 package accesscredentials
 
 import (
@@ -250,7 +250,7 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(os.Mkdir(secretDir, 0o755)).To(Succeed())
 
 		const authorizedKeys = "first key\nsecond key\n"
-		Expect(os.WriteFile(filepath.Join(secretDirs[0], "authorized_keys"), []byte(authorizedKeys), 0o644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], "authorized_keys"), []byte(authorizedKeys), 0o600)).To(Succeed())
 
 		keysLoaded := make(chan struct{})
 
@@ -315,7 +315,7 @@ var _ = Describe("AccessCredentials", func() {
 		}
 
 		// Write the file
-		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0o644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0o600)).To(Succeed())
 
 		const cmdPing = `{"execute":"guest-ping"}`
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(cmdPing, domName).AnyTimes().Return("", nil)
@@ -354,7 +354,7 @@ var _ = Describe("AccessCredentials", func() {
 		// Another execute command should occur with the updated password
 		manager.stopCh = make(chan struct{})
 		password += "morefake"
-		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0o644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0o600)).To(Succeed())
 
 		mockLibvirt.DomainEXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).MinTimes(1).Return(nil)
 
