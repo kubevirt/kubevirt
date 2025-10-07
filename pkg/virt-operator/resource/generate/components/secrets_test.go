@@ -122,6 +122,59 @@ var _ = Describe("Certificate Management", func() {
 			Expect(count).To(Equal(51))
 		})
 
+		It("should keep newest certificates when truncating", func() {
+			now := time.Now()
+			current := newSelfSignedCert(now.Add(-10*time.Second), now.Add(1*time.Hour))
+			certificates := make([]*tls.Certificate, 0, 60)
+
+			// Create 60 certificates (half valid, half expired)
+			for i := range 60 {
+				if i%2 == 0 {
+					certTime := now.Add(-time.Duration(i+1) * 30 * time.Second)
+					certificates = append(certificates, newSelfSignedCert(certTime, now.Add(1*time.Hour)))
+				} else {
+					certificates = append(certificates, newSelfSignedCert(now.Add(-2*time.Hour), now.Add(-30*time.Minute)))
+				}
+			}
+
+			givenBundle := caCertsToBundle(certificates)
+			bundle, count, err := MergeCABundle(current, givenBundle, 1*time.Hour) // Long overlap duration
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(31)) // 30 valid certs from bundle + 1 current cert
+
+			certs, parseErr := certutil.ParseCertsPEM(bundle)
+			Expect(parseErr).ToNot(HaveOccurred())
+			Expect(certs).To(HaveLen(31))
+
+			// Verify all certificates are still valid
+			for _, cert := range certs {
+				Expect(cert.NotAfter.Before(now)).To(BeFalse(), "Certificate should not be expired")
+			}
+
+			// First certificate should be the current one
+			Expect(certs[0]).To(Equal(current.Leaf))
+
+			// Verify certificates are sorted by NotBefore in descending order (newest first)
+			// Skip the first certificate (current) and check the remaining ones
+			for i := 1; i < len(certs)-1; i++ {
+				Expect(certs[i].NotBefore.After(certs[i+1].NotBefore) || certs[i].NotBefore.Equal(certs[i+1].NotBefore)).
+					To(BeTrue(), "Certificates should be sorted by NotBefore in descending order (newest first)")
+			}
+		})
+
+		It("should handle malformed CA bundle gracefully", func() {
+			now := time.Now()
+			current := newSelfSignedCert(now, now.Add(1*time.Hour))
+
+			// Test with invalid PEM data
+			invalidBundle := []byte("-----BEGIN CERTIFICATE-----\nINVALID DATA\n-----END CERTIFICATE-----")
+
+			bundle, count, err := MergeCABundle(current, invalidBundle, 2*time.Minute)
+			Expect(bundle).To(BeEmpty())
+			Expect(count).To(BeZero())
+			Expect(err).To(HaveOccurred())
+		})
+
 		It("should immediately suggest a rotation if the cert is not signed by the provided CA", func() {
 			now := time.Now()
 			current := newSelfSignedCert(now, now.Add(1*time.Hour))
@@ -306,6 +359,69 @@ var _ = Describe("Certificate Management", func() {
 			_, err = LoadCertificates(secret)
 			Expect(err).ToNot(HaveOccurred())
 		}
+	})
+
+	Context("filterValidCertificates function", func() {
+		It("should filter out expired certificates", func() {
+			now := time.Now()
+			validCert1 := newSelfSignedCert(now.Add(-1*time.Hour), now.Add(1*time.Hour))
+			expiredCert := newSelfSignedCert(now.Add(-2*time.Hour), now.Add(-30*time.Minute))
+			validCert2 := newSelfSignedCert(now.Add(-30*time.Minute), now.Add(30*time.Minute))
+
+			certs := []*x509.Certificate{validCert1.Leaf, expiredCert.Leaf, validCert2.Leaf}
+			filtered := filterValidCertificates(certs, now, 10)
+
+			Expect(filtered).To(HaveLen(2))
+			// Should be sorted by NotBefore descending (newest first)
+			Expect(filtered[0]).To(Equal(validCert2.Leaf))
+			Expect(filtered[1]).To(Equal(validCert1.Leaf))
+		})
+
+		It("should truncate to maxCount when limit is exceeded", func() {
+			now := time.Now()
+			certs := make([]*x509.Certificate, 0, 15)
+
+			// Create 15 valid certificates
+			for i := range 15 {
+				cert := newSelfSignedCert(now.Add(-time.Duration(i)*time.Minute), now.Add(1*time.Hour))
+				certs = append(certs, cert.Leaf)
+			}
+
+			// Filter with maxCount = 10
+			filtered := filterValidCertificates(certs, now, 10)
+
+			Expect(filtered).To(HaveLen(10))
+			// Should keep the 10 newest certificates
+			for i := range 10 {
+				expectedTime := now.Add(-time.Duration(i) * time.Minute)
+				Expect(filtered[i].NotBefore.Unix()).To(BeNumerically("==", expectedTime.Unix(), 1))
+			}
+		})
+
+		It("should return all certificates when under maxCount limit", func() {
+			now := time.Now()
+			certs := make([]*x509.Certificate, 0, 5)
+
+			// Create 5 valid certificates
+			for i := range 5 {
+				cert := newSelfSignedCert(now.Add(-time.Duration(i)*time.Minute), now.Add(1*time.Hour))
+				certs = append(certs, cert.Leaf)
+			}
+
+			// Filter with maxCount = 10
+			filtered := filterValidCertificates(certs, now, 10)
+
+			Expect(filtered).To(HaveLen(5))
+		})
+
+		It("should handle empty certificate slice", func() {
+			now := time.Now()
+			certs := []*x509.Certificate{}
+
+			filtered := filterValidCertificates(certs, now, 10)
+
+			Expect(filtered).To(BeEmpty())
+		})
 	})
 })
 
