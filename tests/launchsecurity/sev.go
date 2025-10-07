@@ -323,11 +323,11 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 				By("Verifying that SEV is enabled in the guest")
 				err := console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "dmesg | grep --color=never SEV\n"},
 					&expect.BExp{R: "AMD Memory Encryption Features active: " + sevstr},
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 30)
 				Expect(err).ToNot(HaveOccurred())
 			},

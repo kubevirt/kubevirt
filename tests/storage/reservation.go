@@ -148,7 +148,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 	checkResultCommand := func(vmi *v1.VirtualMachineInstance, cmd, output string) bool {
 		res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
 			&expect.BSnd{S: fmt.Sprintf("%s\n", cmd)},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 		}, 20)
 		Expect(err).ToNot(HaveOccurred())
 		return strings.Contains(res[0].Output, output)

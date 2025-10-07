@@ -65,10 +65,11 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 
 				By("Triggering a shutdown from the guest OS")
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				// Can't use SafeExpectBatch since we may not get a prompt after the command
+				Expect(console.ExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo poweroff\n"},
 					&expect.BExp{R: "The system is going down NOW!"},
-				}, 240)).To(Succeed())
+				}, 4*time.Minute)).To(Succeed())
 
 				By("Ensuring virt-launcher pod is not reporting errors")
 				Eventually(func(g Gomega) {

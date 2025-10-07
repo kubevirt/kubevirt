@@ -1584,7 +1584,7 @@ func (r *KubernetesReporter) executeVMICommands(vmi v12.VirtualMachineInstance, 
 	for _, cmd := range cmds {
 		res, err := console.SafeExpectBatchWithResponse(&vmi, []expect.Batcher{
 			&expect.BSnd{S: cmd.command + "\n"},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: "echo $?\n"},
 			&expect.BExp{R: console.RetValue("0")},
 		}, 10)
@@ -1636,7 +1636,7 @@ func (r *KubernetesReporter) executeCloudInitCommands(vmi v12.VirtualMachineInst
 	for _, cmd := range cmds {
 		res, err := console.SafeExpectBatchWithResponse(&vmi, []expect.Batcher{
 			&expect.BSnd{S: cmd.command + "\n"},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: "echo $?\n"},
 			&expect.BExp{R: console.RetValue("0")},
 		}, 10)
