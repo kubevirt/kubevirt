@@ -17,12 +17,13 @@
  *
  */
 
-//nolint:errcheck,funlen,gocritic,gocyclo,lll,unused
+//nolint:funlen,gocritic,gocyclo,lll,unused
 package accesscredentials
 
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -129,7 +130,9 @@ func (l *AccessCredentialManager) writeGuestFile(contents, domName, filePath, ow
 
 	if fileExists {
 		// ensure the file has the correct permissions for writing
-		l.agentSetFilePermissions(domName, filePath, "600", owner)
+		if permErr := l.agentSetFilePermissions(domName, filePath, "600", owner); permErr != nil {
+			return permErr
+		}
 	}
 
 	// write the file
@@ -160,7 +163,9 @@ func (l *AccessCredentialManager) writeGuestFile(contents, domName, filePath, ow
 
 	if !fileExists {
 		// ensure the file has the correct permissions and ownership after creating new file
-		l.agentSetFilePermissions(domName, filePath, "600", owner)
+		if permErr := l.agentSetFilePermissions(domName, filePath, "600", owner); permErr != nil {
+			return permErr
+		}
 	}
 
 	return nil
@@ -285,12 +290,13 @@ func (l *AccessCredentialManager) agentSetFilePermissions(domName, filePath, per
 	return nil
 }
 
-func (l *AccessCredentialManager) agentSetUserPassword(domName, user, password string) error {
+func (l *AccessCredentialManager) agentSetUserPassword(domName, user, password string) (err error) {
 	domain, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		return fmt.Errorf("domain lookup failed: %w", err)
 	}
-	defer domain.Free()
+	defer func() { err = errors.Join(err, domain.Free()) }()
+
 	return domain.SetUserPassword(user, password, 0)
 }
 
@@ -302,12 +308,12 @@ func (l *AccessCredentialManager) pingAgent(domName string) error {
 }
 
 func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName, user string, authorizedKeys []string) error {
-	err := func() error {
+	err := func() (err error) {
 		domain, err := l.virConn.LookupDomainByName(domName)
 		if err != nil {
 			return err
 		}
-		defer domain.Free()
+		defer func() { err = errors.Join(err, domain.Free()) }()
 
 		// Zero flags argument means that the authorized_keys file is overwritten with the authorizedKeys
 		return domain.AuthorizedSSHKeysSet(user, authorizedKeys, 0)

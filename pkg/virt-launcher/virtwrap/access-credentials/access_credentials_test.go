@@ -68,7 +68,7 @@ var _ = Describe("AccessCredentials", func() {
 		unitTestSecretDir = tmpDir
 	})
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
