@@ -17,7 +17,7 @@
  *
  */
 
-//nolint:funlen,gocritic,gocyclo,lll,unused
+//nolint:funlen,gocyclo,lll,unused
 package accesscredentials
 
 import (
@@ -137,7 +137,7 @@ func (l *AccessCredentialManager) writeGuestFile(contents, domName, filePath, ow
 
 	// write the file
 	base64Str := base64.StdEncoding.EncodeToString([]byte(contents))
-	cmdOpenFile := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s", "mode":"w" } }`, filePath)
+	cmdOpenFile := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": %q, "mode":"w" } }`, filePath)
 	output, err := l.virConn.QemuAgentCommand(cmdOpenFile, domName)
 	if err != nil {
 		return err
@@ -149,7 +149,7 @@ func (l *AccessCredentialManager) writeGuestFile(contents, domName, filePath, ow
 		return err
 	}
 
-	cmdWriteFile := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": %d, "buf-b64": "%s" } }`, openRes.Return, base64Str)
+	cmdWriteFile := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": %d, "buf-b64": %q } }`, openRes.Return, base64Str)
 	_, err = l.virConn.QemuAgentCommand(cmdWriteFile, domName)
 	if err != nil {
 		return err
@@ -174,7 +174,7 @@ func (l *AccessCredentialManager) writeGuestFile(contents, domName, filePath, ow
 func (l *AccessCredentialManager) readGuestFile(domName, filePath string) (string, error) {
 	contents := ""
 
-	cmdOpenFile := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s", "mode":"r" } }`, filePath)
+	cmdOpenFile := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": %q, "mode":"r" } }`, filePath)
 	output, err := l.virConn.QemuAgentCommand(cmdOpenFile, domName)
 	if err != nil {
 		return contents, err
@@ -241,7 +241,7 @@ func (l *AccessCredentialManager) agentCreateDirectory(domName, dir, permissions
 	return nil
 }
 
-func (l *AccessCredentialManager) agentGetUserInfo(domName, user string) (string, string, string, error) {
+func (l *AccessCredentialManager) agentGetUserInfo(domName, user string) (filePath, uid, gid string, err error) {
 	passwdEntryStr, err := l.agentGuestExec(domName, "getent", []string{"passwd", user})
 	if err != nil {
 		return "", "", "", fmt.Errorf("unable to detect home directory of user %s: %s", user, err.Error())
@@ -254,9 +254,9 @@ func (l *AccessCredentialManager) agentGetUserInfo(domName, user string) (string
 		return "", "", "", fmt.Errorf("unable to detect home directory of user %s", user)
 	}
 
-	filePath := entries[5]
-	uid := entries[2]
-	gid := entries[3]
+	filePath = entries[5]
+	uid = entries[2]
+	gid = entries[3]
 	log.Log.Infof("Detected home directory %s for user %s", filePath, user)
 	return filePath, uid, gid, nil
 }

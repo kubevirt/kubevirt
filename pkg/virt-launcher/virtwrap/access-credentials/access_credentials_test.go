@@ -17,7 +17,7 @@
  *
  */
 
-//nolint:goconst,gocritic,gosec,lll
+//nolint:goconst,gosec,lll
 package accesscredentials
 
 import (
@@ -142,10 +142,10 @@ var _ = Describe("AccessCredentials", func() {
 
 		existingKey := base64.StdEncoding.EncodeToString([]byte("ssh some existing key"))
 		expectedReadCmd := `{"execute": "guest-file-read", "arguments": { "handle": 1000 } }`
-		expectedReadCmdRes := fmt.Sprintf(`{"return":{"count":24,"buf-b64": "%s"}}`, existingKey)
+		expectedReadCmdRes := fmt.Sprintf(`{"return":{"count":24,"buf-b64": %q}}`, existingKey)
 
 		mergedKeys := base64.StdEncoding.EncodeToString([]byte(strings.Join(authorizedKeys, "\n")))
-		expectedWriteCmd := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": 1000, "buf-b64": "%s" } }`, mergedKeys)
+		expectedWriteCmd := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": 1000, "buf-b64": %q } }`, mergedKeys)
 
 		expectedCloseCmd := `{"execute": "guest-file-close", "arguments": { "handle": 1000 } }`
 
@@ -154,15 +154,15 @@ var _ = Describe("AccessCredentials", func() {
 
 		getentBase64Str := base64.StdEncoding.EncodeToString([]byte("someowner:x:1111:2222:Some Owner:/home/someowner:/bin/bash"))
 		expectedHomeDirCmd := `{"execute": "guest-exec", "arguments": { "path": "getent", "arg": [ "passwd", "someowner" ], "capture-output":true } }`
-		expectedHomeDirCmdRes := fmt.Sprintf(`{"return":{"exitcode":0,"out-data":"%s","exited":true}}`, getentBase64Str)
+		expectedHomeDirCmdRes := fmt.Sprintf(`{"return":{"exitcode":0,"out-data":%q,"exited":true}}`, getentBase64Str)
 
-		expectedMkdirCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "mkdir", "arg": [ "-p", "%s" ], "capture-output":true } }`, filePath)
+		expectedMkdirCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "mkdir", "arg": [ "-p", %q ], "capture-output":true } }`, filePath)
 		expectedMkdirRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
-		expectedParentChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", "%s" ], "capture-output":true } }`, filePath)
+		expectedParentChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", %q ], "capture-output":true } }`, filePath)
 		expectedParentChownRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
-		expectedParentChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "700", "%s" ], "capture-output":true } }`, filePath)
+		expectedParentChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "700", %q ], "capture-output":true } }`, filePath)
 		expectedParentChmodRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
 		expectedFileChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", "%s/authorized_keys" ], "capture-output":true } }`, filePath)
@@ -353,7 +353,7 @@ var _ = Describe("AccessCredentials", func() {
 		// And wait again after modifying file
 		// Another execute command should occur with the updated password
 		manager.stopCh = make(chan struct{})
-		password = password + "morefake"
+		password += "morefake"
 		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0o644)).To(Succeed())
 
 		mockLibvirt.DomainEXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).MinTimes(1).Return(nil)
