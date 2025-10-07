@@ -17,7 +17,6 @@
  *
  */
 
-//nolint:funlen,gocyclo
 package accesscredentials
 
 import (
@@ -443,71 +442,73 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 		if !reload {
 			continue
 		}
-
 		fileChangeDetected = false
-		reload = false
-		reportedErr := false
 
-		err := l.pingAgent(domName)
+		reload = l.reloadCredentialFiles(vmi, domName, logger)
+	}
+}
+
+func (l *AccessCredentialManager) reloadCredentialFiles(vmi *v1.VirtualMachineInstance, domName string, logger *log.FilteredLogger) bool {
+	err := l.pingAgent(domName)
+	if err != nil {
+		l.reportAccessCredentialResult(false, "Guest agent is offline")
+		return true
+	}
+
+	reload := false
+	reportedErr := false
+
+	credentialInfo := newAccessCredentialsInfo()
+
+	// Step 1. Populate access credential info
+	for i := range vmi.Spec.AccessCredentials {
+		err := credentialInfo.addAccessCredential(&vmi.Spec.AccessCredentials[i])
 		if err != nil {
+			// if reading failed, reset reload to true so this change will be retried again
 			reload = true
 			reportedErr = true
-			l.reportAccessCredentialResult(false, "Guest agent is offline")
-			continue
-		}
-
-		credentialInfo := newAccessCredentialsInfo()
-
-		// Step 1. Populate access credential info
-		for i := range vmi.Spec.AccessCredentials {
-			err := credentialInfo.addAccessCredential(&vmi.Spec.AccessCredentials[i])
-			if err != nil {
-				// if reading failed, reset reload to true so this change will be retried again
-				reload = true
-				reportedErr = true
-				logger.Reason(err).Errorf("Error encountered")
-				l.reportAccessCredentialResult(false, err.Error())
-			}
-		}
-
-		// Step 2. Update Authorized keys
-		for user, secretNames := range credentialInfo.userSSHMap {
-			var allAuthorizedKeys []string
-			for _, secretName := range secretNames {
-				pubKeys := credentialInfo.secretMap[secretName]
-				allAuthorizedKeys = append(allAuthorizedKeys, pubKeys...)
-			}
-
-			err := l.agentSetAuthorizedKeys(domName, user, allAuthorizedKeys)
-			if err != nil {
-				// if writing failed, reset reload to true so this change will be retried again
-				reload = true
-				reportedErr = true
-				logger.Reason(err).Errorf("Error encountered writing access credentials using guest agent")
-				l.reportAccessCredentialResult(false, fmt.Sprintf(
-					"Error encountered writing ssh pub key access credentials for user [%s]: %v",
-					user, err))
-				continue
-			}
-		}
-
-		// Step 3. update UserPasswords
-		for user, password := range credentialInfo.userPasswordMap {
-			err := l.agentSetUserPassword(domName, user, password)
-			if err != nil {
-				// if setting password failed, reset reload to true so this will be tried again
-				reload = true
-				reportedErr = true
-				logger.Reason(err).Errorf("Error encountered setting password for user [%s]", user)
-
-				l.reportAccessCredentialResult(false, fmt.Sprintf("Error encountered setting password for user [%s]: %v", user, err))
-				continue
-			}
-		}
-		if !reportedErr {
-			l.reportAccessCredentialResult(true, "")
+			logger.Reason(err).Errorf("Error encountered")
+			l.reportAccessCredentialResult(false, err.Error())
 		}
 	}
+
+	// Step 2. Update Authorized keys
+	for user, secretNames := range credentialInfo.userSSHMap {
+		var allAuthorizedKeys []string
+		for _, secretName := range secretNames {
+			pubKeys := credentialInfo.secretMap[secretName]
+			allAuthorizedKeys = append(allAuthorizedKeys, pubKeys...)
+		}
+
+		err := l.agentSetAuthorizedKeys(domName, user, allAuthorizedKeys)
+		if err != nil {
+			// if writing failed, reset reload to true so this change will be retried again
+			reload = true
+			reportedErr = true
+			logger.Reason(err).Errorf("Error encountered writing access credentials using guest agent")
+			l.reportAccessCredentialResult(false, fmt.Sprintf(
+				"Error encountered writing ssh pub key access credentials for user [%s]: %v",
+				user, err))
+		}
+	}
+
+	// Step 3. update UserPasswords
+	for user, password := range credentialInfo.userPasswordMap {
+		err := l.agentSetUserPassword(domName, user, password)
+		if err != nil {
+			// if setting password failed, reset reload to true so this will be tried again
+			reload = true
+			reportedErr = true
+			logger.Reason(err).Errorf("Error encountered setting password for user [%s]", user)
+
+			l.reportAccessCredentialResult(false, fmt.Sprintf("Error encountered setting password for user [%s]: %v", user, err))
+		}
+	}
+	if !reportedErr {
+		l.reportAccessCredentialResult(true, "")
+	}
+
+	return reload
 }
 
 func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.VirtualMachineInstance) error {
@@ -586,59 +587,81 @@ func (a *accessCredentialsInfo) addAccessCredential(accessCred *v1.AccessCredent
 	}
 
 	secretDir := getSecretDir(secretName)
-	files, err := os.ReadDir(secretDir)
-	if err != nil {
-		return fmt.Errorf("error occurred while reading the list of secrets files from the base directory %s: %w", secretDir, err)
-	}
-
 	if isSSHPublicKey(accessCred) {
 		for _, user := range accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent.Users {
 			a.userSSHMap[user] = append(a.userSSHMap[user], secretName)
 		}
 
-		var authorizedKeys []string
-		for _, file := range files {
-			if file.IsDir() || strings.HasPrefix(file.Name(), "..") {
-				continue
-			}
-
-			pubKeyBytes, err := os.ReadFile(filepath.Join(secretDir, file.Name()))
-			if err != nil {
-				return fmt.Errorf("error occurred while reading the access credential secret file [%s]: %w", filepath.Join(secretDir, file.Name()), err)
-			}
-
-			for _, pubKey := range strings.Split(string(pubKeyBytes), "\n") {
-				trimmedKey := strings.TrimSpace(pubKey)
-				if trimmedKey != "" {
-					authorizedKeys = append(authorizedKeys, trimmedKey)
-				}
-			}
+		authorizedKeys, err := readKeysFromDirectory(secretDir)
+		if err != nil {
+			return err
 		}
-
 		if len(authorizedKeys) > 0 {
 			a.secretMap[secretName] = authorizedKeys
 		}
-	} else if isUserPassword(accessCred) {
-		for _, file := range files {
-			// Mounted secret directory contains directories prefixed by "..".
-			// They are used by k8s to atomically swap all files when the secret is updated.
-			if file.IsDir() || strings.HasPrefix(file.Name(), "..") {
-				continue
-			}
 
-			passwordBytes, err := os.ReadFile(filepath.Join(secretDir, file.Name()))
-			if err != nil {
-				return fmt.Errorf("error occurred while reading the access credential secret file [%s]: %w", filepath.Join(secretDir, file.Name()), err)
-			}
+		return nil
+	}
 
-			password := strings.TrimSpace(string(passwordBytes))
-			if password == "" {
-				continue
+	if isUserPassword(accessCred) {
+		return readAndAddPasswordsFromDirectory(secretDir, a.userPasswordMap)
+	}
+
+	return nil
+}
+
+func readKeysFromDirectory(dir string) ([]string, error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred while reading the list of secrets files from the base directory %s: %w", dir, err)
+	}
+
+	var authorizedKeys []string
+	for _, file := range files {
+		if file.IsDir() || strings.HasPrefix(file.Name(), "..") {
+			continue
+		}
+
+		pubKeyBytes, err := os.ReadFile(filepath.Join(dir, file.Name()))
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while reading the access credential secret file [%s]: %w", filepath.Join(dir, file.Name()), err)
+		}
+
+		for _, pubKey := range strings.Split(string(pubKeyBytes), "\n") {
+			trimmedKey := strings.TrimSpace(pubKey)
+			if trimmedKey != "" {
+				authorizedKeys = append(authorizedKeys, trimmedKey)
 			}
-			a.userPasswordMap[file.Name()] = password
 		}
 	}
 
+	return authorizedKeys, nil
+}
+
+func readAndAddPasswordsFromDirectory(dir string, passMap map[string]string) error {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("error occurred while reading the list of secrets files from the base directory %s: %w", dir, err)
+	}
+
+	for _, file := range files {
+		// Mounted secret directory contains directories prefixed by "..".
+		// They are used by k8s to atomically swap all files when the secret is updated.
+		if file.IsDir() || strings.HasPrefix(file.Name(), "..") {
+			continue
+		}
+
+		passwordBytes, err := os.ReadFile(filepath.Join(dir, file.Name()))
+		if err != nil {
+			return fmt.Errorf("error occurred while reading the access credential secret file [%s]: %w", filepath.Join(dir, file.Name()), err)
+		}
+
+		password := strings.TrimSpace(string(passwordBytes))
+		if password == "" {
+			continue
+		}
+		passMap[file.Name()] = password
+	}
 	return nil
 }
 
