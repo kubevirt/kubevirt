@@ -300,22 +300,6 @@ load(
     "go_repository",
 )
 
-go_repository(
-    name = "org_golang_google_grpc",
-    build_file_proto_mode = "disable",
-    importpath = "google.golang.org/grpc",
-    sum = "h1:bs/cUb4lp1G5iImFFd3u5ixQzweKizoZJAwBNLR42lc=",
-    version = "v1.65.0",
-)
-
-go_repository(
-    name = "org_golang_google_genproto_googleapis_rpc",
-    build_file_proto_mode = "disable_global",
-    importpath = "google.golang.org/genproto/googleapis/rpc",
-    sum = "h1:uvYuEyMHKNt+lT4K3bN6fGswmK8qSvcreM3BwjDh+y4=",
-    version = "v0.0.0-20230822172742-b8732ec3820d",
-)
-
 gazelle_dependencies(go_sdk = "go_sdk")
 
 bazeldnf_dependencies()
