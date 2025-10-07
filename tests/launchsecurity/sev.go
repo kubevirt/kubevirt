@@ -325,7 +325,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: ""},
 					&expect.BSnd{S: "dmesg | grep --color=never SEV\n"},
-					&expect.BExp{R: "AMD Memory Encryption Features active: " + sevstr},
+					&expect.BExp{R: "Memory Encryption Features active: AMD " + sevstr},
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: ""},
 				}, 30)
