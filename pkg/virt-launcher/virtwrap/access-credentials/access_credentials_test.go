@@ -17,7 +17,7 @@
  *
  */
 
-//nolint:goconst,gosec,lll
+//nolint:gosec,lll
 package accesscredentials
 
 import (
@@ -86,12 +86,12 @@ var _ = Describe("AccessCredentials", func() {
 	}
 
 	It("should handle qemu agent exec", func() {
-		domName := "some-domain"
-		command := "some-command"
+		const domName = "some-domain"
+		const command = "some-command"
 		args := []string{"arg1", "arg2"}
 
-		expectedCmd := `{"execute": "guest-exec", "arguments": { "path": "some-command", "arg": [ "arg1", "arg2" ], "capture-output":true } }`
-		expectedStatusCmd := `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
+		const expectedCmd = `{"execute": "guest-exec", "arguments": { "path": "some-command", "arg": [ "arg1", "arg2" ], "capture-output":true } }`
+		const expectedStatusCmd = `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
 
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedCmd, domName).Return(`{"return":{"pid":789}}`, nil)
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(`{"return":{"exitcode":0,"out-data":"c3NoIHNvbWVrZXkxMjMgdGVzdC1rZXkK","exited":true}}`, nil)
@@ -100,9 +100,9 @@ var _ = Describe("AccessCredentials", func() {
 	})
 
 	It("should handle dynamically updating user/password with qemu agent", func() {
-		domName := "some-domain"
-		user := "myuser"
-		password := "1234"
+		const domName = "some-domain"
+		const user = "myuser"
+		const password = "1234"
 
 		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
 		mockLibvirt.DomainEXPECT().Free()
@@ -112,8 +112,8 @@ var _ = Describe("AccessCredentials", func() {
 	})
 
 	It("should handle dynamically updating ssh key with qemu agent", func() {
-		domName := "some-domain"
-		user := "someowner"
+		const domName = "some-domain"
+		const user = "someowner"
 
 		authorizedKeys := []string{"ssh some injected key"}
 
@@ -125,9 +125,9 @@ var _ = Describe("AccessCredentials", func() {
 	})
 
 	It("should dynamically update ssh key with old qemu agent", func() {
-		domName := "some-domain"
-		user := "someowner"
-		filePath := "/home/someowner/.ssh"
+		const domName = "some-domain"
+		const user = "someowner"
+		const filePath = "/home/someowner/.ssh"
 
 		authorizedKeys := []string{"ssh some injected key"}
 
@@ -138,38 +138,38 @@ var _ = Describe("AccessCredentials", func() {
 
 		expectedOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"r" } }`, filePath)
 		expectedWriteOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"w" } }`, filePath)
-		expectedOpenCmdRes := `{"return":1000}`
+		const expectedOpenCmdRes = `{"return":1000}`
 
 		existingKey := base64.StdEncoding.EncodeToString([]byte("ssh some existing key"))
-		expectedReadCmd := `{"execute": "guest-file-read", "arguments": { "handle": 1000 } }`
+		const expectedReadCmd = `{"execute": "guest-file-read", "arguments": { "handle": 1000 } }`
 		expectedReadCmdRes := fmt.Sprintf(`{"return":{"count":24,"buf-b64": %q}}`, existingKey)
 
 		mergedKeys := base64.StdEncoding.EncodeToString([]byte(strings.Join(authorizedKeys, "\n")))
 		expectedWriteCmd := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": 1000, "buf-b64": %q } }`, mergedKeys)
 
-		expectedCloseCmd := `{"execute": "guest-file-close", "arguments": { "handle": 1000 } }`
+		const expectedCloseCmd = `{"execute": "guest-file-close", "arguments": { "handle": 1000 } }`
 
-		expectedExecReturn := `{"return":{"pid":789}}`
-		expectedStatusCmd := `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
+		const expectedExecReturn = `{"return":{"pid":789}}`
+		const expectedStatusCmd = `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
 
 		getentBase64Str := base64.StdEncoding.EncodeToString([]byte("someowner:x:1111:2222:Some Owner:/home/someowner:/bin/bash"))
-		expectedHomeDirCmd := `{"execute": "guest-exec", "arguments": { "path": "getent", "arg": [ "passwd", "someowner" ], "capture-output":true } }`
+		const expectedHomeDirCmd = `{"execute": "guest-exec", "arguments": { "path": "getent", "arg": [ "passwd", "someowner" ], "capture-output":true } }`
 		expectedHomeDirCmdRes := fmt.Sprintf(`{"return":{"exitcode":0,"out-data":%q,"exited":true}}`, getentBase64Str)
 
 		expectedMkdirCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "mkdir", "arg": [ "-p", %q ], "capture-output":true } }`, filePath)
-		expectedMkdirRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
+		const expectedMkdirRes = `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
 		expectedParentChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", %q ], "capture-output":true } }`, filePath)
-		expectedParentChownRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
+		const expectedParentChownRes = `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
 		expectedParentChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "700", %q ], "capture-output":true } }`, filePath)
-		expectedParentChmodRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
+		const expectedParentChmodRes = `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
 		expectedFileChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", "%s/authorized_keys" ], "capture-output":true } }`, filePath)
-		expectedFileChownRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
+		const expectedFileChownRes = `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
 		expectedFileChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "600", "%s/authorized_keys" ], "capture-output":true } }`, filePath)
-		expectedFileChmodRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
+		const expectedFileChmodRes = `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
 		// Detect user home dir
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedHomeDirCmd, domName).Return(expectedExecReturn, nil).Times(1)
@@ -206,8 +206,8 @@ var _ = Describe("AccessCredentials", func() {
 	})
 
 	It("should fail to update ssh key if both methods return error", func() {
-		domName := "some-domain"
-		user := "someowner"
+		const domName = "some-domain"
+		const user = "someowner"
 
 		authorizedKeys := []string{"ssh some injected key"}
 
@@ -224,8 +224,8 @@ var _ = Describe("AccessCredentials", func() {
 	})
 
 	It("should support multiple ssh keys in one secret value", func() {
-		secretID := "some-secret-123"
-		user := "fakeuser"
+		const secretID = "some-secret-123"
+		const user = "fakeuser"
 
 		vmi := &v1.VirtualMachineInstance{}
 		vmi.Spec.AccessCredentials = []v1.AccessCredential{{
@@ -249,14 +249,14 @@ var _ = Describe("AccessCredentials", func() {
 		secretDir := secretDirs[0]
 		Expect(os.Mkdir(secretDir, 0o755)).To(Succeed())
 
-		authorizedKeys := "first key\nsecond key\n"
+		const authorizedKeys = "first key\nsecond key\n"
 		Expect(os.WriteFile(filepath.Join(secretDirs[0], "authorized_keys"), []byte(authorizedKeys), 0o644)).To(Succeed())
 
 		keysLoaded := make(chan struct{})
 
 		domName := util.VMINamespaceKeyFunc(vmi)
 
-		cmdPing := `{"execute":"guest-ping"}`
+		const cmdPing = `{"execute":"guest-ping"}`
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(cmdPing, domName).AnyTimes().Return("", nil)
 
 		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
@@ -280,9 +280,9 @@ var _ = Describe("AccessCredentials", func() {
 	It("should trigger updating a credential when secret propagation change occurs.", func() {
 		var err error
 
-		secretID := "some-secret"
+		const secretID = "some-secret"
+		const user = "fakeuser"
 		password := "fakepassword"
-		user := "fakeuser"
 
 		vmi := &v1.VirtualMachineInstance{}
 		vmi.Spec.AccessCredentials = []v1.AccessCredential{
@@ -317,7 +317,7 @@ var _ = Describe("AccessCredentials", func() {
 		// Write the file
 		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0o644)).To(Succeed())
 
-		cmdPing := `{"execute":"guest-ping"}`
+		const cmdPing = `{"execute":"guest-ping"}`
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(cmdPing, domName).AnyTimes().Return("", nil)
 
 		domainSpec := expectIsolationDetectionForVMI(vmi)
@@ -330,7 +330,7 @@ var _ = Describe("AccessCredentials", func() {
 		mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(xml), nil)
 
 		mockLibvirt.ConnectionEXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
-			match := `			<accessCredential>
+			const match = `			<accessCredential>
 				<succeeded>true</succeeded>
 			</accessCredential>`
 			Expect(strings.Contains(xml, match)).To(BeTrue())
