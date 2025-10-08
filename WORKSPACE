@@ -385,7 +385,7 @@ oci_pull(
 # TODO build fedora_with_test_tooling for multi-arch
 oci_pull(
     name = "fedora_with_test_tooling",
-    digest = "sha256:ecc3a488c10f77490cdba7264fc5f597082caeecd5f4debf2f0a033d87c155d2",
+    digest = "sha256:4ad24823f9cb452a868d083cb16a8b8782f9a8a53c5827cd362f40f1414164e0",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
@@ -397,13 +397,13 @@ oci_pull(
 
 oci_pull(
     name = "fedora_with_test_tooling_aarch64",
-    digest = "sha256:e1d8bc3c9c35bbc2e7f8d49ff7ca365e053f189362fd69a189dd654173f61f4f",
+    digest = "sha256:d8bfb8cec3c52c7ff492cd0599d4a8aeec7387ef74dd191869ba2089ccc8bce3",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
 oci_pull(
     name = "fedora_with_test_tooling_s390x",
-    digest = "sha256:9cb598dcc5affe38d0da0e6016b40f2ebe8c942dc98e66d5b57356d2a0886685",
+    digest = "sha256:1e433ee0b04ae7b405d1b33b2d653a2ecffa0dceecc79c82bdb7afe2e50ee8bb",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
