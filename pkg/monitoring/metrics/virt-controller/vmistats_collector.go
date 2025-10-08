@@ -385,7 +385,7 @@ func collectVMIMigrationTime(vmi *k6tv1.VirtualMachineInstance) []operatormetric
 		return cr
 	}
 
-	migrationName = getMigrationNameFromMigrationUID(vmi.Namespace, vmi.Status.MigrationState.MigrationUID)
+	migrationName = getMigrationNameFromMigrationUID(vmi.Status.MigrationState.MigrationUID)
 	if vmi.Status.MigrationState.StartTimestamp != nil {
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmiMigrationStartTime,
@@ -419,22 +419,13 @@ func calculateMigrationStatus(migrationState *k6tv1.VirtualMachineInstanceMigrat
 	return "succeeded"
 }
 
-func getMigrationNameFromMigrationUID(namespace string, migrationUID types.UID) string {
-	objs, err := informers.VMIMigration.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
+func getMigrationNameFromMigrationUID(migrationUID types.UID) string {
+	objs, err := informers.VMIMigration.GetIndexer().ByIndex(controller.ByMigrationUIDIndex, string(migrationUID))
+	if err != nil || len(objs) == 0 {
 		return none
 	}
 
-	for _, obj := range objs {
-		curMigration := obj.(*k6tv1.VirtualMachineInstanceMigration)
-		if curMigration.UID != migrationUID {
-			continue
-		}
-
-		return curMigration.Name
-	}
-
-	return none
+	return objs[0].(*k6tv1.VirtualMachineInstanceMigration).Name
 }
 
 func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
