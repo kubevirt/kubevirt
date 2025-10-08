@@ -390,7 +390,9 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 }
 
 func getDesiredApiReplicas(clientset kubecli.KubevirtClient) (replicas int32, err error) {
-	nodeList, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	nodeList, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", v1.NodeSchedulable, "true"),
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get number of nodes to determine virt-api replicas: %v", err)
 	}
