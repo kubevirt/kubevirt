@@ -509,7 +509,7 @@ func (app *virtHandlerApp) Run() {
 		nodeInformer.HasSynced,
 	)
 
-	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
+	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
 		panic(err)
 	}
 
