@@ -54,6 +54,7 @@ const (
 
 	// Owner: sig-compute / @lyarwood
 	// Alpha: v1.0.0
+	// Beta: v1.7.0
 	//
 	// MultiArchitecture allows VM/VMIs to request and schedule to an architecture other than that of control plane
 	MultiArchitecture = "MultiArchitecture"
