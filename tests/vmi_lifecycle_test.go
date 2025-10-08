@@ -1657,6 +1657,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				"The VirtualMachineInstance crashed",
 				"cannot detect vm",
 				"Can not update a VirtualMachineInstance with unresponsive command server",
+				"failed opening path",
 			},
 			}
 			objectEventWatcher.SetWarningsPolicy(wp)
