@@ -33,9 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 type VmConfigurator interface {
@@ -204,34 +202,6 @@ func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
 		domainInterfaces[iface.Alias.GetName()] = iface
 	}
 	return domainInterfaces
-}
-
-// WithNetworkIfacesResources adds network interfaces as placeholders to the domain spec
-// to trigger the addition of the dependent resources/devices (e.g. PCI controllers).
-// As its last step, it reads the generated configuration and removes the network interfaces
-// so none will be created with the domain creation.
-// The dependent devices are left in the configuration, to allow future hotplug.
-func WithNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
-	if count > 0 {
-		domainSpecWithIfacesResource := AppendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
-		dom, err := f(vmi, domainSpecWithIfacesResource)
-		if err != nil {
-			return nil, err
-		}
-
-		defer dom.Free()
-
-		domainSpecWithoutIfacePlaceholders, err := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
-		if err != nil {
-			return nil, err
-		}
-		domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
-		// Only the devices are taken into account because some parameters are not assured to be returned when
-		// getting the domain spec (e.g. the `qemu:commandline` section).
-		domainSpecWithoutIfacePlaceholders.Devices.DeepCopyInto(&domainSpec.Devices)
-	}
-
-	return f(vmi, domainSpec)
 }
 
 func AppendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int) *api.DomainSpec {

@@ -1497,6 +1497,34 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 	return dom, err
 }
 
+// WithNetworkIfacesResources adds network interfaces as placeholders to the domain spec
+// to trigger the addition of the dependent resources/devices (e.g. PCI controllers).
+// As its last step, it reads the generated configuration and removes the network interfaces
+// so none will be created with the domain creation.
+// The dependent devices are left in the configuration, to allow future hotplug.
+func WithNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
+	if count > 0 {
+		domainSpecWithIfacesResource := network.AppendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
+		dom, err := f(vmi, domainSpecWithIfacesResource)
+		if err != nil {
+			return nil, err
+		}
+
+		defer dom.Free()
+
+		domainSpecWithoutIfacePlaceholders, err := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
+		if err != nil {
+			return nil, err
+		}
+		domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
+		// Only the devices are taken into account because some parameters are not assured to be returned when
+		// getting the domain spec (e.g. the `qemu:commandline` section).
+		domainSpecWithoutIfacePlaceholders.Devices.DeepCopyInto(&domainSpec.Devices)
+	}
+
+	return f(vmi, domainSpec)
+}
+
 func (l *LibvirtDomainManager) allocateHotplugPorts(
 	vmi *v1.VirtualMachineInstance,
 	domainSpec *api.DomainSpec,
@@ -1517,7 +1545,7 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 
 	// leverage existing hotplug nic code to allocate ports
 	// should work for disks and any other devices as well
-	dom, err := network.WithNetworkIfacesResources(vmi, domainSpec, count, setDomainFn)
+	dom, err := WithNetworkIfacesResources(vmi, domainSpec, count, setDomainFn)
 	if err != nil {
 		return nil, err
 	}
