@@ -20353,6 +20353,23 @@ var CRDsValidation map[string]string = map[string]string{
           description: ScaleInStrategy specifies how the VMPool controller manages
             scaling in VMs within a VMPool
           properties:
+            opportunistic:
+              description: |-
+                Opportunistic scale-in is a strategy when vms are deleted by some other means than the scale-in action.
+                For example, when the VM is deleted by the user or when the VM is deleted by the node that is hosting the VM.
+              properties:
+                enabled:
+                  description: Enable or disable opportunistic scale-in.
+                  type: boolean
+                statePreservation:
+                  description: Specifies if and how to preserve the state of the VMs
+                    selected during scale-in.
+                  enum:
+                  - Disabled
+                  - Offline
+                  - Online
+                  type: string
+              type: object
             proactive:
               description: Proactive scale-in by forcing VMs to shutdown during scale-in
                 (Default)
@@ -20457,7 +20474,19 @@ var CRDsValidation map[string]string = map[string]string{
                           type: array
                       type: object
                   type: object
+                statePreservation:
+                  description: Specifies if and how to preserve the state of the VMs
+                    selected during scale-in.
+                  enum:
+                  - Disabled
+                  - Offline
+                  - Online
+                  type: string
               type: object
+            unmanaged:
+              description: The VM is never touched after creation. Users are responsible
+                for scaling in the pool manually.
+              type: boolean
           type: object
         selector:
           description: |-
