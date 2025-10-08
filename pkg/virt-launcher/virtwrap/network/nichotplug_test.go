@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package network_test
 
 import (
 	"encoding/xml"
@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
@@ -50,7 +51,7 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 
 	DescribeTable("networksToHotplugWhoseInterfacesAreNotInTheDomain", func(vmi *v1.VirtualMachineInstance, domainIfaces map[string]api.Interface, expectedNetworks []v1.Network) {
 		Expect(
-			networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, domainIfaces),
+			network.NetworksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, domainIfaces),
 		).To(ConsistOf(expectedNetworks))
 	},
 		Entry("vmi with no networks, and no interfaces in the domain",
@@ -146,7 +147,7 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 	)
 
 	It("hotplugVirtioInterface SUCCEEDS with link state down", func() {
-		networkInterfaceManager := newVirtIOInterfaceManager(
+		networkInterfaceManager := network.NewVirtIOInterfaceManager(
 			expectAttachDeviceLinkStateDown(gomock.NewController(GinkgoT())).VirtDomain,
 			&fakeVMConfigurator{},
 		)
@@ -166,21 +167,21 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 				)),
 			),
 		)
-		Expect(networkInterfaceManager.hotplugVirtioInterface(
+		Expect(networkInterfaceManager.HotplugVirtioInterface(
 			vmi,
 			dummyDomain(),
-			newDomain(newDeviceInterface(networkName, libvirtInterfaceLinkStateDown)),
+			newDomain(newDeviceInterface(networkName, network.LibvirtInterfaceLinkStateDown)),
 		)).To(Succeed())
 	})
 
 	DescribeTable(
 		"hotplugVirtioInterface SUCCEEDS for",
 		func(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain, result libvirtClientResult) {
-			networkInterfaceManager := newVirtIOInterfaceManager(
+			networkInterfaceManager := network.NewVirtIOInterfaceManager(
 				mockLibvirtClient(gomock.NewController(GinkgoT()), result).VirtDomain,
 				&fakeVMConfigurator{},
 			)
-			Expect(networkInterfaceManager.hotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(Succeed())
+			Expect(networkInterfaceManager.HotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(Succeed())
 		},
 		Entry(
 			"VMI without networks, whose domain also doesn't have interfaces, does **not** attach any device",
@@ -199,12 +200,12 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 
 	DescribeTable(
 		"hotplugVirtioInterface FAILS when",
-		func(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain, configurator vmConfigurator, result libvirtClientResult) {
-			networkInterfaceManager := newVirtIOInterfaceManager(
+		func(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain, configurator network.VmConfigurator, result libvirtClientResult) {
+			networkInterfaceManager := network.NewVirtIOInterfaceManager(
 				mockLibvirtClient(gomock.NewController(GinkgoT()), result).VirtDomain,
 				configurator,
 			)
-			Expect(networkInterfaceManager.hotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(MatchError("boom"))
+			Expect(networkInterfaceManager.HotplugVirtioInterface(vmi, currentDomain, updatedDomain)).To(MatchError("boom"))
 		},
 		Entry("the VM network configurator ERRORs invoking setup networking phase#2",
 			vmiWithSingleBridgeInterfaceWithPodInterfaceReady(networkName, nadName),
@@ -235,7 +236,7 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 
 	DescribeTable("domain interfaces to hot-unplug",
 		func(vmiSpecIfaces []v1.Interface, vmiSpecNets []v1.Network, domainSpecIfaces []api.Interface, expectedDomainSpecIfaces []api.Interface) {
-			Expect(interfacesToHotUnplug(vmiSpecIfaces, vmiSpecNets, domainSpecIfaces)).To(ConsistOf(expectedDomainSpecIfaces))
+			Expect(network.InterfacesToHotUnplug(vmiSpecIfaces, vmiSpecNets, domainSpecIfaces)).To(ConsistOf(expectedDomainSpecIfaces))
 		},
 		Entry("given no VMI interfaces and no domain interfaces", nil, nil, nil, nil),
 		Entry("given no VMI interfaces and 1 domain interface",
@@ -278,7 +279,7 @@ var _ = Describe("domain network interfaces resources", func() {
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{}}
 		domainSpec := &api.DomainSpec{}
 		countCalls := 0
-		_, _ = WithNetworkIfacesResources(vmi, domainSpec, 0, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+		_, _ = network.WithNetworkIfacesResources(vmi, domainSpec, 0, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
 			countCalls++
 			return nil, nil
 		})
@@ -305,7 +306,7 @@ var _ = Describe("domain network interfaces resources", func() {
 
 		originalDomainSpec := domainSpec.DeepCopy()
 		countCalls := 0
-		_, err = WithNetworkIfacesResources(vmi, domainSpec, 3, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+		_, err = network.WithNetworkIfacesResources(vmi, domainSpec, 3, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
 			// Tracking the behavior of the tested function.
 			// It is expected that the callback function is called twice when placeholders are needed.
 			// The first time it is called with the placeholders in place.
@@ -331,10 +332,10 @@ var _ = Describe("interface link state update", func() {
 			domainTo *api.Domain,
 			expectMockFunc func(*gomock.Controller) *testing.Libvirt) {
 
-			networkInterfaceManager := newVirtIOInterfaceManager(
+			networkInterfaceManager := network.NewVirtIOInterfaceManager(
 				expectMockFunc(gomock.NewController(GinkgoT())).VirtDomain,
 				&fakeVMConfigurator{})
-			Expect(networkInterfaceManager.updateDomainLinkState(domainFrom, domainTo)).To(Succeed())
+			Expect(networkInterfaceManager.UpdateDomainLinkState(domainFrom, domainTo)).To(Succeed())
 		},
 
 		Entry("none to none",
@@ -343,18 +344,18 @@ var _ = Describe("interface link state update", func() {
 			expectUpdateDeviceNotCalled,
 		),
 		Entry("down to down",
-			newDomain(newDeviceInterface(defaultNet, libvirtInterfaceLinkStateDown)),
-			newDomain(newDeviceInterface(defaultNet, libvirtInterfaceLinkStateDown)),
+			newDomain(newDeviceInterface(defaultNet, network.LibvirtInterfaceLinkStateDown)),
+			newDomain(newDeviceInterface(defaultNet, network.LibvirtInterfaceLinkStateDown)),
 			expectUpdateDeviceNotCalled,
 		),
 		Entry("down to none",
-			newDomain(newDeviceInterface(defaultNet, libvirtInterfaceLinkStateDown)),
+			newDomain(newDeviceInterface(defaultNet, network.LibvirtInterfaceLinkStateDown)),
 			dummyDomain(defaultNet),
 			expectUpdateDeviceLinkStateNone,
 		),
 		Entry("none to down",
 			dummyDomain(defaultNet),
-			newDomain(newDeviceInterface(defaultNet, libvirtInterfaceLinkStateDown)),
+			newDomain(newDeviceInterface(defaultNet, network.LibvirtInterfaceLinkStateDown)),
 			expectUpdateDeviceLinkStateDown,
 		),
 	)

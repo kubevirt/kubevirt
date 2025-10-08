@@ -6,9 +6,9 @@ go_test(
         "network_suite_test.go",
         "nichotplug_test.go",
     ],
-    embed = [":go_default_library"],
     race = "on",
     deps = [
+        ":go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/status:go_default_library",
         "//pkg/network/namescheme:go_default_library",

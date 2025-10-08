@@ -38,23 +38,23 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
-type vmConfigurator interface {
+type VmConfigurator interface {
 	SetupPodNetworkPhase2(domain *api.Domain, networksToPlug []v1.Network) error
 }
 
 type virtIOInterfaceManager struct {
 	dom          domainClient
-	configurator vmConfigurator
+	configurator VmConfigurator
 }
 
 const (
-	libvirtInterfaceLinkStateDown         = "down"
+	LibvirtInterfaceLinkStateDown         = "down"
 	affectDeviceLiveAndConfigLibvirtFlags = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
 )
 
-func newVirtIOInterfaceManager(
+func NewVirtIOInterfaceManager(
 	libvirtClient domainClient,
-	configurator vmConfigurator,
+	configurator VmConfigurator,
 ) *virtIOInterfaceManager {
 	return &virtIOInterfaceManager{
 		dom:          libvirtClient,
@@ -62,8 +62,8 @@ func newVirtIOInterfaceManager(
 	}
 }
 
-func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain) error {
-	for _, network := range networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, indexedDomainInterfaces(currentDomain)) {
+func (vim *virtIOInterfaceManager) HotplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain) error {
+	for _, network := range NetworksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, indexedDomainInterfaces(currentDomain)) {
 		log.Log.Infof("will hot plug %s", network.Name)
 
 		if err := vim.configurator.SetupPodNetworkPhase2(updatedDomain, []v1.Network{network}); err != nil {
@@ -93,7 +93,7 @@ func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachine
 	return nil
 }
 
-func (vim *virtIOInterfaceManager) updateDomainLinkState(currentDomain, desiredDomain *api.Domain) error {
+func (vim *virtIOInterfaceManager) UpdateDomainLinkState(currentDomain, desiredDomain *api.Domain) error {
 
 	currentDomainIfacesByAlias := indexedDomainInterfaces(currentDomain)
 	for _, desiredIface := range desiredDomain.Spec.Devices.Interfaces {
@@ -128,7 +128,7 @@ func (vim *virtIOInterfaceManager) updateIfaceInDomain(domIfaceToUpdate *api.Int
 }
 
 func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain) error {
-	for _, domainIface := range interfacesToHotUnplug(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, currentDomain.Spec.Devices.Interfaces) {
+	for _, domainIface := range InterfacesToHotUnplug(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, currentDomain.Spec.Devices.Interfaces) {
 		log.Log.Infof("preparing to hot-unplug %s", domainIface.Alias.GetName())
 
 		ifaceXML, err := xml.Marshal(domainIface)
@@ -144,7 +144,7 @@ func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachi
 	return nil
 }
 
-func interfacesToHotUnplug(vmiSpecInterfaces []v1.Interface, vmiSpecNets []v1.Network, domainSpecInterfaces []api.Interface) []api.Interface {
+func InterfacesToHotUnplug(vmiSpecInterfaces []v1.Interface, vmiSpecNets []v1.Network, domainSpecInterfaces []api.Interface) []api.Interface {
 	ifaces2remove := netvmispec.FilterInterfacesSpec(vmiSpecInterfaces, func(iface v1.Interface) bool {
 		return iface.State == v1.InterfaceStateAbsent
 	})
@@ -175,7 +175,7 @@ func lookupDomainInterfaceByName(domainIfaces []api.Interface, networkName strin
 	return nil
 }
 
-func networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi *v1.VirtualMachineInstance, indexedDomainIfaces map[string]api.Interface) []v1.Network {
+func NetworksToHotplugWhoseInterfacesAreNotInTheDomain(vmi *v1.VirtualMachineInstance, indexedDomainIfaces map[string]api.Interface) []v1.Network {
 	var networksToHotplug []v1.Network
 	interfacesToHoplug := netvmispec.IndexInterfaceStatusByName(
 		vmi.Status.Interfaces,
