@@ -82,8 +82,9 @@ const (
 )
 
 const (
-	ByVMINameIndex  = "byVMIName"
-	UnfinishedIndex = "unfinished"
+	ByVMINameIndex      = "byVMIName"
+	ByMigrationUIDIndex = "byMigrationUID"
+	UnfinishedIndex     = "unfinished"
 )
 
 var unexpectedObjectError = errors.New("unexpected object")
@@ -536,6 +537,13 @@ func GetVirtualMachineInstanceMigrationInformerIndexers() cache.Indexers {
 				return nil, nil
 			}
 			return []string{fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName)}, nil
+		},
+		ByMigrationUIDIndex: func(obj interface{}) ([]string, error) {
+			migration, ok := obj.(*kubev1.VirtualMachineInstanceMigration)
+			if !ok {
+				return nil, nil
+			}
+			return []string{string(migration.UID)}, nil
 		},
 		UnfinishedIndex: func(obj interface{}) ([]string, error) {
 			migration, ok := obj.(*kubev1.VirtualMachineInstanceMigration)
