@@ -65,8 +65,7 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 	}
 
 	cachedRoute = obj.(*routev1.Route).DeepCopy()
-	modified := false
-	resourcemerge.EnsureObjectMeta(&modified, &cachedRoute.ObjectMeta, route.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&cachedRoute.ObjectMeta, route.ObjectMeta)
 	kindSame := equality.Semantic.DeepEqual(cachedRoute.Spec.To.Kind, route.Spec.To.Kind)
 	nameSame := equality.Semantic.DeepEqual(cachedRoute.Spec.To.Name, route.Spec.To.Name)
 	terminationSame := equality.Semantic.DeepEqual(cachedRoute.Spec.TLS.Termination, route.Spec.TLS.Termination)

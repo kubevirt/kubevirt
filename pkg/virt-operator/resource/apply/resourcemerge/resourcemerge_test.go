@@ -20,11 +20,8 @@ var _ = Describe("ResourceMerge", func() {
 
 				setter(&requiredMeta, testValue)
 
-				var isModified bool
-				resourcemerge.EnsureObjectMeta(&isModified, &existingMeta, requiredMeta)
-
+				Expect(resourcemerge.EnsureObjectMeta(&existingMeta, requiredMeta)).To(BeTrue())
 				Expect(getter(&existingMeta)).To(Equal(testValue))
-				Expect(isModified).To(BeTrue())
 			})
 
 			It("should not change field, if required does not specify it", func() {
@@ -33,11 +30,8 @@ var _ = Describe("ResourceMerge", func() {
 
 				setter(&existingMeta, testValue)
 
-				var isModified bool
-				resourcemerge.EnsureObjectMeta(&isModified, &existingMeta, requiredMeta)
-
+				Expect(resourcemerge.EnsureObjectMeta(&existingMeta, requiredMeta)).To(BeFalse())
 				Expect(getter(&existingMeta)).To(Equal(testValue))
-				Expect(isModified).To(BeFalse())
 			})
 		},
 
@@ -53,12 +47,9 @@ var _ = Describe("ResourceMerge", func() {
 				setter(&existingMeta, map[string]string{"key1": "value1"})
 				setter(&requiredMeta, map[string]string{"key2": "value2"})
 
-				var isModified bool
-				resourcemerge.EnsureObjectMeta(&isModified, &existingMeta, requiredMeta)
-
+				Expect(resourcemerge.EnsureObjectMeta(&existingMeta, requiredMeta)).To(BeTrue())
 				Expect(getter(&existingMeta)).To(HaveKeyWithValue("key1", "value1"))
 				Expect(getter(&existingMeta)).To(HaveKeyWithValue("key2", "value2"))
-				Expect(isModified).To(BeTrue())
 			})
 
 			It("should create map, if it is nil", func() {
@@ -67,12 +58,9 @@ var _ = Describe("ResourceMerge", func() {
 				setter(&existingMeta, map[string]string{"key1": "value1"})
 				setter(&requiredMeta, map[string]string{"key2": "value2"})
 
-				var isModified bool
-				resourcemerge.EnsureObjectMeta(&isModified, &existingMeta, requiredMeta)
-
+				Expect(resourcemerge.EnsureObjectMeta(&existingMeta, requiredMeta)).To(BeTrue())
 				Expect(getter(&existingMeta)).To(HaveKeyWithValue("key1", "value1"))
 				Expect(getter(&existingMeta)).To(HaveKeyWithValue("key2", "value2"))
-				Expect(isModified).To(BeTrue())
 			})
 		},
 
@@ -100,12 +88,9 @@ var _ = Describe("ResourceMerge", func() {
 				}},
 			}
 
-			var isModified bool
-			resourcemerge.EnsureObjectMeta(&isModified, &existingMeta, requiredMeta)
-
+			Expect(resourcemerge.EnsureObjectMeta(&existingMeta, requiredMeta)).To(BeTrue())
 			Expect(existingMeta.OwnerReferences).To(HaveLen(1))
 			Expect(existingMeta.OwnerReferences[0]).To(Equal(requiredMeta.OwnerReferences[0]))
-			Expect(isModified).To(BeTrue())
 		})
 
 		It("should add owner reference, if not exists", func() {
@@ -127,12 +112,9 @@ var _ = Describe("ResourceMerge", func() {
 				OwnerReferences: []metav1.OwnerReference{requiredOwner},
 			}
 
-			var isModified bool
-			resourcemerge.EnsureObjectMeta(&isModified, &existingMeta, requiredMeta)
-
+			Expect(resourcemerge.EnsureObjectMeta(&existingMeta, requiredMeta)).To(BeTrue())
 			Expect(existingMeta.OwnerReferences).To(HaveLen(2))
 			Expect(existingMeta.OwnerReferences).To(ContainElement(requiredOwner))
-			Expect(isModified).To(BeTrue())
 		})
 
 		It("should create owner references, if nil", func() {
@@ -144,12 +126,9 @@ var _ = Describe("ResourceMerge", func() {
 				},
 			}
 
-			var isModified bool
-			resourcemerge.EnsureObjectMeta(&isModified, &existingMeta, requiredMeta)
-
+			Expect(resourcemerge.EnsureObjectMeta(&existingMeta, requiredMeta)).To(BeTrue())
 			Expect(existingMeta.OwnerReferences).To(HaveLen(1))
 			Expect(existingMeta.OwnerReferences[0]).To(Equal(requiredMeta.OwnerReferences[0]))
-			Expect(isModified).To(BeTrue())
 		})
 	})
 })
