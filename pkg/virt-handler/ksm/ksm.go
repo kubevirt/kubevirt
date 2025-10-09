@@ -17,7 +17,7 @@
  *
  */
 
-package virthandler
+package ksm
 
 import (
 	"bufio"
@@ -30,17 +30,17 @@ import (
 	"strconv"
 	"strings"
 
-	"kubevirt.io/kubevirt/tools/cache"
-
-	v1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	k8sv1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	kubevirtv1 "kubevirt.io/api/core/v1"
+	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/tools/cache"
 )
 
 const (
@@ -121,14 +121,14 @@ func getKsmPages() (int, error) {
 }
 
 // Inspired from https://github.com/oVirt/mom/blob/master/doc/ksm.rules
-func calculateNewRunSleepAndPages(node *v1.Node, running bool) (ksmState, error) {
-	pagesBoost := getIntParam(node, kubevirtv1.KSMPagesBoostOverride, pagesBoostDefault, 0, math.MaxInt)
-	pagesDecay := getIntParam(node, kubevirtv1.KSMPagesDecayOverride, pagesDecayDefault, math.MinInt, 0)
-	nPagesMin := getIntParam(node, kubevirtv1.KSMPagesMinOverride, nPagesMinDefault, 0, math.MaxInt)
-	nPagesMax := getIntParam(node, kubevirtv1.KSMPagesMaxOverride, nPagesMaxDefault, nPagesMin, math.MaxInt)
-	nPagesInit := getIntParam(node, kubevirtv1.KSMPagesInitOverride, nPagesInitDefault, nPagesMin, nPagesMax)
-	sleepMsBaseline := uint64(getIntParam(node, kubevirtv1.KSMSleepMsBaselineOverride, sleepMsBaselineDefault, 1, math.MaxInt))
-	freePercent := getFloatParam(node, kubevirtv1.KSMFreePercentOverride, freePercentDefault, 0, 1)
+func calculateNewRunSleepAndPages(node *k8sv1.Node, running bool) (ksmState, error) {
+	pagesBoost := getIntParam(node, v1.KSMPagesBoostOverride, pagesBoostDefault, 0, math.MaxInt)
+	pagesDecay := getIntParam(node, v1.KSMPagesDecayOverride, pagesDecayDefault, math.MinInt, 0)
+	nPagesMin := getIntParam(node, v1.KSMPagesMinOverride, nPagesMinDefault, 0, math.MaxInt)
+	nPagesMax := getIntParam(node, v1.KSMPagesMaxOverride, nPagesMaxDefault, nPagesMin, math.MaxInt)
+	nPagesInit := getIntParam(node, v1.KSMPagesInitOverride, nPagesInitDefault, nPagesMin, nPagesMax)
+	sleepMsBaseline := uint64(getIntParam(node, v1.KSMSleepMsBaselineOverride, sleepMsBaselineDefault, 1, math.MaxInt))
+	freePercent := getFloatParam(node, v1.KSMFreePercentOverride, freePercentDefault, 0, 1)
 	ksm := ksmState{running: running}
 	total, available, err := getTotalAndAvailableMem()
 	if err != nil {
@@ -222,7 +222,7 @@ func boundCheck[T int | float32](value, defaultValue, lowerBound, upperBound T, 
 	return value
 }
 
-func getFloatParam(node *v1.Node, param string, defaultValue, lowerBound, upperBound float32) float32 {
+func getFloatParam(node *k8sv1.Node, param string, defaultValue, lowerBound, upperBound float32) float32 {
 	override, ok := node.Annotations[param]
 	if !ok {
 		return defaultValue
@@ -236,7 +236,7 @@ func getFloatParam(node *v1.Node, param string, defaultValue, lowerBound, upperB
 	return boundCheck(float32(value), defaultValue, lowerBound, upperBound, fmt.Sprintf("%s override value out of bounds", param))
 }
 
-func getIntParam(node *v1.Node, param string, defaultValue, lowerBound, upperBound int) int {
+func getIntParam(node *k8sv1.Node, param string, defaultValue, lowerBound, upperBound int) int {
 	override, ok := node.Annotations[param]
 	if !ok {
 		return defaultValue
@@ -254,13 +254,13 @@ func getIntParam(node *v1.Node, param string, defaultValue, lowerBound, upperBou
 // will set the outcome value to the n.KSM struct
 // If the node labels match the selector terms, the ksm will be enabled.
 // Empty Selector will enable ksm for every node
-func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs, needsUpdate bool) {
+func handleKSM(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs, needsUpdate bool) {
 	available, enabled := loadKSM()
 	if !available {
 		return
 	}
 
-	nodeCache, err := cache.NewOneShotCache(func() (*v1.Node, error) {
+	nodeCache, err := cache.NewOneShotCache(func() (*k8sv1.Node, error) {
 		node, err := client.Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		if err != nil {
 			log.Log.Reason(err).Errorf("Can't get node %s", nodeName)
@@ -323,7 +323,7 @@ func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *vir
 	return
 }
 
-func HandleKSMUpdate(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig, forceUpdate bool) {
+func HandleKSMUpdate(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig, forceUpdate bool) {
 	ksmEnabled, ksmEnabledByUs, needsUpdate := handleKSM(nodeName, client, clusterConfig)
 	if !forceUpdate && !needsUpdate {
 		return
@@ -336,10 +336,10 @@ func HandleKSMUpdate(nodeName string, client k8sv1.CoreV1Interface, clusterConfi
 	}{
 		Metadata: metav1.ObjectMeta{
 			Labels: map[string]string{
-				kubevirtv1.KSMEnabledLabel: fmt.Sprintf("%t", ksmEnabled),
+				v1.KSMEnabledLabel: fmt.Sprintf("%t", ksmEnabled),
 			},
 			Annotations: map[string]string{
-				kubevirtv1.KSMHandlerManagedAnnotation: fmt.Sprintf("%t", ksmEnabledByUs),
+				v1.KSMHandlerManagedAnnotation: fmt.Sprintf("%t", ksmEnabledByUs),
 			},
 		},
 	}
@@ -355,13 +355,13 @@ func HandleKSMUpdate(nodeName string, client k8sv1.CoreV1Interface, clusterConfi
 	}
 }
 
-func disableKSM(nodeCache *cache.OneShotCache[*v1.Node]) {
+func disableKSM(nodeCache *cache.OneShotCache[*k8sv1.Node]) {
 	node, err := nodeCache.Get()
 	if err != nil {
 		return
 	}
 
-	if value, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; found && value == "true" {
+	if value, found := node.GetAnnotations()[v1.KSMHandlerManagedAnnotation]; found && value == "true" {
 		err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644)
 		if err != nil {
 			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
