@@ -2808,8 +2808,7 @@ func preparePolicyAndVMIWithNSAndVMILabels(vmi *v1.VirtualMachineInstance, names
 		ExpectWithOffset(1, namespace).ToNot(BeNil())
 	}
 
-	var policyName string
-	policyName = fmt.Sprintf("testpolicy-%s", rand.String(5))
+	policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
 	policy := kubecli.NewMinimalMigrationPolicy(policyName)
 
 	if policy.Labels == nil {
