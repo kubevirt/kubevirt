@@ -265,8 +265,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 		return crt, nil
 	}
 
-	modified := false
-	resourcemerge.EnsureObjectMeta(&modified, &cachedSecret.ObjectMeta, secret.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&cachedSecret.ObjectMeta, secret.ObjectMeta)
 
 	if !modified && !rotateCertificate {
 		log.Log.V(4).Infof("secret %v is up-to-date", secret.GetName())
@@ -474,9 +473,8 @@ func shouldEnforceClusterIP(desired, current string) bool {
 }
 
 func getObjectMetaPatch(desired, current metav1.ObjectMeta) []patch.PatchOption {
-	modified := false
 	existingCopy := current.DeepCopy()
-	resourcemerge.EnsureObjectMeta(&modified, existingCopy, desired)
+	modified := resourcemerge.EnsureObjectMeta(existingCopy, desired)
 	if modified {
 		// labels and/or annotations modified add patch
 		return createLabelsAndAnnotationsPatch(&desired)
@@ -539,8 +537,7 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 	}
 
 	cachedSa := obj.(*corev1.ServiceAccount)
-	modified := false
-	resourcemerge.EnsureObjectMeta(&modified, &cachedSa.ObjectMeta, sa.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&cachedSa.ObjectMeta, sa.ObjectMeta)
 	// there was no change to metadata
 	if !modified {
 		// Up to date
@@ -727,8 +724,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRate
 		log.Log.Reason(err).V(2).Infof("There was an error validating the CA bundle stored in configmap %s. We are updating the bundle.", configMap.GetName())
 	}
 
-	modified := false
-	resourcemerge.EnsureObjectMeta(&modified, &existing.DeepCopy().ObjectMeta, configMap.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&existing.DeepCopy().ObjectMeta, configMap.ObjectMeta)
 
 	if !modified && !updateBundle {
 		log.Log.V(4).Infof("configMap %v is up-to-date", configMap.GetName())
