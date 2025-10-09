@@ -66,7 +66,7 @@ func LookupFindmntInfoByVolume(volumeName string, pid int) ([]FindmntInfo, error
 
 	var result []FindmntInfo
 
-	mountPoint := path.Join("/", volumeName)
+	mountPoint := path.Join("/path", volumeName)
 	for _, mountInfo := range mounts {
 		if mountInfo.Mountpoint == mountPoint {
 			result = append(result, FindmntInfo{
