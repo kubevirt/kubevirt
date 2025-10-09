@@ -1270,8 +1270,8 @@ var _ = Describe("Apply Apps", func() {
 			Expect(updatedDeploy.Annotations).ToNot(HaveKey(fakeAnnotation))
 		})
 
-		DescribeTable("should calculate correct replicas for deployments based on node count", func(nodesCount int, expectedReplicas int) {
-			createFakeNodes(dpClient, nodesCount)
+		DescribeTable("should calculate correct replicas for deployments based on node count", func(schedulableNodesCount, unschedulableNodeCount, expectedReplicas int) {
+			createFakeNodes(dpClient, schedulableNodesCount, unschedulableNodeCount)
 
 			r := &Reconciler{
 				clientset:    clientset,
@@ -1284,20 +1284,31 @@ var _ = Describe("Apply Apps", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*updatedDeployment.Spec.Replicas).To(BeEquivalentTo(expectedReplicas))
 		},
-			Entry("Single-node cluster", 1, 1),
-			Entry("Small cluster with 5 nodes", 5, 2),
-			Entry("Medium cluster with 50 nodes", 50, 5),
+			Entry("Single-node cluster", 1, 0, 1),
+			Entry("Small cluster with 5 nodes", 5, 0, 2),
+			Entry("Small cluster with 1 schedulable node", 1, 4, 1),
+			Entry("Medium cluster with 50 nodes", 50, 0, 5),
+			Entry("Medium cluster with 10 schedulable nodes", 10, 40, 2),
+			Entry("large cluster with 1000 nodes", 1000, 0, 100),
+			Entry("large cluster with 10 schedulable nodes", 10, 990, 2),
 		)
 	})
 })
 
-func createFakeNodes(client *fake.Clientset, count int) {
-	for i := range count {
-		_, err := client.CoreV1().Nodes().Create(context.TODO(), &corev1.Node{
+func createFakeNodes(client *fake.Clientset, schedulableNodesCount, unschedulableNodeCount int) {
+	totalNodeCount := schedulableNodesCount + unschedulableNodeCount
+	for i := range totalNodeCount {
+		node := &corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("node-%d", i),
 			},
-		}, metav1.CreateOptions{})
+		}
+		if i < schedulableNodesCount {
+			node.Labels = map[string]string{
+				v1.NodeSchedulable: "true",
+			}
+		}
+		_, err := client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 }
