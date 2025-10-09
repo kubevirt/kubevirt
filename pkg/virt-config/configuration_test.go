@@ -873,4 +873,49 @@ var _ = Describe("test configuration", func() {
 			Entry("should return hyperv-direct when feature gate is enabled with hyperv config", true, &HyperVDirectHypervisorConfig, v1.HyperVDirectHypervisorName),
 		)
 	})
+
+	Context("PCINUMAAwareTopology feature gate", func() {
+		DescribeTable("should be correctly detected",
+			func(gateEnabled bool, expectedResult bool) {
+				var featureGates []string
+				if gateEnabled {
+					featureGates = []string{"PCINUMAAwareTopology"}
+				}
+
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: featureGates,
+					},
+				})
+
+				result := clusterConfig.PCINUMAAwareTopologyEnabled()
+				Expect(result).To(Equal(expectedResult))
+			},
+			Entry("when enabled in feature gates", true, true),
+			Entry("when not in feature gates", false, false),
+		)
+
+		It("should be disabled by default", func() {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			Expect(clusterConfig.PCINUMAAwareTopologyEnabled()).To(BeFalse())
+		})
+
+		It("should handle mixed feature gates correctly", func() {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{"SomeOtherFeature", "PCINUMAAwareTopology", "AnotherFeature"},
+				},
+			})
+			Expect(clusterConfig.PCINUMAAwareTopologyEnabled()).To(BeTrue())
+		})
+
+		It("should handle case sensitivity correctly", func() {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{"pcinumaawaretopology"}, // lowercase
+				},
+			})
+			Expect(clusterConfig.PCINUMAAwareTopologyEnabled()).To(BeFalse())
+		})
+	})
 })
