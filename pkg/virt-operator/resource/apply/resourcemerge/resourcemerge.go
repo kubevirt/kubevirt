@@ -13,26 +13,32 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// EnsureObjectMeta writes namespace, name, labels, and annotations.  Don't set other things here.
-func EnsureObjectMeta(modified *bool, existing *metav1.ObjectMeta, required metav1.ObjectMeta) {
-	setStringIfSet(modified, &existing.Namespace, required.Namespace)
-	setStringIfSet(modified, &existing.Name, required.Name)
-	mergeMap(modified, &existing.Labels, required.Labels)
-	mergeMap(modified, &existing.Annotations, required.Annotations)
-	mergeOwnerRefs(modified, &existing.OwnerReferences, required.OwnerReferences)
+// EnsureObjectMeta writes namespace, name, labels, and annotations.
+func EnsureObjectMeta(existing *metav1.ObjectMeta, required metav1.ObjectMeta) bool {
+	var modified bool
+
+	modified = modified || setStringIfSet(&existing.Namespace, required.Namespace)
+	modified = modified || setStringIfSet(&existing.Name, required.Name)
+	modified = modified || mergeMap(&existing.Labels, required.Labels)
+	modified = modified || mergeMap(&existing.Annotations, required.Annotations)
+	modified = modified || mergeOwnerRefs(&existing.OwnerReferences, required.OwnerReferences)
+
+	return modified
 }
 
-func setStringIfSet(modified *bool, existing *string, required string) {
+func setStringIfSet(existing *string, required string) bool {
 	if required == "" {
-		return
+		return false
 	}
 	if required != *existing {
 		*existing = required
-		*modified = true
+		return true
 	}
+	return false
 }
 
-func mergeMap(modified *bool, existing *map[string]string, required map[string]string) { //nolint:gocritic
+func mergeMap(existing *map[string]string, required map[string]string) bool { //nolint:gocritic
+	var modified bool
 	if *existing == nil {
 		*existing = map[string]string{}
 	}
@@ -53,15 +59,18 @@ func mergeMap(modified *bool, existing *map[string]string, required map[string]s
 			}
 			// value found -> it should be removed
 			delete(*existing, actualKey)
-			*modified = true
+			modified = true
 		} else if !ok || v != existingV {
-			*modified = true
+			modified = true
 			(*existing)[actualKey] = v
 		}
 	}
+	return modified
 }
 
-func mergeOwnerRefs(modified *bool, existing *[]metav1.OwnerReference, required []metav1.OwnerReference) {
+func mergeOwnerRefs(existing *[]metav1.OwnerReference, required []metav1.OwnerReference) bool {
+	var modified bool
+
 	if *existing == nil {
 		*existing = []metav1.OwnerReference{}
 	}
@@ -90,22 +99,23 @@ func mergeOwnerRefs(modified *bool, existing *[]metav1.OwnerReference, required 
 			// if it is not to be removed.
 			if !removeOwner {
 				*existing = append(*existing, o)
-				*modified = true
+				modified = true
 			}
 			continue
 		}
 
 		if removeOwner {
 			*existing = append((*existing)[:existedIndex], (*existing)[existedIndex+1:]...)
-			*modified = true
+			modified = true
 			continue
 		}
 
 		if !reflect.DeepEqual(o, (*existing)[existedIndex]) {
 			(*existing)[existedIndex] = o
-			*modified = true
+			modified = true
 		}
 	}
+	return modified
 }
 
 func ownerRefMatched(existing, required metav1.OwnerReference) bool {
