@@ -5,15 +5,14 @@ on:
   push:
     branches: ["ise"]
     paths:
-      - '.github/workflows/build-qemu-rpm.yaml'
+      - .github/workflows/build-qemu-rpm.yaml
 
 env:
-  QEMU_REPO: kaizentm/qemu
+  QEMU_REPO: https://github.com/kaizentm/qemu
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/qemu-rpms
-  QEMU_VERSION: '10.1.50.mshv.v4'
-  RPM_IMAGE_TAG: 'qemu-mshv'
-
+  QEMU_VERSION: 10.1.50.mshv.v5
+  RPM_IMAGE_TAG: qemu-mshv
 
 jobs:
   build-rpms:
@@ -25,7 +24,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-
       - name: Login to Container Registry
         uses: docker/login-action@v3
         with:
@@ -33,80 +31,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GH_PAT }}
 
-      - name: Checkout Qemu Source
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.QEMU_REPO }}
-          path: qemu-src
-
       - name: Build QEMU RPM
-        working-directory: qemu-src
         run: |
-          curl -L https://github.com/${{ env.QEMU_REPO }}/archive/refs/tags/v${{ env.QEMU_VERSION }}.tar.gz -o qemu-${{ env.QEMU_VERSION }}.tar.xz
-          
-          docker rm -f qemu-build
-
-          docker run -td \
-            --name qemu-build \
-            -v $(pwd):/qemu-src \
-            registry.gitlab.com/libvirt/libvirt/ci-centos-stream-9
-
-          
-          # Build qemu RPM
-          docker exec -w /qemu-src qemu-build bash -c "
-            set -e
-            mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-            cp qemu.spec ~/rpmbuild/SPECS
-            cp qemu-${{ env.QEMU_VERSION }}.tar.xz ~/rpmbuild/SOURCES/
-            cd ~/rpmbuild/SPECS
-            dnf update -y
-            dnf -y install createrepo
-            dnf builddep -y qemu.spec
-            rpmbuild -ba qemu.spec
-            cd ~/rpmbuild/RPMS
-            createrepo --general-compress-type=gz --checksum=sha256 x86_64
-          "
-
-          echo "QEMU RPMs built successfully."
+          hack/qemu-mshv/build-qemu-rpms.sh \
+            -r ${{ env.QEMU_REPO }} \
+            -v ${{ env.QEMU_VERSION }}
 
       - name: Create Container Image
         run: |
-
-          rm -rf ~/dockerbuild
-          mkdir -p ~/dockerbuild
-          docker cp qemu-build:/root/rpmbuild/RPMS ~/dockerbuild/RPMS/          
-          cd ~/dockerbuild
-      
-          
-          cat > build-info.json <<EOF
-          {
-            "qemu_version": "0:10.1.50.mshv.v4-1.el9"
-          }
-          EOF
-
-          cat > Dockerfile <<EOF
-          FROM httpd:alpine
-                    
-          # Copy RPMs to web directory
-          COPY RPMS/ /usr/local/apache2/htdocs/
-          COPY build-info.json /usr/local/apache2/htdocs/          
-
-          # Set proper permissions for Apache to serve files
-          RUN chmod -R 755 /usr/local/apache2/htdocs/ && \
-              chown -R www-data:www-data /usr/local/apache2/htdocs/
-                    
-          EXPOSE 80          
-          EOF
-
-          # Build and tag image
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }} .
-
-          echo "Built container image:  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }}"
-
+          hack/qemu-mshv/build-rpms-http-image.sh \
+            -r ${{ env.REGISTRY }} \
+            -i ${{ env.IMAGE_NAME }} \
+            -t ${{ env.RPM_IMAGE_TAG }} \
+            -d rpms-qemu
 
       - name: Push Container Image
         run: |
-          # Push both tags
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }}
 
           echo "Pushed container image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }}"

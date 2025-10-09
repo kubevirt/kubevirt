@@ -5,14 +5,14 @@ on:
   push:
     branches: ["ise"]
     paths:
-      - '.github/workflows/build-libvirt-rpms.yaml'
+      - .github/workflows/build-libvirt-rpms.yaml
 
 env:
   LIBVIRT_REPO: https://github.com/kaizentm/libvirt.git
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/libvirt-rpms
-  LIBVERT_TAG: 'qemu_mshv_v1'
-  RPM_IMAGE_TAG: 'qemu-mshv'
+  LIBVIRT_TAG: qemu_mshv_v1
+  RPM_IMAGE_TAG: qemu-mshv
 
 jobs:
   build-rpms:
@@ -33,124 +33,22 @@ jobs:
 
       - name: Build libvirt RPMs
         run: |
-          echo "Building custom libvirt RPMs..."
-          
-          # Clone libvirt repository (needed for submodules)
-          TAG_REF="${{ env.LIBVERT_TAG }}"
-          echo "Cloning libvirt repository for tag: $TAG_REF"
-          
-          # Clone with minimal depth but fetch the specific tag
-          git clone --no-single-branch $LIBVIRT_REPO libvirt-src
-          cd libvirt-src
-          
-          # Fetch and checkout the specific tag
-          git fetch origin refs/tags/$TAG_REF:refs/tags/$TAG_REF
-          git checkout "$TAG_REF"
-          echo "Checked out libvirt tag: $TAG_REF"
-          # Get commit info for metadata
-          COMMIT_SHA=$(git rev-parse HEAD)
-          COMMIT_SHA_SHORT=$(git rev-parse --short HEAD)
-          COMMIT_DATE=$(git show -s --format=%ci HEAD)
-          echo "Tag: $TAG_REF"
-          echo "Commit: $COMMIT_SHA ($COMMIT_DATE)"
-
-          # Updating the release field in libvirt.spec.in to include the short commit hash
-          echo "Local commits to track release"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          sed -i "s/Release: 1%{?dist}/Release: 1.$COMMIT_SHA_SHORT%{?dist}/" libvirt.spec.in
-          git commit -am "local change: add last commit hash to dist release"
-
-          # Initialize and update submodules
-          echo "Initializing git submodules..."
-          git submodule init
-          git submodule update
-          echo "Submodules updated successfully"
-          
-          cd ..
-                    
-          # Create directory for RPMs
-          mkdir -p rpms
-          
-          # Start build environment
-          docker run -td \
-            --name libvirt-build \
-            -v $(pwd)/libvirt-src:/libvirt-src \
-            registry.gitlab.com/libvirt/libvirt/ci-centos-stream-9
-          
-          # Build libvirt RPMs
-          docker exec -w /libvirt-src libvirt-build bash -c "
-            set -e
-            echo 'Adding /libvirt-src dirs to git safe directories...'
-            git config --global --add safe.directory /libvirt-src
-            git config --global --add safe.directory /libvirt-src/subprojects/keycodemapdb
-
-            echo 'Building libvirt from source...'
-            meson build
-            ninja -C build dist
-            
-            echo 'Installing build dependencies...'
-            dnf update -y
-            dnf install -y createrepo hostname rpmdevtools
-            dnf builddep -y /libvirt-src/build/libvirt.spec
-            
-            echo 'Creating RPMs...'
-            rpmbuild -ta /libvirt-src/build/meson-dist/libvirt-*.tar.xz
-            
-            echo 'Creating repository metadata with gzip compression...'
-            createrepo --general-compress-type=gz --checksum=sha256 /root/rpmbuild/RPMS/x86_64
-            
-            echo 'Build completed successfully'
-          "
-          
-          # Copy RPMs to local directory
-          docker cp libvirt-build:/root/rpmbuild/RPMS/. rpms/
-          
-          # Create metadata file
-          cat > rpms/build-info.json <<EOF
-          {
-            "libvirt_version": "0:11.7.0-1.$COMMIT_SHA_SHORT.el9",
-            "commit_sha": "$COMMIT_SHA",
-            "commit_date": "$COMMIT_DATE",
-            "build_date": "$(date -Iseconds)",
-            "github_run_id": "${{ github.run_id }}",
-            "github_run_number": "${{ github.run_number }}",
-            "has_submodules": true
-          }
-          EOF
-          
-          # Cleanup build container
-          docker rm -f libvirt-build
-          
-          echo "libvirt RPMs built successfully:"
-          ls -la rpms/
-          cat rpms/build-info.json
+          hack/qemu-mshv/build-libvirt-rpms.sh \
+            -r ${{ env.LIBVIRT_REPO }} \
+            -t ${{ env.LIBVIRT_TAG }} \
+            -i ${{ github.run_id }} \
+            -n ${{ github.run_number }}
 
       - name: Create Container Image
         run: |
-          # Create Dockerfile for RPM distribution
-          cat > Dockerfile <<EOF
-          FROM httpd:alpine
-          
-          # Copy RPMs to web directory
-          COPY rpms/ /usr/local/apache2/htdocs/
-          
-          # Set proper permissions for Apache to serve files
-          RUN chmod -R 755 /usr/local/apache2/htdocs/ && \
-              chown -R www-data:www-data /usr/local/apache2/htdocs/
-          
-          EXPOSE 80
-          CMD ["httpd-foreground"]
-          EOF
-                    
-          # Build and tag image
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }} .
-
-          echo "Built container image:  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }}"
+          hack/qemu-mshv/build-rpms-http-image.sh \
+            -r ${{ env.REGISTRY }} \
+            -i ${{ env.IMAGE_NAME }} \
+            -t ${{ env.RPM_IMAGE_TAG }} \
+            -d rpms-libvirt
 
       - name: Push Container Image
         run: |
-          # Push both tags
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }}
 
           echo "Pushed container image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }}"
