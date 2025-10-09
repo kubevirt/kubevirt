@@ -25,6 +25,7 @@ go_library(
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/hardware:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/compute:go_default_library",
