@@ -94,10 +94,9 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 	}
 
 	cachedCrd = obj.(*extv1.CustomResourceDefinition)
-	modified := false
 	expectedGeneration := GetExpectedGeneration(crd, r.kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(&modified, &cachedCrd.ObjectMeta, crd.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&cachedCrd.ObjectMeta, crd.ObjectMeta)
 	// there was no change to metadata, the generation was right
 	if !modified && cachedCrd.GetGeneration() == expectedGeneration {
 		log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())

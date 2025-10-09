@@ -56,8 +56,7 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 		return err
 	}
 
-	modified := false
-	resourcemerge.EnsureObjectMeta(&modified, &cachedServiceMonitor.ObjectMeta, serviceMonitor.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&cachedServiceMonitor.ObjectMeta, serviceMonitor.ObjectMeta)
 
 	// there was no change to metadata and the spec fields are equal
 	if !modified && !endpointsModified {
@@ -126,10 +125,9 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 	}
 
 	cachedPrometheusRule := obj.(*promv1.PrometheusRule)
-	modified := false
 	existingCopy := cachedPrometheusRule.DeepCopy()
 
-	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, prometheusRule.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&existingCopy.ObjectMeta, prometheusRule.ObjectMeta)
 
 	if !modified && equality.Semantic.DeepEqual(cachedPrometheusRule.Spec, prometheusRule.Spec) {
 		log.Log.V(4).Infof("PrometheusRule %v is up-to-date", prometheusRule.GetName())

@@ -60,8 +60,7 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 		return nil
 	}
 
-	modified := false
-	resourcemerge.EnsureObjectMeta(&modified, &cachedAPIService.ObjectMeta, apiService.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&cachedAPIService.ObjectMeta, apiService.ObjectMeta)
 	serviceSame := equality.Semantic.DeepEqual(cachedAPIService.Spec.Service, apiService.Spec.Service)
 	certsSame := equality.Semantic.DeepEqual(apiService.Spec.CABundle, cachedAPIService.Spec.CABundle)
 	prioritySame := cachedAPIService.Spec.VersionPriority == apiService.Spec.VersionPriority && cachedAPIService.Spec.GroupPriorityMinimum == apiService.Spec.GroupPriorityMinimum

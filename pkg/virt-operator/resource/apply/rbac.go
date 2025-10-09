@@ -58,11 +58,10 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 		return nil
 	}
 
-	metaChanged := false
 	existingCopy := cachedRoleInterface.(runtime.Object).DeepCopyObject()
 	existingCopyMeta := getRbacMetaObject(existingCopy)
 
-	resourcemerge.EnsureObjectMeta(&metaChanged, existingCopyMeta, *requiredMeta)
+	metaChanged := resourcemerge.EnsureObjectMeta(existingCopyMeta, *requiredMeta)
 	enforceAPIGroup(existingCopy, required)
 
 	specChanged := changeRbacExistingByRequired(existingCopy, required)

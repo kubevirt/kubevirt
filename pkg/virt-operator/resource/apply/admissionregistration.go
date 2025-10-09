@@ -209,11 +209,10 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 		return nil
 	}
 
-	modified := false
 	existingCopy := cachedWebhook.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(webhook, r.kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, webhook.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&existingCopy.ObjectMeta, webhook.ObjectMeta)
 	// there was no change to metadata, the generation was right
 	if !modified && existingCopy.ObjectMeta.Generation == expectedGeneration && certsMatch {
 		log.Log.V(4).Infof("validatingwebhookconfiguration %v is up-to-date", webhook.GetName())
@@ -305,11 +304,10 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 		return nil
 	}
 
-	modified := false
 	existingCopy := cachedWebhook.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(webhook, r.kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, webhook.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&existingCopy.ObjectMeta, webhook.ObjectMeta)
 	// there was no change to metadata, the generation was right
 	if !modified && existingCopy.ObjectMeta.Generation == expectedGeneration && certsMatch {
 		log.Log.V(4).Infof("mutating webhook configuration %v is up-to-date", webhook.GetName())

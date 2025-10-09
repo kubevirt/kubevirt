@@ -86,11 +86,10 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	}
 
 	cachedDeployment := obj.(*appsv1.Deployment)
-	modified := false
 	existingCopy := cachedDeployment.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(deployment, kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, deployment.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&existingCopy.ObjectMeta, deployment.ObjectMeta)
 
 	// there was no change to metadata, the generation matched
 	if !modified &&
@@ -385,11 +384,10 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	}
 
 	cachedDaemonSet = obj.(*appsv1.DaemonSet)
-	modified := false
 	existingCopy := cachedDaemonSet.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(daemonSet, kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&existingCopy.ObjectMeta, daemonSet.ObjectMeta)
 	// there was no change to metadata, the generation was right
 	if !modified && existingCopy.GetGeneration() == expectedGeneration {
 		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
@@ -452,11 +450,10 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	}
 
 	cachedPodDisruptionBudget = obj.(*policyv1.PodDisruptionBudget)
-	modified := false
 	existingCopy := cachedPodDisruptionBudget.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(podDisruptionBudget, kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, podDisruptionBudget.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&existingCopy.ObjectMeta, podDisruptionBudget.ObjectMeta)
 	// there was no change to metadata or minAvailable, the generation was right
 	if !modified &&
 		existingCopy.Spec.MinAvailable.IntValue() == podDisruptionBudget.Spec.MinAvailable.IntValue() &&
