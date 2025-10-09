@@ -7,6 +7,7 @@ package resourcemerge
 
 import (
 	"reflect"
+	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,10 +27,7 @@ func EnsureObjectMeta(existing *metav1.ObjectMeta, required metav1.ObjectMeta) b
 }
 
 func setStringIfSet(existing *string, required string) bool {
-	if required == "" {
-		return false
-	}
-	if required != *existing {
+	if required != "" && required != *existing {
 		*existing = required
 		return true
 	}
@@ -59,15 +57,11 @@ func mergeOwnerRefs(existing *[]metav1.OwnerReference, required []metav1.OwnerRe
 	}
 
 	for _, o := range required {
-		existedIndex := 0
-		for existedIndex < len(*existing) {
-			if ownerRefMatched(o, (*existing)[existedIndex]) {
-				break
-			}
-			existedIndex++
-		}
+		existedIndex := slices.IndexFunc(*existing, func(ref metav1.OwnerReference) bool {
+			return ownerRefMatched(o, ref)
+		})
 
-		if existedIndex == len(*existing) {
+		if existedIndex == -1 {
 			// There is no matched ownerref found, append the ownerref
 			*existing = append(*existing, o)
 			modified = true
