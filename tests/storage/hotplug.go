@@ -1483,6 +1483,7 @@ var _ = Describe(SIG("Hotplug", func() {
 	})
 
 	Context("delete attachment pod several times", decorators.RequiresRWXBlock, func() {
+		const quotaName = "pod-limit-quota"
 		var (
 			vm       *v1.VirtualMachine
 			hpvolume *cdiv1.DataVolume
@@ -1527,7 +1528,24 @@ var _ = Describe(SIG("Hotplug", func() {
 			}, 300*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		}
 
-		It("should remain active", func() {
+		createPodLimitingResourceQuota := func(namespace string) {
+			rq := &k8sv1.ResourceQuota{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      quotaName,
+					Namespace: namespace,
+				},
+				Spec: k8sv1.ResourceQuotaSpec{
+					Hard: k8sv1.ResourceList{
+						k8sv1.ResourcePods: resource.MustParse("1"), // Only 1 pod is allowed which is the virt-launcher
+					},
+				},
+			}
+
+			_, err := virtClient.CoreV1().ResourceQuotas(namespace).Create(context.Background(), rq, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		DescribeTable("should remain active", func(limitHotplugPodCreation bool, hotplugPodDeletionTimes int) {
 			checkVolumeName := "checkvolume"
 			volumeMode := k8sv1.PersistentVolumeBlock
 			addVolumeFunc := addDVVolumeVM
@@ -1576,8 +1594,12 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyWriteReadData(vmi, targets[0])
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			By("deleting the attachment pod a few times, try to make the currently attach volume break")
-			for i := 0; i < 10; i++ {
+
+			By("deleting the attachment pod, try to make the currently attached volume break")
+			if limitHotplugPodCreation {
+				createPodLimitingResourceQuota(vmi.Namespace)
+			}
+			for range hotplugPodDeletionTimes {
 				deleteAttachmentPod(vmi)
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1586,7 +1608,15 @@ var _ = Describe(SIG("Hotplug", func() {
 			targets = getTargetsFromVolumeStatus(vmi, checkVolumeName)
 			Expect(targets).ToNot(BeEmpty())
 			verifyWriteReadData(vmi, targets[0])
-		})
+
+			if limitHotplugPodCreation {
+				By("verifying the VM state has not changed to paused")
+				Consistently(matcher.ThisVM(vm), 30*time.Second, 1*time.Second).Should(Not(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused)))
+			}
+		},
+			Entry("when deleting the hotplug pod and turning it unschedulable via a ResourceQuota", true, 1),
+			Entry("when repeatedly deleting the hotplug pod and letting it reschedule", false, 10),
+		)
 	})
 
 	Context("with limit range in namespace", decorators.RequiresRWXBlock, func() {
