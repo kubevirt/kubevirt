@@ -39,6 +39,7 @@ go_library(
         "//vendor/go.uber.org/mock/gomock:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )
 
@@ -48,6 +49,7 @@ go_test(
         "builder_test.go",
         "converter_suite_test.go",
         "converter_test.go",
+        "pci-placement_test.go",
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
@@ -87,5 +89,6 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )

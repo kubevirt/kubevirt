@@ -688,6 +688,8 @@ type HostDevice struct {
 	Alias     *Alias           `xml:"alias,omitempty"`
 	Display   string           `xml:"display,attr,omitempty"`
 	RamFB     string           `xml:"ramfb,attr,omitempty"`
+
+	NUMANode *uint32 `xml:"-"`
 }
 
 type HostDeviceSource struct {
