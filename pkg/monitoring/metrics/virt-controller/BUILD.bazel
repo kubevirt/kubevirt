@@ -55,6 +55,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/controller:go_default_library",
         "//pkg/instancetype/apply:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/preference/find:go_default_library",
