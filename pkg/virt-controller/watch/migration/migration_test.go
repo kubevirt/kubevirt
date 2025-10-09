@@ -716,7 +716,7 @@ var _ = Describe("Migration watcher", func() {
 
 			sanityExecute()
 
-			expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("testvmi"), "testmigration")
+			expectPodDoesNotExist(vmi.Namespace, "testvmi", "testmigration")
 		})
 
 		It("should not overload the cluster and detect pending migrations as running if they have a target pod", func() {
@@ -752,7 +752,7 @@ var _ = Describe("Migration watcher", func() {
 
 			sanityExecute()
 
-			expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("testvmi"), "testmigration")
+			expectPodDoesNotExist(vmi.Namespace, "testvmi", "testmigration")
 		})
 
 		It("should create another target pods if there is only one outbound migration on the node", func() {
