@@ -65,7 +65,7 @@ var _ = Describe("Workload Updater", func() {
 
 	sanityExecute := func() {
 		controllertesting.SanityExecute(controller, []cache.Store{
-			controller.vmiStore, controller.podIndexer, controller.migrationStore, controller.kubeVirtStore,
+			controller.vmiStore, controller.podIndexer, controller.migrationIndexer, controller.kubeVirtStore,
 		}, Default)
 	}
 
@@ -87,7 +87,7 @@ var _ = Describe("Workload Updater", func() {
 				return []string{obj.(*v1.VirtualMachineInstance).Status.NodeName}, nil
 			},
 		})
-		migrationInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		migrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstanceMigration{}, virtcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(200)
 		recorder.IncludeObject = true
@@ -268,7 +268,7 @@ var _ = Describe("Workload Updater", func() {
 
 			By("populating with pending migrations that should be ignored while counting the threshold")
 			for i := 0; i < vmsPendingMigration; i++ {
-				controller.migrationStore.Add(newMigration(fmt.Sprintf("vmim-pending-%d", i), fmt.Sprintf("testvm-migratable-pending-%d", i), v1.MigrationPending))
+				controller.migrationIndexer.Add(newMigration(fmt.Sprintf("vmim-pending-%d", i), fmt.Sprintf("testvm-migratable-pending-%d", i), v1.MigrationPending))
 			}
 
 			var reasons []string
@@ -279,13 +279,13 @@ var _ = Describe("Workload Updater", func() {
 				controller.podIndexer.Add(pod)
 				// create enough migrations to only allow one more active one to be created
 				if i < int(virtconfig.ParallelMigrationsPerClusterDefault)-1 {
-					controller.migrationStore.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationRunning))
+					controller.migrationIndexer.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationRunning))
 				} else if i < int(virtconfig.ParallelMigrationsPerClusterDefault) {
-					controller.migrationStore.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationSucceeded))
+					controller.migrationIndexer.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationSucceeded))
 					// expect only a single migration to occur due to global limit
 					reasons = append(reasons, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 				} else {
-					controller.migrationStore.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationSucceeded))
+					controller.migrationIndexer.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationSucceeded))
 				}
 			}
 
@@ -407,12 +407,12 @@ var _ = Describe("Workload Updater", func() {
 			pod := newLauncherPodForVMI(vmi)
 			controller.vmiStore.Add(vmi)
 			controller.podIndexer.Add(pod)
-			controller.migrationStore.Add(newMigration("vmim-1", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("vmim-1", vmi.Name, v1.MigrationRunning))
 			vmi = newVirtualMachineInstance("testvm-nonmigratable", false, "madeup")
 			pod = newLauncherPodForVMI(vmi)
 			controller.vmiStore.Add(vmi)
 			controller.podIndexer.Add(pod)
-			controller.migrationStore.Add(newMigration("vmim-2", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("vmim-2", vmi.Name, v1.MigrationRunning))
 
 			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
 
@@ -552,7 +552,7 @@ var _ = Describe("Workload Updater", func() {
 		createMig := func(vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
 			mig := newMigration("test", vmiName, phase)
 			mig.Annotations = map[string]string{v1.WorkloadUpdateMigrationAnnotation: ""}
-			controller.migrationStore.Add(mig)
+			controller.migrationIndexer.Add(mig)
 			_, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(mig.Namespace).Create(context.Background(), mig, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return mig
