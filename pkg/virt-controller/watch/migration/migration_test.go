@@ -36,14 +36,12 @@ import (
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
-	policyv1 "k8s.io/api/policy/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
@@ -2569,28 +2567,6 @@ var _ = Describe("Migration watcher", func() {
 		})
 	})
 })
-
-func newPDB(name string, vmi *v1.VirtualMachineInstance, pods int32) *policyv1.PodDisruptionBudget {
-	minAvailable := intstr.FromInt32(pods)
-
-	return &policyv1.PodDisruptionBudget{
-		ObjectMeta: metav1.ObjectMeta{
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
-			},
-			Name:      name,
-			Namespace: vmi.Namespace,
-		},
-		Spec: policyv1.PodDisruptionBudgetSpec{
-			MinAvailable: &minAvailable,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					v1.CreatedByLabel: string(vmi.UID),
-				},
-			},
-		},
-	}
-}
 
 func newMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
 
