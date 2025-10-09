@@ -7,7 +7,6 @@ package resourcemerge
 
 import (
 	"reflect"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -43,26 +42,10 @@ func mergeMap(existing *map[string]string, required map[string]string) bool { //
 		*existing = map[string]string{}
 	}
 	for k, v := range required {
-		actualKey := k
-		removeKey := false
-
-		// if "required" map contains a key with "-" as suffix, remove that
-		// key from the existing map instead of replacing the value
-		if strings.HasSuffix(k, "-") {
-			removeKey = true
-			actualKey = strings.TrimRight(k, "-")
-		}
-
-		if existingV, ok := (*existing)[actualKey]; removeKey {
-			if !ok {
-				continue
-			}
-			// value found -> it should be removed
-			delete(*existing, actualKey)
+		existingV, ok := (*existing)[k]
+		if !ok || v != existingV {
 			modified = true
-		} else if !ok || v != existingV {
-			modified = true
-			(*existing)[actualKey] = v
+			(*existing)[k] = v
 		}
 	}
 	return modified
@@ -76,17 +59,7 @@ func mergeOwnerRefs(existing *[]metav1.OwnerReference, required []metav1.OwnerRe
 	}
 
 	for _, o := range required {
-		removeOwner := false
-
-		// if "required" ownerRefs contain an owner.UID with "-" as suffix, remove that
-		// ownerRef from the existing ownerRefs instead of replacing the value
-		// NOTE: this is the same format as kubectl annotate and kubectl label
-		if strings.HasSuffix(string(o.UID), "-") {
-			removeOwner = true
-		}
-
 		existedIndex := 0
-
 		for existedIndex < len(*existing) {
 			if ownerRefMatched(o, (*existing)[existedIndex]) {
 				break
@@ -96,16 +69,7 @@ func mergeOwnerRefs(existing *[]metav1.OwnerReference, required []metav1.OwnerRe
 
 		if existedIndex == len(*existing) {
 			// There is no matched ownerref found, append the ownerref
-			// if it is not to be removed.
-			if !removeOwner {
-				*existing = append(*existing, o)
-				modified = true
-			}
-			continue
-		}
-
-		if removeOwner {
-			*existing = append((*existing)[:existedIndex], (*existing)[existedIndex+1:]...)
+			*existing = append(*existing, o)
 			modified = true
 			continue
 		}
