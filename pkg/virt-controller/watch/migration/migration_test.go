@@ -1079,7 +1079,7 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			for _, curPhase := range phasesToKeep {
-				for i := 0; i < 100; i++ {
+				for i := range 10 {
 					mCopy := newMigration(fmt.Sprintf("should-keep-%s-%d", curPhase, i), vmi.Name, curPhase)
 					mCopy.Finalizers = []string{}
 					mCopy.Labels = map[string]string{"should-delete": "no"}
@@ -1093,7 +1093,7 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			for _, curPhase := range phasesToGarbageCollect {
-				for i := 0; i < 100; i++ {
+				for i := range 10 {
 					mCopy := newMigration(fmt.Sprintf("should-delete-%s-%d", curPhase, i), vmi.Name, curPhase)
 					mCopy.Labels = map[string]string{"should-delete": "yes"}
 					mCopy.CreationTimestamp = metav1.Unix(int64(rand.Intn(100)), int64(0))
@@ -1126,8 +1126,14 @@ var _ = Describe("Migration watcher", func() {
 			if keyMigration.IsFinal() {
 				Expect(migrationsStored.Items).To(HaveLen(defaultFinalizedMigrationGarbageCollectionBuffer))
 			} else {
-				Expect(migrationsStored.Items).To(HaveLen(len(phasesToGarbageCollect) * 100))
+				Expect(migrationsStored.Items).To(HaveLen(len(phasesToGarbageCollect) * 10))
 			}
+
+			migrationsStored, err = virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.Background(), metav1.ListOptions{
+				LabelSelector: "should-delete=no",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrationsStored.Items).To(HaveLen(len(phasesToKeep) * 10))
 		},
 			Entry("in failed phase", v1.MigrationFailed),
 			Entry("in succeeded phase", v1.MigrationSucceeded),
@@ -2177,7 +2183,7 @@ var _ = Describe("Migration watcher", func() {
 		})
 	})
 
-	FContext("Priority queue", func() {
+	Context("Priority queue", func() {
 		It("should properly re-enqueue pending migrations as low priority when no new migration can start", func() {
 			By("Creating 1 pending migration. It will be picked up by the call to Execute()")
 			vmi := newVirtualMachine("testvmipending", v1.Running)
