@@ -113,9 +113,13 @@ func ParsePciAddress(pciAddress string) ([]string, error) {
 	return res[1:], nil
 }
 
+var (
+	PciBasePath  = "/sys/bus/pci/devices"
+	NodeBasePath = "/sys/bus/node/devices"
+)
+
 func GetDeviceNumaNode(pciAddress string) (*uint32, error) {
-	pciBasePath := "/sys/bus/pci/devices"
-	numaNodePath := filepath.Join(pciBasePath, pciAddress, "numa_node")
+	numaNodePath := filepath.Join(PciBasePath, pciAddress, "numa_node")
 	// #nosec No risk for path injection. Reading static path of NUMA node info
 	numaNodeStr, err := os.ReadFile(numaNodePath)
 	if err != nil {
@@ -143,7 +147,7 @@ func GetDeviceAlignedCPUs(pciAddress string) ([]int, error) {
 }
 
 func GetNumaNodeCPUList(numaNode int) ([]int, error) {
-	filePath := fmt.Sprintf("/sys/bus/node/devices/node%d/cpulist", numaNode)
+	filePath := filepath.Join(NodeBasePath, fmt.Sprintf("node%d", numaNode), "cpulist")
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -166,6 +170,9 @@ func LookupDeviceVCPUAffinity(pciAddress string, domainSpec *api.DomainSpec) ([]
 	}
 
 	// make sure that the VMI has cpus from this numa node.
+	if domainSpec.CPUTune == nil {
+		return alignedVCPUList, nil
+	}
 	cpuTune := domainSpec.CPUTune.VCPUPin
 	for _, vcpuPin := range cpuTune {
 		p2vCPUMap[vcpuPin.CPUSet] = vcpuPin.VCPU
@@ -177,4 +184,55 @@ func LookupDeviceVCPUAffinity(pciAddress string, domainSpec *api.DomainSpec) ([]
 		}
 	}
 	return alignedVCPUList, nil
+}
+
+func PCIAddressToString(pciBusID *api.Address) string {
+	if pciBusID == nil {
+		return ""
+	}
+	prefix := "0x"
+	return fmt.Sprintf("%s:%s:%s.%s",
+		strings.TrimPrefix(pciBusID.Domain, prefix),
+		strings.TrimPrefix(pciBusID.Bus, prefix),
+		strings.TrimPrefix(pciBusID.Slot, prefix),
+		strings.TrimPrefix(pciBusID.Function, prefix))
+}
+
+// LookupDeviceVCPUNumaNode looks up the NUMA node of a device based on its PCI address
+// and the domain specification of the virtual machine.
+//
+// It returns a pointer to the NUMA node ID if found, or nil if not found.
+func LookupDeviceVCPUNumaNode(pciAddress *api.Address, domainSpec *api.DomainSpec) (numaNode *uint32) {
+	if pciAddress == nil || domainSpec == nil ||
+		domainSpec.CPU.NUMA == nil || domainSpec.CPUTune == nil {
+		return
+	}
+
+	// vCPUS by device PCI address
+	vCPUList, err := LookupDeviceVCPUAffinity(
+		PCIAddressToString(pciAddress),
+		domainSpec,
+	)
+	if err != nil || len(vCPUList) == 0 {
+		return
+	}
+
+	// guest OS numa node by vCPU
+	for i, cell := range domainSpec.CPU.NUMA.Cells {
+		vcpusInCell, err := ParseCPUSetLine(cell.CPUs, 5000)
+		if err != nil {
+			continue
+		}
+
+		for _, vcpu := range vcpusInCell {
+			if vcpu == int(vCPUList[0]) {
+				id, err := strconv.Atoi(domainSpec.CPU.NUMA.Cells[i].ID)
+				if err == nil {
+					cellID := uint32(id)
+					numaNode = &cellID
+				}
+			}
+		}
+	}
+	return
 }
