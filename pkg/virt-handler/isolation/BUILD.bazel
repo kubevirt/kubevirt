@@ -31,6 +31,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "detector_test.go",
+        "hypervisor_memlock_parity_sentinel_test.go",
         "isolation_suite_test.go",
         "isolation_test.go",
         "process_test.go",
