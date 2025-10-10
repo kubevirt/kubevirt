@@ -109,10 +109,6 @@ func (config *ClusterConfig) HostDiskEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HostDiskGate)
 }
 
-func (config *ClusterConfig) VirtiofsConfigVolumesEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VirtIOFSConfigVolumesGate)
-}
-
 func (config *ClusterConfig) VirtiofsStorageEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VirtIOFSStorageVolumeGate)
 }
