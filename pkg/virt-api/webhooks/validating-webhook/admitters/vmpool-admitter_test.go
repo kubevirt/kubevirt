@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -200,6 +201,46 @@ var _ = Describe("Validating Pool Admitter", func() {
 			},
 		}, []string{
 			"spec.maxUnavailable",
+		}),
+		Entry("with invalid update strategy", func() *poolv1.VirtualMachinePool {
+			basePolicy := poolv1.VirtualMachinePoolBasePolicyRandom
+			return &poolv1.VirtualMachinePool{
+				Spec: poolv1.VirtualMachinePoolSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"test": "test"},
+					},
+					VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"test": "test"},
+						},
+						Spec: v1.VirtualMachineSpec{
+							RunStrategy: &always,
+							Template: newVirtualMachineBuilder().
+								WithDisk(v1.Disk{
+									Name: "testdisk",
+								}).
+								WithVolume(v1.Volume{
+									Name: "testdisk",
+									VolumeSource: v1.VolumeSource{
+										ContainerDisk: testutils.NewFakeContainerDiskSource(),
+									},
+								}).
+								WithLabel("test", "test").
+								BuildTemplate(),
+						},
+					},
+					UpdateStrategy: &poolv1.VirtualMachinePoolUpdateStrategy{
+						Unmanaged: pointer.Bool(true),
+						Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
+							SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+								BasePolicy: &basePolicy,
+							},
+						},
+					},
+				},
+			}
+		}(), []string{
+			"spec.updateStrategy",
 		}),
 	)
 	It("should accept valid vm spec", func() {
