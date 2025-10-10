@@ -554,17 +554,17 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	if operatorutil.IsValidLabel(config.GetProductName()) {
 		productName = config.GetProductName()
 	} else {
-		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMessage, "kubevirt.spec.productName"))
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productName")
 	}
 	if operatorutil.IsValidLabel(config.GetProductVersion()) {
 		productVersion = config.GetProductVersion()
 	} else {
-		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMessage, "kubevirt.spec.productVersion"))
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productVersion")
 	}
 	if operatorutil.IsValidLabel(config.GetProductComponent()) {
 		productComponent = config.GetProductComponent()
 	} else {
-		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMessage, "kubevirt.spec.productComponent"))
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productComponent")
 	}
 
 	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewOpertorValidatingWebhookConfiguration(operatorNamespace))

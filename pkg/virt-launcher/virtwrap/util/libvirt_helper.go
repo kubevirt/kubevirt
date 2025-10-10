@@ -380,7 +380,7 @@ func startQEMUSeaBiosLogging(stopChan chan struct{}) {
 			return
 		}
 
-		log.Log.Errorf(fmt.Sprintf("%s exited, restarting", logLinePrefix))
+		log.Log.Errorf("%s exited, restarting", logLinePrefix)
 	}
 }
 

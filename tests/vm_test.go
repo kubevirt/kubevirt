@@ -1242,7 +1242,7 @@ func getHandlerNodePod(virtClient kubecli.KubevirtClient, nodeName string) *k8sv
 	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(),
 		metav1.ListOptions{
 			LabelSelector: "kubevirt.io=virt-handler",
-			FieldSelector: fmt.Sprintf("spec.nodeName=" + nodeName),
+			FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
 		})
 
 	Expect(err).NotTo(HaveOccurred())
