@@ -129,6 +129,8 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
+			time.Sleep(10 * time.Second) // sleep to increase time window between start and pause
+
 			err = virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))

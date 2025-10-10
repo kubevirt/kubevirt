@@ -1473,6 +1473,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 
+			time.Sleep(10 * time.Second) // sleep to increase time window between start and pause
+
 			By("Pausing VMI")
 			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1635,6 +1637,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("Creating the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
+
+				time.Sleep(10 * time.Second) // wait some time to stabilize the environment
 
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
