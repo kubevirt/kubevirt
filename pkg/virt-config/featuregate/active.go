@@ -86,7 +86,6 @@ const (
 	// To support incremental backups, a QCOW2 overlay must be created on top of the VM's raw disk image.
 	IncrementalBackupGate = "IncrementalBackup"
 
-	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 
 	// Owner: @alaypatel07
@@ -160,7 +159,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Alpha})

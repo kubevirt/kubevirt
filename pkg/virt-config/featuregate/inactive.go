@@ -98,6 +98,12 @@ const (
 	// InstancetypeReferencePolicy allows a cluster admin to control how a VirtualMachine references instance types and preferences
 	// through the kv.spec.configuration.instancetype.referencePolicy configurable.
 	InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
+	// VirtIOFSConfigVolumesGate enables the use of virtiofs for config volumes, i.e., config-maps, secrets, downwardAPI, etc.
+	// Ownwers: @germag @jcanocan
+	// Alpha: v1.5.0
+	// Beta: v1.6.0
+	// GA: v1.8.0
+	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 )
 
 func init() {
@@ -129,4 +135,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
 
 	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: GA})
 }
