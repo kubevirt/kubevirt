@@ -1252,14 +1252,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		},
 			Entry("PVC should be rejected when feature gate is disabled", "", false, libvmi.WithFilesystemPVC("sharedtestdisk")),
 			Entry("PVC should be accepted when feature gate is enabled", featuregate.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemPVC("sharedtestdisk")),
-
 			Entry("DV should be rejected when feature gate is disabled", "", false, libvmi.WithFilesystemDV("sharedtestdisk")),
 			Entry("DV should be accepted when feature gate is enabled", featuregate.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemDV("sharedtestdisk")),
 			Entry("configmap should be rejected when the feature gate is disabled", "", false, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
 			Entry("configmap should be accepted when the feature gate is enabled", featuregate.VirtIOFSConfigVolumesGate, true, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
-			Entry("PVC should be accepted when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, true, libvmi.WithFilesystemPVC("sharedtestdisk")),
-			Entry("DV should be accepted when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, true, libvmi.WithFilesystemDV("sharedtestdisk")),
-			Entry("config map should be accepted when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, true, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
+			Entry("PVC should be rejected when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, false, libvmi.WithFilesystemPVC("sharedtestdisk")),
+			Entry("DV should be rejected when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, false, libvmi.WithFilesystemDV("sharedtestdisk")),
+			Entry("config map should be rejected when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, false, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
 		)
 
 		It("should reject host devices when feature gate is disabled", func() {

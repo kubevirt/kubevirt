@@ -72,6 +72,8 @@ const (
 	PasstGate   = "Passt"
 	MacvtapGate = "Macvtap"
 
+	// VirtIOFSGate enables the use of virtiofs for config and storage volumes.
+	// Discontinued in v1.7.0
 	VirtIOFSGate = "ExperimentalVirtiofsSupport"
 	// VolumesUpdateStrategy enables to specify the strategy on the volume updates.
 	// Introduced in v1.3.0
@@ -128,7 +130,7 @@ func init() {
 
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf(
 		"DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
-	RegisterFeatureGate(FeatureGate{Name: VirtIOFSGate, State: Deprecated, Message: VirtioFsFeatureGateDeprecationMessage})
+	RegisterFeatureGate(FeatureGate{Name: VirtIOFSGate, State: Discontinued, Message: VirtioFsFeatureGateDiscontinueMessage})
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
