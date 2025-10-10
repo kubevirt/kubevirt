@@ -16,6 +16,7 @@ go_test(
     race = "on",
     deps = [
         ":go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
     ],
