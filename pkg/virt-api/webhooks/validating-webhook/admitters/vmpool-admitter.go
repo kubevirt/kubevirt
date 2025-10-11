@@ -169,6 +169,18 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 		}
 	}
 
+	if spec.UpdateStrategy != nil {
+		if spec.UpdateStrategy.Unmanaged != nil && *spec.UpdateStrategy.Unmanaged {
+			if spec.UpdateStrategy.Proactive != nil || spec.UpdateStrategy.Opportunistic != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "unmanaged update strategy cannot be used with proactive or opportunistic update strategy",
+					Field:   field.Child("updateStrategy").String(),
+				})
+			}
+		}
+	}
+
 	if ar.Request.Operation == admissionv1.Update {
 		oldPool := &poolv1.VirtualMachinePool{}
 		if err := json.Unmarshal(ar.Request.OldObject.Raw, oldPool); err != nil {
