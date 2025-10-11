@@ -43,8 +43,6 @@ import (
 )
 
 var _ = Describe("Mediated Devices Types configuration", func() {
-	var mockMDEV *MockDeviceHandler
-	var ctrl *gomock.Controller
 
 	type mdevTypesDetails struct {
 		name               string
@@ -152,9 +150,8 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 
 	BeforeEach(func() {
 		By("mocking MDEV functions to simulate an mdev creation and removal")
-		ctrl = gomock.NewController(GinkgoT())
 		clientTest = fake.NewSimpleClientset()
-		mockMDEV = NewMockDeviceHandler(ctrl)
+		mockMDEV := NewMockDeviceHandler(gomock.NewController(GinkgoT()))
 		handler = mockMDEV
 		configuredMdevTypesOnCards = make(map[string]map[string]struct{})
 
