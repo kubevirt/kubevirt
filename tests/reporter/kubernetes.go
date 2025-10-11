@@ -1208,13 +1208,13 @@ func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, logsdir str
 			}
 			defer previous.Close()
 
-			logStart := metav1.NewTime(since)
-			logs, err := virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{SinceTime: &logStart, Container: container.Name}).DoRaw(context.Background())
+			// logStart := metav1.NewTime(since)
+			logs, err := virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{ /*SinceTime: &logStart,*/ Container: container.Name}).DoRaw(context.Background())
 			if err == nil {
 				fmt.Fprintln(current, string(logs))
 			}
 
-			logs, err = virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{SinceTime: &logStart, Container: container.Name, Previous: true}).DoRaw(context.Background())
+			logs, err = virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{ /*SinceTime: &logStart,*/ Container: container.Name, Previous: true}).DoRaw(context.Background())
 			if err == nil {
 				fmt.Fprintln(previous, string(logs))
 			}
