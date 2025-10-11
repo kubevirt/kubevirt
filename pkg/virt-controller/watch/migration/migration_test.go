@@ -59,6 +59,7 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
+	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -258,6 +259,7 @@ var _ = Describe("Migration watcher", func() {
 			recorder,
 			virtClient,
 			config,
+			stubNetworkAnnotationsGenerator{},
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockPriorityQueue(controller.Queue)
@@ -1295,6 +1297,108 @@ var _ = Describe("Migration watcher", func() {
 				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}},
 			),
 		)
+
+		It("should update network-info annotation for SRIOV interface during handoff", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			addNodeNameToVMI(vmi, "node02")
+
+			vmi.Spec.Domain.Devices.Interfaces = []virtv1.Interface{
+				{
+					Name:                   "sriov-net",
+					InterfaceBindingMethod: virtv1.InterfaceBindingMethod{SRIOV: &virtv1.InterfaceSRIOV{}},
+				},
+			}
+			vmi.Spec.Networks = []virtv1.Network{
+				{Name: "sriov-net", NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "sriov-network"}}},
+			}
+
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			targetPod.Spec.NodeName = "node01"
+			targetPod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
+				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+			}}
+
+			targetPod.Annotations = map[string]string{
+				"k8s.v1.cni.cncf.io/network-status": `[{"name":"sriov-network","interface":"net1","device-info":{"type":"pci","version":"1.0.0","pci":{"pci-address":"0000:01:00.0"}}}]`,
+			}
+
+			expectedNetworkInfo := `{"interfaces":[{"network":"sriov-net","deviceInfo":{"type":"pci","version":"1.0.0","pci":{"pci-address":"0000:01:00.0"}}}]}`
+			controller.netAnnotationsGenerator = stubNetworkAnnotationsGenerator{
+				annotations: map[string]string{downwardapi.NetworkInfoAnnot: expectedNetworkInfo},
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addPod(targetPod)
+
+			sanityExecute()
+
+			updatedPod, err := kubeClient.CoreV1().Pods(targetPod.Namespace).Get(context.Background(), targetPod.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(updatedPod.Annotations).To(HaveKey(downwardapi.NetworkInfoAnnot))
+			Expect(updatedPod.Annotations[downwardapi.NetworkInfoAnnot]).To(Equal(expectedNetworkInfo))
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
+		})
+
+		It("should update network-info annotation for binding plugin interface during handoff", func() {
+			setConfig(&virtv1.KubeVirtConfiguration{
+				NetworkConfiguration: &virtv1.NetworkConfiguration{
+					Binding: map[string]virtv1.InterfaceBindingPlugin{
+						"test-plugin": {
+							DownwardAPI: virtv1.DeviceInfo,
+						},
+					},
+				},
+			})
+
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			addNodeNameToVMI(vmi, "node02")
+
+			vmi.Spec.Domain.Devices.Interfaces = []virtv1.Interface{
+				{
+					Name:    "plugin-net",
+					Binding: &virtv1.PluginBinding{Name: "test-plugin"},
+				},
+			}
+			vmi.Spec.Networks = []virtv1.Network{
+				{Name: "plugin-net", NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "plugin-network"}}},
+			}
+
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			targetPod.Spec.NodeName = "node01"
+			targetPod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
+				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+			}}
+
+			targetPod.Annotations = map[string]string{
+				"k8s.v1.cni.cncf.io/network-status": `[{"name":"plugin-network","interface":"net1","device-info":{"type":"vhost-user","version":"1.0.0","vhost-user":{"path":"/var/lib/vhost_sockets/sock1"}}}]`,
+			}
+
+			expectedNetworkInfo := `{"interfaces":[{"network":"plugin-net","deviceInfo":{"type":"vhost-user","version":"1.0.0","vhost-user":{"path":"/var/lib/vhost_sockets/sock1"}}}]}`
+			controller.netAnnotationsGenerator = stubNetworkAnnotationsGenerator{
+				annotations: map[string]string{downwardapi.NetworkInfoAnnot: expectedNetworkInfo},
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addPod(targetPod)
+
+			sanityExecute()
+
+			updatedPod, err := kubeClient.CoreV1().Pods(targetPod.Namespace).Get(context.Background(), targetPod.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(updatedPod.Annotations).To(HaveKey(downwardapi.NetworkInfoAnnot))
+			Expect(updatedPod.Annotations[downwardapi.NetworkInfoAnnot]).To(Equal(expectedNetworkInfo))
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
+		})
 
 		It("should hand pod over to target virt-handler with migration config", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
@@ -2584,4 +2688,12 @@ func getTargetPod(c *fake.Clientset, namespace string, uid types.UID, migrationU
 		return &pods.Items[0], nil
 	}
 	return nil, errors.New("failed identifying target pod")
+}
+
+type stubNetworkAnnotationsGenerator struct {
+	annotations map[string]string
+}
+
+func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
+	return s.annotations
 }
