@@ -289,6 +289,10 @@ func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, r
 		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is already paused"))
 		}
+		// Check if VM is currently being migrated
+		if vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.Completed {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Cannot pause VM '%s' because it is currently being migrated", vmi.Name))
+		}
 		return nil
 	}
 
