@@ -35,6 +35,7 @@ const (
 	validatingAdmissionPolicyName        = "kubevirt-node-restriction-policy"
 	nodeRestrictionAppLabelValue         = "kubevirt-node-restriction"
 
+	NodeRestrictionErrModifyAnother        = "this user cannot modify this node"
 	NodeRestrictionErrModifySpec           = "this user cannot modify spec of node"
 	NodeRestrictionErrChangeMetadataFields = "this user can only change allowed metadata fields"
 	NodeRestrictionErrAddDeleteLabels      = "this user cannot add/delete non kubevirt-owned labels"
@@ -147,8 +148,21 @@ func NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount string) *ad
 					Name:       "newAnnotations",
 					Expression: "object.metadata.annotations",
 				},
+				{
+					Name:       "requestMatchNode",
+					Expression: "object.metadata.name == request.userInfo.extra['authentication.kubernetes.io/node-name'][0]",
+				},
+				{
+					Name:       "hasNode",
+					Expression: "('authentication.kubernetes.io/node-name' in request.userInfo.extra)",
+				},
 			},
 			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "variables.hasNode && variables.requestMatchNode",
+					Message:    NodeRestrictionErrModifyAnother,
+					Reason:     pointer.P(metav1.StatusReasonForbidden),
+				},
 				{
 					Expression: "object.spec == oldObject.spec",
 					Message:    NodeRestrictionErrModifySpec,
