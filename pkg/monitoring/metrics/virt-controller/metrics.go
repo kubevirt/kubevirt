@@ -123,6 +123,7 @@ func SetupMetrics(
 		migrationStatsCollector,
 		vmiStatsCollector,
 		vmStatsCollector,
+		ephemeralVolumeMetrics,
 	)
 }
 
