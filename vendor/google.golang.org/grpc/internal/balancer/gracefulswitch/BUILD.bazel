@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "config.go",
+        "gracefulswitch.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/internal/balancer/gracefulswitch",
+    importpath = "google.golang.org/grpc/internal/balancer/gracefulswitch",
+    visibility = ["//vendor/google.golang.org/grpc:__subpackages__"],
+    deps = [
+        "//vendor/google.golang.org/grpc/balancer:go_default_library",
+        "//vendor/google.golang.org/grpc/balancer/base:go_default_library",
+        "//vendor/google.golang.org/grpc/connectivity:go_default_library",
+        "//vendor/google.golang.org/grpc/resolver:go_default_library",
+        "//vendor/google.golang.org/grpc/serviceconfig:go_default_library",
+    ],
+)
