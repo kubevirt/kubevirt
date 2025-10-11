@@ -66,6 +66,7 @@ http_archive(
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/1.0.0/platforms-1.0.0.tar.gz",
         "https://github.com/bazelbuild/platforms/releases/download/1.0.0/platforms-1.0.0.tar.gz",
+        "https://storage.googleapis.com/builddeps/3384eb1c30762704fbe38e440204e114154086c8fc8a8c2e3e28441028c019a8",
     ],
 )
 
@@ -73,8 +74,8 @@ http_archive(
     name = "io_bazel_rules_go",
     sha256 = "130739704540caa14e77c54810b9f01d6d9ae897d53eedceb40fd6b75efc3c23",
     urls = [
-        "https://mirror.bazel.build/github.com/bazel-contrib/rules_go/releases/download/v0.54.1/rules_go-v0.54.1.zip",
         "https://github.com/bazel-contrib/rules_go/releases/download/v0.54.1/rules_go-v0.54.1.zip",
+        "https://storage.googleapis.com/builddeps/130739704540caa14e77c54810b9f01d6d9ae897d53eedceb40fd6b75efc3c23",
     ],
 )
 
@@ -120,6 +121,7 @@ http_archive(
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.39.1/bazel-gazelle-v0.39.1.tar.gz",
         "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.39.1/bazel-gazelle-v0.39.1.tar.gz",
+        "https://storage.googleapis.com/builddeps/b760f7fe75173886007f7c2e616a21241208f3d90e8657dc65d36a771e916b6a",
     ],
 )
 
@@ -2741,28 +2743,19 @@ rpm(
 rpm(
     name = "kernel-headers-0__5.14.0-611.el9.aarch64",
     sha256 = "bbfb330afff55f27f749e9f8206e5234c9f78a47719f1685c9214a4d22d6ef50",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/kernel-headers-5.14.0-611.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/bbfb330afff55f27f749e9f8206e5234c9f78a47719f1685c9214a4d22d6ef50",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/bbfb330afff55f27f749e9f8206e5234c9f78a47719f1685c9214a4d22d6ef50"],
 )
 
 rpm(
     name = "kernel-headers-0__5.14.0-611.el9.s390x",
     sha256 = "7d4bb2984b2d7de5a788945048906fa52624a151d6af18d66e0c9c7333f2456c",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/kernel-headers-5.14.0-611.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/7d4bb2984b2d7de5a788945048906fa52624a151d6af18d66e0c9c7333f2456c",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/7d4bb2984b2d7de5a788945048906fa52624a151d6af18d66e0c9c7333f2456c"],
 )
 
 rpm(
     name = "kernel-headers-0__5.14.0-611.el9.x86_64",
     sha256 = "a95df6688cdc6d5b8991f930cca8d42ed3431393847a300aeba305ff5e0f4cef",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/kernel-headers-5.14.0-611.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/a95df6688cdc6d5b8991f930cca8d42ed3431393847a300aeba305ff5e0f4cef",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/a95df6688cdc6d5b8991f930cca8d42ed3431393847a300aeba305ff5e0f4cef"],
 )
 
 rpm(
