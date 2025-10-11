@@ -7,7 +7,7 @@ ARG BAZEL_ARCH
 ENV BAZEL_VERSION=6.5.0
 ENV GIMME_GO_VERSION=1.24.7
 ENV OPERATOR_COURIER_VERSION=2.1.11
-ENV SONOBUOY_VERSION=0.56.9
+ENV SONOBUOY_VERSION=0.57.3
 ENV GOLANGCI_LINT_VERSION=v2.2.2
 
 ENV KUBEVIRT_CREATE_BAZELRCS=false
@@ -73,23 +73,23 @@ ENV GOPATH="/go" GOBIN="/usr/bin" GO111MODULE="on"
 RUN set -x && \
     mkdir -p /go && \
     source /etc/profile.d/gimme.sh && \
-    go install -v golang.org/x/tools/cmd/goimports@d5fe738 && \
+    go install -v golang.org/x/tools/cmd/goimports@v0.37.0 && \
     go install -v mvdan.cc/sh/v3/cmd/shfmt@v3.1.1 && \
-    go install -v k8s.io/code-generator/cmd/conversion-gen@v0.31.1  && \
-    go install -v k8s.io/code-generator/cmd/deepcopy-gen@v0.31.1 && \
-    go install -v k8s.io/code-generator/cmd/defaulter-gen@v0.31.1  && \
-    go install -v k8s.io/kube-openapi/cmd/openapi-gen@f7e401e && \
-    go install -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
-    go install -v k8s.io/code-generator/cmd/client-gen@v0.31.1 && \
-    go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
-    go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.3 && \
+    go install -v k8s.io/code-generator/cmd/conversion-gen@v0.34.1  && \
+    go install -v k8s.io/code-generator/cmd/deepcopy-gen@v0.34.1 && \
+    go install -v k8s.io/code-generator/cmd/defaulter-gen@v0.34.1  && \
+    go install -v k8s.io/kube-openapi/cmd/openapi-gen@589584f && \
+    go install -v google.golang.org/protobuf/cmd/protoc-gen-go@v1.35.2 && \
+    go install -v k8s.io/code-generator/cmd/client-gen@v0.34.1 && \
+    go install -v github.com/securego/gosec/v2/cmd/gosec@v2.22.8 && \
+    go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 && \
     go install -v github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@a4b5158 && \
     go clean -cache -modcache
 
 RUN set -x && \
     source /etc/profile.d/gimme.sh && \
-    go install -v github.com/mattn/goveralls@21feffdfd && \
-    go install -v go.uber.org/mock/mockgen@v0.5.1 && \
+    go install -v github.com/mattn/goveralls@v0.0.12 && \
+    go install -v go.uber.org/mock/mockgen@v0.6.0 && \
     go install -v github.com/rmohr/go-swagger-utils/swagger-doc@v0.0.0-20181110145135-878f7deb1d17 && \
     go clean -cache -modcache
 
@@ -97,7 +97,7 @@ RUN set -x && \
     source /etc/profile.d/gimme.sh && \
     git clone https://github.com/kubernetes/test-infra.git && \
     cd /test-infra && \
-    git checkout f2693aba912dd40c974304caca999d45ee8dce33 && \
+    git checkout 1f33b84b2d0d74abdbea5092957790e8469b66a5 && \
     cd /test-infra/robots/pr-creator && \
     go install && \
     cd /test-infra/robots/issue-creator && \
@@ -110,7 +110,7 @@ RUN set -x && \
 
 RUN set -x && \
     source /etc/profile.d/gimme.sh && \
-    go install -v mvdan.cc/gofumpt@v0.8.0 && \
+    go install -v mvdan.cc/gofumpt@v0.9.1 && \
     curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOROOT)"/bin $GOLANGCI_LINT_VERSION
 
 RUN pip3 install --upgrade operator-courier==${OPERATOR_COURIER_VERSION}
