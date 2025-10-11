@@ -115,16 +115,16 @@ const (
 )
 
 const (
-	hotplugVolumeErrorReason     = "HotPlugVolumeError"
-	hotplugCPUErrorReason        = "HotPlugCPUError"
-	failedUpdateErrorReason      = "FailedUpdateError"
-	failedCreateReason           = "FailedCreate"
-	vmiFailedDeleteReason        = "FailedDelete"
-	affinityChangeErrorReason    = "AffinityChangeError"
-	hotplugMemoryErrorReason     = "HotPlugMemoryError"
-	volumesUpdateErrorReason     = "VolumesUpdateError"
-	tolerationsChangeErrorReason = "TolerationsChangeError"
-	annotationsChangeErrorReason = "AnnotationsChangeError"
+	hotplugVolumeErrorReason           = "HotPlugVolumeError"
+	hotplugCPUErrorReason              = "HotPlugCPUError"
+	failedUpdateErrorReason            = "FailedUpdateError"
+	failedCreateReason                 = "FailedCreate"
+	vmiFailedDeleteReason              = "FailedDelete"
+	affinityChangeErrorReason          = "AffinityChangeError"
+	hotplugMemoryErrorReason           = "HotPlugMemoryError"
+	volumesUpdateErrorReason           = "VolumesUpdateError"
+	tolerationsChangeErrorReason       = "TolerationsChangeError"
+	annotationsLabelsChangeErrorReason = "AnnotationsLabelsChangeError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -143,6 +143,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	netSynchronizer synchronizer,
 	firmwareSynchronizer synchronizer,
 	instancetypeController instancetypeHandler,
+	additionalLauncherAnnotationsSync []string,
+	additionalLauncherLabelsSync []string,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -166,9 +168,11 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 			response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
 			return response.Allowed, response.Reason, err
 		},
-		clusterConfig:        clusterConfig,
-		netSynchronizer:      netSynchronizer,
-		firmwareSynchronizer: firmwareSynchronizer,
+		clusterConfig:                     clusterConfig,
+		netSynchronizer:                   netSynchronizer,
+		firmwareSynchronizer:              firmwareSynchronizer,
+		additionalLauncherAnnotationsSync: additionalLauncherAnnotationsSync,
+		additionalLauncherLabelsSync:      additionalLauncherLabelsSync,
 	}
 
 	c.hasSynced = func() bool {
@@ -294,6 +298,9 @@ type Controller struct {
 
 	netSynchronizer      synchronizer
 	firmwareSynchronizer synchronizer
+
+	additionalLauncherAnnotationsSync []string
+	additionalLauncherLabelsSync      []string
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
@@ -3048,53 +3055,63 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 	return false
 }
 
-func (c *Controller) syncVMAnnotationsToVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
-	if vm == nil || vmi == nil || vmi.DeletionTimestamp != nil {
+// These "dynamic" annotations/labels are VMI annotations/labels which may diverge from the VM over time that we want to keep in sync.
+func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
+	if vm == nil || vm.Spec.Template == nil || vmi == nil || vmi.DeletionTimestamp != nil {
 		return vmi, nil
 	}
 
 	patchSet := patch.New()
+	newVmiAnnotations := maps.Clone(vmi.Annotations)
+	newVmiLabels := maps.Clone(vmi.Labels)
 
-	annotationsToSync := []string{
-		descheduler.EvictPodAnnotationKeyAlpha,
-		descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction,
-	}
-
-	newVMIAnnotations := map[string]string{}
-	for k, v := range vmi.Annotations {
-		newVMIAnnotations[k] = v
-	}
-
-	changed := false
-	for _, key := range annotationsToSync {
-		vmVal := ""
-		vmExists := false
-		if vm.Spec.Template != nil {
-			vmVal, vmExists = vm.Spec.Template.ObjectMeta.Annotations[key]
-		}
-		vmiVal, vmiExists := newVMIAnnotations[key]
-
-		if vmExists != vmiExists || vmVal != vmiVal {
+	syncMap := func(keys []string, vmMap, vmiMap, vmiOrigMap map[string]string, subPath string) {
+		changed := false
+		for _, key := range keys {
+			vmVal, vmExists := vmMap[key]
+			vmiVal, vmiExists := vmiMap[key]
+			if vmExists == vmiExists && vmVal == vmiVal {
+				continue
+			}
 			changed = true
 			if vmExists {
-				newVMIAnnotations[key] = vmVal
+				vmiMap[key] = vmVal
 			} else {
-				delete(newVMIAnnotations, key)
+				delete(vmiMap, key)
 			}
+		}
+
+		if !changed {
+			return
+		}
+
+		if vmiOrigMap == nil {
+			patchSet.AddOption(patch.WithAdd("/metadata/"+subPath, vmiMap))
+		} else {
+			patchSet.AddOption(
+				patch.WithTest("/metadata/"+subPath, vmiOrigMap),
+				patch.WithReplace("/metadata/"+subPath, vmiMap),
+			)
 		}
 	}
 
-	if !changed {
-		return vmi, nil
-	}
+	dynamicLabels := []string{}
+	dynamicLabels = append(dynamicLabels, c.additionalLauncherLabelsSync...)
+	dynamicAnnotations := []string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction}
+	dynamicAnnotations = append(dynamicAnnotations, c.additionalLauncherAnnotationsSync...)
 
-	if vmi.ObjectMeta.Annotations == nil {
-		patchSet.AddOption(patch.WithAdd("/metadata/annotations", newVMIAnnotations))
-	} else {
-		patchSet.AddOption(
-			patch.WithTest("/metadata/annotations", vmi.ObjectMeta.Annotations),
-			patch.WithReplace("/metadata/annotations", newVMIAnnotations),
-		)
+	syncMap(
+		dynamicLabels,
+		vm.Spec.Template.ObjectMeta.Labels, newVmiLabels, vmi.ObjectMeta.Labels, "labels",
+	)
+
+	syncMap(
+		dynamicAnnotations,
+		vm.Spec.Template.ObjectMeta.Annotations, newVmiAnnotations, vmi.ObjectMeta.Annotations, "annotations",
+	)
+
+	if patchSet.IsEmpty() {
+		return vmi, nil
 	}
 
 	generatedPatch, err := patchSet.GeneratePayload()
@@ -3237,8 +3254,8 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), memorydump.ErrorReason), nil
 	}
 
-	if vmi, err = c.syncVMAnnotationsToVMI(vmCopy, vmi); err != nil {
-		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling annotation sync request: %v", err), annotationsChangeErrorReason), nil
+	if vmi, err = c.syncDynamicAnnotationsAndLabelsToVMI(vmCopy, vmi); err != nil {
+		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling annotation and labels sync request: %v", err), annotationsLabelsChangeErrorReason), nil
 	}
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
