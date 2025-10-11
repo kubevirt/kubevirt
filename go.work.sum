@@ -203,6 +203,7 @@ k8s.io/klog v0.4.0 h1:lCJCxf/LIowc2IGS9TPjWDyXY4nOmdGdfcwwDQCOURQ=
 k8s.io/klog/v2 v2.9.0/go.mod h1:hy9LJ/NvuK+iVyP4Ehqva4HxZG/oXyIS3n3Jmire4Ec=
 k8s.io/metrics v0.31.0/go.mod h1:UNsz6swyX8FWkDoKN9ixPF75TBREMbHZIKjD7fydaOY=
 k8s.io/metrics v0.32.5/go.mod h1:8O9Z5auVmgi8gcfiZEEmlw0GCaftvJ5/MZhdu5Zv6sI=
+kubevirt.io/containerized-data-importer-api v0.0.0-20250826121935-ee40781930eb/go.mod h1:VGp35wxpLXU18b7cnEpmcThI3AjcZUSfg/Zfql44U4o=
 sigs.k8s.io/controller-runtime v0.20.1/go.mod h1:BrP3w158MwvB3ZbNpaAcIKkHQ7YGpYnzpoSTZ8E14WU=
 kubevirt.io/containerized-data-importer-api v1.63.0-alpha.0 h1:fxhXZCD6tFvFxo16gVYaIqJ63QomqoEMxjcf5QbbKHE=
 kubevirt.io/containerized-data-importer-api v1.63.0-alpha.0/go.mod h1:VGp35wxpLXU18b7cnEpmcThI3AjcZUSfg/Zfql44U4o=
