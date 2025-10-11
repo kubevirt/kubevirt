@@ -111,6 +111,8 @@ elif [[ $TARGET =~ wg-arm64 ]]; then
     export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
 elif [[ $TARGET =~ sev ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-sev}
+elif [[ $TARGET =~ secure-execution ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-secure-execution}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -443,6 +445,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(VGPU)'
   elif [[ $TARGET =~ sev.* ]]; then
     label_filter='(SEV)'
+  elif [[ $TARGET =~ secure-execution ]]; then
+    label_filter='(secure-execution)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     label_filter='(sig-compute-realtime) && !(SEV, SEVES)'
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
