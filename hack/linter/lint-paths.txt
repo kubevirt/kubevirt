@@ -4,6 +4,7 @@ cmd/sidecars/network-slirp-binding/callback
 cmd/virtctl
 pkg/instancetype
 pkg/libvmi
+pkg/monitoring/domainstats
 pkg/network/admitter
 pkg/network/controllers
 pkg/network/deviceinfo
