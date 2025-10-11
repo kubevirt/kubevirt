@@ -42,6 +42,7 @@ func (VirtualMachinePoolSpec) SwaggerDoc() map[string]string {
 		"nameGeneration":         "Options for the name generation in a pool.\n+optional",
 		"maxUnavailable":         "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.\n+optional",
 		"scaleInStrategy":        "ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool\n+optional",
+		"autohealing":            "Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance\n+optional",
 	}
 }
 

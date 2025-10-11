@@ -20324,6 +20324,10 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        autohealing:
+          description: Autohealing specifies when a VMpool should replace a failing
+            VM with a reprovisioned instance
+          type: boolean
         maxUnavailable:
           anyOf:
           - type: integer
