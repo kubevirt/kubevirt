@@ -49,7 +49,7 @@ var _ = Describe("Filewatcher", func() {
 	BeforeEach(func() {
 		path = GinkgoT().TempDir()
 		testfilePath = filepath.Join(path, "testfile")
-		watcher = filewatcher.New(testfilePath, 10*time.Millisecond)
+		watcher = filewatcher.New(testfilePath, 100*time.Millisecond)
 	})
 
 	AfterEach(func() {
