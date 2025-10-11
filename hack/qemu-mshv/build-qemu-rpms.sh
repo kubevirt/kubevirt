@@ -20,6 +20,8 @@ git clone ${QEMU_REPO} qemu-src
 
 cd qemu-src/
 
+sed -i "s/Version:.*$/Version: ${QEMU_VERSION}/" qemu.spec
+
 curl -L ${QEMU_REPO}/archive/refs/tags/v${QEMU_VERSION}.tar.gz -o qemu-${QEMU_VERSION}.tar.xz
 
 docker rm -f qemu-build
@@ -31,7 +33,7 @@ docker run -td \
 
 # Build qemu RPM
 docker exec -w /qemu-src qemu-build bash -c "
-  set -e
+  set -ex
   mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
   cp qemu.spec ~/rpmbuild/SPECS
   cp qemu-${QEMU_VERSION}.tar.xz ~/rpmbuild/SOURCES/
