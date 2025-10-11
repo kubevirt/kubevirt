@@ -26,12 +26,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	k8sv1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -209,6 +210,99 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				events.ExpectNoEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
 			})
 		})
+
+		Context("VirtualMachineInstanceEvictionRequested condition", func() {
+			It("should set VirtualMachineInstanceEvictionRequested condition when VMI marked for eviction", func() {
+				vmi := libvmifact.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+				)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Verifying VMI initially does not have VirtualMachineInstanceEvictionRequested condition")
+				Expect(vmi).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceEvictionRequested))
+
+				By("Triggering an eviction by evict API")
+				ctx := context.Background()
+				err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      virtLauncherPod.Name,
+						Namespace: virtLauncherPod.Namespace,
+					},
+				})
+				Expect(err).To(MatchError(ContainSubstring("Eviction triggered evacuation of VMI")))
+
+				By("Waiting for VirtualMachineInstanceEvictionRequested condition to be set")
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 1*time.Second).Should(matcher.HaveConditionTrueWithReason(v1.VirtualMachineInstanceEvictionRequested, v1.VirtualMachineInstanceReasonEvictionRequested))
+
+				By("Verifying that VMI is marked for eviction")
+				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(ctx, vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(vmi.IsMarkedForEviction()).To(BeTrue())
+				Expect(vmi.Status.EvacuationNodeName).To(Equal(virtLauncherPod.Spec.NodeName))
+
+				By("Waiting for a migration to be scheduled and to succeed")
+				Eventually(matcher.ThisVMI(vmi), 90*time.Second, 2*time.Second).Should(And(HaveExistingField("Status.MigrationState"), HaveField("Status.MigrationState.Completed", BeTrue())))
+
+				By("Verifying VirtualMachineInstanceEvictionRequested condition is cleared after successful migration")
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 1*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceEvictionRequested))
+
+				By("Verifying VMI is no longer marked for eviction")
+				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(ctx, vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(vmi.IsMarkedForEviction()).To(BeFalse())
+				Expect(vmi.Status.EvacuationNodeName).To(BeEmpty())
+			})
+
+			Context("when eviction fails", func() {
+
+				It("should keep VirtualMachineInstanceEvictionRequested condition when migration fails", func() {
+					By("Starting the VirtualMachineInstance")
+					vmi := libvmifact.NewCirros(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
+						libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+					)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+					virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("Triggering an eviction by evict API")
+					ctx := context.Background()
+					err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      virtLauncherPod.Name,
+							Namespace: virtLauncherPod.Namespace,
+						},
+					})
+					Expect(err).To(MatchError(ContainSubstring("Eviction triggered evacuation of VMI")))
+
+					By("Waiting for VirtualMachineInstanceEvictionRequested condition to be set")
+					Eventually(matcher.ThisVMI(vmi), 30*time.Second, 1*time.Second).Should(matcher.HaveConditionTrueWithReason(v1.VirtualMachineInstanceEvictionRequested, v1.VirtualMachineInstanceReasonEvictionRequested))
+
+					By("Waiting for migration to fail")
+					Eventually(matcher.ThisVMI(vmi), 90*time.Second, 2*time.Second).Should(And(HaveExistingField("Status.MigrationState"), HaveField("Status.MigrationState.Failed", BeTrue())))
+
+					By("Ensuring VirtualMachineInstanceEvictionRequested condition remains set")
+					Consistently(matcher.ThisVMI(vmi), 10*time.Second, 1*time.Second).Should(matcher.HaveConditionTrueWithReason(v1.VirtualMachineInstanceEvictionRequested, v1.VirtualMachineInstanceReasonEvictionRequested))
+
+					By("Verifying VMI remains marked for eviction")
+					vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(ctx, vmi.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.IsMarkedForEviction()).To(BeTrue())
+					Expect(vmi.Status.EvacuationNodeName).To(Equal(virtLauncherPod.Spec.NodeName))
+				})
+			})
+		})
+
 	})
 }))
 
