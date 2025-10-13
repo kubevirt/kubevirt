@@ -712,6 +712,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.TerminationGracePeriodSeconds = pointer.P(int64(5))
 
 			vmi.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		})
 
 		var convertedDomain = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateX86_64, domainType, "%s"))
@@ -769,7 +770,6 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("should use virtio-transitional models if requested", func(arch string) {
 			c.Architecture = archconverter.NewConverter(arch)
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.DisableHotplug = false
 			c.UseVirtioTransitional = true
@@ -824,7 +824,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			c.Architecture = archconverter.NewConverter(arch)
 			vmiArchMutate(arch, vmi, c)
@@ -836,7 +835,6 @@ var _ = Describe("Converter", func() {
 		)
 
 		DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string, period uint) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			c.Architecture = archconverter.NewConverter(arch)
 			vmiArchMutate(arch, vmi, c)
@@ -852,7 +850,6 @@ var _ = Describe("Converter", func() {
 		)
 
 		DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
 			c.Architecture = archconverter.NewConverter(arch)
@@ -865,13 +862,11 @@ var _ = Describe("Converter", func() {
 		)
 
 		It("should use kvm if present", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			Expect(vmiToDomainXMLToDomainSpec(vmi, c).Type).To(Equal(domainType))
 		})
 
 		Context("when all addresses should be placed at the root complex", func() {
 			It("should be converted to a libvirt Domain with vmi defaults set", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 				c.Architecture = archconverter.NewConverter(amd64)
 				vmiArchMutate(amd64, vmi, c)
@@ -885,7 +880,6 @@ var _ = Describe("Converter", func() {
 
 		Context("when CPU spec defined", func() {
 			It("should convert CPU cores, model and features", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:   3,
 					Sockets: 2,
@@ -918,7 +912,6 @@ var _ = Describe("Converter", func() {
 			})
 
 			It("should convert CPU cores", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 3,
 				}
@@ -931,7 +924,6 @@ var _ = Describe("Converter", func() {
 			})
 
 			It("should convert CPU sockets", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets: 3,
 				}
@@ -944,7 +936,6 @@ var _ = Describe("Converter", func() {
 			})
 
 			It("should convert CPU threads", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Threads: 3,
 				}
@@ -957,7 +948,6 @@ var _ = Describe("Converter", func() {
 			})
 
 			It("should convert CPU requests to sockets", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = nil
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2200m")
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
@@ -969,7 +959,6 @@ var _ = Describe("Converter", func() {
 			})
 
 			It("should convert CPU limits to sockets", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = nil
 				vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("2.3")
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
@@ -981,7 +970,6 @@ var _ = Describe("Converter", func() {
 			})
 
 			It("should prefer CPU spec instead of CPU requests", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets: 3,
 				}
@@ -995,7 +983,6 @@ var _ = Describe("Converter", func() {
 			})
 
 			It("should prefer CPU spec instead of CPU limits", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets: 3,
 				}
@@ -1009,7 +996,6 @@ var _ = Describe("Converter", func() {
 			})
 
 			DescribeTable("should define hotplugable default topology", func(arch string) {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:      2,
 					MaxSockets: 3,
@@ -1041,7 +1027,6 @@ var _ = Describe("Converter", func() {
 			)
 
 			It("should not define hotplugable topology for ARM64", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Architecture = arm64
 				vmi.Spec.Domain.Machine = &v1.Machine{Type: "virt"}
 				vmi.Spec.Domain.CPU = &v1.CPU{
@@ -1059,7 +1044,6 @@ var _ = Describe("Converter", func() {
 			})
 
 			DescribeTable("should convert CPU model", func(model string) {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 3,
 					Model: model,
@@ -1075,7 +1059,6 @@ var _ = Describe("Converter", func() {
 
 		Context("when CPU spec defined and model not", func() {
 			It("should set host-model CPU mode", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 3,
 				}
@@ -1087,7 +1070,6 @@ var _ = Describe("Converter", func() {
 
 		Context("when CPU spec not defined", func() {
 			It("should set host-model CPU mode", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 
 				Expect(domainSpec.CPU.Mode).To(Equal("host-model"))
@@ -1095,7 +1077,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		DescribeTable("CPU mpx feature", func(arch string, matcher types.GomegaMatcher) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			c.Architecture = archconverter.NewConverter(arch)
 			vmi.Spec.Domain.CPU = &v1.CPU{}
 			domain := vmiToDomain(vmi, c)
@@ -1108,7 +1089,6 @@ var _ = Describe("Converter", func() {
 
 		Context("when downwardMetrics are exposed via virtio-serial", func() {
 			It("should set socket options", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.Devices.DownwardMetrics = &v1.DownwardMetrics{}
 				domain := vmiToDomain(vmi, c)
 
@@ -1128,7 +1108,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should set disk pci address when specified", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
 			test_address := api.Address{
 				Type:     api.AddressPCI,
@@ -1155,7 +1134,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should fail disk config pci address is set with a non virtio bus", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
@@ -1163,7 +1141,6 @@ var _ = Describe("Converter", func() {
 
 		It("should succeed with SCSI reservation", func() {
 			name := "scsi-reservation"
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: name,
@@ -1197,7 +1174,6 @@ var _ = Describe("Converter", func() {
 
 		It("should allow CD-ROM with no volume", func() {
 			name := "empty-cdrom"
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: name,
 				DiskDevice: v1.DiskDevice{
@@ -1223,7 +1199,6 @@ var _ = Describe("Converter", func() {
 				func(volumeName string, createVolumeSource func(string) v1.VolumeSource) {
 					cbtPath := "/var/lib/libvirt/qemu/cbt/" + volumeName + ".qcow2"
 
-					v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 					vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
 						Name: volumeName,
 						DiskDevice: v1.DiskDevice{
@@ -1297,7 +1272,6 @@ var _ = Describe("Converter", func() {
 				func(volumeName string, createVolumeSource func(string) v1.VolumeSource, setupContext func(*ConverterContext, string)) {
 					cbtPath := "/var/lib/libvirt/qemu/cbt/" + volumeName + ".qcow2"
 
-					v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 					vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
 						Name: volumeName,
 						DiskDevice: v1.DiskDevice{
@@ -1369,7 +1343,6 @@ var _ = Describe("Converter", func() {
 		DescribeTable("should add a virtio-scsi controller if a scsci disk is present and iothreads set", func(arch, expectedModel string) {
 			c.Architecture = archconverter.NewConverter(arch)
 			one := uint(1)
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
 			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
@@ -1390,7 +1363,6 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("should add a virtio-scsi controller if a scsci disk is present and iothreads NOT set", func(arch, expectedModel string) {
 			c.Architecture = archconverter.NewConverter(arch)
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
 			vmi.Spec.Domain.IOThreadsPolicy = nil
 			for i := range vmi.Spec.Domain.Devices.Disks {
@@ -1410,7 +1382,6 @@ var _ = Describe("Converter", func() {
 		)
 
 		It("should not add a virtio-scsi controller if no scsi disk is present", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "sata"
 			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
@@ -1422,7 +1393,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		DescribeTable("usb controller", func(arch, bus string, matcher types.GomegaMatcher) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = v1.InputBus(bus)
 			c.Architecture = archconverter.NewConverter(arch)
 			domain := vmiToDomain(vmi, c)
@@ -1444,7 +1414,6 @@ var _ = Describe("Converter", func() {
 		)
 
 		DescribeTable("PCIHole64 on pcie-root Controller should", func(arch, value string, expected bool) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			if value != "" {
 				if vmi.Annotations == nil {
 					vmi.Annotations = make(map[string]string)
@@ -1481,25 +1450,21 @@ var _ = Describe("Converter", func() {
 		)
 
 		It("should fail when input device is set to ps2 bus", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "ps2"
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
 		})
 
 		It("should fail when input device is set to keyboard type", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Type = "keyboard"
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
 		})
 
 		It("should succeed when input device is set to usb bus", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).To(Succeed(), "Expect success")
 		})
 
 		It("should succeed when input device bus is empty", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = ""
 			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB), "Expect usb bus")
@@ -1507,7 +1472,6 @@ var _ = Describe("Converter", func() {
 
 		It("should not overwrite the IO policy when when IO threads are enabled", func() {
 			ioPolicy := v1.IONative
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Volumes[0] = v1.Volume{
 				Name: "disk",
 				VolumeSource: v1.VolumeSource{
@@ -1528,14 +1492,12 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should not enable sound cards emulation by default", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Sound = nil
 			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.Devices.SoundCards).To(BeEmpty())
 		})
 
 		It("should enable default sound card with existing but empty sound devices", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name := "audio-default-ich9"
 			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
 				Name: name,
@@ -1549,7 +1511,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should enable ac97 sound card ", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name := "audio-ac97"
 			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
 				Name:  name,
@@ -1564,7 +1525,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		DescribeTable("usb redirection", func(arch string, expectedModel string) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.ClientPassthrough = &v1.ClientPassthroughDevices{}
 			c.Architecture = archconverter.NewConverter(arch)
 			domain := vmiToDomain(vmi, c)
@@ -1581,7 +1541,6 @@ var _ = Describe("Converter", func() {
 		)
 
 		It("should not enable usb redirection when numberOfDevices == 0", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.ClientPassthrough = nil
 			c.Architecture = archconverter.NewConverter(amd64)
 			domain := vmiToDomain(vmi, c)
@@ -1594,14 +1553,12 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should select explicitly chosen network model", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
 		})
 
 		It("should set rom to off when no boot order is specified", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces[0].BootOrder = nil
 			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.Devices.Interfaces[0].Rom.Enabled).To(Equal("no"))
@@ -1616,10 +1573,6 @@ var _ = Describe("Converter", func() {
 				Slot:     "0x01",
 				Function: "0x0",
 			}
-
-			BeforeEach(func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			})
 
 			It("should be set on the domain spec for a non-SRIOV nic", func() {
 				vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
@@ -1674,7 +1627,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should convert hugepages", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{
 				Hugepages: &v1.Hugepages{},
 			}
@@ -1692,7 +1644,6 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{
 				Guest: &guestMemory,
 			}
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 
@@ -1796,7 +1747,6 @@ var _ = Describe("Converter", func() {
 			Entry("ErrorPolicy equal to enospace", pointer.P(v1.DiskErrorPolicyEnospace), "enospace"),
 		)
 		DescribeTable("Should set the vmport by arch", func(arch string) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			c.Architecture = archconverter.NewConverter(arch)
 			domain := vmiToDomain(vmi, c)
 			switch arch {
@@ -1844,7 +1794,6 @@ var _ = Describe("Converter", func() {
 			}
 		})
 		It("Should set domain interface state down", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				*v1.DefaultBridgeNetworkInterface(),
 			}
@@ -1857,7 +1806,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].LinkState.State).To(Equal("down"))
 		})
 		It("Should set domain interface source correctly for multus", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				*v1.DefaultBridgeNetworkInterface(),
 				*v1.DefaultBridgeNetworkInterface(),
@@ -1895,7 +1843,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[2].Type).To(Equal("ethernet"))
 		})
 		It("Should set domain interface source correctly for default multus", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				*v1.DefaultBridgeNetworkInterface(),
 				*v1.DefaultBridgeNetworkInterface(),
@@ -1924,7 +1871,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"))
 		})
 		It("should allow setting boot order", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			iface1 := v1.DefaultBridgeNetworkInterface()
 			iface2 := v1.DefaultBridgeNetworkInterface()
 			net1 := v1.DefaultPodNetwork()
@@ -1945,7 +1891,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].BootOrder).To(BeNil())
 		})
 		It("Should create network configuration for masquerade interface", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
 			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 			net1 := v1.DefaultPodNetwork()
@@ -1960,7 +1905,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 		})
 		It("Should create network configuration for masquerade interface and the pod network and a secondary network using multus", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
 			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 			net1 := v1.DefaultPodNetwork()
@@ -1985,7 +1929,6 @@ var _ = Describe("Converter", func() {
 		})
 		It("Should create network configuration for an interface using a binding plugin with tap domain attachment", func() {
 			bindingName := "BindingName"
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
 			iface1 := v1.Interface{Name: netName1, Binding: &v1.PluginBinding{Name: bindingName}}
 			net1 := v1.DefaultPodNetwork()
@@ -2002,7 +1945,6 @@ var _ = Describe("Converter", func() {
 		It("Shouldn't create network configuration for an interface using a binding plugin with non-tap domain attachment", func() {
 			bindingName := "BindingName"
 			c.DomainAttachmentByInterfaceName[bindingName] = "non-tap"
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name"
 
 			iface1 := v1.Interface{Name: name1, Binding: &v1.PluginBinding{Name: bindingName}}
@@ -2017,7 +1959,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces).To(BeEmpty())
 		})
 		It("creates SRIOV hostdev", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			domain := &api.Domain{}
 
 			const identifyDevice = "sriov-test"
@@ -2772,7 +2713,6 @@ var _ = Describe("Converter", func() {
 		It("assigns a set of cpus per iothread, if there are more vcpus than iothreads", func() {
 			vmi.Spec.Domain.CPU.Cores = 16
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("16")
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			c := &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH),
 				CPUSet:         []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 				AllowEmulation: true,
@@ -2819,7 +2759,6 @@ var _ = Describe("Converter", func() {
 		})
 		It("should pack iothreads equally on available vcpus, if there are more iothreads than vcpus", func() {
 			vmi.Spec.Domain.CPU.Cores = 2
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			c := &ConverterContext{
 				Architecture:   archconverter.NewConverter(runtime.GOARCH),
 				CPUSet:         []int{5, 6},
