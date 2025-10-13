@@ -21,10 +21,10 @@ Each environment is a GitHub Environment holding secrets/vars for deploy & test.
 
 | Environment | Purpose | Feature Gate L1HV | Test Scope | Compute | Hypervisor |
 |-------------|---------|-------------------|------------|---------|-----------------|
-| `dev` | Fast feedback for new feature coverage | ✓ | New L1HV tests only | [Azure VM dom0qemu](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-dev-mshv-qemu-k3s-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-dev-mshv-qemu-k3s-vm/overview) | MSHV |
-| `test-mshv` | Full suite on Microsoft Hyper-V stack | ✓ | All e2e (existing + new) | [Azure VM dom0qemu](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-test-mshv-vm-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-test-mshv-vm-k3s/overview) | MSHV |
+| `dev` | Fast feedback for new feature coverage | ✓ | New L1HV tests only | Azure VM. l1vh (4.227.110.35) | MSHV |
+| `test-mshv` | Full suite on Microsoft Hyper-V stack | ✓ | All e2e (existing + new) | Azure VM. l1vh-192. (20.172.31.124)| MSHV |
 | `test-kvm` | Regression of existing stable e2e set |  | Existing e2e only | [AKS](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-rg/providers/Microsoft.ContainerService/managedClusters/kubevirt-e2e-tests-aks/overview) | KVM |
-| `test-emulation` | Full suite under emulation |  | All e2e (existing + new) | [Azure VM dom0qemu](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-e2e-vm-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-e2e-vm-k3s/overview) | QEMU Emulation |
+| `test-emulation` | Full suite under emulation |  | All e2e (existing + new) | [Azure VM dom0qemu](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-e2e-vm-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-e2e-vm-k3s/overview) (20.245.206.91) | QEMU Emulation |
 
 
 ## 3. Testing Matrix
@@ -40,8 +40,8 @@ Note! E2E tests on test-mshv environment are turned off now as the '/dev/mshv' s
 
 ### 4.1 Compute
 
-  - [Dev VM](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-dev-mshv-qemu-k3s-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-dev-mshv-qemu-k3s-vm/overview)
-  - [E2E Test mshv VM](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-test-mshv-vm-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-test-mshv-vm-k3s/overview)
+  - Dev VM
+  - E2E Test mshv VM
   - [E2E Test Emulation VM](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-e2e-vm-rg/providers/Microsoft.Compute/virtualMachines/kubevirt-e2e-vm-k3s/overview)
   - [E2E Test KVM AKS](https://ms.portal.azure.com/#@fdpo.onmicrosoft.com/resource/subscriptions/7be1b9e7-57ca-47ff-b5ab-82e7ccb8c611/resourceGroups/kubevirt-rg/providers/Microsoft.ContainerService/managedClusters/kubevirt-e2e-tests-aks/overview)
 
