@@ -1,41 +1,41 @@
 #!/bin/bash
 
 while getopts q:l: flag; do
-	case "${flag}" in
-	q) QEMU_IMAGE=${OPTARG} ;;
-	l) LIBVIRT_IMAGE=${OPTARG} ;;
-	*)
-		echo "Invalid option"
-		exit 1
-		;;
-	esac
+    case "${flag}" in
+    q) QEMU_IMAGE=${OPTARG} ;;
+    l) LIBVIRT_IMAGE=${OPTARG} ;;
+    *)
+        echo "Invalid option"
+        exit 1
+        ;;
+    esac
 done
 
 if [ -z "$QEMU_IMAGE" ] || [ -z "$LIBVIRT_IMAGE" ]; then
-	echo "Usage: $0 -q <QEMU_IMAGE> -l <LIBVIRT_IMAGE>"
-	exit 1
+    echo "Usage: $0 -q <QEMU_IMAGE> -l <LIBVIRT_IMAGE>"
+    exit 1
 fi
 
 # Start libvirt repo HTTP server (port 8080) if not running
 if [ "$(docker ps -q -f name=libvirt-rpms-http-server)" ]; then
-	echo "Libvirt RPM server already running"
+    echo "Libvirt RPM server already running"
 else
-	docker run --rm -dit \
-		--name libvirt-rpms-http-server \
-		-p 8080:80 \
-		$LIBVIRT_IMAGE
-	sleep 5
+    docker run --rm -dit \
+        --name libvirt-rpms-http-server \
+        -p 8080:80 \
+        $LIBVIRT_IMAGE
+    sleep 5
 fi
 
 # Start qemu repo HTTP server (port 9090) if not running
 if [ "$(docker ps -q -f name=qemu-rpms-http-server)" ]; then
-	echo "QEMU RPM server already running"
+    echo "QEMU RPM server already running"
 else
-	docker run --rm -dit \
-		--name qemu-rpms-http-server \
-		-p 9090:80 \
-		$QEMU_IMAGE
-	sleep 5
+    docker run --rm -dit \
+        --name qemu-rpms-http-server \
+        -p 9090:80 \
+        $QEMU_IMAGE
+    sleep 5
 fi
 
 docker images --digests
@@ -47,12 +47,12 @@ echo "QEMU repo IP:    $QEMU_IP"
 
 # Verify both repos (use their mapped host ports)
 curl -f "http://localhost:8080/x86_64/repodata/repomd.xml" || {
-	echo 'Libvirt repo not accessible'
-	exit 1
+    echo 'Libvirt repo not accessible'
+    exit 1
 }
 curl -f "http://localhost:9090/x86_64/repodata/repomd.xml" || {
-	echo 'QEMU repo not accessible'
-	exit 1
+    echo 'QEMU repo not accessible'
+    exit 1
 }
 
 # Extract versions (tolerate missing build-info fields)
