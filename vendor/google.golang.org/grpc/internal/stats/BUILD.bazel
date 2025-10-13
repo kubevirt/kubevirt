@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "labels.go",
+        "metrics_recorder_list.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/internal/stats",
+    importpath = "google.golang.org/grpc/internal/stats",
+    visibility = ["//vendor/google.golang.org/grpc:__subpackages__"],
+    deps = [
+        "//vendor/google.golang.org/grpc/experimental/stats:go_default_library",
+        "//vendor/google.golang.org/grpc/stats:go_default_library",
+    ],
+)
