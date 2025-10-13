@@ -53,8 +53,8 @@ const (
 	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 
 	indexByNodeName              = "byNodeName"
-	PCIAddressDeviceAttributeKey = "resource.kubernetes.io/pcieRoot"
-	MDevUUIDDeviceAttributeKey   = "resource.kubernetes.io/mDevUUID"
+	PCIAddressDeviceAttributeKey = "pcieBusID"
+	MDevUUIDDeviceAttributeKey   = "mdevUUID"
 )
 
 type DeviceInfo struct {
