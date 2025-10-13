@@ -2,8 +2,6 @@ module kubevirt.io/client-go
 
 go 1.24.0
 
-toolchain go1.24.7
-
 require (
 	github.com/go-kit/log v0.2.1
 	github.com/google/gofuzz v1.2.0
@@ -17,9 +15,9 @@ require (
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/mock v0.5.1
 	k8s.io/api v0.33.5
-	k8s.io/apiextensions-apiserver v0.32.5
+	k8s.io/apiextensions-apiserver v0.33.5
 	k8s.io/apimachinery v0.33.5
-	k8s.io/apiserver v0.32.5
+	k8s.io/apiserver v0.33.5
 	k8s.io/client-go v0.33.5
 	k8s.io/kube-openapi v0.31.0
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
