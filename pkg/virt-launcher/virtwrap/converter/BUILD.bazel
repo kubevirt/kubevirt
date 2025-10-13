@@ -71,6 +71,7 @@ go_test(
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util/hardware:go_default_library",
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",

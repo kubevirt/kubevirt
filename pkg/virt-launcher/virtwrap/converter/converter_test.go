@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
@@ -1086,6 +1087,22 @@ var _ = Describe("Converter", func() {
 			Entry("should be present for amd64", amd64, HaveExactElements(api.CPUFeature{Name: "mpx", Policy: "disable"})),
 			Entry("should be nil for arm64", arm64, BeNil()),
 		)
+
+		Context("machine type", func() {
+			DescribeTable("machine should default", func(arch string, machineFrom *v1.Machine, machineTo string) {
+				c.Architecture = archconverter.NewConverter(arch)
+				vmi.Spec.Domain.Machine = machineFrom
+				domain := vmiToDomain(vmi, c)
+				Expect(domain.Spec.OS.Type.Machine).To(Equal(machineTo))
+			},
+				Entry("when nil on s390x", s390x, nil, virtconfig.DefaultS390XMachineType),
+				Entry("when nil on amd64", amd64, nil, virtconfig.DefaultAMD64MachineType),
+				Entry("when nil on arm64", arm64, nil, virtconfig.DefaultAARCH64MachineType),
+				Entry("when empty on s390x", s390x, &v1.Machine{Type: ""}, virtconfig.DefaultS390XMachineType),
+				Entry("when empty on amd64", amd64, &v1.Machine{Type: ""}, virtconfig.DefaultAMD64MachineType),
+				Entry("when empty on arm64", arm64, &v1.Machine{Type: ""}, virtconfig.DefaultAARCH64MachineType),
+			)
+		})
 
 		Context("when downwardMetrics are exposed via virtio-serial", func() {
 			It("should set socket options", func() {
