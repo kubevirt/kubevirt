@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "deviceclass.go",
+        "devicetaintrule.go",
         "interface.go",
         "resourceclaim.go",
         "resourceclaimtemplate.go",

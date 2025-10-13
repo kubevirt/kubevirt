@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["negotiate.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil",
+    importpath = "github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil",
+    visibility = ["//vendor/github.com/prometheus/client_golang:__subpackages__"],
+    deps = ["//vendor/github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil/header:go_default_library"],
+)

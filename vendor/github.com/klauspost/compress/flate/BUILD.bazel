@@ -18,8 +18,6 @@ go_library(
         "level4.go",
         "level5.go",
         "level6.go",
-        "matchlen_amd64.go",
-        "matchlen_amd64.s",
         "matchlen_generic.go",
         "regmask_amd64.go",
         "regmask_other.go",
@@ -29,4 +27,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/klauspost/compress/flate",
     importpath = "github.com/klauspost/compress/flate",
     visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/klauspost/compress/internal/le:go_default_library"],
 )
