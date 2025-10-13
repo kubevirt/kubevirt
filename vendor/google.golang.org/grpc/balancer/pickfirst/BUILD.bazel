@@ -8,9 +8,11 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/google.golang.org/grpc/balancer:go_default_library",
+        "//vendor/google.golang.org/grpc/balancer/pickfirst/internal:go_default_library",
+        "//vendor/google.golang.org/grpc/balancer/pickfirst/pickfirstleaf:go_default_library",
         "//vendor/google.golang.org/grpc/connectivity:go_default_library",
         "//vendor/google.golang.org/grpc/grpclog:go_default_library",
-        "//vendor/google.golang.org/grpc/internal:go_default_library",
+        "//vendor/google.golang.org/grpc/internal/envconfig:go_default_library",
         "//vendor/google.golang.org/grpc/internal/grpclog:go_default_library",
         "//vendor/google.golang.org/grpc/internal/pretty:go_default_library",
         "//vendor/google.golang.org/grpc/resolver:go_default_library",
