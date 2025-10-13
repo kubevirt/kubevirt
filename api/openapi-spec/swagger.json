@@ -19021,11 +19021,11 @@
     }
    },
    "v1alpha1.VirtualMachinePoolSelectionPolicy": {
-    "description": "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for scale-in",
+    "description": "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for proactive scale-in or update",
     "type": "object",
     "properties": {
      "basePolicy": {
-      "description": "BasePolicy is a catch-all policy [Random|DescendingOrder]",
+      "description": "BasePolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]",
       "type": "string"
      },
      "orderedPolicies": {
