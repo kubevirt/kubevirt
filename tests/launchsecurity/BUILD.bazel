@@ -2,11 +2,16 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["sev.go"],
+    srcs = [
+        "sev.go",
+        "tdx.go",
+    ],
     importpath = "kubevirt.io/kubevirt/tests/launchsecurity",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/cloudinit:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
