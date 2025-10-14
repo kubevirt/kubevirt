@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/network/dns"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -175,6 +176,7 @@ var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorato
 				windowsVMI = libwait.WaitForSuccessfulVMIStart(windowsVMI,
 					libwait.WithTimeout(420),
 				)
+
 			})
 
 			It("should be recognized by other pods in cluster", func() {
@@ -207,10 +209,18 @@ var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorato
 
 func winrmLoginCommand(windowsVMI *v1.VirtualMachineInstance) []string {
 	var err error
-	windowsVMI, err = kubevirt.Client().VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	vmiIp := windowsVMI.Status.Interfaces[0].IP
+	var vmiIp string
+	EventuallyWithOffset(1, func() error {
+		windowsVMI, err = kubevirt.Client().VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if windowsVMI.Status.Interfaces[0].IP != "" && vmispec.ContainsInfoSource(windowsVMI.Status.Interfaces[0].InfoSource, "guest-agent") {
+			vmiIp = windowsVMI.Status.Interfaces[0].IP
+			return nil
+		}
+		return fmt.Errorf("waiting from ip from guest-agent")
+	}, 30*time.Second, 1*time.Second).Should(Succeed())
 	cli := []string{
 		winrmCliCmd,
 		"-hostname",
