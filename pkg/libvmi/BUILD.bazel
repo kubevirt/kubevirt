@@ -16,6 +16,7 @@ go_library(
         "selector.go",
         "sev.go",
         "storage.go",
+        "tdx.go",
         "vm.go",
         "vmi.go",
     ],
