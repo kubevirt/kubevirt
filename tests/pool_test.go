@@ -421,7 +421,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 5*time.Second, 1*time.Second).Should(Succeed())
 	})
 
-	It("should roll out VMI template changes and proactively roll out new VMIs", func() {
+	It("should roll out VMI template changes and proactively roll out new VMIs when proactive update strategy is nil", func() {
 		newPool := newVirtualMachinePool()
 		doScale(newPool.Name, 1)
 		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 1)
@@ -482,6 +482,190 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 				return fmt.Errorf("Expected vmi to pick up the new updated label")
 			}
 			return nil
+		}, 60*time.Second, 1*time.Second).Should(Succeed())
+	})
+
+	It("should roll out VMI template changes only to VMs when opportunistic update strategy is set", func() {
+		pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
+			Opportunistic: pointer.P(true),
+		}
+
+		pool = createVirtualMachinePool(pool)
+
+		doScale(pool.Name, 1)
+		waitForVMIs(pool.Namespace, pool.Spec.Selector, 1)
+
+		vms, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(pool.Spec.Selector),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vms.Items).To(HaveLen(1))
+
+		name := vms.Items[0].Name
+		vmi, err := virtClient.VirtualMachineInstance(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		vmiUID := vmi.UID
+
+		By("Rolling Out VMI template change")
+		pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Get(context.Background(), pool.ObjectMeta.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		patchData, err := patch.New(patch.WithAdd(
+			fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey), newLabelValue),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Ensuring VMs are updated")
+		Eventually(func() error {
+			vm, err := virtClient.VirtualMachine(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			if err != nil {
+				return nil
+			}
+
+			_, ok := vm.Spec.Template.ObjectMeta.Labels[newLabelKey]
+			if !ok {
+				return fmt.Errorf("Expected vm pool update to roll out to VMs")
+			}
+
+			return nil
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+
+		By("Ensuring VMI remains consistent and isn't restarted")
+		Consistently(func() error {
+			vmi, err := virtClient.VirtualMachineInstance(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			if err != nil {
+				return nil
+			}
+
+			Expect(vmi.UID).To(Equal(vmiUID))
+			Expect(vmi.DeletionTimestamp).To(BeNil())
+			return nil
+		}, 5*time.Second, 1*time.Second).Should(Succeed())
+	})
+
+	It("should not roll out VMI template changes and proactively roll out new VMIs when proactive update strategy is set and label selector does not match", func() {
+		pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
+			Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
+				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+					OrderedPolicies: &poolv1.VirtualMachinePoolOrderedPolicy{
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"app": "test"},
+						},
+					},
+				},
+			},
+		}
+
+		pool = createVirtualMachinePool(pool)
+
+		doScale(pool.Name, 1)
+		waitForVMIs(pool.Namespace, pool.Spec.Selector, 1)
+
+		vms, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(pool.Spec.Selector),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vms.Items).To(HaveLen(1))
+
+		name := vms.Items[0].Name
+		vmi, err := virtClient.VirtualMachineInstance(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		vmiUID := vmi.UID
+
+		By("Rolling Out VMI template change")
+		pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Get(context.Background(), pool.ObjectMeta.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		patchData, err := patch.New(patch.WithAdd(
+			fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey), newLabelValue),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Ensuring VMs are not updated")
+		Eventually(func(g Gomega) {
+			vm, err := virtClient.VirtualMachine(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+
+			g.Expect(vm.Spec.Template.ObjectMeta.Labels[newLabelKey]).ToNot(Equal(newLabelValue))
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+
+		By("Ensuring VMI remains consistent and isn't restarted")
+		Consistently(func(g Gomega) {
+			vmi, err := virtClient.VirtualMachineInstance(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmi.UID).To(Equal(vmiUID))
+			Expect(vmi.DeletionTimestamp).To(BeNil())
+		}, 5*time.Second, 1*time.Second).Should(Succeed())
+	})
+
+	It("should roll out VMI template changes and proactively roll out new VMIs when proactive update strategy is set", func() {
+		pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["app"] = "test"
+		pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
+			Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
+				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+					OrderedPolicies: &poolv1.VirtualMachinePoolOrderedPolicy{
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"app": "test"},
+						},
+					},
+				},
+			},
+		}
+
+		pool = createVirtualMachinePool(pool)
+
+		doScale(pool.Name, 1)
+		waitForVMIs(pool.Namespace, pool.Spec.Selector, 1)
+
+		vms, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(pool.Spec.Selector),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vms.Items).To(HaveLen(1))
+
+		name := vms.Items[0].Name
+		vmi, err := virtClient.VirtualMachineInstance(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		vmiUID := vmi.UID
+
+		By("Rolling Out VMI template change")
+		pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Get(context.Background(), pool.ObjectMeta.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		patchData, err := patch.New(patch.WithAdd(
+			fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey), newLabelValue),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Ensuring VMs matching label selector are updated")
+		Eventually(func(g Gomega) {
+			vm, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vm.Spec.Template.ObjectMeta.Labels[newLabelKey]).To(Equal(newLabelValue))
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+
+		By("Ensuring VMIs matching label selector are updated")
+		Eventually(func(g Gomega) {
+			vmi, err := virtClient.VirtualMachineInstance(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vmi.UID).NotTo(Equal(vmiUID))
+			g.Expect(vmi.Labels[newLabelKey]).To(Equal(newLabelValue))
 		}, 60*time.Second, 1*time.Second).Should(Succeed())
 	})
 

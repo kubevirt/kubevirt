@@ -527,22 +527,14 @@ func filterVMs(vms []*virtv1.VirtualMachine, f func(vmi *virtv1.VirtualMachine) 
 	return filtered
 }
 
-func resolveBasePolicy(scaleInStrategy *poolv1.VirtualMachinePoolScaleInStrategy) poolv1.VirtualMachinePoolBasePolicy {
-	if scaleInStrategy == nil {
+func resolveScaleInPolicy(scaleInStrategy *poolv1.VirtualMachinePoolScaleInStrategy) poolv1.VirtualMachinePoolBasePolicy {
+	if scaleInStrategy == nil || scaleInStrategy.Proactive == nil {
 		return poolv1.VirtualMachinePoolBasePolicyRandom
 	}
-
-	return resolveProactiveScaleInPolicy(scaleInStrategy.Proactive)
+	return resolveSelectionPolicy(scaleInStrategy.Proactive.SelectionPolicy)
 }
 
-func resolveProactiveScaleInPolicy(scaleInStrategy *poolv1.VirtualMachinePoolProactiveScaleInStrategy) poolv1.VirtualMachinePoolBasePolicy {
-	if scaleInStrategy == nil {
-		return poolv1.VirtualMachinePoolBasePolicyRandom
-	}
-	return resolveSelectionPolicy(scaleInStrategy.SelectionPolicy)
-}
-
-func resolveProactiveUpdatePolicy(updateStrategy *poolv1.VirtualMachinePoolProactiveUpdateStrategy) poolv1.VirtualMachinePoolBasePolicy {
+func resolveUpdateBasePolicy(updateStrategy *poolv1.VirtualMachinePoolProactiveUpdateStrategy) poolv1.VirtualMachinePoolBasePolicy {
 	if updateStrategy == nil {
 		return poolv1.VirtualMachinePoolBasePolicyRandom
 	}
@@ -584,7 +576,7 @@ func sortVMsByOldestFirst(vms []*virtv1.VirtualMachine) {
 	})
 }
 
-func sortVMsByOrdinalAscending(vms []*virtv1.VirtualMachine) {
+func sortVMsByOrdinal(vms []*virtv1.VirtualMachine, ascending bool) {
 	sort.Slice(vms, func(i, j int) bool {
 		ordinalI, errI := indexFromName(vms[i].Name)
 		ordinalJ, errJ := indexFromName(vms[j].Name)
@@ -594,22 +586,19 @@ func sortVMsByOrdinalAscending(vms []*virtv1.VirtualMachine) {
 		if errJ != nil {
 			ordinalJ = 0
 		}
-		return ordinalI < ordinalJ
-	})
-}
-
-func sortVMsByOrdinalDescending(vms []*virtv1.VirtualMachine) {
-	sort.Slice(vms, func(i, j int) bool {
-		ordinalI, errI := indexFromName(vms[i].Name)
-		ordinalJ, errJ := indexFromName(vms[j].Name)
-		if errI != nil {
-			ordinalI = 0
-		}
-		if errJ != nil {
-			ordinalJ = 0
+		if ascending {
+			return ordinalI < ordinalJ
 		}
 		return ordinalI > ordinalJ
 	})
+}
+
+func sortVMsByOrdinalAscending(vms []*virtv1.VirtualMachine) {
+	sortVMsByOrdinal(vms, true)
+}
+
+func sortVMsByOrdinalDescending(vms []*virtv1.VirtualMachine) {
+	sortVMsByOrdinal(vms, false)
 }
 
 func sortVMsRandom(vms []*virtv1.VirtualMachine) {
@@ -679,7 +668,7 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 		count = len(elgibleVMs)
 	}
 
-	basePolicy := resolveBasePolicy(pool.Spec.ScaleInStrategy)
+	basePolicy := resolveScaleInPolicy(pool.Spec.ScaleInStrategy)
 	sortVMsBasedOnBasePolicy(elgibleVMs, basePolicy)
 
 	log.Log.Object(pool).Infof("Removing %d VMs from pool", count)
@@ -1156,7 +1145,7 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 	}
 
 	if pool.Spec.UpdateStrategy != nil && pool.Spec.UpdateStrategy.Proactive != nil {
-		basePolicy := resolveProactiveUpdatePolicy(pool.Spec.UpdateStrategy.Proactive)
+		basePolicy := resolveUpdateBasePolicy(pool.Spec.UpdateStrategy.Proactive)
 		sortVMsBasedOnBasePolicy(vmUpdatedList, basePolicy)
 	}
 

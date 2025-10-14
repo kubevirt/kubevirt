@@ -203,7 +203,6 @@ var _ = Describe("Validating Pool Admitter", func() {
 			"spec.maxUnavailable",
 		}),
 		Entry("with invalid update strategy", func() *poolv1.VirtualMachinePool {
-			basePolicy := poolv1.VirtualMachinePoolBasePolicyRandom
 			return &poolv1.VirtualMachinePool{
 				Spec: poolv1.VirtualMachinePoolSpec{
 					Selector: &metav1.LabelSelector{
@@ -233,7 +232,7 @@ var _ = Describe("Validating Pool Admitter", func() {
 						Unmanaged: pointer.P(true),
 						Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
 							SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-								BasePolicy: &basePolicy,
+								BasePolicy: pointer.P(poolv1.VirtualMachinePoolBasePolicyRandom),
 							},
 						},
 					},
@@ -244,7 +243,6 @@ var _ = Describe("Validating Pool Admitter", func() {
 		}),
 	)
 	It("should accept valid vm spec", func() {
-		basePolicy := poolv1.VirtualMachinePoolBasePolicyNewest
 		pool := &poolv1.VirtualMachinePool{
 			Spec: poolv1.VirtualMachinePoolSpec{
 				Selector: &metav1.LabelSelector{
@@ -253,7 +251,7 @@ var _ = Describe("Validating Pool Admitter", func() {
 				UpdateStrategy: &poolv1.VirtualMachinePoolUpdateStrategy{
 					Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
 						SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-							BasePolicy: &basePolicy,
+							BasePolicy: pointer.P(poolv1.VirtualMachinePoolBasePolicyNewest),
 						},
 					},
 				},
