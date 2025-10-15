@@ -866,37 +866,6 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 		return nil
 	}
 
-	// The pull policy for container disks are only set on the VMI spec and not on the VM spec.
-	// In order to correctly compare the volumes set, we need to set the pull policy on the VM spec as well.
-	vmCopy := vm.DeepCopy()
-	volsVMI := storagetypes.GetVolumesByName(&vmi.Spec)
-	for i, volume := range vmCopy.Spec.Template.Spec.Volumes {
-		vmiVol, ok := volsVMI[volume.Name]
-		if !ok {
-			continue
-		}
-		if vmiVol.ContainerDisk != nil {
-			vmCopy.Spec.Template.Spec.Volumes[i].ContainerDisk.ImagePullPolicy = vmiVol.ContainerDisk.ImagePullPolicy
-		}
-	}
-	hotplugOp := false
-	volsVM := storagetypes.GetVolumesByName(&vmCopy.Spec.Template.Spec)
-	for _, volume := range vmi.Spec.Volumes {
-		hotpluggableVol := (volume.VolumeSource.PersistentVolumeClaim != nil &&
-			volume.VolumeSource.PersistentVolumeClaim.Hotpluggable) ||
-			(volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Hotpluggable)
-		_, ok := volsVM[volume.Name]
-		if !ok && hotpluggableVol {
-			hotplugOp = true
-		}
-	}
-	if hotplugOp {
-		return nil
-	}
-	if equality.Semantic.DeepEqual(vmi.Spec.Volumes, vmCopy.Spec.Template.Spec.Volumes) {
-		return nil
-	}
-	vmConditions := controller.NewVirtualMachineConditionManager()
 	// Abort the volume migration if any of the previous migrated volumes
 	// has changed
 	if volMigAbort, err := volumemig.VolumeMigrationCancel(c.clientset, vmi, vm); volMigAbort {
@@ -909,11 +878,13 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 	switch {
 	case vm.Spec.UpdateVolumesStrategy == nil ||
 		*vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyReplacement:
-		if !vmConditions.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
-			log.Log.Object(vm).Infof("Set restart required condition because of a volumes update")
-			setRestartRequired(vm, "the volumes replacement is effective only after restart")
-		}
+		log.Log.Object(vm).V(4).Infof("not handling replacement update volumes strategy")
 	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
+		if !volumemig.PersistentVolumesUpdated(&vm.Spec.Template.Spec, &vmi.Spec) {
+			log.Log.Object(vm).V(4).Infof("No persistent volumes updated")
+			return nil
+		}
+
 		// Validate if the update volumes can be migrated
 		if err := volumemig.ValidateVolumes(vmi, vm, c.dataVolumeStore, c.pvcStore); err != nil {
 			return c.handleValidationErrors(err, vmi, vm)
@@ -3003,16 +2974,17 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		return false
 	}
 
+	if validLiveUpdateVolumes(&lastSeenVM.Spec, currentVM) {
+		lastSeenVM.Spec.Template.Spec.Volumes = currentVM.Spec.Template.Spec.Volumes
+	}
+	if validLiveUpdateDisks(&lastSeenVM.Spec, currentVM) {
+		lastSeenVM.Spec.Template.Spec.Domain.Devices.Disks = currentVM.Spec.Template.Spec.Domain.Devices.Disks
+	}
+
 	// Ignore all the live-updatable fields by copying them over. (If the feature gate is disabled, nothing is live-updatable)
 	// Note: this list needs to stay up-to-date with everything that can be live-updated
 	// Note2: destroying lastSeenVM here is fine, we don't need it later
 	if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
-		if validLiveUpdateVolumes(&lastSeenVM.Spec, currentVM) {
-			lastSeenVM.Spec.Template.Spec.Volumes = currentVM.Spec.Template.Spec.Volumes
-		}
-		if validLiveUpdateDisks(&lastSeenVM.Spec, currentVM) {
-			lastSeenVM.Spec.Template.Spec.Domain.Devices.Disks = currentVM.Spec.Template.Spec.Domain.Devices.Disks
-		}
 		if lastSeenVM.Spec.Template.Spec.Domain.CPU != nil && currentVM.Spec.Template.Spec.Domain.CPU != nil {
 			lastSeenVM.Spec.Template.Spec.Domain.CPU.Sockets = currentVM.Spec.Template.Spec.Domain.CPU.Sockets
 		}
@@ -3027,19 +2999,6 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		lastSeenVM.Spec.Template.Spec.NodeSelector = currentVM.Spec.Template.Spec.NodeSelector
 		lastSeenVM.Spec.Template.Spec.Affinity = currentVM.Spec.Template.Spec.Affinity
 		lastSeenVM.Spec.Template.Spec.Tolerations = currentVM.Spec.Template.Spec.Tolerations
-	} else {
-		// In the case live-updates aren't enable the volume set of the VM can be still changed by volume hotplugging.
-		// For imperative volume hotplug, first the VM status with the request AND the VMI spec are updated, then in the
-		// next iteration, the VM spec is updated as well. Here, we're in this iteration where the currentVM has for the first
-		// time the updated hotplugged volumes. Hence, we can compare the current VM volumes and disks with the ones belonging
-		// to the VMI.
-		// In case of a declarative update, the flow is the opposite, first we update the VM spec and then the VMI. Therefore, if
-		// the change was declarative, then the VMI would still not have the update.
-		if equality.Semantic.DeepEqual(currentVM.Spec.Template.Spec.Volumes, vmi.Spec.Volumes) &&
-			equality.Semantic.DeepEqual(currentVM.Spec.Template.Spec.Domain.Devices.Disks, vmi.Spec.Domain.Devices.Disks) {
-			lastSeenVM.Spec.Template.Spec.Volumes = currentVM.Spec.Template.Spec.Volumes
-			lastSeenVM.Spec.Template.Spec.Domain.Devices.Disks = currentVM.Spec.Template.Spec.Domain.Devices.Disks
-		}
 	}
 
 	if !netvmliveupdate.IsRestartRequired(currentVM, vmi) {

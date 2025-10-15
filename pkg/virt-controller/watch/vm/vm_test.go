@@ -5924,29 +5924,6 @@ var _ = Describe("VirtualMachine", func() {
 					newDVName = "newDV"
 					ns        = metav1.NamespaceDefault
 				)
-				DescribeTable("should set the restart condition", func(strategy *v1.UpdateVolumesStrategy) {
-					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &liveUpdate,
-							},
-						},
-					})
-					vm, vmi := watchtesting.DefaultVirtualMachine(true)
-					vm.Spec.UpdateVolumesStrategy = strategy
-					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-						Name: "vol1"})
-					vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{Name: "vol2"})
-					controller.handleVolumeUpdateRequest(vm, vmi)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineRestartRequired)
-					Expect(cond).ToNot(BeNil())
-					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
-					Expect(cond.Message).To(Equal("the volumes replacement is effective only after restart"))
-				},
-					Entry("without the updateVolumeStrategy field", nil),
-					Entry("with the replacement updateVolumeStrategy",
-						pointer.P(v1.UpdateVolumesStrategyReplacement)),
-				)
 
 				It("should set the restart condition with the Migration updateVolumeStrategy if volumes cannot be migrated", func() {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
@@ -6468,17 +6445,23 @@ var _ = Describe("VirtualMachine", func() {
 						v1.VirtualMachineRestartRequired)).To(BeFalse())
 				})
 
-				It("should appear when the volume is directly added to the spec", func() {
-					By("Creating a VM")
+				DescribeTable("should NOT appear for hotpluggable DataVolume regardless of rollout strategy", func(strategy *v1.VMRolloutStrategy) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: strategy,
+							},
+						},
+					})
+
+					By("Creating a VM with VMI")
 					vmi = SetupVMIFromVM(vm)
 					controller.vmiIndexer.Add(vmi)
-
-					By("Creating a Controller Revision")
 					controller.crIndexer.Add(createVMRevision(vm))
 
-					By("Adding an hotplugged volume to the VM")
+					By("Adding hotpluggable DataVolume to VM spec")
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-						Name: "hotplug",
+						Name: "hotplug-vol",
 						VolumeSource: v1.VolumeSource{
 							DataVolume: &v1.DataVolumeSource{
 								Name:         "hotplug-dv",
@@ -6487,21 +6470,189 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-						Name: "hotplug",
+						Name: "hotplug-vol",
 						DiskDevice: v1.DiskDevice{
 							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
-						}})
+						},
+					})
+
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					By("Executing the controller expecting the RestartRequired not to appear")
 					sanityExecute(vm)
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
+
+					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
+						v1.VirtualMachineRestartRequired)).To(BeFalse())
+				},
+					Entry("with no rollout strategy", nil),
+					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+				)
+
+				DescribeTable("should NOT appear for hotpluggable PVC regardless of rollout strategy", func(strategy *v1.VMRolloutStrategy) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: strategy,
+							},
+						},
+					})
+
+					By("Creating a VM with VMI")
+					vmi = SetupVMIFromVM(vm)
+					controller.vmiIndexer.Add(vmi)
+					controller.crIndexer.Add(createVMRevision(vm))
+
+					By("Adding hotpluggable PVC volume to VM spec")
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "hotplug-pvc",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "hotplug-claim",
+								},
+								Hotpluggable: true,
+							},
+						},
+					})
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+						Name: "hotplug-pvc",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+						},
+					})
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
+					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
+						v1.VirtualMachineRestartRequired)).To(BeFalse())
+				},
+					Entry("with no rollout strategy", nil),
+					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+				)
+
+				DescribeTable("should appear for non-hotpluggable volumes regardless of rollout strategy", func(strategy *v1.VMRolloutStrategy) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: strategy,
+							},
+						},
+					})
+
+					By("Creating a VM with VMI")
+					vmi = SetupVMIFromVM(vm)
+					controller.vmiIndexer.Add(vmi)
+					controller.crIndexer.Add(createVMRevision(vm))
+
+					By("Adding non-hotpluggable volume to VM spec")
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "regular-vol",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name:         "regular-dv",
+								Hotpluggable: false,
+							},
+						},
+					})
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+						Name: "regular-vol",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
+						},
+					})
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
 					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
 						v1.VirtualMachineRestartRequired)).To(BeTrue())
-				})
+				},
+					Entry("with no rollout strategy", nil),
+					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+				)
+
+				DescribeTable("should appear when mixing hotpluggable and non-hotpluggable volumes", func(strategy *v1.VMRolloutStrategy) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: strategy,
+							},
+						},
+					})
+
+					By("Creating a VM with VMI")
+					vmi = SetupVMIFromVM(vm)
+					controller.vmiIndexer.Add(vmi)
+					controller.crIndexer.Add(createVMRevision(vm))
+
+					By("Adding both hotpluggable and non-hotpluggable volumes")
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
+						v1.Volume{
+							Name: "hotplug-vol",
+							VolumeSource: v1.VolumeSource{
+								DataVolume: &v1.DataVolumeSource{
+									Name:         "hotplug-dv",
+									Hotpluggable: true,
+								},
+							},
+						},
+						v1.Volume{
+							Name: "regular-vol",
+							VolumeSource: v1.VolumeSource{
+								DataVolume: &v1.DataVolumeSource{
+									Name:         "regular-dv",
+									Hotpluggable: false,
+								},
+							},
+						},
+					)
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
+						v1.Disk{
+							Name: "hotplug-vol",
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+							},
+						},
+						v1.Disk{
+							Name: "regular-vol",
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
+							},
+						},
+					)
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
+					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
+						v1.VirtualMachineRestartRequired)).To(BeTrue())
+				},
+					Entry("with no rollout strategy", nil),
+					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+				)
 			})
 		})
 
