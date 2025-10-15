@@ -724,6 +724,9 @@ const (
 
 	// VirtualMachineInstanceMigrationRequired Indicates that an automatic migration is required
 	VirtualMachineInstanceMigrationRequired VirtualMachineInstanceConditionType = "MigrationRequired"
+
+	// VirtualMachineInstanceEvictionRequested indicates that an eviction has been requested for the VMI
+	VirtualMachineInstanceEvictionRequested VirtualMachineInstanceConditionType = "EvictionRequested"
 )
 
 // These are valid reasons for VMI conditions.
@@ -764,6 +767,9 @@ const (
 
 	// Indicates that automatic migration is pending
 	VirtualMachineInstanceReasonAutoMigrationPending = "AutoMigrationPending"
+
+	// Indicates that an eviction has been requested for the VMI
+	VirtualMachineInstanceReasonEvictionRequested = "EvictionRequested"
 )
 
 const (
