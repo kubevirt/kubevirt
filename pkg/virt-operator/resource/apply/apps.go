@@ -197,6 +197,10 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 	if hasTLS(cachedDaemonSet) && !hasTLS(newDS) {
 		insertTLS(newDS)
 	}
+	if !hasCertificateSecret(&cachedDaemonSet.Spec.Template.Spec, components.VirtHandlerCertSecretName) &&
+		hasCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName) {
+		unattachCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName)
+	}
 	log := log.Log.With("resource", fmt.Sprintf("ds/%s", cachedDaemonSet.Name))
 
 	isDaemonSetUpdated := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) && !forceUpdate
@@ -266,6 +270,15 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 				SetGeneration(&r.kv.Status.Generations, newDS)
 				return false, err, CanaryUpgradeStatusWaitingDaemonSetRollout
 			}
+			if hasCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName) {
+				unattachCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName)
+				var err error
+				cachedDaemonSet, err = r.patchDaemonSet(cachedDaemonSet, newDS)
+				if err != nil {
+					return false, err, CanaryUpgradeStatusFailed
+				}
+				log.V(2).Infof("daemonSet %v updated to secure certificates", newDS.GetName())
+			}
 		}
 
 		SetGeneration(&r.kv.Status.Generations, cachedDaemonSet)
@@ -295,6 +308,32 @@ func hasTLS(daemonSet *appsv1.DaemonSet) bool {
 		}
 	}
 	return false
+}
+
+func hasCertificateSecret(spec *corev1.PodSpec, secretName string) bool {
+	for _, volume := range spec.Volumes {
+		if volume.Name == secretName {
+			return true
+		}
+	}
+	return false
+}
+
+func unattachCertificateSecret(spec *corev1.PodSpec, secretName string) {
+	newVolumes := []corev1.Volume{}
+	for _, volume := range spec.Volumes {
+		if volume.Name != secretName {
+			newVolumes = append(newVolumes, volume)
+		}
+	}
+	spec.Volumes = newVolumes
+	newVolumeMounts := []corev1.VolumeMount{}
+	for _, volumeMount := range spec.Containers[0].VolumeMounts {
+		if volumeMount.Name != secretName {
+			newVolumeMounts = append(newVolumeMounts, volumeMount)
+		}
+	}
+	spec.Containers[0].VolumeMounts = newVolumeMounts
 }
 
 func getMaxUnavailable(daemonSet *appsv1.DaemonSet) int {
@@ -332,6 +371,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 		r.expectations.DaemonSet.RaiseExpectations(r.kvKey, 1, 0)
 		if supportsTLS(daemonSet) && !hasTLS(daemonSet) {
 			insertTLS(daemonSet)
+			unattachCertificateSecret(&daemonSet.Spec.Template.Spec, components.VirtHandlerCertSecretName)
 		}
 
 		daemonSet, err := apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
