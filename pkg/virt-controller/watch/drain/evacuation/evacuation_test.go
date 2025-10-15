@@ -101,17 +101,26 @@ var _ = Describe("Evacuation", func() {
 	}
 
 	Context("migration object creation", func() {
-		DescribeTable("should have expected values, annotations and priority", func(fgs []string, matcher types.GomegaMatcher) {
+		DescribeTable("should have expected values, annotations and priority", func(fgs []string, annotations map[string]string, matcher types.GomegaMatcher) {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{FeatureGates: fgs},
 			})
-			migration := GenerateNewMigration("my-vmi", "somenode", config)
+			vmi := newVirtualMachine("my-vmi", "somenode")
+			vmi.Annotations = annotations
+			migration := GenerateNewMigration(vmi, "somenode", config)
 			Expect(migration.Spec.VMIName).To(Equal("my-vmi"))
 			Expect(migration.Annotations[v1.EvacuationMigrationAnnotation]).To(Equal("somenode"))
 			Expect(migration.Spec.Priority).To(matcher)
 		},
-			Entry("with MigrationPriorityQueue feature gate disabled", nil, BeNil()),
-			Entry("with MigrationPriorityQueue feature gate enabled", []string{featuregate.MigrationPriorityQueue}, gstruct.PointTo(BeEquivalentTo("system-critical"))),
+			Entry("with MigrationPriorityQueue feature gate disabled", nil, nil, BeNil()),
+			Entry("with MigrationPriorityQueue feature gate enabled",
+				[]string{featuregate.MigrationPriorityQueue},
+				nil,
+				gstruct.PointTo(BeEquivalentTo("system-critical"))),
+			Entry("with MigrationPriorityQueue feature gate enabled, and descheduler annotation",
+				[]string{featuregate.MigrationPriorityQueue},
+				map[string]string{v1.EvictionSourceAnnotation: "descheduler"},
+				gstruct.PointTo(BeEquivalentTo("system-maintenance"))),
 		)
 	})
 

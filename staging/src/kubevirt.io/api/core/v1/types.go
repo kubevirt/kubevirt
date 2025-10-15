@@ -1386,6 +1386,11 @@ const (
 	// DisablePCIHole64 indicates that the 64-Bit PCI hole should be disabled on a VirtualMachineInstance.
 	// This annotation might be deprecated in the future if we decided to add a struct for it.
 	DisablePCIHole64 string = "kubevirt.io/disablePCIHole64"
+
+	// EvictionSourceAnnotation indicates the origin of an api initiated eviction in the VirtualMachineInstance.
+	// This annotation might be empty if the source is not a recognized actor (an admin for example).
+	// This could be useful to distinguish evictions originated from the descheduler.
+	EvictionSourceAnnotation = "kubevirt.io/eviction-source"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
