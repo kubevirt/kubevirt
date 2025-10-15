@@ -1638,7 +1638,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Creating the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
-				time.Sleep(10 * time.Second) // wait some time to stabilize the environment
+				By("Wait for the login to stabilize the guest")
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")

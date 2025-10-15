@@ -27,7 +27,7 @@ jobs:
           # Remove all running containers
           docker ps -q | xargs -r docker rm -f
           # Remove stopped containers, unused images, networks, and optionally volumes
-          docker system prune -f
+          docker system prune -f -a
 
       - name: Login to GHCR
         uses: docker/login-action@v1

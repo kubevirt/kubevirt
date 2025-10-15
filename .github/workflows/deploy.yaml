@@ -19,6 +19,7 @@ env:
   KUBECONFIG: ${{ github.workspace }}/kube-config
   KUBEVIRT_WITH_ETC_IN_MEMORY: "true"
   JUNIT_REPORT_FILE: _out/artifacts/junit.functest.xml
+  KUBEVIRT_E2E_PARALLEL: "true"
 
   
 jobs:
@@ -65,8 +66,7 @@ jobs:
         run: |
           rm -f $JUNIT_REPORT_FILE
           make cluster-up
-          FUNC_TEST_ARGS=--no-color \
-          FUNC_TEST_LABEL_FILTER='--label-filter=(!flake-check)&&('"${TEST_FOCUS}"'&&!(single-replica)&&(!QUARANTINE)&&(!requireHugepages2Mi)&&(!requireHugepages1Gi)&&(!SwapTest))' make functest
+          hack/retry-functests.sh
         env:          
           TEST_FOCUS: ${{ vars.TEST_FOCUS }}
           KUBEVIRT_E2E_SKIP: ${{ vars.TEST_SKIP }}
