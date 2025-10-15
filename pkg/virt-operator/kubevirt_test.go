@@ -2055,8 +2055,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 
 			// add one for the namespace
-			// now we don't patch and set generation for hadnler
-			Expect(kvTestData.totalPatches).To(Equal(numGenerations + 1 - 1))
+			Expect(kvTestData.totalPatches).To(Equal(numGenerations + 1))
 
 			// all these resources should be tracked by there generation so everyone that has been added should now be patched
 			// since they where the `lastGeneration` was set to -1 on the KubeVirt CR
