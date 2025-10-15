@@ -365,7 +365,7 @@ func getMarkedForEvictionVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.V
 	return evictionCandidates
 }
 
-func GenerateNewMigration(vmiName string, key string, config *virtconfig.ClusterConfig) *virtv1.VirtualMachineInstanceMigration {
+func GenerateNewMigration(vmi *virtv1.VirtualMachineInstance, key string, config *virtconfig.ClusterConfig) *virtv1.VirtualMachineInstanceMigration {
 
 	annotations := map[string]string{
 		virtv1.EvacuationMigrationAnnotation: key,
@@ -376,11 +376,14 @@ func GenerateNewMigration(vmiName string, key string, config *virtconfig.Cluster
 			GenerateName: "kubevirt-evacuation-",
 		},
 		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
-			VMIName: vmiName,
+			VMIName: vmi.Name,
 		},
 	}
 	if config.MigrationPriorityQueueEnabled() {
 		mig.Spec.Priority = pointer.P(virtv1.PrioritySystemCritical)
+		if value, exists := vmi.GetAnnotations()[virtv1.EvictionSourceAnnotation]; exists && value == "descheduler" {
+			mig.Spec.Priority = pointer.P(virtv1.PrioritySystemMaintenance)
+		}
 	}
 
 	return mig
@@ -453,7 +456,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi.Name, node.Name, c.clusterConfig), v1.CreateOptions{})
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi, node.Name, c.clusterConfig), v1.CreateOptions{})
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)
