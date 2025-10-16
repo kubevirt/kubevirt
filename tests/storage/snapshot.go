@@ -1547,7 +1547,7 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 
 	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	verifyVolumeAndDiskVMIAdded(virtClient, vmi, addVolumeName)
+	libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, addVolumeName)
 	libstorage.EventuallyDV(dv, 240, matcher.HaveSucceeded())
 
 	return addVolumeName
