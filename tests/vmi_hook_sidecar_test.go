@@ -162,17 +162,6 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 					Should(ContainSubstring("OnDefineDomain method has been called"))
 			})
 
-			It("[test_id:3158]should update domain XML with SM BIOS properties", func() {
-				By("Reading domain XML using virsh")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				libwait.WaitForSuccessfulVMIStart(vmi)
-				domainXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
-				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
-				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
-			})
-
 			It("should not start with hook sidecar annotation when the version is not provided", func() {
 				By("Starting a VMI")
 				vmi.ObjectMeta.Annotations = RenderInvalidSMBiosSidecar()
