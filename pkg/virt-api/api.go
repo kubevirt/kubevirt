@@ -127,14 +127,14 @@ type virtAPIApp struct {
 	handlerTLSConfiguration *tls.Config
 	handlerCertManager      certificate2.Manager
 
-	caConfigMapName              string
-	tlsCertFilePath              string
-	tlsKeyFilePath               string
-	handlerCertFilePath          string
-	handlerKeyFilePath           string
-	externallyManaged            bool
-	reloadableRateLimiter        *ratelimiter.ReloadableRateLimiter
-	reloadableWebhookRateLimiter *ratelimiter.ReloadableRateLimiter
+	caConfigMapName             string
+	tlsCertFilePath             string
+	tlsKeyFilePath              string
+	handlerCertFilePath         string
+	handlerKeyFilePath          string
+	externallyManaged           bool
+	clientRateLimiter           *ratelimiter.ReloadableRateLimiter
+	authorizorClientRateLimiter *ratelimiter.ReloadableRateLimiter
 
 	// indicates if controllers were started with or without CDI/DataSource support
 	hasCDIDataSource bool
@@ -163,28 +163,38 @@ func (app *virtAPIApp) Execute() {
 		panic(err)
 	}
 
-	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtAPIQPS, virtconfig.DefaultVirtAPIBurst))
-	app.reloadableWebhookRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtWebhookClientQPS, virtconfig.DefaultVirtWebhookClientBurst))
-
 	clientmetrics.RegisterRestConfigHooks()
 	clientConfig, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
 		panic(err)
 	}
-	clientConfig.RateLimiter = app.reloadableRateLimiter
+
+	app.clientRateLimiter = ratelimiter.NewReloadableRateLimiter(
+		flowcontrol.NewTokenBucketRateLimiter(
+			virtconfig.DefaultVirtAPIQPS,
+			virtconfig.DefaultVirtAPIBurst,
+		),
+	)
+
+	clientConfig.RateLimiter = app.clientRateLimiter
 	app.virtCli, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
 	if err != nil {
 		panic(err)
 	}
 
-	authorizor, err := rest.NewAuthorizor(app.reloadableWebhookRateLimiter)
+	app.authorizorClientRateLimiter = ratelimiter.NewReloadableRateLimiter(
+		flowcontrol.NewTokenBucketRateLimiter(
+			virtconfig.DefaultVirtAPIAuthorizorQPS,
+			virtconfig.DefaultVirtAPIAuthorizorBurst,
+		),
+	)
+
+	app.authorizor, err = rest.NewAuthorizor(app.authorizorClientRateLimiter)
 	if err != nil {
 		panic(err)
 	}
 
 	app.aggregatorClient = aggregatorclient.NewForConfigOrDie(clientConfig)
-
-	app.authorizor = authorizor
 
 	app.certsDirectory, err = os.MkdirTemp("", "certsdir")
 	if err != nil {
@@ -1141,7 +1151,7 @@ func (app *virtAPIApp) Run() {
 	app.hasCDIDataSource = app.clusterConfig.HasDataSourceAPI()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
-	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
+	app.clusterConfig.SetConfigModifiedCallback(app.changeRateLimiter)
 
 	var dataSourceInformer cache.SharedIndexInformer
 	if app.hasCDIDataSource {
@@ -1205,17 +1215,19 @@ func (app *virtAPIApp) shouldChangeLogVerbosity() {
 	log.Log.V(2).Infof("set log verbosity to %d", verbosity)
 }
 
-// Update virt-handler rate limiter
-func (app *virtAPIApp) shouldChangeRateLimiter() {
+// Update virt-api rate limiters
+func (app *virtAPIApp) changeRateLimiter() {
 	config := app.clusterConfig.GetConfig()
+
 	qps := config.APIConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
 	burst := config.APIConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
-	app.reloadableRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
+	app.clientRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
 	log.Log.V(2).Infof("setting rate limiter for the API to %v QPS and %v Burst", qps, burst)
+
 	qps = config.WebhookConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
 	burst = config.WebhookConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
-	app.reloadableWebhookRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
-	log.Log.V(2).Infof("setting rate limiter for webhooks to %v QPS and %v Burst", qps, burst)
+	app.authorizorClientRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
+	log.Log.V(2).Infof("setting rate limiter for the API Authorizor to %v QPS and %v Burst", qps, burst)
 }
 
 func (app *virtAPIApp) AddFlags() {
