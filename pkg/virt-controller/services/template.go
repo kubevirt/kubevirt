@@ -1497,9 +1497,7 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
 			// Run overcommit first to avoid overcommitting overhead memory
-			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.GetMemoryOvercommit() != 100
-			}, WithMemoryOvercommit(t.clusterConfig.GetMemoryOvercommit())),
+			NewVMIResourceRule(emptyMemoryRequest, WithMemoryRequests(vmi.Spec.Domain.Memory, t.clusterConfig.GetMemoryOvercommit())),
 			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi, vmi.Annotations, additionalCPUs)),
 			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(hasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
@@ -1594,4 +1592,9 @@ func isSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
 		vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
 		vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState != nil &&
 		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState
+}
+
+func emptyMemoryRequest(vmi *v1.VirtualMachineInstance) bool {
+	resources := &vmi.Spec.Domain.Resources
+	return resources.Requests.Memory().IsZero()
 }

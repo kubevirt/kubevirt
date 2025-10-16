@@ -903,12 +903,15 @@ func validateCPURequestIsInteger(field *k8sfield.Path, spec *v1.VirtualMachineIn
 
 func validateMemoryLimitAndRequestProvided(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if spec.Domain.Resources.Limits.Memory().Value() == 0 && spec.Domain.Resources.Requests.Memory().Value() == 0 {
+	if spec.Domain.Resources.Limits.Memory().Value() == 0 && spec.Domain.Resources.Requests.Memory().Value() == 0 &&
+		spec.Domain.Memory.Hugepages == nil && spec.Domain.Memory.Guest.Value() == 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s or %s should be provided",
+			Message: fmt.Sprintf("%s, %s, %s or %s should be provided",
 				field.Child("domain", "resources", "requests", "memory").String(),
 				field.Child("domain", "resources", "limits", "memory").String(),
+				field.Child("domain", "memory", "hugepages").String(),
+				field.Child("domain", "memory", "guest").String(),
 			),
 			Field: field.Child("domain", "resources", "limits", "memory").String(),
 		})
@@ -1028,7 +1031,10 @@ func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachi
 		return causes
 	}
 	vmMemory := spec.Domain.Resources.Requests.Memory().Value()
-	if vmMemory < hugepagesSize.Value() {
+	if vmMemory == 0 && spec.Domain.Memory != nil {
+		vmMemory = spec.Domain.Memory.Guest.Value()
+	}
+	if vmMemory != 0 && vmMemory < hugepagesSize.Value() {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s '%s' must be equal to or larger than page size %s '%s'",
