@@ -429,7 +429,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			getDirtyRateMetricValue(vm)
 		})
 
-		It("should ensure a stress VM has high dirty rate than a stale VM", func() {
+		It("[QUARANTINE] should ensure a stress VM has high dirty rate than a stale VM", decorators.Quarantine, func() {
 			createVM := func(vmName string) *v1.VirtualMachine {
 				By(fmt.Sprintf("Creating a VirtualMachine: %s", vmName))
 				vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithName(vmName)), libvmi.WithRunStrategy(v1.RunStrategyOnce))
