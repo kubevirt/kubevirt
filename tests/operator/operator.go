@@ -651,7 +651,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}
 
 			if updateOperator && flags.OperatorManifestPath == "" {
-				Skip("Skip operator update test when operator manifest path isn't configured")
+				Fail("Fail operator update test when operator manifest path isn't configured")
 			}
 
 			// This test should run fine on single-node setups as long as no VM is created pre-update
@@ -1072,7 +1072,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3148]should be able to create kubevirt install with custom image tag", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("Fail operator custom image tag test because alt tag is not present")
 			}
 
 			allKvInfraPodsAreReady(originalKv)
@@ -1112,7 +1112,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
 
 			if flags.ImagePrefixAlt == "" {
-				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
+				Fail("Fail operator imagePrefix test because imagePrefixAlt is not present")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1180,7 +1180,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("Fail operator custom image tag test because alt tag is not present")
 			}
 
 			var vmis []*v1.VirtualMachineInstance
@@ -1264,7 +1264,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("Fail operator custom image tag test because alt tag is not present")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1362,7 +1362,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			BeforeEach(func() {
 				if !checks.IsOpenShift() {
-					Skip("OpenShift operator tests should not be started on k8s")
+					Fail("OpenShift operator tests should not be started on k8s")
 				}
 			})
 
@@ -1417,7 +1417,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		BeforeEach(func() {
 			if serviceMonitorEnabled() {
-				Skip("Test applies on when ServiceMonitor is not defined")
+				Fail("Test applies on when ServiceMonitor is not defined")
 			}
 		})
 
@@ -1439,7 +1439,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		BeforeEach(func() {
 			if !prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is defined")
+				Fail("Test applies on when PrometheusRule is defined")
 			}
 		})
 
@@ -1458,7 +1458,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		BeforeEach(func() {
 			if prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is not defined")
+				Fail("Test applies on when PrometheusRule is not defined")
 			}
 		})
 
@@ -1473,7 +1473,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		BeforeEach(func() {
 			if !serviceMonitorEnabled() {
-				Skip("Test requires ServiceMonitor to be valid")
+				Fail("Test requires ServiceMonitor to be valid")
 			}
 		})
 
