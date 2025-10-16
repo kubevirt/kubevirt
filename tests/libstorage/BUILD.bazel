@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "config.go",
         "datavolume.go",
+        "hotplug.go",
         "image.go",
         "pvc.go",
         "storageclass.go",
