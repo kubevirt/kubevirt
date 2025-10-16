@@ -52,7 +52,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 			err := config.RegisterKubevirtConfigChange(
-				config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
+				config.WithNetBindingPluginIfNotPresent(passtBindingName, v1.InterfaceBindingPlugin{
 					SidecarImage:                passtSidecarImage,
 					NetworkAttachmentDefinition: passtNetAttDefName,
 				}),
@@ -111,7 +111,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 
 		BeforeEach(func() {
 			err := config.RegisterKubevirtConfigChange(
-				config.WithNetBindingPlugin(macvtapBindingName, v1.InterfaceBindingPlugin{
+				config.WithNetBindingPluginIfNotPresent(macvtapBindingName, v1.InterfaceBindingPlugin{
 					DomainAttachmentType: v1.Tap,
 				}),
 			)
@@ -154,7 +154,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 
 		BeforeEach(func() {
 			err := config.RegisterKubevirtConfigChange(
-				config.WithNetBindingPlugin(bindingName, v1.InterfaceBindingPlugin{
+				config.WithNetBindingPluginIfNotPresent(bindingName, v1.InterfaceBindingPlugin{
 					DomainAttachmentType: v1.ManagedTap,
 				}),
 			)

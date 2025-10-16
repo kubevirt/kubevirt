@@ -29,7 +29,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
-func WithNetBindingPlugin(name string, netBindingPlugin v1.InterfaceBindingPlugin) KvChangeOption {
+// WithNetBindingPluginIfNotPresent registers a network binding plugin in KubeVirt CR, only if a plugin of that name
+// is not already registered
+func WithNetBindingPluginIfNotPresent(name string, netBindingPlugin v1.InterfaceBindingPlugin) KvChangeOption {
 	return func(kv *v1.KubeVirt) *patch.PatchSet {
 		patchSet := patch.New()
 		config := kv.Spec.Configuration
@@ -39,6 +41,8 @@ func WithNetBindingPlugin(name string, netBindingPlugin v1.InterfaceBindingPlugi
 			patchSet.AddOption(patch.WithAdd("/spec/configuration/network/binding", map[string]v1.InterfaceBindingPlugin{}))
 		} else if config.NetworkConfiguration.Binding == nil {
 			patchSet.AddOption(patch.WithAdd("/spec/configuration/network/binding", map[string]v1.InterfaceBindingPlugin{}))
+		} else if _, exists := config.NetworkConfiguration.Binding[name]; exists {
+			return &patch.PatchSet{}
 		}
 
 		patchSet.AddOption(patch.WithAdd(fmt.Sprintf("/spec/configuration/network/binding/%s", name), netBindingPlugin))
