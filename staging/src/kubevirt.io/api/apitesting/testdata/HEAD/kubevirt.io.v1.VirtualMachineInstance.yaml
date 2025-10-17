@@ -524,6 +524,10 @@ spec:
     whenUnsatisfiable: whenUnsatisfiableValue
   volumes:
   - cloudInitConfigDrive:
+      metaData:
+        metaDataKey: metaDataValue
+      metaDataSecretRef:
+        name: nameValue
       networkData: networkDataValue
       networkDataBase64: networkDataBase64Value
       networkDataSecretRef:
@@ -533,6 +537,10 @@ spec:
       userData: userDataValue
       userDataBase64: userDataBase64Value
     cloudInitNoCloud:
+      metaData:
+        metaDataKey: metaDataValue
+      metaDataSecretRef:
+        name: nameValue
       networkData: networkDataValue
       networkDataBase64: networkDataBase64Value
       networkDataSecretRef:
