@@ -38,7 +38,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -75,6 +74,8 @@ const (
 	failedUpdatePodDisruptionBudgetReason     = "FailedUpdate"
 	failedGetAttractionPodsFmt                = "failed to get attachment pods: %v"
 )
+
+const vmiPodIndex = "vmiPodIndex"
 
 // This is the timeout used when a target pod is stuck in
 // a pending unschedulable state.
@@ -248,7 +249,26 @@ func NewController(templateService templateService,
 		return nil, err
 	}
 
-	return c, nil
+	return c, addVMIPodIndexer(c.podIndexer)
+}
+
+func addVMIPodIndexer(podIndexer cache.Indexer) error {
+	return podIndexer.AddIndexers(cache.Indexers{
+		vmiPodIndex: func(obj any) ([]string, error) {
+			pod, ok := obj.(*k8sv1.Pod)
+			if !ok {
+				return nil, nil
+			}
+			if pod.Labels == nil {
+				return nil, nil
+			}
+			if value, ok := pod.Labels[virtv1.CreatedByLabel]; ok {
+				return []string{value}, nil
+			}
+
+			return nil, nil
+		},
+	})
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
@@ -1654,19 +1674,7 @@ func (c *Controller) setupVMIRuntimeUser(vmi *virtv1.VirtualMachineInstance) *pa
 }
 
 func (c *Controller) listMatchingTargetPods(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) ([]*k8sv1.Pod, error) {
-
-	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{
-		MatchLabels: map[string]string{
-			virtv1.CreatedByLabel:    string(vmi.UID),
-			virtv1.AppLabel:          "virt-launcher",
-			virtv1.MigrationJobLabel: string(migration.UID),
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	objs, err := c.podIndexer.ByIndex(cache.NamespaceIndex, migration.Namespace)
+	objs, err := c.podIndexer.ByIndex(vmiPodIndex, string(vmi.UID))
 	if err != nil {
 		return nil, err
 	}
@@ -1674,11 +1682,12 @@ func (c *Controller) listMatchingTargetPods(migration *virtv1.VirtualMachineInst
 	var pods []*k8sv1.Pod
 	for _, obj := range objs {
 		pod := obj.(*k8sv1.Pod)
-		if selector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
-			pods = append(pods, pod)
+		if value, ok := pod.Labels[virtv1.MigrationJobLabel]; ok && value == string(migration.UID) {
+			if value, ok := pod.Labels[virtv1.AppLabel]; ok && value == "virt-launcher" {
+				pods = append(pods, pod)
+			}
 		}
 	}
-
 	return pods, nil
 }
 
