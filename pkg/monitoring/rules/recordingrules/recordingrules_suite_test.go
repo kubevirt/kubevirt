@@ -19,23 +19,13 @@
 package recordingrules
 
 import (
-	"github.com/rhobs/operator-observability-toolkit/pkg/operatorrules"
+	"testing"
 
-	v1 "kubevirt.io/api/core/v1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func Register(namespace string, hypervisorName string) error {
-	if hypervisorName == "" {
-		hypervisorName = v1.KvmHypervisorName // Default to KVM for backwards compatibility
-	}
-
-	return operatorrules.RegisterRecordingRules(
-		apiRecordingRules,
-		nodesRecordingRules(hypervisorName),
-		operatorRecordingRules,
-		virtRecordingRules(namespace),
-		vmRecordingRules,
-		vmiRecordingRules,
-		vmsnapshotRecordingRules,
-	)
+func TestRecordingRules(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Recording Rules Suite")
 }
