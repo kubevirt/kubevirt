@@ -165,12 +165,16 @@ func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, 
 		return iface.SRIOV != nil || vmispec.HasBindingPluginDeviceInfo(iface, g.clusterConfigurer.GetNetworkBindings())
 	})
 
-	networkDeviceInfoMap := deviceinfo.MapNetworkNameToDeviceInfo(vmi.Spec.Networks, ifaces, multus.NetworkStatusesFromPod(pod))
-	if len(networkDeviceInfoMap) == 0 {
+	multusNetworkStatuses := multus.NetworkStatusesFromPod(pod)
+
+	networkDeviceInfoMap := deviceinfo.MapNetworkNameToDeviceInfo(vmi.Spec.Networks, ifaces, multusNetworkStatuses)
+
+	networkDeviceMacAddressMap := deviceinfo.MapNetworkNameToDeviceMacAddress(vmi.Spec.Networks, ifaces, multusNetworkStatuses)
+	if len(networkDeviceInfoMap) == 0 && len(networkDeviceMacAddressMap) == 0 {
 		return ""
 	}
 
-	return downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap)
+	return downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap, networkDeviceMacAddressMap)
 }
 
 func shouldAddIstioKubeVirtAnnotation(vmi *v1.VirtualMachineInstance) bool {
