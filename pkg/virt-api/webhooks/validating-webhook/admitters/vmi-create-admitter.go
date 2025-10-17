@@ -60,8 +60,10 @@ const (
 	// to 2K to allow scaling of config as edits will cause entire object
 	// to be distributed to large no of nodes. For larger than 2K, user should
 	// use NetworkDataSecretRef and UserDataSecretRef
-	cloudInitUserMaxLen    = 2048
-	cloudInitNetworkMaxLen = 2048
+	cloudInitUserMaxLen          = 2048
+	cloudInitNetworkMaxLen       = 2048
+	cloudInitMetaDataMaxKeys     = 16
+	cloudInitMetaDataMaxValueLen = 256
 
 	// Copied from kubernetes/pkg/apis/core/validation/validation.go
 	maxDNSNameservers     = 3
@@ -1700,8 +1702,9 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 
 		// Verify cloud init data is within size limits
 		if volume.CloudInitNoCloud != nil || volume.CloudInitConfigDrive != nil {
-			var userDataSecretRef, networkDataSecretRef *k8sv1.LocalObjectReference
+			var userDataSecretRef, networkDataSecretRef, metaDataSecretRef *k8sv1.LocalObjectReference
 			var dataSourceType, userData, userDataBase64, networkData, networkDataBase64 string
+			var metaData map[string]string
 			if volume.CloudInitNoCloud != nil {
 				dataSourceType = "cloudInitNoCloud"
 				userDataSecretRef = volume.CloudInitNoCloud.UserDataSecretRef
@@ -1710,6 +1713,8 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 				networkDataSecretRef = volume.CloudInitNoCloud.NetworkDataSecretRef
 				networkDataBase64 = volume.CloudInitNoCloud.NetworkDataBase64
 				networkData = volume.CloudInitNoCloud.NetworkData
+				metaData = volume.CloudInitNoCloud.MetaData
+				metaDataSecretRef = volume.CloudInitNoCloud.MetaDataSecretRef
 			} else if volume.CloudInitConfigDrive != nil {
 				dataSourceType = "cloudInitConfigDrive"
 				userDataSecretRef = volume.CloudInitConfigDrive.UserDataSecretRef
@@ -1718,6 +1723,8 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 				networkDataSecretRef = volume.CloudInitConfigDrive.NetworkDataSecretRef
 				networkDataBase64 = volume.CloudInitConfigDrive.NetworkDataBase64
 				networkData = volume.CloudInitConfigDrive.NetworkData
+				metaData = volume.CloudInitConfigDrive.MetaData
+				metaDataSecretRef = volume.CloudInitConfigDrive.MetaDataSecretRef
 			}
 
 			userDataLen := 0
@@ -1797,12 +1804,46 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 				})
 			}
 
-			if userDataSourceCount == 0 && networkDataSourceCount == 0 {
+			metaDataSourceCount := 0
+			if metaDataSecretRef != nil && metaDataSecretRef.Name != "" {
+				metaDataSourceCount++
+			}
+			if len(metaData) > 0 {
+				metaDataSourceCount++
+			}
+
+			if metaDataSourceCount > 1 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s must have at least one userdatasource or one networkdatasource set.", field.Index(idx).Child(dataSourceType).String()),
+					Message: fmt.Sprintf("%s must have only one metadata source set.", field.Index(idx).Child(dataSourceType).String()),
 					Field:   field.Index(idx).Child(dataSourceType).String(),
 				})
+			}
+
+			if userDataSourceCount == 0 && networkDataSourceCount == 0 && metaDataSourceCount == 0 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s must have at least one of userdatasource, networkdatasource, or metadata set.", field.Index(idx).Child(dataSourceType).String()),
+					Field:   field.Index(idx).Child(dataSourceType).String(),
+				})
+			}
+
+			if len(metaData) > cloudInitMetaDataMaxKeys {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s metadata exceeds %d keys limit.", field.Index(idx).Child(dataSourceType).String(), cloudInitMetaDataMaxKeys),
+					Field:   field.Index(idx).Child(dataSourceType, "metaData").String(),
+				})
+			}
+
+			for key, val := range metaData {
+				if len(val) > cloudInitMetaDataMaxValueLen {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s metadata value for key '%s' exceeds %d characters limit.", field.Index(idx).Child(dataSourceType).String(), key, cloudInitMetaDataMaxValueLen),
+						Field:   field.Index(idx).Child(dataSourceType, "metaData").String(),
+					})
+				}
 			}
 		}
 
