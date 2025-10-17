@@ -1526,10 +1526,6 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
-			// Run overcommit first to avoid overcommitting overhead memory
-			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.GetMemoryOvercommit() != 100
-			}, WithMemoryOvercommit(t.clusterConfig.GetMemoryOvercommit())),
 			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi, vmi.Annotations, additionalCPUs)),
 			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(hasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),

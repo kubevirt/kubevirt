@@ -336,7 +336,15 @@ func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v
 			if resources.Requests == nil {
 				resources.Requests = k8sv1.ResourceList{}
 			}
-			resources.Requests[k8sv1.ResourceMemory] = *memory
+			overcommit := clusterConfig.GetMemoryOvercommit()
+			if overcommit == 100 {
+				resources.Requests[k8sv1.ResourceMemory] = *memory
+			} else {
+				value := (memory.Value() * int64(100)) / int64(overcommit)
+				resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
+			}
+			memoryRequest := resources.Requests[k8sv1.ResourceMemory]
+			log.Log.V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommit)
 		}
 	}
 
