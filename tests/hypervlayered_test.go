@@ -35,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -80,6 +81,10 @@ var _ = Describe("[HyperVLayered] HyperVLayered integration tests", decorators.H
 
 			// Wait for VMI to be running
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+
+			// Ensure the VMI is fully booted
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+
 
 			// Get the virt-launcher pod
 			// Check the compute container resources
