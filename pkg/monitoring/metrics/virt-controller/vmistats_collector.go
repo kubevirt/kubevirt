@@ -20,6 +20,8 @@
 package virt_controller
 
 import (
+	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -34,6 +36,7 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 )
 
@@ -43,6 +46,8 @@ const (
 
 	annotationPrefix        = "vm.kubevirt.io/"
 	instancetypeVendorLabel = "instancetype.kubevirt.io/vendor"
+
+	QemuVmiHypervisorType = "qemu"
 )
 
 var (
@@ -59,6 +64,7 @@ var (
 			vmiMigrationStartTime,
 			vmiMigrationEndTime,
 			vmiVnicInfo,
+			vmiHypervisorType,
 		},
 		CollectCallback: vmiStatsCollectorCallback,
 	}
@@ -126,6 +132,14 @@ var (
 		},
 		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_name", "model"},
 	)
+
+	vmiHypervisorType = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_hypervisor_type",
+			Help: "The hypervisor type used by the VirtualMachineInstance. Value indicates whether the VMI is using hardware-accelerated virtualization (kvm, mshv) or software emulation (qemu). In case of an error retrieving hypervisor type, the value of unknown is used.",
+		},
+		[]string{"namespace", "name", "node", "hypervisor_type"},
+	)
 )
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -144,8 +158,29 @@ func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
 	return reportVmisStats(vmis)
 }
 
+func buildNodeAllocatableMap() (map[string]k8sv1.ResourceList, error) {
+	if kubevirtClient == nil {
+		return nil, fmt.Errorf("kubevirtClient is not initialized")
+	}
+	nodes, err := kubevirtClient.CoreV1().Nodes().List(context.TODO(), v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	nodeAllocatableMap := make(map[string]k8sv1.ResourceList)
+	for _, node := range nodes.Items {
+		nodeAllocatableMap[node.Name] = node.Status.Allocatable
+	}
+	return nodeAllocatableMap, nil
+}
+
 func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
 	var crs []operatormetrics.CollectorResult
+
+	nodeAllocatableMap, err := buildNodeAllocatableMap()
+	if err != nil {
+		log.Log.Errorf("Failed to build node allocatable map: %v. VMIs' hypervisor type will be set to unknown.", err)
+	}
 
 	for _, vmi := range vmis {
 		crs = append(crs, collectVMIInfo(vmi))
@@ -153,6 +188,7 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 		crs = append(crs, collectVMIInterfacesInfo(vmi)...)
 		crs = append(crs, collectVMIMigrationTime(vmi)...)
 		crs = append(crs, CollectVmisVnicInfo(vmi)...)
+		crs = append(crs, collectVMIHypervisorType(vmi, nodeAllocatableMap)...)
 	}
 
 	return crs
@@ -462,4 +498,53 @@ func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.Co
 	}
 
 	return results
+}
+
+// getVMIHypervisorType determines the hypervisor type used by a VMI based on
+// node allocatable resources
+func getVMIHypervisorType(vmi *k6tv1.VirtualMachineInstance, nodeAllocatableMap map[string]k8sv1.ResourceList) string {
+	// If VMI is not scheduled to a node, return empty string
+	if vmi.Status.NodeName == "" {
+		return ""
+	}
+
+	hypervisorDevice := hypervisor.NewHypervisor(clusterConfig.GetHypervisor().Name).GetDevice()
+	hypervisorDeviceKey := k8sv1.ResourceName("devices.kubevirt.io/" + hypervisorDevice)
+
+	if nodeAllocatableMap == nil {
+		return "unknown"
+	}
+	allocatable, exists := nodeAllocatableMap[vmi.Status.NodeName]
+	if !exists {
+		return "unknown"
+	}
+
+	// Check for hypervisor device in node's allocatable resources
+	if allocatableHypervisorDevices, exists := allocatable[hypervisorDeviceKey]; exists && !allocatableHypervisorDevices.IsZero() {
+		return hypervisorDevice
+	}
+
+	// If no hypervisor devices are available, VMI must be using QEMU emulation
+	return QemuVmiHypervisorType
+}
+
+// collectVMIHypervisorType collects the hypervisor type metric for a VMI
+func collectVMIHypervisorType(vmi *k6tv1.VirtualMachineInstance, nodeAllocatableMap map[string]k8sv1.ResourceList) []operatormetrics.CollectorResult {
+	var crs []operatormetrics.CollectorResult
+
+	hypervisorType := getVMIHypervisorType(vmi, nodeAllocatableMap)
+	if hypervisorType != "" {
+		crs = append(crs, operatormetrics.CollectorResult{
+			Metric: vmiHypervisorType,
+			Labels: []string{
+				vmi.Namespace,
+				vmi.Name,
+				vmi.Status.NodeName,
+				hypervisorType,
+			},
+			Value: 1.0,
+		})
+	}
+
+	return crs
 }

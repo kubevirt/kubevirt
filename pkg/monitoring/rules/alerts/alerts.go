@@ -44,9 +44,9 @@ const (
 	durationFiveMinutes = "5 minutes"
 )
 
-func Register(namespace string) error {
+func Register(namespace string, hypervisorName string) error {
 	alerts := [][]promv1.Rule{
-		systemAlerts(namespace),
+		systemAlerts(namespace, hypervisorName),
 		virtApiAlerts(namespace),
 		virtControllerAlerts(namespace),
 		virtHandlerAlerts(namespace),

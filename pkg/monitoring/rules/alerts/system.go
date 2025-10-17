@@ -23,17 +23,18 @@ import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
+	v1 "kubevirt.io/api/core/v1"
 )
 
-func systemAlerts(namespace string) []promv1.Rule {
-	return []promv1.Rule{
+func systemAlerts(namespace string, hypervisorName string) []promv1.Rule {
+	rules := []promv1.Rule{
 		{
-			Alert: "LowKVMNodesCount",
-			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_nodes_with_kvm < 2)"),
+			Alert: "LowHypervisorNodesCount",
+			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_nodes_with_hypervisor < 2)"),
 			For:   ptr.To(promv1.Duration("5m")),
 			Annotations: map[string]string{
-				"description": "Low number of nodes with KVM resource available.",
-				"summary":     "At least two nodes with kvm resource required for VM live migration.",
+				"description": "Low number of nodes with hypervisor resource available.",
+				"summary":     "At least two nodes with hypervisor resource required for VM live migration.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
@@ -53,4 +54,24 @@ func systemAlerts(namespace string) []promv1.Rule {
 			},
 		},
 	}
+
+	// Adding old KVM specific alert for backward compatibility
+	if hypervisorName == v1.KvmHypervisorName {
+		rules = append(rules, promv1.Rule{
+			Alert: "LowKVMNodesCount",
+			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_nodes_with_kvm < 2)"),
+
+			For: ptr.To(promv1.Duration("5m")),
+			Annotations: map[string]string{
+				"description": "Low number of nodes with KVM resource available.",
+				"summary":     "At least two nodes with kvm resource required for VM live migration.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "warning",
+			},
+		})
+	}
+
+	return rules
 }

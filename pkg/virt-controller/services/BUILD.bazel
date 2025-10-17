@@ -73,6 +73,7 @@ go_test(
         "virtiofs_test.go",
     ],
     embed = [":go_default_library"],
+    embedsrcs = ["renderresources.go"],
     race = "on",
     deps = [
         "//pkg/config:go_default_library",

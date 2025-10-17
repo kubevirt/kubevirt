@@ -38,6 +38,7 @@ go_test(
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    embedsrcs = ["detector.go"],
     race = "on",
     deps = [
         "//pkg/safepath:go_default_library",

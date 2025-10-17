@@ -89,6 +89,9 @@ const (
 	AdditionalPropertiesSynchronizationPort       = "SynchronizationPort"
 	DefaultSynchronizationPort              int32 = 9185
 
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesHypervisorName = "HypervisorName"
+
 	// account to use if one is not explicitly named
 	DefaultMonitorAccount = "prometheus-k8s"
 
@@ -193,7 +196,19 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 			if v == featuregate.PersistentReservation {
 				additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
 			}
+			if v == featuregate.ConfigurableHypervisor {
+				// Extract hypervisor configuration when the feature gate is enabled
+				hypervisorName := v1.KvmHypervisorName // Default to KVM
+				if kv.Spec.Configuration.HypervisorConfiguration != nil && kv.Spec.Configuration.HypervisorConfiguration.Name != "" {
+					hypervisorName = kv.Spec.Configuration.HypervisorConfiguration.Name
+				}
+				additionalProperties[AdditionalPropertiesHypervisorName] = hypervisorName
+			}
 		}
+	}
+	// If ConfigurableHypervisor feature gate is not enabled, ensure we use KVM
+	if additionalProperties[AdditionalPropertiesHypervisorName] == "" {
+		additionalProperties[AdditionalPropertiesHypervisorName] = v1.KvmHypervisorName
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
@@ -537,6 +552,14 @@ func (c *KubeVirtDeploymentConfig) GetSynchronizationPort() int32 {
 
 	}
 	return DefaultSynchronizationPort
+}
+
+func (c *KubeVirtDeploymentConfig) GetHypervisorName() string {
+	hypervisorName, ok := c.AdditionalProperties[AdditionalPropertiesHypervisorName]
+	if !ok || hypervisorName == "" {
+		return v1.KvmHypervisorName // Default to KVM
+	}
+	return hypervisorName
 }
 
 /*

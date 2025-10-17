@@ -505,7 +505,8 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		rbaclist = append(rbaclist, rbac.GetAllServiceMonitor(config.GetNamespace(), monitorNamespace, monitorServiceAccount)...)
 		strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), serviceMonitorNamespace, true))
 
-		err := rules.SetupRules(config.GetNamespace())
+		hypervisorName := config.GetHypervisorName()
+		err := rules.SetupRulesWithHypervisor(config.GetNamespace(), hypervisorName)
 		if err != nil {
 			return nil, err
 		}

@@ -37,12 +37,16 @@ const (
 )
 
 func SetupRules(namespace string) error {
-	err := recordingrules.Register(namespace)
+	return SetupRulesWithHypervisor(namespace, "")
+}
+
+func SetupRulesWithHypervisor(namespace string, hypervisorName string) error {
+	err := recordingrules.Register(namespace, hypervisorName)
 	if err != nil {
 		return err
 	}
 
-	err = alerts.Register(namespace)
+	err = alerts.Register(namespace, hypervisorName)
 	if err != nil {
 		return err
 	}
