@@ -34,6 +34,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -201,6 +202,45 @@ var _ = Describe("Validating Pool Admitter", func() {
 		}, []string{
 			"spec.maxUnavailable",
 		}),
+		Entry("with invalid update strategy", func() *poolv1.VirtualMachinePool {
+			return &poolv1.VirtualMachinePool{
+				Spec: poolv1.VirtualMachinePoolSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"test": "test"},
+					},
+					VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"test": "test"},
+						},
+						Spec: v1.VirtualMachineSpec{
+							RunStrategy: &always,
+							Template: newVirtualMachineBuilder().
+								WithDisk(v1.Disk{
+									Name: "testdisk",
+								}).
+								WithVolume(v1.Volume{
+									Name: "testdisk",
+									VolumeSource: v1.VolumeSource{
+										ContainerDisk: testutils.NewFakeContainerDiskSource(),
+									},
+								}).
+								WithLabel("test", "test").
+								BuildTemplate(),
+						},
+					},
+					UpdateStrategy: &poolv1.VirtualMachinePoolUpdateStrategy{
+						Unmanaged: pointer.P(true),
+						Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
+							SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+								BasePolicy: pointer.P(poolv1.VirtualMachinePoolBasePolicyRandom),
+							},
+						},
+					},
+				},
+			}
+		}(), []string{
+			"spec.updateStrategy",
+		}),
 	)
 	It("should accept valid vm spec", func() {
 		pool := &poolv1.VirtualMachinePool{
@@ -208,7 +248,13 @@ var _ = Describe("Validating Pool Admitter", func() {
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"match": "me"},
 				},
-
+				UpdateStrategy: &poolv1.VirtualMachinePoolUpdateStrategy{
+					Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
+						SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+							BasePolicy: pointer.P(poolv1.VirtualMachinePoolBasePolicyNewest),
+						},
+					},
+				},
 				VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{"match": "me"},
