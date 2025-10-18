@@ -1502,7 +1502,9 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 		resourceRules: []VMIResourceRule{
 			// Run overcommit first to avoid overcommitting overhead memory
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.GetMemoryOvercommit() != 100
+				return !hasMemoryRequest(vmi) &&
+					hasGuestMemoryOrHugePages(vmi) &&
+					t.clusterConfig.GetMemoryOvercommit() != 100
 			}, WithMemoryOvercommit(t.clusterConfig.GetMemoryOvercommit())),
 			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi, vmi.Annotations, additionalCPUs)),
 			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
@@ -1661,4 +1663,14 @@ func isHostDevVMIDRA(vmi *v1.VirtualMachineInstance) bool {
 	}
 
 	return false
+}
+
+func hasMemoryRequest(vmi *v1.VirtualMachineInstance) bool {
+	resources := &vmi.Spec.Domain.Resources
+	return !resources.Requests.Memory().IsZero() || !resources.Limits.Memory().IsZero()
+}
+
+func hasGuestMemoryOrHugePages(vmi *v1.VirtualMachineInstance) bool {
+	domainMemory := vmi.Spec.Domain.Memory
+	return domainMemory != nil && (domainMemory.Guest != nil || domainMemory.Hugepages != nil)
 }
