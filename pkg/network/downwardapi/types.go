@@ -24,6 +24,7 @@ import v1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/
 type Interface struct {
 	Network    string         `json:"network"`
 	DeviceInfo *v1.DeviceInfo `json:"deviceInfo,omitempty"`
+	Mac        string         `json:"mac,omitempty"`
 }
 
 type NetworkInfo struct {
