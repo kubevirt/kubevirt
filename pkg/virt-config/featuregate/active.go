@@ -129,6 +129,8 @@ const (
 
 	// Owner: @varunrsekar
 	// Alpha: v1.6.0
+	// Beta: v1.7.0
+	//
 	// PanicDevices allows defining panic devices for signaling crashes in the guest for a VirtualMachineInstance.
 	PanicDevicesGate = "PanicDevices"
 
@@ -167,7 +169,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 }
