@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -34,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Workload Updater", func() {
@@ -687,6 +689,48 @@ var _ = Describe("Workload Updater", func() {
 		},
 			Entry("with regular name", "testvm", "testvm"),
 			Entry("with long name", strings.Repeat("a", k8svalidation.DNS1035LabelMaxLength+1), "1234"),
+		)
+	})
+
+	Context("when MigrationPriorityQueue feature gate is enabled", func() {
+		BeforeEach(func() {
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.MigrationPriorityQueue},
+				},
+			})
+			controller.clusterConfig = config
+		})
+
+		DescribeTable("should set correct priority to the migration object", func(condition *v1.VirtualMachineInstanceCondition, expectedPriority string) {
+			vmi := newVirtualMachineInstance("testvm", true, "madeup")
+			if condition != nil {
+				virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, condition)
+			}
+			pod := newLauncherPodForVMI(vmi)
+			kv := newKubeVirt(1)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
+
+			addKubeVirt(kv)
+			controller.vmiStore.Add(vmi)
+			controller.podIndexer.Add(pod)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			migrations, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrations.Items).To(HaveLen(1))
+			Expect(migrations.Items[0].Spec.Priority).To(gstruct.PointTo(BeEquivalentTo(expectedPriority)))
+		},
+			Entry("system-critical in case of upgrade", nil, "system-critical"),
+			Entry("user-triggered in case of hotplug", &v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceMemoryChange,
+				Status: k8sv1.ConditionTrue,
+			}, "user-triggered"),
+			Entry("user-triggered in case of volume update", &v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceVolumesChange,
+				Status: k8sv1.ConditionTrue,
+			}, "user-triggered"),
 		)
 	})
 
