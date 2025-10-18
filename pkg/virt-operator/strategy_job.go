@@ -55,7 +55,8 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						v1.AppLabel: virtOperatorJobAppLabel,
+						v1.AppLabel:                          virtOperatorJobAppLabel,
+						v1.AllowAccessClusterServicesNPLabel: "true",
 					},
 				},
 				Spec: k8sv1.PodSpec{
