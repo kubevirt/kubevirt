@@ -420,6 +420,7 @@ spec:
         policy:
           encryptedState: true
         session: sessionValue
+      tdx: {}
     machine:
       type: typeValue
     memory:
