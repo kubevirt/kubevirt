@@ -20,6 +20,7 @@
 package vmi
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -36,12 +37,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 	"k8s.io/utils/trace"
 
-	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	virtv1 "kubevirt.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/equality"
+
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -80,6 +84,9 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 	if err := c.deleteOrphanedAttachmentPods(vmi); err != nil {
 		log.Log.Reason(err).Errorf("failed to delete orphaned attachment pods %s: %v", key, err)
 		// do not return; just log the error
+	}
+	if err := c.deleteErrorPods(context.Background(), vmi, 3); err != nil {
+		return common.NewSyncError(fmt.Errorf("failed to delete error pods: %v", err), controller.FailedDeletePodReason), pod
 	}
 
 	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.areDataVolumesReady(vmi, dataVolumes)
@@ -224,6 +231,44 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 	}
 	return nil, pod
+}
+
+func getAge(obj v1.Object) time.Duration {
+	return time.Since(obj.GetCreationTimestamp().Time).Truncate(time.Second)
+}
+
+func (c *Controller) deleteErrorPods(ctx context.Context, vmi *virtv1.VirtualMachineInstance, keepCount int) error {
+	pods, err := c.listPodsFromNamespace(vmi.GetNamespace())
+	if err != nil {
+		return fmt.Errorf("failed to list pods from namespace %s: %v", vmi.GetNamespace(), err)
+	}
+	var errorPods []*k8sv1.Pod
+	for _, pod := range pods {
+		if !controller.IsControlledBy(pod, vmi) {
+			continue
+		}
+		if pod.Status.Phase != k8sv1.PodFailed {
+			continue
+		}
+		if !strings.Contains(pod.GetName(), "virt-launcher") {
+			continue
+		}
+		errorPods = append(errorPods, pod)
+	}
+	if len(errorPods) <= keepCount {
+		return nil
+	}
+	slices.SortFunc(errorPods, func(a, b *k8sv1.Pod) int {
+		return cmp.Compare(getAge(a), getAge(b))
+	})
+
+	for _, pod := range errorPods[keepCount:] {
+		err = c.clientset.CoreV1().Pods(vmi.GetNamespace()).Delete(ctx, pod.GetName(), v1.DeleteOptions{GracePeriodSeconds: ptr.To[int64](0)})
+		if err != nil {
+			return fmt.Errorf("failed to delete pod %s: %v", pod.GetName(), err)
+		}
+	}
+	return nil
 }
 
 // updateStatus handles the VMI's lifecycle status updates.
