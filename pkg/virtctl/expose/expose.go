@@ -14,6 +14,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -153,7 +154,7 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 		}
 		ports = podNetworkPorts(&vmi.Spec)
 		serviceSelector = map[string]string{
-			v1.VirtualMachineNameLabel: vmi.Name,
+			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(vmi.Name),
 		}
 	case "vm", "vms", "virtualmachine", "virtualmachines":
 		vm, err := c.client.VirtualMachine(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
@@ -164,7 +165,7 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 			ports = podNetworkPorts(&vm.Spec.Template.Spec)
 		}
 		serviceSelector = map[string]string{
-			v1.VirtualMachineNameLabel: vm.Name,
+			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(vm.Name),
 		}
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
 		vmirs, err := c.client.ReplicaSet(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
