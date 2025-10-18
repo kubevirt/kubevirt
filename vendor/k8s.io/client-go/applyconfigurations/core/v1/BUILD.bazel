@@ -105,6 +105,7 @@ go_library(
         "nodeselectorterm.go",
         "nodespec.go",
         "nodestatus.go",
+        "nodeswapstatus.go",
         "nodesysteminfo.go",
         "objectfieldselector.go",
         "objectreference.go",

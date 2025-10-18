@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "build_info_collector.go",
         "collector.go",
+        "collectorfunc.go",
         "counter.go",
         "desc.go",
         "doc.go",
@@ -21,8 +22,12 @@ go_library(
         "num_threads.go",
         "observer.go",
         "process_collector.go",
-        "process_collector_js.go",
-        "process_collector_other.go",
+        "process_collector_darwin.go",
+        "process_collector_mem_cgo_darwin.c",
+        "process_collector_mem_cgo_darwin.go",
+        "process_collector_mem_nocgo_darwin.go",
+        "process_collector_not_supported.go",
+        "process_collector_procfsenabled.go",
         "process_collector_windows.go",
         "registry.go",
         "summary.go",
@@ -33,6 +38,7 @@ go_library(
         "vnext.go",
         "wrap.go",
     ],
+    cgo = True,
     importmap = "kubevirt.io/kubevirt/vendor/github.com/prometheus/client_golang/prometheus",
     importpath = "github.com/prometheus/client_golang/prometheus",
     visibility = ["//visibility:public"],
@@ -53,7 +59,7 @@ go_library(
             "//vendor/github.com/prometheus/procfs:go_default_library",
         ],
         "@io_bazel_rules_go//go/platform:darwin": [
-            "//vendor/github.com/prometheus/procfs:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
         ],
         "@io_bazel_rules_go//go/platform:dragonfly": [
             "//vendor/github.com/prometheus/procfs:go_default_library",
@@ -62,9 +68,6 @@ go_library(
             "//vendor/github.com/prometheus/procfs:go_default_library",
         ],
         "@io_bazel_rules_go//go/platform:illumos": [
-            "//vendor/github.com/prometheus/procfs:go_default_library",
-        ],
-        "@io_bazel_rules_go//go/platform:ios": [
             "//vendor/github.com/prometheus/procfs:go_default_library",
         ],
         "@io_bazel_rules_go//go/platform:linux": [

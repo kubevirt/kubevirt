@@ -11,5 +11,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/grpclog",
     importpath = "google.golang.org/grpc/grpclog",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/google.golang.org/grpc/internal/grpclog:go_default_library"],
+    deps = ["//vendor/google.golang.org/grpc/grpclog/internal:go_default_library"],
 )
