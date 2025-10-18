@@ -183,14 +183,6 @@ func WithHugePages(vmMemory *v1.Memory, memoryOverhead resource.Quantity) Resour
 	}
 }
 
-func WithMemoryOvercommit(overcommit int) ResourceRendererOption {
-	return func(renderer *ResourceRenderer) {
-		memory := renderer.vmRequests[k8sv1.ResourceMemory]
-		memory = *resource.NewQuantity((memory.Value()*int64(100))/int64(overcommit), memory.Format)
-		renderer.vmRequests[k8sv1.ResourceMemory] = memory
-	}
-}
-
 func WithMemoryOverhead(guestResourceSpec v1.ResourceRequirements, memoryOverhead resource.Quantity) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		memoryRequest := renderer.vmRequests[k8sv1.ResourceMemory]
