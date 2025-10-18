@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
@@ -73,6 +74,7 @@ type SubresourceAPIApp struct {
 	clusterConfig           *virtconfig.ClusterConfig
 	instancetypeExpander    instancetypeVMExpander
 	handlerHttpClient       *http.Client
+	serviceLock             *sync.Mutex
 }
 
 func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
@@ -102,6 +104,7 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 		clusterConfig:           clusterConfig,
 		instancetypeExpander:    instancetypeExpander,
 		handlerHttpClient:       httpClient,
+		serviceLock:             &sync.Mutex{},
 	}
 }
 
