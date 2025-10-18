@@ -135,15 +135,18 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(podOutput).To(Equal(expectedOutput))
 
 				By("Checking mounted iso image")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					// mount iso ConfigMap image
-					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
-					&expect.BExp{R: ""},
-					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "cat /mnt/option1 /mnt/option2 /mnt/option3\n"},
-					&expect.BExp{R: expectedOutput},
-				}, 200)).To(Succeed())
+				Expect(console.SafeExpectBatch(vmi, append(
+					DetectAttachedDiskForAlpine(),
+					[]expect.Batcher{
+						// mount iso ConfigMap image
+						&expect.BSnd{S: "mount /dev/$dev /mnt\n"},
+						&expect.BExp{R: console.PromptExpression},
+						&expect.BSnd{S: "echo $?\n"},
+						&expect.BExp{R: console.RetValue("0")},
+						&expect.BSnd{S: "cat /mnt/option1 /mnt/option2 /mnt/option3\n"},
+						&expect.BExp{R: expectedOutput},
+					}...,
+				), 200)).To(Succeed())
 			})
 		})
 
@@ -234,15 +237,18 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(podOutput).To(Equal(expectedOutput))
 
 				By("Checking mounted iso image")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					// mount iso Secret image
-					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
-					&expect.BExp{R: ""},
-					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
-					&expect.BExp{R: expectedOutput},
-				}, 200)).To(Succeed())
+				Expect(console.SafeExpectBatch(vmi, append(
+					DetectAttachedDiskForAlpine(),
+					[]expect.Batcher{
+						// mount iso Secret image
+						&expect.BSnd{S: "mount /dev/$dev /mnt\n"},
+						&expect.BExp{R: console.PromptExpression},
+						&expect.BSnd{S: "echo $?\n"},
+						&expect.BExp{R: console.RetValue("0")},
+						&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
+						&expect.BExp{R: expectedOutput},
+					}...,
+				), 200)).To(Succeed())
 			})
 		})
 
@@ -325,17 +331,20 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking mounted iso image")
-			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				// mount service account iso image
-				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "cat /mnt/namespace\n"},
-				&expect.BExp{R: testsuite.GetTestNamespace(vmi)},
-				&expect.BSnd{S: "tail -c 20 /mnt/token\n"},
-				&expect.BExp{R: token},
-			}, 200)).To(Succeed())
+			Expect(console.SafeExpectBatch(vmi, append(
+				DetectAttachedDiskForAlpine(),
+				[]expect.Batcher{
+					// mount service account iso image
+					&expect.BSnd{S: "mount /dev/$dev /mnt\n"},
+					&expect.BExp{R: ""},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: console.RetValue("0")},
+					&expect.BSnd{S: "cat /mnt/namespace\n"},
+					&expect.BExp{R: testsuite.GetTestNamespace(vmi)},
+					&expect.BSnd{S: "tail -c 20 /mnt/token\n"},
+					&expect.BExp{R: token},
+				}...,
+			), 200)).To(Succeed())
 		})
 
 	})
@@ -540,19 +549,22 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(podOutput2).To(Equal(expectedPublicKey), "Expected pod output of public key to match generated one.")
 
 				By("Checking mounted secrets sshkeys image")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					// mount iso Secret image
-					&expect.BSnd{S: "sudo su -\n"},
-					&expect.BExp{R: ""},
-					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
-					&expect.BExp{R: ""},
-					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: console.RetValue("0")},
-					&expect.BSnd{S: "grep -c \"PRIVATE KEY\" /mnt/ssh-privatekey\n"},
-					&expect.BExp{R: console.RetValue(`[1-9]\d*`)},
-					&expect.BSnd{S: "grep -c ssh-rsa /mnt/ssh-publickey\n"},
-					&expect.BExp{R: console.RetValue(`[1-9]\d*`)},
-				}, 200)).To(Succeed())
+				Expect(console.SafeExpectBatch(vmi, append(
+					DetectAttachedDiskForAlpine(),
+					[]expect.Batcher{
+						// mount iso Secret image
+						&expect.BSnd{S: "sudo su -\n"},
+						&expect.BExp{R: ""},
+						&expect.BSnd{S: "mount /dev/$dev /mnt\n"},
+						&expect.BExp{R: ""},
+						&expect.BSnd{S: "echo $?\n"},
+						&expect.BExp{R: console.RetValue("0")},
+						&expect.BSnd{S: "grep -c \"PRIVATE KEY\" /mnt/ssh-privatekey\n"},
+						&expect.BExp{R: console.RetValue(`[1-9]\d*`)},
+						&expect.BSnd{S: "grep -c ssh-rsa /mnt/ssh-publickey\n"},
+						&expect.BExp{R: console.RetValue(`[1-9]\d*`)},
+					}...,
+				), 200)).To(Succeed())
 			})
 		})
 	})
@@ -591,14 +603,18 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(podOutput).To(Equal(expectedOutput + "\n"))
 
 			By("Checking mounted iso image")
-			Expect(console.ExpectBatch(vmi, []expect.Batcher{
-				// mount iso DownwardAPI image
-				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "grep " + testLabelKey + " /mnt/labels\n"},
-				&expect.BExp{R: expectedOutput},
-			}, 200*time.Second)).To(Succeed())
+			Expect(console.ExpectBatch(vmi, append(
+				DetectAttachedDiskForAlpine(),
+				[]expect.Batcher{
+					// mount iso DownwardAPI image
+					&expect.BSnd{S: "mount /dev/$dev /mnt\n"},
+					&expect.BExp{R: ""},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: console.RetValue("0")},
+					&expect.BSnd{S: "grep " + testLabelKey + " /mnt/labels\n"},
+					&expect.BExp{R: expectedOutput},
+				}...,
+			), 200*time.Second)).To(Succeed())
 		})
 	})
 })
@@ -645,4 +661,15 @@ func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	privatePEM := pem.EncodeToMemory(&privateBlock)
 
 	return privatePEM
+}
+
+// Find whether 'vdb' or 'sda' is attached inside an Alpine guest.
+func DetectAttachedDiskForAlpine() []expect.Batcher {
+	return []expect.Batcher{
+		// Find first disk from dmesg output (vdb or sda)
+		&expect.BSnd{S: "dev=$(dmesg | grep -Eo 'vdb|sda' | head -n1)\n"},
+		&expect.BExp{R: ""},
+		&expect.BSnd{S: "echo /dev/$dev\n"},
+		&expect.BExp{R: "/dev/(vdb|sda)"},
+	}
 }
