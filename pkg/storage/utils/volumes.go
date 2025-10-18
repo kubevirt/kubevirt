@@ -25,8 +25,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/openshift/library-go/pkg/build/naming"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	validation "k8s.io/apimachinery/pkg/util/validation"
@@ -35,6 +33,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+	"kubevirt.io/kubevirt/pkg/util/naming"
 )
 
 type VolumeOption int
