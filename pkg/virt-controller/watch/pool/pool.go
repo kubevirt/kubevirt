@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/trace"
@@ -23,7 +25,6 @@ import (
 	k8score "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -527,29 +528,80 @@ func filterVMs(vms []*virtv1.VirtualMachine, f func(vmi *virtv1.VirtualMachine) 
 }
 
 func resolveBasePolicy(scaleInStrategy *poolv1.VirtualMachinePoolScaleInStrategy) poolv1.VirtualMachinePoolBasePolicy {
-	if scaleInStrategy == nil ||
-		scaleInStrategy.Proactive == nil ||
-		scaleInStrategy.Proactive.SelectionPolicy == nil ||
-		scaleInStrategy.Proactive.SelectionPolicy.BasePolicy == nil {
+	if scaleInStrategy == nil {
 		return poolv1.VirtualMachinePoolBasePolicyRandom
 	}
-	return *scaleInStrategy.Proactive.SelectionPolicy.BasePolicy
+
+	return resolveProactiveScaleInPolicy(scaleInStrategy.Proactive)
 }
 
-func sortVMsForDownscale(vms []*virtv1.VirtualMachine, basePolicy poolv1.VirtualMachinePoolBasePolicy) {
+func resolveProactiveScaleInPolicy(scaleInStrategy *poolv1.VirtualMachinePoolProactiveScaleInStrategy) poolv1.VirtualMachinePoolBasePolicy {
+	if scaleInStrategy == nil {
+		return poolv1.VirtualMachinePoolBasePolicyRandom
+	}
+	return resolveSelectionPolicy(scaleInStrategy.SelectionPolicy)
+}
+
+func resolveProactiveUpdatePolicy(updateStrategy *poolv1.VirtualMachinePoolProactiveUpdateStrategy) poolv1.VirtualMachinePoolBasePolicy {
+	if updateStrategy == nil {
+		return poolv1.VirtualMachinePoolBasePolicyRandom
+	}
+	return resolveSelectionPolicy(updateStrategy.SelectionPolicy)
+}
+
+func resolveSelectionPolicy(selectionPolicy *poolv1.VirtualMachinePoolSelectionPolicy) poolv1.VirtualMachinePoolBasePolicy {
+	if selectionPolicy == nil ||
+		selectionPolicy.BasePolicy == nil {
+		return poolv1.VirtualMachinePoolBasePolicyRandom
+	}
+	return *selectionPolicy.BasePolicy
+}
+
+func sortVMsBasedOnBasePolicy(vms []*virtv1.VirtualMachine, basePolicy poolv1.VirtualMachinePoolBasePolicy) {
 	switch basePolicy {
+	case poolv1.VirtualMachinePoolBasePolicyAscendingOrder:
+		sortVMsByOrdinalAscending(vms)
 	case poolv1.VirtualMachinePoolBasePolicyDescendingOrder:
 		sortVMsByOrdinalDescending(vms)
+	case poolv1.VirtualMachinePoolBasePolicyNewest:
+		sortVMsByNewestFirst(vms)
+	case poolv1.VirtualMachinePoolBasePolicyOldest:
+		sortVMsByOldestFirst(vms)
 	default:
 		sortVMsRandom(vms)
 	}
+}
+
+func sortVMsByNewestFirst(vms []*virtv1.VirtualMachine) {
+	sort.Slice(vms, func(i, j int) bool {
+		return vms[i].CreationTimestamp.Time.After(vms[j].CreationTimestamp.Time)
+	})
+}
+
+func sortVMsByOldestFirst(vms []*virtv1.VirtualMachine) {
+	sort.Slice(vms, func(i, j int) bool {
+		return vms[i].CreationTimestamp.Before(&vms[j].CreationTimestamp)
+	})
+}
+
+func sortVMsByOrdinalAscending(vms []*virtv1.VirtualMachine) {
+	sort.Slice(vms, func(i, j int) bool {
+		ordinalI, errI := indexFromName(vms[i].Name)
+		ordinalJ, errJ := indexFromName(vms[j].Name)
+		if errI != nil {
+			ordinalI = 0
+		}
+		if errJ != nil {
+			ordinalJ = 0
+		}
+		return ordinalI < ordinalJ
+	})
 }
 
 func sortVMsByOrdinalDescending(vms []*virtv1.VirtualMachine) {
 	sort.Slice(vms, func(i, j int) bool {
 		ordinalI, errI := indexFromName(vms[i].Name)
 		ordinalJ, errJ := indexFromName(vms[j].Name)
-
 		if errI != nil {
 			ordinalI = 0
 		}
@@ -566,49 +618,103 @@ func sortVMsRandom(vms []*virtv1.VirtualMachine) {
 	})
 }
 
+func filterVMsBasedOnOrderedPolicies(vms []*virtv1.VirtualMachine, orderedPolicies poolv1.VirtualMachinePoolOrderedPolicy) ([]*virtv1.VirtualMachine, error) {
+	var labelSelector labels.Selector
+	var nodeSelector labels.Selector
+	var err error
+
+	if orderedPolicies.LabelSelector != nil {
+		labelSelector, err = metav1.LabelSelectorAsSelector(orderedPolicies.LabelSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse label selector from pool: %v", err)
+		}
+	}
+
+	if orderedPolicies.NodeSelectorRequirementMatcher != nil {
+		nodeSelector, err = nodeSelectorRequirementsAsSelector(orderedPolicies.NodeSelectorRequirementMatcher)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse node selector from pool: %v", err)
+		}
+	}
+
+	if labelSelector == nil && nodeSelector == nil {
+		return vms, nil
+	}
+
+	filteredVms := make([]*virtv1.VirtualMachine, 0, len(vms))
+	for _, vm := range vms {
+		labelMatch := true
+		nodeMatch := true
+		if labelSelector != nil {
+			labelMatch = labelSelector.Matches(labels.Set(vm.Spec.Template.ObjectMeta.Labels))
+		}
+
+		if nodeSelector != nil {
+			nodeMatch = nodeSelector.Matches(labels.Set(vm.Spec.Template.Spec.NodeSelector))
+		}
+
+		if labelMatch && nodeMatch {
+			filteredVms = append(filteredVms, vm)
+		}
+	}
+
+	return filteredVms, nil
+}
+
 func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, count int) error {
+	if isUnmanaged(pool) || isOpportunisticScaleInEnabled(pool) {
+		return nil
+	}
 
 	poolKey, err := controller.KeyFunc(pool)
 	if err != nil {
 		return err
 	}
 
-	elgibleVMs := filterRunningVMs(vms)
+	eligibleVMs := filterRunningVMs(vms)
 
 	// make sure we count already deleting VMs here during scale in.
-	count = count - (len(vms) - len(elgibleVMs))
+	count = count - (len(vms) - len(eligibleVMs))
 
-	if len(elgibleVMs) == 0 || count == 0 {
+	if len(eligibleVMs) == 0 || count == 0 {
 		return nil
-	} else if count > len(elgibleVMs) {
-		count = len(elgibleVMs)
+	} else if count > len(eligibleVMs) {
+		count = len(eligibleVMs)
 	}
 
 	basePolicy := resolveBasePolicy(pool.Spec.ScaleInStrategy)
-	sortVMsForDownscale(elgibleVMs, basePolicy)
+	sortVMsBasedOnBasePolicy(eligibleVMs, basePolicy)
+
+	if hasOrderedSelectionPolicyScaleInStrategy(pool) {
+		eligibleVMs, err = filterVMsBasedOnOrderedPolicies(eligibleVMs, *pool.Spec.ScaleInStrategy.Proactive.SelectionPolicy.OrderedPolicies)
+		if err != nil {
+			return err
+		}
+	}
 
 	log.Log.Object(pool).Infof("Removing %d VMs from pool", count)
 
 	var wg sync.WaitGroup
 
-	deleteList := elgibleVMs[0:count]
+	deleteList := eligibleVMs[0:count]
 	c.expectations.ExpectDeletions(poolKey, controller.VirtualMachineKeys(deleteList))
 	wg.Add(len(deleteList))
 	errChan := make(chan error, len(deleteList))
-	for i := 0; i < len(deleteList); i++ {
+
+	for i := range len(deleteList) {
 		go func(idx int) {
 			defer wg.Done()
 			vm := deleteList[idx]
 
-			if err := c.removeFinalizer(vm); err != nil {
-				log.Log.Object(pool).Reason(err).Errorf("Failed to remove finalizer from virtual machine %s/%s", vm.Namespace, vm.Name)
+			if err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{}); err != nil {
+				c.expectations.DeletionObserved(poolKey, controller.VirtualMachineKey(vm))
+				c.recorder.Eventf(pool, k8score.EventTypeWarning, common.FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s/%s: %v", vm.Namespace, vm.Name, err)
 				errChan <- err
 				return
 			}
 
-			if err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(metav1.DeletePropagationForeground)}); err != nil {
-				c.expectations.DeletionObserved(poolKey, controller.VirtualMachineKey(vm))
-				c.recorder.Eventf(pool, k8score.EventTypeWarning, common.FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s/%s: %v", vm.Namespace, vm.Name, err)
+			if err := c.statePreservationCleanupforVM(pool, vm, isStatePreservationEnabled(resolveProactiveScaleInStatePreservation(pool))); err != nil {
+				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error preserving state of VM %s/%s: %v", vm.Namespace, vm.Name, err)
 				errChan <- err
 				return
 			}
@@ -628,6 +734,28 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 	}
 
 	return nil
+}
+
+func (c *Controller) opportunisticScaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, preserveState bool) error {
+	if isUnmanaged(pool) {
+		return nil
+	}
+
+	deletingVMs := filterDeletingVMs(vms)
+	if len(deletingVMs) == 0 {
+		return nil
+	}
+
+	var lastErr error
+
+	for _, vm := range deletingVMs {
+		if err := c.statePreservationCleanupforVM(pool, vm, preserveState); err != nil {
+			lastErr = err
+		}
+
+		log.Log.Object(vm).Infof("Removing VM %s/%s from pool", vm.Namespace, vm.Name)
+	}
+	return lastErr
 }
 
 func generateVMName(index int, baseName string) string {
@@ -874,7 +1002,8 @@ func (c *Controller) scaleOut(pool *poolv1.VirtualMachinePool, count int) error 
 func (c *Controller) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (common.SyncError, bool) {
 	diff := c.calcDiff(pool, vms)
 	if diff == 0 {
-		if err := c.opportunisticScaleIn(vms); err != nil {
+		// if diff is 0, that means the pool is already at the desired state or someone has manually deleted the vm
+		if err := c.opportunisticScaleIn(pool, vms, isStatePreservationEnabled(resolveOpportunisticScaleInStatePreservation(pool))); err != nil {
 			return common.NewSyncError(fmt.Errorf("error during opportunistic scale in: %v", err), FailedScaleInReason), false
 		}
 
@@ -948,6 +1077,19 @@ func (c *Controller) handleUnhealthyVMIs(pool *poolv1.VirtualMachinePool, vms []
 	return nil
 }
 
+func (c *Controller) getOutdatedVMs(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) ([]*virtv1.VirtualMachine, error) {
+	var vmOutdatedList []*virtv1.VirtualMachine
+	for _, vm := range vms {
+		if outdated, err := c.isOutdatedVM(pool, vm); err != nil {
+			return nil, common.NewSyncError(fmt.Errorf("error while detected outdated VMs: %v", err), FailedUpdateReason)
+		} else if outdated {
+			vmOutdatedList = append(vmOutdatedList, vm)
+		}
+	}
+
+	return vmOutdatedList, nil
+}
+
 func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutdatedList []*virtv1.VirtualMachine) error {
 	var wg sync.WaitGroup
 	if len(vmOutdatedList) == 0 {
@@ -986,6 +1128,7 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 				errChan <- err
 				return
 			}
+
 			log.Log.Object(pool).Infof("Updated vm %s/%s in pool", vmCopy.Namespace, vmCopy.Name)
 			c.recorder.Eventf(pool, k8score.EventTypeNormal, SuccessfulUpdateVirtualMachineReason, "Updated VM %s/%s", vm.Namespace, vm.Name)
 		}(i)
@@ -1046,6 +1189,11 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 		return err
 	}
 
+	if pool.Spec.UpdateStrategy != nil && pool.Spec.UpdateStrategy.Proactive != nil {
+		basePolicy := resolveProactiveUpdatePolicy(pool.Spec.UpdateStrategy.Proactive)
+		sortVMsBasedOnBasePolicy(vmUpdatedList, basePolicy)
+	}
+
 	maxUpdatable := maxUnavailableInt - unavailableCount
 	for i := range vmUpdatedList {
 		if maxUpdatable <= 0 {
@@ -1071,6 +1219,7 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 		if err != nil {
 			return err
 		}
+
 		if updateType == proactiveUpdateTypeNone {
 			continue
 		}
@@ -1230,7 +1379,6 @@ func (c *Controller) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms [
 	}
 
 	for _, vm := range vms {
-
 		// Check to see what revision is used by the VM, and remove
 		// that from the revision prune list
 		revisionName, exists := vm.Labels[virtv1.VirtualMachinePoolRevisionName]
@@ -1264,32 +1412,36 @@ func (c *Controller) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms [
 }
 
 func (c *Controller) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (common.SyncError, bool) {
-	// List of VMs that need to be updated
-	vmOutdatedList := []*virtv1.VirtualMachine{}
-	// List of VMs that are up-to-date that need to be checked to see if VMI is up-to-date
-	vmUpdatedList := []*virtv1.VirtualMachine{}
+	var err error
+	filteredVms := vms
 
-	for _, vm := range vms {
-		outdated, err := c.isOutdatedVM(pool, vm)
+	if pool.Spec.UpdateStrategy != nil && pool.Spec.UpdateStrategy.Unmanaged != nil && !*pool.Spec.UpdateStrategy.Unmanaged {
+		log.Log.Infof("unmanaged update strategy is set, skipping update: updating VMs/VMIs is not allowed")
+		return nil, false
+	}
+
+	if hasOrderedSelectionPolicy(pool) {
+		filteredVms, err = filterVMsBasedOnOrderedPolicies(vms, *pool.Spec.UpdateStrategy.Proactive.SelectionPolicy.OrderedPolicies)
 		if err != nil {
-			return common.NewSyncError(fmt.Errorf("error while detected outdated VMs: %v", err), FailedUpdateReason), false
-		}
-
-		if outdated {
-			vmOutdatedList = append(vmOutdatedList, vm)
-		} else {
-			vmUpdatedList = append(vmUpdatedList, vm)
+			return common.NewSyncError(fmt.Errorf("failed to filter VMs based on ordered policies: %v", err), FailedUpdateReason), false
 		}
 	}
 
-	err := c.opportunisticUpdate(pool, vmOutdatedList)
+	vmOutdatedList, err := c.getOutdatedVMs(pool, filteredVms)
 	if err != nil {
+		return common.NewSyncError(fmt.Errorf("error while detecting outdated VMs: %v", err), FailedUpdateReason), false
+	}
+
+	// Always perform opportunistic updates
+	if err = c.opportunisticUpdate(pool, vmOutdatedList); err != nil {
 		return common.NewSyncError(fmt.Errorf("error during VM update: %v", err), FailedUpdateReason), false
 	}
 
-	err = c.proactiveUpdate(pool, vmUpdatedList)
-	if err != nil {
-		return common.NewSyncError(fmt.Errorf("error during VMI update: %v", err), FailedUpdateReason), false
+	// Perform proactive updates only if not in opportunistic mode
+	if pool.Spec.UpdateStrategy == nil || pool.Spec.UpdateStrategy.Opportunistic == nil || !*pool.Spec.UpdateStrategy.Opportunistic {
+		if err = c.proactiveUpdate(pool, filteredVms); err != nil {
+			return common.NewSyncError(fmt.Errorf("error during VMI update: %v", err), FailedUpdateReason), false
+		}
 	}
 
 	vmUpdateStable := false
@@ -1385,7 +1537,6 @@ func (c *Controller) updateStatus(origPool *poolv1.VirtualMachinePool, vms []*vi
 	}
 
 	return nil
-
 }
 
 func (c *Controller) execute(key string) error {
@@ -1462,6 +1613,9 @@ func (c *Controller) execute(key string) error {
 		if needsSync && scaleIsStable && syncErr == nil {
 			// Handle updates after scale operations are satisfied.
 			syncErr, updateIsStable = c.update(pool, vms)
+			if !updateIsStable && syncErr == nil {
+				return nil
+			}
 		}
 
 		needsSync = c.expectations.SatisfiedExpectations(key)
@@ -1471,7 +1625,7 @@ func (c *Controller) execute(key string) error {
 		}
 		virtControllerPoolWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VMPool Name", Value: pool.Name})
 	} else if pool.DeletionTimestamp != nil {
-		if err := c.handlePoolDeletion(pool, vms); err != nil {
+		if err := c.handlePoolDeletion(pool); err != nil {
 			return err
 		}
 
@@ -1573,20 +1727,6 @@ func (c *Controller) removeFinalizer(vm *virtv1.VirtualMachine) error {
 	return err
 }
 
-func (c *Controller) opportunisticScaleIn(vms []*virtv1.VirtualMachine) error {
-	// Find VMs that are marked for deletion
-	// This happens when someone manually deletes a VM or when pool is scaled down and VMs are marked for deletion
-	deletingVMs := filterDeletingVMs(vms)
-	for _, vm := range deletingVMs {
-		if err := c.removeFinalizer(vm); err != nil {
-			return err
-		}
-		log.Log.Object(vm).Infof("Removed finalizer from VM %s/%s", vm.Namespace, vm.Name)
-	}
-
-	return nil
-}
-
 func (c *Controller) addPoolFinalizer(pool *poolv1.VirtualMachinePool) error {
 	if controller.HasFinalizer(pool, poolv1.VirtualMachinePoolControllerFinalizer) {
 		return nil
@@ -1640,7 +1780,7 @@ func (c *Controller) cleanupVMs(vms []*virtv1.VirtualMachine) error {
 	return lastErr
 }
 
-func (c *Controller) handlePoolDeletion(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
+func (c *Controller) handlePoolDeletion(pool *poolv1.VirtualMachinePool) error {
 	vms, err := c.listVMsFromNamespace(pool.ObjectMeta.Namespace)
 	if err != nil {
 		return err
@@ -1669,4 +1809,181 @@ func (c *Controller) handlePoolDeletion(pool *poolv1.VirtualMachinePool, vms []*
 	}
 
 	return nil
+}
+
+func (c *Controller) statePreservationCleanupforVM(pool *poolv1.VirtualMachinePool, vm *virtv1.VirtualMachine, removeOwnerReferences bool) error {
+	if removeOwnerReferences {
+		if err := c.removePVCOwnerReferences(vm); err != nil {
+			c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error removing PVC owner references for VM %s/%s: %v", vm.Namespace, vm.Name, err)
+			return err
+		}
+
+		if err := c.removeDataVolumeOwnerReferences(vm); err != nil {
+			c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error removing DataVolume owner references for VM %s/%s: %v", vm.Namespace, vm.Name, err)
+			return err
+		}
+	}
+
+	if err := c.removeFinalizer(vm); err != nil {
+		c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error removing finalizer for VM %s/%s: %v", vm.Namespace, vm.Name, err)
+		return err
+	}
+
+	log.Log.Object(vm).Infof("Removing VM %s/%s from pool", vm.Namespace, vm.Name)
+	return nil
+}
+
+func (c *Controller) removeDataVolumeOwnerReferences(vm *virtv1.VirtualMachine) error {
+	log.Log.Object(vm).Infof("Removing DataVolume owner references for VM %s/%s", vm.Namespace, vm.Name)
+
+	// List all DataVolumes in the namespace and filter by owner reference
+	dataVolumes, err := c.clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list DataVolumes: %v", err)
+	}
+
+	if len(dataVolumes.Items) == 0 {
+		return nil
+	}
+
+	for _, dv := range dataVolumes.Items {
+		if metav1.IsControlledBy(&dv, vm) {
+			dvCopy := dv.DeepCopy()
+			newOwnerRefs := make([]metav1.OwnerReference, 0, len(dvCopy.OwnerReferences))
+			for _, ownerRef := range dvCopy.OwnerReferences {
+				if ownerRef.UID != vm.UID {
+					newOwnerRefs = append(newOwnerRefs, ownerRef)
+				}
+			}
+			dvCopy.OwnerReferences = newOwnerRefs
+
+			_, err = c.clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Update(context.Background(), dvCopy, metav1.UpdateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to remove owner reference from DataVolume %s: %v", dv.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Controller) removePVCOwnerReferences(vm *virtv1.VirtualMachine) error {
+	log.Log.Object(vm).Infof("Removing PVC owner references for VM %s/%s", vm.Namespace, vm.Name)
+
+	// List all PVCs in the namespace and filter by owner reference
+	pvcs, err := c.clientset.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list PVCs: %v", err)
+	}
+
+	if len(pvcs.Items) == 0 {
+		return nil
+	}
+
+	for _, pvc := range pvcs.Items {
+		if metav1.IsControlledBy(&pvc, vm) {
+			pvcCopy := pvc.DeepCopy()
+			newOwnerRefs := make([]metav1.OwnerReference, 0, len(pvcCopy.OwnerReferences))
+			for _, ownerRef := range pvcCopy.OwnerReferences {
+				if ownerRef.UID != vm.UID {
+					newOwnerRefs = append(newOwnerRefs, ownerRef)
+				}
+			}
+			pvcCopy.OwnerReferences = newOwnerRefs
+
+			_, err = c.clientset.CoreV1().PersistentVolumeClaims(vm.Namespace).Update(context.Background(), pvcCopy, metav1.UpdateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to remove owner reference from PVC %s: %v", pvc.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func isUnmanaged(pool *poolv1.VirtualMachinePool) bool {
+	return pool.Spec.ScaleInStrategy != nil &&
+		pool.Spec.ScaleInStrategy.Unmanaged != nil &&
+		*pool.Spec.ScaleInStrategy.Unmanaged
+}
+
+func isOpportunisticScaleInEnabled(pool *poolv1.VirtualMachinePool) bool {
+	return pool.Spec.ScaleInStrategy != nil &&
+		pool.Spec.ScaleInStrategy.Opportunistic != nil &&
+		pool.Spec.ScaleInStrategy.Opportunistic.Enabled != nil &&
+		*pool.Spec.ScaleInStrategy.Opportunistic.Enabled
+}
+
+func hasOrderedSelectionPolicy(pool *poolv1.VirtualMachinePool) bool {
+	return pool.Spec.UpdateStrategy != nil &&
+		pool.Spec.UpdateStrategy.Proactive != nil &&
+		pool.Spec.UpdateStrategy.Proactive.SelectionPolicy != nil &&
+		pool.Spec.UpdateStrategy.Proactive.SelectionPolicy.OrderedPolicies != nil
+}
+
+func hasOrderedSelectionPolicyScaleInStrategy(pool *poolv1.VirtualMachinePool) bool {
+	return pool.Spec.ScaleInStrategy != nil &&
+		pool.Spec.ScaleInStrategy.Proactive != nil &&
+		pool.Spec.ScaleInStrategy.Proactive.SelectionPolicy != nil &&
+		pool.Spec.ScaleInStrategy.Proactive.SelectionPolicy.OrderedPolicies != nil
+}
+
+func resolveOpportunisticScaleInStatePreservation(pool *poolv1.VirtualMachinePool) poolv1.StatePreservation {
+	if pool.Spec.ScaleInStrategy == nil ||
+		pool.Spec.ScaleInStrategy.Opportunistic == nil ||
+		pool.Spec.ScaleInStrategy.Opportunistic.StatePreservation == nil {
+		return poolv1.StatePreservationDisabled
+	}
+	return *pool.Spec.ScaleInStrategy.Opportunistic.StatePreservation
+}
+
+func resolveProactiveScaleInStatePreservation(pool *poolv1.VirtualMachinePool) poolv1.StatePreservation {
+	if pool.Spec.ScaleInStrategy == nil ||
+		pool.Spec.ScaleInStrategy.Proactive == nil ||
+		pool.Spec.ScaleInStrategy.Proactive.StatePreservation == nil {
+		return poolv1.StatePreservationDisabled
+	}
+	return *pool.Spec.ScaleInStrategy.Proactive.StatePreservation
+}
+
+func isStatePreservationEnabled(statePreservation poolv1.StatePreservation) bool {
+	if statePreservation == poolv1.StatePreservationDisabled {
+		return false
+	}
+	return true
+}
+
+// NodeSelectorRequirementsAsSelector converts the []NodeSelectorRequirement api type into a struct that implements
+// labels.Selector.
+func nodeSelectorRequirementsAsSelector(nsm *[]k8score.NodeSelectorRequirement) (labels.Selector, error) {
+	if nsm == nil {
+		return labels.Nothing(), nil
+	}
+
+	selector := labels.NewSelector()
+	for _, expr := range *nsm {
+		var op selection.Operator
+		switch expr.Operator {
+		case k8score.NodeSelectorOpIn:
+			op = selection.In
+		case k8score.NodeSelectorOpNotIn:
+			op = selection.NotIn
+		case k8score.NodeSelectorOpExists:
+			op = selection.Exists
+		case k8score.NodeSelectorOpDoesNotExist:
+			op = selection.DoesNotExist
+		case k8score.NodeSelectorOpGt:
+			op = selection.GreaterThan
+		case k8score.NodeSelectorOpLt:
+			op = selection.LessThan
+		default:
+			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
+		}
+		r, err := labels.NewRequirement(expr.Key, op, expr.Values)
+		if err != nil {
+			return nil, err
+		}
+
+		selector = selector.Add(*r)
+	}
+
+	return selector, nil
 }

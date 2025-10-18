@@ -20353,6 +20353,23 @@ var CRDsValidation map[string]string = map[string]string{
           description: ScaleInStrategy specifies how the VMPool controller manages
             scaling in VMs within a VMPool
           properties:
+            opportunistic:
+              description: |-
+                Opportunistic scale-in is a strategy when vms are deleted by some other means than the scale-in action.
+                For example, when the VM is deleted by the user or when the VM is deleted by the node that is hosting the VM.
+              properties:
+                enabled:
+                  description: Enable or disable opportunistic scale-in.
+                  type: boolean
+                statePreservation:
+                  description: Specifies if and how to preserve the state of the VMs
+                    selected during scale-in.
+                  enum:
+                  - Disabled
+                  - Offline
+                  - Online
+                  type: string
+              type: object
             proactive:
               description: Proactive scale-in by forcing VMs to shutdown during scale-in
                 (Default)
@@ -20363,13 +20380,113 @@ var CRDsValidation map[string]string = map[string]string{
                     Defaults to "Random" base policy when no SelectionPolicy is configured
                   properties:
                     basePolicy:
-                      description: BasePolicy is a catch-all policy [Random|DescendingOrder]
+                      description: BasePolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]
                       enum:
-                      - Random
+                      - AscendingOrder
                       - DescendingOrder
+                      - Newest
+                      - Oldest
+                      - Random
                       type: string
+                    orderedPolicies:
+                      description: OrderedPolicies is a Ordered list of selection
+                        policies.
+                      properties:
+                        labelSelector:
+                          description: LabelSelector is a list of label selector for
+                            VMs.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        nodeSelectorRequirementMatcher:
+                          description: NodeSelectorRequirementMatcher is a list of
+                            node selector requirement for VMs.
+                          items:
+                            description: |-
+                              A node selector requirement is a selector that contains values, a key, and an operator
+                              that relates the key and values.
+                            properties:
+                              key:
+                                description: The label key that the selector applies
+                                  to.
+                                type: string
+                              operator:
+                                description: |-
+                                  Represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                type: string
+                              values:
+                                description: |-
+                                  An array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. If the operator is Gt or Lt, the values
+                                  array must have a single element, which will be interpreted as an integer.
+                                  This array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                      type: object
                   type: object
+                statePreservation:
+                  description: Specifies if and how to preserve the state of the VMs
+                    selected during scale-in.
+                  enum:
+                  - Disabled
+                  - Offline
+                  - Online
+                  type: string
               type: object
+            unmanaged:
+              description: The VM is never touched after creation. Users are responsible
+                for scaling in the pool manually.
+              type: boolean
           type: object
         selector:
           description: |-
@@ -20418,6 +20535,123 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
           type: object
           x-kubernetes-map-type: atomic
+        updateStrategy:
+          description: UpdateStrategy specifies how the VMPool controller manages
+            updating VMs within a VMPool
+          properties:
+            opportunistic:
+              description: Opportunistic update by updating the VMs in a pool in a
+                non-blocking manner
+              type: boolean
+            proactive:
+              description: Proactive update by forcing the VMs to restart during update
+              properties:
+                selectionPolicy:
+                  description: |-
+                    SelectionPolicy defines the priority in which VM instances are selected for proactive update
+                    Defaults to "Random" base policy when no SelectionPolicy is configured
+                  properties:
+                    basePolicy:
+                      description: BasePolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]
+                      enum:
+                      - AscendingOrder
+                      - DescendingOrder
+                      - Newest
+                      - Oldest
+                      - Random
+                      type: string
+                    orderedPolicies:
+                      description: OrderedPolicies is a Ordered list of selection
+                        policies.
+                      properties:
+                        labelSelector:
+                          description: LabelSelector is a list of label selector for
+                            VMs.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        nodeSelectorRequirementMatcher:
+                          description: NodeSelectorRequirementMatcher is a list of
+                            node selector requirement for VMs.
+                          items:
+                            description: |-
+                              A node selector requirement is a selector that contains values, a key, and an operator
+                              that relates the key and values.
+                            properties:
+                              key:
+                                description: The label key that the selector applies
+                                  to.
+                                type: string
+                              operator:
+                                description: |-
+                                  Represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                type: string
+                              values:
+                                description: |-
+                                  An array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. If the operator is Gt or Lt, the values
+                                  array must have a single element, which will be interpreted as an integer.
+                                  This array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                      type: object
+                  type: object
+              type: object
+            unmanaged:
+              description: Unmanaged indicates that no automatic update of VMs within
+                a VMPool is performed, by default it is false
+              type: boolean
+          type: object
         virtualMachineTemplate:
           description: Template describes the VM that will be created.
           properties:
