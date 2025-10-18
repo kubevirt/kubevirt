@@ -21,6 +21,7 @@ package libnet
 
 import (
 	"fmt"
+	"net"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -33,6 +34,15 @@ func ValidateVMIandPodIPMatch(vmi *v1.VirtualMachineInstance, vmiPod *k8sv1.Pod)
 		return fmt.Errorf("VMI Status.Interfaces[0].IP %s does not equal pod's Status.PodIP %s",
 			vmi.Status.Interfaces[0].IP, vmiPod.Status.PodIP)
 	}
+
+	ipv4IPs := []string{}
+	for _, ip := range vmi.Status.Interfaces[0].IPs {
+		if net.ParseIP(ip).To4() != nil {
+			ipv4IPs = append(ipv4IPs, ip)
+		}
+	}
+
+	vmi.Status.Interfaces[0].IPs = ipv4IPs
 
 	if len(vmi.Status.Interfaces[0].IPs) != len(vmiPod.Status.PodIPs) {
 		return fmt.Errorf("VMI Status.Interfaces[0].IPs %s len does not equal pod's Status.PodIPs %s len",
