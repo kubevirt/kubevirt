@@ -1903,7 +1903,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			It("should restore with volume restore policy InPlace and PVC as disk", func() {
 				pvcName := "standalone-pvc"
-				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass)
+				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass, libstorage.WithStorageProfile())
 				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -2031,7 +2031,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 				BeforeEach(func() {
 					memoryDumpPVCName = "fs-pvc" + rand.String(5)
-					memoryDumpPVC = libstorage.NewPVC(memoryDumpPVCName, "1.5Gi", snapshotStorageClass)
+					memoryDumpPVC = libstorage.NewPVC(memoryDumpPVCName, "1.5Gi", snapshotStorageClass, libstorage.WithStorageProfile())
 					volumeMode := corev1.PersistentVolumeFilesystem
 					memoryDumpPVC.Spec.VolumeMode = &volumeMode
 					var err error
