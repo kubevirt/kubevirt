@@ -30,21 +30,25 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	expect "github.com/google/goexpect"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 
@@ -54,6 +58,8 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdomain"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	netcloudinit "kubevirt.io/kubevirt/tests/libnet/cloudinit"
@@ -285,6 +291,72 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(libnet.CheckMacAddress(updatedVMI, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
+			})
+		})
+
+		Context("memory hotplug", Serial, decorators.RequiresTwoSchedulableNodes, func() {
+			BeforeEach(func() {
+				virtClient := kubevirt.Client()
+				originalKv := libkubevirt.GetCurrentKv(virtClient)
+				updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
+					WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
+				}
+				rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+				patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
+
+				currentKv := libkubevirt.GetCurrentKv(virtClient)
+				config.WaitForConfigToBePropagatedToComponent(
+					"kubevirt.io=virt-controller",
+					currentKv.ResourceVersion,
+					config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+					time.Minute)
+			})
+
+			FIt("Should succeed", func() {
+				const (
+					initialGuestMemory      = "1Gi"
+					updatedGuestMemory      = "2Gi"
+					sriovNetworkLogicalName = "sriov-network"
+				)
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithGuestMemory(initialGuestMemory),
+					libvmi.WithMaxGuest(updatedGuestMemory),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(sriovNetworkLogicalName)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(sriovNetworkLogicalName, sriovnet1)),
+				)
+				vmi.Spec.Domain.Resources.Requests = nil
+
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+				vm, err := kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(matcher.ThisVM(vm)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Hotplugging additional memory")
+				patchData, err := patch.GenerateTestReplacePatch(
+					"/spec/template/spec/domain/memory/guest",
+					initialGuestMemory,
+					updatedGuestMemory,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Ensuring the VMI has more available guest memory")
+				initialGuestMemoryQuantity := resource.MustParse(initialGuestMemory)
+				Eventually(func() int64 {
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					return vmi.Status.Memory.GuestCurrent.Value()
+				}).
+					WithTimeout(5 * time.Minute).
+					WithPolling(5 * time.Second).
+					Should(BeNumerically(">", initialGuestMemoryQuantity.Value()))
 			})
 		})
 	})
