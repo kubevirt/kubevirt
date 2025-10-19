@@ -470,7 +470,7 @@ func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.V
 	}
 }
 
-func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus, specVolumeMap map[string]v1.Volume) (v1.VolumeStatus, bool) {
+func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus, specVolumeMap map[string]struct{}) (v1.VolumeStatus, bool) {
 	needsRefresh := false
 	if volumeStatus.Target == "" {
 		needsRefresh = true
@@ -621,9 +621,12 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 			}
 		}
 	}
-	specVolumeMap := make(map[string]v1.Volume)
+	specVolumeMap := make(map[string]struct{})
 	for _, volume := range vmi.Spec.Volumes {
-		specVolumeMap[volume.Name] = volume
+		specVolumeMap[volume.Name] = struct{}{}
+	}
+	for _, utilityVolume := range vmi.Spec.UtilityVolumes {
+		specVolumeMap[utilityVolume.Name] = struct{}{}
 	}
 	newStatusMap := make(map[string]v1.VolumeStatus)
 	var newStatuses []v1.VolumeStatus
@@ -2235,6 +2238,9 @@ func (c *VirtualMachineController) hotplugVolumesReady(vmi *v1.VirtualMachineIns
 			hasHotplugVolume = true
 			break
 		}
+	}
+	if len(vmi.Spec.UtilityVolumes) > 0 {
+		hasHotplugVolume = true
 	}
 	if !hasHotplugVolume {
 		return true

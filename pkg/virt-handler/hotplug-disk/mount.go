@@ -332,15 +332,19 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 	if err != nil {
 		return err
 	}
+
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil {
 			// Skip non hotplug volumes
 			continue
 		}
-		mountDirectory := false
-		if volumeStatus.MemoryDumpVolume != nil {
-			mountDirectory = true
+
+		if storagetypes.IsUtilityVolume(vmi, volumeStatus.Name) && m.isBlockVolume(&vmi.Status, volumeStatus.Name) {
+			log.Log.Object(vmi).Warningf("Skipping mount for utility volume %s: configured with block mode PVC, utility volumes require filesystem mode", volumeStatus.Name)
+			continue
 		}
+
+		mountDirectory := m.isDirectoryMounted(vmi, volumeStatus.Name)
 		if sourceUID == "" {
 			sourceUID = volumeStatus.HotplugVolume.AttachPodUID
 		}
@@ -351,10 +355,15 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 	return nil
 }
 
-func (m *volumeMounter) isDirectoryMounted(vmiStatus *v1.VirtualMachineInstanceStatus, volumeName string) bool {
-	for _, status := range vmiStatus.VolumeStatus {
-		if status.Name == volumeName {
-			return status.MemoryDumpVolume != nil
+func (m *volumeMounter) isDirectoryMounted(vmi *v1.VirtualMachineInstance, volumeName string) bool {
+	for _, utilityVolume := range vmi.Spec.UtilityVolumes {
+		if utilityVolume.Name == volumeName {
+			return true
+		}
+	}
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.Name == volumeName {
+			return volume.MemoryDump != nil
 		}
 	}
 	return false
@@ -671,7 +680,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 					// already unmounted or never mounted
 					continue
 				}
-			} else if m.isDirectoryMounted(&vmi.Status, volume.Name) {
+			} else if m.isDirectoryMounted(vmi, volume.Name) {
 				path, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volume.Name, false)
 				if errors.Is(err, os.ErrNotExist) {
 					// already unmounted or never mounted
@@ -683,6 +692,24 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 					// already unmounted or never mounted
 					continue
 				}
+			}
+			if err != nil {
+				return err
+			}
+			currentHotplugPaths[unsafepath.UnsafeAbsolute(path.Raw())] = virtlauncherUID
+		}
+		for _, utilityVolume := range vmi.Spec.UtilityVolumes {
+			if m.isBlockVolume(&vmi.Status, utilityVolume.Name) {
+				log.Log.Object(vmi).Warningf("Skipping unmount cleanup for utility volume %s: configured with block mode PVC", utilityVolume.Name)
+				continue
+			}
+
+			var path *safepath.Path
+			var err error
+			path, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, utilityVolume.Name, false)
+			if errors.Is(err, os.ErrNotExist) {
+				// already unmounted or never mounted
+				continue
 			}
 			if err != nil {
 				return err
@@ -830,7 +857,7 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 		isBlockExists, _ := isBlockDevice(deviceName)
 		return isBlockExists, nil
 	}
-	if m.isDirectoryMounted(&vmi.Status, volume) {
+	if m.isDirectoryMounted(vmi, volume) {
 		path, err := safepath.JoinNoFollow(targetPath, volume)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {

@@ -70,6 +70,15 @@ func IsHotplugVolume(vol *v1.Volume) bool {
 	return false
 }
 
+func IsUtilityVolume(vmi *v1.VirtualMachineInstance, volumeName string) bool {
+	for _, utilityVolume := range vmi.Spec.UtilityVolumes {
+		if utilityVolume.Name == volumeName {
+			return true
+		}
+	}
+	return false
+}
+
 func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) []*v1.Volume {
 	hotplugVolumes := make([]*v1.Volume, 0)
 	podVolumes := virtlauncherPod.Spec.Volumes
@@ -84,6 +93,23 @@ func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Po
 			hotplugVolumes = append(hotplugVolumes, vmiVolume.DeepCopy())
 		}
 	}
+
+	// Also include utility volumes, converting them to regular volumes
+	for _, utilityVolume := range vmi.Spec.UtilityVolumes {
+		if _, ok := podVolumeMap[utilityVolume.Name]; !ok {
+			volume := &v1.Volume{
+				Name: utilityVolume.Name,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: utilityVolume.PersistentVolumeClaimVolumeSource,
+						Hotpluggable:                      true,
+					},
+				},
+			}
+			hotplugVolumes = append(hotplugVolumes, volume)
+		}
+	}
+
 	return hotplugVolumes
 }
 

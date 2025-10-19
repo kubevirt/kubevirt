@@ -30,6 +30,47 @@ import (
 
 var _ = Describe("Volume type test", func() {
 
+	Context("IsUtilityVolume", func() {
+		It("returns true for utility volume", func() {
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					UtilityVolumes: []v1.UtilityVolume{
+						{
+							Name: "utility-vol",
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "test-pvc",
+							},
+						},
+					},
+				},
+			}
+
+			Expect(IsUtilityVolume(vmi, "utility-vol")).To(BeTrue())
+		})
+
+		It("returns false for non-utility volumes", func() {
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Volumes: []v1.Volume{
+						{
+							Name: "regular-volume",
+						},
+					},
+					UtilityVolumes: []v1.UtilityVolume{
+						{
+							Name: "utility-vol",
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "test-pvc",
+							},
+						},
+					},
+				},
+			}
+
+			Expect(IsUtilityVolume(vmi, "regular-volume")).To(BeFalse())
+		})
+	})
+
 	Context("GetHotplugVolumes", func() {
 		DescribeTable("should not return the new volume", func(volume v1.Volume) {
 
