@@ -1,4 +1,23 @@
-package clone
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package fuzz
 
 import (
 	"context"
@@ -17,9 +36,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 
-	gfh "github.com/AdaLogics/go-fuzz-headers"
+	fuzz "github.com/google/gofuzz"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
+	clonecontroller "kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 )
 
 // FuzzVMCloneController adds up to 5 VMs and VM Clones
@@ -36,7 +56,7 @@ func FuzzVMCloneController(f *testing.F) {
 		if int(numberOfVMClones) == 0 {
 			return
 		}
-		fdp := gfh.NewConsumer(data)
+		fdp := fuzz.NewFromGoFuzz(data)
 		vms := make([]*virtv1.VirtualMachine, 0)
 		vmClones := make([]*clone.VirtualMachineClone, 0)
 
@@ -45,10 +65,7 @@ func FuzzVMCloneController(f *testing.F) {
 
 		for _ = range maxVMs {
 			vm := &virtv1.VirtualMachine{}
-			err := fdp.GenerateStruct(vm)
-			if err != nil {
-				return
-			}
+			fdp.Fuzz(vm)
 			vms = append(vms, vm)
 		}
 		if len(vms) == 0 {
@@ -57,10 +74,7 @@ func FuzzVMCloneController(f *testing.F) {
 
 		for _ = range maxVMClones {
 			vmClone := &clone.VirtualMachineClone{}
-			err := fdp.GenerateStruct(vmClone)
-			if err != nil {
-				return
-			}
+			fdp.Fuzz(vmClone)
 			vmClones = append(vmClones, vmClone)
 		}
 		if len(vmClones) == 0 {
@@ -86,7 +100,7 @@ func FuzzVMCloneController(f *testing.F) {
 		recorder := record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		controller, err := NewVmCloneController(
+		controller, err := clonecontroller.NewVmCloneController(
 			virtClient,
 			cloneInformer,
 			snapshotInformer,
@@ -98,42 +112,44 @@ func FuzzVMCloneController(f *testing.F) {
 		if err != nil {
 			panic(err)
 		}
-		mockQueue := testutils.NewMockWorkQueue(controller.vmCloneQueue)
-		controller.vmCloneQueue.ShutDown()
-		controller.vmCloneQueue = mockQueue
+		mockQueue := testutils.NewMockWorkQueue(clonecontroller.GetVmCloneQueue(controller))
+		clonecontroller.ShutdownCtrlQueue(controller)
+		clonecontroller.SetQueue(controller, mockQueue)
+		//controller.vmCloneQueue.ShutDown()
+		//controller.vmCloneQueue = mockQueue
 
 		client := kubevirtfake.NewSimpleClientset()
 		// Done setting up the controller
 
 		// Add vms to vm store
 		for _, randomVM := range vms {
-			err := controller.vmStore.Add(randomVM)
+			clonecontroller.AddToVmStore(controller, randomVM)
+			/*err := controller.vmStore.Add(randomVM)
 			if err != nil {
 				continue
-			}
+			}*/
 		}
 
 		// Add vm clones to the queue
 		for _, vmClone := range vmClones {
-			addToQueue, err := fdp.GetBool()
-			if err != nil {
-				continue
-			}
+			var addToQueue bool
+			var create bool
+			fdp.Fuzz(&addToQueue)
+			fdp.Fuzz(&create)
 			if addToQueue {
-				controller.vmCloneIndexer.Add(vmClone)
+				clonecontroller.AddTovmCloneIndexer(controller, vmClone)
+				//controller.vmCloneIndexer.Add(vmClone)
 				key, err := kvcontroller.KeyFunc(vmClone)
 				if err != nil {
 					continue
 				}
 				mockQueue.Add(key)
-			} else {
-				_, err := client.CloneV1beta1().VirtualMachineClones(metav1.NamespaceDefault).Create(context.Background(), vmClone, metav1.CreateOptions{})
-				if err != nil {
-					continue
-				}
+			}
+			if create {
+				client.CloneV1beta1().VirtualMachineClones(metav1.NamespaceDefault).Create(context.Background(), vmClone, metav1.CreateOptions{})
 			}
 		}
-		if controller.vmCloneQueue.Len() == 0 {
+		if mockQueue.Len() == 0 {
 			return
 		}
 		controller.Execute()

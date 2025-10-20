@@ -30,14 +30,17 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"k8s.io/client-go/util/workqueue"
 	clone "kubevirt.io/api/clone/v1beta1"
 	k6tv1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	virtsnapshot "kubevirt.io/kubevirt/pkg/storage/snapshot"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 type cloneSourceType string
@@ -711,4 +714,25 @@ func (s *syncInfoType) setError(err error) {
 
 func (s *syncInfoType) isFailingOrError() bool {
 	return s.err != nil || s.isCloneFailing
+}
+
+// These utilities are exposed here for the fuzzer in ./fuzz to use.
+func ShutdownCtrlQueue(ctrl *VMCloneController) {
+	ctrl.vmCloneQueue.ShutDown()
+}
+
+func SetQueue(ctrl *VMCloneController, newQueue *testutils.MockWorkQueue[string]) {
+	ctrl.vmCloneQueue = newQueue
+}
+
+func AddToVmStore(ctrl *VMCloneController, vm *virtv1.VirtualMachine) {
+	ctrl.vmStore.Add(vm)
+}
+
+func AddTovmCloneIndexer(ctrl *VMCloneController, vmc *clone.VirtualMachineClone) {
+	ctrl.vmCloneIndexer.Add(vmc)
+}
+
+func GetVmCloneQueue(ctrl *VMCloneController) workqueue.TypedRateLimitingInterface[string] {
+	return ctrl.vmCloneQueue
 }
