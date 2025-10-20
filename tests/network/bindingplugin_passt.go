@@ -26,29 +26,30 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/tests/libregistry"
 
 	expect "github.com/google/goexpect"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
-	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -60,7 +61,13 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 	var err error
 
 	BeforeEach(OncePerOrdered, func() {
+		config.EnableFeatureGate(featuregate.PasstIPStackMigration)
+
 		const passtBindingName = "passt"
+
+		if skipRegistration(passtNetAttDefName) {
+			return
+		}
 
 		passtComputeMemoryOverheadWhenAllPortsAreForwarded := resource.MustParse("500Mi")
 
@@ -77,8 +84,6 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
-
-		config.EnableFeatureGate(featuregate.PasstIPStackMigration)
 	})
 
 	BeforeEach(OncePerOrdered, func() {
@@ -467,4 +472,14 @@ EOL`, inetSuffix, serverIP, serverPort)
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.ShellSuccess},
 	}, 60*time.Second)
+}
+
+func skipRegistration(bindingName string) bool {
+	kv := libkubevirt.GetCurrentKv(kubevirt.Client())
+	if kv.Spec.Configuration.NetworkConfiguration != nil &&
+		kv.Spec.Configuration.NetworkConfiguration.Binding != nil {
+		_, exist := kv.Spec.Configuration.NetworkConfiguration.Binding[bindingName]
+		return exist
+	}
+	return false
 }
