@@ -6,6 +6,7 @@ go_library(
         "clone.go",
         "clone_base.go",
         "util.go",
+        "utils_fuzz.go",
         "vm-target.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/clone",
