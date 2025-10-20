@@ -133,13 +133,3 @@ func GetKeysFromMetrics(metrics map[string]float64) []string {
 	sort.Strings(keys)
 	return keys
 }
-
-func GetMetricKeyForVmiDisk(keys []string, vmiName string, diskName string) string {
-	for _, key := range keys {
-		if strings.Contains(key, "name=\""+vmiName+"\"") &&
-			strings.Contains(key, "drive=\""+diskName+"\"") {
-			return key
-		}
-	}
-	return ""
-}
