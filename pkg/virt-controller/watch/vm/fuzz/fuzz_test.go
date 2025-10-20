@@ -11,8 +11,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"github.com/golang/mock/gomock"
 	fuzz "github.com/google/gofuzz"
+	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -222,6 +222,7 @@ func FuzzExecute(f *testing.F) {
 
 		dataVolumeInformer, dvCs := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		dataSourceInformer, dsCs := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+		kvInformer, unused := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 		vmiInformer, viCs := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 		vmInformer, vCs := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 		pvcInformer, piCs := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
@@ -241,6 +242,7 @@ func FuzzExecute(f *testing.F) {
 		defer vCs.Shutdown()
 		defer piCs.Shutdown()
 		defer nsCs.Shutdown()
+		defer unused.Shutdown()
 
 		ns1 := &k8sv1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -308,14 +310,18 @@ func FuzzExecute(f *testing.F) {
 			vmInformer,
 			dataVolumeInformer,
 			dataSourceInformer,
-			namespaceInformer.GetStore(),
+			kvInformer,
+			namespaceInformer,
 			pvcInformer,
 			crInformer,
 			recorder,
 			virtClient,
 			config,
 			nil,
-			instancetypecontroller.NewMockController(),
+			nil,
+			instancetypecontroller.NewControllerStub(),
+			[]string{},
+			[]string{},
 		)
 		if err != nil {
 			return

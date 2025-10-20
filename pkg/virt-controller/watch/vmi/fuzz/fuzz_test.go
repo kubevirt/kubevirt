@@ -10,8 +10,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"github.com/golang/mock/gomock"
 	fuzz "github.com/google/gofuzz"
+	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -322,6 +322,9 @@ func FuzzExecute(f *testing.F) {
 			stubNetworkAnnotationsGenerator{},
 			stubNetStatusUpdate,
 			validateNetVMISpecStub(),
+			stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+			[]string{},
+			[]string{},
 		)
 		if err != nil {
 			// We want to know if this happens
@@ -430,4 +433,12 @@ type stubNetworkAnnotationsGenerator struct {
 
 func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
 	return s.annotations
+}
+
+type stubMigrationEvaluator struct {
+	result k8sv1.ConditionStatus
+}
+
+func (e stubMigrationEvaluator) Evaluate(_ *virtv1.VirtualMachineInstance) k8sv1.ConditionStatus {
+	return e.result
 }
