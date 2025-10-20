@@ -186,6 +186,13 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	l.metadataCache.GracePeriod.Set(
 		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
 	)
+	inProgress, err := l.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+	if err != nil {
+		return err
+	}
+	if inProgress {
+		return nil
+	}
 
 	err = l.generateCloudInitEmptyISO(vmi, nil)
 	if err != nil {
