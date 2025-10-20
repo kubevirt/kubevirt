@@ -115,8 +115,6 @@ func FuzzVMCloneController(f *testing.F) {
 		mockQueue := testutils.NewMockWorkQueue(clonecontroller.GetVmCloneQueue(controller))
 		clonecontroller.ShutdownCtrlQueue(controller)
 		clonecontroller.SetQueue(controller, mockQueue)
-		//controller.vmCloneQueue.ShutDown()
-		//controller.vmCloneQueue = mockQueue
 
 		client := kubevirtfake.NewSimpleClientset()
 		// Done setting up the controller
@@ -124,10 +122,6 @@ func FuzzVMCloneController(f *testing.F) {
 		// Add vms to vm store
 		for _, randomVM := range vms {
 			clonecontroller.AddToVmStore(controller, randomVM)
-			/*err := controller.vmStore.Add(randomVM)
-			if err != nil {
-				continue
-			}*/
 		}
 
 		// Add vm clones to the queue
@@ -138,7 +132,6 @@ func FuzzVMCloneController(f *testing.F) {
 			fdp.Fuzz(&create)
 			if addToQueue {
 				clonecontroller.AddTovmCloneIndexer(controller, vmClone)
-				//controller.vmCloneIndexer.Add(vmClone)
 				key, err := kvcontroller.KeyFunc(vmClone)
 				if err != nil {
 					continue
