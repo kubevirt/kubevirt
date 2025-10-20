@@ -30,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
@@ -201,12 +203,62 @@ var _ = Describe("Validating Pool Admitter", func() {
 		}, []string{
 			"spec.maxUnavailable",
 		}),
+		Entry("with both opportunistic and proactive scale-in strategies", &poolv1.VirtualMachinePool{
+			Spec: poolv1.VirtualMachinePoolSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"match": "me"},
+				},
+				VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"match": "me"},
+					},
+					Spec: v1.VirtualMachineSpec{
+						RunStrategy: &always,
+						Template: newVirtualMachineBuilder().
+							BuildTemplate(),
+					},
+				},
+				ScaleInStrategy: &poolv1.VirtualMachinePoolScaleInStrategy{
+					Opportunistic: &poolv1.VirtualMachinePoolOpportunisticScaleInStrategy{},
+					Proactive:     &poolv1.VirtualMachinePoolProactiveScaleInStrategy{},
+				},
+			},
+		}, []string{
+			"spec.scaleInStrategy",
+		}),
+		Entry("with all three scale-in strategies", &poolv1.VirtualMachinePool{
+			Spec: poolv1.VirtualMachinePoolSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"match": "me"},
+				},
+				VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"match": "me"},
+					},
+					Spec: v1.VirtualMachineSpec{
+						RunStrategy: &always,
+						Template: newVirtualMachineBuilder().
+							BuildTemplate(),
+					},
+				},
+				ScaleInStrategy: &poolv1.VirtualMachinePoolScaleInStrategy{
+					Unmanaged:     pointer.P(true),
+					Opportunistic: &poolv1.VirtualMachinePoolOpportunisticScaleInStrategy{},
+					Proactive:     &poolv1.VirtualMachinePoolProactiveScaleInStrategy{},
+				},
+			},
+		}, []string{
+			"spec.scaleInStrategy",
+		}),
 	)
 	It("should accept valid vm spec", func() {
 		pool := &poolv1.VirtualMachinePool{
 			Spec: poolv1.VirtualMachinePoolSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"match": "me"},
+				},
+				ScaleInStrategy: &poolv1.VirtualMachinePoolScaleInStrategy{
+					Opportunistic: &poolv1.VirtualMachinePoolOpportunisticScaleInStrategy{},
 				},
 
 				VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
