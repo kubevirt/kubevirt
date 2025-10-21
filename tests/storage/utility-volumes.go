@@ -37,10 +37,14 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -64,9 +68,12 @@ func getKubevirtControllerClient(virtCli kubecli.KubevirtClient, namespace strin
 
 var _ = Describe(SIG("Utility Volumes", func() {
 	var (
-		virtClient       kubecli.KubevirtClient
-		controllerClient kubecli.KubevirtClient
-		testNamespace    string
+		virtClient        kubecli.KubevirtClient
+		controllerClient  kubecli.KubevirtClient
+		testNamespace     string
+		vmi               *v1.VirtualMachineInstance
+		pvcName           string
+		utilityVolumeName string
 	)
 
 	BeforeEach(func() {
@@ -130,9 +137,6 @@ var _ = Describe(SIG("Utility Volumes", func() {
 	}
 
 	Context("Basic utility volume hotplug", func() {
-		var vmi *v1.VirtualMachineInstance
-		var pvcName, utilityVolumeName string
-
 		BeforeEach(func() {
 			pvcName = "test-utility-volume-pvc" + rand.String(5)
 			utilityVolumeName = "test-utility-volume"
@@ -158,6 +162,117 @@ var _ = Describe(SIG("Utility Volumes", func() {
 			removeUtilityVolume(vmi.Name, testNamespace)
 			verifyUtilityVolumeRemovedFromVMI(virtClient, vmi, utilityVolumeName)
 			Eventually(matcher.ThisPodWith(vmi.Namespace, attachmentPodName), 90*time.Second, 1*time.Second).Should(matcher.BeGone())
+		})
+	})
+
+	Context("Migration with utility volumes", decorators.RequiresTwoSchedulableNodes, func() {
+		BeforeEach(func() {
+			pvcName = "test-utility-migration-pvc" + rand.String(5)
+			utilityVolumeName = "test-utility-migration"
+
+			// Create a VM with masquerade networking to make it migratable
+			vmiSpec := libvmifact.NewCirros()
+			vmiSpec.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Masquerade: &v1.InterfaceMasquerade{},
+				},
+			}}
+			vmiSpec.Spec.Networks = []v1.Network{{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Pod: &v1.PodNetwork{},
+				},
+			}}
+
+			vm := libvmi.NewVirtualMachine(vmiSpec, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			vmi, err = virtClient.VirtualMachineInstance(testNamespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should wait utility volumes detach before scheduling migration", func() {
+			sourceNode := vmi.Status.NodeName
+
+			libstorage.CreateFSPVC(pvcName, testNamespace, "500Mi", libstorage.WithStorageProfile())
+			addUtilityVolume(vmi.Name, testNamespace, utilityVolumeName, pvcName)
+			verifyUtilityVolumeInVMISpec(virtClient, vmi, utilityVolumeName)
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.HotplugVolumeMounted, "", false, utilityVolumeName)
+
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "migration creation should succeed")
+
+			Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+				migration, err = virtClient.VirtualMachineInstanceMigration(testNamespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return migration.Status.Phase
+			}, 30*time.Second, 1*time.Second).Should(Equal(v1.MigrationPending))
+
+			// Verify condition is set to indicate utility volumes are blocking
+			Eventually(func() bool {
+				migration, err = virtClient.VirtualMachineInstanceMigration(testNamespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, condition := range migration.Status.Conditions {
+					if condition.Type == v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes &&
+						condition.Status == k8sv1.ConditionTrue {
+						return true
+					}
+				}
+				return false
+			}, 30*time.Second, 1*time.Second).Should(BeTrue(), "Should have condition indicating utility volumes are blocking")
+
+			events.ExpectEvent(migration, k8sv1.EventTypeWarning, controller.UtilityVolumeMigrationPendingReason)
+
+			// Remove utility volume to allow migration
+			removeUtilityVolume(vmi.Name, testNamespace)
+			verifyUtilityVolumeRemovedFromVMI(virtClient, vmi, utilityVolumeName)
+
+			// Verify condition is removed after utility volumes are detached
+			Eventually(func() bool {
+				migration, err = virtClient.VirtualMachineInstanceMigration(testNamespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, condition := range migration.Status.Conditions {
+					if condition.Type == v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes {
+						return false
+					}
+				}
+				return true
+			}, 30*time.Second, 1*time.Second).Should(BeTrue(), "Utility volumes condition should be removed after volumes are detached")
+
+			// Wait for migration to succeed
+			Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+				migration, err := virtClient.VirtualMachineInstanceMigration(testNamespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return migration.Status.Phase
+			}, 240*time.Second, 1*time.Second).Should(Equal(v1.MigrationSucceeded))
+
+			// Verify VM migrated to a different node
+			vmi, err = virtClient.VirtualMachineInstance(testNamespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			targetNode := vmi.Status.NodeName
+			Expect(targetNode).ToNot(Equal(sourceNode))
+
+			// Verify no attachment pods were created for utility volumes on the target node
+			pods, err := virtClient.CoreV1().Pods(testNamespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("kubevirt.io/created-by=%s", vmi.UID),
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, pod := range pods.Items {
+				if pod.Spec.NodeName == targetNode {
+					// Should only be the virt-launcher pod
+					Expect(pod.Labels).To(HaveKey("kubevirt.io"))
+					Expect(pod.Labels).ToNot(HaveKey("kubevirt.io/domain"))
+					// Verify it's not an attachment pod
+					for _, volume := range pod.Spec.Volumes {
+						Expect(volume.Name).ToNot(Equal(utilityVolumeName))
+					}
+				}
+			}
 		})
 	})
 }))
