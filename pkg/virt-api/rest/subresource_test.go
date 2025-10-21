@@ -197,7 +197,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		}
 	}
 
-
 	expectVMI := func(running, paused bool, vmiWarpFunctions ...func(vmi *v1.VirtualMachineInstance)) {
 		request.PathParameters()["name"] = testVMIName
 		request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
