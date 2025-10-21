@@ -187,6 +187,7 @@ var _ = Describe("Application", func() {
 			recorder,
 			virtClient,
 			config,
+			stubNetworkAnnotationsGenerator{},
 		)
 		app.snapshotController = &snapshot.VMSnapshotController{
 			Client:                    virtClient,
@@ -366,4 +367,10 @@ type stubMigrationEvaluator struct{}
 
 func (e stubMigrationEvaluator) Evaluate(_ *v1.VirtualMachineInstance) k8sv1.ConditionStatus {
 	return k8sv1.ConditionUnknown
+}
+
+type stubNetworkAnnotationsGenerator struct{}
+
+func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
+	return nil
 }
