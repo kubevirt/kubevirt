@@ -438,7 +438,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ wg-s390x ]]; then
     label_filter='(wg-s390x) && !(requires-amd64)'
   elif [[ $TARGET =~ wg-arm64 ]]; then
-    label_filter='(wg-arm64 && !(ACPI,requires-two-schedulable-nodes,cpumodel,requires-two-worker-nodes-with-cpu-manager,requires-amd64))'
+    label_filter='(wg-arm64 && !(ACPI,cpumodel,requires-two-worker-nodes-with-cpu-manager,requires-amd64))'
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='(VGPU)'
   elif [[ $TARGET =~ sev.* ]]; then
