@@ -784,6 +784,19 @@ const (
 	// VirtualMachineInstanceMigrationAbortRequested indicates that live migration abort has been requested
 	VirtualMachineInstanceMigrationAbortRequested          VirtualMachineInstanceMigrationConditionType = "migrationAbortRequested"
 	VirtualMachineInstanceMigrationRejectedByResourceQuota VirtualMachineInstanceMigrationConditionType = "migrationRejectedByResourceQuota"
+	VirtualMachineInstanceMigrationFailed                  VirtualMachineInstanceMigrationConditionType = "migrationFailed"
+)
+
+const (
+	VirtualMachineInstanceMigrationFailedReasonVMIDoesNotExist                                    string = "VMIDoesNotExist"
+	VirtualMachineInstanceMigrationFailedReasonVMIIsShutdown                                      string = "VMIIsShutdown"
+	VirtualMachineInstanceMigrationFailedReasonTargetPodWasDeletedBecauseTimeoutExceeded          string = "TargetPodWasDeletedBecauseTimeoutExceeded"
+	VirtualMachineInstanceMigrationFailedReasonTargetPodShutdownDuringMigration                   string = "TargetPodShutdownDuringMigration"
+	VirtualMachineInstanceMigrationFailedReasonTargetPodDisappearedDuringMigration                string = "TargetPodDisappearedDuringMigration"
+	VirtualMachineInstanceMigrationFailedReasonMigrationStateClearedDuringMigration               string = "MigrationStateClearedDuringMigration"
+	VirtualMachineInstanceMigrationFailedReasonMigrationStateWasTakenOverByAnotherMigrationObject string = "MigrationStateWasTakenOverByAnotherMigrationObject"
+	VirtualMachineInstanceMigrationFailedReasonSourceNodeReportedMigrationFailed                  string = "SourceNodeReportedMigrationFailed"
+	VirtualMachineInstanceMigrationFailedReasonTargetAttachmentPodShutdownDuringMigration         string = "TargetAttachmentPodShutdownDuringMigration"
 )
 
 type VirtualMachineInstanceCondition struct {

@@ -958,8 +958,6 @@ func (c *Controller) addStartRequest(vm *virtv1.VirtualMachine) error {
 	}
 	vm.Status = patchedVM.Status
 
-	fmt.Println("BBBB")
-	fmt.Println(vm.Status.StateChangeRequests)
 	return nil
 }
 
