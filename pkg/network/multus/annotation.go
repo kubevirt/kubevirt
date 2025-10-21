@@ -22,6 +22,7 @@ package multus
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
@@ -147,4 +148,108 @@ func newBindingPluginAnnotationData(
 			cniArgNetworkName: networkName,
 		},
 	}, nil
+}
+
+type key struct {
+	namespace string
+	name      string
+	iface     string
+}
+
+func MergeNetworkSelectionElements(desiredElementsString, existingElementsString string) (string, error) {
+	if desiredElementsString == "" || existingElementsString == "" || desiredElementsString == existingElementsString {
+		return desiredElementsString, nil
+	}
+
+	var desiredElements, existingElements []map[string]interface{}
+	if err := json.Unmarshal([]byte(desiredElementsString), &desiredElements); err != nil {
+		return "", fmt.Errorf("failed to unmarshal desired JSON array: %v", err)
+	}
+
+	if err := json.Unmarshal([]byte(existingElementsString), &existingElements); err != nil {
+		return "", fmt.Errorf("failed to unmarshal existing JSON array: %v", err)
+	}
+
+	desiredElementsByKey := make(map[key]map[string]interface{}, len(desiredElements))
+	for _, desiredElement := range desiredElements {
+		currentKey, err := keyFromElement(desiredElement)
+		if err != nil {
+			return "", err
+		}
+		desiredElementsByKey[currentKey] = desiredElement
+	}
+
+	var mergedElements []map[string]interface{}
+	handledElements := map[key]struct{}{}
+
+	for _, existingElement := range existingElements {
+		currentKey, err := keyFromElement(existingElement)
+		if err != nil {
+			return "", err
+		}
+
+		if desiredElement, isDesired := desiredElementsByKey[currentKey]; isDesired {
+			mergedElements = append(mergedElements, mergeElements(desiredElement, existingElement))
+			handledElements[currentKey] = struct{}{}
+		}
+	}
+
+	// Handle hotplug
+	for _, desiredElement := range desiredElements {
+		currentKey, err := keyFromElement(desiredElement)
+		if err != nil {
+			return "", err
+		}
+		if _, handled := handledElements[currentKey]; !handled {
+			mergedElements = append(mergedElements, desiredElement)
+		}
+	}
+
+	if len(mergedElements) == 0 {
+		return "", nil
+	}
+
+	mergedElementsBytes, err := json.Marshal(mergedElements)
+	return string(mergedElementsBytes), err
+}
+
+func keyFromElement(element map[string]interface{}) (key, error) {
+	var (
+		newKey key
+		ok     bool
+	)
+
+	newKey.namespace, ok = element["namespace"].(string)
+	if !ok {
+		return key{}, fmt.Errorf("failed to find namespace key in desired JSON array")
+	}
+	newKey.name, ok = element["name"].(string)
+	if !ok {
+		return key{}, fmt.Errorf("failed to find name key in desired JSON array")
+	}
+	newKey.iface, ok = element["interface"].(string)
+	if !ok {
+		newKey.iface = "NA"
+	}
+
+	return newKey, nil
+}
+
+func mergeElements(desiredElement, existingElement map[string]interface{}) map[string]interface{} {
+	ownedFields := map[string]struct{}{
+		"namespace": {},
+		"name":      {},
+		"mac":       {},
+		"interface": {},
+	}
+
+	updatedElement := maps.Clone(existingElement)
+
+	for field, value := range desiredElement {
+		if _, isFieldOwnedByKubeVirt := ownedFields[field]; isFieldOwnedByKubeVirt {
+			updatedElement[field] = value
+		}
+	}
+
+	return updatedElement
 }
