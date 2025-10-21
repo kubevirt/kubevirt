@@ -982,6 +982,7 @@
         "bandwidthPerMigration": "0",
         "completionTimeoutPerGiB": -23,
         "progressTimeout": -15,
+        "utilityVolumesTimeout": -21,
         "unsafeMigrationOverride": true,
         "allowPostCopy": true,
         "allowWorkloadDisruption": true,

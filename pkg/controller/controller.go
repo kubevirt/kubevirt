@@ -97,6 +97,8 @@ const (
 	MigrationTargetPodUnschedulable = "migrationTargetPodUnschedulable"
 	// FailedAbortMigrationReason is added when an attempt to abort migration fails
 	FailedAbortMigrationReason = "FailedAbortMigration"
+	// UtilityVolumeMigrationPendingReason is added when a migration is pending due to utility volumes
+	UtilityVolumeMigrationPendingReason = "UtilityVolumeMigrationPending"
 	// MissingAttachmentPodReason is set when we have a hotplugged volume, but the attachment pod is missing
 	MissingAttachmentPodReason = "MissingAttachmentPod"
 	// PVCNotReadyReason is set when the PVC is not ready to be hot plugged.
@@ -450,6 +452,10 @@ func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+func VMIHasUtilityVolumes(vmi *v1.VirtualMachineInstance) bool {
+	return len(vmi.Spec.UtilityVolumes) > 0
 }
 
 func vmiHasCondition(vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType) bool {

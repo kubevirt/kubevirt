@@ -3467,6 +3467,11 @@ func (in *MigrationConfiguration) DeepCopyInto(out *MigrationConfiguration) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.UtilityVolumesTimeout != nil {
+		in, out := &in.UtilityVolumesTimeout, &out.UtilityVolumesTimeout
+		*out = new(int64)
+		**out = **in
+	}
 	if in.UnsafeMigrationOverride != nil {
 		in, out := &in.UnsafeMigrationOverride, &out.UnsafeMigrationOverride
 		*out = new(bool)

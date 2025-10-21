@@ -2491,6 +2491,23 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(cond.Reason).To(Equal(v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable))
 		})
 
+		It("VMI with utility volumes should remain migratable", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+				{
+					Name: "test-utility-volume",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-pvc",
+					},
+				},
+			}
+
+			cond, _ := controller.calculateLiveMigrationCondition(vmi)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+		})
+
 	})
 
 	Context("VirtualMachineInstance network status", func() {

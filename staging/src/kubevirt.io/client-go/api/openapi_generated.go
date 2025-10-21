@@ -22900,6 +22900,13 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 							Format:      "int64",
 						},
 					},
+					"utilityVolumesTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state for utility volumes to be detached. If utility volumes are still present after this timeout, the migration will be marked as Failed. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"unsafeMigrationOverride": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check indicates the migration will be unsafe to the guest. Defaults to false",
