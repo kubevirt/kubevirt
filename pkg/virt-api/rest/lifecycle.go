@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util/migrations"
 )
 
 func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, response *restful.Response) {
@@ -402,7 +403,7 @@ func (app *SubresourceAPIApp) ResetVMIRequestHandler(request *restful.Request, r
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is paused"))
 		}
 		// Check if VM is currently being migrated
-		if vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.Completed {
+		if migrations.IsMigrating(vmi) {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Cannot reset VM '%s' because it is currently being migrated", vmi.Name))
 		}
 		return nil
