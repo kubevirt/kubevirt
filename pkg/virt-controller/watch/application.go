@@ -748,6 +748,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmiRecorder,
 		clientSet,
 		vca.clusterConfig,
+		netAnnotationsGenerator,
 	)
 	if err != nil {
 		panic(err)

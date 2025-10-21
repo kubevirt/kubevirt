@@ -110,6 +110,10 @@ type templateService interface {
 	GetLauncherImage() string
 }
 
+type networkAnnotationsGenerator interface {
+	GenerateFromActivePod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) map[string]string
+}
+
 type Controller struct {
 	templateService                   templateService
 	clientset                         kubecli.KubevirtClient
@@ -131,6 +135,7 @@ type Controller struct {
 	clusterConfig                     *virtconfig.ClusterConfig
 	hasSynced                         func() bool
 	virtControllerVMIMWorkQueueTracer *traceUtils.Tracer
+	netAnnotationsGenerator           networkAnnotationsGenerator
 
 	// the set of cancelled migrations before being handed off to virt-handler.
 	// the map keys are migration keys
@@ -155,6 +160,7 @@ func NewController(templateService templateService,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
+	netAnnotationsGenerator networkAnnotationsGenerator,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -163,23 +169,24 @@ func NewController(templateService templateService,
 			o.RateLimiter = workqueue.DefaultTypedControllerRateLimiter[string]()
 			o.MetricProvider = workqueuemetrics.NewPrometheusMetricsProvider()
 		}),
-		vmiStore:             vmiInformer.GetStore(),
-		podIndexer:           podInformer.GetIndexer(),
-		migrationIndexer:     migrationInformer.GetIndexer(),
-		nodeStore:            nodeInformer.GetStore(),
-		pvcStore:             pvcInformer.GetStore(),
-		storageClassStore:    storageClassInformer.GetStore(),
-		storageProfileStore:  storageProfileInformer.GetStore(),
-		resourceQuotaIndexer: resourceQuotaInformer.GetIndexer(),
-		migrationPolicyStore: migrationPolicyInformer.GetStore(),
-		kubevirtStore:        kubevirtInformer.GetStore(),
-		recorder:             recorder,
-		clientset:            clientset,
-		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		pvcExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		migrationStartLock:   &sync.Mutex{},
-		clusterConfig:        clusterConfig,
-		handOffMap:           make(map[string]struct{}),
+		vmiStore:                vmiInformer.GetStore(),
+		podIndexer:              podInformer.GetIndexer(),
+		migrationIndexer:        migrationInformer.GetIndexer(),
+		nodeStore:               nodeInformer.GetStore(),
+		pvcStore:                pvcInformer.GetStore(),
+		storageClassStore:       storageClassInformer.GetStore(),
+		storageProfileStore:     storageProfileInformer.GetStore(),
+		resourceQuotaIndexer:    resourceQuotaInformer.GetIndexer(),
+		migrationPolicyStore:    migrationPolicyInformer.GetStore(),
+		kubevirtStore:           kubevirtInformer.GetStore(),
+		recorder:                recorder,
+		clientset:               clientset,
+		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		pvcExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		migrationStartLock:      &sync.Mutex{},
+		clusterConfig:           clusterConfig,
+		handOffMap:              make(map[string]struct{}),
+		netAnnotationsGenerator: netAnnotationsGenerator,
 
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
@@ -1069,6 +1076,13 @@ func (c *Controller) getNodeSelectorsFromNodeName(nodeName string) (map[string]s
 	return res, nil
 }
 
+// updateTargetPodNetworkInfo generates the network-info annotation from the target pod's network-status
+func (c *Controller) updateTargetPodNetworkInfo(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+	newAnnotations := c.netAnnotationsGenerator.GenerateFromActivePod(vmi, pod)
+	_, err := controller.SyncPodAnnotations(c.clientset, pod, newAnnotations)
+	return err
+}
+
 func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 
 	if vmi.IsMigrationSynchronized(migration) && vmi.Status.MigrationState.MigrationUID == migration.UID {
@@ -1587,6 +1601,9 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 		// once target pod is running, then alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
 		if targetPodExists && controller.IsPodReady(pod) {
+			if err := c.updateTargetPodNetworkInfo(vmi, pod); err != nil {
+				return err
+			}
 			return c.handleTargetPodHandoff(migration, vmi, pod)
 		}
 	case virtv1.MigrationPreparingTarget, virtv1.MigrationTargetReady, virtv1.MigrationFailed:
