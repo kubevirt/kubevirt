@@ -186,6 +186,14 @@ type VirtualMachineInstanceSpec struct {
 	// +listMapKey=name
 	// +optional
 	ResourceClaims []k8sv1.PodResourceClaim `json:"resourceClaims,omitempty"`
+	// List of utility volumes that can be mounted to the vmi virt-launcher pod
+	// without having a matching disk in the domain.
+	// Used to collect data for various operational workflows.
+	// +kubebuilder:validation:MaxItems:=256
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	UtilityVolumes []UtilityVolume `json:"utilityVolumes,omitempty"`
 }
 
 func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {

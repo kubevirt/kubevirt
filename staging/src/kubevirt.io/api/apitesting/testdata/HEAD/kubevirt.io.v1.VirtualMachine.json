@@ -955,6 +955,14 @@
             "resourceClaimName": "resourceClaimNameValue",
             "resourceClaimTemplateName": "resourceClaimTemplateNameValue"
           }
+        ],
+        "utilityVolumes": [
+          {
+            "name": "nameValue",
+            "claimName": "claimNameValue",
+            "readOnly": true,
+            "type": "typeValue"
+          }
         ]
       }
     },
