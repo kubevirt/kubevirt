@@ -31,13 +31,17 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
 const (
@@ -562,4 +566,28 @@ func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Po
 		}
 	}
 	return hotplugVolumes
+}
+
+func SyncPodAnnotations(clientset kubecli.KubevirtClient, pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
+	patchSet := patch.New()
+	for key, newValue := range newAnnotations {
+		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || podAnnotationValue != newValue {
+			patchSet.AddOption(
+				patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(key)), newValue),
+			)
+		}
+	}
+	if patchSet.IsEmpty() {
+		return pod, nil
+	}
+	patchBytes, err := patchSet.GeneratePayload()
+	if err != nil {
+		return pod, fmt.Errorf("failed to generate patch payload: %w", err)
+	}
+	patchedPod, err := clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		log.Log.Object(pod).Errorf("failed to sync pod annotations: %v", err)
+		return nil, err
+	}
+	return patchedPod, nil
 }
