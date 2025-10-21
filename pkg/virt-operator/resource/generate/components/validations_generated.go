@@ -1390,6 +1390,13 @@ var CRDsValidation map[string]string = map[string]string{
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
                     indicates the migration will be unsafe to the guest. Defaults to false
                   type: boolean
+                utilityVolumesTimeout:
+                  description: |-
+                    UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
+                    for utility volumes to be detached. If utility volumes are still present after this timeout,
+                    the migration will be marked as Failed. Defaults to 150
+                  format: int64
+                  type: integer
               type: object
             minCPUModel:
               description: deprecated
@@ -14329,6 +14336,13 @@ var CRDsValidation map[string]string = map[string]string{
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
                     indicates the migration will be unsafe to the guest. Defaults to false
                   type: boolean
+                utilityVolumesTimeout:
+                  description: |-
+                    UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
+                    for utility volumes to be detached. If utility volumes are still present after this timeout,
+                    the migration will be marked as Failed. Defaults to 150
+                  format: int64
+                  type: integer
               type: object
             migrationNetworkType:
               description: The type of migration network, either 'pod' or 'migration'
@@ -14915,6 +14929,13 @@ var CRDsValidation map[string]string = map[string]string{
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
                     indicates the migration will be unsafe to the guest. Defaults to false
                   type: boolean
+                utilityVolumesTimeout:
+                  description: |-
+                    UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
+                    for utility volumes to be detached. If utility volumes are still present after this timeout,
+                    the migration will be marked as Failed. Defaults to 150
+                  format: int64
+                  type: integer
               type: object
             migrationNetworkType:
               description: The type of migration network, either 'pod' or 'migration'
