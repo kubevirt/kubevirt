@@ -723,6 +723,105 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(annotations).To(HaveKeyWithValue(networkv1.NetworkAttachmentAnnot, ""))
 		})
 	})
+
+	Context("Preservation of unknown fields added by external entities on a running VM", func() {
+		const (
+			network1Name                     = "red"
+			networkAttachmentDefinitionName1 = "some-net"
+			network2Name                     = "blue"
+			networkAttachmentDefinitionName2 = "other-net"
+
+			multusNetworksAnnotationWithOneSecondaryNetAndUnknownFields = `[` +
+				`{"name":"some-net","namespace":"default","interface":"podb1f51a511f1","mac":"8a:37:d9:e7:0f:18","foo":"bar","foo1":"bar1"}]`
+
+			multusNetworksAnnotationWithOneSecondaryNetAndOutdatedInterface = `[` +
+				`{"name":"some-net","namespace":"default","interface":"podb1f51a5XXX","mac":"8a:37:d9:e7:0f:18","foo":"bar","foo1":"bar1"}]`
+
+			multusNetworksAnnotationWithTwoSecondaryNetAndUnknownFields = `[` +
+				`{"name":"some-net","namespace":"default","interface":"podb1f51a511f1","mac":"8a:37:d9:e7:0f:18","foo":"bar","foo1":"bar1"},` +
+				`{"name":"other-net","namespace":"default","interface":"pod16477688c0e"}]`
+
+			multusNetworkStatusWithWithPrimaryAndOneSecondaryNet = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				`{"name":"some-net","interface":"podb1f51a511f1","mac":"8a:37:d9:e7:0f:18"}` +
+				`]`
+
+			multusNetworkStatusWithWithPrimaryAndTwoSecondaryNet = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				`{"name":"some-net","interface":"podb1f51a511f1","mac":"8a:37:d9:e7:0f:18"},` +
+				`{"name":"other-net","interface":"pod16477688c0e"}` +
+				`]`
+		)
+
+		It("Should preserve existing unknown fields but update kubevirt owned fields when a second secondary interface is hotplugged", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network1Name)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network2Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network1Name,
+							InfoSource: vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain),
+						}),
+					),
+				),
+			)
+
+			pod := newStubVirtLauncherPod(vmi, map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotationWithOneSecondaryNetAndOutdatedInterface,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithWithPrimaryAndOneSecondaryNet,
+			})
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			annotations := generator.GenerateFromActivePod(vmi, pod)
+
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(multusNetworksAnnotationWithTwoSecondaryNetAndUnknownFields))
+		})
+
+		It("Should preserve existing unknown fields in case of hot unplug", func() {
+			iface2WithStateAbsent := libvmi.InterfaceDeviceWithBridgeBinding(network2Name)
+			iface2WithStateAbsent.State = v1.InterfaceStateAbsent
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network1Name)),
+				libvmi.WithInterface(iface2WithStateAbsent),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network1Name,
+							InfoSource: vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain),
+						}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network2Name,
+							InfoSource: vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain),
+						}),
+					),
+				),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotationWithTwoSecondaryNetAndUnknownFields,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithWithPrimaryAndTwoSecondaryNet,
+			}
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(multusNetworksAnnotationWithOneSecondaryNetAndUnknownFields))
+		})
+	})
 })
 
 func newMultusDefaultPodNetwork(name, networkAttachmentDefinitionName string) *v1.Network {
