@@ -439,22 +439,26 @@ func (n *Notifier) StartDomainNotifier(
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 
 			case <-metadataCache.Listen():
-				domainCache = util.NewDomainFromName(
-					util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
-					vmi.UID,
-				)
-				eventCallback(
-					domainConn,
-					domainCache,
-					libvirtEvent{},
-					n,
-					deleteNotificationSent,
-					interfaceStatuses,
-					guestOsInfo,
-					vmi,
-					fsFreezeStatus,
-					metadataCache,
-				)
+				// Metadata cache updates should be processed only *after* at least one
+				// libvirt event arrived (which creates the first domainCache).
+				if domainCache != nil {
+					domainCache = util.NewDomainFromName(
+						util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
+						vmi.UID,
+					)
+					eventCallback(
+						domainConn,
+						domainCache,
+						libvirtEvent{},
+						n,
+						deleteNotificationSent,
+						interfaceStatuses,
+						guestOsInfo,
+						vmi,
+						fsFreezeStatus,
+						metadataCache,
+					)
+				}
 			}
 		}
 	}()
