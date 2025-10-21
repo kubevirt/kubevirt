@@ -522,6 +522,11 @@ spec:
     nodeTaintsPolicy: nodeTaintsPolicyValue
     topologyKey: topologyKeyValue
     whenUnsatisfiable: whenUnsatisfiableValue
+  utilityVolumes:
+  - claimName: claimNameValue
+    name: nameValue
+    readOnly: true
+    type: typeValue
   volumes:
   - cloudInitConfigDrive:
       networkData: networkDataValue

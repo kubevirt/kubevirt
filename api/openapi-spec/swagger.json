@@ -16786,6 +16786,33 @@
      }
     }
    },
+   "v1.UtilityVolume": {
+    "type": "object",
+    "required": [
+     "name",
+     "claimName"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+      "type": "string",
+      "default": ""
+     },
+     "name": {
+      "description": "UtilityVolume's name. Must be unique within the vmi, including regular Volumes.",
+      "type": "string",
+      "default": ""
+     },
+     "readOnly": {
+      "description": "readOnly Will force the ReadOnly setting in VolumeMounts. Default false.",
+      "type": "boolean"
+     },
+     "type": {
+      "description": "Type represents the type of the utility volume.",
+      "type": "string"
+     }
+    }
+   },
    "v1.VGPUDisplayOptions": {
     "type": "object",
     "properties": {
@@ -18093,6 +18120,18 @@
       "x-kubernetes-list-type": "map",
       "x-kubernetes-patch-merge-key": "topologyKey",
       "x-kubernetes-patch-strategy": "merge"
+     },
+     "utilityVolumes": {
+      "description": "List of utility volumes that can be mounted to the vmi virt-launcher pod without having a matching disk in the domain. Used to collect data for various operational workflows.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.UtilityVolume"
+      },
+      "x-kubernetes-list-map-keys": [
+       "name"
+      ],
+      "x-kubernetes-list-type": "map"
      },
      "volumes": {
       "description": "List of volumes that can be mounted by disks belonging to the vmi.",
