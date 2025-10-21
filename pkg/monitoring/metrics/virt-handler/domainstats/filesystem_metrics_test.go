@@ -69,4 +69,41 @@ var _ = Describe("filesystem metrics", func() {
 			Expect(crs).To(BeEmpty())
 		})
 	})
+	Context("on Collect with dublicates", func() {
+		It("should be contains only one metric", func() {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi-1",
+					Namespace: "test-ns-1",
+				},
+			}
+
+			vmiStats := &VirtualMachineInstanceStats{
+				FsStats: k6tv1.VirtualMachineInstanceFileSystemList{
+					Items: []k6tv1.VirtualMachineInstanceFileSystem{
+						{
+							DiskName:       "test-disk-1",
+							MountPoint:     "/",
+							FileSystemType: "ext4",
+							TotalBytes:     1,
+							UsedBytes:      2,
+						},
+						{
+							DiskName:       "test-disk-1",
+							MountPoint:     "/",
+							FileSystemType: "ext4",
+							TotalBytes:     1,
+							UsedBytes:      2,
+						},
+					},
+				},
+			}
+
+			vmiReport := newVirtualMachineInstanceReport(vmi, vmiStats)
+
+			crs := filesystemMetrics{}.Collect(vmiReport)
+
+			Expect(crs).To(HaveLen(1))
+		})
+	})
 })

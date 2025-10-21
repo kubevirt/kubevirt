@@ -49,7 +49,14 @@ func (filesystemMetrics) Describe() []operatormetrics.Metric {
 func (filesystemMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operatormetrics.CollectorResult {
 	var crs []operatormetrics.CollectorResult
 
+	uniqDisks := make(map[string]struct{})
 	for _, fsStat := range vmiReport.vmiStats.FsStats.Items {
+		uniqKey := fsStat.DiskName + fsStat.MountPoint + fsStat.FileSystemType
+		if _, ok := uniqDisks[uniqKey]; ok {
+			continue
+		}
+		uniqDisks[uniqKey] = struct{}{}
+
 		fsLabels := map[string]string{
 			"disk_name":        fsStat.DiskName,
 			"mount_point":      fsStat.MountPoint,
