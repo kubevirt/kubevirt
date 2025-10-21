@@ -32,7 +32,7 @@ build --define gotags=selinux
 test --action_env=GO_TEST_WRAP=0 
 
 test --test_tag_filters=-cov,-fuzz
-test:fuzz --test_tag_filters=fuzz
+test:fuzz --test_tag_filters=fuzz --test_arg=-test.fuzz=Fuzz.* --test_arg=-test.fuzzcachedir=_out/tests --test_arg=-test.fuzztime=30s
 coverage --test_tag_filters=-nocov,-fuzz
 
 # Import user settings which may override the defaults
