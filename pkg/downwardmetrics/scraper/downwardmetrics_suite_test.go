@@ -22,7 +22,7 @@ package downwardmetrics
 import (
 	"testing"
 
-	"kubevirt.io/client-go/testutils"
+	testutils "kubevirt.io/client-go/testutils"
 )
 
 func TestPrometheus(t *testing.T) {

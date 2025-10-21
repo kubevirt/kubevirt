@@ -7,7 +7,7 @@ go_library(
         "scraper.go",
         "vmstat.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/monitoring/domainstats/downwardmetrics",
+    importpath = "kubevirt.io/kubevirt/pkg/downwardmetrics/scraper",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/downwardmetrics:go_default_library",

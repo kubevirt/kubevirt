@@ -52,7 +52,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/domainstats/downwardmetrics"
+	scraper "kubevirt.io/kubevirt/pkg/downwardmetrics/scraper"
 
 	"kubevirt.io/kubevirt/pkg/healthz"
 
@@ -465,7 +465,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	if err := downwardmetrics.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, podIsolationDetector); err != nil {
+	if err := scraper.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, podIsolationDetector); err != nil {
 		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
 	}
 
