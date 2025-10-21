@@ -181,7 +181,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 	if !isTempPod(pod) && controller.IsPodReady(pod) {
 		newAnnotations := map[string]string{descheduler.EvictOnlyAnnotation: ""}
 		maps.Copy(newAnnotations, c.netAnnotationsGenerator.GenerateFromActivePod(vmi, pod))
-		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
+		patchedPod, err := controller.SyncPodAnnotations(c.clientset, pod, newAnnotations)
 		if err != nil {
 			return common.NewSyncError(err, controller.FailedPodPatchReason), pod
 		}
@@ -690,30 +690,6 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 	}
 
 	return updatedPod, nil
-}
-
-func (c *Controller) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
-	patchSet := patch.New()
-	for key, newValue := range newAnnotations {
-		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || podAnnotationValue != newValue {
-			patchSet.AddOption(
-				patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(key)), newValue),
-			)
-		}
-	}
-	if patchSet.IsEmpty() {
-		return pod, nil
-	}
-	patchBytes, err := patchSet.GeneratePayload()
-	if err != nil {
-		return pod, fmt.Errorf("failed to generate patch payload: %w", err)
-	}
-	patchedPod, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
-	if err != nil {
-		log.Log.Object(pod).Errorf("failed to sync pod annotations during sync: %v", err)
-		return nil, err
-	}
-	return patchedPod, nil
 }
 
 func (c *Controller) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInstance, curPodImage string) *virtv1.VirtualMachineInstance {
