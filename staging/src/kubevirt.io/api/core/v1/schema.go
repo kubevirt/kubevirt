@@ -733,8 +733,9 @@ type Disk struct {
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.
 type CustomBlockSize struct {
-	Logical  uint `json:"logical"`
-	Physical uint `json:"physical"`
+	Logical            uint  `json:"logical,omitempty"`
+	Physical           uint  `json:"physical,omitempty"`
+	DiscardGranularity *uint `json:"discardGranularity,omitempty"`
 }
 
 // BlockSize provides the option to change the block size presented to the VM for a disk.

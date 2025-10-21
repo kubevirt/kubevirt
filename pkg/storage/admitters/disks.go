@@ -347,6 +347,20 @@ func validateBlockSize(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.Sta
 			Message: fmt.Sprintf("Logical size %d must be the same or less than the physical size of %d", customSize.Logical, customSize.Physical),
 			Field:   field.Index(idx).Child("blockSize").Child("custom").Child("logical").String(),
 		})
+	} else if getDiskBus(disk) == v1.DiskBusSATA && customSize.Logical != minCustomBlockSize {
+		// For IDE and SATA disks in QEMU, the emulated controllers only support a logical size of 512 bytes.
+		// https://gitlab.com/qemu-project/qemu/-/blob/f0007b7f03e2d7fc33e71c3a582f2364c51a226b/hw/ide/ide-dev.c#L105
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Logical size %d must be %d for SATA devices", customSize.Logical, minCustomBlockSize),
+			Field:   field.Index(idx).Child("blockSize").Child("custom").Child("logical").String(),
+		})
+	} else if customSize.DiscardGranularity != nil && customSize.Logical != 0 && *customSize.DiscardGranularity%customSize.Logical != 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Discard granularity %d must be multiples of logical size %d", *customSize.DiscardGranularity, customSize.Logical),
+			Field:   field.Index(idx).Child("blockSize").Child("custom").Child("discardGranularity").String(),
+		})
 	} else {
 		causes = append(causes, validateCustomBlockSize(field, idx, "logical", customSize.Logical)...)
 		causes = append(causes, validateCustomBlockSize(field, idx, "physical", customSize.Physical)...)

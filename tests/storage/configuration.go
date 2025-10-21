@@ -228,10 +228,12 @@ var _ = Describe("[sig-storage] Storage configuration", decorators.SigStorage, d
 			By("setting the disk to use custom block sizes")
 			logicalSize := uint(16384)
 			physicalSize := uint(16384)
+			discardGranularity := uint(16384)
 			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
 				Custom: &v1.CustomBlockSize{
-					Logical:  logicalSize,
-					Physical: physicalSize,
+					Logical:            logicalSize,
+					Physical:           physicalSize,
+					DiscardGranularity: &discardGranularity,
 				},
 			}
 
@@ -249,6 +251,7 @@ var _ = Describe("[sig-storage] Storage configuration", decorators.SigStorage, d
 			Expect(disks[0].BlockIO).ToNot(BeNil())
 			Expect(disks[0].BlockIO.LogicalBlockSize).To(Equal(logicalSize))
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
+			Expect(disks[0].BlockIO.DiscardGranularity).To(Equal(&discardGranularity))
 		})
 
 		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.RequiresBlockStorage, func() {
@@ -285,6 +288,11 @@ var _ = Describe("[sig-storage] Storage configuration", decorators.SigStorage, d
 			Expect(disks[0].BlockIO).ToNot(BeNil())
 			Expect(disks[0].BlockIO.LogicalBlockSize).To(SatisfyAny(Equal(uint(512)), Equal(uint(4096))))
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(SatisfyAny(Equal(uint(512)), Equal(uint(4096))))
+			if discard := disks[0].BlockIO.DiscardGranularity; discard != nil {
+				Expect(*discard%disks[0].BlockIO.LogicalBlockSize).To(Equal(uint(0)),
+					"Discard granularity must align with logical block size")
+			}
+
 		})
 
 		It("[test_id:6967]Should set BlockIO when set to match volume block sizes on files", decorators.HostDiskGate, func() {

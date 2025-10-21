@@ -439,6 +439,7 @@ spec:
           disks:
           - blockSize:
               custom:
+                discardGranularity: 18446744073709551598
                 logical: 18446744073709551609
                 physical: 18446744073709551608
               matchVolume:
@@ -845,6 +846,7 @@ status:
       disk:
         blockSize:
           custom:
+            discardGranularity: 18446744073709551598
             logical: 18446744073709551609
             physical: 18446744073709551608
           matchVolume:
