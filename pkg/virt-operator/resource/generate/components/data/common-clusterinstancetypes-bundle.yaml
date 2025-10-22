@@ -20,7 +20,7 @@ metadata:
     instancetype.kubevirt.io/class: compute.exclusive
     instancetype.kubevirt.io/cpu: "8"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 2Mi
     instancetype.kubevirt.io/icon-pf: pficon-registry
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 16Gi
@@ -28,7 +28,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: cx1.2xlarge
 spec:
   cpu:
@@ -62,9 +62,53 @@ metadata:
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "8"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 16Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: 2xlarge1gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
+  name: cx1.2xlarge1gi
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 8
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 16Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
     instancetype.kubevirt.io/cpu: "16"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 2Mi
     instancetype.kubevirt.io/icon-pf: pficon-registry
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 32Gi
@@ -72,7 +116,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: cx1.4xlarge
 spec:
   cpu:
@@ -106,9 +150,53 @@ metadata:
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "16"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 32Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: 4xlarge1gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
+  name: cx1.4xlarge1gi
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 16
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 32Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
     instancetype.kubevirt.io/cpu: "32"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 2Mi
     instancetype.kubevirt.io/icon-pf: pficon-registry
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 64Gi
@@ -116,7 +204,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: cx1.8xlarge
 spec:
   cpu:
@@ -150,9 +238,53 @@ metadata:
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "32"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 64Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: 8xlarge1gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
+  name: cx1.8xlarge1gi
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 32
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 64Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
     instancetype.kubevirt.io/cpu: "2"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 2Mi
     instancetype.kubevirt.io/icon-pf: pficon-registry
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 4Gi
@@ -160,7 +292,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: cx1.large
 spec:
   cpu:
@@ -194,9 +326,53 @@ metadata:
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "2"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 4Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: large1gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
+  name: cx1.large1gi
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 2
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 4Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
     instancetype.kubevirt.io/cpu: "1"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 2Mi
     instancetype.kubevirt.io/icon-pf: pficon-registry
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 2Gi
@@ -204,7 +380,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: cx1.medium
 spec:
   cpu:
@@ -238,9 +414,53 @@ metadata:
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 2Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: medium1gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
+  name: cx1.medium1gi
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 1
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 2Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
     instancetype.kubevirt.io/cpu: "4"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 2Mi
     instancetype.kubevirt.io/icon-pf: pficon-registry
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 8Gi
@@ -248,7 +468,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: cx1.xlarge
 spec:
   cpu:
@@ -268,6 +488,50 @@ kind: VirtualMachineClusterInstancetype
 metadata:
   annotations:
     instancetype.kubevirt.io/description: |-
+      The CX Series provides exclusive compute resources for compute
+      intensive applications.
+
+      *CX* is the abbreviation of "Compute Exclusive".
+
+      The exclusive resources are given to the compute threads of the
+      VM. In order to ensure this, some additional cores (depending
+      on the number of disks and NICs) will be requested to offload
+      the IO threading from cores dedicated to the workload.
+      In addition, in this series, the NUMA topology of the used
+      cores is provided to the VM.
+    instancetype.kubevirt.io/displayName: Compute Exclusive
+  labels:
+    instancetype.kubevirt.io/class: compute.exclusive
+    instancetype.kubevirt.io/cpu: "4"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
+    instancetype.kubevirt.io/icon-pf: pficon-registry
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 8Gi
+    instancetype.kubevirt.io/numa: "true"
+    instancetype.kubevirt.io/size: xlarge1gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
+  name: cx1.xlarge1gi
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 4
+    isolateEmulatorThread: true
+    numa:
+      guestMappingPassthrough: {}
+  ioThreadsPolicy: auto
+  memory:
+    guest: 8Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
       The M Series provides resources for memory intensive
       applications.
 
@@ -276,13 +540,13 @@ metadata:
   labels:
     instancetype.kubevirt.io/class: memory.intensive
     instancetype.kubevirt.io/cpu: "8"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 2Mi
     instancetype.kubevirt.io/icon-pf: fa-memory
     instancetype.kubevirt.io/memory: 64Gi
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: m1.2xlarge
 spec:
   cpu:
@@ -304,14 +568,43 @@ metadata:
     instancetype.kubevirt.io/displayName: Memory Intensive
   labels:
     instancetype.kubevirt.io/class: memory.intensive
+    instancetype.kubevirt.io/cpu: "8"
+    instancetype.kubevirt.io/hugepages: 1Gi
+    instancetype.kubevirt.io/icon-pf: fa-memory
+    instancetype.kubevirt.io/memory: 64Gi
+    instancetype.kubevirt.io/size: 2xlarge1gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
+  name: m1.2xlarge1gi
+spec:
+  cpu:
+    guest: 8
+  memory:
+    guest: 64Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The M Series provides resources for memory intensive
+      applications.
+
+      *M* is the abbreviation of "Memory".
+    instancetype.kubevirt.io/displayName: Memory Intensive
+  labels:
+    instancetype.kubevirt.io/class: memory.intensive
     instancetype.kubevirt.io/cpu: "16"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 2Mi
     instancetype.kubevirt.io/icon-pf: fa-memory
     instancetype.kubevirt.io/memory: 128Gi
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: m1.4xlarge
 spec:
   cpu:
@@ -333,14 +626,43 @@ metadata:
     instancetype.kubevirt.io/displayName: Memory Intensive
   labels:
     instancetype.kubevirt.io/class: memory.intensive
+    instancetype.kubevirt.io/cpu: "16"
+    instancetype.kubevirt.io/hugepages: 1Gi
+    instancetype.kubevirt.io/icon-pf: fa-memory
+    instancetype.kubevirt.io/memory: 128Gi
+    instancetype.kubevirt.io/size: 4xlarge1gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
+  name: m1.4xlarge1gi
+spec:
+  cpu:
+    guest: 16
+  memory:
+    guest: 128Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The M Series provides resources for memory intensive
+      applications.
+
+      *M* is the abbreviation of "Memory".
+    instancetype.kubevirt.io/displayName: Memory Intensive
+  labels:
+    instancetype.kubevirt.io/class: memory.intensive
     instancetype.kubevirt.io/cpu: "32"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 2Mi
     instancetype.kubevirt.io/icon-pf: fa-memory
     instancetype.kubevirt.io/memory: 256Gi
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: m1.8xlarge
 spec:
   cpu:
@@ -362,14 +684,43 @@ metadata:
     instancetype.kubevirt.io/displayName: Memory Intensive
   labels:
     instancetype.kubevirt.io/class: memory.intensive
+    instancetype.kubevirt.io/cpu: "32"
+    instancetype.kubevirt.io/hugepages: 1Gi
+    instancetype.kubevirt.io/icon-pf: fa-memory
+    instancetype.kubevirt.io/memory: 256Gi
+    instancetype.kubevirt.io/size: 8xlarge1gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
+  name: m1.8xlarge1gi
+spec:
+  cpu:
+    guest: 32
+  memory:
+    guest: 256Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The M Series provides resources for memory intensive
+      applications.
+
+      *M* is the abbreviation of "Memory".
+    instancetype.kubevirt.io/displayName: Memory Intensive
+  labels:
+    instancetype.kubevirt.io/class: memory.intensive
     instancetype.kubevirt.io/cpu: "2"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 2Mi
     instancetype.kubevirt.io/icon-pf: fa-memory
     instancetype.kubevirt.io/memory: 16Gi
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: m1.large
 spec:
   cpu:
@@ -391,14 +742,43 @@ metadata:
     instancetype.kubevirt.io/displayName: Memory Intensive
   labels:
     instancetype.kubevirt.io/class: memory.intensive
+    instancetype.kubevirt.io/cpu: "2"
+    instancetype.kubevirt.io/hugepages: 1Gi
+    instancetype.kubevirt.io/icon-pf: fa-memory
+    instancetype.kubevirt.io/memory: 16Gi
+    instancetype.kubevirt.io/size: large1gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
+  name: m1.large1gi
+spec:
+  cpu:
+    guest: 2
+  memory:
+    guest: 16Gi
+    hugepages:
+      pageSize: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The M Series provides resources for memory intensive
+      applications.
+
+      *M* is the abbreviation of "Memory".
+    instancetype.kubevirt.io/displayName: Memory Intensive
+  labels:
+    instancetype.kubevirt.io/class: memory.intensive
     instancetype.kubevirt.io/cpu: "4"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 2Mi
     instancetype.kubevirt.io/icon-pf: fa-memory
     instancetype.kubevirt.io/memory: 32Gi
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: m1.xlarge
 spec:
   cpu:
@@ -407,6 +787,35 @@ spec:
     guest: 32Gi
     hugepages:
       pageSize: 2Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The M Series provides resources for memory intensive
+      applications.
+
+      *M* is the abbreviation of "Memory".
+    instancetype.kubevirt.io/displayName: Memory Intensive
+  labels:
+    instancetype.kubevirt.io/class: memory.intensive
+    instancetype.kubevirt.io/cpu: "4"
+    instancetype.kubevirt.io/hugepages: 1Gi
+    instancetype.kubevirt.io/icon-pf: fa-memory
+    instancetype.kubevirt.io/memory: 32Gi
+    instancetype.kubevirt.io/size: xlarge1gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
+  name: m1.xlarge1gi
+spec:
+  cpu:
+    guest: 4
+  memory:
+    guest: 32Gi
+    hugepages:
+      pageSize: 1Gi
 ---
 apiVersion: instancetype.kubevirt.io/v1beta1
 kind: VirtualMachineClusterInstancetype
@@ -426,14 +835,14 @@ metadata:
     instancetype.kubevirt.io/class: network
     instancetype.kubevirt.io/cpu: "16"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-network
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 32Gi
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: n1.2xlarge
 spec:
   annotations:
@@ -467,14 +876,14 @@ metadata:
     instancetype.kubevirt.io/class: network
     instancetype.kubevirt.io/cpu: "32"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-network
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 64Gi
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: n1.4xlarge
 spec:
   annotations:
@@ -508,14 +917,14 @@ metadata:
     instancetype.kubevirt.io/class: network
     instancetype.kubevirt.io/cpu: "64"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-network
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 128Gi
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: n1.8xlarge
 spec:
   annotations:
@@ -549,14 +958,14 @@ metadata:
     instancetype.kubevirt.io/class: network
     instancetype.kubevirt.io/cpu: "4"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-network
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 8Gi
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: n1.large
 spec:
   annotations:
@@ -590,14 +999,14 @@ metadata:
     instancetype.kubevirt.io/class: network
     instancetype.kubevirt.io/cpu: "4"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-network
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 4Gi
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: n1.medium
 spec:
   annotations:
@@ -631,14 +1040,14 @@ metadata:
     instancetype.kubevirt.io/class: network
     instancetype.kubevirt.io/cpu: "8"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-network
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 16Gi
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: n1.xlarge
 spec:
   annotations:
@@ -672,7 +1081,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: o1.2xlarge
 spec:
   cpu:
@@ -699,7 +1108,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: o1.4xlarge
 spec:
   cpu:
@@ -726,7 +1135,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: o1.8xlarge
 spec:
   cpu:
@@ -753,7 +1162,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: o1.large
 spec:
   cpu:
@@ -780,7 +1189,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: o1.medium
 spec:
   cpu:
@@ -807,7 +1216,7 @@ metadata:
     instancetype.kubevirt.io/size: micro
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: o1.micro
 spec:
   cpu:
@@ -834,7 +1243,7 @@ metadata:
     instancetype.kubevirt.io/size: nano
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: o1.nano
 spec:
   cpu:
@@ -861,7 +1270,7 @@ metadata:
     instancetype.kubevirt.io/size: small
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: o1.small
 spec:
   cpu:
@@ -888,7 +1297,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: o1.xlarge
 spec:
   cpu:
@@ -913,7 +1322,7 @@ metadata:
     instancetype.kubevirt.io/class: realtime
     instancetype.kubevirt.io/cpu: "8"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-server-group
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 32Gi
@@ -922,7 +1331,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: rt1.2xlarge
 spec:
   annotations:
@@ -957,7 +1366,7 @@ metadata:
     instancetype.kubevirt.io/class: realtime
     instancetype.kubevirt.io/cpu: "16"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-server-group
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 64Gi
@@ -966,7 +1375,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: rt1.4xlarge
 spec:
   annotations:
@@ -1001,7 +1410,7 @@ metadata:
     instancetype.kubevirt.io/class: realtime
     instancetype.kubevirt.io/cpu: "32"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-server-group
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 128Gi
@@ -1010,7 +1419,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: rt1.8xlarge
 spec:
   annotations:
@@ -1045,7 +1454,7 @@ metadata:
     instancetype.kubevirt.io/class: realtime
     instancetype.kubevirt.io/cpu: "2"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-server-group
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 8Gi
@@ -1054,7 +1463,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: rt1.large
 spec:
   annotations:
@@ -1089,7 +1498,7 @@ metadata:
     instancetype.kubevirt.io/class: realtime
     instancetype.kubevirt.io/cpu: "1"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-server-group
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 4Gi
@@ -1098,7 +1507,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: rt1.medium
 spec:
   annotations:
@@ -1133,7 +1542,7 @@ metadata:
     instancetype.kubevirt.io/class: realtime
     instancetype.kubevirt.io/cpu: "1"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-server-group
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 1Gi
@@ -1142,7 +1551,7 @@ metadata:
     instancetype.kubevirt.io/size: micro
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: rt1.micro
 spec:
   annotations:
@@ -1177,7 +1586,7 @@ metadata:
     instancetype.kubevirt.io/class: realtime
     instancetype.kubevirt.io/cpu: "1"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-server-group
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 2Gi
@@ -1186,7 +1595,7 @@ metadata:
     instancetype.kubevirt.io/size: small
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: rt1.small
 spec:
   annotations:
@@ -1221,7 +1630,7 @@ metadata:
     instancetype.kubevirt.io/class: realtime
     instancetype.kubevirt.io/cpu: "4"
     instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
-    instancetype.kubevirt.io/hugepages: "true"
+    instancetype.kubevirt.io/hugepages: 1Gi
     instancetype.kubevirt.io/icon-pf: pficon-server-group
     instancetype.kubevirt.io/isolateEmulatorThread: "true"
     instancetype.kubevirt.io/memory: 16Gi
@@ -1230,7 +1639,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: rt1.xlarge
 spec:
   annotations:
@@ -1271,7 +1680,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: u1.2xlarge
 spec:
   cpu:
@@ -1301,7 +1710,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xmedium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: u1.2xmedium
 spec:
   cpu:
@@ -1331,7 +1740,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: u1.4xlarge
 spec:
   cpu:
@@ -1361,7 +1770,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: u1.8xlarge
 spec:
   cpu:
@@ -1391,7 +1800,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: u1.large
 spec:
   cpu:
@@ -1421,7 +1830,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: u1.medium
 spec:
   cpu:
@@ -1451,7 +1860,7 @@ metadata:
     instancetype.kubevirt.io/size: micro
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: u1.micro
 spec:
   cpu:
@@ -1481,7 +1890,7 @@ metadata:
     instancetype.kubevirt.io/size: nano
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: u1.nano
 spec:
   cpu:
@@ -1511,7 +1920,7 @@ metadata:
     instancetype.kubevirt.io/size: small
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: u1.small
 spec:
   cpu:
@@ -1541,7 +1950,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.2
   name: u1.xlarge
 spec:
   cpu:
