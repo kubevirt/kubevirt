@@ -15,6 +15,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -28,13 +37,14 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.2xlarge
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 8
     isolateEmulatorThread: true
+    maxSockets: 8
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -59,6 +69,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -72,13 +91,14 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.2xlarge1gi
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 8
     isolateEmulatorThread: true
+    maxSockets: 8
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -103,6 +123,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -116,13 +145,14 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.4xlarge
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 16
     isolateEmulatorThread: true
+    maxSockets: 16
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -147,6 +177,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -160,13 +199,14 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.4xlarge1gi
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 16
     isolateEmulatorThread: true
+    maxSockets: 16
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -191,6 +231,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -204,13 +253,14 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.8xlarge
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 32
     isolateEmulatorThread: true
+    maxSockets: 32
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -235,6 +285,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -248,13 +307,14 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.8xlarge1gi
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 32
     isolateEmulatorThread: true
+    maxSockets: 32
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -279,6 +339,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -292,13 +361,14 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.large
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 2
     isolateEmulatorThread: true
+    maxSockets: 2
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -323,6 +393,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -336,13 +415,14 @@ metadata:
     instancetype.kubevirt.io/size: large1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.large1gi
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 2
     isolateEmulatorThread: true
+    maxSockets: 2
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -367,6 +447,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -380,13 +469,14 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.medium
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 1
     isolateEmulatorThread: true
+    maxSockets: 1
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -411,6 +501,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -424,13 +523,14 @@ metadata:
     instancetype.kubevirt.io/size: medium1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.medium1gi
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 1
     isolateEmulatorThread: true
+    maxSockets: 1
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -455,6 +555,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -468,13 +577,14 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.xlarge
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 4
     isolateEmulatorThread: true
+    maxSockets: 4
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -499,6 +609,15 @@ metadata:
       the IO threading from cores dedicated to the workload.
       In addition, in this series, the NUMA topology of the used
       cores is provided to the VM.
+
+      The amount of spec.cpu.maxSockets is set to the same as
+      guest cpus. This avoids KubeVirt's default behavior of
+      providing extra CPUs for hotplugging, which can exceed the
+      amount of available CPUs on a node and cause the VM to fail.
+
+      Requirements for CX series instance types:
+      - CPU manager has to be enabled.
+      - Huge pages have to be available on the nodes.
     instancetype.kubevirt.io/displayName: Compute Exclusive
   labels:
     instancetype.kubevirt.io/class: compute.exclusive
@@ -512,13 +631,14 @@ metadata:
     instancetype.kubevirt.io/size: xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: cx1.xlarge1gi
 spec:
   cpu:
     dedicatedCPUPlacement: true
     guest: 4
     isolateEmulatorThread: true
+    maxSockets: 4
     numa:
       guestMappingPassthrough: {}
   ioThreadsPolicy: auto
@@ -546,7 +666,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: m1.2xlarge
 spec:
   cpu:
@@ -575,7 +695,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: m1.2xlarge1gi
 spec:
   cpu:
@@ -604,7 +724,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: m1.4xlarge
 spec:
   cpu:
@@ -633,7 +753,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: m1.4xlarge1gi
 spec:
   cpu:
@@ -662,7 +782,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: m1.8xlarge
 spec:
   cpu:
@@ -691,7 +811,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: m1.8xlarge1gi
 spec:
   cpu:
@@ -720,7 +840,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: m1.large
 spec:
   cpu:
@@ -749,7 +869,7 @@ metadata:
     instancetype.kubevirt.io/size: large1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: m1.large1gi
 spec:
   cpu:
@@ -778,7 +898,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: m1.xlarge
 spec:
   cpu:
@@ -807,7 +927,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: m1.xlarge1gi
 spec:
   cpu:
@@ -842,7 +962,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: n1.2xlarge
 spec:
   annotations:
@@ -883,7 +1003,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: n1.4xlarge
 spec:
   annotations:
@@ -924,7 +1044,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: n1.8xlarge
 spec:
   annotations:
@@ -965,7 +1085,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: n1.large
 spec:
   annotations:
@@ -1006,7 +1126,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: n1.medium
 spec:
   annotations:
@@ -1047,7 +1167,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: n1.xlarge
 spec:
   annotations:
@@ -1081,7 +1201,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: o1.2xlarge
 spec:
   cpu:
@@ -1108,7 +1228,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: o1.4xlarge
 spec:
   cpu:
@@ -1135,7 +1255,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: o1.8xlarge
 spec:
   cpu:
@@ -1162,7 +1282,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: o1.large
 spec:
   cpu:
@@ -1189,7 +1309,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: o1.medium
 spec:
   cpu:
@@ -1216,7 +1336,7 @@ metadata:
     instancetype.kubevirt.io/size: micro
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: o1.micro
 spec:
   cpu:
@@ -1243,7 +1363,7 @@ metadata:
     instancetype.kubevirt.io/size: nano
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: o1.nano
 spec:
   cpu:
@@ -1270,7 +1390,7 @@ metadata:
     instancetype.kubevirt.io/size: small
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: o1.small
 spec:
   cpu:
@@ -1297,7 +1417,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: o1.xlarge
 spec:
   cpu:
@@ -1331,7 +1451,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: rt1.2xlarge
 spec:
   annotations:
@@ -1375,7 +1495,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: rt1.4xlarge
 spec:
   annotations:
@@ -1419,7 +1539,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: rt1.8xlarge
 spec:
   annotations:
@@ -1463,7 +1583,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: rt1.large
 spec:
   annotations:
@@ -1507,7 +1627,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: rt1.medium
 spec:
   annotations:
@@ -1551,7 +1671,7 @@ metadata:
     instancetype.kubevirt.io/size: micro
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: rt1.micro
 spec:
   annotations:
@@ -1595,7 +1715,7 @@ metadata:
     instancetype.kubevirt.io/size: small
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: rt1.small
 spec:
   annotations:
@@ -1639,7 +1759,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: rt1.xlarge
 spec:
   annotations:
@@ -1680,7 +1800,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: u1.2xlarge
 spec:
   cpu:
@@ -1710,7 +1830,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xmedium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: u1.2xmedium
 spec:
   cpu:
@@ -1740,7 +1860,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: u1.4xlarge
 spec:
   cpu:
@@ -1770,7 +1890,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: u1.8xlarge
 spec:
   cpu:
@@ -1800,7 +1920,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: u1.large
 spec:
   cpu:
@@ -1830,7 +1950,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: u1.medium
 spec:
   cpu:
@@ -1860,7 +1980,7 @@ metadata:
     instancetype.kubevirt.io/size: micro
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: u1.micro
 spec:
   cpu:
@@ -1890,7 +2010,7 @@ metadata:
     instancetype.kubevirt.io/size: nano
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: u1.nano
 spec:
   cpu:
@@ -1920,7 +2040,7 @@ metadata:
     instancetype.kubevirt.io/size: small
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: u1.small
 spec:
   cpu:
@@ -1950,7 +2070,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.4.1
   name: u1.xlarge
 spec:
   cpu:
