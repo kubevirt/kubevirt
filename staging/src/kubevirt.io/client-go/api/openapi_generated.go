@@ -31484,9 +31484,9 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolSelectionPolicy(ref c
 				Description: "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for proactive scale-in or update",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"basePolicy": {
+					"sortPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "BasePolicy is a catch-all policy [Random|DescendingOrder]",
+							Description: "SortPolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]",
 							Type:        []string{"string"},
 							Format:      "",
 						},

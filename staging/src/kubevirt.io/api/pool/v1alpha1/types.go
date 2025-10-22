@@ -33,9 +33,12 @@ const (
 )
 
 const (
-	// Base selection policies
-	VirtualMachinePoolBasePolicyRandom          VirtualMachinePoolBasePolicy = "Random"
-	VirtualMachinePoolBasePolicyDescendingOrder VirtualMachinePoolBasePolicy = "DescendingOrder"
+	// Sort policies
+	VirtualMachinePoolSortPolicyAscendingOrder  VirtualMachinePoolSortPolicy = "AscendingOrder"
+	VirtualMachinePoolSortPolicyDescendingOrder VirtualMachinePoolSortPolicy = "DescendingOrder"
+	VirtualMachinePoolSortPolicyNewest          VirtualMachinePoolSortPolicy = "Newest"
+	VirtualMachinePoolSortPolicyOldest          VirtualMachinePoolSortPolicy = "Oldest"
+	VirtualMachinePoolSortPolicyRandom          VirtualMachinePoolSortPolicy = "Random"
 )
 
 // VirtualMachinePool resource contains a VirtualMachine configuration
@@ -171,10 +174,10 @@ type VirtualMachinePoolProactiveScaleInStrategy struct {
 // VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for proactive scale-in or update
 // +k8s:openapi-gen=true
 type VirtualMachinePoolSelectionPolicy struct {
-	// BasePolicy is a catch-all policy [Random|DescendingOrder]
+	// SortPolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]
 	// +optional
-	// +kubebuilder:validation:Enum=Random;DescendingOrder
-	BasePolicy *VirtualMachinePoolBasePolicy `json:"basePolicy,omitempty"`
+	// +kubebuilder:validation:Enum=AscendingOrder;DescendingOrder;Newest;Oldest;Random
+	SortPolicy *VirtualMachinePoolSortPolicy `json:"sortPolicy,omitempty"`
 
 	// Selectors is a list of selection policies.
 	// +optional
@@ -196,7 +199,7 @@ type VirtualMachinePoolSelectors struct {
 }
 
 // +k8s:openapi-gen=true
-type VirtualMachinePoolBasePolicy string
+type VirtualMachinePoolSortPolicy string
 
 // VirtualMachinePoolUpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool, by default it is proactive update.
 // +k8s:openapi-gen=true

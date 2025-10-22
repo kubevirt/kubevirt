@@ -20363,12 +20363,6 @@ var CRDsValidation map[string]string = map[string]string{
                     SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in
                     Defaults to "Random" base policy when no SelectionPolicy is configured
                   properties:
-                    basePolicy:
-                      description: BasePolicy is a catch-all policy [Random|DescendingOrder]
-                      enum:
-                      - Random
-                      - DescendingOrder
-                      type: string
                     selectors:
                       description: Selectors is a list of selection policies.
                       properties:
@@ -20453,6 +20447,15 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           type: array
                       type: object
+                    sortPolicy:
+                      description: SortPolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]
+                      enum:
+                      - AscendingOrder
+                      - DescendingOrder
+                      - Newest
+                      - Oldest
+                      - Random
+                      type: string
                   type: object
               type: object
           type: object
@@ -20520,12 +20523,6 @@ var CRDsValidation map[string]string = map[string]string{
                     SelectionPolicy defines the priority in which VM instances are selected for proactive update
                     Defaults to "Random" base policy when no SelectionPolicy is configured
                   properties:
-                    basePolicy:
-                      description: BasePolicy is a catch-all policy [Random|DescendingOrder]
-                      enum:
-                      - Random
-                      - DescendingOrder
-                      type: string
                     selectors:
                       description: Selectors is a list of selection policies.
                       properties:
@@ -20610,6 +20607,15 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           type: array
                       type: object
+                    sortPolicy:
+                      description: SortPolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]
+                      enum:
+                      - AscendingOrder
+                      - DescendingOrder
+                      - Newest
+                      - Oldest
+                      - Random
+                      type: string
                   type: object
               type: object
             unmanaged:
