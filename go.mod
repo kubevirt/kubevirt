@@ -1,6 +1,6 @@
 module kubevirt.io/kubevirt
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/cheggaaa/pb/v3 v3.1.0
