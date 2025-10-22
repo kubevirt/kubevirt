@@ -21,129 +21,34 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1beta1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1beta1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
 )
 
-// FakeVirtualMachineSnapshots implements VirtualMachineSnapshotInterface
-type FakeVirtualMachineSnapshots struct {
+// fakeVirtualMachineSnapshots implements VirtualMachineSnapshotInterface
+type fakeVirtualMachineSnapshots struct {
+	*gentype.FakeClientWithList[*v1beta1.VirtualMachineSnapshot, *v1beta1.VirtualMachineSnapshotList]
 	Fake *FakeSnapshotV1beta1
-	ns   string
 }
 
-var virtualmachinesnapshotsResource = v1beta1.SchemeGroupVersion.WithResource("virtualmachinesnapshots")
-
-var virtualmachinesnapshotsKind = v1beta1.SchemeGroupVersion.WithKind("VirtualMachineSnapshot")
-
-// Get takes name of the virtualMachineSnapshot, and returns the corresponding virtualMachineSnapshot object, and an error if there is any.
-func (c *FakeVirtualMachineSnapshots) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.VirtualMachineSnapshot, err error) {
-	emptyResult := &v1beta1.VirtualMachineSnapshot{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(virtualmachinesnapshotsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeVirtualMachineSnapshots(fake *FakeSnapshotV1beta1, namespace string) snapshotv1beta1.VirtualMachineSnapshotInterface {
+	return &fakeVirtualMachineSnapshots{
+		gentype.NewFakeClientWithList[*v1beta1.VirtualMachineSnapshot, *v1beta1.VirtualMachineSnapshotList](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("virtualmachinesnapshots"),
+			v1beta1.SchemeGroupVersion.WithKind("VirtualMachineSnapshot"),
+			func() *v1beta1.VirtualMachineSnapshot { return &v1beta1.VirtualMachineSnapshot{} },
+			func() *v1beta1.VirtualMachineSnapshotList { return &v1beta1.VirtualMachineSnapshotList{} },
+			func(dst, src *v1beta1.VirtualMachineSnapshotList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.VirtualMachineSnapshotList) []*v1beta1.VirtualMachineSnapshot {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1beta1.VirtualMachineSnapshotList, items []*v1beta1.VirtualMachineSnapshot) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.VirtualMachineSnapshot), err
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachineSnapshots that match those selectors.
-func (c *FakeVirtualMachineSnapshots) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.VirtualMachineSnapshotList, err error) {
-	emptyResult := &v1beta1.VirtualMachineSnapshotList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(virtualmachinesnapshotsResource, virtualmachinesnapshotsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.VirtualMachineSnapshotList{ListMeta: obj.(*v1beta1.VirtualMachineSnapshotList).ListMeta}
-	for _, item := range obj.(*v1beta1.VirtualMachineSnapshotList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachineSnapshots.
-func (c *FakeVirtualMachineSnapshots) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(virtualmachinesnapshotsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a virtualMachineSnapshot and creates it.  Returns the server's representation of the virtualMachineSnapshot, and an error, if there is any.
-func (c *FakeVirtualMachineSnapshots) Create(ctx context.Context, virtualMachineSnapshot *v1beta1.VirtualMachineSnapshot, opts v1.CreateOptions) (result *v1beta1.VirtualMachineSnapshot, err error) {
-	emptyResult := &v1beta1.VirtualMachineSnapshot{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(virtualmachinesnapshotsResource, c.ns, virtualMachineSnapshot, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VirtualMachineSnapshot), err
-}
-
-// Update takes the representation of a virtualMachineSnapshot and updates it. Returns the server's representation of the virtualMachineSnapshot, and an error, if there is any.
-func (c *FakeVirtualMachineSnapshots) Update(ctx context.Context, virtualMachineSnapshot *v1beta1.VirtualMachineSnapshot, opts v1.UpdateOptions) (result *v1beta1.VirtualMachineSnapshot, err error) {
-	emptyResult := &v1beta1.VirtualMachineSnapshot{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(virtualmachinesnapshotsResource, c.ns, virtualMachineSnapshot, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VirtualMachineSnapshot), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVirtualMachineSnapshots) UpdateStatus(ctx context.Context, virtualMachineSnapshot *v1beta1.VirtualMachineSnapshot, opts v1.UpdateOptions) (result *v1beta1.VirtualMachineSnapshot, err error) {
-	emptyResult := &v1beta1.VirtualMachineSnapshot{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(virtualmachinesnapshotsResource, "status", c.ns, virtualMachineSnapshot, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VirtualMachineSnapshot), err
-}
-
-// Delete takes name of the virtualMachineSnapshot and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualMachineSnapshots) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(virtualmachinesnapshotsResource, c.ns, name, opts), &v1beta1.VirtualMachineSnapshot{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualMachineSnapshots) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(virtualmachinesnapshotsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.VirtualMachineSnapshotList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched virtualMachineSnapshot.
-func (c *FakeVirtualMachineSnapshots) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.VirtualMachineSnapshot, err error) {
-	emptyResult := &v1beta1.VirtualMachineSnapshot{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(virtualmachinesnapshotsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VirtualMachineSnapshot), err
 }

@@ -31,7 +31,7 @@ type FakePoolV1alpha1 struct {
 }
 
 func (c *FakePoolV1alpha1) VirtualMachinePools(namespace string) v1alpha1.VirtualMachinePoolInterface {
-	return &FakeVirtualMachinePools{c, namespace}
+	return newFakeVirtualMachinePools(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
