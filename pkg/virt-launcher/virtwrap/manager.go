@@ -623,6 +623,7 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
+	fmt.Printf("\n\nDEBUG attach host device +%v\n\n", sriovHostDevices)
 	if err := hostdevice.AttachHostDevices(domain, sriovHostDevices); err != nil {
 		return fmt.Errorf("%s: %v", errMsgPrefix, hostdevice.AttachHostDevices(domain, sriovHostDevices))
 	}

@@ -772,6 +772,7 @@ func (l *Launcher) SyncVirtualMachineMemory(_ context.Context, request *cmdv1.VM
 		return response, nil
 	}
 
+	fmt.Printf("\n\nDEBUG updating memory +%v\n\n", vmi.Spec.Domain.Memory)
 	if err := l.domainManager.UpdateGuestMemory(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed update VMI guest memory")
 		response.Success = false
