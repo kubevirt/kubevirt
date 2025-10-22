@@ -117,6 +117,7 @@ const (
 
 	// Owner: sig-conpute / @jschintag
 	// Alpha: v1.6.0
+	// Beta: v1.7.0
 	//
 	// SecureExecution introduces secure execution of VMs on IBM Z architecture
 	SecureExecution = "SecureExecution"
@@ -166,6 +167,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
