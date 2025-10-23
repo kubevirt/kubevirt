@@ -674,6 +674,18 @@ func (c *VirtualMachineController) updateGuestInfoFromDomain(vmi *v1.VirtualMach
 	vmi.Status.GuestOSInfo.ID = domain.Status.OSInfo.Id
 }
 
+func (c *VirtualMachineController) updateServiceStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if domain == nil {
+		return
+	}
+
+	if vmi.Status.ServiceStatus == nil {
+		vmi.Status.ServiceStatus = &v1.ServiceStatus{}
+	}
+
+	vmi.Status.ServiceStatus.VNCSessions = domain.Status.ServiceStatus.VNCSessionConnected
+}
+
 func (c *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
 
 	if domain == nil || domain.Spec.Metadata.KubeVirt.AccessCredential == nil {
@@ -1020,6 +1032,7 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	c.updateGuestInfoFromDomain(vmi, domain)
 	c.updateVolumeStatusesFromDomain(vmi, domain)
 	c.updateFSFreezeStatus(vmi, domain)
+	c.updateServiceStatus(vmi, domain)
 	c.updateMachineType(vmi, domain)
 	if err = c.updateMemoryInfo(vmi, domain); err != nil {
 		return err

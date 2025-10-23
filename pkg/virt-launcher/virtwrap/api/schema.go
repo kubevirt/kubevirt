@@ -117,6 +117,7 @@ type DomainStatus struct {
 	Interfaces     []InterfaceStatus
 	OSInfo         GuestOSInfo
 	FSFreezeStatus FSFreeze
+	ServiceStatus  ServiceStatus
 }
 
 type DomainSysInfo struct {
@@ -165,6 +166,10 @@ type Load struct {
 
 type FSFreeze struct {
 	Status string
+}
+
+type ServiceStatus struct {
+	VNCSessionConnected uint
 }
 
 type FSDisk struct {
