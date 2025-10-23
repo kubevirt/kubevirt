@@ -204,16 +204,18 @@ func setProcessMemoryLockRLimit(pid int, size int64) error {
 }
 
 func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
-	sock, err := net.DialTimeout("unix", socket, time.Duration(isolationDialTimeout)*time.Second)
+	safeSocket, err := safepath.NewFileNoFollow(socket)
+	if err != nil {
+		return -1, err
+	}
+	defer safeSocket.Close()
+
+	sock, err := net.DialTimeout("unix", safeSocket.SafePath(), time.Duration(isolationDialTimeout)*time.Second)
 	if err != nil {
 		return -1, err
 	}
 	defer sock.Close()
 
-	_, err = safepath.NewPathNoFollow(socket)
-	if err != nil {
-		return -1, err
-	}
 	ufile, err := sock.(*net.UnixConn).File()
 	if err != nil {
 		return -1, err
