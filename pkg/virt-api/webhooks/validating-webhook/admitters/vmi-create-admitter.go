@@ -608,6 +608,24 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 			}
 		}
 	}
+
+	if !config.WorkloadEncryptionCCAEnabled() && launchSecurity.CCA != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.WorkloadEncryptionCCA),
+			Field:   field.Child("launchSecurity").String(),
+		})
+	} else if launchSecurity.CCA != nil {
+		firmware := spec.Domain.Firmware
+		if !efiBootEnabled(firmware) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "CCA requires AAVMF (UEFI)",
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
+	}
+
 	return causes
 }
 

@@ -32,6 +32,7 @@ var _ = Describe("EFI environment detection", func() {
 	const (
 		secureBootEnabled = true
 		sevEnabled        = true
+		ccaEnabled        = true
 	)
 
 	createEFIRoms := func(efiRoms ...string) string {
@@ -56,18 +57,19 @@ var _ = Describe("EFI environment detection", func() {
 			efiEnv := DetectEFIEnvironment(arch, ovmfPath)
 			Expect(efiEnv).ToNot(BeNil())
 
-			Expect(efiEnv.Bootable(secureBootEnabled, !sevEnabled)).To(Equal(SBBootable))
-			Expect(efiEnv.Bootable(secureBootEnabled, sevEnabled)).To(Equal(SBBootable))
-			Expect(efiEnv.Bootable(!secureBootEnabled, !sevEnabled)).To(Equal(NoSBBootable))
+			Expect(efiEnv.Bootable(secureBootEnabled, sevEnabled, ccaEnabled)).To(Equal(SBBootable)) // SecureBoot takes precedence over SEV and CCA
+			Expect(efiEnv.Bootable(secureBootEnabled, !sevEnabled, !ccaEnabled)).To(Equal(SBBootable))
+			Expect(efiEnv.Bootable(!secureBootEnabled, !sevEnabled, !ccaEnabled)).To(Equal(NoSBBootable))
 
 			if SBBootable {
-				Expect(efiEnv.EFICode(secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, codeSB)))
-				Expect(efiEnv.EFICode(secureBootEnabled, sevEnabled)).To(Equal(filepath.Join(ovmfPath, codeSB)))
-				Expect(efiEnv.EFIVars(secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, varsSB)))
+				Expect(efiEnv.EFICode(secureBootEnabled, sevEnabled, ccaEnabled)).To(Equal(filepath.Join(ovmfPath, codeSB))) // SecureBoot takes precedence over SEV and CCA
+				Expect(efiEnv.EFICode(secureBootEnabled, !sevEnabled, !ccaEnabled)).To(Equal(filepath.Join(ovmfPath, codeSB)))
+				Expect(efiEnv.EFIVars(secureBootEnabled, sevEnabled, ccaEnabled)).To(Equal(filepath.Join(ovmfPath, varsSB))) // SecureBoot takes precedence over SEV and CCA
+				Expect(efiEnv.EFIVars(secureBootEnabled, !sevEnabled, !ccaEnabled)).To(Equal(filepath.Join(ovmfPath, varsSB)))
 			}
 			if NoSBBootable {
-				Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, code)))
-				Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, vars)))
+				Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled, !ccaEnabled)).To(Equal(filepath.Join(ovmfPath, code)))
+				Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled, !ccaEnabled)).To(Equal(filepath.Join(ovmfPath, vars)))
 			}
 
 		},
@@ -88,21 +90,52 @@ var _ = Describe("EFI environment detection", func() {
 		efiEnv := DetectEFIEnvironment("x86_64", ovmfPath)
 		Expect(efiEnv).ToNot(BeNil())
 
-		Expect(efiEnv.Bootable(secureBootEnabled, sevEnabled)).To(BeFalse())
-		Expect(efiEnv.Bootable(secureBootEnabled, !sevEnabled)).To(BeFalse())
-		Expect(efiEnv.Bootable(!secureBootEnabled, sevEnabled)).To(BeTrue())
-		Expect(efiEnv.Bootable(!secureBootEnabled, !sevEnabled)).To(BeFalse())
+		Expect(efiEnv.Bootable(secureBootEnabled, sevEnabled, ccaEnabled)).To(BeFalse()) // SecureBoot takes precedence over SEV and CCA
+		Expect(efiEnv.Bootable(secureBootEnabled, !sevEnabled, !ccaEnabled)).To(BeFalse())
+		Expect(efiEnv.Bootable(!secureBootEnabled, sevEnabled, !ccaEnabled)).To(BeTrue())
+		Expect(efiEnv.Bootable(!secureBootEnabled, !sevEnabled, ccaEnabled)).To(BeFalse())
+		Expect(efiEnv.Bootable(!secureBootEnabled, !sevEnabled, !ccaEnabled)).To(BeFalse())
 
 		codeSEV := filepath.Join(ovmfPath, EFICodeSEV)
-		Expect(efiEnv.EFICode(secureBootEnabled, sevEnabled)).ToNot(Equal(codeSEV))
-		Expect(efiEnv.EFICode(secureBootEnabled, !sevEnabled)).ToNot(Equal(codeSEV))
-		Expect(efiEnv.EFICode(!secureBootEnabled, sevEnabled)).To(Equal(codeSEV))
-		Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled)).ToNot(Equal(codeSEV))
+		Expect(efiEnv.EFICode(secureBootEnabled, sevEnabled, ccaEnabled)).ToNot(Equal(codeSEV)) // SecureBoot takes precedence over SEV and CCA
+		Expect(efiEnv.EFICode(secureBootEnabled, !sevEnabled, !ccaEnabled)).ToNot(Equal(codeSEV))
+		Expect(efiEnv.EFICode(!secureBootEnabled, sevEnabled, !ccaEnabled)).To(Equal(codeSEV))
+		Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled, ccaEnabled)).ToNot(Equal(codeSEV))
+		Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled, !ccaEnabled)).ToNot(Equal(codeSEV))
 
 		varsSEV := filepath.Join(ovmfPath, EFIVarsSEV)
-		Expect(efiEnv.EFIVars(secureBootEnabled, sevEnabled)).ToNot(Equal(varsSEV))
-		Expect(efiEnv.EFIVars(secureBootEnabled, !sevEnabled)).ToNot(Equal(varsSEV))
-		Expect(efiEnv.EFIVars(!secureBootEnabled, sevEnabled)).To(Equal(varsSEV))
-		Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled)).To(Equal(varsSEV)) // same as EFIVars
+		Expect(efiEnv.EFIVars(secureBootEnabled, sevEnabled, ccaEnabled)).ToNot(Equal(varsSEV)) // SecureBoot takes precedence over SEV and CCA
+		Expect(efiEnv.EFIVars(secureBootEnabled, !sevEnabled, !ccaEnabled)).ToNot(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, sevEnabled, !ccaEnabled)).To(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled, ccaEnabled)).ToNot(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled, !ccaEnabled)).To(Equal(varsSEV)) // same as EFIVars
+	})
+
+	It("CCA EFI Roms", func() {
+		ovmfPath := createEFIRoms(EFICodeAARCH64CCA, EFIVarsAARCH64CCA)
+		defer os.RemoveAll(ovmfPath)
+
+		efiEnv := DetectEFIEnvironment("arm64", ovmfPath)
+		Expect(efiEnv).ToNot(BeNil())
+
+		Expect(efiEnv.Bootable(secureBootEnabled, sevEnabled, ccaEnabled)).To(BeFalse()) // SecureBoot takes precedence over SEV and CCA
+		Expect(efiEnv.Bootable(secureBootEnabled, !sevEnabled, !ccaEnabled)).To(BeFalse())
+		Expect(efiEnv.Bootable(!secureBootEnabled, sevEnabled, !ccaEnabled)).To(BeFalse())
+		Expect(efiEnv.Bootable(!secureBootEnabled, !sevEnabled, ccaEnabled)).To(BeTrue())
+		Expect(efiEnv.Bootable(!secureBootEnabled, !sevEnabled, !ccaEnabled)).To(BeFalse())
+
+		codeCCA := filepath.Join(ovmfPath, EFICodeAARCH64CCA)
+		Expect(efiEnv.EFICode(secureBootEnabled, sevEnabled, ccaEnabled)).ToNot(Equal(codeCCA)) // SecureBoot takes precedence over SEV and CCA
+		Expect(efiEnv.EFICode(secureBootEnabled, !sevEnabled, !ccaEnabled)).ToNot(Equal(codeCCA))
+		Expect(efiEnv.EFICode(!secureBootEnabled, sevEnabled, !ccaEnabled)).ToNot(Equal(codeCCA))
+		Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled, ccaEnabled)).To(Equal(codeCCA))
+		Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled, !ccaEnabled)).ToNot(Equal(codeCCA))
+
+		varsCCA := filepath.Join(ovmfPath, EFIVarsAARCH64CCA)
+		Expect(efiEnv.EFIVars(secureBootEnabled, sevEnabled, ccaEnabled)).ToNot(Equal(varsCCA)) // SecureBoot takes precedence over SEV and CCA
+		Expect(efiEnv.EFIVars(secureBootEnabled, !sevEnabled, !ccaEnabled)).ToNot(Equal(varsCCA))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, sevEnabled, !ccaEnabled)).ToNot(Equal(varsCCA))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled, ccaEnabled)).To(Equal(varsCCA))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled, !ccaEnabled)).ToNot(Equal(varsCCA))
 	})
 })

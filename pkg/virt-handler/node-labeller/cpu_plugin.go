@@ -119,6 +119,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 
 	n.hostCapabilities.items = usableModels
 	n.SEV = hostDomCapabilities.SEV
+	n.CCA = hostDomCapabilities.CCA
 	n.SecureExecution = hostDomCapabilities.SecureExecution
 
 	return nil
@@ -157,6 +158,12 @@ func (n *NodeLabeller) getDomCapabilities() (HostDomCapabilities, error) {
 		hostDomCapabilities.SEV.SupportedES = "yes"
 	} else {
 		hostDomCapabilities.SEV.SupportedES = "no"
+	}
+
+	if hostDomCapabilities.CCA.Supported == "yes" {
+		if hostDomCapabilities.CCA.MeasurementAlgo.Name != "measurement-algo" || len(hostDomCapabilities.CCA.MeasurementAlgo.Values) < 1 {
+			hostDomCapabilities.CCA.Supported = "no"
+		}
 	}
 
 	return hostDomCapabilities, err

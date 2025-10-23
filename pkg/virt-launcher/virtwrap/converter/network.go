@@ -88,12 +88,12 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			}
 		}
 
-		if c.UseLaunchSecurity {
+		if c.UseLaunchSecurity || c.UseLaunchSecurityCCA {
 			if arch.NewConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
-				// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
+				// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV, CCA, etc.
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
-			if ifaceType == v1.VirtIO {
+			if ifaceType == v1.VirtIO && !c.UseLaunchSecurityCCA {
 				if domainIface.Driver != nil {
 					domainIface.Driver.IOMMU = "on"
 				} else {

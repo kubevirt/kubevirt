@@ -202,6 +202,38 @@ var _ = Describe("Node-labeller config", func() {
 		)
 	})
 
+	DescribeTable("return correct CCA capabilities",
+		func(isSupported bool, hasMeasurementAlgo bool) {
+			if isSupported {
+				nlController.domCapabilitiesFileName = "arm64/domcapabilities_arm64-cca.xml"
+			} else if hasMeasurementAlgo {
+				nlController.domCapabilitiesFileName = "arm64/domcapabilities_arm64-cca_non_value_for_measurement-algo.xml"
+			} else {
+				nlController.domCapabilitiesFileName = "arm64/domcapabilities_arm64-cca_non_measurement-algo.xml"
+			}
+			err := nlController.loadDomCapabilities()
+			Expect(err).ToNot(HaveOccurred())
+
+			if isSupported && hasMeasurementAlgo {
+				Expect(nlController.CCA.Supported).To(Equal("yes"))
+				Expect(nlController.CCA.MeasurementAlgo.Name).To(Equal("measurement-algo"))
+				Expect(nlController.CCA.MeasurementAlgo.Values[0]).To(Equal("sha256"))
+				Expect(nlController.CCA.MeasurementAlgo.Values[1]).To(Equal("sha512"))
+			} else if hasMeasurementAlgo {
+				Expect(nlController.CCA.Supported).To(Equal("no"))
+				Expect(nlController.CCA.MeasurementAlgo.Name).To(Equal("measurement-algo"))
+				Expect(nlController.CCA.MeasurementAlgo.Values).To(BeNil())
+			} else {
+				Expect(nlController.CCA.Supported).To(Equal("no"))
+				Expect(nlController.CCA.MeasurementAlgo.Name).To(Equal(""))
+				Expect(nlController.CCA.MeasurementAlgo.Values).To(BeNil())
+			}
+		},
+		Entry("when CCA is supported", true, true),
+		Entry("when values for measurement-algo is not configured ", false, true),
+		Entry("when measurement-algo is not configured", false, false),
+	)
+
 	DescribeTable("return correct SecureExecution capabilities",
 		func(isSupported bool) {
 			if isSupported {

@@ -22,6 +22,7 @@ type NodeSelectorRenderer struct {
 	vmiFeatures            *v1.Features
 	realtimeEnabled        bool
 	sevEnabled             bool
+	ccaEnabled             bool
 	sevESEnabled           bool
 	SecureExecutionEnabled bool
 }
@@ -77,6 +78,9 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 	if nsr.sevEnabled {
 		nsr.enableSelectorLabel(v1.SEVLabel)
 	}
+	if nsr.ccaEnabled {
+		nsr.enableSelectorLabel(v1.CCALabel)
+	}
 	if nsr.sevESEnabled {
 		nsr.enableSelectorLabel(v1.SEVESLabel)
 	}
@@ -103,6 +107,11 @@ func WithRealtime() NodeSelectorRendererOption {
 func WithSEVSelector() NodeSelectorRendererOption {
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.sevEnabled = true
+	}
+}
+func WithCCASelector() NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.ccaEnabled = true
 	}
 }
 func WithSEVESSelector() NodeSelectorRendererOption {

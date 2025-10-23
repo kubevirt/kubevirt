@@ -1669,6 +1669,69 @@ var _ = Describe("Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		Context("with ARM CCA LaunchSecurity", func() {
+			var (
+				vmi     *v1.VirtualMachineInstance
+				manager *LibvirtDomainManager
+				c       *converter.ConverterContext
+				err     error
+			)
+			allowEmulation := true
+			options := &cmdv1.VirtualMachineOptions{}
+			isMigrationTarget := false
+
+			BeforeEach(func() {
+				vmi = newVMI(testNamespace, testVmName)
+				manager = &LibvirtDomainManager{
+					cpuSetGetter: fakeCpuSetGetter,
+				}
+				vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+					CCA: &v1.CCA{},
+				}
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: virtpointer.P(false),
+						},
+					},
+				}
+			})
+
+			It("should not add EFI configuration", func() {
+				manager.efiEnvironment = efi.DetectEFIEnvironment("arm64", "test")
+				Expect(manager.efiEnvironment.EFICode(false, false, true)).To(BeEmpty())
+				Expect(manager.efiEnvironment.EFIVars(false, false, true)).To(BeEmpty())
+
+				c, err = manager.generateConverterContext(vmi, allowEmulation, options, isMigrationTarget)
+				Expect(err).To(HaveOccurred())
+				Expect(c).To(BeNil())
+			})
+
+			It("should add EFI configuration", func() {
+				var testPath string
+				var f *os.File
+
+				testPath, err = os.MkdirTemp("", "ccatest")
+				Expect(err).ToNot(HaveOccurred())
+				efiRoms := []string{efi.EFICodeAARCH64CCA, efi.EFIVarsAARCH64CCA}
+				for i := range efiRoms {
+					f, err = os.Create(filepath.Join(testPath, efiRoms[i]))
+					Expect(err).ToNot(HaveOccurred())
+					f.Close()
+				}
+				defer os.RemoveAll(testPath)
+
+				manager.efiEnvironment = efi.DetectEFIEnvironment("arm64", testPath)
+				Expect(manager.efiEnvironment.EFICode(false, false, true)).To(ContainSubstring("AAVMF_CODE.cca.fd"))
+				Expect(manager.efiEnvironment.EFIVars(false, false, true)).To(ContainSubstring("AAVMF_VARS.cca.fd"))
+
+				c, err = manager.generateConverterContext(vmi, allowEmulation, options, isMigrationTarget)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(c.EFIConfiguration.EFICode).To(ContainSubstring("AAVMF_CODE.cca.fd"))
+				Expect(c.EFIConfiguration.EFIVars).To(ContainSubstring("AAVMF_VARS.cca.fd"))
+			})
+		})
+
 		Context("Memory hotplug", func() {
 			var vmi *v1.VirtualMachineInstance
 			var manager *LibvirtDomainManager

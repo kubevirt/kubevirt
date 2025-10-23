@@ -698,6 +698,10 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		log.Log.V(4).Info("Add SEV node label selector")
 		opts = append(opts, WithSEVSelector())
 	}
+	if util.IsCCAVMI(vmi) {
+		log.Log.V(4).Info("Add CCA node label selector")
+		opts = append(opts, WithCCASelector())
+	}
 	if isSEVESVMI(vmi) {
 		log.Log.V(4).Info("Add SEV-ES node label selector")
 		opts = append(opts, WithSEVESSelector())

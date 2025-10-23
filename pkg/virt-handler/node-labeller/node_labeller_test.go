@@ -155,6 +155,30 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(HaveKey(v1.SEVESLabel))
 	})
 
+	It("should not add CCA label", func() {
+		nlController.domCapabilitiesFileName = "arm64/domcapabilities_arm64-cca_non_measurement-algo.xml"
+		nlController.arch = newArchLabeller("arm64")
+		Expect(nlController.loadAll()).Should(Succeed())
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(Not(HaveKey(v1.CCALabel)))
+	})
+
+	It("should add CCA label", func() {
+		nlController.domCapabilitiesFileName = "arm64/domcapabilities_arm64-cca.xml"
+		nlController.arch = newArchLabeller("arm64")
+		Expect(nlController.loadAll()).Should(Succeed())
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(v1.CCALabel))
+	})
+
 	It("should not add SecureExecution label", func() {
 		nlController.volumePath = "testdata/s390x"
 		Expect(nlController.loadAll()).Should(Succeed())

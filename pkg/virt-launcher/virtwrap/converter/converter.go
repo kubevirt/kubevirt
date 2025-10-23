@@ -111,6 +111,7 @@ type ConverterContext struct {
 	Topology                        *cmdv1.Topology
 	ExpandDisksEnabled              bool
 	UseLaunchSecurity               bool
+	UseLaunchSecurityCCA            bool
 	FreePageReporting               bool
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool

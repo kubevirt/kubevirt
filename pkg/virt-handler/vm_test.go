@@ -2320,6 +2320,26 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonSEVNotMigratable))
 		})
 
+		It("should not be allowed to live-migrate if the VMI uses CCA", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				CCA: &v1.CCA{},
+			}
+
+			nodeCondition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(nodeCondition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(nodeCondition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(nodeCondition.Message).To(Equal("VMI uses CCA"))
+			Expect(nodeCondition.Reason).To(Equal(v1.VirtualMachineInstanceReasonCCANotMigratable))
+
+			strageCondition := controller.calculateLiveStorageMigrationCondition(vmi)
+			Expect(strageCondition.Type).To(Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable))
+			Expect(strageCondition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(strageCondition.Message).To(ContainSubstring("VMI uses CCA"))
+			Expect(strageCondition.Reason).To(Equal(v1.VirtualMachineInstanceReasonNotMigratable))
+		})
+
 		It("should not be allowed to live-migrate if the VMI uses Secure Execution", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}

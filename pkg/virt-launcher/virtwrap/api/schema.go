@@ -1079,12 +1079,15 @@ type Entry struct {
 //BEGIN LaunchSecurity --------------------
 
 type LaunchSecurity struct {
-	Type            string `xml:"type,attr"`
-	Cbitpos         string `xml:"cbitpos,omitempty"`
-	ReducedPhysBits string `xml:"reducedPhysBits,omitempty"`
-	Policy          string `xml:"policy,omitempty"`
-	DHCert          string `xml:"dhCert,omitempty"`
-	Session         string `xml:"session,omitempty"`
+	Type                 string `xml:"type,attr"`
+	Cbitpos              string `xml:"cbitpos,omitempty"`
+	ReducedPhysBits      string `xml:"reducedPhysBits,omitempty"`
+	Policy               string `xml:"policy,omitempty"`
+	DHCert               string `xml:"dhCert,omitempty"`
+	Session              string `xml:"session,omitempty"`
+	MeasurementAlgo      string `xml:"measurement-algo,omitempty"`
+	MeasurementLog       string `xml:"measurement-log,attr,omitempty"`
+	PersonalizationValue string `xml:"personalization-value,omitempty"`
 }
 
 //END LaunchSecurity --------------------

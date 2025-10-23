@@ -33,6 +33,8 @@ const (
 	EFIVarsSecureBoot = "OVMF_VARS.secboot.fd"
 	EFICodeSEV        = "OVMF_CODE.cc.fd"
 	EFIVarsSEV        = EFIVars
+	EFICodeAARCH64CCA = "AAVMF_CODE.cca.fd"
+	EFIVarsAARCH64CCA = "AAVMF_VARS.cca.fd"
 )
 
 type EFIEnvironment struct {
@@ -42,33 +44,41 @@ type EFIEnvironment struct {
 	varsSecureBoot string
 	codeSEV        string
 	varsSEV        string
+	codeCCA        string
+	varsCCA        string
 }
 
-func (e *EFIEnvironment) Bootable(secureBoot, sev bool) bool {
+func (e *EFIEnvironment) Bootable(secureBoot, sev bool, cca bool) bool {
 	if secureBoot {
 		return e.varsSecureBoot != "" && e.codeSecureBoot != ""
 	} else if sev {
 		return e.varsSEV != "" && e.codeSEV != ""
+	} else if cca {
+		return e.varsCCA != "" && e.codeCCA != ""
 	} else {
 		return e.vars != "" && e.code != ""
 	}
 }
 
-func (e *EFIEnvironment) EFICode(secureBoot, sev bool) string {
+func (e *EFIEnvironment) EFICode(secureBoot, sev bool, cca bool) string {
 	if secureBoot {
 		return e.codeSecureBoot
 	} else if sev {
 		return e.codeSEV
+	} else if cca {
+		return e.codeCCA
 	} else {
 		return e.code
 	}
 }
 
-func (e *EFIEnvironment) EFIVars(secureBoot, sev bool) string {
+func (e *EFIEnvironment) EFIVars(secureBoot, sev bool, cca bool) string {
 	if secureBoot {
 		return e.varsSecureBoot
 	} else if sev {
 		return e.varsSEV
+	} else if cca {
+		return e.varsCCA
 	} else {
 		return e.vars
 	}
@@ -79,9 +89,14 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 		codeArm64 := getEFIBinaryIfExists(ovmfPath, EFICodeAARCH64)
 		varsArm64 := getEFIBinaryIfExists(ovmfPath, EFIVarsAARCH64)
 
+		codeArm64WithCCA := getEFIBinaryIfExists(ovmfPath, EFICodeAARCH64CCA)
+		varsArm64WithCCA := getEFIBinaryIfExists(ovmfPath, EFIVarsAARCH64CCA)
+
 		return &EFIEnvironment{
-			code: codeArm64,
-			vars: varsArm64,
+			code:    codeArm64,
+			vars:    varsArm64,
+			codeCCA: codeArm64WithCCA,
+			varsCCA: varsArm64WithCCA,
 		}
 	}
 

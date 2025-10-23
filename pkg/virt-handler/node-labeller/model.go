@@ -35,6 +35,7 @@ type HostDomCapabilities struct {
 	CPU             CPU                          `xml:"cpu"`
 	SEV             SEVConfiguration             `xml:"features>sev"`
 	SecureExecution SecureExecutionConfiguration `xml:"features>s390-pv"`
+	CCA             CCAConfiguration             `xml:"features>cca"`
 }
 
 // CPU represents slice of cpu modes
@@ -92,6 +93,16 @@ type SEVConfiguration struct {
 	MaxGuests       uint   `xml:"maxGuests"`
 	MaxESGuests     uint   `xml:"maxESGuests"`
 	SupportedES     string `xml:"-"`
+}
+
+type CCAConfiguration struct {
+	Supported       string         `xml:"supported,attr"`
+	MeasurementAlgo DomainCapsEnum `xml:"enum"`
+}
+
+type DomainCapsEnum struct {
+	Name   string   `xml:"name,attr"`
+	Values []string `xml:"value"`
 }
 
 type SecureExecutionConfiguration struct {
