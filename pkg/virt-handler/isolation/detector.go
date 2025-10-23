@@ -161,9 +161,19 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	qemuProcessID := qemuProcess.Pid()
 	// make the best estimate for memory required by libvirt
 	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-	// Add base memory requested for the VM
-	vmiMemoryReq := vmi.Spec.Domain.Resources.Requests.Memory()
-	memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
+	// Add max memory assigned to the VM
+	var vmiBaseMemory *resource.Quantity
+
+	switch {
+	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.MaxGuest != nil:
+		vmiBaseMemory = vmi.Spec.Domain.Memory.MaxGuest
+	case vmi.Spec.Domain.Resources.Requests.Memory() != nil:
+		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
+	case vmi.Spec.Domain.Memory != nil:
+		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
+	}
+
+	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
 
 	if err := setProcessMemoryLockRLimit(qemuProcessID, memlockSize.Value()); err != nil {
 		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessID, memlockSize.Value(), err)
