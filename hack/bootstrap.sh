@@ -22,11 +22,12 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     source hack/common.sh
     source hack/config.sh
 fi
+
 KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL:-false}
 HOST_ARCHITECTURE="$(uname -m)"
 
 sandbox_root=${SANDBOX_DIR}/default/root
-sandbox_hash="09d52f309cbe87f4ca9100c32e9fb1a2bed7156d"
+sandbox_hash="1f14581894435c232679a3a6d1c3d233c9bd7b7f"
 
 function kubevirt::bootstrap::regenerate() {
     (
