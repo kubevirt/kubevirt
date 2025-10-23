@@ -34,6 +34,13 @@ if [ -e /dev/sev ]; then
   chmod o+rw /dev/sev
 fi
 
+if [ -e /dev/sgx_enclave ]; then
+  # QEMU requires RW access to query TDX capabilities
+  chmod o+rw /dev/sgx_enclave
+  chmod o+rw /dev/sgx_provision
+  chmod o+rw /dev/sgx_vepc
+fi
+
 virtqemud -d
 
 virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
