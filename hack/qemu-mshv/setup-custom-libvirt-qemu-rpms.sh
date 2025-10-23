@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#set -e
+
 while getopts q:l: flag; do
     case "${flag}" in
     q) QEMU_IMAGE=${OPTARG} ;;
@@ -81,6 +83,8 @@ cat custom-repo.yaml
 
 make CUSTOM_REPO=custom-repo.yaml LIBVIRT_VERSION="$LIBVIRT_VERSION" QEMU_VERSION="$QEMU_VERSION" SINGLE_ARCH="x86_64" rpm-deps
 
+ls -l /tmp/123455
+
 echo "rpm-deps completed with custom libvirt & qemu"
 
-make bazel-build-images
+#make bazel-build-images
