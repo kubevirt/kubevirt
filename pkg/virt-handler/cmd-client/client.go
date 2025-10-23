@@ -32,7 +32,6 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -121,59 +120,6 @@ func SetLegacyBaseDir(baseDir string) {
 
 func SetPodsBaseDir(baseDir string) {
 	podsBaseDir = baseDir
-}
-
-func ListAllSockets() ([]string, error) {
-	var socketFiles []string
-
-	socketsDir := filepath.Join(legacyBaseDir, "sockets")
-	exists, err := diskutils.FileExists(socketsDir)
-	if err != nil {
-		return nil, err
-	}
-
-	if exists == false {
-		return socketFiles, nil
-	}
-
-	files, err := os.ReadDir(socketsDir)
-	if err != nil {
-		return nil, err
-	}
-	for _, file := range files {
-		if file.IsDir() || !strings.Contains(file.Name(), "_sock") {
-			continue
-		}
-		// legacy support.
-		// The old way of handling launcher sockets was to
-		// dump them all in the same directory. So if we encounter
-		// a legacy socket, still process it. This is necessary
-		// for update support.
-		socketFiles = append(socketFiles, filepath.Join(socketsDir, file.Name()))
-	}
-
-	podsDir := podsBaseDir
-	dirs, err := os.ReadDir(podsDir)
-	if err != nil {
-		return nil, err
-	}
-	for _, dir := range dirs {
-		if !dir.IsDir() {
-			continue
-		}
-
-		socketPath := SocketFilePathOnHost(dir.Name())
-		exists, err = diskutils.FileExists(socketPath)
-		if err != nil {
-			return socketFiles, err
-		}
-
-		if exists {
-			socketFiles = append(socketFiles, socketPath)
-		}
-	}
-
-	return socketFiles, nil
 }
 
 func LegacySocketsDirectory() string {
