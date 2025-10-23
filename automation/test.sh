@@ -61,62 +61,91 @@ if [[ ! $TARGET =~ .*kind.* ]]; then
   export KUBEVIRT_PSA="true"
   export KUBEVIRT_FLANNEL=true
 fi
-if [[ $TARGET =~ windows.* ]]; then
-  echo "picking the default provider for windows tests"
-elif [[ $TARGET =~ sig-network ]]; then
-  export KUBEVIRT_WITH_DYN_NET_CTRL="${KUBEVIRT_WITH_DYN_NET_CTRL:-false}"
-  export KUBEVIRT_NUM_NODES=3
-  export KUBEVIRT_WITH_CNAO=true
-  export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
-  export KUBEVIRT_DEPLOY_CDI=false
-  export KUBEVIRT_DEPLOY_ISTIO=true
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
-elif [[ $TARGET =~ sig-storage ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
-  export KUBEVIRT_STORAGE="rook-ceph-default"
-  export KUBEVIRT_DEPLOY_NFS_CSI=true
-  export KUBEVIRT_WITH_ETC_CAPACITY="1G"
-elif [[ $TARGET =~ sig-compute-realtime ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
-  export KUBEVIRT_HUGEPAGES_2M=512
-  export KUBEVIRT_REALTIME_SCHEDULER=true
-elif [[ $TARGET =~ sig-compute-migrations ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
-  export KUBEVIRT_E2E_PARALLEL_NODES=3
-  export KUBEVIRT_NUM_NODES=3
-  export KUBEVIRT_STORAGE="rook-ceph-default"
-  export KUBEVIRT_WITH_CNAO=true
-  export KUBEVIRT_NUM_SECONDARY_NICS=1
-  export KUBEVIRT_DEPLOY_NFS_CSI=true
-  export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
-  source hack/config-default.sh
-elif [[ $TARGET =~ sig-compute-serial ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
-elif [[ $TARGET =~ sig-compute-parallel ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
-elif [[ $TARGET =~ sig-compute-conformance ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-conformance/}
-elif [[ $TARGET =~ sig-compute ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
-elif [[ $TARGET =~ sig-operator ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
-  export KUBEVIRT_WITH_CNAO=true
-  export KUBEVIRT_NUM_SECONDARY_NICS=1
-elif [[ $TARGET =~ sig-monitoring ]]; then
+
+case "$TARGET" in
+  *windows*)
+    echo "picking the default provider for windows tests"
+    ;;
+  *sig-network*)
+    export KUBEVIRT_WITH_DYN_NET_CTRL="${KUBEVIRT_WITH_DYN_NET_CTRL:-false}"
+    export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
+    export KUBEVIRT_DEPLOY_CDI=false
+    export KUBEVIRT_DEPLOY_ISTIO=true
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+    ;;
+  *sig-storage*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
+    export KUBEVIRT_STORAGE="rook-ceph-default"
+    export KUBEVIRT_DEPLOY_NFS_CSI=true
+    export KUBEVIRT_WITH_ETC_CAPACITY="1G"
+    ;;
+  *sig-compute-realtime*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
+    export KUBEVIRT_HUGEPAGES_2M=512
+    export KUBEVIRT_REALTIME_SCHEDULER=true
+    ;;
+  *sig-compute-migrations-wg-arm64*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations-wg-arm64/}
+    export KUBEVIRT_E2E_PARALLEL_NODES=3
+    export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_STORAGE="rook-ceph-default"
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_NUM_SECONDARY_NICS=1
+    export KUBEVIRT_DEPLOY_NFS_CSI=true
+    export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
+    source hack/config-default.sh
+    ;;
+  *sig-compute-migrations*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
+    export KUBEVIRT_E2E_PARALLEL_NODES=3
+    export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_STORAGE="rook-ceph-default"
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_NUM_SECONDARY_NICS=1
+    export KUBEVIRT_DEPLOY_NFS_CSI=true
+    export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
+    source hack/config-default.sh
+    ;;
+  *sig-compute-serial*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
+    ;;
+  *sig-compute-parallel*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
+    ;;
+  *sig-compute-conformance*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-conformance/}
+    ;;
+  *sig-compute*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
+    ;;
+  *sig-operator*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_NUM_SECONDARY_NICS=1
+    ;;
+  *sig-monitoring*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
     export KUBEVIRT_DEPLOY_PROMETHEUS=true
-elif [[ $TARGET =~ wg-s390x ]]; then
+    ;;
+  *wg-s390x*)
     export KUBEVIRT_PROVIDER=${TARGET/-wg-s390x}
-elif [[ $TARGET =~ wg-arm64 ]]; then
+    ;;
+  *wg-arm64*)
     export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
     export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
-elif [[ $TARGET =~ sev ]]; then
+    ;;
+  *sev*)
     export KUBEVIRT_PROVIDER=${TARGET/-sev}
-elif [[ $TARGET =~ secure-execution ]]; then
+    ;;
+  *secure-execution*)
     export KUBEVIRT_PROVIDER=${TARGET/-secure-execution}
-else
-  export KUBEVIRT_PROVIDER=${TARGET}
-fi
+    ;;
+  *)
+    export KUBEVIRT_PROVIDER=${TARGET}
+    ;;
+esac
 
 # Single-node single-replica test lanes need nfs csi to run sig-storage tests
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
@@ -594,3 +623,4 @@ fi
 
 # Sanity check test execution by looking at results file
 ./automation/assert-not-all-tests-skipped.sh "${ARTIFACTS}/junit.functest.xml"
+
