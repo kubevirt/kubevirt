@@ -3864,6 +3864,32 @@ var _ = Describe("Converter", func() {
 			),
 		)
 	})
+	Context("OemStrings", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		})
+
+		It("should set oem strings", func() {
+			oemStrings := []string{"oem1", "oem2"}
+			vmi.Spec.Domain.OemStrings = oemStrings
+			c = &ConverterContext{
+				AllowEmulation: true,
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.SysInfo).ToNot(BeNil())
+			Expect(domain.Spec.SysInfo.OemStrings).ToNot(BeNil())
+			Expect(domain.Spec.SysInfo.OemStrings.Entries).To(ContainElement(oemStrings[0]))
+			Expect(domain.Spec.SysInfo.OemStrings.Entries).To(ContainElement(oemStrings[1]))
+		})
+	})
 })
 
 var _ = Describe("disk device naming", func() {
