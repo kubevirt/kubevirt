@@ -13,6 +13,7 @@ go_library(
         "nodeselector.go",
         "paused.go",
         "postcopy.go",
+        "priority.go",
         "recovery.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/migration",
