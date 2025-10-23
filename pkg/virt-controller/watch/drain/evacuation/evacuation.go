@@ -407,52 +407,56 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 		return nil
 	}
 
-	runningMigrations := migrationutils.FilterRunningMigrations(activeMigrations)
-	activeMigrationsFromThisSourceNode := c.numOfVMIMForThisSourceNode(vmisOnNode, runningMigrations)
-	maxParallelMigrationsPerOutboundNode :=
-		int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
-	maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
-	freeSpotsPerCluster := maxParallelMigrations - len(runningMigrations)
-	freeSpotsPerThisSourceNode := maxParallelMigrationsPerOutboundNode - activeMigrationsFromThisSourceNode
-	freeSpots := int(math.Min(float64(freeSpotsPerCluster), float64(freeSpotsPerThisSourceNode)))
-	if freeSpots <= 0 {
-		c.Queue.AddAfter(node.Name, 5*time.Second)
-		return nil
-	}
-
-	diff := int(math.Min(float64(freeSpots), float64(len(migrationCandidates))))
-	remaining := freeSpots - diff
-	remainingForNonMigrateableDiff := int(math.Min(float64(remaining), float64(len(nonMigrateable))))
-
-	if remainingForNonMigrateableDiff > 0 {
-		// for all non-migrating VMIs which would get e spot emit a warning
-		for _, vmi := range nonMigrateable[0:remainingForNonMigrateableDiff] {
-			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, FailedCreateVirtualMachineInstanceMigrationReason, "VirtualMachineInstance is not migrateable")
+	selectedCandidates := migrationCandidates
+	if !c.clusterConfig.MigrationPriorityQueueEnabled() {
+		runningMigrations := migrationutils.FilterRunningMigrations(activeMigrations)
+		activeMigrationsFromThisSourceNode := c.numOfVMIMForThisSourceNode(vmisOnNode, runningMigrations)
+		maxParallelMigrationsPerOutboundNode :=
+			int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
+		maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
+		freeSpotsPerCluster := maxParallelMigrations - len(runningMigrations)
+		freeSpotsPerThisSourceNode := maxParallelMigrationsPerOutboundNode - activeMigrationsFromThisSourceNode
+		freeSpots := int(math.Min(float64(freeSpotsPerCluster), float64(freeSpotsPerThisSourceNode)))
+		if freeSpots <= 0 {
+			c.Queue.AddAfter(node.Name, 5*time.Second)
+			return nil
 		}
 
-	}
+		diff := int(math.Min(float64(freeSpots), float64(len(migrationCandidates))))
+		remaining := freeSpots - diff
+		remainingForNonMigrateableDiff := int(math.Min(float64(remaining), float64(len(nonMigrateable))))
 
-	if diff == 0 {
 		if remainingForNonMigrateableDiff > 0 {
-			// Let's ensure that some warnings will stay in the event log and periodically update
-			// In theory the warnings could disappear after one hour if nothing else updates
-			c.Queue.AddAfter(node.Name, 1*time.Minute)
+			// for all non-migrating VMIs which would get e spot emit a warning
+			for _, vmi := range nonMigrateable[0:remainingForNonMigrateableDiff] {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, FailedCreateVirtualMachineInstanceMigrationReason, "VirtualMachineInstance is not migrateable")
+			}
+
 		}
-		// nothing to do
-		return nil
+
+		if diff == 0 {
+			if remainingForNonMigrateableDiff > 0 {
+				// Let's ensure that some warnings will stay in the event log and periodically update
+				// In theory the warnings could disappear after one hour if nothing else updates
+				c.Queue.AddAfter(node.Name, 1*time.Minute)
+			}
+			// nothing to do
+			return nil
+		}
+
+		// TODO: should the order be randomized?
+		selectedCandidates = migrationCandidates[0:diff]
 	}
 
-	// TODO: should the order be randomized?
-	selectedCandidates := migrationCandidates[0:diff]
-
+	actualSpots := len(selectedCandidates)
 	log.DefaultLogger().Infof("node: %v, migrations: %v, candidates: %v, selected: %v", node.Name, len(activeMigrations), len(migrationCandidates), len(selectedCandidates))
 
 	wg := &sync.WaitGroup{}
-	wg.Add(diff)
+	wg.Add(actualSpots)
 
-	errChan := make(chan error, diff)
+	errChan := make(chan error, actualSpots)
 
-	c.migrationExpectations.ExpectCreations(node.Name, diff)
+	c.migrationExpectations.ExpectCreations(node.Name, actualSpots)
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
