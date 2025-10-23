@@ -307,6 +307,12 @@ oci_push(
 )
 
 oci_push(
+    name = "push-alpine-custom-container-disk-demo",
+    image = "//containerimages:alpine-custom-container-disk-image",
+    repository = "quay.io/kubevirt/alpine-custom-container-disk-demo",
+)
+
+oci_push(
     name = "push-cirros-container-disk-demo",
     image = "//containerimages:cirros-container-disk-image",
     repository = "quay.io/kubevirt/cirros-container-disk-demo",
