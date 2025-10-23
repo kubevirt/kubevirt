@@ -85,7 +85,7 @@ var _ = Describe(SIG("[sig-storage]Memory dump", decorators.SigStorage, func() {
 		if create {
 			args = append(args, createClaimFlag)
 		} else {
-			libstorage.CreateFSPVC(pvcName, testsuite.GetTestNamespace(nil), "500Mi", nil)
+			libstorage.CreateFSPVC(pvcName, testsuite.GetTestNamespace(nil), "500Mi", libstorage.WithStorageProfile())
 		}
 
 		Expect(runMemoryDumpGetCmd(vm.Name, args...)).To(Succeed())

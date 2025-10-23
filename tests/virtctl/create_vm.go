@@ -247,7 +247,7 @@ chpasswd: { expire: False }`
 		instancetype := createInstancetype(virtClient)
 		preference := createPreference(virtClient)
 		dataSource := createAnnotatedDataSource(virtClient, "something", "something")
-		pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), size, nil)
+		pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), size, libstorage.WithStorageProfile())
 		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
 		out, err := runCreateVMCmd(
@@ -703,7 +703,8 @@ chpasswd: { expire: False }`
 
 	It("[test_id:11654]Failure of implicit inference does not fail the VM creation", func() {
 		By("Creating a PVC without annotation labels")
-		pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), size, nil)
+		pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), size, libstorage.WithStorageProfile())
+
 		volumeName := "imported-volume"
 
 		By("Creating a VM with implicit inference (inference enabled by default)")
@@ -821,10 +822,12 @@ func createAnnotatedDataSource(virtClient kubecli.KubevirtClient, instancetypeNa
 
 func createAnnotatedSourcePVC(instancetypeName, preferenceName string) *k8sv1.PersistentVolumeClaim {
 	const randNameTail = 5
-	return libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), "128Mi", map[string]string{
-		apiinstancetype.DefaultInstancetypeLabel:     instancetypeName,
-		apiinstancetype.DefaultInstancetypeKindLabel: apiinstancetype.SingularResourceName,
-		apiinstancetype.DefaultPreferenceLabel:       preferenceName,
-		apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
-	})
+	return libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), "128Mi",
+		libstorage.WithStorageProfile(),
+		libstorage.WithLabels(map[string]string{
+			apiinstancetype.DefaultInstancetypeLabel:     instancetypeName,
+			apiinstancetype.DefaultInstancetypeKindLabel: apiinstancetype.SingularResourceName,
+			apiinstancetype.DefaultPreferenceLabel:       preferenceName,
+			apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
+		}))
 }
