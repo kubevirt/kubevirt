@@ -54,6 +54,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.RealtimeLabel,
 	kubevirtv1.SEVLabel,
 	kubevirtv1.SEVESLabel,
+	kubevirtv1.SEVSNPLabel,
 	kubevirtv1.HostModelCPULabel,
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
@@ -297,6 +298,11 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 	if n.SEV.SupportedES == "yes" {
 		newLabels[kubevirtv1.SEVESLabel] = "true"
 	}
+
+	if n.SEV.SupportedSNP == "yes" {
+		newLabels[kubevirtv1.SEVSNPLabel] = "true"
+	}
+
 	if n.SecureExecution.Supported == "yes" {
 		newLabels[kubevirtv1.SecureExecutionLabel] = "true"
 	}

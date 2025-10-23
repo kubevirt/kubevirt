@@ -504,6 +504,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SEVMeasurementInfo":                                                      schema_kubevirtio_api_core_v1_SEVMeasurementInfo(ref),
 		"kubevirt.io/api/core/v1.SEVPlatformInfo":                                                         schema_kubevirtio_api_core_v1_SEVPlatformInfo(ref),
 		"kubevirt.io/api/core/v1.SEVPolicy":                                                               schema_kubevirtio_api_core_v1_SEVPolicy(ref),
+		"kubevirt.io/api/core/v1.SEVSNP":                                                                  schema_kubevirtio_api_core_v1_SEVSNP(ref),
 		"kubevirt.io/api/core/v1.SEVSecretOptions":                                                        schema_kubevirtio_api_core_v1_SEVSecretOptions(ref),
 		"kubevirt.io/api/core/v1.SEVSessionOptions":                                                       schema_kubevirtio_api_core_v1_SEVSessionOptions(ref),
 		"kubevirt.io/api/core/v1.SMBiosConfiguration":                                                     schema_kubevirtio_api_core_v1_SMBiosConfiguration(ref),
@@ -22314,11 +22315,17 @@ func schema_kubevirtio_api_core_v1_LaunchSecurity(ref common.ReferenceCallback) 
 							Ref:         ref("kubevirt.io/api/core/v1.SEV"),
 						},
 					},
+					"snp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AMD SEV-SNP flags defined by the SEV-SNP specifications.",
+							Ref:         ref("kubevirt.io/api/core/v1.SEVSNP"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.SEV"},
+			"kubevirt.io/api/core/v1.SEV", "kubevirt.io/api/core/v1.SEVSNP"},
 	}
 }
 
@@ -24338,6 +24345,16 @@ func schema_kubevirtio_api_core_v1_SEVPolicy(ref common.ReferenceCallback) commo
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_SEVSNP(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
 			},
 		},
 	}

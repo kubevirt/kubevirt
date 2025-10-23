@@ -1292,12 +1292,16 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 			Path:     c.EFIConfiguration.EFICode,
 			ReadOnly: "yes",
 			Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
-			Type:     "pflash",
 		}
-
-		domain.Spec.OS.NVRam = &api.NVRam{
-			Template: c.EFIConfiguration.EFIVars,
-			NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+		if util.IsSEVSNPVMI(vmi) {
+			// SEV-SNP cannot use the pflash loader.
+			domain.Spec.OS.BootLoader.Type = "rom"
+		} else {
+			domain.Spec.OS.BootLoader.Type = "pflash"
+			domain.Spec.OS.NVRam = &api.NVRam{
+				Template: c.EFIConfiguration.EFIVars,
+				NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			}
 		}
 	}
 

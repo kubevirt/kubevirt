@@ -449,7 +449,8 @@
               "attestation": {},
               "session": "sessionValue",
               "dhCert": "dhCertValue"
-            }
+            },
+            "snp": {}
           }
         },
         "nodeSelector": {

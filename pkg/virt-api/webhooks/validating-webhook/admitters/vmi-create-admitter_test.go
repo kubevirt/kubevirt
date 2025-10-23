@@ -2576,6 +2576,55 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(ContainSubstring("launchSecurity"))
 		})
+
+		Context("with AMD SEV-SNP LaunchSecurity", func() {
+			BeforeEach(func() {
+				vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+					SNP: &v1.SEVSNP{},
+				}
+			})
+
+			It("should accept when the feature gate is enabled and OVMF is configured", func() {
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should reject when both SEV and SNP are configured", func() {
+				vmi.Spec.Domain.LaunchSecurity.SEV = &v1.SEV{}
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeForbidden))
+				Expect(causes[0].Message).To(ContainSubstring("both SEV and SEV-SNP configured, but they are mutually exclusive"))
+			})
+
+			It("should reject when the feature gate is disabled", func() {
+				disableFeatureGates()
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionSEV)))
+			})
+
+			It("should reject when persistent EFI variables are enabled", func() {
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("SEV-SNP does not work along with Persistent EFI variables"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity"))
+			})
+
+			It("should accept when persistent EFI variables are disabled", func() {
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(false)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should accept when persistent EFI variables are not specified", func() {
+				// persistent field is nil by default
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+		})
 	})
 
 	Context("with Secure Execution LaunchSecurity", func() {
