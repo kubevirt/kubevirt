@@ -1245,7 +1245,9 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel migration count [%d] is currently at the global cluster limit.", vmi.Namespace, vmi.Name, len(runningMigrations))
 		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
 		if c.clusterConfig.MigrationPriorityQueueEnabled() {
-			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityFromMigration(migration), After: 5 * time.Second}, key)
+			priority := migrationsutil.PriorityFromMigration(migration)
+			delay := getRequeueDelayForPriority(priority)
+			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: priority, After: delay}, key)
 		} else {
 			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.QueuePriorityPending, After: 5 * time.Second}, key)
 		}
@@ -1260,7 +1262,9 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
 		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
 		if c.clusterConfig.MigrationPriorityQueueEnabled() {
-			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityFromMigration(migration), After: 5 * time.Second}, key)
+			priority := migrationsutil.PriorityFromMigration(migration)
+			delay := getRequeueDelayForPriority(priority)
+			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: priority, After: delay}, key)
 		} else {
 			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.QueuePriorityPending, After: 5 * time.Second}, key)
 		}
@@ -1278,6 +1282,17 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	}
 	log.Log.Object(vmi).V(5).Info("target pod not created because vmi is not running and migration is not decentralized target migration")
 	return nil
+}
+
+func getRequeueDelayForPriority(priority int) time.Duration {
+	switch {
+	case priority >= migrationsutil.QueuePrioritySystemCritical:
+		return 1 * time.Second
+	case priority >= migrationsutil.QueuePriorityUserTriggered:
+		return 3 * time.Second
+	default:
+		return 5 * time.Second // the lowest as it was before
+	}
 }
 
 func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
