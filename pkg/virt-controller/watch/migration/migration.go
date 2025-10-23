@@ -435,8 +435,39 @@ func (c *Controller) execute(key string) error {
 		if err != nil {
 			return err
 		}
+		if c.clusterConfig.MigrationPriorityQueueEnabled() {
+			// re-enqueue of highest priority pending migration since now there is a free spot
+			err = c.reEnqueueHighestPriorityPendingMigrations()
+			if err != nil {
+				return err
+			}
+		}
 	}
 
+	return nil
+}
+
+func (c *Controller) reEnqueueHighestPriorityPendingMigrations() error {
+	unfinishedMigrations := migrationsutil.ListUnfinishedMigrations(c.migrationIndexer)
+	var pendings []*virtv1.VirtualMachineInstanceMigration
+	for _, m := range unfinishedMigrations {
+		if m.Status.Phase == virtv1.MigrationPending {
+			pendings = append(pendings, m)
+		}
+	}
+
+	sort.Slice(pendings, func(i, j int) bool {
+		return migrationsutil.PriorityFromMigration(pendings[i]) > migrationsutil.PriorityFromMigration(pendings[j])
+	})
+
+	parallelLimit := int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
+	for i := 0; i < min(len(pendings), parallelLimit); i++ {
+		key, err := controller.KeyFunc(pendings[i])
+		if err != nil {
+			continue
+		}
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityFromMigration(pendings[i])}, key)
+	}
 	return nil
 }
 
