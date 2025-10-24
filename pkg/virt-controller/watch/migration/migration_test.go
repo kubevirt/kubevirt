@@ -258,6 +258,7 @@ var _ = Describe("Migration watcher", func() {
 			recorder,
 			virtClient,
 			config,
+			stubNetworkAnnotationsGenerator{},
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockPriorityQueue(controller.Queue)
@@ -1295,6 +1296,65 @@ var _ = Describe("Migration watcher", func() {
 				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}},
 			),
 		)
+
+		Context("target pod annotations generation", func() {
+			const (
+				key1   = "key1"
+				value1 = "value1"
+				key2   = "key2"
+				value2 = "value2"
+			)
+
+			It("should patch target pod annotations when network annotations generator returns custom annotations", func() {
+				vmi := newVirtualMachine("testvmi", virtv1.Running)
+
+				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+				targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+
+				controller.netAnnotationsGenerator = stubNetworkAnnotationsGenerator{
+					annotations: map[string]string{key1: value1, key2: value2},
+				}
+
+				addMigration(migration)
+				addVirtualMachineInstance(vmi)
+				addPod(newSourcePodForVirtualMachine(vmi))
+				addPod(targetPod)
+
+				sanityExecute()
+
+				updatedPod, err := kubeClient.CoreV1().Pods(targetPod.Namespace).Get(context.Background(), targetPod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(updatedPod.Annotations).To(HaveKeyWithValue(key1, value1))
+				Expect(updatedPod.Annotations).To(HaveKeyWithValue(key2, value2))
+
+				testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
+			})
+
+			It("should not patch target pod annotations when network annotations generator returns empty map", func() {
+				vmi := newVirtualMachine("testvmi", virtv1.Running)
+
+				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+				targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+
+				controller.netAnnotationsGenerator = stubNetworkAnnotationsGenerator{annotations: map[string]string{}}
+
+				addMigration(migration)
+				addVirtualMachineInstance(vmi)
+				addPod(newSourcePodForVirtualMachine(vmi))
+				addPod(targetPod)
+
+				sanityExecute()
+
+				updatedPod, err := kubeClient.CoreV1().Pods(targetPod.Namespace).Get(context.Background(), targetPod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(updatedPod.Annotations).ToNot(HaveKey(key1))
+				Expect(updatedPod.Annotations).ToNot(HaveKey(key2))
+
+				testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
+			})
+		})
 
 		It("should hand pod over to target virt-handler with migration config", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
@@ -2584,4 +2644,12 @@ func getTargetPod(c *fake.Clientset, namespace string, uid types.UID, migrationU
 		return &pods.Items[0], nil
 	}
 	return nil, errors.New("failed identifying target pod")
+}
+
+type stubNetworkAnnotationsGenerator struct {
+	annotations map[string]string
+}
+
+func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
+	return s.annotations
 }

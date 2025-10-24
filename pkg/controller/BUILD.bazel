@@ -13,6 +13,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/controller",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/testutils:go_default_library",
         "//staging/src/kubevirt.io/api/clone:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1beta1:go_default_library",
