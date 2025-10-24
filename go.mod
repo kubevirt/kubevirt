@@ -3,6 +3,7 @@ module kubevirt.io/kubevirt
 go 1.24.0
 
 require (
+	dario.cat/mergo v1.0.2
 	github.com/cheggaaa/pb/v3 v3.1.0
 	github.com/containernetworking/cni v1.2.3
 	github.com/containernetworking/plugins v1.5.1
@@ -23,7 +24,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gordonklaus/ineffassign v0.0.0-20210209182638-d0e41b2fc8ed
 	github.com/gorilla/websocket v1.5.0
-	github.com/imdario/mergo v0.3.16
 	github.com/insomniacslk/dhcp v0.0.0-20230908212754-65c27093e38a
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0
 	github.com/kisielk/errcheck v1.6.2
