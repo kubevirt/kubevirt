@@ -61,8 +61,10 @@ const (
 	FailedUpdateVirtualMachineReason     = "FailedUpdate"
 	SuccessfulUpdateVirtualMachineReason = "SuccessfulUpdate"
 
-	defaultAddDelay   = 1 * time.Second
-	defaultRetryDelay = 3 * time.Second
+	defaultAddDelay                = 1 * time.Second
+	defaultRetryDelay              = 3 * time.Second
+	defaultStartUpFailureThreshold = 3
+	minFailingToStartDuration      = 5 * time.Minute
 )
 
 const (
@@ -566,36 +568,40 @@ func sortVMsRandom(vms []*virtv1.VirtualMachine) {
 	})
 }
 
+func (c *Controller) proactiveScaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, count int) error {
+
+	eligibleVMs := filterRunningVMs(vms)
+
+	// make sure we count already deleting VMs here during scale in.
+	count = count - (len(vms) - len(eligibleVMs))
+
+	return c.scaleIn(pool, eligibleVMs, count)
+}
+
 func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, count int) error {
+	if len(vms) == 0 || count == 0 {
+		return nil
+	} else if count > len(vms) {
+		count = len(vms)
+	}
 
 	poolKey, err := controller.KeyFunc(pool)
 	if err != nil {
 		return err
 	}
 
-	elgibleVMs := filterRunningVMs(vms)
-
-	// make sure we count already deleting VMs here during scale in.
-	count = count - (len(vms) - len(elgibleVMs))
-
-	if len(elgibleVMs) == 0 || count == 0 {
-		return nil
-	} else if count > len(elgibleVMs) {
-		count = len(elgibleVMs)
-	}
-
 	basePolicy := resolveBasePolicy(pool.Spec.ScaleInStrategy)
-	sortVMsForDownscale(elgibleVMs, basePolicy)
+	sortVMsForDownscale(vms, basePolicy)
 
 	log.Log.Object(pool).Infof("Removing %d VMs from pool", count)
 
 	var wg sync.WaitGroup
 
-	deleteList := elgibleVMs[0:count]
+	deleteList := vms[0:count]
 	c.expectations.ExpectDeletions(poolKey, controller.VirtualMachineKeys(deleteList))
 	wg.Add(len(deleteList))
 	errChan := make(chan error, len(deleteList))
-	for i := 0; i < len(deleteList); i++ {
+	for i := range len(deleteList) {
 		go func(idx int) {
 			defer wg.Done()
 			vm := deleteList[idx]
@@ -888,7 +894,7 @@ func (c *Controller) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virtua
 			return common.NewSyncError(fmt.Errorf("error during scale out: %v", err), FailedScaleOutReason), false
 		}
 	} else {
-		err := c.scaleIn(pool, vms, maxDiff)
+		err := c.proactiveScaleIn(pool, vms, maxDiff)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("error during scale in: %v", err), FailedScaleInReason), false
 		}
@@ -1423,6 +1429,13 @@ func (c *Controller) execute(key string) error {
 		return err
 	}
 
+	if isAutohealingEnabled(pool) {
+		if err := c.autoHealFailingVMs(pool, vms); err != nil {
+			logger.Reason(err).Error("Failed to auto heal failing vms.")
+			return err
+		}
+	}
+
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
@@ -1669,4 +1682,74 @@ func (c *Controller) handlePoolDeletion(pool *poolv1.VirtualMachinePool, vms []*
 	}
 
 	return nil
+}
+
+func isAutohealingEnabled(pool *poolv1.VirtualMachinePool) bool {
+	return pool.Spec.Autohealing != nil
+}
+
+func (c *Controller) autoHealFailingVMs(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
+	vmsToCleanup := filterFailingVMsToStart(vms, pool.Spec.Autohealing)
+
+	return c.scaleIn(pool, vmsToCleanup, len(vmsToCleanup))
+}
+
+func filterFailingVMsToStart(vms []*virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) []*virtv1.VirtualMachine {
+	filtered := []*virtv1.VirtualMachine{}
+	for _, vm := range vms {
+		if vm.Status.StartFailure != nil && vm.Status.StartFailure.ConsecutiveFailCount >= getFailureToStartThreshold(autohealing) {
+			filtered = append(filtered, vm)
+			continue
+		}
+
+		if shouldAutohealBasedOnStatus(vm, autohealing) {
+			filtered = append(filtered, vm)
+		}
+	}
+
+	return filtered
+}
+
+// shouldAutohealBasedOnStatus checks if a VM's PrintableStatus indicates it should be autohealed
+func shouldAutohealBasedOnStatus(vm *virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) bool {
+	switch vm.Status.PrintableStatus {
+	case virtv1.VirtualMachineStatusCrashLoopBackOff,
+		virtv1.VirtualMachineStatusUnschedulable,
+		virtv1.VirtualMachineStatusDataVolumeError,
+		virtv1.VirtualMachineStatusPvcNotFound,
+		virtv1.VirtualMachineStatusErrImagePull,
+		virtv1.VirtualMachineStatusImagePullBackOff:
+		return hasVMBeenFailingLongEnough(vm, autohealing)
+	default:
+		return false
+	}
+}
+
+// hasVMBeenFailingLongEnough checks if VM has not been ready for minimum duration
+func hasVMBeenFailingLongEnough(vm *virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) bool {
+	condManager := controller.NewVirtualMachineConditionManager()
+	if c := condManager.GetCondition(vm, virtv1.VirtualMachineReady); c != nil && c.Status == k8score.ConditionFalse {
+		failingSince := c.LastProbeTime.Time
+		if time.Since(failingSince) >= getMinFailingToStartDuration(autohealing) {
+			log.Log.Object(vm).Infof("VM %s/%s has been failing to start for %v, adding to list", vm.Namespace, vm.Name, time.Since(failingSince))
+			return true
+		}
+	}
+	return false
+}
+
+func getFailureToStartThreshold(autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) int {
+	if autohealing.StartUpFailureThreshold == nil || *autohealing.StartUpFailureThreshold == 0 {
+		return defaultStartUpFailureThreshold
+	}
+
+	return int(*autohealing.StartUpFailureThreshold)
+}
+
+func getMinFailingToStartDuration(autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) time.Duration {
+	if autohealing.MinFailingToStartDuration == nil {
+		return minFailingToStartDuration
+	}
+
+	return autohealing.MinFailingToStartDuration.Duration
 }
