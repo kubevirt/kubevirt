@@ -119,16 +119,27 @@ func RunAndMonitor(containerDiskDir, uid string) (int, error) {
 		for sig := range sigs {
 			switch sig {
 			case syscall.SIGCHLD:
-				var wstatus syscall.WaitStatus
-				wpid, err := syscall.Wait4(-1, &wstatus, syscall.WNOHANG, nil)
-				if err != nil {
-					log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
+				for {
+					var wstatus syscall.WaitStatus
+					wpid, err := syscall.Wait4(-1, &wstatus, syscall.WNOHANG, nil)
+					if err != nil {
+						if err == syscall.ECHILD {
+							log.Log.Reason(err).Errorf("Break reap loop")
+							break
+						}
+						log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
+					}
+					if wpid == 0 {
+						log.Log.Infof("No more processes to be reaped")
+						break
+					}
+					if wpid == cmd.Process.Pid {
+						log.Log.Infof("Reaped Launcher main pid")
+						exitStatus <- wstatus.ExitStatus()
+					}
+					log.Log.Infof("Reaped pid %d with status %d", wpid, int(wstatus))
 				}
-				if wpid == cmd.Process.Pid {
-					log.Log.Infof("Reaped Launcher main pid")
-					exitStatus <- wstatus.ExitStatus()
-				}
-				log.Log.Infof("Reaped pid %d with status %d", wpid, int(wstatus))
+
 			default:
 				log.Log.Infof("signalling virt-launcher to shut down")
 				err := cmd.Process.Signal(syscall.SIGTERM)
