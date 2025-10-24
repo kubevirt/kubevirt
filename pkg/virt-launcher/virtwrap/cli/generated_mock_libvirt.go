@@ -130,6 +130,20 @@ func (mr *MockConnectionMockRecorder) DomainEventDeviceRemovedRegister(callback 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventDeviceRemovedRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventDeviceRemovedRegister), callback)
 }
 
+// DomainEventGraphicsRegister mocks base method.
+func (m *MockConnection) DomainEventGraphicsRegister(callback libvirt.DomainEventGraphicsCallback) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DomainEventGraphicsRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DomainEventGraphicsRegister indicates an expected call of DomainEventGraphicsRegister.
+func (mr *MockConnectionMockRecorder) DomainEventGraphicsRegister(callback any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventGraphicsRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventGraphicsRegister), callback)
+}
+
 // DomainEventLifecycleRegister mocks base method.
 func (m *MockConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error {
 	m.ctrl.T.Helper()
