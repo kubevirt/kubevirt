@@ -93,6 +93,8 @@ const (
 	MigrationTargetPodUnschedulable = "migrationTargetPodUnschedulable"
 	// FailedAbortMigrationReason is added when an attempt to abort migration fails
 	FailedAbortMigrationReason = "FailedAbortMigration"
+	// UtilityVolumeMigrationPendingReason is added when a migration is pending due to utility volumes
+	UtilityVolumeMigrationPendingReason = "UtilityVolumeMigrationPending"
 	// MissingAttachmentPodReason is set when we have a hotplugged volume, but the attachment pod is missing
 	MissingAttachmentPodReason = "MissingAttachmentPod"
 	// PVCNotReadyReason is set when the PVC is not ready to be hot plugged.
@@ -448,6 +450,10 @@ func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func VMIHasUtilityVolumes(vmi *v1.VirtualMachineInstance) bool {
+	return len(vmi.Spec.UtilityVolumes) > 0
+}
+
 func vmiHasCondition(vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType) bool {
 	vmiConditionManager := NewVirtualMachineInstanceConditionManager()
 	return vmiConditionManager.HasCondition(vmi, conditionType)
@@ -544,21 +550,4 @@ func isPodFailed(pod *k8sv1.Pod) bool {
 
 func PodExists(pod *k8sv1.Pod) bool {
 	return pod != nil
-}
-
-func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) []*v1.Volume {
-	hotplugVolumes := make([]*v1.Volume, 0)
-	podVolumes := virtlauncherPod.Spec.Volumes
-	vmiVolumes := vmi.Spec.Volumes
-
-	podVolumeMap := make(map[string]k8sv1.Volume)
-	for _, podVolume := range podVolumes {
-		podVolumeMap[podVolume.Name] = podVolume
-	}
-	for _, vmiVolume := range vmiVolumes {
-		if _, ok := podVolumeMap[vmiVolume.Name]; !ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil || vmiVolume.MemoryDump != nil) {
-			hotplugVolumes = append(hotplugVolumes, vmiVolume.DeepCopy())
-		}
-	}
-	return hotplugVolumes
 }

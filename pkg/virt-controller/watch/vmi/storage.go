@@ -134,6 +134,69 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 	return pvc.Name, nil
 }
 
+func (c *Controller) processHotplugVolumeStatus(
+	vmi *virtv1.VirtualMachineInstance,
+	volumeName string,
+	pvcName string,
+	status virtv1.VolumeStatus,
+	attachmentPod *k8sv1.Pod,
+) virtv1.VolumeStatus {
+	if status.HotplugVolume == nil {
+		status.HotplugVolume = &virtv1.HotplugVolumeStatus{}
+	}
+
+	if attachmentPod == nil {
+		if !c.volumeReady(status.Phase) {
+			status.HotplugVolume.AttachPodUID = ""
+			// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
+			phase, reason, message := c.getVolumePhaseMessageReason(pvcName, vmi.Namespace)
+			status.Phase = phase
+			log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volumeName)
+			status.Message = message
+			status.Reason = reason
+		}
+	} else {
+		status.HotplugVolume.AttachPodName = attachmentPod.Name
+		if len(attachmentPod.Status.ContainerStatuses) == 1 && attachmentPod.Status.ContainerStatuses[0].Ready {
+			status.HotplugVolume.AttachPodUID = attachmentPod.UID
+		} else {
+			// Remove UID of old pod if a new one is available, but not yet ready
+			status.HotplugVolume.AttachPodUID = ""
+		}
+		if canMoveToAttachedPhase(status.Phase) {
+			status.Phase = virtv1.HotplugVolumeAttachedToNode
+			log.Log.V(3).Infof("Setting phase %s for volume %s", status.Phase, volumeName)
+			status.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volumeName)
+			status.Reason = controller.SuccessfulCreatePodReason
+			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, status.Reason, status.Message)
+		}
+	}
+
+	return status
+}
+
+func (c *Controller) processPVCInfo(status virtv1.VolumeStatus, pvcName string, namespace string) (virtv1.VolumeStatus, error) {
+	pvcInterface, pvcExists, _ := c.pvcIndexer.GetByKey(fmt.Sprintf("%s/%s", namespace, pvcName))
+	if pvcExists {
+		pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
+		status.PersistentVolumeClaimInfo = &virtv1.PersistentVolumeClaimInfo{
+			ClaimName:    pvc.Name,
+			AccessModes:  pvc.Spec.AccessModes,
+			VolumeMode:   pvc.Spec.VolumeMode,
+			Capacity:     pvc.Status.Capacity,
+			Requests:     pvc.Spec.Resources.Requests,
+			Preallocated: storagetypes.IsPreallocated(pvc.ObjectMeta.Annotations),
+		}
+		filesystemOverhead, err := c.getFilesystemOverhead(pvc)
+		if err != nil {
+			log.Log.Reason(err).Errorf("Failed to get filesystem overhead for PVC %s/%s", namespace, pvcName)
+			return status, err
+		}
+		status.PersistentVolumeClaimInfo.FilesystemOverhead = &filesystemOverhead
+	}
+	return status, nil
+}
+
 // updateVolumeStatus updates the VMI's VolumeStatus based on pod and volume state.
 func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) error {
 	oldStatus := vmi.Status.DeepCopy().VolumeStatus
@@ -142,7 +205,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		oldStatusMap[status.Name] = status
 	}
 
-	hotplugVolumes := controller.GetHotplugVolumes(vmi, virtlauncherPod)
+	hotplugVolumes := storagetypes.GetHotplugVolumes(vmi, virtlauncherPod)
 	hotplugVolumesMap := make(map[string]*virtv1.Volume)
 	for _, volume := range hotplugVolumes {
 		hotplugVolumesMap[volume.Name] = volume
@@ -164,7 +227,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		}
 	}
 
-	for i, volume := range vmi.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		status := virtv1.VolumeStatus{}
 		if existingStatus, ok := oldStatusMap[volume.Name]; ok {
 			status = existingStatus
@@ -174,66 +237,40 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		// Remove from map so I can detect existing volumes that have been removed from spec.
 		delete(oldStatusMap, volume.Name)
 
-		//if hotplugVolume, ok := hotplugVolumesMap[volume.Name]; ok {
+		if volume.MemoryDump != nil && status.MemoryDumpVolume == nil {
+			status.MemoryDumpVolume = &virtv1.DomainMemoryDumpInfo{
+				ClaimName: volume.Name,
+			}
+		}
+		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
+
 		if _, ok := hotplugVolumesMap[volume.Name]; ok {
-			if status.HotplugVolume == nil {
-				status.HotplugVolume = &virtv1.HotplugVolumeStatus{}
-			}
-			if volume.MemoryDump != nil && status.MemoryDumpVolume == nil {
-				status.MemoryDumpVolume = &virtv1.DomainMemoryDumpInfo{
-					ClaimName: volume.Name,
-				}
-			}
-			if attachmentPod == nil {
-				if !c.volumeReady(status.Phase) {
-					status.HotplugVolume.AttachPodUID = ""
-					// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
-					phase, reason, message := c.getVolumePhaseMessageReason(&vmi.Spec.Volumes[i], vmi.Namespace)
-					status.Phase = phase
-					log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volume.Name)
-					status.Message = message
-					status.Reason = reason
-				}
-			} else {
-				status.HotplugVolume.AttachPodName = attachmentPod.Name
-				if len(attachmentPod.Status.ContainerStatuses) == 1 && attachmentPod.Status.ContainerStatuses[0].Ready {
-					status.HotplugVolume.AttachPodUID = attachmentPod.UID
-				} else {
-					// Remove UID of old pod if a new one is available, but not yet ready
-					status.HotplugVolume.AttachPodUID = ""
-				}
-				if canMoveToAttachedPhase(status.Phase) {
-					status.Phase = virtv1.HotplugVolumeAttachedToNode
-					log.Log.V(3).Infof("Setting phase %s for volume %s", status.Phase, volume.Name)
-					status.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volume.Name)
-					status.Reason = controller.SuccessfulCreatePodReason
-					c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, status.Reason, status.Message)
-				}
-			}
+			status = c.processHotplugVolumeStatus(vmi, volume.Name, pvcName, status, attachmentPod)
 		}
-
 		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil || volume.VolumeSource.MemoryDump != nil {
-			pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
-			pvcInterface, pvcExists, _ := c.pvcIndexer.GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, pvcName))
-			if pvcExists {
-				pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
-				status.PersistentVolumeClaimInfo = &virtv1.PersistentVolumeClaimInfo{
-					ClaimName:    pvc.Name,
-					AccessModes:  pvc.Spec.AccessModes,
-					VolumeMode:   pvc.Spec.VolumeMode,
-					Capacity:     pvc.Status.Capacity,
-					Requests:     pvc.Spec.Resources.Requests,
-					Preallocated: storagetypes.IsPreallocated(pvc.ObjectMeta.Annotations),
-				}
-				filesystemOverhead, err := c.getFilesystemOverhead(pvc)
-				if err != nil {
-					log.Log.Reason(err).Errorf("Failed to get filesystem overhead for PVC %s/%s", vmi.Namespace, pvcName)
-					return err
-				}
-				status.PersistentVolumeClaimInfo.FilesystemOverhead = &filesystemOverhead
+			status, err = c.processPVCInfo(status, pvcName, vmi.Namespace)
+			if err != nil {
+				return err
 			}
 		}
 
+		newStatus = append(newStatus, status)
+	}
+
+	for _, utilityVolume := range vmi.Spec.UtilityVolumes {
+		status := virtv1.VolumeStatus{}
+		if existingStatus, ok := oldStatusMap[utilityVolume.Name]; ok {
+			status = existingStatus
+		} else {
+			status.Name = utilityVolume.Name
+		}
+		// Remove from map so we can detect volumes removed from spec
+		delete(oldStatusMap, utilityVolume.Name)
+		status = c.processHotplugVolumeStatus(vmi, utilityVolume.Name, utilityVolume.ClaimName, status, attachmentPod)
+		status, err = c.processPVCInfo(status, utilityVolume.ClaimName, vmi.Namespace)
+		if err != nil {
+			return err
+		}
 		newStatus = append(newStatus, status)
 	}
 
@@ -281,8 +318,7 @@ func (c *Controller) volumeReady(phase virtv1.VolumePhase) bool {
 }
 
 // getVolumePhaseMessageReason determines the phase, reason, and message for a volume.
-func (c *Controller) getVolumePhaseMessageReason(volume *virtv1.Volume, namespace string) (virtv1.VolumePhase, string, string) {
-	claimName := storagetypes.PVCNameFromVirtVolume(volume)
+func (c *Controller) getVolumePhaseMessageReason(claimName string, namespace string) (virtv1.VolumePhase, string, string) {
 	pvcInterface, pvcExists, _ := c.pvcIndexer.GetByKey(fmt.Sprintf("%s/%s", namespace, claimName))
 	if !pvcExists {
 		return virtv1.VolumePending, controller.FailedPvcNotFoundReason, fmt.Sprintf("PVC %s not found", claimName)
