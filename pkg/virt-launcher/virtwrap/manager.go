@@ -268,7 +268,9 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		}
 
 		if len(list) == 0 {
-			return nil, nil
+			// In case libvirt is not responsive we must return an error, otherwise a 'nil' '*stats.DomainStats'
+			// will be cached and returned until the cache timeout expires.
+			return nil, errors.New("empty DomainStats")
 		}
 
 		return list[0], nil
