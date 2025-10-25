@@ -1164,6 +1164,13 @@
     },
     "changedBlockTracking": {
       "state": "stateValue"
+    },
+    "serviceStatus": {
+      "vncStatuses": [
+        {
+          "since": "sinceValue"
+        }
+      ]
     }
   }
 }

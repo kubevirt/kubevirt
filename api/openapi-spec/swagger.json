@@ -16448,6 +16448,20 @@
      }
     }
    },
+   "v1.ServiceStatus": {
+    "description": "ServiceStatus has the information of hypervisor endpoints that we expose",
+    "type": "object",
+    "properties": {
+     "vncStatuses": {
+      "description": "Information about VNC connections",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VNCStatusInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
    "v1.SoundDevice": {
     "description": "Represents the user's configuration to emulate sound cards in the VMI.",
     "type": "object",
@@ -16796,6 +16810,19 @@
     "properties": {
      "display": {
       "$ref": "#/definitions/v1.VGPUDisplayOptions"
+     }
+    }
+   },
+   "v1.VNCStatusInfo": {
+    "description": "VNCStatusInfo provides metadata related to VNC connections",
+    "type": "object",
+    "required": [
+     "since"
+    ],
+    "properties": {
+     "since": {
+      "type": "string",
+      "default": ""
      }
     }
    },
@@ -18264,6 +18291,10 @@
      "selinuxContext": {
       "description": "SELinuxContext is the actual SELinux context of the virt-launcher pod",
       "type": "string"
+     },
+     "serviceStatus": {
+      "description": "ServiceStatus shows information about exposed QEMU features we use as services",
+      "$ref": "#/definitions/v1.ServiceStatus"
      },
      "topologyHints": {
       "$ref": "#/definitions/v1.TopologyHints"

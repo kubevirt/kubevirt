@@ -515,6 +515,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SeccompConfiguration":                                                    schema_kubevirtio_api_core_v1_SeccompConfiguration(ref),
 		"kubevirt.io/api/core/v1.SecretVolumeSource":                                                      schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ServiceAccountVolumeSource":                                              schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref),
+		"kubevirt.io/api/core/v1.ServiceStatus":                                                           schema_kubevirtio_api_core_v1_ServiceStatus(ref),
 		"kubevirt.io/api/core/v1.SoundDevice":                                                             schema_kubevirtio_api_core_v1_SoundDevice(ref),
 		"kubevirt.io/api/core/v1.StartOptions":                                                            schema_kubevirtio_api_core_v1_StartOptions(ref),
 		"kubevirt.io/api/core/v1.StopOptions":                                                             schema_kubevirtio_api_core_v1_StopOptions(ref),
@@ -536,6 +537,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VGPUDisplayOptions":                                                      schema_kubevirtio_api_core_v1_VGPUDisplayOptions(ref),
 		"kubevirt.io/api/core/v1.VGPUOptions":                                                             schema_kubevirtio_api_core_v1_VGPUOptions(ref),
 		"kubevirt.io/api/core/v1.VMISelector":                                                             schema_kubevirtio_api_core_v1_VMISelector(ref),
+		"kubevirt.io/api/core/v1.VNCStatusInfo":                                                           schema_kubevirtio_api_core_v1_VNCStatusInfo(ref),
 		"kubevirt.io/api/core/v1.VSOCKOptions":                                                            schema_kubevirtio_api_core_v1_VSOCKOptions(ref),
 		"kubevirt.io/api/core/v1.VideoDevice":                                                             schema_kubevirtio_api_core_v1_VideoDevice(ref),
 		"kubevirt.io/api/core/v1.VirtualMachine":                                                          schema_kubevirtio_api_core_v1_VirtualMachine(ref),
@@ -24635,6 +24637,39 @@ func schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref common.Referen
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ServiceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ServiceStatus has the information of hypervisor endpoints that we expose",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vncStatuses": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Information about VNC connections",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/core/v1.VNCStatusInfo"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.VNCStatusInfo"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_SoundDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -25302,6 +25337,27 @@ func schema_kubevirtio_api_core_v1_VMISelector(ref common.ReferenceCallback) com
 					},
 				},
 				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VNCStatusInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VNCStatusInfo provides metadata related to VNC connections",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"since": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"since"},
 			},
 		},
 	}
@@ -27952,11 +28008,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							Ref:         ref("kubevirt.io/api/core/v1.ChangedBlockTrackingStatus"),
 						},
 					},
+					"serviceStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceStatus shows information about exposed QEMU features we use as services",
+							Ref:         ref("kubevirt.io/api/core/v1.ServiceStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.ChangedBlockTrackingStatus", "kubevirt.io/api/core/v1.DeviceStatus", "kubevirt.io/api/core/v1.KernelBootStatus", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.MemoryStatus", "kubevirt.io/api/core/v1.StorageMigratedVolumeInfo", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
+			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.ChangedBlockTrackingStatus", "kubevirt.io/api/core/v1.DeviceStatus", "kubevirt.io/api/core/v1.KernelBootStatus", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.MemoryStatus", "kubevirt.io/api/core/v1.ServiceStatus", "kubevirt.io/api/core/v1.StorageMigratedVolumeInfo", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
 	}
 }
 
