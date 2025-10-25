@@ -125,6 +125,8 @@ const (
 	// Requires `autoattachGraphicsDevice` to be true or unset. Alpha feature, defaults unchanged.
 	// Owner: @dasionov
 	// Alpha: v1.6.0
+	// Beta: v1.7.0
+	//
 	VideoConfig = "VideoConfig"
 
 	// Owner: @varunrsekar
@@ -168,7 +170,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
