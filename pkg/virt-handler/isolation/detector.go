@@ -156,7 +156,10 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	// make the best estimate for memory required by libvirt
 	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
 	// Add base memory requested for the VM
-	vmiMemoryReq := vmi.Spec.Domain.Resources.Requests.Memory()
+
+	//https://virtio-mem.gitlab.io/user-guide/user-guide-qemu.html#important-current-limitations
+	vmiMemoryReq := vmi.Spec.Domain.Memory.MaxGuest
+
 	memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
 
 	if err := setProcessMemoryLockRLimit(qemuProcessID, memlockSize.Value()); err != nil {
