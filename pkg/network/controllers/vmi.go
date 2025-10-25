@@ -48,7 +48,8 @@ func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
 	interfaceStatuses = append(interfaceStatuses, secondaryIfaceStatuses...)
 
 	// Preserve interfaces discovered by the virt-handler which are not specified in the VMI.Spec.
-	interfaceStatuses = append(interfaceStatuses, filterUnspecifiedSpecIfaces(vmi.Status.Interfaces, vmi.Spec.Networks)...)
+	interfaceStatuses = append(interfaceStatuses,
+		filterUnspecifiedSpecIfaces(vmi.Status.Interfaces, vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces)...)
 
 	vmi.Status.Interfaces = interfaceStatuses
 	return nil
@@ -88,7 +89,17 @@ func calculateSecondaryIfaceStatuses(
 
 	networkStatusesByPodIfaceName := multus.NetworkStatusesByPodIfaceName(networkStatuses)
 	podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(vmi.Spec.Networks, networkStatuses)
-	for _, network := range vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks) {
+
+	// Filter out networks that correspond to absent interfaces
+	// Only networks corresponding to non-absent interfaces are processed.
+	// Hot unplugged interfaces (InterfaceStateAbsent) are excluded from status calculation.
+	// This is to ensure that VMI status correctly reflects only the currently active interfaces
+	nonAbsentInterfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+	networksToProcess := vmispec.FilterNetworksByInterfaces(vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks), nonAbsentInterfaces)
+
+	for _, network := range networksToProcess {
 		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
 		podIfaceName, wasFound := podIfaceNamesByNetworkName[network.Name]
 		if !wasFound {
@@ -122,14 +133,24 @@ func calculateSecondaryIfaceStatuses(
 func filterUnspecifiedSpecIfaces(
 	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
 	networks []v1.Network,
+	interfaces []v1.Interface,
 ) []v1.VirtualMachineInstanceNetworkInterface {
 	var unspecifiedIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
 	networksByName := vmispec.IndexNetworkSpecByName(networks)
+	// Create a map of interface names to interface state
+	interfaceStateByName := make(map[string]v1.InterfaceState)
+	for _, iface := range interfaces {
+		interfaceStateByName[iface.Name] = iface.State
+	}
 
 	for _, ifaceStatus := range ifaceStatuses {
+		// Skip interface statuses that are not specified in networks
 		if _, exist := networksByName[ifaceStatus.Name]; !exist {
-			unspecifiedIfaceStatuses = append(unspecifiedIfaceStatuses, ifaceStatus)
+			// Only preserve if the corresponding interface is not absent
+			if state, hasInterface := interfaceStateByName[ifaceStatus.Name]; !hasInterface || state != v1.InterfaceStateAbsent {
+				unspecifiedIfaceStatuses = append(unspecifiedIfaceStatuses, ifaceStatus)
+			}
 		}
 	}
 
