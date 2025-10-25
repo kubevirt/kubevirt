@@ -715,6 +715,20 @@ func indexVMSpec(poolSpec *poolv1.VirtualMachinePoolSpec, idx int) *virtv1.Virtu
 			volume.VolumeSource.ConfigMap.Name += "-" + strconv.Itoa(idx)
 		} else if volume.VolumeSource.Secret != nil && appendIndexToSecretRefs {
 			volume.VolumeSource.Secret.SecretName += "-" + strconv.Itoa(idx)
+		} else if volume.VolumeSource.CloudInitNoCloud != nil && appendIndexToSecretRefs {
+			if volume.VolumeSource.CloudInitNoCloud.UserDataSecretRef != nil {
+				spec.Template.Spec.Volumes[i].CloudInitNoCloud.UserDataSecretRef.Name += "-" + strconv.Itoa(idx)
+			}
+			if volume.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef != nil {
+				spec.Template.Spec.Volumes[i].CloudInitNoCloud.NetworkDataSecretRef.Name += "-" + strconv.Itoa(idx)
+			}
+		} else if volume.VolumeSource.CloudInitConfigDrive != nil && appendIndexToSecretRefs {
+			if volume.VolumeSource.CloudInitConfigDrive.UserDataSecretRef != nil {
+				spec.Template.Spec.Volumes[i].CloudInitConfigDrive.UserDataSecretRef.Name += "-" + strconv.Itoa(idx)
+			}
+			if volume.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+				spec.Template.Spec.Volumes[i].CloudInitConfigDrive.NetworkDataSecretRef.Name += "-" + strconv.Itoa(idx)
+			}
 		}
 	}
 
