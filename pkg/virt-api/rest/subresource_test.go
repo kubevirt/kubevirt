@@ -1292,6 +1292,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			return
 		}
 
+		migrating := func(vmi *v1.VirtualMachineInstance) {
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				Completed: false,
+			}
+		}
+
 		DescribeTable("Should fail pausing", func(running bool, paused bool, additionalOpts func(vmi *v1.VirtualMachineInstance), pauseOptions *v1.PauseOptions, expectedCode int, expectedError string) {
 			expectVMI(running, paused, additionalOpts)
 
@@ -1311,6 +1317,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Entry("a running VMI with LivenessProbe", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
 			Entry("a running VMI with LivenessProbe with dry-run option", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{DryRun: withDryRun()}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
+
+			Entry("a running VMI during migration", Running, UnPaused, migrating, &v1.PauseOptions{}, http.StatusConflict, "Cannot pause VM"),
+			Entry("a running VMI during migration with dry-run option", Running, UnPaused, migrating, &v1.PauseOptions{DryRun: withDryRun()}, http.StatusConflict, "Cannot pause VM"),
 		)
 
 		DescribeTable("Should fail unpausing due to VMI state", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions, expectedError string) {

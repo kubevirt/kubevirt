@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util/migrations"
 )
 
 func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, response *restful.Response) {
@@ -288,6 +289,10 @@ func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, r
 		condManager := controller.NewVirtualMachineInstanceConditionManager()
 		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is already paused"))
+		}
+		// Check if VM is currently being migrated
+		if migrations.IsMigrating(vmi) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Cannot pause VM '%s' because it is currently being migrated", vmi.Name))
 		}
 		return nil
 	}
