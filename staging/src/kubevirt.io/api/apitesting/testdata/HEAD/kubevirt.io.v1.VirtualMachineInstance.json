@@ -390,7 +390,8 @@
           "session": "sessionValue",
           "dhCert": "dhCertValue"
         },
-        "snp": {}
+        "snp": {},
+        "tdx": {}
       }
     },
     "nodeSelector": {

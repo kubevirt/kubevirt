@@ -110,7 +110,9 @@ type ConverterContext struct {
 	VolumesDiscardIgnore            []string
 	Topology                        *cmdv1.Topology
 	ExpandDisksEnabled              bool
-	UseLaunchSecurity               bool
+	UseLaunchSecuritySEV            bool // For AMD SEV/ES/SNP
+	UseLaunchSecurityTDX            bool // For Intel TDX
+	UseLaunchSecurityPV             bool // For IBM SE(s390-pv)
 	FreePageReporting               bool
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
@@ -210,7 +212,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
 	}
-	if c.UseLaunchSecurity && disk.Target.Bus == v1.DiskBusVirtio {
+	if (c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV) && disk.Target.Bus == v1.DiskBusVirtio {
 		disk.Driver.IOMMU = "on"
 	}
 
@@ -978,7 +980,7 @@ func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) err
 	// the default source for rng is dev urandom
 	rng.Backend.Source = "/dev/urandom"
 
-	if c.UseLaunchSecurity {
+	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
 		rng.Driver = &api.RngDriver{
 			IOMMU: "on",
 		}
@@ -1164,6 +1166,12 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 		}
 	}
 
+	if c.UseLaunchSecurityTDX {
+		features.PMU = &api.FeatureState{
+			State: "off",
+		}
+	}
+
 	return nil
 }
 
@@ -1222,7 +1230,7 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
 		}
-		if c.UseLaunchSecurity {
+		if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
 			ballooning.Driver = &api.MemBalloonDriver{
 				IOMMU: "on",
 			}
@@ -1293,9 +1301,11 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 			ReadOnly: "yes",
 			Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
 		}
-		if util.IsSEVSNPVMI(vmi) {
-			// SEV-SNP cannot use the pflash loader.
+
+		if util.IsSEVSNPVMI(vmi) || util.IsTDXVMI(vmi) {
+			// Use stateless firmware for the TDX/SNP VMs
 			domain.Spec.OS.BootLoader.Type = "rom"
+			domain.Spec.OS.NVRam = nil
 		} else {
 			domain.Spec.OS.BootLoader.Type = "pflash"
 			domain.Spec.OS.NVRam = &api.NVRam{
@@ -1595,10 +1605,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	if c.UseLaunchSecurity {
+	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
 		}
+	}
+
+	if util.UseLaunchSecurity(vmi) {
 		domain.Spec.LaunchSecurity = c.Architecture.LaunchSecurity(vmi)
 	}
 

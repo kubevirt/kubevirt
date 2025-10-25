@@ -560,70 +560,21 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	if launchSecurity == nil {
 		return causes
 	}
-	if !config.SecureExecutionEnabled() && webhooks.IsS390X(spec) {
+
+	arch := spec.Architecture
+	switch arch {
+	case "amd64":
+		causes = append(causes, webhooks.ValidateLaunchSecurityAmd64(field, spec, config)...)
+	case "s390x":
+		causes = append(causes, webhooks.ValidateLaunchSecurityS390x(field, spec, config)...)
+	default:
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.SecureExecution),
-			Field:   field.Child("launchSecurity").String(),
+			Message: fmt.Sprintf("No launchSecurity support for architecture: %s", arch),
+			Field:   field.Child("architecture").String(),
 		})
 	}
-	if !config.WorkloadEncryptionSEVEnabled() && (launchSecurity.SEV != nil || launchSecurity.SNP != nil) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.WorkloadEncryptionSEV),
-			Field:   field.Child("launchSecurity").String(),
-		})
-	} else if sevEnabled(launchSecurity) && snpEnabled(launchSecurity) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeForbidden,
-			Message: fmt.Sprintf("%s has both SEV and SEV-SNP configured, but they are mutually exclusive.", field.String()),
-			Field:   field.String(),
-		})
-	} else if sevEnabled(launchSecurity) || snpEnabled(launchSecurity) {
-		firmware := spec.Domain.Firmware
-		if !efiBootEnabled(firmware) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "SEV requires OVMF (UEFI)",
-				Field:   field.Child("launchSecurity").String(),
-			})
-		} else if secureBootEnabled(firmware) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "SEV does not work along with SecureBoot",
-				Field:   field.Child("launchSecurity").String(),
-			})
-		}
 
-		if snpEnabled(launchSecurity) && persistentEFIEnabled(firmware) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "SEV-SNP does not work along with Persistent EFI variables",
-				Field:   field.Child("launchSecurity").String(),
-			})
-		}
-
-		startStrategy := spec.StartStrategy
-		if sevEnabled(launchSecurity) && (startStrategy == nil || *startStrategy != v1.StartStrategyPaused) {
-			if launchSecurity.SEV.Attestation != nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("SEV attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
-					Field:   field.Child("launchSecurity").String(),
-				})
-			}
-		}
-
-		for _, iface := range spec.Domain.Devices.Interfaces {
-			if iface.BootOrder != nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("SEV does not work with bootable NICs: %s", iface.Name),
-					Field:   field.Child("launchSecurity").String(),
-				})
-			}
-		}
-	}
 	return causes
 }
 
@@ -1462,21 +1413,9 @@ func efiBootEnabled(firmware *v1.Firmware) bool {
 	return firmware != nil && firmware.Bootloader != nil && firmware.Bootloader.EFI != nil
 }
 
-func persistentEFIEnabled(firmware *v1.Firmware) bool {
-	return efiBootEnabled(firmware) &&
-		firmware.Bootloader.EFI.Persistent != nil && *firmware.Bootloader.EFI.Persistent
-}
-
 func secureBootEnabled(firmware *v1.Firmware) bool {
 	return efiBootEnabled(firmware) &&
 		(firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot)
-}
-
-func sevEnabled(launchSecurity *v1.LaunchSecurity) bool {
-	return launchSecurity != nil && launchSecurity.SEV != nil
-}
-func snpEnabled(launchSecurity *v1.LaunchSecurity) bool {
-	return launchSecurity != nil && launchSecurity.SNP != nil
 }
 
 func smmFeatureEnabled(features *v1.Features) bool {

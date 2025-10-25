@@ -33,5 +33,6 @@
             <value>sev-snp</value>
           </enum>
         </launchSecurity>
+        <tdx supported='no'/>
     </features>
 </domainCapabilities>

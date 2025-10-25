@@ -109,7 +109,33 @@ var _ = Describe("EFI environment detection", func() {
 
 		varsSEV := filepath.Join(ovmfPath, EFIVars)
 		Expect(efiEnv.EFIVars(!secureBootEnabled, SEV)).To(Equal(varsSEV))
-		Expect(efiEnv.EFIVars(!secureBootEnabled, SNP)).To(Equal(varsSEV))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, SNP)).To(Equal(""))
 		Expect(efiEnv.EFIVars(!secureBootEnabled, None)).To(Equal(varsSEV))
+	})
+
+	It("TDX EFI Roms", func() {
+		ovmfPath := createEFIRoms(EFICodeTDX, EFICodeTDXSecureBoot)
+		defer os.RemoveAll(ovmfPath)
+
+		efiEnv := DetectEFIEnvironment("x86_64", ovmfPath)
+		Expect(efiEnv).ToNot(BeNil())
+
+		Expect(efiEnv.Bootable(secureBootEnabled, TDX)).To(BeTrue())
+		Expect(efiEnv.Bootable(!secureBootEnabled, TDX)).To(BeTrue())
+		Expect(efiEnv.Bootable(secureBootEnabled, None)).To(BeFalse())
+		Expect(efiEnv.Bootable(!secureBootEnabled, None)).To(BeFalse())
+
+		codeTDX := filepath.Join(ovmfPath, EFICodeTDX)
+		codeTDXSB := filepath.Join(ovmfPath, EFICodeTDXSecureBoot)
+		Expect(efiEnv.EFICode(secureBootEnabled, TDX)).To(Equal(codeTDXSB))
+		Expect(efiEnv.EFICode(!secureBootEnabled, TDX)).To(Equal(codeTDX))
+		Expect(efiEnv.EFICode(secureBootEnabled, None)).ToNot(Equal(codeTDX))
+		Expect(efiEnv.EFICode(!secureBootEnabled, None)).ToNot(Equal(codeTDX))
+		Expect(efiEnv.EFICode(secureBootEnabled, None)).ToNot(Equal(codeTDXSB))
+		Expect(efiEnv.EFICode(!secureBootEnabled, None)).ToNot(Equal(codeTDXSB))
+
+		// vars should always be ""
+		Expect(efiEnv.EFIVars(secureBootEnabled, TDX)).To(Equal(""))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, TDX)).To(Equal(""))
 	})
 })

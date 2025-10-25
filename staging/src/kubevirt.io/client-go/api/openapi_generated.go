@@ -522,6 +522,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SupportContainerResources":                                               schema_kubevirtio_api_core_v1_SupportContainerResources(ref),
 		"kubevirt.io/api/core/v1.SyNICTimer":                                                              schema_kubevirtio_api_core_v1_SyNICTimer(ref),
 		"kubevirt.io/api/core/v1.SysprepSource":                                                           schema_kubevirtio_api_core_v1_SysprepSource(ref),
+		"kubevirt.io/api/core/v1.TDX":                                                                     schema_kubevirtio_api_core_v1_TDX(ref),
 		"kubevirt.io/api/core/v1.TLSConfiguration":                                                        schema_kubevirtio_api_core_v1_TLSConfiguration(ref),
 		"kubevirt.io/api/core/v1.TPMDevice":                                                               schema_kubevirtio_api_core_v1_TPMDevice(ref),
 		"kubevirt.io/api/core/v1.Timer":                                                                   schema_kubevirtio_api_core_v1_Timer(ref),
@@ -22321,11 +22322,17 @@ func schema_kubevirtio_api_core_v1_LaunchSecurity(ref common.ReferenceCallback) 
 							Ref:         ref("kubevirt.io/api/core/v1.SEVSNP"),
 						},
 					},
+					"tdx": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Intel Trust Domain Extensions (TDX).",
+							Ref:         ref("kubevirt.io/api/core/v1.TDX"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.SEV", "kubevirt.io/api/core/v1.SEVSNP"},
+			"kubevirt.io/api/core/v1.SEV", "kubevirt.io/api/core/v1.SEVSNP", "kubevirt.io/api/core/v1.TDX"},
 	}
 }
 
@@ -24886,6 +24893,16 @@ func schema_kubevirtio_api_core_v1_SysprepSource(ref common.ReferenceCallback) c
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.LocalObjectReference"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_TDX(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
 	}
 }
 

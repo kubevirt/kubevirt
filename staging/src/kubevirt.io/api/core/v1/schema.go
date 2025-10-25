@@ -783,6 +783,8 @@ type LaunchSecurity struct {
 	// AMD SEV-SNP flags defined by the SEV-SNP specifications.
 	// +optional
 	SNP *SEVSNP `json:"snp,omitempty"`
+	// Intel Trust Domain Extensions (TDX).
+	TDX *TDX `json:"tdx,omitempty"`
 }
 
 type SEV struct {
@@ -809,6 +811,9 @@ type SEVSNP struct {
 }
 
 type SEVAttestation struct {
+}
+
+type TDX struct {
 }
 
 type LunTarget struct {
