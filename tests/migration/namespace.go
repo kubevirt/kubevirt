@@ -630,6 +630,60 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			Entry("delete source migration", true),
 			Entry("delete target migration", false),
 		)
+
+		runningMigrations := func() int {
+			concurrentMigrations := 0
+			migrationList, err := virtClient.VirtualMachineInstanceMigration(testsuite.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			for _, migration := range migrationList.Items {
+				if migration.IsRunning() {
+					concurrentMigrations++
+				}
+			}
+			return concurrentMigrations
+		}
+
+		It("should create more than the allowed concurrent migrations, and should not allow more than the allowed concurrent migrations", func() {
+			sourceVMS := make([]*v1.VirtualMachine, 0)
+			sourceVMIs := make([]*v1.VirtualMachineInstance, 0)
+			targetVMIs := make([]*v1.VirtualMachineInstance, 0)
+			for i := 0; i < 20; i++ {
+				vmi := libvmifact.NewAlpine(libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()))
+				sourceVMIs = append(sourceVMIs, vmi)
+				targetVMI := vmi.DeepCopy()
+				targetVMI.Namespace = testsuite.NamespaceTestAlternative
+				targetVMIs = append(targetVMIs, targetVMI)
+				vm := createAndStartVMFromVMISpec(vmi)
+				sourceVMS = append(sourceVMS, vm)
+			}
+
+			By("waiting until the VMIs are ready")
+			for _, vmi := range sourceVMIs {
+				libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(180))
+			}
+
+			for _, targetVMI := range targetVMIs {
+				By("creating a receiver VM")
+				createReceiverVMFromVMISpec(targetVMI)
+			}
+
+			for i, sourceVMI := range sourceVMIs {
+				migrationID := fmt.Sprintf("mig-%s", rand.String(5))
+				By("creating the migration")
+				sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
+				targetMigration := libmigration.NewTarget(targetVMIs[i].Name, targetVMIs[i].Namespace, migrationID)
+
+				By("starting a migration")
+				sourceMigration = libmigration.RunMigration(virtClient, sourceMigration)
+				targetMigration = libmigration.RunMigration(virtClient, targetMigration)
+			}
+			By("ensuring that no more than the allowed concurrent migrations are running")
+			Consistently(func() int {
+				return runningMigrations()
+			}, 1*time.Minute, 1*time.Second).Should(BeNumerically("<=", 5))
+		})
 	})
 
 	Context("datavolume disk", func() {
