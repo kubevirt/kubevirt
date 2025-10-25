@@ -125,6 +125,8 @@ until _kubectl wait -n ${namespace} kv kubevirt --for condition=Available --time
     sleep 1m
 done
 
+_kubectl create -f ${MANIFESTS_OUT_DIR}/../../network-policies.yaml
+
 configure_prometheus
 
 echo "Done $0"
