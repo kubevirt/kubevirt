@@ -21,6 +21,7 @@ set -ex
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
+export KUBEVIRT_DEPLOY_NP="${KUBEVIRT_DEPLOY_NP:-false}"
 export WORKSPACE="${WORKSPACE:-$PWD}"
 export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
