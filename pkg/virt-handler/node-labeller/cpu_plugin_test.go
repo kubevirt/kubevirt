@@ -49,7 +49,6 @@ var _ = Describe("Node-labeller config", func() {
 			Spec: kubevirtv1.KubeVirtSpec{
 				Configuration: kubevirtv1.KubeVirtConfiguration{
 					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
-					MinCPUModel:       util.DefaultMinCPUModel,
 				},
 			},
 		}
