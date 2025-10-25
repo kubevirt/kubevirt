@@ -42,6 +42,15 @@ func (VirtualMachinePoolSpec) SwaggerDoc() map[string]string {
 		"nameGeneration":         "Options for the name generation in a pool.\n+optional",
 		"maxUnavailable":         "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.\n+optional",
 		"scaleInStrategy":        "ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool\n+optional",
+		"autohealing":            "Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance\n+optional",
+	}
+}
+
+func (VirtualMachinePoolAutohealingStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                          "+k8s:openapi-gen=true",
+		"startUpFailureThreshold":   "startUpFailureThreshold is the number of times a VM has failed to start up before it is considered failed\nDefaults to 3\n+optional",
+		"minFailingToStartDuration": "minFailingToStartDuration is the minimum duration a VM has to be failing to start up before it is considered failed\nDefaults to 5 minutes\n+optional",
 	}
 }
 
