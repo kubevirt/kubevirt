@@ -1206,7 +1206,16 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.ResetVMIRequestHandler(request, response)
 
-			ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+
+		It("Should fail reset on a paused VMI", func() {
+
+			expectVMI(Running, Paused)
+
+			app.ResetVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		})
 	})
 
