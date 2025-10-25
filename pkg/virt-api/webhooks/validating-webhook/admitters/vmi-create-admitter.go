@@ -254,14 +254,7 @@ func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.Virtu
 			continue
 		}
 
-		switch {
-		case utils.IsConfigVolume(volume) && (!config.VirtiofsConfigVolumesEnabled() && !config.OldVirtiofsEnabled()):
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "virtiofs is not allowed: virtiofs feature gate is not enabled for config volumes",
-				Field:   field.Child("domain", "devices", "filesystems").String(),
-			})
-		case utils.IsStorageVolume(volume) && (!config.VirtiofsStorageEnabled() && !config.OldVirtiofsEnabled()):
+		if utils.IsStorageVolume(volume) && (!config.VirtiofsStorageEnabled()) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "virtiofs is not allowed: virtiofs feature gate is not enabled for PVC",

@@ -19,4 +19,4 @@
 
 package featuregate
 
-const VirtioFsFeatureGateDeprecationMessage = "Virtiofs ExperimentalVirtiofsSupport feature gate is deprecated and will be removed in >= 1.6. Please use EnableVirtioFsConfigVolumes or EnableVirtioFsPVC feature gates instead"
+const VirtioFsFeatureGateDiscontinueMessage = "Virtiofs ExperimentalVirtiofsSupport feature gate is discontinued since v1.7. Please use EnableVirtioFsConfigVolumes or EnableVirtioFsPVC feature gates instead"
