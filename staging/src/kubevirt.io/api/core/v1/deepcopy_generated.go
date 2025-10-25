@@ -5703,6 +5703,11 @@ func (in *VirtualMachineInstanceMigrationSpec) DeepCopyInto(out *VirtualMachineI
 		*out = new(VirtualMachineInstanceMigrationTarget)
 		**out = **in
 	}
+	if in.Priority != nil {
+		in, out := &in.Priority, &out.Priority
+		*out = new(MigrationPriority)
+		**out = **in
+	}
 	return
 }
 
