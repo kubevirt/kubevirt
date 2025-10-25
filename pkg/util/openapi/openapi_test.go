@@ -12,51 +12,56 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
+var validator *openapi.Validator
+
+var _ = BeforeSuite(func() {
+	validator = openapi.CreateOpenAPIValidator(definitions.ComposeAPIDefinitions())
+})
+
 var _ = Describe("Openapi", func() {
 
-	var validator *openapi.Validator
-	var vmi *v1.VirtualMachineInstance
-	var obj *unstructured.Unstructured
-
-	BeforeEach(func() {
-		validator = openapi.CreateOpenAPIValidator(definitions.ComposeAPIDefinitions())
-		vmi = v1.NewVMI("testvm", "")
-		obj = &unstructured.Unstructured{}
-	})
-
-	var expectValidationsToSucceed = func() {
+	var expectValidationsToSucceed = func(obj *unstructured.Unstructured) {
 		Expect(validator.Validate(obj.GroupVersionKind(), obj.Object)).To(BeEmpty())
+		Expect(validator.ValidateSpec(obj.GroupVersionKind(), obj.Object)).To(BeEmpty())
 		Expect(validator.ValidateStatus(obj.GroupVersionKind(), obj.Object)).To(BeEmpty())
 	}
 
-	var expectValidationsToFail = func() {
+	var expectValidationsToFail = func(obj *unstructured.Unstructured) {
 		Expect(validator.Validate(obj.GroupVersionKind(), obj.Object)).ToNot(BeEmpty())
 		Expect(validator.ValidateSpec(obj.GroupVersionKind(), obj.Object)).ToNot(BeEmpty())
+		Expect(validator.ValidateStatus(obj.GroupVersionKind(), obj.Object)).To(BeEmpty())
 	}
 
 	It("should accept unknown fields in the status", func() {
-		data, err := json.Marshal(vmi)
+		data, err := json.Marshal(v1.NewVMI("testvm", ""))
 		Expect(err).ToNot(HaveOccurred())
+
+		obj := &unstructured.Unstructured{}
 		Expect(json.Unmarshal(data, obj)).To(Succeed())
 		Expect(unstructured.SetNestedField(obj.Object, "something", "status", "unknown")).To(Succeed())
-		expectValidationsToSucceed()
+		expectValidationsToSucceed(obj)
 	})
 
 	It("should reject unknown fields in the spec", func() {
-		data, err := json.Marshal(vmi)
+		data, err := json.Marshal(v1.NewVMI("testvm", ""))
 		Expect(err).ToNot(HaveOccurred())
+
+		obj := &unstructured.Unstructured{}
 		Expect(json.Unmarshal(data, obj)).To(Succeed())
 		Expect(unstructured.SetNestedField(obj.Object, "something", "spec", "unknown")).To(Succeed())
-		expectValidationsToFail()
+		expectValidationsToFail(obj)
 	})
 
 	It("should accept Machine with an empty Type", func() {
 		// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
+		vmi := v1.NewVMI("testvm", "")
 		vmi.Spec.Domain.Machine = &v1.Machine{Type: ""}
 		data, err := json.Marshal(vmi)
 		Expect(err).ToNot(HaveOccurred())
+
+		obj := &unstructured.Unstructured{}
 		Expect(json.Unmarshal(data, obj)).To(Succeed())
-		expectValidationsToSucceed()
+		expectValidationsToSucceed(obj)
 	})
 
 })
