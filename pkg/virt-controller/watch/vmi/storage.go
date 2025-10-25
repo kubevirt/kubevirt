@@ -265,6 +265,51 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 	return nil
 }
 
+func (c *Controller) checkEphemeralHotplugVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) {
+	vmVolumeMap := map[string]struct{}{}
+	if vmi == nil || vm == nil {
+		return
+	}
+
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		vmVolumeMap[volume.Name] = struct{}{}
+	}
+
+	// account for volume requests that have not been updated in vm spec
+	for _, volume := range vm.Status.VolumeRequests {
+		if volume.AddVolumeOptions != nil {
+			vmVolumeMap[volume.AddVolumeOptions.Name] = struct{}{}
+		} else if volume.RemoveVolumeOptions != nil {
+			vmVolumeMap[volume.RemoveVolumeOptions.Name] = struct{}{}
+		}
+	}
+
+	hasEphemeral := false
+	labels := vmi.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	// check if the vmi has any volumes that are not in the vm spec
+	for _, volume := range vmi.Spec.Volumes {
+		if !storagetypes.IsHotplugVolume(&volume) {
+			continue
+		}
+		if _, exists := vmVolumeMap[volume.Name]; !exists {
+			hasEphemeral = true
+			if _, ok := labels[virtv1.EphemeralHotplugLabel]; !ok {
+				// will be patched at the end of updateStatus
+				vmi.Labels[virtv1.EphemeralHotplugLabel] = "true"
+				return
+			}
+		}
+	}
+
+	// check if this vmi previously had an ephemeral volume
+	if _, ok := labels[virtv1.EphemeralHotplugLabel]; ok && !hasEphemeral {
+		delete(vmi.Labels, virtv1.EphemeralHotplugLabel)
+	}
+}
+
 func phaseForUnpluggedVolume(phase virtv1.VolumePhase) virtv1.VolumePhase {
 	switch phase {
 	case virtv1.VolumeReady:
