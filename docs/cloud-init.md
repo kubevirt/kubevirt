@@ -33,7 +33,7 @@ To associated userdata with a VMI instance using the NoCloud data source, all
 users have to do is base64 encode userdata information into the VMI definition. 
 
 Example
-```
+```yaml
 metadata:
   name: testvm-nocloud
 apiVersion: kubevirt.io/v1alpha2
@@ -80,7 +80,7 @@ Example: Create a k8s secret with UserData. Reference the secret in the NoCloud
 disk definition.
 
 First create the secret.
-```
+```yaml
 apiVersion: v1
 kind: Secret
 metadata:
@@ -91,7 +91,7 @@ data:
 ```
 
 Then reference the secret in the userDataSecretRef field.
-```
+```yaml
 metadata:
   name: testvm-nocloud
 apiVersion: kubevirt.io/v1alpha2
@@ -125,6 +125,92 @@ spec:
 ```
 
 Multiple VMIs can reference the same k8s secret object containing userdata.
+
+### NoCloud with Custom Metadata
+
+Custom-Metadata fields can be added in addition to the standard cloud-init metadata. This allows users to pass application-specific information to VMs that can be accessed via cloud-init.
+
+Custom-Metadata can be specified using the `metaData` field in the NoCloud configuration:
+
+```yaml
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  name: testvm-nocloud-custom-metadata
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+    memory:
+      guest: 128Mi
+    resources: {}
+  volumes:
+  - containerDisk:
+      image: registry:5000/kubevirt/cirros-container-disk-demo:devel
+    name: containerdisk
+  - cloudInitNoCloud:
+      userData: |
+        #!/bin/sh
+        echo 'Custom metadata available via cloud-init query ds.meta_data'
+      metaData:
+        app_name: "my-application"
+        environment: "production"
+        cost_center: "12345"
+        team: "platform-engineering"
+    name: cloudinitdisk
+```
+
+You can also use base64-encoded metadata with the `metaDataBase64` field, or reference a Kubernetes secret containing the metadata using `metaDataSecretRef`.
+
+The custom metadata will be merged with the standard metadata fields (instance-id, instance-type, local-hostname, etc.) that KubeVirt automatically generates.
+
+### ConfigDrive with Custom Metadata
+
+ConfigDrive also supports custom metadata fields. This can be specified using the `metaData` field in the ConfigDrive configuration:
+
+```yaml
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  name: testvm-configdrive-custom-metadata
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+    memory:
+      guest: 128Mi
+    resources: {}
+  volumes:
+  - containerDisk:
+      image: registry:5000/kubevirt/cirros-container-disk-demo:devel
+    name: containerdisk
+  - cloudInitConfigDrive:
+      userData: |
+        #!/bin/sh
+        echo 'Custom metadata available via cloud-init query ds.meta_data'
+      metaData:
+        app_name: "my-application"
+        environment: "production"
+        cost_center: "12345"
+        team: "platform-engineering"
+    name: cloudinitdisk
+```
+
+You can also use base64-encoded metadata with the `metaDataBase64` field, or reference a Kubernetes secret containing the metadata using `metaDataSecretRef`.
+
+The custom metadata will be merged with the standard metadata fields (instance_id, instance_type, uuid, hostname, etc.) that KubeVirt automatically generates.
 
 ### NoCloud Implementation Details
 
