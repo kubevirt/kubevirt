@@ -269,32 +269,6 @@ func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v
 		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
 	}
 
-	if !resources.Limits.Memory().IsZero() && resources.Requests.Memory().IsZero() {
-		if resources.Requests == nil {
-			resources.Requests = k8sv1.ResourceList{}
-		}
-		resources.Requests[k8sv1.ResourceMemory] = resources.Limits[k8sv1.ResourceMemory]
-	}
-
-	if _, exists := resources.Requests[k8sv1.ResourceMemory]; !exists {
-		var memory *resource.Quantity
-		if spec.Domain.Memory != nil && spec.Domain.Memory.Guest != nil {
-			memory = spec.Domain.Memory.Guest
-		}
-		if memory == nil && spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil {
-			if hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize); err == nil {
-				memory = &hugepagesSize
-			}
-		}
-
-		if memory != nil && memory.Value() > 0 {
-			if resources.Requests == nil {
-				resources.Requests = k8sv1.ResourceList{}
-			}
-			resources.Requests[k8sv1.ResourceMemory] = *memory
-		}
-	}
-
 	if cpuRequest := clusterConfig.GetCPURequest(); !cpuRequest.Equal(resource.MustParse(virtconfig.DefaultCPURequest)) {
 		if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists {
 			if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
