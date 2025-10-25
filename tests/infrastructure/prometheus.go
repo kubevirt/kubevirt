@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 
 	k8sv1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -118,14 +119,31 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		op := ops.Items[0]
 		Expect(op).ToNot(BeNil(), "virt-handler pod should not be nil")
 
-		var ep *k8sv1.Endpoints
+		var epSlice *discoveryv1.EndpointSlice
 		By("finding Prometheus endpoint")
 		Eventually(func() bool {
-			ep, err = virtClient.CoreV1().Endpoints(flags.PrometheusNamespace).Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint")
+			var epsList *discoveryv1.EndpointSliceList
+			epsList, err = virtClient.DiscoveryV1().EndpointSlices(flags.PrometheusNamespace).List(
+				context.Background(), metav1.ListOptions{
+					LabelSelector: "kubernetes.io/service-name=prometheus-k8s",
+				})
+			Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint slice")
 
-			if len(ep.Subsets) == 0 || len(ep.Subsets[0].Addresses) == 0 {
+			if len(epsList.Items) == 0 {
 				return false
+			}
+			for _, eps := range epsList.Items {
+				// ignore IPv6 case
+				if eps.AddressType != discoveryv1.AddressTypeIPv4 {
+					continue
+				}
+				if len(eps.Ports) == 0 || *eps.Ports[0].Name != "web" {
+					continue
+				}
+				if len(eps.Endpoints) == 0 || len(eps.Endpoints[0].Addresses) == 0 {
+					return false
+				}
+				epSlice = &eps
 			}
 			return true
 		}, 10*time.Second, time.Second).Should(BeTrue())
@@ -134,18 +152,15 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		if flags.PrometheusNamespace == "monitoring" {
 			urlSchema = "http"
 		}
-		promIP := ep.Subsets[0].Addresses[0].IP
-		Expect(promIP).ToNot(Equal(""), "could not get Prometheus IP from endpoint")
-		var promPort int32
-		for _, port := range ep.Subsets[0].Ports {
-			if port.Name == "web" {
-				promPort = port.Port
-			}
-		}
-		Expect(promPort).ToNot(BeEquivalentTo(0), "could not get Prometheus port from endpoint")
+		promIP := epSlice.Endpoints[0].Addresses[0]
+		Expect(promIP).ToNot(Equal(""), "could not get Prometheus IP from endpoint slice")
+		// we already checked that Port is for the web on the above checking.
+		promPort := *epSlice.Ports[0].Port
+		Expect(promPort).ToNot(BeEquivalentTo(0), "could not get Prometheus port from endpoint slice")
 
 		// the Service Account needs to have access to the Prometheus subresource api
 		token, err := generateTokenForPrometheusAPI(vmi.Namespace)
+		Expect(err).ToNot(HaveOccurred(), "failed to generate token for Prometheus API")
 		DeferCleanup(cleanupClusterRoleAndBinding, vmi.Namespace)
 
 		By("querying Prometheus API endpoint for a VMI exported metric")
@@ -284,44 +299,61 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	})
 
 	It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
-		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(
-			context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+		epsList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+			context.Background(), metav1.ListOptions{
+				LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+			})
 		Expect(err).ToNot(HaveOccurred())
+		// should only have one EndpointSlice
+		Expect(epsList.Items).To(HaveLen(1), "Expected exactly one EndpointSlice")
+		epSlice := epsList.Items[0]
+
 		l, err := labels.Parse("prometheus.kubevirt.io=true")
 		Expect(err).ToNot(HaveOccurred())
 		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 			context.Background(), metav1.ListOptions{LabelSelector: l.String()})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(endpoint.Subsets).To(HaveLen(1))
 
-		By("checking if the endpoint contains the metrics port and only one matching subset")
+		By("checking if the endpoint contains the metrics port")
 		const metricsPort = 8443
-		Expect(endpoint.Subsets[0].Ports).To(HaveLen(1))
-		Expect(endpoint.Subsets[0].Ports[0].Name).To(Equal("metrics"))
-		Expect(endpoint.Subsets[0].Ports[0].Port).To(Equal(int32(metricsPort)))
+		// we don't need to check the length, the endpointSlice Obj only contains one port
+		Expect(epSlice.Ports[0].Name).ToNot(BeNil())
+		Expect(*epSlice.Ports[0].Name).To(Equal("metrics"))
+		Expect(epSlice.Ports[0].Port).ToNot(BeNil())
+		Expect(*epSlice.Ports[0].Port).To(Equal(int32(metricsPort)))
 
-		By("checking if  the IPs in the subset match the KubeVirt system Pod count")
+		By("checking if the IPs in the endpoint slice match the KubeVirt system Pod count")
 		const minVirtPods = 3
 		Expect(len(pods.Items)).To(BeNumerically(">=", minVirtPods), "At least one api, controller and handler need to be present")
-		Expect(endpoint.Subsets[0].Addresses).To(HaveLen(len(pods.Items)))
+		Expect(epSlice.Endpoints).To(HaveLen(len(pods.Items)))
 
 		ips := map[string]string{}
-		for _, ep := range endpoint.Subsets[0].Addresses {
-			ips[ep.IP] = ""
+		for _, ep := range epSlice.Endpoints {
+			for _, addr := range ep.Addresses {
+				ips[addr] = ""
+			}
 		}
 		for _, pod := range pods.Items {
 			Expect(ips).To(HaveKey(pod.Status.PodIP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
 		}
 	})
 	It("[test_id:4139]should return Prometheus metrics", func() {
-		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(
-			context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+		endpointSliceList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+			context.Background(), metav1.ListOptions{
+				LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+			})
 		Expect(err).ToNot(HaveOccurred())
-		for _, ep := range endpoint.Subsets[0].Addresses {
-			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
-			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
-			Expect(stdout).To(ContainSubstring("go_goroutines"))
+		Expect(endpointSliceList.Items).ToNot(BeEmpty(), "Expected at least one EndpointSlice")
+
+		for _, epSlice := range endpointSliceList.Items {
+			for _, ep := range epSlice.Endpoints {
+				for _, addr := range ep.Addresses {
+					cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(addr))
+					stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
+					Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
+					Expect(stdout).To(ContainSubstring("go_goroutines"))
+				}
+			}
 		}
 	})
 
@@ -658,8 +690,10 @@ func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map
 	target := fmt.Sprintf("virt-%s", component)
 	leadingMetric := fmt.Sprintf("kubevirt_virt_%s_leading_status 1", component)
 	readyMetric := fmt.Sprintf("kubevirt_virt_%s_ready_status 1", component)
-	endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(
-		context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+	endpointSliceList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+		context.Background(), metav1.ListOptions{
+			LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+		})
 	if err != nil {
 		return nil, err
 	}
@@ -667,19 +701,23 @@ func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map
 		"ready":   0,
 		"leading": 0,
 	}
-	for _, ep := range endpoint.Subsets[0].Addresses {
-		if !strings.HasPrefix(ep.TargetRef.Name, target) {
-			continue
-		}
+	for _, epSlice := range endpointSliceList.Items {
+		for _, ep := range epSlice.Endpoints {
+			if ep.TargetRef == nil || !strings.HasPrefix(ep.TargetRef.Name, target) {
+				continue
+			}
 
-		cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
-		var stdout, stderr string
-		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
-		if err != nil {
-			return nil, fmt.Errorf(remoteCmdErrPattern, cmd, stdout, stderr, err)
+			for _, addr := range ep.Addresses {
+				cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(addr))
+				var stdout, stderr string
+				stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
+				if err != nil {
+					return nil, fmt.Errorf(remoteCmdErrPattern, cmd, stdout, stderr, err)
+				}
+				foundMetrics["leading"] += strings.Count(stdout, leadingMetric)
+				foundMetrics["ready"] += strings.Count(stdout, readyMetric)
+			}
 		}
-		foundMetrics["leading"] += strings.Count(stdout, leadingMetric)
-		foundMetrics["ready"] += strings.Count(stdout, readyMetric)
 	}
 
 	return foundMetrics, err

@@ -10,5 +10,6 @@ go_library(
         "//vendor/k8s.io/client-go/informers/internalinterfaces:go_default_library",
         "//vendor/k8s.io/client-go/informers/resource/v1alpha3:go_default_library",
         "//vendor/k8s.io/client-go/informers/resource/v1beta1:go_default_library",
+        "//vendor/k8s.io/client-go/informers/resource/v1beta2:go_default_library",
     ],
 )

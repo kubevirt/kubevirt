@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "certificatesigningrequest.go",
+        "clustertrustbundle.go",
         "interface.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/informers/certificates/v1beta1",
