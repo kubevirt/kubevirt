@@ -21,120 +21,34 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "kubevirt.io/api/migrations/v1alpha1"
+	migrationsv1alpha1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 )
 
-// FakeMigrationPolicies implements MigrationPolicyInterface
-type FakeMigrationPolicies struct {
+// fakeMigrationPolicies implements MigrationPolicyInterface
+type fakeMigrationPolicies struct {
+	*gentype.FakeClientWithList[*v1alpha1.MigrationPolicy, *v1alpha1.MigrationPolicyList]
 	Fake *FakeMigrationsV1alpha1
 }
 
-var migrationpoliciesResource = v1alpha1.SchemeGroupVersion.WithResource("migrationpolicies")
-
-var migrationpoliciesKind = v1alpha1.SchemeGroupVersion.WithKind("MigrationPolicy")
-
-// Get takes name of the migrationPolicy, and returns the corresponding migrationPolicy object, and an error if there is any.
-func (c *FakeMigrationPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.MigrationPolicy, err error) {
-	emptyResult := &v1alpha1.MigrationPolicy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(migrationpoliciesResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeMigrationPolicies(fake *FakeMigrationsV1alpha1) migrationsv1alpha1.MigrationPolicyInterface {
+	return &fakeMigrationPolicies{
+		gentype.NewFakeClientWithList[*v1alpha1.MigrationPolicy, *v1alpha1.MigrationPolicyList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("migrationpolicies"),
+			v1alpha1.SchemeGroupVersion.WithKind("MigrationPolicy"),
+			func() *v1alpha1.MigrationPolicy { return &v1alpha1.MigrationPolicy{} },
+			func() *v1alpha1.MigrationPolicyList { return &v1alpha1.MigrationPolicyList{} },
+			func(dst, src *v1alpha1.MigrationPolicyList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.MigrationPolicyList) []*v1alpha1.MigrationPolicy {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.MigrationPolicyList, items []*v1alpha1.MigrationPolicy) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.MigrationPolicy), err
-}
-
-// List takes label and field selectors, and returns the list of MigrationPolicies that match those selectors.
-func (c *FakeMigrationPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.MigrationPolicyList, err error) {
-	emptyResult := &v1alpha1.MigrationPolicyList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(migrationpoliciesResource, migrationpoliciesKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.MigrationPolicyList{ListMeta: obj.(*v1alpha1.MigrationPolicyList).ListMeta}
-	for _, item := range obj.(*v1alpha1.MigrationPolicyList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested migrationPolicies.
-func (c *FakeMigrationPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(migrationpoliciesResource, opts))
-}
-
-// Create takes the representation of a migrationPolicy and creates it.  Returns the server's representation of the migrationPolicy, and an error, if there is any.
-func (c *FakeMigrationPolicies) Create(ctx context.Context, migrationPolicy *v1alpha1.MigrationPolicy, opts v1.CreateOptions) (result *v1alpha1.MigrationPolicy, err error) {
-	emptyResult := &v1alpha1.MigrationPolicy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(migrationpoliciesResource, migrationPolicy, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.MigrationPolicy), err
-}
-
-// Update takes the representation of a migrationPolicy and updates it. Returns the server's representation of the migrationPolicy, and an error, if there is any.
-func (c *FakeMigrationPolicies) Update(ctx context.Context, migrationPolicy *v1alpha1.MigrationPolicy, opts v1.UpdateOptions) (result *v1alpha1.MigrationPolicy, err error) {
-	emptyResult := &v1alpha1.MigrationPolicy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(migrationpoliciesResource, migrationPolicy, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.MigrationPolicy), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeMigrationPolicies) UpdateStatus(ctx context.Context, migrationPolicy *v1alpha1.MigrationPolicy, opts v1.UpdateOptions) (result *v1alpha1.MigrationPolicy, err error) {
-	emptyResult := &v1alpha1.MigrationPolicy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(migrationpoliciesResource, "status", migrationPolicy, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.MigrationPolicy), err
-}
-
-// Delete takes name of the migrationPolicy and deletes it. Returns an error if one occurs.
-func (c *FakeMigrationPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(migrationpoliciesResource, name, opts), &v1alpha1.MigrationPolicy{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeMigrationPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(migrationpoliciesResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.MigrationPolicyList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched migrationPolicy.
-func (c *FakeMigrationPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.MigrationPolicy, err error) {
-	emptyResult := &v1alpha1.MigrationPolicy{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(migrationpoliciesResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.MigrationPolicy), err
 }
