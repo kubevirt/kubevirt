@@ -3,6 +3,7 @@ load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file"
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//cmd/virt-handler:passt_macros.bzl", "passt_repair_for_arch")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
 go_library(
@@ -141,6 +142,12 @@ pkg_tar(
     package_dir = "/",
 )
 
+passt_repair_for_arch("x86_64")
+
+passt_repair_for_arch("aarch64")
+
+passt_repair_for_arch("s390x")
+
 pkg_tar(
     name = "virt-handler-tar",
     srcs = [
@@ -163,18 +170,21 @@ oci_image(
             ":passwd-tar",
             ":nsswitch-tar",
             ":get-version-tar",
+            ":passt_repair_tar_aarch64",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             "//rpm:handlerbase_s390x",
             ":passwd-tar",
             ":nsswitch-tar",
             ":get-version-tar",
+            ":passt_repair_tar_s390x",
         ],
         "//conditions:default": [
             "//rpm:handlerbase_x86_64",
             ":passwd-tar",
             ":nsswitch-tar",
             ":get-version-tar",
+            ":passt_repair_tar_x86_64",
         ],
     }),
 )
