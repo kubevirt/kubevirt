@@ -72,6 +72,8 @@ type DomainStats struct {
 	CPUMap    [][]bool
 	NrVirtCpu uint
 	DirtyRate *DomainStatsDirtyRate
+	// omitted from libvirt-go: Load
+	Load *DomainStatsLoad `json:",omitempty"`
 }
 
 type DomainStatsCPU struct {
@@ -202,4 +204,13 @@ type DomainStatsDirtyRate struct {
 	CalcPeriod            int
 	MegabytesPerSecondSet bool
 	MegabytesPerSecond    int64
+}
+
+type DomainStatsLoad struct {
+	Load1mSet  bool
+	Load1m     float64
+	Load5mSet  bool
+	Load5m     float64
+	Load15mSet bool
+	Load15m    float64
 }

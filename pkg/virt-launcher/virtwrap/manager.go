@@ -109,9 +109,9 @@ const (
 	failedGetDomain                           = "Getting the domain failed."
 	failedGetDomainState                      = "Getting the domain state failed."
 	failedDomainMemoryDump                    = "Domain memory dump failed"
-	affectDeviceLiveAndConfigLibvirtFlags     = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
-	affectDomainLiveAndConfigLibvirtFlags     = libvirt.DOMAIN_AFFECT_LIVE | libvirt.DOMAIN_AFFECT_CONFIG
-	affectDomainVCPULiveAndConfigLibvirtFlags = libvirt.DOMAIN_VCPU_LIVE | libvirt.DOMAIN_VCPU_CONFIG
+	affectDeviceLiveAndConfigLibvirtFlags     = libvirt.DomainDeviceModifyFlags(libvirt.DOMAIN_DEVICE_MODIFY_LIVE) | libvirt.DomainDeviceModifyFlags(libvirt.DOMAIN_DEVICE_MODIFY_CONFIG)
+	affectDomainLiveAndConfigLibvirtFlags     = libvirt.DomainModificationImpact(libvirt.DOMAIN_AFFECT_LIVE) | libvirt.DomainModificationImpact(libvirt.DOMAIN_AFFECT_CONFIG)
+	affectDomainVCPULiveAndConfigLibvirtFlags = libvirt.DomainVcpuFlags(libvirt.DOMAIN_VCPU_LIVE) | libvirt.DomainVcpuFlags(libvirt.DOMAIN_VCPU_CONFIG)
 
 	// parameters for hotplug port count calculation
 	hotplugLargeMemoryThreshold            = 2 * 1024 * 1024 * 1024 // 2GB
@@ -2295,7 +2295,29 @@ func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 
-	return l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
+	list, err := l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set guest Load from the agent store via sysinfo, if available
+	if l.agentData != nil {
+		sys := l.agentData.GetSysInfo()
+		load := sys.Load
+		for _, s := range list {
+			if s.Load == nil {
+				s.Load = &stats.DomainStatsLoad{}
+			}
+			s.Load.Load1mSet = load.Load1mSet
+			s.Load.Load1m = load.Load1m
+			s.Load.Load5mSet = load.Load5mSet
+			s.Load.Load5m = load.Load5m
+			s.Load.Load15mSet = load.Load15mSet
+			s.Load.Load15m = load.Load15m
+		}
+	}
+
+	return list, nil
 }
 
 func (l *LibvirtDomainManager) getDomainDirtyRateStats(calculationDuration time.Duration) ([]*stats.DomainStatsDirtyRate, error) {
