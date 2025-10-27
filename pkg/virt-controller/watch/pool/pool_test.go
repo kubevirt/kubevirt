@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -207,6 +208,34 @@ var _ = Describe("Pool", func() {
 				vmi := createReadyVMI(vmCopy, oldPoolRevision)
 				addVM(vmCopy)
 				addVMI(vmi)
+			}
+		}
+
+		addNodeSelectorToVM0And1 := func(vms []*v1.VirtualMachine, pool *poolv1.VirtualMachinePool) {
+			vm0Name := fmt.Sprintf("%s-0", pool.Name)
+			vm1Name := fmt.Sprintf("%s-1", pool.Name)
+			for _, vm := range vms {
+				if vm.Name == vm0Name || vm.Name == vm1Name {
+					if vm.Spec.Template.Spec.NodeSelector == nil {
+						vm.Spec.Template.Spec.NodeSelector = make(map[string]string)
+					}
+					vm.Spec.Template.Spec.NodeSelector["node-role.kubernetes.io/worker"] = "test"
+					controller.vmIndexer.Update(vm)
+				}
+			}
+		}
+
+		addLabelToVM0And1 := func(vms []*v1.VirtualMachine, pool *poolv1.VirtualMachinePool) {
+			vm0Name := fmt.Sprintf("%s-0", pool.Name)
+			vm1Name := fmt.Sprintf("%s-1", pool.Name)
+			for _, vm := range vms {
+				if vm.Name == vm0Name || vm.Name == vm1Name {
+					if vm.Spec.Template.ObjectMeta.Labels == nil {
+						vm.Spec.Template.ObjectMeta.Labels = make(map[string]string)
+					}
+					vm.Spec.Template.ObjectMeta.Labels["app"] = "test"
+					controller.vmIndexer.Update(vm)
+				}
 			}
 		}
 
@@ -574,14 +603,281 @@ var _ = Describe("Pool", func() {
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(4))
 		})
 
-		It("should delete VMs with highest ordinals first when using DescendingOrder base scale-in strategy", func() {
+		It("should not update a VM if the update strategy is set to unmanaged", func() {
+			pool, vm := DefaultPool(1)
+			pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
+				Unmanaged: &poolv1.VirtualMachinePoolUnmanagedStrategy{},
+			}
+
+			oldPoolRevision := createPoolRevision(pool)
+
+			pool.Generation = 123
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{"newkey": "newval"}
+			newPoolRevision := createPoolRevision(pool)
+
+			addPool(pool)
+			addVM(vm)
+			addCR(oldPoolRevision)
+			addCR(newPoolRevision)
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(1))
+			Expect(vms.Items[0].Spec.Template.ObjectMeta.Labels).NotTo(HaveKeyWithValue("newkey", "newval"))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "update", "virtualmachines")).To(BeEmpty())
+		})
+
+		It("should update VMs using opportunistic update strategy", func() {
+			pool, vm := DefaultPool(5)
+
+			pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
+				Opportunistic: &poolv1.VirtualMachineOpportunisticUpdateStrategy{},
+			}
+
+			oldPoolRevision := createPoolRevision(pool)
+
+			addPool(pool)
+			addCR(oldPoolRevision)
+
+			createVMsWithOrdinal(pool, 5, oldPoolRevision, oldPoolRevision, vm)
+
+			pool.Generation = 123
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{"newkey": "newval"}
+			newPoolRevision := createPoolRevision(pool)
+
+			controller.poolIndexer.Update(pool)
+
+			addCR(newPoolRevision)
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(5))
+
+			for _, vm := range vms.Items {
+				Expect(vm.Spec.Template.ObjectMeta.Labels).To(HaveKeyWithValue("newkey", "newval"))
+			}
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "update", "virtualmachines")).To(HaveLen(5))
+		})
+
+		It("should update VMIs using node selector filtering for proactive update strategy for the VMs that are upto date", func() {
+			pool, vm := DefaultPool(5)
+
+			pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
+				Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
+					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+						Selectors: &poolv1.VirtualMachinePoolSelectors{
+							NodeSelectorRequirementMatcher: &[]k8sv1.NodeSelectorRequirement{
+								{
+									Key:      "node-role.kubernetes.io/worker",
+									Operator: k8sv1.NodeSelectorOpNotIn,
+									Values:   []string{"test"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			oldPoolRevision := createPoolRevision(pool)
+
+			pool.Generation = 123
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{"newkey": "newval"}
+			newPoolRevision := createPoolRevision(pool)
+
+			addPool(pool)
+
+			// creates 5 VMs with newPoolRevision and VMI with oldPoolRevision
+			createVMsWithOrdinal(pool, 5, newPoolRevision, oldPoolRevision, vm)
+
+			addCR(oldPoolRevision)
+			addCR(newPoolRevision)
+
+			vms, err := controller.listVMsFromNamespace(pool.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			addNodeSelectorToVM0And1(vms, pool)
+
+			sanityExecute()
+
+			pool, err = fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pool.Status.Replicas).To(Equal(int32(5)))
+
+			vmiList, err := fakeVirtClient.KubevirtV1().VirtualMachineInstances(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmiList.Items).To(HaveLen(2))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(3))
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "update", "virtualmachines")).To(BeEmpty())
+		})
+
+		It("should update VMIs and VMs using label selector filtering for proactive update strategy", func() {
+			pool, vm := DefaultPool(5)
+
+			pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
+				Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
+					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+						Selectors: &poolv1.VirtualMachinePoolSelectors{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"app": "test"},
+							},
+						},
+					},
+				},
+			}
+
+			oldPoolRevision := createPoolRevision(pool)
+			addCR(oldPoolRevision)
+
+			pool.Generation = 123
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{"newkey": "newval"}
+			newPoolRevision := createPoolRevision(pool)
+			addCR(newPoolRevision)
+			controller.poolIndexer.Update(pool)
+
+			addPool(pool)
+
+			createVMsWithOrdinal(pool, 5, newPoolRevision, oldPoolRevision, vm)
+
+			vms, err := controller.listVMsFromNamespace(pool.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			addLabelToVM0And1(vms, pool)
+
+			sanityExecute()
+
+			pool, err = fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pool.Status.Replicas).To(Equal(int32(5)))
+
+			vmiList, err := fakeVirtClient.KubevirtV1().VirtualMachineInstances(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmiList.Items).To(HaveLen(3))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(2))
+		})
+
+		It("should update Newest VMs first when using Newest sort policy for update strategy", func() {
+			pool, vm := DefaultPool(5)
+
+			pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
+				Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
+					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+						SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyNewest),
+					},
+				},
+			}
+
+			oldPoolRevision := createPoolRevision(pool)
+
+			pool.Generation = 123
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{"newkey": "newval"}
+			newPoolRevision := createPoolRevision(pool)
+
+			addPool(pool)
+
+			createVMsWithOrdinal(pool, 5, newPoolRevision, oldPoolRevision, vm)
+
+			// Set different creation timestamps for VMs to ensure deterministic sorting
+			vms, err := controller.listVMsFromNamespace(pool.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			baseTime := metav1.Now()
+			for i, vm := range vms {
+				vm.CreationTimestamp = metav1.NewTime(baseTime.Add(time.Duration(i) * time.Second))
+				controller.vmIndexer.Update(vm)
+			}
+
+			// sort vms by creation timestamp in descending order (newest first)
+			sortVMsByNewestFirst(vms)
+
+			addCR(oldPoolRevision)
+			addCR(newPoolRevision)
+
+			var updatedVMIs []string
+			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				deleteAction, ok := action.(k8stesting.DeleteAction)
+				Expect(ok).To(BeTrue())
+				updatedVMIs = append(updatedVMIs, deleteAction.GetName())
+				return false, obj, nil
+			})
+
+			sanityExecute()
+
+			pool, err = fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pool.Status.Replicas).To(Equal(int32(5)))
+
+			vmList, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmList.Items).To(HaveLen(5))
+
+			for _, vm := range vmList.Items {
+				Expect(vm.Spec.Template.ObjectMeta.Labels).To(HaveKeyWithValue("newkey", "newval"))
+			}
+
+			Expect(updatedVMIs).To(ConsistOf(vms[0].Name, vms[1].Name, vms[2].Name, vms[3].Name, vms[4].Name))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(5))
+		})
+
+		It("should delete Oldest VMs first when using Oldest sort for scale-in strategy", func() {
 			pool, vm := DefaultPool(2)
 
-			basePolicy := poolv1.VirtualMachinePoolBasePolicyDescendingOrder
 			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
 				Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
 					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-						BasePolicy: &basePolicy,
+						SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyOldest),
+					},
+				},
+			}
+
+			addPool(pool)
+
+			oldPoolRevision := createPoolRevision(pool)
+			createVMsWithOrdinal(pool, 5, oldPoolRevision, oldPoolRevision, vm)
+
+			vms, err := controller.listVMsFromNamespace(pool.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			baseTime := metav1.Now()
+			for i, vm := range vms {
+				vm.CreationTimestamp = metav1.NewTime(baseTime.Add(time.Duration(i) * time.Second))
+				controller.vmIndexer.Update(vm)
+			}
+
+			// sort vms by creation timestamp in ascending order (oldest first)
+			sortVMsByOldestFirst(vms)
+
+			var deletedVMs []string
+			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				deleteAction, ok := action.(k8stesting.DeleteAction)
+				Expect(ok).To(BeTrue())
+				deletedVMs = append(deletedVMs, deleteAction.GetName())
+				return true, nil, nil
+			})
+
+			sanityExecute()
+
+			Expect(deletedVMs).To(ConsistOf(vms[0].Name, vms[1].Name, vms[2].Name))
+			for range 3 {
+				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
+			}
+		})
+
+		It("should delete VMs with highest ordinals first when using DescendingOrder sort policy for scale-in strategy", func() {
+			pool, vm := DefaultPool(2)
+
+			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+				Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+						SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyDescendingOrder),
 					},
 				},
 			}
