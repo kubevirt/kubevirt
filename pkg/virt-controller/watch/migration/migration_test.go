@@ -2395,7 +2395,9 @@ var _ = Describe("Migration watcher", func() {
 				Expect(shutdown).To(BeFalse())
 			})
 
-			It("should get items in order based on priority", func() {
+			// TODO: This test is flaky due to https://github.com/kubernetes-sigs/controller-runtime/issues/3363
+			//  Promote this back to stable once a fix is merged
+			PIt("should get items in order based on priority", func() {
 
 				const (
 					runningMigNamePrefix       = "testmigration%d"
