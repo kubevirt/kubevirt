@@ -21,14 +21,14 @@ Copyright The KubeVirt Authors.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	scheme "kubevirt.io/client-go/containerizeddataimporter/scheme"
-	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // DataImportCronsGetter has a method to return a DataImportCronInterface.
@@ -39,33 +39,34 @@ type DataImportCronsGetter interface {
 
 // DataImportCronInterface has methods to work with DataImportCron resources.
 type DataImportCronInterface interface {
-	Create(ctx context.Context, dataImportCron *v1beta1.DataImportCron, opts v1.CreateOptions) (*v1beta1.DataImportCron, error)
-	Update(ctx context.Context, dataImportCron *v1beta1.DataImportCron, opts v1.UpdateOptions) (*v1beta1.DataImportCron, error)
+	Create(ctx context.Context, dataImportCron *corev1beta1.DataImportCron, opts v1.CreateOptions) (*corev1beta1.DataImportCron, error)
+	Update(ctx context.Context, dataImportCron *corev1beta1.DataImportCron, opts v1.UpdateOptions) (*corev1beta1.DataImportCron, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, dataImportCron *v1beta1.DataImportCron, opts v1.UpdateOptions) (*v1beta1.DataImportCron, error)
+	UpdateStatus(ctx context.Context, dataImportCron *corev1beta1.DataImportCron, opts v1.UpdateOptions) (*corev1beta1.DataImportCron, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.DataImportCron, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.DataImportCronList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1beta1.DataImportCron, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1beta1.DataImportCronList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.DataImportCron, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1beta1.DataImportCron, err error)
 	DataImportCronExpansion
 }
 
 // dataImportCrons implements DataImportCronInterface
 type dataImportCrons struct {
-	*gentype.ClientWithList[*v1beta1.DataImportCron, *v1beta1.DataImportCronList]
+	*gentype.ClientWithList[*corev1beta1.DataImportCron, *corev1beta1.DataImportCronList]
 }
 
 // newDataImportCrons returns a DataImportCrons
 func newDataImportCrons(c *CdiV1beta1Client, namespace string) *dataImportCrons {
 	return &dataImportCrons{
-		gentype.NewClientWithList[*v1beta1.DataImportCron, *v1beta1.DataImportCronList](
+		gentype.NewClientWithList[*corev1beta1.DataImportCron, *corev1beta1.DataImportCronList](
 			"dataimportcrons",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1beta1.DataImportCron { return &v1beta1.DataImportCron{} },
-			func() *v1beta1.DataImportCronList { return &v1beta1.DataImportCronList{} }),
+			func() *corev1beta1.DataImportCron { return &corev1beta1.DataImportCron{} },
+			func() *corev1beta1.DataImportCronList { return &corev1beta1.DataImportCronList{} },
+		),
 	}
 }

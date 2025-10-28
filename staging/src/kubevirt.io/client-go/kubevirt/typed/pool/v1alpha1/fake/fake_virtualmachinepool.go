@@ -21,129 +21,34 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1alpha1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
 )
 
-// FakeVirtualMachinePools implements VirtualMachinePoolInterface
-type FakeVirtualMachinePools struct {
+// fakeVirtualMachinePools implements VirtualMachinePoolInterface
+type fakeVirtualMachinePools struct {
+	*gentype.FakeClientWithList[*v1alpha1.VirtualMachinePool, *v1alpha1.VirtualMachinePoolList]
 	Fake *FakePoolV1alpha1
-	ns   string
 }
 
-var virtualmachinepoolsResource = v1alpha1.SchemeGroupVersion.WithResource("virtualmachinepools")
-
-var virtualmachinepoolsKind = v1alpha1.SchemeGroupVersion.WithKind("VirtualMachinePool")
-
-// Get takes name of the virtualMachinePool, and returns the corresponding virtualMachinePool object, and an error if there is any.
-func (c *FakeVirtualMachinePools) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.VirtualMachinePool, err error) {
-	emptyResult := &v1alpha1.VirtualMachinePool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(virtualmachinepoolsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeVirtualMachinePools(fake *FakePoolV1alpha1, namespace string) poolv1alpha1.VirtualMachinePoolInterface {
+	return &fakeVirtualMachinePools{
+		gentype.NewFakeClientWithList[*v1alpha1.VirtualMachinePool, *v1alpha1.VirtualMachinePoolList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("virtualmachinepools"),
+			v1alpha1.SchemeGroupVersion.WithKind("VirtualMachinePool"),
+			func() *v1alpha1.VirtualMachinePool { return &v1alpha1.VirtualMachinePool{} },
+			func() *v1alpha1.VirtualMachinePoolList { return &v1alpha1.VirtualMachinePoolList{} },
+			func(dst, src *v1alpha1.VirtualMachinePoolList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.VirtualMachinePoolList) []*v1alpha1.VirtualMachinePool {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.VirtualMachinePoolList, items []*v1alpha1.VirtualMachinePool) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.VirtualMachinePool), err
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachinePools that match those selectors.
-func (c *FakeVirtualMachinePools) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.VirtualMachinePoolList, err error) {
-	emptyResult := &v1alpha1.VirtualMachinePoolList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(virtualmachinepoolsResource, virtualmachinepoolsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.VirtualMachinePoolList{ListMeta: obj.(*v1alpha1.VirtualMachinePoolList).ListMeta}
-	for _, item := range obj.(*v1alpha1.VirtualMachinePoolList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachinePools.
-func (c *FakeVirtualMachinePools) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(virtualmachinepoolsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a virtualMachinePool and creates it.  Returns the server's representation of the virtualMachinePool, and an error, if there is any.
-func (c *FakeVirtualMachinePools) Create(ctx context.Context, virtualMachinePool *v1alpha1.VirtualMachinePool, opts v1.CreateOptions) (result *v1alpha1.VirtualMachinePool, err error) {
-	emptyResult := &v1alpha1.VirtualMachinePool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(virtualmachinepoolsResource, c.ns, virtualMachinePool, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.VirtualMachinePool), err
-}
-
-// Update takes the representation of a virtualMachinePool and updates it. Returns the server's representation of the virtualMachinePool, and an error, if there is any.
-func (c *FakeVirtualMachinePools) Update(ctx context.Context, virtualMachinePool *v1alpha1.VirtualMachinePool, opts v1.UpdateOptions) (result *v1alpha1.VirtualMachinePool, err error) {
-	emptyResult := &v1alpha1.VirtualMachinePool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(virtualmachinepoolsResource, c.ns, virtualMachinePool, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.VirtualMachinePool), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVirtualMachinePools) UpdateStatus(ctx context.Context, virtualMachinePool *v1alpha1.VirtualMachinePool, opts v1.UpdateOptions) (result *v1alpha1.VirtualMachinePool, err error) {
-	emptyResult := &v1alpha1.VirtualMachinePool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(virtualmachinepoolsResource, "status", c.ns, virtualMachinePool, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.VirtualMachinePool), err
-}
-
-// Delete takes name of the virtualMachinePool and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualMachinePools) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(virtualmachinepoolsResource, c.ns, name, opts), &v1alpha1.VirtualMachinePool{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualMachinePools) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(virtualmachinepoolsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.VirtualMachinePoolList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched virtualMachinePool.
-func (c *FakeVirtualMachinePools) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.VirtualMachinePool, err error) {
-	emptyResult := &v1alpha1.VirtualMachinePool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(virtualmachinepoolsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.VirtualMachinePool), err
 }
