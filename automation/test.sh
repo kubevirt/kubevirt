@@ -462,9 +462,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     if [[ $TARGET =~ sig-operator-upgrade ]]; then
       label_filter='(Upgrade)'
     elif [[ $TARGET =~ sig-operator-configuration ]]; then
-      label_filter='(sig-operator && !(Upgrade))'
+      label_filter='(sig-operator && !(Upgrade,sig-monitoring))'
     else
-      label_filter='(sig-operator)'
+      label_filter='(sig-operator && !sig-monitoring)'
     fi
   elif [[ $TARGET =~ sriov.* ]]; then
     label_filter='(SRIOV)'

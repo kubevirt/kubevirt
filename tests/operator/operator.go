@@ -1429,13 +1429,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("With PrometheusRule Enabled", func() {
-
-		BeforeEach(func() {
-			if !prometheusRuleEnabled() {
-				Fail("Test applies on when PrometheusRule is defined")
-			}
-		})
+	Context("With PrometheusRule Enabled", decorators.SigMonitoring, func() {
 
 		It("[test_id:4614]Checks if the kubevirt PrometheusRule cr exists and verify it's spec", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
@@ -1449,12 +1443,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Context("With PrometheusRule Disabled", func() {
-
-		BeforeEach(func() {
-			if prometheusRuleEnabled() {
-				Fail("Test applies on when PrometheusRule is not defined")
-			}
-		})
 
 		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
