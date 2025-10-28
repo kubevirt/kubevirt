@@ -3045,7 +3045,7 @@ var _ = Describe("getUpdatedDisks", func() {
 				},
 			},
 			nil),
-		Entry("be empty if disk removed",
+		Entry("be ejected if disk removed",
 			[]api.Disk{
 				{
 					Device: "cdrom",
@@ -3080,7 +3080,19 @@ var _ = Describe("getUpdatedDisks", func() {
 					},
 				},
 			},
-			nil),
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Type:   "block",
+					Target: api.DiskTarget{
+						Device: "sdb",
+					},
+					Driver: &api.DiskDriver{
+						Type: "raw",
+					},
+				},
+			},
+		),
 		Entry("be empty not cd-roms",
 			[]api.Disk{
 				{
