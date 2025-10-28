@@ -7073,6 +7073,9 @@ var CRDsValidation map[string]string = map[string]string{
                         snp:
                           description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
                           type: object
+                        tdx:
+                          description: Intel Trust Domain Extensions (TDX).
+                          type: object
                       type: object
                     machine:
                       description: Machine type.
@@ -9263,6 +9266,9 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             snp:
               description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              type: object
+            tdx:
+              description: Intel Trust Domain Extensions (TDX).
               type: object
           type: object
         memory:
@@ -12543,6 +12549,9 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 snp:
                   description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                  type: object
+                tdx:
+                  description: Intel Trust Domain Extensions (TDX).
                   type: object
               type: object
             machine:
@@ -16258,6 +16267,9 @@ var CRDsValidation map[string]string = map[string]string{
                 snp:
                   description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
                   type: object
+                tdx:
+                  description: Intel Trust Domain Extensions (TDX).
+                  type: object
               type: object
             machine:
               description: Machine type.
@@ -18753,6 +18765,9 @@ var CRDsValidation map[string]string = map[string]string{
                         snp:
                           description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
                           type: object
+                        tdx:
+                          description: Intel Trust Domain Extensions (TDX).
+                          type: object
                       type: object
                     machine:
                       description: Machine type.
@@ -20197,6 +20212,9 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             snp:
               description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              type: object
+            tdx:
+              description: Intel Trust Domain Extensions (TDX).
               type: object
           type: object
         memory:
@@ -23667,6 +23685,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 snp:
                                   description: AMD SEV-SNP flags defined by the SEV-SNP
                                     specifications.
+                                  type: object
+                                tdx:
+                                  description: Intel Trust Domain Extensions (TDX).
                                   type: object
                               type: object
                             machine:
@@ -29048,6 +29069,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     snp:
                                       description: AMD SEV-SNP flags defined by the
                                         SEV-SNP specifications.
+                                      type: object
+                                    tdx:
+                                      description: Intel Trust Domain Extensions (TDX).
                                       type: object
                                   type: object
                                 machine:

@@ -15261,6 +15261,10 @@
      "snp": {
       "description": "AMD SEV-SNP flags defined by the SEV-SNP specifications.",
       "$ref": "#/definitions/v1.SEVSNP"
+     },
+     "tdx": {
+      "description": "Intel Trust Domain Extensions (TDX).",
+      "$ref": "#/definitions/v1.TDX"
      }
     }
    },
@@ -16585,6 +16589,9 @@
       "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
      }
     }
+   },
+   "v1.TDX": {
+    "type": "object"
    },
    "v1.TLSConfiguration": {
     "description": "TLSConfiguration holds TLS options",

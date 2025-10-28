@@ -229,6 +229,27 @@ var _ = Describe("Node-labeller config", func() {
 		Entry("when Secure Execution is not supported", false),
 	)
 
+	Context("return correct Intel TDX capabilities", func() {
+		DescribeTable("for Intel TDX",
+			func(isSupported bool) {
+				supported := ""
+				if isSupported {
+					supported = "yes"
+					nlController.domCapabilitiesFileName = "domcapabilities_tdx.xml"
+				} else {
+					nlController.domCapabilitiesFileName = "virsh_domcapabilities.xml"
+					supported = "no"
+				}
+
+				err := nlController.loadDomCapabilities()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nlController.TDX.Supported).To(Equal(supported))
+			},
+			Entry("When Intel TDX is supported", true),
+			Entry("When Intel TDX is not supported", false),
+		)
+	})
+
 	It("Make sure proper labels are removed on removeLabellerLabels()", func() {
 		node := &k8sv1.Node{
 			ObjectMeta: metav1.ObjectMeta{

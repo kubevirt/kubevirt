@@ -60,7 +60,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-	sev "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
+	lsec "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
 var (
@@ -3494,10 +3494,10 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			c = &ConverterContext{
-				Architecture:      archconverter.NewConverter(amd64),
-				AllowEmulation:    true,
-				EFIConfiguration:  &EFIConfiguration{},
-				UseLaunchSecurity: true,
+				Architecture:         archconverter.NewConverter(amd64),
+				AllowEmulation:       true,
+				EFIConfiguration:     &EFIConfiguration{},
+				UseLaunchSecuritySEV: true,
 			}
 		})
 
@@ -3506,7 +3506,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
 			Expect(domain.Spec.LaunchSecurity.Type).To(Equal("sev"))
-			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(sev.SEVPolicyNoDebug), 16)))
+			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(lsec.SEVPolicyNoDebug), 16)))
 		})
 
 		It("should set LaunchSecurity domain element with 'sev' type with 'NoDebug' and 'EncryptedState' policy bits", func() {
@@ -3522,7 +3522,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
 			Expect(domain.Spec.LaunchSecurity.Type).To(Equal("sev"))
-			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(sev.SEVPolicyNoDebug|sev.SEVPolicyEncryptedState), 16)))
+			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(lsec.SEVPolicyNoDebug|lsec.SEVPolicyEncryptedState), 16)))
 		})
 
 		It("should set LaunchSecurity domain element with 'sev-snp' type with 'Reserved' policy bits", func() {
@@ -3534,7 +3534,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
 			Expect(domain.Spec.LaunchSecurity.Type).To(Equal("sev-snp"))
-			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(sev.SNPPolicySmt|sev.SNPPolicyReserved), 16)))
+			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(lsec.SNPPolicySmt|lsec.SNPPolicyReserved), 16)))
 		})
 
 		It("should set IOMMU attribute of the RngDriver", func() {
@@ -3624,9 +3624,9 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 			c = &ConverterContext{
-				Architecture:      archconverter.NewConverter(s390x),
-				AllowEmulation:    true,
-				UseLaunchSecurity: true,
+				Architecture:        archconverter.NewConverter(s390x),
+				AllowEmulation:      true,
+				UseLaunchSecurityPV: true,
 			}
 		})
 
@@ -3678,6 +3678,54 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
 			Expect(domain.Spec.Devices.Disks[0].Driver).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Disks[0].Driver.IOMMU).To(Equal("on"))
+		})
+	})
+
+	Context("with Intel TDX LaunchSecurity", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			nonVirtioIface := v1.Interface{Name: "red", Model: "e1000"}
+			secondaryNetwork := v1.Network{Name: "red"}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultBridgeNetworkInterface(), nonVirtioIface,
+			}
+			vmi.Spec.Networks = []v1.Network{
+				*v1.DefaultPodNetwork(), secondaryNetwork,
+			}
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				TDX: &v1.TDX{},
+			}
+			vmi.Spec.Domain.Features = &v1.Features{
+				SMM: &v1.FeatureState{
+					Enabled: pointer.P(false),
+				},
+			}
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(false),
+					},
+				},
+			}
+			c = &ConverterContext{
+				Architecture:         archconverter.NewConverter(amd64),
+				AllowEmulation:       true,
+				EFIConfiguration:     &EFIConfiguration{},
+				UseLaunchSecurityTDX: true,
+			}
+		})
+
+		It("should set LaunchSecurity domain element with 'tdx' type", func() {
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
+			Expect(domain.Spec.LaunchSecurity.Type).To(Equal("tdx"))
 		})
 	})
 

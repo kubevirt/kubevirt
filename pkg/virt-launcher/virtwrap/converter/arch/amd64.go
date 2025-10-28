@@ -156,6 +156,11 @@ func (converterAMD64) LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.Launch
 			domain.Session = launchSec.SEV.Session
 		}
 		return domain
+	} else if launchSec.TDX != nil {
+		return &api.LaunchSecurity{
+			Type: "tdx",
+		}
 	}
+
 	return nil
 }
