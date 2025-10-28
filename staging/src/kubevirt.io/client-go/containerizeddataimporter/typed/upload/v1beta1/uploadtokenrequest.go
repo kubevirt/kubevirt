@@ -21,14 +21,14 @@ Copyright The KubeVirt Authors.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	scheme "kubevirt.io/client-go/containerizeddataimporter/scheme"
-	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
+	uploadv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
 )
 
 // UploadTokenRequestsGetter has a method to return a UploadTokenRequestInterface.
@@ -39,33 +39,34 @@ type UploadTokenRequestsGetter interface {
 
 // UploadTokenRequestInterface has methods to work with UploadTokenRequest resources.
 type UploadTokenRequestInterface interface {
-	Create(ctx context.Context, uploadTokenRequest *v1beta1.UploadTokenRequest, opts v1.CreateOptions) (*v1beta1.UploadTokenRequest, error)
-	Update(ctx context.Context, uploadTokenRequest *v1beta1.UploadTokenRequest, opts v1.UpdateOptions) (*v1beta1.UploadTokenRequest, error)
+	Create(ctx context.Context, uploadTokenRequest *uploadv1beta1.UploadTokenRequest, opts v1.CreateOptions) (*uploadv1beta1.UploadTokenRequest, error)
+	Update(ctx context.Context, uploadTokenRequest *uploadv1beta1.UploadTokenRequest, opts v1.UpdateOptions) (*uploadv1beta1.UploadTokenRequest, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, uploadTokenRequest *v1beta1.UploadTokenRequest, opts v1.UpdateOptions) (*v1beta1.UploadTokenRequest, error)
+	UpdateStatus(ctx context.Context, uploadTokenRequest *uploadv1beta1.UploadTokenRequest, opts v1.UpdateOptions) (*uploadv1beta1.UploadTokenRequest, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.UploadTokenRequest, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.UploadTokenRequestList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*uploadv1beta1.UploadTokenRequest, error)
+	List(ctx context.Context, opts v1.ListOptions) (*uploadv1beta1.UploadTokenRequestList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.UploadTokenRequest, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *uploadv1beta1.UploadTokenRequest, err error)
 	UploadTokenRequestExpansion
 }
 
 // uploadTokenRequests implements UploadTokenRequestInterface
 type uploadTokenRequests struct {
-	*gentype.ClientWithList[*v1beta1.UploadTokenRequest, *v1beta1.UploadTokenRequestList]
+	*gentype.ClientWithList[*uploadv1beta1.UploadTokenRequest, *uploadv1beta1.UploadTokenRequestList]
 }
 
 // newUploadTokenRequests returns a UploadTokenRequests
 func newUploadTokenRequests(c *UploadV1beta1Client, namespace string) *uploadTokenRequests {
 	return &uploadTokenRequests{
-		gentype.NewClientWithList[*v1beta1.UploadTokenRequest, *v1beta1.UploadTokenRequestList](
+		gentype.NewClientWithList[*uploadv1beta1.UploadTokenRequest, *uploadv1beta1.UploadTokenRequestList](
 			"uploadtokenrequests",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1beta1.UploadTokenRequest { return &v1beta1.UploadTokenRequest{} },
-			func() *v1beta1.UploadTokenRequestList { return &v1beta1.UploadTokenRequestList{} }),
+			func() *uploadv1beta1.UploadTokenRequest { return &uploadv1beta1.UploadTokenRequest{} },
+			func() *uploadv1beta1.UploadTokenRequestList { return &uploadv1beta1.UploadTokenRequestList{} },
+		),
 	}
 }

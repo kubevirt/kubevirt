@@ -21,129 +21,32 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
+	corev1beta1 "kubevirt.io/client-go/containerizeddataimporter/typed/core/v1beta1"
 	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
-// FakeDataSources implements DataSourceInterface
-type FakeDataSources struct {
+// fakeDataSources implements DataSourceInterface
+type fakeDataSources struct {
+	*gentype.FakeClientWithList[*v1beta1.DataSource, *v1beta1.DataSourceList]
 	Fake *FakeCdiV1beta1
-	ns   string
 }
 
-var datasourcesResource = v1beta1.SchemeGroupVersion.WithResource("datasources")
-
-var datasourcesKind = v1beta1.SchemeGroupVersion.WithKind("DataSource")
-
-// Get takes name of the dataSource, and returns the corresponding dataSource object, and an error if there is any.
-func (c *FakeDataSources) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.DataSource, err error) {
-	emptyResult := &v1beta1.DataSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(datasourcesResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeDataSources(fake *FakeCdiV1beta1, namespace string) corev1beta1.DataSourceInterface {
+	return &fakeDataSources{
+		gentype.NewFakeClientWithList[*v1beta1.DataSource, *v1beta1.DataSourceList](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("datasources"),
+			v1beta1.SchemeGroupVersion.WithKind("DataSource"),
+			func() *v1beta1.DataSource { return &v1beta1.DataSource{} },
+			func() *v1beta1.DataSourceList { return &v1beta1.DataSourceList{} },
+			func(dst, src *v1beta1.DataSourceList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.DataSourceList) []*v1beta1.DataSource { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1beta1.DataSourceList, items []*v1beta1.DataSource) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.DataSource), err
-}
-
-// List takes label and field selectors, and returns the list of DataSources that match those selectors.
-func (c *FakeDataSources) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.DataSourceList, err error) {
-	emptyResult := &v1beta1.DataSourceList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(datasourcesResource, datasourcesKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.DataSourceList{ListMeta: obj.(*v1beta1.DataSourceList).ListMeta}
-	for _, item := range obj.(*v1beta1.DataSourceList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested dataSources.
-func (c *FakeDataSources) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(datasourcesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a dataSource and creates it.  Returns the server's representation of the dataSource, and an error, if there is any.
-func (c *FakeDataSources) Create(ctx context.Context, dataSource *v1beta1.DataSource, opts v1.CreateOptions) (result *v1beta1.DataSource, err error) {
-	emptyResult := &v1beta1.DataSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(datasourcesResource, c.ns, dataSource, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.DataSource), err
-}
-
-// Update takes the representation of a dataSource and updates it. Returns the server's representation of the dataSource, and an error, if there is any.
-func (c *FakeDataSources) Update(ctx context.Context, dataSource *v1beta1.DataSource, opts v1.UpdateOptions) (result *v1beta1.DataSource, err error) {
-	emptyResult := &v1beta1.DataSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(datasourcesResource, c.ns, dataSource, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.DataSource), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeDataSources) UpdateStatus(ctx context.Context, dataSource *v1beta1.DataSource, opts v1.UpdateOptions) (result *v1beta1.DataSource, err error) {
-	emptyResult := &v1beta1.DataSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(datasourcesResource, "status", c.ns, dataSource, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.DataSource), err
-}
-
-// Delete takes name of the dataSource and deletes it. Returns an error if one occurs.
-func (c *FakeDataSources) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(datasourcesResource, c.ns, name, opts), &v1beta1.DataSource{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeDataSources) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(datasourcesResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.DataSourceList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched dataSource.
-func (c *FakeDataSources) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.DataSource, err error) {
-	emptyResult := &v1beta1.DataSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(datasourcesResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.DataSource), err
 }

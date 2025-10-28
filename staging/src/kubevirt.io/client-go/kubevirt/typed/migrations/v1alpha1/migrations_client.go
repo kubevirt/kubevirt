@@ -21,11 +21,11 @@ Copyright The KubeVirt Authors.
 package v1alpha1
 
 import (
-	"net/http"
+	http "net/http"
 
 	rest "k8s.io/client-go/rest"
-	v1alpha1 "kubevirt.io/api/migrations/v1alpha1"
-	"kubevirt.io/client-go/kubevirt/scheme"
+	migrationsv1alpha1 "kubevirt.io/api/migrations/v1alpha1"
+	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
 type MigrationsV1alpha1Interface interface {
@@ -87,10 +87,10 @@ func New(c rest.Interface) *MigrationsV1alpha1Client {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := v1alpha1.SchemeGroupVersion
+	gv := migrationsv1alpha1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

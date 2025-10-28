@@ -21,9 +21,9 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	k8scnicncfiov1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -39,31 +39,36 @@ type NetworkAttachmentDefinitionsGetter interface {
 
 // NetworkAttachmentDefinitionInterface has methods to work with NetworkAttachmentDefinition resources.
 type NetworkAttachmentDefinitionInterface interface {
-	Create(ctx context.Context, networkAttachmentDefinition *v1.NetworkAttachmentDefinition, opts metav1.CreateOptions) (*v1.NetworkAttachmentDefinition, error)
-	Update(ctx context.Context, networkAttachmentDefinition *v1.NetworkAttachmentDefinition, opts metav1.UpdateOptions) (*v1.NetworkAttachmentDefinition, error)
+	Create(ctx context.Context, networkAttachmentDefinition *k8scnicncfiov1.NetworkAttachmentDefinition, opts metav1.CreateOptions) (*k8scnicncfiov1.NetworkAttachmentDefinition, error)
+	Update(ctx context.Context, networkAttachmentDefinition *k8scnicncfiov1.NetworkAttachmentDefinition, opts metav1.UpdateOptions) (*k8scnicncfiov1.NetworkAttachmentDefinition, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.NetworkAttachmentDefinition, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.NetworkAttachmentDefinitionList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*k8scnicncfiov1.NetworkAttachmentDefinition, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*k8scnicncfiov1.NetworkAttachmentDefinitionList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.NetworkAttachmentDefinition, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *k8scnicncfiov1.NetworkAttachmentDefinition, err error)
 	NetworkAttachmentDefinitionExpansion
 }
 
 // networkAttachmentDefinitions implements NetworkAttachmentDefinitionInterface
 type networkAttachmentDefinitions struct {
-	*gentype.ClientWithList[*v1.NetworkAttachmentDefinition, *v1.NetworkAttachmentDefinitionList]
+	*gentype.ClientWithList[*k8scnicncfiov1.NetworkAttachmentDefinition, *k8scnicncfiov1.NetworkAttachmentDefinitionList]
 }
 
 // newNetworkAttachmentDefinitions returns a NetworkAttachmentDefinitions
 func newNetworkAttachmentDefinitions(c *K8sCniCncfIoV1Client, namespace string) *networkAttachmentDefinitions {
 	return &networkAttachmentDefinitions{
-		gentype.NewClientWithList[*v1.NetworkAttachmentDefinition, *v1.NetworkAttachmentDefinitionList](
+		gentype.NewClientWithList[*k8scnicncfiov1.NetworkAttachmentDefinition, *k8scnicncfiov1.NetworkAttachmentDefinitionList](
 			"network-attachment-definitions",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.NetworkAttachmentDefinition { return &v1.NetworkAttachmentDefinition{} },
-			func() *v1.NetworkAttachmentDefinitionList { return &v1.NetworkAttachmentDefinitionList{} }),
+			func() *k8scnicncfiov1.NetworkAttachmentDefinition {
+				return &k8scnicncfiov1.NetworkAttachmentDefinition{}
+			},
+			func() *k8scnicncfiov1.NetworkAttachmentDefinitionList {
+				return &k8scnicncfiov1.NetworkAttachmentDefinitionList{}
+			},
+		),
 	}
 }
