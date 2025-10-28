@@ -21,116 +21,34 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
+	corev1beta1 "kubevirt.io/client-go/containerizeddataimporter/typed/core/v1beta1"
 	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
-// FakeVolumeCloneSources implements VolumeCloneSourceInterface
-type FakeVolumeCloneSources struct {
+// fakeVolumeCloneSources implements VolumeCloneSourceInterface
+type fakeVolumeCloneSources struct {
+	*gentype.FakeClientWithList[*v1beta1.VolumeCloneSource, *v1beta1.VolumeCloneSourceList]
 	Fake *FakeCdiV1beta1
-	ns   string
 }
 
-var volumeclonesourcesResource = v1beta1.SchemeGroupVersion.WithResource("volumeclonesources")
-
-var volumeclonesourcesKind = v1beta1.SchemeGroupVersion.WithKind("VolumeCloneSource")
-
-// Get takes name of the volumeCloneSource, and returns the corresponding volumeCloneSource object, and an error if there is any.
-func (c *FakeVolumeCloneSources) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.VolumeCloneSource, err error) {
-	emptyResult := &v1beta1.VolumeCloneSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(volumeclonesourcesResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeVolumeCloneSources(fake *FakeCdiV1beta1, namespace string) corev1beta1.VolumeCloneSourceInterface {
+	return &fakeVolumeCloneSources{
+		gentype.NewFakeClientWithList[*v1beta1.VolumeCloneSource, *v1beta1.VolumeCloneSourceList](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("volumeclonesources"),
+			v1beta1.SchemeGroupVersion.WithKind("VolumeCloneSource"),
+			func() *v1beta1.VolumeCloneSource { return &v1beta1.VolumeCloneSource{} },
+			func() *v1beta1.VolumeCloneSourceList { return &v1beta1.VolumeCloneSourceList{} },
+			func(dst, src *v1beta1.VolumeCloneSourceList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.VolumeCloneSourceList) []*v1beta1.VolumeCloneSource {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1beta1.VolumeCloneSourceList, items []*v1beta1.VolumeCloneSource) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.VolumeCloneSource), err
-}
-
-// List takes label and field selectors, and returns the list of VolumeCloneSources that match those selectors.
-func (c *FakeVolumeCloneSources) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.VolumeCloneSourceList, err error) {
-	emptyResult := &v1beta1.VolumeCloneSourceList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(volumeclonesourcesResource, volumeclonesourcesKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.VolumeCloneSourceList{ListMeta: obj.(*v1beta1.VolumeCloneSourceList).ListMeta}
-	for _, item := range obj.(*v1beta1.VolumeCloneSourceList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested volumeCloneSources.
-func (c *FakeVolumeCloneSources) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(volumeclonesourcesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a volumeCloneSource and creates it.  Returns the server's representation of the volumeCloneSource, and an error, if there is any.
-func (c *FakeVolumeCloneSources) Create(ctx context.Context, volumeCloneSource *v1beta1.VolumeCloneSource, opts v1.CreateOptions) (result *v1beta1.VolumeCloneSource, err error) {
-	emptyResult := &v1beta1.VolumeCloneSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(volumeclonesourcesResource, c.ns, volumeCloneSource, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VolumeCloneSource), err
-}
-
-// Update takes the representation of a volumeCloneSource and updates it. Returns the server's representation of the volumeCloneSource, and an error, if there is any.
-func (c *FakeVolumeCloneSources) Update(ctx context.Context, volumeCloneSource *v1beta1.VolumeCloneSource, opts v1.UpdateOptions) (result *v1beta1.VolumeCloneSource, err error) {
-	emptyResult := &v1beta1.VolumeCloneSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(volumeclonesourcesResource, c.ns, volumeCloneSource, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VolumeCloneSource), err
-}
-
-// Delete takes name of the volumeCloneSource and deletes it. Returns an error if one occurs.
-func (c *FakeVolumeCloneSources) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(volumeclonesourcesResource, c.ns, name, opts), &v1beta1.VolumeCloneSource{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVolumeCloneSources) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(volumeclonesourcesResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.VolumeCloneSourceList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched volumeCloneSource.
-func (c *FakeVolumeCloneSources) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.VolumeCloneSource, err error) {
-	emptyResult := &v1beta1.VolumeCloneSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(volumeclonesourcesResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VolumeCloneSource), err
 }

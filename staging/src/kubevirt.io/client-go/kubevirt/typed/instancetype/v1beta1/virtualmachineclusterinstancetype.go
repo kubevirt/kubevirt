@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,36 @@ type VirtualMachineClusterInstancetypesGetter interface {
 
 // VirtualMachineClusterInstancetypeInterface has methods to work with VirtualMachineClusterInstancetype resources.
 type VirtualMachineClusterInstancetypeInterface interface {
-	Create(ctx context.Context, virtualMachineClusterInstancetype *v1beta1.VirtualMachineClusterInstancetype, opts v1.CreateOptions) (*v1beta1.VirtualMachineClusterInstancetype, error)
-	Update(ctx context.Context, virtualMachineClusterInstancetype *v1beta1.VirtualMachineClusterInstancetype, opts v1.UpdateOptions) (*v1beta1.VirtualMachineClusterInstancetype, error)
+	Create(ctx context.Context, virtualMachineClusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype, opts v1.CreateOptions) (*instancetypev1beta1.VirtualMachineClusterInstancetype, error)
+	Update(ctx context.Context, virtualMachineClusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype, opts v1.UpdateOptions) (*instancetypev1beta1.VirtualMachineClusterInstancetype, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.VirtualMachineClusterInstancetype, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.VirtualMachineClusterInstancetypeList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*instancetypev1beta1.VirtualMachineClusterInstancetype, error)
+	List(ctx context.Context, opts v1.ListOptions) (*instancetypev1beta1.VirtualMachineClusterInstancetypeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.VirtualMachineClusterInstancetype, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *instancetypev1beta1.VirtualMachineClusterInstancetype, err error)
 	VirtualMachineClusterInstancetypeExpansion
 }
 
 // virtualMachineClusterInstancetypes implements VirtualMachineClusterInstancetypeInterface
 type virtualMachineClusterInstancetypes struct {
-	*gentype.ClientWithList[*v1beta1.VirtualMachineClusterInstancetype, *v1beta1.VirtualMachineClusterInstancetypeList]
+	*gentype.ClientWithList[*instancetypev1beta1.VirtualMachineClusterInstancetype, *instancetypev1beta1.VirtualMachineClusterInstancetypeList]
 }
 
 // newVirtualMachineClusterInstancetypes returns a VirtualMachineClusterInstancetypes
 func newVirtualMachineClusterInstancetypes(c *InstancetypeV1beta1Client) *virtualMachineClusterInstancetypes {
 	return &virtualMachineClusterInstancetypes{
-		gentype.NewClientWithList[*v1beta1.VirtualMachineClusterInstancetype, *v1beta1.VirtualMachineClusterInstancetypeList](
+		gentype.NewClientWithList[*instancetypev1beta1.VirtualMachineClusterInstancetype, *instancetypev1beta1.VirtualMachineClusterInstancetypeList](
 			"virtualmachineclusterinstancetypes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1beta1.VirtualMachineClusterInstancetype { return &v1beta1.VirtualMachineClusterInstancetype{} },
-			func() *v1beta1.VirtualMachineClusterInstancetypeList {
-				return &v1beta1.VirtualMachineClusterInstancetypeList{}
-			}),
+			func() *instancetypev1beta1.VirtualMachineClusterInstancetype {
+				return &instancetypev1beta1.VirtualMachineClusterInstancetype{}
+			},
+			func() *instancetypev1beta1.VirtualMachineClusterInstancetypeList {
+				return &instancetypev1beta1.VirtualMachineClusterInstancetypeList{}
+			},
+		),
 	}
 }
