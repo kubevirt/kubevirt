@@ -25,6 +25,7 @@ const (
 	runtimesPath    = "/var/run/kubevirt-libvirt-runtimes"
 	PrHelperName    = "pr-helper"
 	prVolumeName    = "pr-helper-socket-vol"
+	qgsSocketDir    = "/var/run/tdx-qgs"
 	devDirVol       = "dev-dir"
 	SidecarShimName = "sidecar-shim"
 	etcMultipath    = "etc-multipath"
@@ -294,6 +295,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
 		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi},
 		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
+		{"qgs-socket-vol", qgsSocketDir, qgsSocketDir, nil},
 	}
 
 	for _, volume := range volumes {
