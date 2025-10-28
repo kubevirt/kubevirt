@@ -1207,7 +1207,8 @@ const (
 	// Set By VM controller on VMIs to ensure VMIs are processed by VM controller during deletion
 	VirtualMachineControllerFinalizer        string = "kubevirt.io/virtualMachineControllerFinalize"
 	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
-	CPUManager                               string = "cpumanager"
+	DeprecatedCPUManager                     string = "cpumanager"
+	CPUManager                               string = "kubevirt.io/cpumanager"
 	// This annotation is used to inject ignition data
 	// Used on VirtualMachineInstance.
 	IgnitionAnnotation           string = "kubevirt.io/ignitiondata"
