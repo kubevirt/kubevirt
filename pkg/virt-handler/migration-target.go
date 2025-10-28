@@ -193,6 +193,9 @@ func domainIsActiveOnTarget(domain *api.Domain) bool {
 func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	vmi.Status.MigrationState.EndTimestamp = domain.Spec.Metadata.KubeVirt.Migration.EndTimestamp
 	vmi.Labels[v1.NodeNameLabel] = c.host
+	if _, exists := vmi.GetAnnotations()[v1.EvictionSourceAnnotation]; exists {
+		delete(vmi.Annotations, v1.EvictionSourceAnnotation)
+	}
 	delete(vmi.Labels, v1.OutdatedLauncherImageLabel)
 	vmi.Status.LauncherContainerImageVersion = ""
 	vmi.Status.NodeName = c.host

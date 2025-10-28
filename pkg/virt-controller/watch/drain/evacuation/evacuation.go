@@ -14,15 +14,14 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -366,20 +365,28 @@ func getMarkedForEvictionVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.V
 	return evictionCandidates
 }
 
-func GenerateNewMigration(vmiName string, key string) *virtv1.VirtualMachineInstanceMigration {
+func GenerateNewMigration(vmi *virtv1.VirtualMachineInstance, key string, config *virtconfig.ClusterConfig) *virtv1.VirtualMachineInstanceMigration {
 
 	annotations := map[string]string{
 		virtv1.EvacuationMigrationAnnotation: key,
 	}
-	return &virtv1.VirtualMachineInstanceMigration{
+	mig := &virtv1.VirtualMachineInstanceMigration{
 		ObjectMeta: v1.ObjectMeta{
 			Annotations:  annotations,
 			GenerateName: "kubevirt-evacuation-",
 		},
 		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
-			VMIName: vmiName,
+			VMIName: vmi.Name,
 		},
 	}
+	if config.MigrationPriorityQueueEnabled() {
+		mig.Spec.Priority = pointer.P(virtv1.PrioritySystemCritical)
+		if value, exists := vmi.GetAnnotations()[virtv1.EvictionSourceAnnotation]; exists && value == "descheduler" {
+			mig.Spec.Priority = pointer.P(virtv1.PrioritySystemMaintenance)
+		}
+	}
+
+	return mig
 }
 
 func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.VirtualMachineInstance, activeMigrations []*virtv1.VirtualMachineInstanceMigration) error {
@@ -400,56 +407,60 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 		return nil
 	}
 
-	runningMigrations := migrationutils.FilterRunningMigrations(activeMigrations)
-	activeMigrationsFromThisSourceNode := c.numOfVMIMForThisSourceNode(vmisOnNode, runningMigrations)
-	maxParallelMigrationsPerOutboundNode :=
-		int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
-	maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
-	freeSpotsPerCluster := maxParallelMigrations - len(runningMigrations)
-	freeSpotsPerThisSourceNode := maxParallelMigrationsPerOutboundNode - activeMigrationsFromThisSourceNode
-	freeSpots := int(math.Min(float64(freeSpotsPerCluster), float64(freeSpotsPerThisSourceNode)))
-	if freeSpots <= 0 {
-		c.Queue.AddAfter(node.Name, 5*time.Second)
-		return nil
-	}
-
-	diff := int(math.Min(float64(freeSpots), float64(len(migrationCandidates))))
-	remaining := freeSpots - diff
-	remainingForNonMigrateableDiff := int(math.Min(float64(remaining), float64(len(nonMigrateable))))
-
-	if remainingForNonMigrateableDiff > 0 {
-		// for all non-migrating VMIs which would get e spot emit a warning
-		for _, vmi := range nonMigrateable[0:remainingForNonMigrateableDiff] {
-			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, FailedCreateVirtualMachineInstanceMigrationReason, "VirtualMachineInstance is not migrateable")
+	selectedCandidates := migrationCandidates
+	if !c.clusterConfig.MigrationPriorityQueueEnabled() {
+		runningMigrations := migrationutils.FilterRunningMigrations(activeMigrations)
+		activeMigrationsFromThisSourceNode := c.numOfVMIMForThisSourceNode(vmisOnNode, runningMigrations)
+		maxParallelMigrationsPerOutboundNode :=
+			int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
+		maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
+		freeSpotsPerCluster := maxParallelMigrations - len(runningMigrations)
+		freeSpotsPerThisSourceNode := maxParallelMigrationsPerOutboundNode - activeMigrationsFromThisSourceNode
+		freeSpots := int(math.Min(float64(freeSpotsPerCluster), float64(freeSpotsPerThisSourceNode)))
+		if freeSpots <= 0 {
+			c.Queue.AddAfter(node.Name, 5*time.Second)
+			return nil
 		}
 
-	}
+		diff := int(math.Min(float64(freeSpots), float64(len(migrationCandidates))))
+		remaining := freeSpots - diff
+		remainingForNonMigrateableDiff := int(math.Min(float64(remaining), float64(len(nonMigrateable))))
 
-	if diff == 0 {
 		if remainingForNonMigrateableDiff > 0 {
-			// Let's ensure that some warnings will stay in the event log and periodically update
-			// In theory the warnings could disappear after one hour if nothing else updates
-			c.Queue.AddAfter(node.Name, 1*time.Minute)
+			// for all non-migrating VMIs which would get e spot emit a warning
+			for _, vmi := range nonMigrateable[0:remainingForNonMigrateableDiff] {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, FailedCreateVirtualMachineInstanceMigrationReason, "VirtualMachineInstance is not migrateable")
+			}
+
 		}
-		// nothing to do
-		return nil
+
+		if diff == 0 {
+			if remainingForNonMigrateableDiff > 0 {
+				// Let's ensure that some warnings will stay in the event log and periodically update
+				// In theory the warnings could disappear after one hour if nothing else updates
+				c.Queue.AddAfter(node.Name, 1*time.Minute)
+			}
+			// nothing to do
+			return nil
+		}
+
+		// TODO: should the order be randomized?
+		selectedCandidates = migrationCandidates[0:diff]
 	}
 
-	// TODO: should the order be randomized?
-	selectedCandidates := migrationCandidates[0:diff]
-
+	actualSpots := len(selectedCandidates)
 	log.DefaultLogger().Infof("node: %v, migrations: %v, candidates: %v, selected: %v", node.Name, len(activeMigrations), len(migrationCandidates), len(selectedCandidates))
 
 	wg := &sync.WaitGroup{}
-	wg.Add(diff)
+	wg.Add(actualSpots)
 
-	errChan := make(chan error, diff)
+	errChan := make(chan error, actualSpots)
 
-	c.migrationExpectations.ExpectCreations(node.Name, diff)
+	c.migrationExpectations.ExpectCreations(node.Name, actualSpots)
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi.Name, node.Name), v1.CreateOptions{})
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi, node.Name, c.clusterConfig), v1.CreateOptions{})
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)

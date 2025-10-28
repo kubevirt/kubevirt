@@ -14678,6 +14678,10 @@ var CRDsValidation map[string]string = map[string]string{
             are going to be preserved to ensure that addedNodeSelector
             can only restrict but not bypass constraints already set on the VM object.
           type: object
+        priority:
+          description: Priority of the migration. This can be one of 'system-critical',
+            'user-triggered', 'system-maintenance'.
+          type: string
         receive:
           description: If receieve is specified, this VirtualMachineInstanceMigration
             will be considered the target
