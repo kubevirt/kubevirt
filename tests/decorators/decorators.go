@@ -130,4 +130,9 @@ var (
 
 	// Swap decorator is used in case a swap is required on a node.
 	Swap = Label("SwapTest")
+
+	/* Platform */
+
+	// OpenShift decorator is used for tests that can only run on OpenShift clusters
+	OpenShift = Label("OpenShift")
 )

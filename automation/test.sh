@@ -543,6 +543,9 @@ if [[ -z "$KUBEVIRT_SWAP_ON" || "$KUBEVIRT_SWAP_ON" == "false" ]]; then
   add_to_label_filter '(!SwapTest)' '&&'
 fi
 
+# Ensure OpenShift tests are filtered out for all lanes
+add_to_label_filter '(!OpenShift)' '&&'
+
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
   ginko_params="$ginko_params|Networkpolicy"
