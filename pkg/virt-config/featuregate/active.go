@@ -73,6 +73,7 @@ const (
 
 	// Owner: @Barakmor1
 	// Alpha: v1.6.0
+	// Beta: v1.7.0
 	//
 	// ImageVolume The ImageVolume FG in KubeVirt uses Kubernetes ImageVolume FG to eliminate
 	// the need for an extra container for containerDisk, improving security by avoiding
@@ -142,7 +143,7 @@ const (
 )
 
 func init() {
-	RegisterFeatureGate(FeatureGate{Name: ImageVolume, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ImageVolume, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CPUManager, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IgnitionGate, State: Alpha})
