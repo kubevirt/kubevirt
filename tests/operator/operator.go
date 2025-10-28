@@ -1451,13 +1451,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", func() {
-
-		BeforeEach(func() {
-			if !serviceMonitorEnabled() {
-				Fail("Test requires ServiceMonitor to be valid")
-			}
-		})
+	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", decorators.SigMonitoring, func() {
 
 		It("[test_id:2936]Should allow Prometheus to scrape KubeVirt endpoints", func() {
 			coreClient := virtClient.CoreV1()
