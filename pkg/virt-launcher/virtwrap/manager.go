@@ -2406,23 +2406,26 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 		return nil, err
 	}
 	devices := domainSpec.Devices
-	interfaces := devices.Interfaces
-	for _, nic := range interfaces {
-		if data, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
-			var mac string
-			if nic.MAC != nil {
-				mac = nic.MAC.MAC
+
+	if len(taggedInterfaces) > 0 {
+		interfaces := devices.Interfaces
+		for _, nic := range interfaces {
+			if data, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
+				var mac string
+				if nic.MAC != nil {
+					mac = nic.MAC.MAC
+				}
+				// currently network Interfaces do not contain host devices thus have no NUMA alignment.
+				deviceAlignedCPUs := []uint32{}
+				devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
+					nic.Address,
+					mac,
+					data.Tag,
+					devicesMetadata,
+					nil,
+					deviceAlignedCPUs,
+				)
 			}
-			// currently network Interfaces do not contain host devices thus have no NUMA alignment.
-			deviceAlignedCPUs := []uint32{}
-			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
-				nic.Address,
-				mac,
-				data.Tag,
-				devicesMetadata,
-				nil,
-				deviceAlignedCPUs,
-			)
 		}
 	}
 
