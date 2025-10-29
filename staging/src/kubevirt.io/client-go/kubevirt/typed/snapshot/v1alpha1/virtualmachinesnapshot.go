@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,36 @@ type VirtualMachineSnapshotsGetter interface {
 
 // VirtualMachineSnapshotInterface has methods to work with VirtualMachineSnapshot resources.
 type VirtualMachineSnapshotInterface interface {
-	Create(ctx context.Context, virtualMachineSnapshot *v1alpha1.VirtualMachineSnapshot, opts v1.CreateOptions) (*v1alpha1.VirtualMachineSnapshot, error)
-	Update(ctx context.Context, virtualMachineSnapshot *v1alpha1.VirtualMachineSnapshot, opts v1.UpdateOptions) (*v1alpha1.VirtualMachineSnapshot, error)
+	Create(ctx context.Context, virtualMachineSnapshot *snapshotv1alpha1.VirtualMachineSnapshot, opts v1.CreateOptions) (*snapshotv1alpha1.VirtualMachineSnapshot, error)
+	Update(ctx context.Context, virtualMachineSnapshot *snapshotv1alpha1.VirtualMachineSnapshot, opts v1.UpdateOptions) (*snapshotv1alpha1.VirtualMachineSnapshot, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, virtualMachineSnapshot *v1alpha1.VirtualMachineSnapshot, opts v1.UpdateOptions) (*v1alpha1.VirtualMachineSnapshot, error)
+	UpdateStatus(ctx context.Context, virtualMachineSnapshot *snapshotv1alpha1.VirtualMachineSnapshot, opts v1.UpdateOptions) (*snapshotv1alpha1.VirtualMachineSnapshot, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.VirtualMachineSnapshot, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.VirtualMachineSnapshotList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*snapshotv1alpha1.VirtualMachineSnapshot, error)
+	List(ctx context.Context, opts v1.ListOptions) (*snapshotv1alpha1.VirtualMachineSnapshotList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.VirtualMachineSnapshot, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *snapshotv1alpha1.VirtualMachineSnapshot, err error)
 	VirtualMachineSnapshotExpansion
 }
 
 // virtualMachineSnapshots implements VirtualMachineSnapshotInterface
 type virtualMachineSnapshots struct {
-	*gentype.ClientWithList[*v1alpha1.VirtualMachineSnapshot, *v1alpha1.VirtualMachineSnapshotList]
+	*gentype.ClientWithList[*snapshotv1alpha1.VirtualMachineSnapshot, *snapshotv1alpha1.VirtualMachineSnapshotList]
 }
 
 // newVirtualMachineSnapshots returns a VirtualMachineSnapshots
 func newVirtualMachineSnapshots(c *SnapshotV1alpha1Client, namespace string) *virtualMachineSnapshots {
 	return &virtualMachineSnapshots{
-		gentype.NewClientWithList[*v1alpha1.VirtualMachineSnapshot, *v1alpha1.VirtualMachineSnapshotList](
+		gentype.NewClientWithList[*snapshotv1alpha1.VirtualMachineSnapshot, *snapshotv1alpha1.VirtualMachineSnapshotList](
 			"virtualmachinesnapshots",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.VirtualMachineSnapshot { return &v1alpha1.VirtualMachineSnapshot{} },
-			func() *v1alpha1.VirtualMachineSnapshotList { return &v1alpha1.VirtualMachineSnapshotList{} }),
+			func() *snapshotv1alpha1.VirtualMachineSnapshot { return &snapshotv1alpha1.VirtualMachineSnapshot{} },
+			func() *snapshotv1alpha1.VirtualMachineSnapshotList {
+				return &snapshotv1alpha1.VirtualMachineSnapshotList{}
+			},
+		),
 	}
 }

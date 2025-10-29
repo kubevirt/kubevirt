@@ -21,9 +21,9 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -40,16 +40,16 @@ type PrometheusesGetter interface {
 
 // PrometheusInterface has methods to work with Prometheus resources.
 type PrometheusInterface interface {
-	Create(ctx context.Context, prometheus *v1.Prometheus, opts metav1.CreateOptions) (*v1.Prometheus, error)
-	Update(ctx context.Context, prometheus *v1.Prometheus, opts metav1.UpdateOptions) (*v1.Prometheus, error)
+	Create(ctx context.Context, prometheus *monitoringv1.Prometheus, opts metav1.CreateOptions) (*monitoringv1.Prometheus, error)
+	Update(ctx context.Context, prometheus *monitoringv1.Prometheus, opts metav1.UpdateOptions) (*monitoringv1.Prometheus, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, prometheus *v1.Prometheus, opts metav1.UpdateOptions) (*v1.Prometheus, error)
+	UpdateStatus(ctx context.Context, prometheus *monitoringv1.Prometheus, opts metav1.UpdateOptions) (*monitoringv1.Prometheus, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Prometheus, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.PrometheusList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*monitoringv1.Prometheus, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*monitoringv1.PrometheusList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Prometheus, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *monitoringv1.Prometheus, err error)
 	GetScale(ctx context.Context, prometheusName string, options metav1.GetOptions) (*autoscalingv1.Scale, error)
 	UpdateScale(ctx context.Context, prometheusName string, scale *autoscalingv1.Scale, opts metav1.UpdateOptions) (*autoscalingv1.Scale, error)
 
@@ -58,19 +58,20 @@ type PrometheusInterface interface {
 
 // prometheuses implements PrometheusInterface
 type prometheuses struct {
-	*gentype.ClientWithList[*v1.Prometheus, *v1.PrometheusList]
+	*gentype.ClientWithList[*monitoringv1.Prometheus, *monitoringv1.PrometheusList]
 }
 
 // newPrometheuses returns a Prometheuses
 func newPrometheuses(c *MonitoringV1Client, namespace string) *prometheuses {
 	return &prometheuses{
-		gentype.NewClientWithList[*v1.Prometheus, *v1.PrometheusList](
+		gentype.NewClientWithList[*monitoringv1.Prometheus, *monitoringv1.PrometheusList](
 			"prometheuses",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.Prometheus { return &v1.Prometheus{} },
-			func() *v1.PrometheusList { return &v1.PrometheusList{} }),
+			func() *monitoringv1.Prometheus { return &monitoringv1.Prometheus{} },
+			func() *monitoringv1.PrometheusList { return &monitoringv1.PrometheusList{} },
+		),
 	}
 }
 

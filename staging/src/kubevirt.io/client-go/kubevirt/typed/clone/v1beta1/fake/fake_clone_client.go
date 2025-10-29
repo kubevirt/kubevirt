@@ -31,7 +31,7 @@ type FakeCloneV1beta1 struct {
 }
 
 func (c *FakeCloneV1beta1) VirtualMachineClones(namespace string) v1beta1.VirtualMachineCloneInterface {
-	return &FakeVirtualMachineClones{c, namespace}
+	return newFakeVirtualMachineClones(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
