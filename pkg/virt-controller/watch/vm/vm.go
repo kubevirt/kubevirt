@@ -2944,6 +2944,29 @@ func validLiveUpdateDisks(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.Virtu
 	return true
 }
 
+func validHotplugUpdates(oldVM *virtv1.VirtualMachine, newVM *virtv1.VirtualMachine) bool {
+	newVols := storagetypes.GetVolumesByName(&newVM.Spec.Template.Spec)
+	newDisks := storagetypes.GetDisksByName(&newVM.Spec.Template.Spec)
+	oldVols := storagetypes.GetVolumesByName(&oldVM.Spec.Template.Spec)
+
+	// check difference in Specs to see if disk and volume was removed
+	for _, oldDisk := range oldVM.Spec.Template.Spec.Domain.Devices.Disks {
+		oldVol, oldVolExists := oldVols[oldDisk.Name]
+		if oldVolExists && !storagetypes.IsHotplugVolume(oldVol) {
+			continue
+		}
+		_, newDiskExists := newDisks[oldDisk.Name]
+		_, newVolExists := newVols[oldDisk.Name]
+
+		// if the disk and volume was removed from VM Spec and that disk was a CDRom, a restart is required
+		if oldVolExists && !newDiskExists && !newVolExists && oldDisk.CDRom != nil {
+			return false
+		}
+	}
+
+	return true
+}
+
 func setRestartRequired(vm *virtv1.VirtualMachine, message string) {
 	vmConditions := controller.NewVirtualMachineConditionManager()
 	vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
@@ -2972,6 +2995,13 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 	}
 	if err := c.instancetypeController.ApplyToVM(lastSeenVM); err != nil {
 		return false
+	}
+
+	if c.clusterConfig.DeclarativeHotplugVolumesEnabled() {
+		if !validHotplugUpdates(lastSeenVM, currentVM) {
+			setRestartRequired(vm, "CD-ROM was detached from running VM")
+			return true
+		}
 	}
 
 	if validLiveUpdateVolumes(&lastSeenVM.Spec, currentVM) {
