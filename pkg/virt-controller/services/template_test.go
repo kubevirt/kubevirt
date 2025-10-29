@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -94,6 +95,7 @@ var _ = Describe("Template", func() {
 				VirtualMachineOptions: &v1.VirtualMachineOptions{
 					DisableSerialConsoleLog: &v1.DisableSerialConsoleLog{},
 				},
+				ImagePullPolicy: k8sv1.PullAlways,
 			},
 		},
 		Status: v1.KubeVirtStatus{
@@ -3763,7 +3765,7 @@ var _ = Describe("Template", func() {
 				enableFeatureGate(featuregate.ImageVolume)
 			})
 
-			DescribeTable("should not define additional containers", func(vmi *v1.VirtualMachineInstance) {
+			DescribeTable("should not define additional containers expect the noop init containers for digest", func(vmi *v1.VirtualMachineInstance) {
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod).ToNot(BeNil())
@@ -3773,8 +3775,6 @@ var _ = Describe("Template", func() {
 						"volumecontainerdisk-init",
 						"volumekernel-boot-volume-init",
 						"kernel-boot",
-						"volumekernel-boot-volume",
-						"volumecontainerdisk",
 					))
 				}
 			},
@@ -3884,7 +3884,7 @@ var _ = Describe("Template", func() {
 
 				Expect(volumes).To(ContainElement(
 					k8sv1.Volume{
-						Name: containerdisk.KernelBootName,
+						Name: containerdisk.KernelBootVolumeName,
 						VolumeSource: k8sv1.VolumeSource{
 							Image: &k8sv1.ImageVolumeSource{
 								Reference:  kernelbootcontainer.Image,
@@ -3895,7 +3895,7 @@ var _ = Describe("Template", func() {
 				)
 				Expect(computeMounts).To(ContainElement(
 					k8sv1.VolumeMount{
-						Name:      containerdisk.KernelBootName,
+						Name:      containerdisk.KernelBootVolumeName,
 						MountPath: util.VirtKernelBootVolumeDir,
 						ReadOnly:  true,
 					}),
@@ -3941,6 +3941,289 @@ var _ = Describe("Template", func() {
 					libvmi.WithNamespace("default"),
 					libvmi.WithKernelBootContainer("someImage"),
 				)),
+			)
+
+			DescribeTable("should create noop init containers for digest exposure", func(vmi *v1.VirtualMachineInstance, expectedInitContainerNames []string) {
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod).ToNot(BeNil())
+
+				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+					Name: containerdisk.LauncherVolume,
+					VolumeSource: k8sv1.VolumeSource{
+						Image: &k8sv1.ImageVolumeSource{
+							Reference:  "kubevirt/virt-launcher",
+							PullPolicy: config.GetImagePullPolicy(),
+						},
+					},
+				}), "should create launcher binary volume when ImageVolume is used")
+
+				// Find noop init containers
+				var initContainerNames []string
+				for _, container := range pod.Spec.InitContainers {
+					if !slices.Contains(expectedInitContainerNames, container.Name) {
+						continue
+					}
+					initContainerNames = append(initContainerNames, container.Name)
+					// Verify the noop command is used
+					Expect(container.Command).To(ContainElement("/container-disk-binary/usr/bin/container-disk"))
+					Expect(container.Args).To(ContainElement("--no-op"))
+					// Verify volume mount for launcher binary
+					Expect(container.VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
+						Name:      containerdisk.LauncherVolume,
+						MountPath: "/container-disk-binary",
+						ReadOnly:  true,
+					}))
+				}
+				// Verify expected init containers are created
+				Expect(initContainerNames).To(ContainElements(expectedInitContainerNames))
+			},
+				Entry("with container disk",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithContainerDisk("r0", "someImage"),
+					),
+					[]string{"volumer0"},
+				),
+				Entry("with kernel boot",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithKernelBootContainer("someImage"),
+					),
+					[]string{"volumekernel-boot-volume"},
+				),
+				Entry("with both container disk and kernel boot",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithContainerDisk("r0", "someImage"),
+						libvmi.WithKernelBootContainer("kernelImage"),
+					),
+					[]string{"volumer0", "volumekernel-boot-volume"},
+				),
+			)
+
+			DescribeTable("should use image digest extracted from source pod during migration and avoid adding init container for container disks ", func(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod, expectedVolumes []k8sv1.Volume) {
+				// Create a mock migration object
+				migration := &v1.VirtualMachineInstanceMigration{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-migration",
+						Namespace: vmi.Namespace,
+					},
+				}
+
+				// Use RenderMigrationManifest to test the complete migration workflow
+				targetPod, err := svc.RenderMigrationManifest(vmi, migration, sourcePod)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(targetPod).ToNot(BeNil())
+
+				Expect(targetPod.Spec.Volumes).To(ContainElements(expectedVolumes), "Verify that expected image volumes with digests are present")
+				Expect(targetPod.Spec.Volumes).ToNot(ContainElement(k8sv1.Volume{
+					Name: containerdisk.LauncherVolume,
+					VolumeSource: k8sv1.VolumeSource{
+						Image: &k8sv1.ImageVolumeSource{
+							Reference:  "kubevirt/virt-launcher",
+							PullPolicy: config.GetImagePullPolicy(),
+						},
+					},
+				}), "should not create launcher binary volume when no init containers are required for image digest extraction")
+
+				for _, c := range targetPod.Spec.InitContainers {
+					Expect(c.Name).ToNot(ContainSubstring("volume"), "target pod should not include init containers for container disks if digest is already extracted")
+				}
+			},
+				Entry("with container disk using digest from init containers",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithContainerDisk("r0", "someImage"),
+					),
+					&k8sv1.Pod{
+						Status: k8sv1.PodStatus{
+							InitContainerStatuses: []k8sv1.ContainerStatus{
+								{
+									Name:    "volumer0",
+									Image:   "someImage",
+									ImageID: "docker://sha256:abcd1234567890",
+								},
+							},
+						},
+					},
+					[]k8sv1.Volume{
+						{
+							Name: "r0",
+							VolumeSource: k8sv1.VolumeSource{
+								Image: &k8sv1.ImageVolumeSource{
+									Reference:  "someImage@sha256:abcd1234567890",
+									PullPolicy: "",
+								},
+							},
+						},
+					},
+				),
+				Entry("with kernel boot using digest from init containers",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithKernelBootContainer("kernelImage"),
+					),
+					&k8sv1.Pod{
+						Status: k8sv1.PodStatus{
+							InitContainerStatuses: []k8sv1.ContainerStatus{
+								{
+									Name:    "volumekernel-boot-volume",
+									Image:   "kernelImage",
+									ImageID: "docker://sha256:efgh5678901234",
+								},
+							},
+						},
+					},
+					[]k8sv1.Volume{
+						{
+							Name: containerdisk.KernelBootVolumeName,
+							VolumeSource: k8sv1.VolumeSource{
+								Image: &k8sv1.ImageVolumeSource{
+									Reference:  "kernelImage@sha256:efgh5678901234",
+									PullPolicy: "",
+								},
+							},
+						},
+					},
+				),
+				Entry("with both container disk and kernel boot using digests from init containers",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithContainerDisk("r0", "someImage"),
+						libvmi.WithKernelBootContainer("kernelImage"),
+					),
+					&k8sv1.Pod{
+						Status: k8sv1.PodStatus{
+							InitContainerStatuses: []k8sv1.ContainerStatus{
+								{
+									Name:    "volumer0",
+									Image:   "someImage",
+									ImageID: "docker://sha256:abcd1234567890",
+								},
+								{
+									Name:    "volumekernel-boot-volume",
+									Image:   "kernelImage",
+									ImageID: "docker://sha256:efgh5678901234",
+								},
+							},
+						},
+					},
+					[]k8sv1.Volume{
+						{
+							Name: "r0",
+							VolumeSource: k8sv1.VolumeSource{
+								Image: &k8sv1.ImageVolumeSource{
+									Reference:  "someImage@sha256:abcd1234567890",
+									PullPolicy: "",
+								},
+							},
+						},
+						{
+							Name: containerdisk.KernelBootVolumeName,
+							VolumeSource: k8sv1.VolumeSource{
+								Image: &k8sv1.ImageVolumeSource{
+									Reference:  "kernelImage@sha256:efgh5678901234",
+									PullPolicy: "",
+								},
+							},
+						},
+					},
+				),
+				Entry("with container disk using digest from volume",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithContainerDisk("r0", "someImage"),
+					),
+					&k8sv1.Pod{Spec: k8sv1.PodSpec{Volumes: []k8sv1.Volume{{
+						Name: "r0",
+						VolumeSource: k8sv1.VolumeSource{
+							Image: &k8sv1.ImageVolumeSource{
+								Reference: "someImage@sha256:abcd1234567890",
+							},
+						},
+					}}}},
+					[]k8sv1.Volume{
+						{
+							Name: "r0",
+							VolumeSource: k8sv1.VolumeSource{
+								Image: &k8sv1.ImageVolumeSource{
+									Reference:  "someImage@sha256:abcd1234567890",
+									PullPolicy: "",
+								},
+							},
+						},
+					},
+				),
+				Entry("with kernel boot using digest from volume",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithKernelBootContainer("kernelImage"),
+					),
+					&k8sv1.Pod{Spec: k8sv1.PodSpec{Volumes: []k8sv1.Volume{{
+						Name: "kernel-boot-volume",
+						VolumeSource: k8sv1.VolumeSource{
+							Image: &k8sv1.ImageVolumeSource{
+								Reference: "kernelImage@sha256:efgh5678901234",
+							},
+						},
+					}}}},
+					[]k8sv1.Volume{
+						{
+							Name: containerdisk.KernelBootVolumeName,
+							VolumeSource: k8sv1.VolumeSource{
+								Image: &k8sv1.ImageVolumeSource{
+									Reference:  "kernelImage@sha256:efgh5678901234",
+									PullPolicy: "",
+								},
+							},
+						},
+					},
+				),
+				Entry("with both container disk and kernel boot using digests from volume",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithContainerDisk("r0", "someImage"),
+						libvmi.WithKernelBootContainer("kernelImage"),
+					),
+					&k8sv1.Pod{Spec: k8sv1.PodSpec{Volumes: []k8sv1.Volume{{
+						Name: "r0",
+						VolumeSource: k8sv1.VolumeSource{
+							Image: &k8sv1.ImageVolumeSource{
+								Reference: "someImage@sha256:abcd1234567890",
+							},
+						},
+					},
+						{
+							Name: "kernel-boot-volume",
+							VolumeSource: k8sv1.VolumeSource{
+								Image: &k8sv1.ImageVolumeSource{
+									Reference: "kernelImage@sha256:efgh5678901234",
+								},
+							},
+						},
+					}}},
+					[]k8sv1.Volume{
+						{
+							Name: "r0",
+							VolumeSource: k8sv1.VolumeSource{
+								Image: &k8sv1.ImageVolumeSource{
+									Reference:  "someImage@sha256:abcd1234567890",
+									PullPolicy: "",
+								},
+							},
+						},
+						{
+							Name: containerdisk.KernelBootVolumeName,
+							VolumeSource: k8sv1.VolumeSource{
+								Image: &k8sv1.ImageVolumeSource{
+									Reference:  "kernelImage@sha256:efgh5678901234",
+									PullPolicy: "",
+								},
+							},
+						},
+					},
+				),
 			)
 		})
 
