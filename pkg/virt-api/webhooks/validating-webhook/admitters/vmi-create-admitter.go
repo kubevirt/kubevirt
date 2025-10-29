@@ -1060,6 +1060,9 @@ func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachi
 	if vmMemory == 0 && spec.Domain.Memory != nil {
 		vmMemory = spec.Domain.Memory.Guest.Value()
 	}
+	if vmMemory == 0 {
+		vmMemory = spec.Domain.Resources.Limits.Memory().Value()
+	}
 	if vmMemory != 0 && vmMemory < hugepagesSize.Value() {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
