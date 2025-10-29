@@ -1,21 +1,21 @@
 #!/bin/bash
 
 while getopts r:t:i:n: flag; do
-	case "${flag}" in
-	r) LIBVIRT_REPO=${OPTARG} ;;
-	t) LIBVIRT_TAG=${OPTARG} ;;
-	i) GITHUB_RUN_ID=${OPTARG} ;;
-	n) GITHUB_RUN_NUMBER=${OPTARG} ;;
-	*)
-		echo "Invalid option"
-		exit 1
-		;;
-	esac
+    case "${flag}" in
+    r) LIBVIRT_REPO=${OPTARG} ;;
+    t) LIBVIRT_TAG=${OPTARG} ;;
+    i) GITHUB_RUN_ID=${OPTARG} ;;
+    n) GITHUB_RUN_NUMBER=${OPTARG} ;;
+    *)
+        echo "Invalid option"
+        exit 1
+        ;;
+    esac
 done
 
 if [ -z "$LIBVIRT_REPO" ] || [ -z "$LIBVIRT_TAG" ] || [ -z "$GITHUB_RUN_ID" ] || [ -z "$GITHUB_RUN_NUMBER" ]; then
-	echo "Usage: $0 -r <LIBVIRT_REPO> -t <LIBVIRT_TAG> -i <GITHUB_RUN_ID> -n <GITHUB_RUN_NUMBER>"
-	exit 1
+    echo "Usage: $0 -r <LIBVIRT_REPO> -t <LIBVIRT_TAG> -i <GITHUB_RUN_ID> -n <GITHUB_RUN_NUMBER>"
+    exit 1
 fi
 
 echo "Building custom libvirt RPMs..."
@@ -59,9 +59,9 @@ mkdir -p rpms-libvirt
 
 # Start build environment
 docker run -td \
-	--name libvirt-build \
-	-v $(pwd)/libvirt-src:/libvirt-src \
-	registry.gitlab.com/libvirt/libvirt/ci-centos-stream-9
+    --name libvirt-build \
+    -v $(pwd)/libvirt-src:/libvirt-src \
+    registry.gitlab.com/libvirt/libvirt/ci-centos-stream-9
 
 # Build libvirt RPMs
 docker exec -w /libvirt-src libvirt-build bash -c "
