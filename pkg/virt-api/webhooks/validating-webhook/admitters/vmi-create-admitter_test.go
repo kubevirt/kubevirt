@@ -868,7 +868,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.hugepages.size"))
+			Expect(causes[0].Field).To(Equal("fake.domain.memory.hugepages.pageSize"))
 		})
 
 		It("should reject greater hugepages.size than requests.memory", func() {
@@ -990,7 +990,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 			Expect(causes[0].Message).To(Equal("fake.domain.resources.requests.memory '64Mi' " +
-				"is not a multiple of the page size fake.domain.hugepages.size '10Mi'"))
+				"is not a multiple of the page size fake.domain.memory.hugepages.pageSize '10Mi'"))
 		})
 
 		It("should allow setting guest memory and hugepages", func() {
