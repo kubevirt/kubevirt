@@ -2410,6 +2410,11 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 	if len(taggedInterfaces) > 0 {
 		interfaces := devices.Interfaces
 		for _, nic := range interfaces {
+			if nic.Alias == nil {
+				// Interfaces which do not include an alias cannot be associated with an iface spec.
+				log.Log.Object(vmi).Errorf("Missing alias for interface %v", nic)
+				continue
+			}
 			if data, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
 				var mac string
 				if nic.MAC != nil {
