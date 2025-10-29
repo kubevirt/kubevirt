@@ -2915,6 +2915,8 @@ func validLiveUpdateDisks(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.Virtu
 	oldDisks := storagetypes.GetDisksByName(&oldVMSpec.Template.Spec)
 	oldVols := storagetypes.GetVolumesByName(&oldVMSpec.Template.Spec)
 	vols := storagetypes.GetVolumesByName(&vm.Spec.Template.Spec)
+	newDisks := storagetypes.GetDisksByName(&vm.Spec.Template.Spec)
+
 	// Evaluate if any disk has changed or has been added
 	for _, newDisk := range vm.Spec.Template.Spec.Domain.Devices.Disks {
 		newVolume, okNewVolume := vols[newDisk.Name]
@@ -2934,9 +2936,15 @@ func validLiveUpdateDisks(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.Virtu
 		}
 	}
 	// Evaluate if any disks were removed and they were hotplugged volumes
-	for _, d := range oldDisks {
-		v, ok := oldVols[d.Name]
+	for _, oldDisk := range oldDisks {
+		v, ok := oldVols[oldDisk.Name]
 		if ok && !storagetypes.IsHotplugVolume(v) {
+			return false
+		}
+
+		// if a CDRom disk was removed from VM spec, a restart is required
+		_, newDiskExists := newDisks[oldDisk.Name]
+		if oldDisk.CDRom != nil && !newDiskExists {
 			return false
 		}
 	}
