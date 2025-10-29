@@ -233,6 +233,58 @@ var _ = Describe("Validating Pool Admitter", func() {
 		}(), []string{
 			"spec.updateStrategy",
 		}),
+		Entry("with invalid unmanaged and proactive scale-in strategy", func() *poolv1.VirtualMachinePool {
+			pool := newValidVMPool()
+			pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
+				Opportunistic: &poolv1.VirtualMachineOpportunisticUpdateStrategy{},
+				Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
+					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{},
+				},
+			}
+			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+				Unmanaged: &poolv1.VirtualMachinePoolUnmanagedStrategy{},
+				Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{},
+				},
+			}
+			return pool
+		}(), []string{
+			"spec.updateStrategy",
+			"spec.scaleInStrategy",
+		}),
+		Entry("with invalid unmanaged and opportunistic scale-in strategy", func() *poolv1.VirtualMachinePool {
+			pool := newValidVMPool()
+			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+				Unmanaged:     &poolv1.VirtualMachinePoolUnmanagedStrategy{},
+				Opportunistic: &poolv1.VirtualMachinePoolOpportunisticScaleInStrategy{},
+			}
+			return pool
+		}(), []string{
+			"spec.scaleInStrategy",
+		}),
+		Entry("with invalid proactive and opportunistic scale-in strategy", func() *poolv1.VirtualMachinePool {
+			pool := newValidVMPool()
+			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+				Opportunistic: &poolv1.VirtualMachinePoolOpportunisticScaleInStrategy{},
+				Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{},
+				},
+			}
+			return pool
+		}(), []string{
+			"spec.scaleInStrategy",
+		}),
+		Entry("with invalid scale-in strategy", func() *poolv1.VirtualMachinePool {
+			pool := newValidVMPool()
+			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+				Unmanaged:     &poolv1.VirtualMachinePoolUnmanagedStrategy{},
+				Opportunistic: &poolv1.VirtualMachinePoolOpportunisticScaleInStrategy{},
+				Proactive:     &poolv1.VirtualMachinePoolProactiveScaleInStrategy{},
+			}
+			return pool
+		}(), []string{
+			"spec.scaleInStrategy",
+		}),
 	)
 	It("should accept valid vm spec", func() {
 		pool := newValidVMPool()
@@ -241,6 +293,14 @@ var _ = Describe("Validating Pool Admitter", func() {
 				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
 					SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyNewest),
 				},
+			},
+		}
+		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+			Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+					SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyNewest),
+				},
+				StatePreservation: pointer.P(poolv1.StatePreservationOnline),
 			},
 		}
 		poolBytes, _ := json.Marshal(&pool)
