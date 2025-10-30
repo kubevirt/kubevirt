@@ -63,6 +63,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
@@ -1556,14 +1557,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
 
-	builder := NewDomainBuilder()
+	builder := NewDomainBuilder(metadata.DomainConfigurator{})
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
 	}
-
-	domain.Spec.Name = api.VMINamespaceKeyFunc(vmi)
-	domain.ObjectMeta.Name = vmi.ObjectMeta.Name
-	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace
 
 	// Set VM CPU cores
 	// CPU topology will be created everytime, because user can specify

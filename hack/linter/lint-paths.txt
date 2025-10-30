@@ -41,6 +41,7 @@ pkg/virtctl/testing
 pkg/virtctl/version
 pkg/virt-launcher/virtwrap/access-credentials
 pkg/virt-launcher/virtwrap/agent-poller
+pkg/virt-launcher/virtwrap/converter/metadata
 tests/conformance
 tests/console
 tests/decorators
