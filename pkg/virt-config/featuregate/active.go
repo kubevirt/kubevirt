@@ -39,6 +39,13 @@ const (
 	HotplugVolumesGate = "HotplugVolumes"
 	HostDiskGate       = "HostDisk"
 
+	// Owner: sig-storage
+	// Alpha: v1.7.0
+	//
+	// UtilityVolumes enables utility volumes feature which provides a general capability
+	// of hot-plugging volumes directly into the virt-launcher Pod for operational workflows
+	UtilityVolumesGate = "UtilityVolumes"
+
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	Root                       = "Root"
 	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
@@ -185,6 +192,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Alpha})
