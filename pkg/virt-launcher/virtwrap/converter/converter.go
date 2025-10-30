@@ -2023,11 +2023,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	domainInterfaces, err := CreateDomainInterfaces(vmi, c)
-	if err != nil {
-		return err
-	}
-	domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainInterfaces...)
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.SRIOVDevices...)
 
 	// Add Ignition Command Line if present
@@ -2101,7 +2096,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	setIOThreads(vmi, domain, vcpus)
 
-	builder := NewDomainBuilder()
+	builder := NewDomainBuilder(c)
 	if err := builder.BuildDomainFromVMI(vmi, domain); err != nil {
 		return err
 	}

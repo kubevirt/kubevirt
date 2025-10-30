@@ -24,6 +24,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 )
 
 type configurator interface {
@@ -34,8 +35,15 @@ type DomainBuilder struct {
 	configurators []configurator
 }
 
-func NewDomainBuilder() DomainBuilder {
-	return NewDomainBuilderWithConfigurators(metadata.DomainConfigurator{})
+func NewDomainBuilder(c *ConverterContext) DomainBuilder {
+	return NewDomainBuilderWithConfigurators(
+		metadata.DomainConfigurator{},
+		network.NewDomainConfigurator(
+			network.WithDomainAttachmentByInterfaceName(c.DomainAttachmentByInterfaceName),
+			network.WithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
+			network.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+		),
+	)
 }
 
 func NewDomainBuilderWithConfigurators(configurators ...configurator) DomainBuilder {
