@@ -120,6 +120,8 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		Expect(op).ToNot(BeNil(), "virt-handler pod should not be nil")
 
 		var epSlice *discoveryv1.EndpointSlice
+		var promPort int32
+
 		By("finding Prometheus endpoint")
 		Eventually(func() bool {
 			var epsList *discoveryv1.EndpointSliceList
@@ -137,7 +139,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 				if eps.AddressType != discoveryv1.AddressTypeIPv4 {
 					continue
 				}
-				if len(eps.Ports) == 0 || *eps.Ports[0].Name != "web" {
+				if promPort, err = findPrometheusWebPort(&eps); err != nil {
 					continue
 				}
 				if len(eps.Endpoints) == 0 || len(eps.Endpoints[0].Addresses) == 0 {
@@ -154,8 +156,6 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		}
 		promIP := epSlice.Endpoints[0].Addresses[0]
 		Expect(promIP).ToNot(Equal(""), "could not get Prometheus IP from endpoint slice")
-		// we already checked that Port is for the web on the above checking.
-		promPort := *epSlice.Ports[0].Port
 		Expect(promPort).ToNot(BeEquivalentTo(0), "could not get Prometheus port from endpoint slice")
 
 		// the Service Account needs to have access to the Prometheus subresource api
@@ -816,4 +816,18 @@ func cleanupClusterRoleAndBinding(namespace string) {
 	// Delete ClusterRoleBinding
 	err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), clusterRoleBindingName, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred(), "Failed to delete ClusterRoleBinding: %s", clusterRoleBindingName)
+}
+
+func findPrometheusWebPort(eps *discoveryv1.EndpointSlice) (int32, error) {
+	if len(eps.Ports) == 0 {
+		return 0, fmt.Errorf("web port not found")
+	}
+
+	for _, port := range eps.Ports {
+		if port.Name != nil && *port.Name == "web" {
+			return *port.Port, nil
+		}
+	}
+
+	return 0, fmt.Errorf("web port not found")
 }
