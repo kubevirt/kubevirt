@@ -28,6 +28,7 @@ import (
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
@@ -142,9 +143,9 @@ func NetworkQueuesCapacity(vmi *v1.VirtualMachineInstance) uint32 {
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	queueNumber := vcpu.CalculateRequestedVCPUs(cpuTopology)
 
-	if queueNumber > multiQueueMaxQueues {
-		log.Log.V(3).Infof("Capped the number of queues to be the current maximum of tap device queues: %d", multiQueueMaxQueues)
-		queueNumber = multiQueueMaxQueues
+	if queueNumber > network.MultiQueueMaxQueues {
+		log.Log.V(3).Infof("Capped the number of queues to be the current maximum of tap device queues: %d", network.MultiQueueMaxQueues)
+		queueNumber = network.MultiQueueMaxQueues
 	}
 	return queueNumber
 }
