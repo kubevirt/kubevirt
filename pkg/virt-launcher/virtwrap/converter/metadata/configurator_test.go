@@ -17,37 +17,37 @@
  *
  */
 
-package converter
+package metadata_test
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
 )
 
-type configurator interface {
-	Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
-}
+var _ = Describe("Metadata Domain Configurator", func() {
+	It("Should configure Domain Metadata", func() {
+		const (
+			testNamespace = "testNamespace"
+			testName      = "testName"
+		)
 
-type DomainBuilder struct {
-	configurators []configurator
-}
+		configurator := metadata.DomainConfigurator{}
 
-func NewDomainBuilder() DomainBuilder {
-	return NewDomainBuilderWithConfigurators(metadata.DomainConfigurator{})
-}
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithName(testName),
+		)
 
-func NewDomainBuilderWithConfigurators(configurators ...configurator) DomainBuilder {
-	return DomainBuilder{configurators: configurators}
-}
+		var domain api.Domain
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+		Expect(domain.ObjectMeta.Namespace).To(Equal(testNamespace))
+		Expect(domain.ObjectMeta.Name).To(Equal(testName))
 
-func (db *DomainBuilder) BuildDomainFromVMI(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	for _, cfg := range db.configurators {
-		if err := cfg.Configure(vmi, domain); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
+		const expectedSpecName = "testNamespace_testName"
+		Expect(domain.Spec.Name).To(Equal(expectedSpecName))
+	})
+})

@@ -1556,10 +1556,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
 
-	domain.Spec.Name = api.VMINamespaceKeyFunc(vmi)
-	domain.ObjectMeta.Name = vmi.ObjectMeta.Name
-	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace
-
 	// Set VM CPU cores
 	// CPU topology will be created everytime, because user can specify
 	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only

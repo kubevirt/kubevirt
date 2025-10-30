@@ -17,37 +17,21 @@
  *
  */
 
-package converter
+package metadata
 
 import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
 )
 
-type configurator interface {
-	Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
-}
+type DomainConfigurator struct{}
 
-type DomainBuilder struct {
-	configurators []configurator
-}
+func (dc DomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	domain.ObjectMeta.Name = vmi.ObjectMeta.Name
+	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace
 
-func NewDomainBuilder() DomainBuilder {
-	return NewDomainBuilderWithConfigurators(metadata.DomainConfigurator{})
-}
-
-func NewDomainBuilderWithConfigurators(configurators ...configurator) DomainBuilder {
-	return DomainBuilder{configurators: configurators}
-}
-
-func (db *DomainBuilder) BuildDomainFromVMI(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	for _, cfg := range db.configurators {
-		if err := cfg.Configure(vmi, domain); err != nil {
-			return err
-		}
-	}
+	domain.Spec.Name = api.VMINamespaceKeyFunc(vmi)
 
 	return nil
 }
