@@ -2105,6 +2105,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	setIOThreads(vmi, domain, vcpus)
 
+	builder := NewDomainBuilder()
+	if err := builder.BuildDomainFromVMI(vmi, domain); err != nil {
+		return err
+	}
+
 	return nil
 }
 
