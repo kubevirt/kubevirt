@@ -116,6 +116,20 @@ func WithNameserverFromCluster() NetworkDataInterfaceOption {
 	}
 }
 
+func WithNameserversFromCluster() NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		dnsServerIP, err := dns.ClusterDNSServiceIPv6andIPv4()
+		if err != nil {
+			return fmt.Errorf("failed defining network data nameservers when retrieving cluster DNS service IP: %w", err)
+		}
+		networkDataInterface.Nameservers = CloudInitNameservers{
+			Addresses: dnsServerIP,
+			Search:    dns.SearchDomains(),
+		}
+		return nil
+	}
+}
+
 func WithMatchingMAC(macAddress string) NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
 		networkDataInterface.Match = CloudInitMatch{
