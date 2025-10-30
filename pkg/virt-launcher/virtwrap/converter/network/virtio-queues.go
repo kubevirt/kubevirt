@@ -19,4 +19,31 @@
 
 package network
 
+import (
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+)
+
 const MultiQueueMaxQueues = uint32(256)
+
+func NetworkQueuesCapacity(vmi *v1.VirtualMachineInstance) uint32 {
+	if !isTrue(vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue) {
+		return 0
+	}
+
+	cpuTopology := vcpu.GetCPUTopology(vmi)
+	queueNumber := vcpu.CalculateRequestedVCPUs(cpuTopology)
+
+	if queueNumber > MultiQueueMaxQueues {
+		log.Log.V(3).Infof("Capped the number of queues to be the current maximum of tap device queues: %d", MultiQueueMaxQueues)
+		queueNumber = MultiQueueMaxQueues
+	}
+	return queueNumber
+}
+
+func isTrue(networkInterfaceMultiQueue *bool) bool {
+	return (networkInterfaceMultiQueue != nil) && (*networkInterfaceMultiQueue)
+}
