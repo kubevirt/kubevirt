@@ -64,7 +64,8 @@ func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.Device
 		select {
 		case devHealth := <-dpi.health:
 			for _, dev := range dpi.devs {
-				if devHealth.DevId == dev.ID {
+				// If the devHealth.DevId is empty, it was not set by the device plugin, so we update all devices
+				if devHealth.DevId == dev.ID || devHealth.DevId == "" {
 					dev.Health = devHealth.Health
 				}
 			}
