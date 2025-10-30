@@ -369,7 +369,7 @@ oci_pull(
 
 oci_pull(
     name = "alpine_with_test_tooling",
-    digest = "sha256:4a6c258a75cff2190d768ab06e57dbf375bedb260ce4ba79dd249f077e769dc5",
+    digest = "sha256:51d0011e5684397bbc78d650d4c58412e535ccf4ca7fbe7e720315deedb860b7",
     image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
 )
 
@@ -394,7 +394,7 @@ oci_pull(
 # TODO build fedora_realtime for multi-arch
 oci_pull(
     name = "fedora_realtime",
-    digest = "sha256:437f4e02986daf0058239f4a282d32304dcac629d5d1b4c75a74025f1ce22811",
+    digest = "sha256:f91379d202a5493aba9ce06870b5d1ada2c112f314530c9820a9ad07426aa565",
     image = "quay.io/kubevirt/fedora-realtime-container-disk",
 )
 
