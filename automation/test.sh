@@ -274,10 +274,36 @@ build_images() {
     return $rc
 }
 
+check_for_panics() {
+    set +x
+    if [ -d "${ARTIFACTS_PATH}" ]; then
+        local panic_files=$(grep -rlE --color=never -i "\bpanic(ked)?\b" "${ARTIFACTS_PATH}" 2>/dev/null | \
+            while IFS= read -r file; do
+                grep -qE "panicked:\s*false" "$file" 2>/dev/null || echo "$file"
+            done)
+        if [ -n "$panic_files" ]; then
+            echo ""
+            echo "================================"
+            echo "ERROR: Found panic in test output"
+            echo "Files:"
+            if [[ -n "${PULL_NUMBER}" && -n "${JOB_NAME}" && -n "${BUILD_ID}" ]]; then
+                while IFS= read -r file; do
+                    local relative_path="${file#/logs/}"
+                    echo "https://storage.googleapis.com/kubevirt-prow/pr-logs/pull/kubevirt_kubevirt/${PULL_NUMBER}/${JOB_NAME}/${BUILD_ID}/${relative_path}"
+                done <<< "$panic_files"
+            else
+                echo "$panic_files"
+            fi
+            echo "================================"
+        fi
+    fi
+    set -x
+}
+
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ ret=$?; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ ret=$?; check_for_panics; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
 
 if [ "$CI" != "true" ]; then
   make cluster-down
