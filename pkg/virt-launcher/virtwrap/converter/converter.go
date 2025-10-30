@@ -1556,6 +1556,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
 
+	builder := NewDomainBuilder()
+	if err := builder.Build(vmi, domain); err != nil {
+		return err
+	}
+
 	domain.Spec.Name = api.VMINamespaceKeyFunc(vmi)
 	domain.ObjectMeta.Name = vmi.ObjectMeta.Name
 	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace

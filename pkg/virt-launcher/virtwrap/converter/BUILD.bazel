@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "builder.go",
         "converter.go",
         "downwardmetrics.go",
         "generated_mock_converter.go",
@@ -49,6 +50,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "builder_test.go",
         "converter_suite_test.go",
         "converter_test.go",
     ],
