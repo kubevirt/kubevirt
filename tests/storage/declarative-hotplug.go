@@ -27,6 +27,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -369,6 +370,51 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 
 			By("Validate the CD-ROM is not present in the VM")
 			validateVMHasNoCDRom(vm)
+		})
+
+		It("Should trigger RestartRequired if CD-ROM disk is removed", func() {
+			By("Creating a VM with an empty CD-ROM")
+			vm := createAndStartVMWithEmptyCDRom()
+
+			By("Creating cd-rom volumes")
+			dv := createCDRomVolume(vm.Namespace, cd.ContainerDiskVirtio)
+
+			By("Hotplugging a CD-ROM")
+			vm = addHotplugVolume(vm, cdRomName, dv.Name)
+			waitForHotplugToComplete(vm, cdRomName, dv.Name, true)
+			libstorage.EventuallyDV(dv, 240, matcher.HaveSucceeded())
+
+			loginToVM(vm)
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			attachmentPodName := ""
+			for _, volumeStatus := range vmi.Status.VolumeStatus {
+				if volumeStatus.HotplugVolume != nil {
+					attachmentPodName = volumeStatus.HotplugVolume.AttachPodName
+				}
+			}
+
+			Expect(attachmentPodName).ToNot(BeEmpty())
+
+			By("Verifying no RestartRequired")
+			verifyNoRestartRequired(vm)
+
+			By("Removing CD-ROM disk and volume")
+			vm = removeHotplugDiskAndVolume(vm, cdRomName)
+			waitForHotplugToComplete(vm, cdRomName, dv.Name, false)
+
+			By("Checking RestartRequired Condition")
+			Eventually(matcher.ThisVM(vm), 120*time.Second, 2*time.Second).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
+
+			By("Checking hotplug voume was properly detached")
+			Eventually(func() error {
+				_, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), attachmentPodName, metav1.GetOptions{})
+				return err
+			}, 300*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+
 		})
 	})
 
