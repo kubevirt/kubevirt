@@ -87,6 +87,10 @@ if [[ "$KUBEVIRT_DEPLOY_CDI" != "false" ]] && [[ ${ARCHITECTURE} != *aarch64 ]];
     _ensure_cdi_deployment
 fi
 
+if [ "${KUBEVIRT_DEPLOY_NP}" == "true" ]; then
+    _kubectl apply -f hack/cluster-services-np.yaml
+fi
+
 # Deploy kubevirt operator
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
 

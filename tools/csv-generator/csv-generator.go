@@ -58,6 +58,7 @@ func main() {
 	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
 	prHelperImage := flag.String("pr-helper-image", "", "custom image for pr-helper. "+customImageExample)
 	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
+	dumpNetworkPolicies := flag.Bool("dump-network-policies", false, "dump Network Policies along with CSV manifests to stdout")
 
 	flag.Parse()
 
@@ -101,5 +102,12 @@ func main() {
 			panic(err)
 		}
 		util.MarshallObject(kvCRD, os.Stdout)
+	}
+
+	if *dumpNetworkPolicies {
+		kvNPs := components.NewKubeVirtNetworkPolicies(*namespace)
+		for _, v := range kvNPs {
+			util.MarshallObject(v, os.Stdout)
+		}
 	}
 }
