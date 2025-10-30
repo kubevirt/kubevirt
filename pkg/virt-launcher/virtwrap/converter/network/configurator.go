@@ -17,7 +17,7 @@
  *
  */
 
-package converter
+package network
 
 import (
 	"fmt"
@@ -27,12 +27,29 @@ import (
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext) ([]api.Interface, error) {
+type DomainConfigurator struct {
+	domainAttachmentByInterfaceName map[string]string
+	useLaunchSecuritySEV            bool
+	useLaunchSecurityPV             bool
+}
+
+type option func(*DomainConfigurator)
+
+func NewDomainConfigurator(options ...option) DomainConfigurator {
+	var configurator DomainConfigurator
+
+	for _, f := range options {
+		f(&configurator)
+	}
+
+	return configurator
+}
+
+func (d DomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	var domainInterfaces []api.Interface
 
 	nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
@@ -45,14 +62,14 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 	for i, iface := range nonAbsentIfaces {
 		_, isExist := networks[iface.Name]
 		if !isExist {
-			return nil, fmt.Errorf("failed to find network %s", iface.Name)
+			return fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
-		if (iface.Binding != nil && c.DomainAttachmentByInterfaceName[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil {
+		if (iface.Binding != nil && d.domainAttachmentByInterfaceName[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil {
 			continue
 		}
 
-		ifaceType := GetInterfaceType(&nonAbsentIfaces[i])
+		ifaceType := getInterfaceType(&nonAbsentIfaces[i])
 		domainIface := api.Interface{
 			Model: &api.Model{
 				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType, vmi.Spec.Architecture),
@@ -60,7 +77,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			Alias: api.NewUserDefinedAlias(iface.Name),
 		}
 
-		if queueCount := uint(CalculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
+		if queueCount := uint(calculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
 			domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
 		}
 
@@ -68,7 +85,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 		if iface.PciAddress != "" {
 			addr, err := device.NewPciAddressField(iface.PciAddress)
 			if err != nil {
-				return nil, fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
+				return fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
 			}
 			domainIface.Address = addr
 		}
@@ -77,7 +94,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
 		}
 
-		if c.DomainAttachmentByInterfaceName[iface.Name] == string(v1.Tap) {
+		if d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap) {
 			// use "ethernet" interface type, since we're using pre-configured tap devices
 			// https://libvirt.org/formatdomain.html#elementsNICSEthernet
 			domainIface.Type = "ethernet"
@@ -88,7 +105,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			}
 		}
 
-		if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
+		if d.useLaunchSecuritySEV || d.useLaunchSecurityPV {
 			if arch.NewConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
 				// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
 				domainIface.Rom = &api.Rom{Enabled: "no"}
@@ -108,10 +125,29 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 		domainInterfaces = append(domainInterfaces, domainIface)
 	}
 
-	return domainInterfaces, nil
+	domain.Spec.Devices.Interfaces = domainInterfaces
+	return nil
 }
 
-func GetInterfaceType(iface *v1.Interface) string {
+func WithDomainAttachmentByInterfaceName(domainAttachmentByInterfaceName map[string]string) option {
+	return func(d *DomainConfigurator) {
+		d.domainAttachmentByInterfaceName = domainAttachmentByInterfaceName
+	}
+}
+
+func WithUseLaunchSecuritySEV(useLaunchSecuritySEV bool) option {
+	return func(d *DomainConfigurator) {
+		d.useLaunchSecuritySEV = useLaunchSecuritySEV
+	}
+}
+
+func WithUseLaunchSecurityPV(useLaunchSecurityPV bool) option {
+	return func(d *DomainConfigurator) {
+		d.useLaunchSecurityPV = useLaunchSecurityPV
+	}
+}
+
+func getInterfaceType(iface *v1.Interface) string {
 	if iface.Model != "" {
 		return iface.Model
 	}
@@ -126,11 +162,11 @@ func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
 	return netsByName
 }
 
-func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
+func calculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
 	if ifaceType != v1.VirtIO {
 		return 0
 	}
-	return network.NetworkQueuesCapacity(vmi)
+	return NetworkQueuesCapacity(vmi)
 }
 
 func translateModel(useVirtioTransitional *bool, bus string, archString string) string {

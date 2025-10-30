@@ -64,6 +64,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
@@ -1557,7 +1558,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
 
-	builder := NewDomainBuilder(metadata.DomainConfigurator{})
+	builder := NewDomainBuilder(
+		metadata.DomainConfigurator{},
+		network.NewDomainConfigurator(
+			network.WithDomainAttachmentByInterfaceName(c.DomainAttachmentByInterfaceName),
+			network.WithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
+			network.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+		),
+	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
 	}
@@ -2029,11 +2037,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	domainInterfaces, err := CreateDomainInterfaces(vmi, c)
-	if err != nil {
-		return err
-	}
-	domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainInterfaces...)
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.SRIOVDevices...)
 
 	// Add Ignition Command Line if present
