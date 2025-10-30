@@ -6342,6 +6342,129 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart required")
 			})
 
+			updateVM := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+				By("Executing the controller")
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				return vm
+			}
+
+			DescribeTable("should appear when CD-ROM is detached from running VM", func(numUpdates int) {
+				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+					FeatureGates: []string{"DeclarativeHotplugVolumes"},
+				}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.PrintableStatus = "Running"
+				virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+					Type:   v1.VirtualMachineReady,
+					Status: k8sv1.ConditionTrue,
+				})
+
+				cdromVol := v1.Volume{
+					Name: "cdrom1",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							Hotpluggable: true,
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "cdrom-pvc",
+							},
+						},
+					},
+				}
+				cdromVol2 := v1.Volume{
+					Name: "cdrom2",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							Hotpluggable: true,
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "cdrom-pvc2",
+							},
+						},
+					},
+				}
+				regularVol := v1.Volume{
+					Name: "disk1",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "disk-pvc",
+							},
+						},
+					},
+				}
+
+				cdromDisk := v1.Disk{
+					Name: "cdrom1",
+					DiskDevice: v1.DiskDevice{
+						CDRom: &v1.CDRomTarget{},
+					},
+				}
+				cdromDisk2 := v1.Disk{
+					Name: "cdrom2",
+					DiskDevice: v1.DiskDevice{
+						CDRom: &v1.CDRomTarget{},
+					},
+				}
+				regularDisk := v1.Disk{
+					Name: "disk1",
+				}
+
+				vm.Spec.Template.Spec.Volumes = []v1.Volume{cdromVol, cdromVol2, regularVol}
+				vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{cdromDisk, cdromDisk2, regularDisk}
+
+				By("Creating a running VMI with all disks")
+				vmi = SetupVMIFromVM(vm)
+				vmi.Status.Phase = v1.Running
+				controller.vmiIndexer.Add(vmi)
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				switch numUpdates {
+				case 1:
+					By("Performing one VM update to remove disk and volume")
+					vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{cdromDisk2, regularDisk}
+					vm.Spec.Template.Spec.Volumes = []v1.Volume{cdromVol2, regularVol}
+					vm = updateVM(vm)
+					Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart should be required after volume and disk are removed")
+				case 2:
+					By("Performing two seperate VM updates to remove disk and volume")
+					vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{cdromDisk2, regularDisk}
+					vm = updateVM(vm)
+					Expect(vm.Status.Conditions).ToNot(restartRequiredMatcher(k8sv1.ConditionTrue), "restart should not be required")
+					vm.Spec.Template.Spec.Volumes = []v1.Volume{cdromVol2, regularVol}
+					vm = updateVM(vm)
+					Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart should be required after volume and disk are removed")
+				case 3:
+					// Makes sure we can still detect detachment even after a non-related VM spec update
+					By("Performing two updates to remove seperate disks and another update to remove volume")
+					vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{cdromDisk2, regularDisk}
+					vm = updateVM(vm)
+					Expect(vm.Status.Conditions).ToNot(restartRequiredMatcher(k8sv1.ConditionTrue), "restart should not be required")
+					vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{regularDisk}
+					vm = updateVM(vm)
+					Expect(vm.Status.Conditions).ToNot(restartRequiredMatcher(k8sv1.ConditionTrue), "restart should not be required")
+					vm.Spec.Template.Spec.Volumes = []v1.Volume{cdromVol2, regularVol}
+					vm = updateVM(vm)
+					Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart should be required after volume and disk are removed")
+				default:
+					Fail("Could not run VM updates due to invalid numUpdates parameter in Entry")
+				}
+			},
+				Entry("Removing disk and volume in one operation", 1),
+				Entry("Removing disk and volume in two operation", 2),
+				Entry("Removing two sepeate disks and volume in three operation", 3),
+			)
+
 			DescribeTable("when changing a live-updatable field", func(strat *v1.VMRolloutStrategy, matcher gomegatypes.GomegaMatcher) {
 				// Add necessary stuff to reflect running VM
 				// TODO: This should be done in more places
