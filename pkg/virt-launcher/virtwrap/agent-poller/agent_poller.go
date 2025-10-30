@@ -40,7 +40,6 @@ type AgentCommand string
 // Aliases are also used as keys to the store, it does not matter how the keys are named,
 // only whether it relates to the right data
 const (
-	GetFilesystem     AgentCommand = "guest-get-fsinfo"
 	GetAgent          AgentCommand = "guest-info"
 	GetFSFreezeStatus AgentCommand = "guest-fsfreeze-status"
 
@@ -179,7 +178,7 @@ func (s *AsyncAgentStore) GetFSFreezeStatus() *api.FSFreeze {
 // GetFS returns the filesystem list limited to the limit set
 // set limit to -1 to return the whole list
 func (s *AsyncAgentStore) GetFS(limit int) []api.Filesystem {
-	data, ok := s.store.Load(GetFilesystem)
+	data, ok := s.store.Load(libvirt.DOMAIN_GUEST_INFO_FILESYSTEM)
 	filesystems := []api.Filesystem{}
 	if !ok {
 		return filesystems
@@ -298,10 +297,6 @@ func CreatePoller(
 				AgentCommands: []AgentCommand{GetAgent},
 			},
 			{
-				CallTick:      qemuAgentFileInterval,
-				AgentCommands: []AgentCommand{GetFilesystem},
-			},
-			{
 				CallTick:      qemuAgentFSFreezeStatusInterval,
 				AgentCommands: []AgentCommand{GetFSFreezeStatus},
 			},
@@ -320,6 +315,10 @@ func CreatePoller(
 			{
 				CallTick:  qemuAgentSysInterval,
 				InfoTypes: libvirt.DOMAIN_GUEST_INFO_LOAD,
+			},
+			{
+				CallTick:  qemuAgentFileInterval,
+				InfoTypes: libvirt.DOMAIN_GUEST_INFO_FILESYSTEM,
 			},
 		},
 	}
@@ -396,9 +395,6 @@ func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle,
 // GET_FSFREEZE_STATUS - This is not implemented in libvirt API and won't be
 // implemented (KubeVirt is expected to provide its own implementation for it).
 //
-// GET_FILESYSTEM - We are missing busType field in the response, which will
-// be included in libvirt 11.2 upstream later (https://gitlab.com/libvirt/libvirt-go-module/-/issues/18).
-//
 // GET_AGENT - According to libvirt engineers this command shouldn't be used
 // by KubeVirt, because it provides irrelevant information (version and supported commands).
 func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
@@ -419,13 +415,6 @@ func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
 				continue
 			}
 			agentPoller.agentStore.Store(GetFSFreezeStatus, fsfreezeStatus)
-		case GetFilesystem:
-			filesystems, err := parseFilesystem(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent filesystem %s", err.Error())
-				continue
-			}
-			agentPoller.agentStore.Store(GetFilesystem, filesystems)
 		case GetAgent:
 			agent, err := parseAgent(cmdResult)
 			if err != nil {
@@ -479,6 +468,10 @@ func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, agentPoller 
 
 	if infoTypes&libvirt.DOMAIN_GUEST_INFO_USERS != 0 {
 		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, convertToUsers(guestInfo))
+	}
+
+	if infoTypes&libvirt.DOMAIN_GUEST_INFO_FILESYSTEM != 0 {
+		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_FILESYSTEM, convertToFilesystems(guestInfo))
 	}
 }
 
@@ -579,6 +572,47 @@ func convertToUsers(guestInfo *libvirt.DomainGuestInfo) []api.User {
 		}
 	}
 	return users
+}
+
+func convertToDisks(guestInfo *libvirt.DomainGuestInfo, fileSystem libvirt.DomainGuestInfoFileSystem) []api.FSDisk {
+	var disks []api.FSDisk
+
+	findDisk := func(serial string) libvirt.DomainGuestInfoDisk {
+		for _, disk := range guestInfo.Disks {
+			if disk.Serial == serial {
+				return disk
+			}
+		}
+		// Unreachable
+		return libvirt.DomainGuestInfoDisk{}
+	}
+
+	for _, disk := range fileSystem.Disks {
+		diskInfo := findDisk(disk.Serial)
+		disks = append(disks, api.FSDisk{
+			Serial:  diskInfo.Serial,
+			BusType: diskInfo.GuestBus,
+		})
+	}
+
+	return disks
+}
+
+func convertToFilesystems(guestInfo *libvirt.DomainGuestInfo) []api.Filesystem {
+	var filesystems []api.Filesystem
+
+	for _, fs := range guestInfo.FileSystems {
+		filesystems = append(filesystems, api.Filesystem{
+			Name:       fs.Name,
+			Mountpoint: fs.MountPoint,
+			Type:       fs.FSType,
+			UsedBytes:  fs.UsedBytes,
+			TotalBytes: fs.TotalBytes,
+			Disk:       convertToDisks(guestInfo, fs),
+		})
+	}
+
+	return filesystems
 }
 
 func safeConvertToInt64(value uint64) int64 {

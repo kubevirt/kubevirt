@@ -16979,12 +16979,12 @@
      },
      "totalBytes": {
       "type": "integer",
-      "format": "int32",
+      "format": "int64",
       "default": 0
      },
      "usedBytes": {
       "type": "integer",
-      "format": "int32",
+      "format": "int64",
       "default": 0
      }
     }

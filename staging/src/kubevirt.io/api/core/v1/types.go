@@ -2797,8 +2797,8 @@ type VirtualMachineInstanceFileSystem struct {
 	DiskName       string                                 `json:"diskName"`
 	MountPoint     string                                 `json:"mountPoint"`
 	FileSystemType string                                 `json:"fileSystemType"`
-	UsedBytes      int                                    `json:"usedBytes"`
-	TotalBytes     int                                    `json:"totalBytes"`
+	UsedBytes      uint64                                 `json:"usedBytes"`
+	TotalBytes     uint64                                 `json:"totalBytes"`
 	Disk           []VirtualMachineInstanceFileSystemDisk `json:"disk,omitempty"`
 }
 

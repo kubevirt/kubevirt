@@ -25744,14 +25744,14 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystem(ref common.R
 						SchemaProps: spec.SchemaProps{
 							Default: 0,
 							Type:    []string{"integer"},
-							Format:  "int32",
+							Format:  "int64",
 						},
 					},
 					"totalBytes": {
 						SchemaProps: spec.SchemaProps{
 							Default: 0,
 							Type:    []string{"integer"},
-							Format:  "int32",
+							Format:  "int64",
 						},
 					},
 					"disk": {
