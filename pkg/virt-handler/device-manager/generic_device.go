@@ -204,38 +204,6 @@ func (dpi *GenericDevicePlugin) register() error {
 	return nil
 }
 
-func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
-	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-
-	done := false
-	for {
-		select {
-		case devHealth := <-dpi.health:
-			// There's only one shared generic device
-			// so update each plugin device to reflect overall device health
-			for _, dev := range dpi.devs {
-				dev.Health = devHealth.Health
-			}
-			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-		case <-dpi.stop:
-			done = true
-		case <-dpi.done:
-			done = true
-		}
-		if done {
-			break
-		}
-	}
-	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
-	// There exists no explicit way to deregister devices
-	emptyList := []*pluginapi.Device{}
-	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
-		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.deviceName)
-	}
-	close(dpi.deregistered)
-	return nil
-}
-
 func (dpi *GenericDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.deviceName)
 	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
