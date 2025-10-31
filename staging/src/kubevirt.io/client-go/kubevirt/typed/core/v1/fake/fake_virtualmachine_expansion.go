@@ -31,9 +31,9 @@ import (
 	fake2 "kubevirt.io/client-go/testing"
 )
 
-func (c *FakeVirtualMachines) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error) {
+func (c *fakeVirtualMachines) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetSubresourceAction(virtualmachinesResource, c.ns, "expand-spec", name), &v1.VirtualMachine{})
+		Invokes(testing.NewGetSubresourceAction(c.Resource(), c.Namespace(), "expand-spec", name), &v1.VirtualMachine{})
 
 	if obj == nil {
 		return nil, err
@@ -41,73 +41,73 @@ func (c *FakeVirtualMachines) GetWithExpandedSpec(ctx context.Context, name stri
 	return obj.(*v1.VirtualMachine), err
 }
 
-func (c *FakeVirtualMachines) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions k8smetav1.PatchOptions) (*v1.VirtualMachine, error) {
+func (c *fakeVirtualMachines) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions k8smetav1.PatchOptions) (*v1.VirtualMachine, error) {
 	return c.Patch(ctx, name, pt, data, patchOptions, "status")
 }
 
-func (c *FakeVirtualMachines) Restart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error {
+func (c *fakeVirtualMachines) Restart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error {
 	_, err := c.Fake.
-		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "restart", name, restartOptions), nil)
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "restart", name, restartOptions), nil)
 
 	return err
 }
 
-func (c *FakeVirtualMachines) Start(ctx context.Context, name string, startOptions *v1.StartOptions) error {
+func (c *fakeVirtualMachines) Start(ctx context.Context, name string, startOptions *v1.StartOptions) error {
 	_, err := c.Fake.
-		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "start", name, startOptions), nil)
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "start", name, startOptions), nil)
 
 	return err
 }
 
-func (c *FakeVirtualMachines) Stop(ctx context.Context, name string, stopOptions *v1.StopOptions) error {
+func (c *fakeVirtualMachines) Stop(ctx context.Context, name string, stopOptions *v1.StopOptions) error {
 	_, err := c.Fake.
-		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "stop", name, stopOptions), nil)
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "stop", name, stopOptions), nil)
 
 	return err
 }
 
-func (c *FakeVirtualMachines) Migrate(ctx context.Context, name string, migrateOptions *v1.MigrateOptions) error {
+func (c *fakeVirtualMachines) Migrate(ctx context.Context, name string, migrateOptions *v1.MigrateOptions) error {
 	_, err := c.Fake.
-		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "migrate", name, migrateOptions), nil)
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "migrate", name, migrateOptions), nil)
 
 	return err
 }
 
-func (c *FakeVirtualMachines) MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error {
+func (c *fakeVirtualMachines) MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error {
 	_, err := c.Fake.
-		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "memorydump", name, memoryDumpRequest), nil)
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "memorydump", name, memoryDumpRequest), nil)
 
 	return err
 }
 
-func (c *FakeVirtualMachines) RemoveMemoryDump(ctx context.Context, name string) error {
+func (c *fakeVirtualMachines) RemoveMemoryDump(ctx context.Context, name string) error {
 	_, err := c.Fake.
-		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "removememorydump", name, struct{}{}), nil)
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "removememorydump", name, struct{}{}), nil)
 
 	return err
 }
 
-func (c *FakeVirtualMachines) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error {
+func (c *fakeVirtualMachines) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error {
 	_, err := c.Fake.
-		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "addvolume", name, addVolumeOptions), nil)
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "addvolume", name, addVolumeOptions), nil)
 
 	return err
 }
 
-func (c *FakeVirtualMachines) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
+func (c *fakeVirtualMachines) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
 	_, err := c.Fake.
-		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "removevolume", name, removeVolumeOptions), nil)
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "removevolume", name, removeVolumeOptions), nil)
 
 	return err
 }
 
-func (c *FakeVirtualMachines) PortForward(name string, port int, protocol string) (kubevirtv1.StreamInterface, error) {
+func (c *fakeVirtualMachines) PortForward(name string, port int, protocol string) (kubevirtv1.StreamInterface, error) {
 	return nil, nil
 }
 
-func (c *FakeVirtualMachines) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error) {
+func (c *fakeVirtualMachines) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error) {
 	obj, err := c.Fake.
-		Invokes(fake2.NewGetSubresourceAction(virtualmachinesResource, c.ns, "objectgraph", name, objectGraphOptions), nil)
+		Invokes(fake2.NewGetSubresourceAction(c.Resource(), c.Namespace(), "objectgraph", name, objectGraphOptions), nil)
 
 	return *obj.(*v1.ObjectGraphNode), err
 }
