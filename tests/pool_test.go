@@ -31,7 +31,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -146,8 +145,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		})
 		newPool.Spec.VirtualMachineTemplate.Spec.DataVolumeTemplates = vm.Spec.DataVolumeTemplates
 		newPool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
-		newPool, err = virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Create(context.Background(), newPool, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
 
 		return newPool
 	}
@@ -223,7 +220,8 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	})
 
 	It("should handle pool with dataVolumeTemplates", func() {
-		newPool := newPersistentStorageVirtualMachinePool()
+		pool := newPersistentStorageVirtualMachinePool()
+		newPool := createVirtualMachinePool(pool)
 		doScale(newPool.ObjectMeta.Name, 2)
 
 		var (
@@ -268,7 +266,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("deleting a VM")
 		foreGround := metav1.DeletePropagationForeground
-		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, k8smetav1.DeleteOptions{PropagationPolicy: &foreGround})).To(Succeed())
+		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, metav1.DeleteOptions{PropagationPolicy: &foreGround})).To(Succeed())
 
 		By("Waiting for deleted VM to be replaced")
 		Eventually(func() error {
@@ -332,7 +330,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		name := vms.Items[1].Name
 
 		By("deleting a VM")
-		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, k8smetav1.DeleteOptions{})).To(Succeed())
+		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, metav1.DeleteOptions{})).To(Succeed())
 
 		By("Waiting for deleted VM to be replaced")
 		Eventually(func() error {
@@ -739,6 +737,96 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		waitForVMIs(pool.Namespace, pool.Spec.Selector, 2)
 	})
 
+	It("should scale in VMs based on the scale-in strategy and preserve state is set to offline", func() {
+		pool := newPersistentStorageVirtualMachinePool()
+		pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["app"] = "test"
+		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+			Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+				StatePreservation: pointer.P(poolv1.StatePreservationOffline),
+				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+					SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyAscendingOrder),
+				},
+			},
+		}
+		pool = createVirtualMachinePool(pool)
+
+		By("Scaling pool to 3 replicas")
+		doScale(pool.Name, 3)
+
+		By("Waiting until all VMs are created and running")
+		waitForVMIs(pool.Namespace, pool.Spec.Selector, 3)
+
+		vms, err := virtClient.VirtualMachine(pool.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(pool.Spec.Selector),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vms.Items).To(HaveLen(3))
+
+		By("Verify that the DataVolumes are created and owned by the VMs")
+		dvs, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(pool.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(labelSelectorFromVMs(vms)),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(dvs.Items).To(HaveLen(3))
+
+		Eventually(func() error {
+			for _, dv := range dvs.Items {
+				fmt.Println("dv", dv.Name, dv.OwnerReferences)
+				if dv.OwnerReferences == nil || len(dv.OwnerReferences) == 0 {
+					return fmt.Errorf("DataVolume %s has no owner references", dv.Name)
+				}
+				Expect(dv.OwnerReferences).To(HaveLen(1))
+				Expect(dv.OwnerReferences[0].Name).To(ContainSubstring(pool.Name))
+			}
+
+			return nil
+		}, 120*time.Second, 1*time.Second).Should(Succeed())
+
+		By("Scaling pool to 2 replicas")
+		doScale(pool.Name, 2)
+
+		By("Waiting until the pool is scaled down to 2 replicas")
+		Eventually(func() int32 {
+			pool, err = virtClient.VirtualMachinePool(pool.Namespace).Get(context.Background(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return pool.Status.Replicas
+		}, 120*time.Second, 1*time.Second).Should(Equal(int32(2)))
+
+		By("Verify that the DataVolume of the deleted VM is not owned by the pool but is present in the namespace")
+		dvs, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(pool.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(labelSelectorFromVMs(vms)),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(dvs.Items).To(HaveLen(3))
+		var dvUID string
+		for i, dv := range dvs.Items {
+			if i == 0 {
+				Expect(dv.OwnerReferences).To(BeEmpty())
+				dvUID = string(dv.UID)
+				continue
+			}
+			Expect(dv.OwnerReferences).To(HaveLen(1))
+			Expect(dv.OwnerReferences[0].Name).To(ContainSubstring(pool.Name))
+		}
+
+		By("Scale up the pool to 3 replicas and verify that the DataVolume which was orphaned is re-adopted by the pool")
+		doScale(pool.Name, 3)
+		waitForVMIs(pool.Namespace, pool.Spec.Selector, 3)
+
+		dvs, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(pool.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(labelSelectorFromVMs(vms)),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(dvs.Items).To(HaveLen(3))
+		for i, dv := range dvs.Items {
+			if i == 0 {
+				Expect(dv.UID).To(Equal(types.UID(dvUID)))
+			}
+			Expect(dv.OwnerReferences).To(HaveLen(1))
+			Expect(dv.OwnerReferences[0].Name).To(ContainSubstring(pool.Name))
+		}
+	})
+
 	DescribeTable("should respect name generation settings", func(appendIndex *bool) {
 		const (
 			cmName     = "configmap"
@@ -753,7 +841,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			AppendIndexToConfigMapRefs: appendIndex,
 			AppendIndexToSecretRefs:    appendIndex,
 		}
-		createVirtualMachinePool(newPool)
+		newPool = createVirtualMachinePool(newPool)
 		doScale(newPool.Name, 2)
 
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{

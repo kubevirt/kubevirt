@@ -31,20 +31,24 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/rand"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	cdiv1fake "kubevirt.io/client-go/containerizeddataimporter/fake"
 
 	v1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	"kubevirt.io/client-go/testing"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
@@ -99,6 +103,7 @@ var _ = Describe("Pool", func() {
 		var mockQueue *testutils.MockWorkQueue[string]
 		var fakeVirtClient *kubevirtfake.Clientset
 		var k8sClient *k8sfake.Clientset
+		var cdiClient *cdiv1fake.Clientset
 
 		addCR := func(cr *appsv1.ControllerRevision) {
 			controller.revisionIndexer.Add(cr)
@@ -120,12 +125,21 @@ var _ = Describe("Pool", func() {
 			controller.vmiStore.Add(vm)
 		}
 
+		addDataVolume := func(dv *cdiv1.DataVolume) {
+			_, err := cdiClient.CdiV1beta1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			controller.dvStore.Add(dv)
+		}
+
 		BeforeEach(func() {
 			virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 
 			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			poolInformer, _ := testutils.NewFakeInformerFor(&poolv1.VirtualMachinePool{})
+			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
@@ -145,6 +159,8 @@ var _ = Describe("Pool", func() {
 				vmiInformer,
 				vmInformer,
 				poolInformer,
+				pvcInformer,
+				dvInformer,
 				crInformer,
 				recorder,
 				uint(10))
@@ -161,7 +177,10 @@ var _ = Describe("Pool", func() {
 			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(fakeVirtClient.PoolV1alpha1().VirtualMachinePools(testNamespace)).AnyTimes()
 
 			k8sClient = k8sfake.NewSimpleClientset()
+			cdiClient = cdiv1fake.NewSimpleClientset()
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 		})
 
 		addPool := func(pool *poolv1.VirtualMachinePool) {
@@ -197,6 +216,7 @@ var _ = Describe("Pool", func() {
 			for i := range count {
 				vmCopy := vm.DeepCopy()
 				vmCopy.Name = fmt.Sprintf("%s-%d", pool.Name, i)
+				vmCopy.UID = k8stypes.UID(rand.String(10))
 
 				vmCopy.Labels = maps.Clone(updatedPoolSpec.VirtualMachineTemplate.ObjectMeta.Labels)
 				vmCopy.Annotations = maps.Clone(updatedPoolSpec.VirtualMachineTemplate.ObjectMeta.Annotations)
@@ -905,6 +925,114 @@ var _ = Describe("Pool", func() {
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(3))
 		})
 
+		It("should remove finalizer from VMs and data volumes references marked for deletion during opportunistic scale in", func() {
+			pool, vm := DefaultPoolWithDataVolume(2)
+			pool.Status.Replicas = 2
+			pool.Status.ReadyReplicas = 2
+
+			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+				Opportunistic: &poolv1.VirtualMachinePoolOpportunisticScaleInStrategy{
+					StatePreservation: pointer.P(poolv1.StatePreservationOffline),
+				},
+			}
+
+			poolRevision := createPoolRevision(pool)
+			addPool(pool)
+			addCR(poolRevision)
+
+			vm1 := vm.DeepCopy()
+			vm1.Name = fmt.Sprintf("%s-0", pool.Name)
+			vm1.Spec = *indexVMSpec(&pool.Spec, 0)
+			vm1.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
+			vm1.DeletionTimestamp = pointer.P(metav1.Now())
+			vm1.UID = k8stypes.UID("123")
+
+			vm2 := vm.DeepCopy()
+			vm2.Name = fmt.Sprintf("%s-1", pool.Name)
+			vm2.Spec = *indexVMSpec(&pool.Spec, 1)
+			vm2.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
+			vm2.UID = k8stypes.UID("456")
+			addVM(vm1)
+			addVM(vm2)
+
+			dv1 := createDataVolume("alpine-dv-0", vm1)
+			dv2 := createDataVolume("alpine-dv-1", vm2)
+
+			addDataVolume(dv1)
+			addDataVolume(dv2)
+
+			sanityExecute()
+
+			dvs, err := cdiClient.CdiV1beta1().DataVolumes(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(dvs.Items).To(HaveLen(2))
+
+			for _, dv := range dvs.Items {
+				if dv.Name == "alpine-dv-0" {
+					Expect(dv.OwnerReferences).To(BeEmpty())
+					continue
+				}
+
+				Expect(dv.OwnerReferences).To(HaveLen(1))
+				Expect(dv.OwnerReferences[0].Name).To(Equal(vm2.Name))
+				Expect(dv.OwnerReferences[0].UID).To(Equal(vm2.UID))
+			}
+
+			vmpool, err := fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmpool.Status.Replicas).To(Equal(int32(2)))
+		})
+
+		It("should do proactive scale in with offline state preservation", func() {
+			pool, vm := DefaultPoolWithDataVolume(3)
+			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+				Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+					StatePreservation: pointer.P(poolv1.StatePreservationOffline),
+					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+						SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyDescendingOrder),
+					},
+				},
+			}
+
+			addPool(pool)
+			poolRevision := createPoolRevision(pool)
+			addCR(poolRevision)
+			createVMsWithOrdinal(pool, 3, poolRevision, poolRevision, vm)
+
+			vmlist, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmlist.Items).To(HaveLen(3))
+
+			for i := range 3 {
+				addDataVolume(createDataVolume(fmt.Sprintf("alpine-dv-%d", i), &vmlist.Items[i]))
+			}
+
+			pool.Spec.Replicas = pointer.P(int32(2))
+
+			_, err = fakeVirtClient.PoolV1alpha1().VirtualMachinePools(pool.Namespace).Update(context.TODO(), pool, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			sanityExecute()
+
+			dvs, err := cdiClient.CdiV1beta1().DataVolumes(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(dvs.Items).To(HaveLen(3))
+
+			for i, dv := range dvs.Items {
+				if dv.Name == "alpine-dv-2" {
+					Expect(dv.OwnerReferences).To(BeEmpty())
+					continue
+				}
+
+				Expect(dv.OwnerReferences).To(HaveLen(1))
+				Expect(dv.OwnerReferences[0].UID).To(Equal(vmlist.Items[i].UID))
+			}
+
+			vmlist, err = fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmlist.Items).To(HaveLen(2))
+		})
+
 		DescribeTable("should respect name generation settings", func(appendIndex *bool) {
 			const (
 				cmName     = "configmap"
@@ -1191,6 +1319,78 @@ func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine
 	return pool, vm.DeepCopy()
 }
 
+func DefaultPoolWithDataVolume(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine) {
+	pool, vm := DefaultPool(replicas)
+
+	pool.Spec.VirtualMachineTemplate.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "alpine-dv",
+			},
+			Spec: cdiv1.DataVolumeSpec{
+				Source: &cdiv1.DataVolumeSource{
+					Registry: &cdiv1.DataVolumeSourceRegistry{
+						URL: pointer.P("docker://registry:5000/kubevirt/alpine-container-disk-demo:devel"),
+					},
+				},
+				PVC: &k8sv1.PersistentVolumeClaimSpec{
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+					Resources: k8sv1.VolumeResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							"storage": resource.MustParse("2Gi"),
+						},
+					},
+					StorageClassName: pointer.P("local"),
+				},
+			},
+		},
+	}
+
+	// Add data volume to VM template
+	vm.Spec.Template.Spec.Volumes = []v1.Volume{
+		{
+			Name: "datavolumedisk1",
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: "alpine-dv",
+				},
+			},
+		},
+		{
+			Name: "cloudinitdisk",
+			VolumeSource: v1.VolumeSource{
+				CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+					UserData: `#!/bin/sh
+ 
+ echo 'printed from cloud-init userdata'`,
+				},
+			},
+		},
+	}
+
+	// Add corresponding disk to VM template
+	vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
+		{
+			Name: "datavolumedisk1",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: "virtio",
+				},
+			},
+		},
+		{
+			Name: "cloudinitdisk",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: "virtio",
+				},
+			},
+		},
+	}
+
+	return pool, vm.DeepCopy()
+}
+
 func markVmAsReady(vm *v1.VirtualMachine) {
 	virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{Type: v1.VirtualMachineReady, Status: k8sv1.ConditionTrue})
 }
@@ -1222,4 +1422,39 @@ func createReadyVMI(vm *v1.VirtualMachine, poolRevision *appsv1.ControllerRevisi
 		},
 	}
 	return vmi
+}
+
+func createDataVolume(name string, vm *v1.VirtualMachine) *cdiv1.DataVolume {
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: vm.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+					Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+					Name:               vm.Name,
+					UID:                vm.UID,
+					Controller:         pointer.P(true),
+					BlockOwnerDeletion: pointer.P(true),
+				},
+			},
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: &cdiv1.DataVolumeSource{
+				Registry: &cdiv1.DataVolumeSourceRegistry{
+					URL: pointer.P("docker://registry:5000/kubevirt/alpine-container-disk-demo:devel"),
+				},
+			},
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				Resources: k8sv1.VolumeResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						"storage": resource.MustParse("2Gi"),
+					},
+				},
+				StorageClassName: pointer.P("local"),
+			},
+		},
+	}
 }

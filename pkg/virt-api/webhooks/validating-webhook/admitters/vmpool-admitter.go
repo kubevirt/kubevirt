@@ -173,6 +173,10 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 		causes = append(causes, validateUpdateStrategyMutualExclusivity(field, spec.UpdateStrategy)...)
 	}
 
+	if spec.ScaleInStrategy != nil {
+		causes = append(causes, validateScaleInStrategyMutualExclusivity(field, spec.ScaleInStrategy)...)
+	}
+
 	if ar.Request.Operation == admissionv1.Update {
 		oldPool := &poolv1.VirtualMachinePool{}
 		if err := json.Unmarshal(ar.Request.OldObject.Raw, oldPool); err != nil {
@@ -200,6 +204,15 @@ func validateUpdateStrategyMutualExclusivity(field *k8sfield.Path, strategy *poo
 		"proactive":     strategy.Proactive != nil,
 	}
 	return validateMutualExclusivity(field.Child("updateStrategy"), mutualExclusivity)
+}
+
+func validateScaleInStrategyMutualExclusivity(field *k8sfield.Path, strategy *poolv1.VirtualMachinePoolScaleInStrategy) []metav1.StatusCause {
+	mutualExclusivity := map[string]bool{
+		"unmanaged":     strategy.Unmanaged != nil,
+		"opportunistic": strategy.Opportunistic != nil,
+		"proactive":     strategy.Proactive != nil,
+	}
+	return validateMutualExclusivity(field.Child("scaleInStrategy"), mutualExclusivity)
 }
 
 func validateMutualExclusivity(field *k8sfield.Path, strategies map[string]bool) []metav1.StatusCause {
