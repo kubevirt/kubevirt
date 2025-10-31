@@ -1284,6 +1284,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	if err != nil {
 		return fmt.Errorf("failed to determin the number of running migrations: %v", err)
 	}
+	log.Log.V(3).Infof("number of running migrations: %d", len(runningMigrations))
 
 	// XXX: Make this configurable, think about limit per node, bandwidth per migration, and so on.
 	if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
