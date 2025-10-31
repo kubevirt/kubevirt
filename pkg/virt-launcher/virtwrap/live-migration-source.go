@@ -1079,7 +1079,7 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 				path = filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
 			}
 			dom.Devices.Disks[i].Source.File = &libvirtxml.DomainDiskSourceFile{
-				File: path,
+				File: filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img"),
 			}
 			dom.Devices.Disks[i].Source.Block = nil
 		}

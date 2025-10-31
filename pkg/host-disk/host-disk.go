@@ -200,7 +200,7 @@ func createSparseRaw(diskdir *safepath.Path, diskName string, size int64) (err e
 
 func createQcow2(fullPath string, size int64) (err error) {
 	log.Log.Infof("Create %s with qcow2 format", fullPath)
-	cmd := exec.Command("qemu-img", "create", "-f", "qcow2", fullPath, fmt.Sprintf("%db", size))
+	cmd := exec.Command("qemu-img", "create", "-f", "qcow2", "-o", "preallocation=falloc", fullPath, fmt.Sprintf("%db", size))
 	if err = cmd.Run(); err != nil {
 		return fmt.Errorf("failed to create qcow2: %w", err)
 	}
