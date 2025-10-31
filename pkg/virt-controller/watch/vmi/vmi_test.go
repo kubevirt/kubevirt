@@ -1727,7 +1727,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 
 			sanityExecute()
-			Expect(virtClientset.Actions()).To(HaveLen(1))
+			Expect(virtClientset.Actions()).To(HaveLen(2))
 			Expect(virtClientset.Actions()[0].GetVerb()).To(Equal("create"))
 			Expect(virtClientset.Actions()[0].GetResource().Resource).To(Equal("virtualmachineinstances"))
 			Expect(virtClientset.Actions()[1].GetVerb()).To(Equal("patch"))
@@ -3955,9 +3955,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
+				addActivePods(vmi, pod.UID, "")
 				addVirtualMachine(vmi)
 				addPod(pod)
-				addActivePods(vmi, pod.UID, "")
 
 				controller.netMigrationEvaluator = evaluator
 				sanityExecute()

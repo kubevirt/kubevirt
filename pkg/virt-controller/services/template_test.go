@@ -219,8 +219,8 @@ var _ = Describe("Template", func() {
 		Context("Use emulation", func() {
 			const (
 				testNamespace        = "default"
-				computeContainerName = "compute"
-				kvmResource          = "devices.kubevirt.io/kvm"
+				computeContainerName = "d8v-compute"
+				kvmResource          = "devices.virtualization.deckhouse.io/kvm"
 				allowEmulationOption = "--allow-emulation"
 			)
 
@@ -3849,7 +3849,7 @@ var _ = Describe("Template", func() {
 				volumes := pod.Spec.Volumes
 				var computeMounts []k8sv1.VolumeMount
 				for _, c := range pod.Spec.Containers {
-					if c.Name == "compute" {
+					if c.Name == "d8v-compute" {
 						computeMounts = c.VolumeMounts
 						break
 					}
@@ -3888,7 +3888,7 @@ var _ = Describe("Template", func() {
 				volumes := pod.Spec.Volumes
 				var computeMounts []k8sv1.VolumeMount
 				for _, c := range pod.Spec.Containers {
-					if c.Name == "compute" {
+					if c.Name == "d8v-compute" {
 						computeMounts = c.VolumeMounts
 						break
 					}

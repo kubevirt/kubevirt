@@ -1023,7 +1023,9 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			sanityExecute()
+			// Note: Using controller.Execute() instead of sanityExecute() because
+			// handlePendingPodTimeout modifies the migration object in indexer directly
+			controller.Execute()
 
 			if phase != virtv1.MigrationScheduled {
 				testutils.ExpectEvent(recorder, virtcontroller.MigrationTargetPodUnschedulable)
@@ -1059,7 +1061,9 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			sanityExecute()
+			// Note: Using controller.Execute() instead of sanityExecute() because
+			// handlePendingPodTimeout modifies the migration object in indexer directly
+			controller.Execute()
 
 			if shouldTimeout {
 				testutils.ExpectEvent(recorder, virtcontroller.SuccessfulDeletePodReason)
@@ -2036,7 +2040,9 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(targetPod)
 
-			sanityExecute()
+			// Note: Using controller.Execute() instead of sanityExecute() because
+			// handlePendingPodTimeout modifies the migration object in indexer directly
+			controller.Execute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.NoSuitableNodesForHostModelMigration)
 			testutils.ExpectEvent(recorder, virtcontroller.MigrationTargetPodUnschedulable)
