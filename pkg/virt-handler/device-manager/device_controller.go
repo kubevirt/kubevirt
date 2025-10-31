@@ -55,7 +55,7 @@ func (c *controlledDevice) Start() {
 
 	logger := log.DefaultLogger()
 	dev := c.devicePlugin
-	deviceName := dev.GetDeviceName()
+	deviceName := dev.GetResourceName()
 	logger.Infof("Starting a device plugin for device: %s", deviceName)
 	retries := 0
 
@@ -100,7 +100,7 @@ func (c *controlledDevice) Stop() {
 }
 
 func (c *controlledDevice) GetName() string {
-	return c.devicePlugin.GetDeviceName()
+	return c.devicePlugin.GetResourceName()
 }
 
 func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
@@ -131,7 +131,6 @@ type DeviceController struct {
 	permissions         string
 	backoff             []time.Duration
 	virtConfig          *virtconfig.ClusterConfig
-	stop                chan struct{}
 	mdevTypesManager    *MDEVTypesManager
 	nodeStore           cache.Store
 	mdevRefreshWG       *sync.WaitGroup
@@ -147,7 +146,7 @@ func NewDeviceController(
 ) *DeviceController {
 	permanentPluginsMap := make(map[string]Device, len(permanentPlugins))
 	for i := range permanentPlugins {
-		permanentPluginsMap[permanentPlugins[i].GetDeviceName()] = permanentPlugins[i]
+		permanentPluginsMap[permanentPlugins[i].GetResourceName()] = permanentPlugins[i]
 	}
 
 	controller := &DeviceController{
@@ -246,7 +245,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	}
 
 	for resourceName, pluginDevices := range discoverAllowedUSBDevices(hostDevs.USB) {
-		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, pluginDevices))
+		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, pluginDevices, NewPermissionManager()))
 	}
 
 	return permittedDevices
@@ -273,10 +272,10 @@ func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]D
 	}
 
 	for _, device := range devices {
-		if _, isRunning := c.startedPlugins[device.GetDeviceName()]; !isRunning {
-			devicePluginsToRun[device.GetDeviceName()] = device
+		if _, isRunning := c.startedPlugins[device.GetResourceName()]; !isRunning {
+			devicePluginsToRun[device.GetResourceName()] = device
 		} else {
-			delete(devicePluginsToStop, device.GetDeviceName())
+			delete(devicePluginsToStop, device.GetResourceName())
 		}
 	}
 
