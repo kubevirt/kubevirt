@@ -25,7 +25,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-type State string
+type (
+	State         string
+	Support       string
+	Arch          string
+	SupportByArch map[Arch]Support
+)
 
 const (
 	// Alpha represents features that are under experimentation.
@@ -46,13 +51,23 @@ const (
 
 	WarningPattern = "feature gate %s is deprecated (feature state is %q), therefore it can be safely removed and is redundant. " +
 		"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
+
+	SUPPORTED   Support = "Supported"
+	PENDING     Support = "Pending"
+	UNSUPPORTED Support = "Unsupported"
+	UNVERIFIED  Support = "Unverified"
+
+	AMD64 Arch = "amd64"
+	ARM64 Arch = "arm64"
+	S390X Arch = "s390x"
 )
 
 type FeatureGate struct {
-	Name        string
-	State       State
-	VmiSpecUsed func(spec *v1.VirtualMachineInstanceSpec) bool
-	Message     string
+	Name          string
+	State         State
+	VmiSpecUsed   func(spec *v1.VirtualMachineInstanceSpec) bool
+	Message       string
+	SupportByArch SupportByArch
 }
 
 var featureGates = map[string]FeatureGate{}
