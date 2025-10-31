@@ -136,6 +136,25 @@ type VirtualMachinePoolSpec struct {
 	// UpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool
 	// +optional
 	UpdateStrategy *VirtualMachinePoolUpdateStrategy `json:"updateStrategy,omitempty"`
+
+	// Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance
+	// +optional
+	Autohealing *VirtualMachinePoolAutohealingStrategy `json:"autohealing,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type VirtualMachinePoolAutohealingStrategy struct {
+	// StartUpFailureThreshold is the number of consecutive VMI start failures (it tracks the value of Status.StartFailure.ConsecutiveFailCount field) before replacing the VM.
+	// Defaults to 3
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	StartUpFailureThreshold *uint32 `json:"startUpFailureThreshold,omitempty"`
+
+	// MinFailingToStartDuration is the minimum time a VM must be in a failing status (applies to status conditions like CrashLoopBackOff, Unschedulable) before being replaced.
+	// It measures the duration since the VM's Ready condition transitioned to False.
+	// Defaults to 5 minutes
+	// +optional
+	MinFailingToStartDuration *metav1.Duration `json:"minFailingToStartDuration,omitempty"`
 }
 
 // +k8s:openapi-gen=true

@@ -20313,6 +20313,24 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        autohealing:
+          description: Autohealing specifies when a VMpool should replace a failing
+            VM with a reprovisioned instance
+          properties:
+            minFailingToStartDuration:
+              description: |-
+                MinFailingToStartDuration is the minimum time a VM must be in a failing status (applies to status conditions like CrashLoopBackOff, Unschedulable) before being replaced.
+                It measures the duration since the VM's Ready condition transitioned to False.
+                Defaults to 5 minutes
+              type: string
+            startUpFailureThreshold:
+              description: |-
+                StartUpFailureThreshold is the number of consecutive VMI start failures (it tracks the value of Status.StartFailure.ConsecutiveFailCount field) before replacing the VM.
+                Defaults to 3
+              format: int32
+              minimum: 1
+              type: integer
+          type: object
         maxUnavailable:
           anyOf:
           - type: integer
