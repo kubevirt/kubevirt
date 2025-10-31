@@ -182,6 +182,7 @@ rm -f ${KUBEVIRT_DIR}/examples/*
 ResourceDir=${KUBEVIRT_DIR}/manifests/generated
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=priorityclass >${ResourceDir}/kubevirt-priority-class.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv >${ResourceDir}/kv-resource.yaml
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=networkpolicies --namespace='{{.Namespace}}' >${ResourceDir}/kubevirt-network-policies.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv-cr --namespace='{{.Namespace}}' --pullPolicy='{{.ImagePullPolicy}}' \
     --featureGates='{{.FeatureGates}}' --infraReplicas='{{.InfraReplicas}}' >${ResourceDir}/kubevirt-cr.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac --namespace='{{.Namespace}}' >${ResourceDir}/rbac-operator.authorization.k8s.yaml.in
