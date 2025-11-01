@@ -680,6 +680,17 @@ func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInst
 			Field:   field.Child("domain", "cpu", "isolateEmulatorThread").String(),
 		})
 	}
+
+	// cannot allow isolateEmulatorThreads to be set if multiple IOThreads are requested
+	if spec.Domain.CPU != nil && spec.Domain.IOThreadsPolicy != nil && *spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool &&
+		spec.Domain.IOThreads != nil && spec.Domain.IOThreads.SupplementalPoolThreadCount != nil &&
+		*spec.Domain.IOThreads.SupplementalPoolThreadCount > 1 && spec.Domain.CPU.IsolateEmulatorThread {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "isolateEmulatorThread cannot be set if IOThreads is also set",
+			Field:   field.Child("domain", "cpu", "isolateEmulatorThread").String(),
+		})
+	}
 	return causes
 }
 
