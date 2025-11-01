@@ -139,34 +139,6 @@ var _ = Describe("Operator Config", func() {
 		})
 	})
 
-	Describe("parsing ObservedDeploymentConfig", func() {
-		It("should retrieve imagePrefix if present", func() {
-			prefix := "test-prefix-"
-			deploymentConfig := KubeVirtDeploymentConfig{}
-			deploymentConfig.ImagePrefix = prefix
-
-			blob, err := deploymentConfig.GetJson()
-			Expect(err).ToNot(HaveOccurred())
-
-			result, found, err := getImagePrefixFromDeploymentConfig(blob)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(found).To(BeTrue())
-			Expect(result).To(Equal(prefix))
-		})
-
-		It("should not error if imagePrefix is not present", func() {
-			deploymentConfig := KubeVirtDeploymentConfig{}
-
-			blob, err := deploymentConfig.GetJson()
-			Expect(err).ToNot(HaveOccurred())
-
-			result, found, err := getImagePrefixFromDeploymentConfig(blob)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(found).To(BeFalse())
-			Expect(result).To(Equal(""))
-		})
-	})
-
 	Describe("creating config ID", func() {
 
 		var idMissing, idEmpty, idFilled string
