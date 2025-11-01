@@ -1165,6 +1165,9 @@
     },
     "changedBlockTracking": {
       "state": "stateValue"
+    },
+    "serviceStatus": {
+      "vncSessions": 18446744073709551605
     }
   }
 }

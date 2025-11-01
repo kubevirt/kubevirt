@@ -63,6 +63,7 @@ type Notifier struct {
 type libvirtEvent struct {
 	Domain     string
 	Event      *libvirt.DomainEventLifecycle
+	Graphics   *libvirt.DomainEventGraphics
 	AgentEvent *libvirt.DomainEventAgentLifecycle
 }
 
@@ -274,7 +275,7 @@ func (e eventNotifier) UpdateEvents(event watch.Event) {
 
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
-	metadataCache *metadata.Cache) {
+	serviceStatus *api.ServiceStatus, metadataCache *metadata.Cache) {
 
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
@@ -389,6 +390,10 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 			domain.Status.FSFreezeStatus = *fsFreezeStatus
 		}
 
+		if serviceStatus != nil {
+			domain.Status.ServiceStatus = *serviceStatus
+		}
+
 		err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 		if err != nil {
 			log.Log.Reason(err).Error("Could not send domain notify event.")
@@ -411,6 +416,30 @@ func updateEventsClosure() func(event watch.Event, domain *api.Domain, events ch
 			events <- event
 		}
 	}
+}
+
+func serviceUpdate(serviceStatus *api.ServiceStatus, e *libvirt.DomainEventGraphics) *api.ServiceStatus {
+	if e == nil {
+		return serviceStatus
+	}
+
+	if serviceStatus == nil {
+		serviceStatus = &api.ServiceStatus{}
+	}
+
+	log.Log.V(2).Infof("FULL EVENT: %+v", e)
+	switch e.Phase {
+	case libvirt.DOMAIN_EVENT_GRAPHICS_CONNECT:
+		log.Log.V(4).Info("Trying to connect")
+	case libvirt.DOMAIN_EVENT_GRAPHICS_INITIALIZE:
+		log.Log.V(4).Info("Connected")
+		serviceStatus.VNCSessionConnected++
+	case libvirt.DOMAIN_EVENT_GRAPHICS_DISCONNECT:
+		log.Log.V(4).Info("Disconnected")
+		serviceStatus.VNCSessionConnected--
+	}
+
+	return serviceStatus
 }
 
 func (n *Notifier) StartDomainNotifier(
@@ -452,6 +481,7 @@ func (n *Notifier) StartDomainNotifier(
 		var interfaceStatuses []api.InterfaceStatus
 		var guestOsInfo *api.GuestOSInfo
 		var fsFreezeStatus *api.FSFreeze
+		var serviceStatus *api.ServiceStatus
 		var eventCaller eventCaller
 
 		for {
@@ -459,7 +489,9 @@ func (n *Notifier) StartDomainNotifier(
 			case event := <-eventChan:
 				metadataCache.ResetNotification()
 				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
-				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
+				serviceStatus = serviceUpdate(serviceStatus, event.Graphics)
+				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent,
+					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, serviceStatus, metadataCache)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 				agentPoller.UpdateFromEvent(event.Event, event.AgentEvent)
 			case agentUpdate := <-agentStore.AgentUpdated:
@@ -469,7 +501,7 @@ func (n *Notifier) StartDomainNotifier(
 				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
 
 				eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
-					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
+					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, serviceStatus, metadataCache)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 
@@ -491,6 +523,7 @@ func (n *Notifier) StartDomainNotifier(
 						guestOsInfo,
 						vmi,
 						fsFreezeStatus,
+						serviceStatus,
 						metadataCache,
 					)
 				}
@@ -553,6 +586,19 @@ func (n *Notifier) StartDomainNotifier(
 		}
 	}
 
+	domainEventGraphicsChange := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventGraphics) {
+		log.Log.Infof("Domain graphics event received: %+v", event)
+		name, err := d.GetName()
+		if err != nil {
+			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
+		}
+		select {
+		case eventChan <- libvirtEvent{Graphics: event, Domain: name}:
+		default:
+			log.Log.Infof(libvirtEventChannelFull)
+		}
+	}
+
 	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
@@ -572,6 +618,11 @@ func (n *Notifier) StartDomainNotifier(
 	err = domainConn.DomainEventMemoryDeviceSizeChangeRegister(domainEventMemoryDeviceSizeChange)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register memory device size change event callback with libvirt")
+		return err
+	}
+	err = domainConn.DomainEventGraphicsRegister(domainEventGraphicsChange)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to register graphics change event callback with libvirt")
 		return err
 	}
 
