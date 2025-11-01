@@ -1596,6 +1596,9 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 		if !isHotplugDisk(oldDisk) {
 			continue
 		}
+		if oldDisk.Target.Bus == v1.DiskBusSATA {
+			continue
+		}
 		if _, ok := newDiskMap[oldDisk.Target.Device]; !ok {
 			// This disk got detached, add it to the list
 			res = append(res, oldDisk)
@@ -1612,6 +1615,9 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	res := make([]api.Disk, 0)
 	for _, newDisk := range newDisks {
 		if !isHotplugDisk(newDisk) {
+			continue
+		}
+		if newDisk.Target.Bus == v1.DiskBusSATA {
 			continue
 		}
 		if _, ok := oldDiskMap[newDisk.Target.Device]; !ok {
