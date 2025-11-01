@@ -70,7 +70,6 @@ go_test(
         "//pkg/libvmi:go_default_library",
         "//pkg/os/disk:go_default_library",
         "//pkg/pointer:go_default_library",
-        "//pkg/testutils:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
