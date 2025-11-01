@@ -49,7 +49,7 @@ function _ensure_cdi_deployment() {
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"insecureRegistries": [ "registry:5000", "fakeregistry:5000" ]}}}'
 
     # Configure uploadproxy override for virtctl imageupload
-    host_port=$(${KUBEVIRT_PATH}kubevirtci/cluster-up/cli.sh ports uploadproxy | xargs)
+    host_port=$(${KUBEVIRT_PATH}kubevirtci/cluster-up/cli.sh ports uploadproxy-lowerband | xargs)
     override="https://127.0.0.1:$host_port"
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
 }
