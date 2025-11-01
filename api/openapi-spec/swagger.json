@@ -19951,6 +19951,26 @@
      }
     }
    },
+   "v1beta1.SourceIndication": {
+    "description": "SourceIndication provides an indication of the source VM with its description message",
+    "type": "object",
+    "required": [
+     "indication",
+     "message"
+    ],
+    "properties": {
+     "indication": {
+      "description": "Indication is the indication type",
+      "type": "string",
+      "default": ""
+     },
+     "message": {
+      "description": "Message provides a description message of the indication",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1beta1.SourceSpec": {
     "description": "SourceSpec contains the appropriate spec for the resource being snapshotted",
     "type": "object",
@@ -21142,6 +21162,7 @@
       "$ref": "#/definitions/v1beta1.Error"
      },
      "indications": {
+      "description": "Deprecated: Use SourceIndications instead. This field will be removed in a future version.",
       "type": "array",
       "items": {
        "type": "string",
@@ -21157,6 +21178,14 @@
      },
      "snapshotVolumes": {
       "$ref": "#/definitions/v1beta1.SnapshotVolumesLists"
+     },
+     "sourceIndications": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.SourceIndication"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "sourceUID": {
       "type": "string"
