@@ -312,11 +312,9 @@ const (
 )
 
 func GetImageInfo(imagePath string, context isolation.IsolationResult, config *v1.DiskVerification) (*disk.DiskInfo, error) {
-	memoryLimit := fmt.Sprintf("%d", config.MemoryLimit.Value())
-
 	// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
 	cmd := ExecChroot(
-		"--user", "qemu", "--memory", memoryLimit, "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
+		"--user", "qemu", "--mount", context.MountNamespace(), "exec", "--",
 		QEMUIMGPath, "info", imagePath, "--output", "json",
 	)
 	log.Log.V(3).Infof("fetching image info. running command: %s", cmd.String())

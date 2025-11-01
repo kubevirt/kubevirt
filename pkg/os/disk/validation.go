@@ -3,9 +3,8 @@ package disk
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os/exec"
-
-	"kubevirt.io/client-go/log"
 )
 
 const (
@@ -35,16 +34,17 @@ func VerifyImage(diskInfo *DiskInfo) error {
 }
 
 func GetDiskInfoWithValidation(imagePath string, diskMemoryLimitBytes int64) (*DiskInfo, error) {
-	cmd := exec.Command("bash", "-c", fmt.Sprintf("ulimit -t %d && ulimit -v %d && %v info %v --output json", 10, diskMemoryLimitBytes/1024, QEMUIMGPath, imagePath))
-	log.Log.V(3).Infof("fetching image info. running command: %s", cmd.String())
+	// #nosec No risk for attacker injection. Only get information about an image
+	args := []string{"info", imagePath, "--output", "json"}
+	cmd := exec.Command(QEMUIMGPath, args...)
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stderr for qemu-img command: %v", err)
+	}
 	out, err := cmd.Output()
 	if err != nil {
-		if e, ok := err.(*exec.ExitError); ok {
-			if len(e.Stderr) > 0 {
-				return nil, fmt.Errorf("failed to invoke qemu-img: %v: '%v'", err, string(e.Stderr))
-			}
-		}
-		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
+		errout, _ := io.ReadAll(stderr)
+		return nil, fmt.Errorf("failed to invoke qemu-img: %v: %s", err, errout)
 	}
 	info := &DiskInfo{}
 	err = json.Unmarshal(out, info)

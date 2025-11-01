@@ -2221,6 +2221,11 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, err
 	}
 
+	_, err = c.hotplugContainerDiskMounter.MountAndVerify(vmi)
+	if err != nil {
+		return false, err
+	}
+
 	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
 		if !goerror.Is(err, os.ErrNotExist) {
 			return false, err

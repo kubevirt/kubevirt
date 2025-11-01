@@ -1109,7 +1109,13 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 		_, existInCache := l.disksInfo[volume.Name]
 		if volume.ContainerDisk != nil && !existInCache {
-			info, err := osdisk.GetDiskInfoWithValidation(containerdisk.GetDiskTargetPathFromLauncherView(diskIndex), l.diskMemoryLimitBytes)
+			var imagePath string
+			if volume.ContainerDisk.Hotpluggable {
+				imagePath = converter.GetHotplugContainerDiskPath(volume.Name)
+			} else {
+				imagePath = containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
+			}
+			info, err := osdisk.GetDiskInfoWithValidation(imagePath, l.diskMemoryLimitBytes)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get container disk info: %v", err)
 			}

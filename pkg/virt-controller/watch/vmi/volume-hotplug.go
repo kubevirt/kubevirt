@@ -265,7 +265,7 @@ func (c *Controller) createAttachmentPodTemplate(vmi *v1.VirtualMachineInstance,
 		newVolumes = append(newVolumes, volume)
 	}
 
-	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcIndexer, virtlauncherPod.Namespace)
+	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(newVolumes, c.pvcIndexer, virtlauncherPod.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PVC map: %v", err)
 	}
