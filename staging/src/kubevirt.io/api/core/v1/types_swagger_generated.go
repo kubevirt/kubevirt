@@ -749,18 +749,6 @@ func (MigrateOptions) SwaggerDoc() map[string]string {
 	}
 }
 
-func (VirtualMachineInstanceGuestOSLoad) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":           "VirtualMachineInstanceGuestOSLoad represents the system load averages from the guest agent",
-		"load1mSet":  "Load1mSet indicates whether the 1 minute load average is set",
-		"load1m":     "Load average over 1 minute",
-		"load5mSet":  "Load5mSet indicates whether the 5 minute load average is set",
-		"load5m":     "Load average over 5 minutes",
-		"load15mSet": "Load15mSet indicates whether the 15 minute load average is set",
-		"load15m":    "Load average over 15 minutes",
-	}
-}
-
 func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                  "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
@@ -772,7 +760,6 @@ func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
 		"userList":          "UserList is a list of active guest OS users",
 		"fsInfo":            "FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage",
 		"fsFreezeStatus":    "FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem.\nIt will be set to \"frozen\" if the request was made, or unset otherwise.\nThis does not reflect the actual state of the guest filesystem.",
-		"load":              "Load contains the system load averages (1M, 5M, 15M) from the guest agent",
 	}
 }
 

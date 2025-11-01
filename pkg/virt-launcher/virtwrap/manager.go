@@ -2307,7 +2307,18 @@ func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 
-	return l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
+	domstats, err := l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get domain stats: %v", err)
+	}
+
+	if l.agentData != nil {
+		for _, ds := range domstats {
+			ds.Load = l.agentData.GetLoad()
+		}
+	}
+
+	return domstats, nil
 }
 
 func (l *LibvirtDomainManager) getDomainDirtyRateStats(calculationDuration time.Duration) ([]*stats.DomainStatsDirtyRate, error) {
@@ -2477,14 +2488,6 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 			ID:            sysInfo.OSInfo.Id,
 		},
 		Timezone: fmt.Sprintf("%s, %d", sysInfo.Timezone.Zone, sysInfo.Timezone.Offset),
-		Load: &v1.VirtualMachineInstanceGuestOSLoad{
-			Load1mSet:  sysInfo.Load.Load1mSet,
-			Load1m:     sysInfo.Load.Load1m,
-			Load5mSet:  sysInfo.Load.Load5mSet,
-			Load5m:     sysInfo.Load.Load5m,
-			Load15mSet: sysInfo.Load.Load15mSet,
-			Load15m:    sysInfo.Load.Load15m,
-		},
 	}
 
 	for _, user := range userInfo {

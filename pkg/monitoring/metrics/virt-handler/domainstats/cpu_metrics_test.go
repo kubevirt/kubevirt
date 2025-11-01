@@ -31,8 +31,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
-var _ = Describe("cpu metrics", func() {
-	Context("on Collect", func() {
+var _ = Describe("CPU Metrics", func() {
+	Context("CPU time stats", func() {
 		vmi := &k6tv1.VirtualMachineInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-vmi-1",
@@ -70,6 +70,67 @@ var _ = Describe("cpu metrics", func() {
 			}
 			crs := cpuMetrics{}.Collect(vmiReport)
 			Expect(crs).To(BeEmpty())
+		})
+
+		Context("CPU load", func() {
+			BeforeEach(func() {
+				vmi = &k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vmi-load",
+						Namespace: "test-ns-load",
+					},
+				}
+			})
+
+			It("should collect only set load metrics", func() {
+				vmiStatsPartialLoad := &VirtualMachineInstanceStats{
+					DomainStats: &stats.DomainStats{
+						Load: &stats.DomainStatsLoad{
+							Load1mSet:  true,
+							Load1m:     1.2,
+							Load5mSet:  false, // Not set
+							Load5m:     0.0,
+							Load15mSet: true,
+							Load15m:    2.8,
+						},
+					},
+				}
+				vmiReport := newVirtualMachineInstanceReport(vmi, vmiStatsPartialLoad)
+				crs := cpuMetrics{}.Collect(vmiReport)
+
+				Expect(crs).To(HaveLen(2))
+				Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(guestLoad1m, 1.2)))
+				Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(guestLoad15m, 2.8)))
+			})
+
+			It("should return empty result if Load is nil", func() {
+				vmiStatsNoLoad := &VirtualMachineInstanceStats{
+					DomainStats: &stats.DomainStats{
+						Load: nil,
+					},
+				}
+				vmiReport := newVirtualMachineInstanceReport(vmi, vmiStatsNoLoad)
+				crs := cpuMetrics{}.Collect(vmiReport)
+				Expect(crs).To(BeEmpty())
+			})
+
+			It("should return empty result if no load metrics are set", func() {
+				vmiStatsNoLoadSet := &VirtualMachineInstanceStats{
+					DomainStats: &stats.DomainStats{
+						Load: &stats.DomainStatsLoad{
+							Load1mSet:  false,
+							Load1m:     1.0,
+							Load5mSet:  false,
+							Load5m:     2.0,
+							Load15mSet: false,
+							Load15m:    3.0,
+						},
+					},
+				}
+				vmiReport := newVirtualMachineInstanceReport(vmi, vmiStatsNoLoadSet)
+				crs := cpuMetrics{}.Collect(vmiReport)
+				Expect(crs).To(BeEmpty())
+			})
 		})
 	})
 })
