@@ -57,3 +57,23 @@ func ClusterDNSServiceIP() (string, error) {
 	}
 	return service.Spec.ClusterIP, nil
 }
+
+func ClusterDNSServiceIPv6andIPv4() ([]string, error) {
+	virtClient := kubevirt.Client()
+	var clusterIPs []string
+
+	service, err := virtClient.CoreV1().Services(flags.DNSServiceNamespace).Get(
+		context.Background(), flags.DNSServiceName, metav1.GetOptions{},
+	)
+	if err != nil {
+		prevErr := err
+		service, err = virtClient.CoreV1().Services(openshiftDNSNamespace).Get(context.Background(), openshiftDNSServiceName, metav1.GetOptions{})
+		if err != nil {
+			return clusterIPs, fmt.Errorf("unable to detect the DNS services: %v, %v", prevErr, err)
+		}
+	}
+	for _, ipString := range service.Spec.ClusterIPs {
+		clusterIPs = append(clusterIPs, string(ipString))
+	}
+	return clusterIPs, nil
+}
