@@ -112,6 +112,8 @@ elif [[ $TARGET =~ wg-arm64 ]]; then
     export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
 elif [[ $TARGET =~ sev ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-sev}
+elif [[ $TARGET =~ secure-execution ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-secure-execution}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -444,19 +446,21 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(VGPU)'
   elif [[ $TARGET =~ sev.* ]]; then
     label_filter='(SEV)'
+  elif [[ $TARGET =~ secure-execution ]]; then
+    label_filter='(secure-execution)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
-    label_filter='(sig-compute-realtime) && !(SEV, SEVES)'
+    label_filter='(sig-compute-realtime) && !(SEV, SEVES, secure-execution)'
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
-    label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES)'
+    label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES, secure-execution)'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(SEV, SEVES))'
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
-    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES))'
+    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
   elif [[ $TARGET =~ sig-compute ]]; then
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES))'
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -485,7 +489,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     add_to_label_filter "(!Sysprep)" "&&"
   fi
 
-  if [[ ! $TARGET =~ wg-s390x ]]; then
+  if [[ ! $TARGET =~ wg-s390x ]] && [[ ! $TARGET =~ secure-execution ]]; then
     add_to_label_filter "(!requires-s390x)" "&&"
   fi
 
