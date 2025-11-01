@@ -226,7 +226,7 @@ var _ = Describe("Operator Config", func() {
 		var definedEnvVars []string
 
 		setCustomImageForComponent := func(component string) string {
-			customImage := "a/kubevirt:" + component
+			customImage := "registry/kubevirt/" + component
 
 			// defining a different SHA so we make sure the custom image has precedence
 			customSha := "sha256:" + component + "fake-suffix"
