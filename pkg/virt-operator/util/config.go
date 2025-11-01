@@ -36,7 +36,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-	clientutil "kubevirt.io/client-go/util"
 
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -163,22 +162,7 @@ func GetConfigFromEnvWithEnvVarManager(envVarManager EnvVarManager) (*KubeVirtDe
 		}
 		return config, nil
 	}
-
-	// for backwards compatibility: check for namespace and pullpolicy from deprecated env vars
-	ns := envVarManager.Getenv(TargetInstallNamespace)
-	if ns == "" {
-		var err error
-		ns, err = clientutil.GetNamespace()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	pullPolicy := envVarManager.Getenv(TargetImagePullPolicy)
-	additionalProperties := make(map[string]string)
-	additionalProperties[AdditionalPropertiesNamePullPolicy] = pullPolicy
-
-	return getConfig("", "", ns, additionalProperties, envVarManager), nil
+	return nil, fmt.Errorf("no config provided")
 }
 
 func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {

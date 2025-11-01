@@ -50,10 +50,20 @@ var _ = Describe("Operator Config", func() {
 	DescribeTable("Parse image", func(image string, config *KubeVirtDeploymentConfig) {
 		envVarManager.Setenv(OldOperatorImageEnvName, image)
 
-		err := VerifyEnv()
+		// Mimic generateInstallStrategyJob
+		// TODO: Refactor
+		envVars := NewEnvVarMap(config.GetExtraEnv())
+		for _, envVar := range *envVars {
+			envVarManager.Setenv(envVar.Name, envVar.Value)
+		}
+		deploymentConfigJson, err := config.GetJson()
+		Expect(err).ToNot(HaveOccurred())
+		envVarManager.Setenv(TargetDeploymentConfig, deploymentConfigJson)
+
+		err = VerifyEnv()
 		Expect(err).ToNot(HaveOccurred())
 
-		parsedConfig, err := GetConfigFromEnv()
+		parsedConfig, err := GetConfigFromEnvWithEnvVarManager(envVarManager)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(parsedConfig.GetImageRegistry()).To(Equal(config.GetImageRegistry()), "registry should match")
@@ -246,8 +256,9 @@ var _ = Describe("Operator Config", func() {
 			err := VerifyEnv()
 			Expect(err).ToNot(HaveOccurred())
 
-			parsedConfig, err := GetConfigFromEnv()
-			Expect(err).ToNot(HaveOccurred())
+			parsedConfig := GetTargetConfigFromKV(&v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{},
+			})
 
 			const errMsg = "image is not set as expected"
 			Expect(parsedConfig.VirtOperatorImage).To(Equal(operatorImage), errMsg)
@@ -370,8 +381,7 @@ var _ = Describe("Operator Config", func() {
 			err := VerifyEnv()
 			Expect(err).ToNot(HaveOccurred())
 
-			parsedConfig, err := GetConfigFromEnv()
-			Expect(err).ToNot(HaveOccurred())
+			parsedConfig := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
 
 			kubevirtVersion := parsedConfig.GetKubeVirtVersion()
 			Expect(kubevirtVersion).To(Equal(input.version))
