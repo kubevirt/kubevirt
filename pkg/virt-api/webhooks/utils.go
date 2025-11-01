@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 )
 
 var VirtualMachineInstanceGroupVersionResource = metav1.GroupVersionResource{
