@@ -2193,7 +2193,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			const expectedImage = "myimage123:mytag456"
 			err := kvTestData.mockEnvVarManager.Setenv(util.VirtOperatorImageEnvName, expectedImage)
 			Expect(err).ToNot(HaveOccurred())
-			config := kvTestData.getConfig("registry", "v1.1.1")
+			config := kvTestData.getConfig("", "")
 
 			job, err := kvTestData.controller.generateInstallStrategyJob(&v1.ComponentConfig{}, config)
 			Expect(err).ToNot(HaveOccurred())
