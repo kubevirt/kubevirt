@@ -44,6 +44,19 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 )
 
+func isServiceAccount(r *http.Request) bool {
+	username := r.Header.Get(userHeader)
+	if username == "" {
+		return false
+	}
+
+	// Check if the username follows ServiceAccount pattern
+	if strings.HasPrefix(username, "system:serviceaccount:") {
+		return true
+	}
+	return false
+}
+
 func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, response *restful.Response) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
@@ -290,9 +303,10 @@ func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, r
 		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is already paused"))
 		}
-		// Check if VM is currently being migrated
-		if migrations.IsMigrating(vmi) {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Cannot pause VM '%s' because it is currently being migrated", vmi.Name))
+		// Block human callers during live migration; allow ServiceAccounts (controllers) for force convergence
+		if migrations.IsMigrating(vmi) && !isServiceAccount(request.Request) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name,
+				fmt.Errorf("Live migration in progress: user-initiated pause is not allowed. A controller may pause to force convergence."))
 		}
 		return nil
 	}
