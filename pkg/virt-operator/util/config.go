@@ -204,21 +204,6 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		envVarManager)
 }
 
-// retrieve imagePrefix from an existing deployment config (which is stored as JSON)
-func getImagePrefixFromDeploymentConfig(deploymentConfig string) (string, bool, error) {
-	var obj interface{}
-	err := json.Unmarshal([]byte(deploymentConfig), &obj)
-	if err != nil {
-		return "", false, fmt.Errorf("unable to parse deployment config: %v", err)
-	}
-	for k, v := range obj.(map[string]interface{}) {
-		if k == ImagePrefixKey {
-			return v.(string), true, nil
-		}
-	}
-	return "", false, nil
-}
-
 func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {
 	kvMap := make(map[string]string)
 	v := reflect.ValueOf(spec)
