@@ -55,6 +55,7 @@ const (
 
 	// Owner: sig-compute / @lyarwood
 	// Alpha: v1.0.0
+	// Beta: v1.7.0
 	//
 	// MultiArchitecture allows VM/VMIs to request and schedule to an architecture other than that of control plane
 	MultiArchitecture = "MultiArchitecture"
@@ -172,7 +173,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
