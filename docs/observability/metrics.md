@@ -318,9 +318,6 @@ Total time spent on write operations. Type: Counter.
 ### kubevirt_vmi_storage_write_traffic_bytes_total
 Total number of written bytes. Type: Counter.
 
-### kubevirt_vmi_vcpu_count
-The number of the VMI vCPUs. Type: Gauge.
-
 ### kubevirt_vmi_vcpu_delay_seconds_total
 Amount of time spent by each vcpu waiting in the queue instead of running. Type: Counter.
 
@@ -368,6 +365,9 @@ How many seconds of work has done that is in progress and hasn't been observed b
 
 ### kubevirt_workqueue_work_duration_seconds
 How long in seconds processing an item from workqueue takes. Type: Histogram.
+
+### vmi:kubevirt_vmi_vcpu:count
+The number of the VMI vCPUs. Type: Gauge.
 
 ## Developing new metrics
 

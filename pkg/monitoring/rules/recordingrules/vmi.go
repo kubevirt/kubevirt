@@ -43,7 +43,7 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_vcpu_count",
+			Name: "vmi:kubevirt_vmi_vcpu:count",
 			Help: "The number of the VMI vCPUs.",
 		},
 		MetricType: operatormetrics.GaugeType,
@@ -55,6 +55,6 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 			Help: "Guest queue length.",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("clamp_min(kubevirt_vmi_guest_load_1m - kubevirt_vmi_vcpu_count, 0)"),
+		Expr:       intstr.FromString("clamp_min(kubevirt_vmi_guest_load_1m - vmi:kubevirt_vmi_vcpu:count, 0)"),
 	},
 }
