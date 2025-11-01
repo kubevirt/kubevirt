@@ -64,7 +64,7 @@ var _ = Describe("Install Strategy", func() {
 	Context("monitoring detection", func() {
 		DescribeTable("should", func(expectedNS string, objects ...runtime.Object) {
 			client := fake.NewSimpleClientset(objects...)
-			ns, err := getMonitorNamespace(client.CoreV1(), config)
+			ns, err := getMonitorNamespace(client.CoreV1(), config.GetPotentialMonitorNamespaces(), config.GetMonitorServiceAccountName())
 			Expect(ns).To(Equal(expectedNS))
 			Expect(err).ToNot(HaveOccurred())
 		},
