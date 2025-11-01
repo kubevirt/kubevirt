@@ -335,12 +335,12 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 	return configMap, nil
 }
 
-func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorutil.KubeVirtDeploymentConfig) (namespace string, err error) {
-	for _, ns := range config.GetPotentialMonitorNamespaces() {
+func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, potentionalMonitorNamespaces []string, monitorServiceAccount string) (namespace string, err error) {
+	for _, ns := range potentionalMonitorNamespaces {
 		if nsExists, err := isNamespaceExist(clientset, ns); nsExists {
 			// the monitoring service account must be in the monitoring namespace otherwise
 			// we won't be able to create roleBinding for prometheus operator pods
-			if saExists, err := isServiceAccountExist(clientset, ns, config.GetMonitorServiceAccountName()); saExists {
+			if saExists, err := isServiceAccountExist(clientset, ns, monitorServiceAccount); saExists {
 				return ns, nil
 			} else if err != nil {
 				return "", err
@@ -358,7 +358,7 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNa
 		return err
 	}
 
-	monitorNamespace, err := getMonitorNamespace(clientset.CoreV1(), config)
+	monitorNamespace, err := getMonitorNamespace(clientset.CoreV1(), config.GetPotentialMonitorNamespaces(), config.GetMonitorServiceAccountName())
 	if err != nil {
 		return err
 	}
