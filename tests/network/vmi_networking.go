@@ -30,10 +30,11 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netutils "k8s.io/utils/net"
+
+	"kubevirt.io/kubevirt/tests/libnet/cluster"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -409,12 +410,20 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			if ipv6NetworkCIDR == "" {
 				ipv6NetworkCIDR = cloudinit.DefaultIPv6CIDR
 			}
-			networkData, err := cloudinit.NewNetworkData(
-				cloudinit.WithEthernet("eth0",
-					cloudinit.WithDHCP4Enabled(),
-					cloudinit.WithAddresses(ipv6NetworkCIDR),
-					cloudinit.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
-				),
+
+			isClusterDualStack, err := cluster.DualStack()
+			Expect(err).NotTo(HaveOccurred())
+			var networkData string
+			networkDataParams := []cloudinit.NetworkDataInterfaceOption{
+				cloudinit.WithAddresses(ipv6NetworkCIDR),
+				cloudinit.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
+				cloudinit.WithNameserverFromCluster(),
+			}
+			if isClusterDualStack {
+				networkDataParams = append(networkDataParams, cloudinit.WithDHCP4Enabled())
+			}
+			networkData, err = cloudinit.NewNetworkData(
+				cloudinit.WithEthernet("eth0", networkDataParams...),
 			)
 			if err != nil {
 				return nil, err
@@ -525,7 +534,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
 			})
 
-			DescribeTable("[QUARANTINE] IPv6", decorators.Quarantine, func(ports []v1.Port, tcpPort int, networkCIDR string) {
+			DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
 				clientVMI, err := fedoraMasqueradeVMI([]v1.Port{}, networkCIDR)
