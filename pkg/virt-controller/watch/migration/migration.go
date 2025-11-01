@@ -723,6 +723,10 @@ func (c *Controller) processMigrationPhase(
 			log.Log.Object(migration).Error("Migration object ont eligible for migration because another job is in progress")
 		}
 	case virtv1.MigrationPending:
+
+		if hasUtilityVolumes, err := c.handleUtilityVolumes(migrationCopy, vmi); err != nil || hasUtilityVolumes {
+			return err
+		}
 		if migration.IsLocalOrDecentralizedTarget() {
 			if pod != nil {
 				if controller.VMIHasHotplugVolumes(vmi) {
@@ -1386,7 +1390,7 @@ func (c *Controller) createAttachmentPod(migration *virtv1.VirtualMachineInstanc
 		return fmt.Errorf("failed to get current VMI pod: %v", err)
 	}
 
-	volumes := controller.GetHotplugVolumes(vmi, sourcePod)
+	volumes := storagetypes.GetHotplugVolumes(vmi, sourcePod)
 
 	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcStore, virtLauncherPod.Namespace)
 	if err != nil {
@@ -1505,6 +1509,76 @@ func (c *Controller) getCatchAllPendingTimeoutSeconds(migration *virtv1.VirtualM
 	return int64(newTimeout)
 }
 
+func (c *Controller) getUtilityVolumesTimeoutSeconds(migration *virtv1.VirtualMachineInstanceMigration) int64 {
+	migrationConfig := c.clusterConfig.GetMigrationConfiguration()
+	if migrationConfig == nil || migrationConfig.UtilityVolumesTimeout == nil {
+		return virtconfig.MigrationUtilityVolumesTimeoutSeconds
+	}
+	timeout := *migrationConfig.UtilityVolumesTimeout
+
+	if customTimeoutStr, ok := migration.Annotations[virtv1.MigrationUtilityVolumesTimeoutSecondsAnnotation]; ok {
+		if newTimeout, err := strconv.Atoi(customTimeoutStr); err == nil {
+			timeout = int64(newTimeout)
+		} else {
+			log.Log.Object(migration).Reason(err).Errorf("Unable to parse utility volumes timeout value for migration")
+		}
+	}
+
+	return timeout
+}
+
+func (c *Controller) handleUtilityVolumes(migrationCopy *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) (bool, error) {
+	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
+	if !controller.VMIHasUtilityVolumes(vmi) {
+		conditionManager.RemoveCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes)
+		return false, nil
+	}
+
+	migrationKey, err := controller.KeyFunc(migrationCopy)
+	if err != nil {
+		return false, err
+	}
+
+	utilityVolumesTimeout := c.getUtilityVolumesTimeoutSeconds(migrationCopy)
+	secondsSpentWaiting := timeSinceCreationSeconds(&migrationCopy.ObjectMeta)
+
+	if secondsSpentWaiting >= utilityVolumesTimeout {
+		c.recorder.Eventf(
+			migrationCopy,
+			k8sv1.EventTypeWarning,
+			controller.FailedMigrationReason,
+			"Migration timeout waiting for utility volumes to detach from VMI [%s/%s]. Utility volumes still present after %d seconds.",
+			vmi.Namespace, vmi.Name, secondsSpentWaiting)
+		log.Log.Object(migrationCopy).Warningf("Migration timeout waiting for utility volumes to detach from VMI [%s/%s].", vmi.Namespace, vmi.Name)
+		migrationCopy.Status.Phase = virtv1.MigrationFailed
+		return true, nil
+	}
+
+	c.recorder.Eventf(
+		migrationCopy,
+		k8sv1.EventTypeWarning,
+		controller.UtilityVolumeMigrationPendingReason,
+		"Migration waiting for utility volumes to detach from VMI [%s/%s]. Will timeout in %d seconds.",
+		vmi.Namespace, vmi.Name, utilityVolumesTimeout-secondsSpentWaiting)
+	log.Log.Object(migrationCopy).V(3).Infof("Migration waiting for utility volumes to detach from VMI [%s/%s].", vmi.Namespace, vmi.Name)
+
+	if !conditionManager.HasCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes) {
+		condition := virtv1.VirtualMachineInstanceMigrationCondition{
+			Type:          virtv1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes,
+			Status:        k8sv1.ConditionTrue,
+			LastProbeTime: v1.Now(),
+			Reason:        "UtilityVolumesPresent",
+			Message:       fmt.Sprintf("Migration is waiting for utility volumes to detach. Will timeout in %d seconds.", utilityVolumesTimeout-secondsSpentWaiting),
+		}
+		migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
+	}
+
+	delay := time.Second * time.Duration(utilityVolumesTimeout-secondsSpentWaiting)
+	c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.QueuePriorityRunning, After: delay}, migrationKey)
+
+	return true, nil
+}
+
 func (c *Controller) handlePendingPodTimeout(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 
 	if pod.Status.Phase != k8sv1.PodPending || pod.DeletionTimestamp != nil || pod.CreationTimestamp.IsZero() {
@@ -1583,6 +1657,10 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 		if err = c.handleMigrationBackoff(key, vmi, migration); errors.Is(err, migrationBackoffError) {
 			warningMsg := fmt.Sprintf("backoff migrating vmi %s/%s", vmi.Namespace, vmi.Name)
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, err.Error(), warningMsg)
+			return nil
+		}
+
+		if controller.VMIHasUtilityVolumes(vmi) {
 			return nil
 		}
 

@@ -537,6 +537,13 @@ func (ContainerDiskSource) SwaggerDoc() map[string]string {
 	}
 }
 
+func (UtilityVolume) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name": "UtilityVolume's name.\nMust be unique within the vmi, including regular Volumes.",
+		"type": "Type represents the type of the utility volume.\n+optional",
+	}
+}
+
 func (ClockOffset) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Exactly one of its members must be set.",

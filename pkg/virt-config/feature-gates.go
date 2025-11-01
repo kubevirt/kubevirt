@@ -69,6 +69,10 @@ func (config *ClusterConfig) LiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.LiveMigrationGate)
 }
 
+func (config *ClusterConfig) UtilityVolumesEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.UtilityVolumesGate)
+}
+
 func (config *ClusterConfig) SRIOVLiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.SRIOVLiveMigrationGate)
 }

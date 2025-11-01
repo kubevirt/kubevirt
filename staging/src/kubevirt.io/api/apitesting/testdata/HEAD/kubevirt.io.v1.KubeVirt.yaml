@@ -186,6 +186,7 @@ spec:
       parallelOutboundMigrationsPerNode: 4294967263
       progressTimeout: -15
       unsafeMigrationOverride: true
+      utilityVolumesTimeout: -21
     minCPUModel: minCPUModelValue
     network:
       binding:
