@@ -153,7 +153,17 @@ const (
 )
 
 func init() {
-	RegisterFeatureGate(FeatureGate{Name: ImageVolume, State: Beta})
+	RegisterFeatureGate(
+		FeatureGate{
+			Name:  ImageVolume,
+			State: Beta,
+			SupportByArch: SupportByArch{
+				AMD64: SUPPORTED,
+				ARM64: UNVERIFIED,
+				S390X: UNVERIFIED,
+			},
+		},
+	)
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CPUManager, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IgnitionGate, State: Alpha})
@@ -166,7 +176,17 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionSEV, State: Alpha})
+	RegisterFeatureGate(
+		FeatureGate{
+			Name:  WorkloadEncryptionSEV,
+			State: Alpha,
+			SupportByArch: SupportByArch{
+				AMD64: SUPPORTED,
+				ARM64: UNSUPPORTED,
+				S390X: UNSUPPORTED,
+			},
+		},
+	)
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionTDX, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Beta})
