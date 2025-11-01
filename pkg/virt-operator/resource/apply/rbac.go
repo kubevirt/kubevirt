@@ -4,18 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
-	"k8s.io/client-go/tools/cache"
-
-	"kubevirt.io/kubevirt/pkg/controller"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/resourcemerge"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 )
 
@@ -61,16 +58,15 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 		return nil
 	}
 
-	metaChanged := resourcemerge.BoolPtr(false)
 	existingCopy := cachedRoleInterface.(runtime.Object).DeepCopyObject()
 	existingCopyMeta := getRbacMetaObject(existingCopy)
 
-	resourcemerge.EnsureObjectMeta(metaChanged, existingCopyMeta, *requiredMeta)
+	metaChanged := resourcemerge.EnsureObjectMeta(existingCopyMeta, *requiredMeta)
 	enforceAPIGroup(existingCopy, required)
 
 	specChanged := changeRbacExistingByRequired(existingCopy, required)
 
-	if !*metaChanged && !specChanged {
+	if !metaChanged && !specChanged {
 		log.Log.V(4).Infof("%v %v already exists", roleTypeName, requiredMeta.GetName())
 		return nil
 	}
