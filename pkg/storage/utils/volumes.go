@@ -199,11 +199,6 @@ func IsErrNoBackendPVC(err error) bool {
 	return errors.Is(err, ErrNoBackendPVC)
 }
 
-func IsConfigVolume(volume *v1.Volume) bool {
-	return volume.ConfigMap != nil || volume.Secret != nil ||
-		volume.ServiceAccount != nil || volume.DownwardAPI != nil
-}
-
 func IsStorageVolume(volume *v1.Volume) bool {
 	return volume.PersistentVolumeClaim != nil || volume.DataVolume != nil
 }
