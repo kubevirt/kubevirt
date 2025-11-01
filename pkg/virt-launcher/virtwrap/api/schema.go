@@ -176,8 +176,8 @@ type Filesystem struct {
 	Name       string
 	Mountpoint string
 	Type       string
-	UsedBytes  int
-	TotalBytes int
+	UsedBytes  uint64
+	TotalBytes uint64
 	Disk       []FSDisk
 }
 
