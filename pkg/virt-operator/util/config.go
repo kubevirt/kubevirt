@@ -471,7 +471,7 @@ func (c *KubeVirtDeploymentConfig) SetTargetDeploymentConfig(kv *v1.KubeVirt) er
 	return err
 }
 
-func (c *KubeVirtDeploymentConfig) SetDefaultArchitecture(kv *v1.KubeVirt) error {
+func SetDefaultArchitecture(kv *v1.KubeVirt) error {
 	if kv.Spec.Configuration.ArchitectureConfiguration != nil && kv.Spec.Configuration.ArchitectureConfiguration.DefaultArchitecture != "" {
 		kv.Status.DefaultArchitecture = kv.Spec.Configuration.ArchitectureConfiguration.DefaultArchitecture
 	} else {
