@@ -1677,6 +1677,9 @@ func getVMRevisionName(vmUID types.UID, generation int64) string {
 }
 
 func patchVMRevision(vm *virtv1.VirtualMachine) ([]byte, error) {
+	if vm.Spec.Instancetype == nil || vm.Spec.Preference == nil {
+		return nil, fmt.Errorf("invalid resource %+v", vm)
+	}
 	vmCopy := vm.DeepCopy()
 	if revision.HasControllerRevisionRef(vmCopy.Status.InstancetypeRef) {
 		vmCopy.Spec.Instancetype.RevisionName = vmCopy.Status.InstancetypeRef.ControllerRevisionRef.Name
