@@ -651,7 +651,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}
 
 			if updateOperator && flags.OperatorManifestPath == "" {
-				Skip("Skip operator update test when operator manifest path isn't configured")
+				Fail("Fail operator update test when operator manifest path isn't configured")
 			}
 
 			// This test should run fine on single-node setups as long as no VM is created pre-update
@@ -1072,7 +1072,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3148]should be able to create kubevirt install with custom image tag", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("Fail operator custom image tag test because alt tag is not present")
 			}
 
 			allKvInfraPodsAreReady(originalKv)
@@ -1112,7 +1112,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
 
 			if flags.ImagePrefixAlt == "" {
-				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
+				Fail("Fail operator imagePrefix test because imagePrefixAlt is not present")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1180,7 +1180,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("Fail operator custom image tag test because alt tag is not present")
 			}
 
 			var vmis []*v1.VirtualMachineInstance
@@ -1264,7 +1264,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("Fail operator custom image tag test because alt tag is not present")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1358,13 +1358,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(crd.ObjectMeta.OwnerReferences).To(BeEmpty())
 		})
 
-		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
-
-			BeforeEach(func() {
-				if !checks.IsOpenShift() {
-					Skip("OpenShift operator tests should not be started on k8s")
-				}
-			})
+		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", decorators.OpenShift, func() {
 
 			It("[test_id:2910]Should have kubevirt SCCs created", func() {
 				const OpenShiftSCCLabel = "openshift.io/scc"
@@ -1417,7 +1411,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		BeforeEach(func() {
 			if serviceMonitorEnabled() {
-				Skip("Test applies on when ServiceMonitor is not defined")
+				Fail("Test applies on when ServiceMonitor is not defined")
 			}
 		})
 
@@ -1435,13 +1429,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("With PrometheusRule Enabled", func() {
-
-		BeforeEach(func() {
-			if !prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is defined")
-			}
-		})
+	Context("With PrometheusRule Enabled", decorators.SigMonitoring, func() {
 
 		It("[test_id:4614]Checks if the kubevirt PrometheusRule cr exists and verify it's spec", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
@@ -1456,12 +1444,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 	Context("With PrometheusRule Disabled", func() {
 
-		BeforeEach(func() {
-			if prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is not defined")
-			}
-		})
-
 		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
 			_, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
@@ -1469,13 +1451,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", func() {
-
-		BeforeEach(func() {
-			if !serviceMonitorEnabled() {
-				Skip("Test requires ServiceMonitor to be valid")
-			}
-		})
+	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", decorators.SigMonitoring, func() {
 
 		It("[test_id:2936]Should allow Prometheus to scrape KubeVirt endpoints", func() {
 			coreClient := virtClient.CoreV1()
