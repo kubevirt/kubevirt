@@ -138,9 +138,8 @@ func (l *launcherClientsManager) CloseLauncherClient(vmi *v1.VirtualMachineInsta
 	}
 
 	clientInfo, exists := l.launcherClients.Load(vmi.UID)
-	if exists && clientInfo.Client != nil {
-		clientInfo.Client.Close()
-		close(clientInfo.DomainPipeStopChan)
+	if exists {
+		clientInfo.Close()
 	}
 
 	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
