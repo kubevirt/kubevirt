@@ -231,8 +231,8 @@ var _ = Describe("Node-labeller ", func() {
 
 		node := retrieveNode(kubeClient)
 		Expect(node.Labels).To(SatisfyAll(
-			HaveKey(v1.CPUModelLabel+"Penryn"),
-			HaveKey(v1.SupportedHostModelMigrationCPU+"Penryn"),
+			HaveKey(v1.CPUModelLabel+"Nehalem"),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"Nehalem"),
 		))
 	})
 

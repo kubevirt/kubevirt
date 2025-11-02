@@ -20,7 +20,7 @@
 package util
 
 const (
-	DefaultMinCPUModel = "Penryn"
+	DefaultMinCPUModel = "Nehalem"
 	RequirePolicy      = "require"
 	KVMPath            = "/dev/kvm"
 	VmxFeature         = "vmx"
@@ -45,6 +45,8 @@ var DefaultObsoleteCPUModels = map[string]bool{
 	"core2duo-v1":   true,
 	"Conroe":        true,
 	"Conroe-v1":     true,
+	"Penryn":        true,
+	"Penryn-v1":     true,
 	"athlon":        true,
 	"athlon-v1":     true,
 	"phenom":        true,
@@ -57,6 +59,8 @@ var DefaultObsoleteCPUModels = map[string]bool{
 	"kvm64-v1":      true,
 	"kvm32":         true,
 	"kvm32-v1":      true,
+	"Opteron":       true,
+	"Opteron-v1":    true,
 	"Opteron_G1":    true,
 	"Opteron_G1-v1": true,
 	"Opteron_G2":    true,
