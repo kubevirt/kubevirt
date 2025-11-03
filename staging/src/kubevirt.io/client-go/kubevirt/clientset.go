@@ -33,6 +33,7 @@ import (
 	kubevirtv1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	exportv1alpha1 "kubevirt.io/client-go/kubevirt/typed/export/v1alpha1"
 	exportv1beta1 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
+	instancetypev1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1"
 	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 	migrationsv1alpha1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	poolv1alpha1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
@@ -50,6 +51,7 @@ type Interface interface {
 	ExportV1alpha1() exportv1alpha1.ExportV1alpha1Interface
 	ExportV1beta1() exportv1beta1.ExportV1beta1Interface
 	InstancetypeV1beta1() instancetypev1beta1.InstancetypeV1beta1Interface
+	InstancetypeV1() instancetypev1.InstancetypeV1Interface
 	MigrationsV1alpha1() migrationsv1alpha1.MigrationsV1alpha1Interface
 	PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface
 	PoolV1beta1() poolv1beta1.PoolV1beta1Interface
@@ -67,6 +69,7 @@ type Clientset struct {
 	exportV1alpha1      *exportv1alpha1.ExportV1alpha1Client
 	exportV1beta1       *exportv1beta1.ExportV1beta1Client
 	instancetypeV1beta1 *instancetypev1beta1.InstancetypeV1beta1Client
+	instancetypeV1      *instancetypev1.InstancetypeV1Client
 	migrationsV1alpha1  *migrationsv1alpha1.MigrationsV1alpha1Client
 	poolV1alpha1        *poolv1alpha1.PoolV1alpha1Client
 	poolV1beta1         *poolv1beta1.PoolV1beta1Client
@@ -107,6 +110,11 @@ func (c *Clientset) ExportV1beta1() exportv1beta1.ExportV1beta1Interface {
 // InstancetypeV1beta1 retrieves the InstancetypeV1beta1Client
 func (c *Clientset) InstancetypeV1beta1() instancetypev1beta1.InstancetypeV1beta1Interface {
 	return c.instancetypeV1beta1
+}
+
+// InstancetypeV1 retrieves the InstancetypeV1Client
+func (c *Clientset) InstancetypeV1() instancetypev1.InstancetypeV1Interface {
+	return c.instancetypeV1
 }
 
 // MigrationsV1alpha1 retrieves the MigrationsV1alpha1Client
@@ -206,6 +214,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.instancetypeV1, err = instancetypev1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.migrationsV1alpha1, err = migrationsv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -254,6 +266,7 @@ func New(c rest.Interface) *Clientset {
 	cs.exportV1alpha1 = exportv1alpha1.New(c)
 	cs.exportV1beta1 = exportv1beta1.New(c)
 	cs.instancetypeV1beta1 = instancetypev1beta1.New(c)
+	cs.instancetypeV1 = instancetypev1.New(c)
 	cs.migrationsV1alpha1 = migrationsv1alpha1.New(c)
 	cs.poolV1alpha1 = poolv1alpha1.New(c)
 	cs.poolV1beta1 = poolv1beta1.New(c)
