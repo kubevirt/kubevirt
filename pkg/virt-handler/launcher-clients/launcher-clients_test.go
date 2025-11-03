@@ -202,7 +202,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 					}()
 
 					// Expect the client to reconnect and succeed despite server restarts
-					client.SetCustomTimeouts(1*time.Second, 1*time.Second, 3*time.Second)
+					client.SetCustomTimeouts(200*time.Millisecond, 1*time.Second, 10*time.Second)
 					err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
 					Expect(err).ToNot(HaveOccurred())
 
