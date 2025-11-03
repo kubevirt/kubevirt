@@ -411,7 +411,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			}
 			networkData, err := cloudinit.NewNetworkData(
 				cloudinit.WithEthernet("eth0",
-					cloudinit.WithDHCP4Enabled(),
 					cloudinit.WithAddresses(ipv6NetworkCIDR),
 					cloudinit.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
 				),
