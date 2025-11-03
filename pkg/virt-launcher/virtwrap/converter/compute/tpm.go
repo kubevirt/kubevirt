@@ -29,24 +29,27 @@ import (
 type TPMDomainConfigurator struct{}
 
 func (t TPMDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if tpm.HasDevice(&vmi.Spec) {
-		domain.Spec.Devices.TPMs = []api.TPM{
-			{
-				Model: "tpm-tis",
-				Backend: api.TPMBackend{
-					Type:    "emulator",
-					Version: "2.0",
-				},
-			},
-		}
-		if tpm.HasPersistentDevice(&vmi.Spec) {
-			domain.Spec.Devices.TPMs[0].Backend.PersistentState = "yes"
-			// tpm-crb is not techincally required for persistence, but since there was a desire for both,
-			//   we decided to introduce them together. Ultimately, we should use tpm-crb for all cases,
-			//   as it is now the generally preferred model
-			domain.Spec.Devices.TPMs[0].Model = "tpm-crb"
-		}
+	if !tpm.HasDevice(&vmi.Spec) {
+		return nil
 	}
 
+	newTPMDevice := api.TPM{
+		Model: "tpm-tis",
+		Backend: api.TPMBackend{
+			Type:    "emulator",
+			Version: "2.0",
+		},
+	}
+
+	if tpm.HasPersistentDevice(&vmi.Spec) {
+		newTPMDevice.Backend.PersistentState = "yes"
+
+		// tpm-crb is not technically required for persistence, but since there was a desire for both,
+		//   we decided to introduce them together. Ultimately, we should use tpm-crb for all cases,
+		//   as it is now the generally preferred model
+		newTPMDevice.Model = "tpm-crb"
+	}
+
+	domain.Spec.Devices.TPMs = []api.TPM{newTPMDevice}
 	return nil
 }
