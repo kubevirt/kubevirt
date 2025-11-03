@@ -363,25 +363,25 @@ oci_pull(
 # TODO build fedora_with_test_tooling for multi-arch
 oci_pull(
     name = "fedora_with_test_tooling",
-    digest = "sha256:ecc3a488c10f77490cdba7264fc5f597082caeecd5f4debf2f0a033d87c155d2",
+    digest = "sha256:897af945d1c58366086d5933ae4f341a5f1413b88e6c7f2b659436adc5d0f522",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
 oci_pull(
     name = "alpine_with_test_tooling",
-    digest = "sha256:4a6c258a75cff2190d768ab06e57dbf375bedb260ce4ba79dd249f077e769dc5",
+    digest = "sha256:51d0011e5684397bbc78d650d4c58412e535ccf4ca7fbe7e720315deedb860b7",
     image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
 )
 
 oci_pull(
     name = "fedora_with_test_tooling_aarch64",
-    digest = "sha256:e1d8bc3c9c35bbc2e7f8d49ff7ca365e053f189362fd69a189dd654173f61f4f",
+    digest = "sha256:3d5a2a95f7f9382dc6730073fe19a6b1bc668b424c362339c88c6a13dff2ef49",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
 oci_pull(
     name = "fedora_with_test_tooling_s390x",
-    digest = "sha256:9cb598dcc5affe38d0da0e6016b40f2ebe8c942dc98e66d5b57356d2a0886685",
+    digest = "sha256:3d9f468750d90845a81608ea13c85237ea295c6295c911a99dc5e0504c8bc05b",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
@@ -394,7 +394,7 @@ oci_pull(
 # TODO build fedora_realtime for multi-arch
 oci_pull(
     name = "fedora_realtime",
-    digest = "sha256:437f4e02986daf0058239f4a282d32304dcac629d5d1b4c75a74025f1ce22811",
+    digest = "sha256:f91379d202a5493aba9ce06870b5d1ada2c112f314530c9820a9ad07426aa565",
     image = "quay.io/kubevirt/fedora-realtime-container-disk",
 )
 
