@@ -108,7 +108,7 @@ func WithNameserverFromCluster() NetworkDataInterfaceOption {
 		if err != nil {
 			return fmt.Errorf("failed defining network data nameservers when retrieving cluster DNS service IP: %w", err)
 		}
-		networkDataInterface.Nameservers = CloudInitNameservers{
+		networkDataInterface.Nameservers = &CloudInitNameservers{
 			Addresses: []string{dnsServerIP},
 			Search:    dns.SearchDomains(),
 		}
@@ -133,19 +133,19 @@ type CloudInitNetworkData struct {
 
 type CloudInitInterface struct {
 	name           string
-	AcceptRA       *bool                `json:"accept-ra,omitempty"`
-	Addresses      []string             `json:"addresses,omitempty"`
-	DHCP4          *bool                `json:"dhcp4,omitempty"`
-	DHCP6          *bool                `json:"dhcp6,omitempty"`
-	DHCPIdentifier string               `json:"dhcp-identifier,omitempty"` // "duid" or  "mac"
-	Gateway4       string               `json:"gateway4,omitempty"`
-	Gateway6       string               `json:"gateway6,omitempty"`
-	Nameservers    CloudInitNameservers `json:"nameservers,omitempty"`
-	MACAddress     string               `json:"macaddress,omitempty"`
-	Match          CloudInitMatch       `json:"match,omitempty"`
-	MTU            int                  `json:"mtu,omitempty"`
-	Routes         []CloudInitRoute     `json:"routes,omitempty"`
-	SetName        string               `json:"set-name,omitempty"`
+	AcceptRA       *bool                 `json:"accept-ra,omitempty"`
+	Addresses      []string              `json:"addresses,omitempty"`
+	DHCP4          *bool                 `json:"dhcp4,omitempty"`
+	DHCP6          *bool                 `json:"dhcp6,omitempty"`
+	DHCPIdentifier string                `json:"dhcp-identifier,omitempty"` // "duid" or  "mac"
+	Gateway4       string                `json:"gateway4,omitempty"`
+	Gateway6       string                `json:"gateway6,omitempty"`
+	Nameservers    *CloudInitNameservers `json:"nameservers,omitempty"`
+	MACAddress     string                `json:"macaddress,omitempty"`
+	Match          CloudInitMatch        `json:"match,omitempty"`
+	MTU            int                   `json:"mtu,omitempty"`
+	Routes         []CloudInitRoute      `json:"routes,omitempty"`
+	SetName        string                `json:"set-name,omitempty"`
 }
 
 type CloudInitNameservers struct {
