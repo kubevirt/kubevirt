@@ -41,6 +41,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1alpha1 "kubevirt.io/api/export/v1alpha1"
 	exportv1beta1 "kubevirt.io/api/export/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	poolv1beta1 "kubevirt.io/api/pool/v1beta1"
@@ -206,7 +207,8 @@ func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
 		{Name: "Status", Description: "Human Readable Status", Type: "string", JSONPath: ".status.printableStatus"},
 		{Name: "Ready", Type: "string", JSONPath: ".status.conditions[?(@.type=='Ready')].status"},
 	}, &extv1.CustomResourceSubresources{
-		Status: &extv1.CustomResourceSubresourceStatus{}})
+		Status: &extv1.CustomResourceSubresourceStatus{},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -280,12 +282,18 @@ func NewReplicaSetCrd() (*extv1.CustomResourceDefinition, error) {
 	}
 	err := addFieldsToAllVersions(crd,
 		[]extv1.CustomResourceColumnDefinition{
-			{Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
-				Description: "Number of desired VirtualMachineInstances"},
-			{Name: "Current", Type: "integer", JSONPath: ".status.replicas",
-				Description: "Number of managed and not final or deleted VirtualMachineInstances"},
-			{Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
-				Description: "Number of managed VirtualMachineInstances which are ready to receive traffic"},
+			{
+				Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
+				Description: "Number of desired VirtualMachineInstances",
+			},
+			{
+				Name: "Current", Type: "integer", JSONPath: ".status.replicas",
+				Description: "Number of managed and not final or deleted VirtualMachineInstances",
+			},
+			{
+				Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
+				Description: "Number of managed VirtualMachineInstances which are ready to receive traffic",
+			},
 			{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		}, &extv1.CustomResourceSubresources{
 			Scale: &extv1.CustomResourceSubresourceScale{
@@ -325,14 +333,17 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
 	}
 	err := addFieldsToAllVersions(crd,
 		[]extv1.CustomResourceColumnDefinition{
-			{Name: "Phase", Type: "string", JSONPath: phaseJSONPath,
-				Description: "The current phase of VM instance migration"},
-			{Name: "VMI", Type: "string", JSONPath: ".spec.vmiName",
-				Description: "The name of the VMI to perform the migration on"},
+			{
+				Name: "Phase", Type: "string", JSONPath: phaseJSONPath,
+				Description: "The current phase of VM instance migration",
+			},
+			{
+				Name: "VMI", Type: "string", JSONPath: ".spec.vmiName",
+				Description: "The name of the VMI to perform the migration on",
+			},
 		}, &extv1.CustomResourceSubresources{
 			Status: &extv1.CustomResourceSubresourceStatus{},
 		})
-
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +358,6 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
 // If you change something here, you probably need to change the CSV manifest too,
 // see /manifests/release/kubevirt.VERSION.csv.yaml.in
 func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
-
 	// we use a different label here, so no newBlankCrd()
 	crd := &extv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
@@ -426,12 +436,18 @@ func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
 
 	err := addFieldsToAllVersions(crd,
 		[]extv1.CustomResourceColumnDefinition{
-			{Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
-				Description: "Number of desired VirtualMachines"},
-			{Name: "Current", Type: "integer", JSONPath: ".status.replicas",
-				Description: "Number of managed and not final or deleted VirtualMachines"},
-			{Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
-				Description: "Number of managed VirtualMachines which are ready to receive traffic"},
+			{
+				Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
+				Description: "Number of desired VirtualMachines",
+			},
+			{
+				Name: "Current", Type: "integer", JSONPath: ".status.replicas",
+				Description: "Number of managed and not final or deleted VirtualMachines",
+			},
+			{
+				Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
+				Description: "Number of managed VirtualMachines which are ready to receive traffic",
+			},
 			{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		}, &extv1.CustomResourceSubresources{
 			Scale: &extv1.CustomResourceSubresourceScale{
@@ -763,9 +779,9 @@ func NewVirtualMachineBackupTrackerCrd() (*extv1.CustomResourceDefinition, error
 func NewVirtualMachineInstancetypeCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.Name = "virtualmachineinstancetypes." + instancetypev1beta1.SchemeGroupVersion.Group
+	crd.Name = "virtualmachineinstancetypes." + instancetypev1.SchemeGroupVersion.Group
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: instancetypev1beta1.SchemeGroupVersion.Group,
+		Group: instancetypev1.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     instancetype.PluralResourceName,
 			Singular:   instancetype.SingularResourceName,
@@ -777,11 +793,18 @@ func NewVirtualMachineInstancetypeCrd() (*extv1.CustomResourceDefinition, error)
 		Conversion: &extv1.CustomResourceConversion{
 			Strategy: extv1.NoneConverter,
 		},
-		Versions: []extv1.CustomResourceDefinitionVersion{{
-			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
-			Served:  true,
-			Storage: true,
-		}},
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    instancetypev1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+			{
+				Name:    instancetypev1beta1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
+			},
+		},
 	}
 
 	if err := patchValidationForAllVersions(crd); err != nil {
@@ -793,9 +816,9 @@ func NewVirtualMachineInstancetypeCrd() (*extv1.CustomResourceDefinition, error)
 func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.Name = "virtualmachineclusterinstancetypes." + instancetypev1beta1.SchemeGroupVersion.Group
+	crd.Name = "virtualmachineclusterinstancetypes." + instancetypev1.SchemeGroupVersion.Group
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: instancetypev1beta1.SchemeGroupVersion.Group,
+		Group: instancetypev1.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     instancetype.ClusterPluralResourceName,
 			Singular:   instancetype.ClusterSingularResourceName,
@@ -806,11 +829,18 @@ func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition,
 		Conversion: &extv1.CustomResourceConversion{
 			Strategy: extv1.NoneConverter,
 		},
-		Versions: []extv1.CustomResourceDefinitionVersion{{
-			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
-			Served:  true,
-			Storage: true,
-		}},
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    instancetypev1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+			{
+				Name:    instancetypev1beta1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
+			},
+		},
 	}
 
 	if err := patchValidationForAllVersions(crd); err != nil {
@@ -822,9 +852,9 @@ func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition,
 func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.Name = "virtualmachinepreferences." + instancetypev1beta1.SchemeGroupVersion.Group
+	crd.Name = "virtualmachinepreferences." + instancetypev1.SchemeGroupVersion.Group
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: instancetypev1beta1.SchemeGroupVersion.Group,
+		Group: instancetypev1.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     instancetype.PluralPreferenceResourceName,
 			Singular:   instancetype.SingularPreferenceResourceName,
@@ -836,11 +866,18 @@ func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
 		Conversion: &extv1.CustomResourceConversion{
 			Strategy: extv1.NoneConverter,
 		},
-		Versions: []extv1.CustomResourceDefinitionVersion{{
-			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
-			Served:  true,
-			Storage: true,
-		}},
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    instancetypev1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+			{
+				Name:    instancetypev1beta1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
+			},
+		},
 	}
 
 	if err := patchValidationForAllVersions(crd); err != nil {
@@ -852,9 +889,9 @@ func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
 func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.Name = "virtualmachineclusterpreferences." + instancetypev1beta1.SchemeGroupVersion.Group
+	crd.Name = "virtualmachineclusterpreferences." + instancetypev1.SchemeGroupVersion.Group
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: instancetypev1beta1.SchemeGroupVersion.Group,
+		Group: instancetypev1.SchemeGroupVersion.Group,
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     instancetype.ClusterPluralPreferenceResourceName,
 			Singular:   instancetype.ClusterSingularPreferenceResourceName,
@@ -865,11 +902,18 @@ func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, e
 		Conversion: &extv1.CustomResourceConversion{
 			Strategy: extv1.NoneConverter,
 		},
-		Versions: []extv1.CustomResourceDefinitionVersion{{
-			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
-			Served:  true,
-			Storage: true,
-		}},
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    instancetypev1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+			{
+				Name:    instancetypev1beta1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
+			},
+		},
 	}
 
 	if err := patchValidationForAllVersions(crd); err != nil {
