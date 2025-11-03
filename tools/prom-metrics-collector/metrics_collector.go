@@ -24,19 +24,42 @@ import (
 	"regexp"
 	"strings"
 
+	dto "github.com/prometheus/client_model/go"
+
 	parser "github.com/kubevirt/monitoring/pkg/metrics/parser"
 
-	dto "github.com/prometheus/client_model/go"
+	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 )
 
 // This should be used only for very rare cases where the naming conventions that are explained in the best practices:
-// https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/#metrics-guidelines
-// should be ignored.
+// https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/ should be ignored.
 var excludedMetrics = map[string]struct{}{
-	"kubevirt_vmi_phase_count":                            {},
-	"vmi:kubevirt_vmi_vcpu:count":                         {},
-	"cluster:kubevirt_virt_controller_pods_running:count": {},
-	"kubevirt_vmi_migration_data_total_bytes":             {},
+	"kubevirt_vmi_migration_data_total_bytes": {},
+}
+
+// RecordingRule is an entry for the linter JSON.
+type RecordingRule struct {
+	Record string `json:"record,omitempty"`
+	Expr   string `json:"expr,omitempty"`
+	Type   string `json:"type,omitempty"`
+}
+
+func ExtractRecordingRules() ([]RecordingRule, error) {
+	if err := rules.SetupRules("ci"); err != nil {
+		return nil, err
+	}
+	var recRules []RecordingRule
+	for _, rr := range rules.ListRecordingRules() {
+		if _, isExcluded := excludedMetrics[rr.MetricsOpts.Name]; isExcluded {
+			continue
+		}
+		recRules = append(recRules, RecordingRule{
+			Record: rr.MetricsOpts.Name,
+			Expr:   rr.Expr.String(),
+			Type:   string(rr.MetricType),
+		})
+	}
+	return recRules, nil
 }
 
 // Extract the name, help, and type from the metrics doc file
@@ -63,7 +86,7 @@ func ExtractMetrics(metricsContent string) ([]parser.Metric, error) {
 }
 
 // Read the metrics and parse them to a MetricFamily
-func ReadMetrics(metricsPath string) ([]*dto.MetricFamily, error) {
+func ReadMetrics(metricsPath string, recordingRuleNames map[string]struct{}) ([]*dto.MetricFamily, error) {
 	metricsContent, err := os.ReadFile(metricsPath)
 	if err != nil {
 		return nil, fmt.Errorf("error reading metrics file: %s", err)
@@ -76,11 +99,15 @@ func ReadMetrics(metricsPath string) ([]*dto.MetricFamily, error) {
 
 	var metricFamily []*dto.MetricFamily
 	for _, metric := range metrics {
-		// Remove ignored metrics from all rules
-		if _, isExcludedMetric := excludedMetrics[metric.Name]; !isExcludedMetric {
-			mf := parser.CreateMetricFamily(metric)
-			metricFamily = append(metricFamily, mf)
+		// Remove ignored metrics and any that are recording rules
+		if _, isExcludedMetric := excludedMetrics[metric.Name]; isExcludedMetric {
+			continue
 		}
+		if _, isRecordingRule := recordingRuleNames[metric.Name]; isRecordingRule {
+			continue
+		}
+		mf := parser.CreateMetricFamily(metric)
+		metricFamily = append(metricFamily, mf)
 	}
 	return metricFamily, nil
 }
