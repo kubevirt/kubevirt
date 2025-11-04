@@ -184,19 +184,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Describe("VirtualMachineInstance definition", func() {
-		fedoraWithUefiSecuredBoot := libvmifact.NewFedora(
-			libvmi.WithMemoryRequest("1Gi"),
-			libvmi.WithUefi(true),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		)
-		alpineWithUefiWithoutSecureBoot := libvmifact.NewAlpine(
-			libvmi.WithMemoryRequest("1Gi"),
-			libvmi.WithUefi(false),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		)
-
 		Context("[rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", Serial, func() {
 			var availableNumberOfCPUs int
 
@@ -523,40 +510,29 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction, msg string, fileName string) {
-			By("Starting a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			wp := watcher.WarningsPolicy{FailOnWarnings: false}
-			libwait.WaitForVMIPhase(vmi,
-				[]v1.VirtualMachineInstancePhase{v1.Running, v1.Failed},
-				libwait.WithWarningsPolicy(&wp),
-				libwait.WithTimeout(180),
-				libwait.WithWaitForFail(true),
+		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(withSecureBoot bool, expectedSecureBootResult string) {
+			fedoraWithUefi := libvmifact.NewFedora(
+				libvmi.WithMemoryRequest("1Gi"),
+				libvmi.WithUefi(withSecureBoot),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			vmiMeta, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			By("Starting the VirtualMachineInstance")
+			fedoraWithUefi = libvmops.RunVMIAndExpectLaunch(fedoraWithUefi, libvmops.StartupTimeoutSecondsHuge)
+			Expect(console.LoginToFedora(fedoraWithUefi)).To(Succeed())
 
-			switch vmiMeta.Status.Phase {
-			case v1.Failed:
-				// This Error is expected to be handled
-				By("Getting virt-launcher logs")
-				logs := func() string { return getVirtLauncherLogs(virtClient, vmi) }
-				Eventually(logs,
-					30*time.Second,
-					500*time.Millisecond).
-					Should(ContainSubstring("EFI OVMF rom missing"))
-			default:
-				libwait.WaitUntilVMIReady(vmi, loginTo)
-				By(msg)
-				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(MatchRegexp(fileName))
-			}
+			By("Check if EFI and SecureBoot state")
+			Expect(console.SafeExpectBatch(fedoraWithUefi, []expect.Batcher{
+				&expect.BSnd{S: "[ -d /sys/firmware/efi ]\n"},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: console.RetValue("0")},
+				&expect.BSnd{S: "mokutil --sb-state\n"},
+				&expect.BExp{R: expectedSecureBootResult},
+			}, 200)).To(Succeed())
 		},
-			Entry("[test_id:1668]should use EFI without secure boot", Serial, alpineWithUefiWithoutSecureBoot, console.LoginToAlpine, "Checking if UEFI is enabled", `OVMF_CODE(\.secboot)?\.fd`),
-			Entry("[test_id:4437]should enable EFI secure boot", Serial, fedoraWithUefiSecuredBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", `OVMF_CODE\.secboot\.fd`),
+			Entry("[test_id:1668]should use EFI without secure boot", Serial, false, "SecureBoot disabled"),
+			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled"),
 		)
 
 		Context("[rfe_id:989]test cpu_allocation_ratio", func() {
