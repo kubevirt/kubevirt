@@ -1,0 +1,43 @@
+# default deny reaching kubevirt components
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: kubevirt
+spec:
+  podSelector: { }
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kv-allow-egress-to-api-server
+  namespace: kubevirt
+spec:
+  podSelector:
+    matchExpressions:
+      - key: np.kubevirt.io/allow-access-cluster-services
+        operator: In
+        values:
+          - "true"
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        # allow talking to the kube-dns pods in kubevirt
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: TCP
+          port: dns-tcp
+        - protocol: UDP
+          port: dns
