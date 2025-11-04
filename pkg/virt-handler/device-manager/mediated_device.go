@@ -238,7 +238,7 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 	return mdevsMap
 }
 
-func (dpi *MediatedDevicePlugin) HealthCheck() error {
+func (dpi *MediatedDevicePlugin) healthCheck() error {
 	logger := log.DefaultLogger()
 	monitoredDevices := make(map[string]string)
 	watcher, err := fsnotify.NewWatcher()
