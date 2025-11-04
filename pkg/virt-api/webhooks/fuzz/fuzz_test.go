@@ -27,13 +27,13 @@ import (
 	"testing"
 	"time"
 
-	gofuzz "github.com/google/gofuzz"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/randfill"
 
 	instancetypeWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
@@ -148,9 +148,9 @@ func FuzzAdmitter(f *testing.F) {
 				newObj := reflect.New(reflect.TypeOf(tc.objType))
 				obj := newObj.Interface()
 
-				gofuzz.NewWithSeed(seed).NilChance(0.1).NumElements(0, 15).Funcs(
+				randfill.NewWithSeed(seed).NilChance(0.1).NumElements(0, 15).Funcs(
 					tc.fuzzFuncs...,
-				).Fuzz(obj)
+				).Fill(obj)
 				request := toAdmissionReview(obj, tc.gvk)
 				config := fuzzKubeVirtConfig(seed)
 				startTime := time.Now()
@@ -198,9 +198,9 @@ func toAdmissionReview(obj interface{}, gvr metav1.GroupVersionResource) *admiss
 
 func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 	kv := &v1.KubeVirt{}
-	gofuzz.NewWithSeed(seed).Funcs(
-		func(dc *v1.DeveloperConfiguration, c gofuzz.Continue) {
-			c.FuzzNoCustom(dc)
+	randfill.NewWithSeed(seed).Funcs(
+		func(dc *v1.DeveloperConfiguration, c randfill.Continue) {
+			c.FillNoCustom(dc)
 			featureGates := []string{
 				featuregate.ExpandDisksGate,
 				featuregate.CPUManager,
@@ -232,7 +232,7 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 				dc.FeatureGates = append(dc.FeatureGates, featureGates[idx])
 			}
 		},
-	).Fuzz(kv)
+	).Fill(kv)
 	config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 	return config
 }
@@ -246,51 +246,51 @@ func fuzzFuncs(options ...fuzzOption) []interface{} {
 	}
 
 	enumFuzzers := []interface{}{
-		func(e *metav1.FieldsV1, c gofuzz.Continue) {},
-		func(objectmeta *metav1.ObjectMeta, c gofuzz.Continue) {
-			c.FuzzNoCustom(objectmeta)
+		func(e *metav1.FieldsV1, c randfill.Continue) {},
+		func(objectmeta *metav1.ObjectMeta, c randfill.Continue) {
+			c.FillNoCustom(objectmeta)
 			objectmeta.DeletionGracePeriodSeconds = nil
 			objectmeta.Generation = 0
 			objectmeta.ManagedFields = nil
 		},
-		func(obj *corev1.URIScheme, c gofuzz.Continue) {
+		func(obj *corev1.URIScheme, c randfill.Continue) {
 			pickType(addSyntaxErrors, obj, []corev1.URIScheme{corev1.URISchemeHTTP, corev1.URISchemeHTTPS}, c)
 		},
-		func(obj *corev1.TaintEffect, c gofuzz.Continue) {
+		func(obj *corev1.TaintEffect, c randfill.Continue) {
 			pickType(addSyntaxErrors, obj, []corev1.TaintEffect{corev1.TaintEffectNoExecute, corev1.TaintEffectNoSchedule, corev1.TaintEffectPreferNoSchedule}, c)
 		},
-		func(obj *corev1.NodeInclusionPolicy, c gofuzz.Continue) {
+		func(obj *corev1.NodeInclusionPolicy, c randfill.Continue) {
 			pickType(addSyntaxErrors, obj, []corev1.NodeInclusionPolicy{corev1.NodeInclusionPolicyHonor, corev1.NodeInclusionPolicyIgnore}, c)
 		},
-		func(obj *corev1.UnsatisfiableConstraintAction, c gofuzz.Continue) {
+		func(obj *corev1.UnsatisfiableConstraintAction, c randfill.Continue) {
 			pickType(addSyntaxErrors, obj, []corev1.UnsatisfiableConstraintAction{corev1.DoNotSchedule, corev1.ScheduleAnyway}, c)
 		},
-		func(obj *corev1.PullPolicy, c gofuzz.Continue) {
+		func(obj *corev1.PullPolicy, c randfill.Continue) {
 			pickType(addSyntaxErrors, obj, []corev1.PullPolicy{corev1.PullAlways, corev1.PullNever, corev1.PullIfNotPresent}, c)
 		},
-		func(obj *corev1.NodeSelectorOperator, c gofuzz.Continue) {
+		func(obj *corev1.NodeSelectorOperator, c randfill.Continue) {
 			pickType(addSyntaxErrors, obj, []corev1.NodeSelectorOperator{corev1.NodeSelectorOpDoesNotExist, corev1.NodeSelectorOpExists, corev1.NodeSelectorOpGt, corev1.NodeSelectorOpIn, corev1.NodeSelectorOpLt, corev1.NodeSelectorOpNotIn}, c)
 		},
-		func(obj *corev1.TolerationOperator, c gofuzz.Continue) {
+		func(obj *corev1.TolerationOperator, c randfill.Continue) {
 			pickType(addSyntaxErrors, obj, []corev1.TolerationOperator{corev1.TolerationOpExists, corev1.TolerationOpEqual}, c)
 		},
-		func(obj *corev1.PodQOSClass, c gofuzz.Continue) {
+		func(obj *corev1.PodQOSClass, c randfill.Continue) {
 			pickType(addSyntaxErrors, obj, []corev1.PodQOSClass{corev1.PodQOSBestEffort, corev1.PodQOSGuaranteed, corev1.PodQOSBurstable}, c)
 		},
-		func(obj *corev1.PersistentVolumeMode, c gofuzz.Continue) {
+		func(obj *corev1.PersistentVolumeMode, c randfill.Continue) {
 			pickType(addSyntaxErrors, obj, []corev1.PersistentVolumeMode{corev1.PersistentVolumeBlock, corev1.PersistentVolumeFilesystem}, c)
 		},
-		func(obj *corev1.DNSPolicy, c gofuzz.Continue) {
+		func(obj *corev1.DNSPolicy, c randfill.Continue) {
 			pickType(addSyntaxErrors, obj, []corev1.DNSPolicy{corev1.DNSClusterFirst, corev1.DNSClusterFirstWithHostNet, corev1.DNSDefault, corev1.DNSNone}, c)
 		},
-		func(obj *corev1.TypedObjectReference, c gofuzz.Continue) {
-			c.FuzzNoCustom(obj)
-			str := c.RandString()
+		func(obj *corev1.TypedObjectReference, c randfill.Continue) {
+			c.FillNoCustom(obj)
+			str := c.String(0)
 			obj.APIGroup = &str
 		},
-		func(obj *corev1.TypedLocalObjectReference, c gofuzz.Continue) {
-			c.FuzzNoCustom(obj)
-			str := c.RandString()
+		func(obj *corev1.TypedLocalObjectReference, c randfill.Continue) {
+			c.FillNoCustom(obj)
+			str := c.String(0)
 			obj.APIGroup = &str
 		},
 	}
@@ -298,22 +298,22 @@ func fuzzFuncs(options ...fuzzOption) []interface{} {
 	typeFuzzers := []interface{}{}
 	if !addSyntaxErrors {
 		typeFuzzers = []interface{}{
-			func(obj *int, c gofuzz.Continue) {
+			func(obj *int, c randfill.Continue) {
 				*obj = c.Intn(100000)
 			},
-			func(obj *uint, c gofuzz.Continue) {
+			func(obj *uint, c randfill.Continue) {
 				*obj = uint(c.Intn(100000))
 			},
-			func(obj *int32, c gofuzz.Continue) {
+			func(obj *int32, c randfill.Continue) {
 				*obj = int32(c.Intn(100000))
 			},
-			func(obj *int64, c gofuzz.Continue) {
+			func(obj *int64, c randfill.Continue) {
 				*obj = int64(c.Intn(100000))
 			},
-			func(obj *uint64, c gofuzz.Continue) {
+			func(obj *uint64, c randfill.Continue) {
 				*obj = uint64(c.Intn(100000))
 			},
-			func(obj *uint32, c gofuzz.Continue) {
+			func(obj *uint32, c randfill.Continue) {
 				*obj = uint32(c.Intn(100000))
 			},
 		}
@@ -322,7 +322,7 @@ func fuzzFuncs(options ...fuzzOption) []interface{} {
 	return append(enumFuzzers, typeFuzzers...)
 }
 
-func pickType(withSyntaxError bool, target interface{}, arr interface{}, c gofuzz.Continue) {
+func pickType(withSyntaxError bool, target interface{}, arr interface{}, c randfill.Continue) {
 	arrPtr := reflect.ValueOf(arr)
 	targetPtr := reflect.ValueOf(target)
 
