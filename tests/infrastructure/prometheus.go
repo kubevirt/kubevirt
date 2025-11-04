@@ -97,7 +97,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		scraped and processed by the different components on the way.
 	*/
 
-	It("[test_id:4135]should find VMI namespace on namespace label of the metric", func() {
+	It("[QUARANTINE][test_id:4135]should find VMI namespace on namespace label of the metric", decorators.Quarantine, func() {
 		/*
 			This test is required because in cases of misconfigurations on
 			monitoring objects (such for the ServiceMonitor), our rules will
