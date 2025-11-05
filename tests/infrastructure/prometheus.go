@@ -43,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 
 	k8sv1 "k8s.io/api/core/v1"
-	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -119,44 +118,13 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		op := ops.Items[0]
 		Expect(op).ToNot(BeNil(), "virt-handler pod should not be nil")
 
-		var epSlice *discoveryv1.EndpointSlice
-		var promPort int32
-
-		By("finding Prometheus endpoint")
-		Eventually(func() bool {
-			var epsList *discoveryv1.EndpointSliceList
-			epsList, err = virtClient.DiscoveryV1().EndpointSlices(flags.PrometheusNamespace).List(
-				context.Background(), metav1.ListOptions{
-					LabelSelector: "kubernetes.io/service-name=prometheus-k8s",
-				})
-			Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint slice")
-
-			if len(epsList.Items) == 0 {
-				return false
-			}
-			for _, eps := range epsList.Items {
-				// ignore IPv6 case
-				if eps.AddressType != discoveryv1.AddressTypeIPv4 {
-					continue
-				}
-				if promPort, err = findPrometheusWebPort(&eps); err != nil {
-					continue
-				}
-				if len(eps.Endpoints) == 0 || len(eps.Endpoints[0].Addresses) == 0 {
-					return false
-				}
-				epSlice = &eps
-			}
-			return true
-		}, 10*time.Second, time.Second).Should(BeTrue())
-
 		urlSchema := "https"
+		promPort := 9091
 		if flags.PrometheusNamespace == "monitoring" {
 			urlSchema = "http"
+			promPort = 9090
 		}
-		promIP := epSlice.Endpoints[0].Addresses[0]
-		Expect(promIP).ToNot(Equal(""), "could not get Prometheus IP from endpoint slice")
-		Expect(promPort).ToNot(BeEquivalentTo(0), "could not get Prometheus port from endpoint slice")
+		promServiceURL := fmt.Sprintf("prometheus-k8s.%s.svc.cluster.local", flags.PrometheusNamespace)
 
 		// the Service Account needs to have access to the Prometheus subresource api
 		token, err := generateTokenForPrometheusAPI(vmi.Namespace)
@@ -168,7 +136,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 			"curl",
 			"-L",
 			"-k",
-			fmt.Sprintf("%s://%s:%d/api/v1/query", urlSchema, promIP, promPort),
+			fmt.Sprintf("%s://%s:%d/api/v1/query", urlSchema, promServiceURL, promPort),
 			"-H",
 			fmt.Sprintf("Authorization: Bearer %s", token),
 			"--data-urlencode",
@@ -816,18 +784,4 @@ func cleanupClusterRoleAndBinding(namespace string) {
 	// Delete ClusterRoleBinding
 	err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), clusterRoleBindingName, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred(), "Failed to delete ClusterRoleBinding: %s", clusterRoleBindingName)
-}
-
-func findPrometheusWebPort(eps *discoveryv1.EndpointSlice) (int32, error) {
-	if len(eps.Ports) == 0 {
-		return 0, fmt.Errorf("web port not found")
-	}
-
-	for _, port := range eps.Ports {
-		if port.Name != nil && *port.Name == "web" {
-			return *port.Port, nil
-		}
-	}
-
-	return 0, fmt.Errorf("web port not found")
 }
