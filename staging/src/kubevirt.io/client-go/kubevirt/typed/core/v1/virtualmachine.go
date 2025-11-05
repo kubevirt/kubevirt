@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1 "kubevirt.io/api/core/v1"
+	corev1 "kubevirt.io/api/core/v1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,34 @@ type VirtualMachinesGetter interface {
 
 // VirtualMachineInterface has methods to work with VirtualMachine resources.
 type VirtualMachineInterface interface {
-	Create(ctx context.Context, virtualMachine *v1.VirtualMachine, opts metav1.CreateOptions) (*v1.VirtualMachine, error)
-	Update(ctx context.Context, virtualMachine *v1.VirtualMachine, opts metav1.UpdateOptions) (*v1.VirtualMachine, error)
+	Create(ctx context.Context, virtualMachine *corev1.VirtualMachine, opts metav1.CreateOptions) (*corev1.VirtualMachine, error)
+	Update(ctx context.Context, virtualMachine *corev1.VirtualMachine, opts metav1.UpdateOptions) (*corev1.VirtualMachine, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, virtualMachine *v1.VirtualMachine, opts metav1.UpdateOptions) (*v1.VirtualMachine, error)
+	UpdateStatus(ctx context.Context, virtualMachine *corev1.VirtualMachine, opts metav1.UpdateOptions) (*corev1.VirtualMachine, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.VirtualMachine, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.VirtualMachineList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.VirtualMachine, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*corev1.VirtualMachineList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.VirtualMachine, err error)
 	VirtualMachineExpansion
 }
 
 // virtualMachines implements VirtualMachineInterface
 type virtualMachines struct {
-	*gentype.ClientWithList[*v1.VirtualMachine, *v1.VirtualMachineList]
+	*gentype.ClientWithList[*corev1.VirtualMachine, *corev1.VirtualMachineList]
 }
 
 // newVirtualMachines returns a VirtualMachines
 func newVirtualMachines(c *KubevirtV1Client, namespace string) *virtualMachines {
 	return &virtualMachines{
-		gentype.NewClientWithList[*v1.VirtualMachine, *v1.VirtualMachineList](
+		gentype.NewClientWithList[*corev1.VirtualMachine, *corev1.VirtualMachineList](
 			"virtualmachines",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.VirtualMachine { return &v1.VirtualMachine{} },
-			func() *v1.VirtualMachineList { return &v1.VirtualMachineList{} }),
+			func() *corev1.VirtualMachine { return &corev1.VirtualMachine{} },
+			func() *corev1.VirtualMachineList { return &corev1.VirtualMachineList{} },
+		),
 	}
 }

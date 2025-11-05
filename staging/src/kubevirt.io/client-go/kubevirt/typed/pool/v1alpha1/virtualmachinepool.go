@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,34 @@ type VirtualMachinePoolsGetter interface {
 
 // VirtualMachinePoolInterface has methods to work with VirtualMachinePool resources.
 type VirtualMachinePoolInterface interface {
-	Create(ctx context.Context, virtualMachinePool *v1alpha1.VirtualMachinePool, opts v1.CreateOptions) (*v1alpha1.VirtualMachinePool, error)
-	Update(ctx context.Context, virtualMachinePool *v1alpha1.VirtualMachinePool, opts v1.UpdateOptions) (*v1alpha1.VirtualMachinePool, error)
+	Create(ctx context.Context, virtualMachinePool *poolv1alpha1.VirtualMachinePool, opts v1.CreateOptions) (*poolv1alpha1.VirtualMachinePool, error)
+	Update(ctx context.Context, virtualMachinePool *poolv1alpha1.VirtualMachinePool, opts v1.UpdateOptions) (*poolv1alpha1.VirtualMachinePool, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, virtualMachinePool *v1alpha1.VirtualMachinePool, opts v1.UpdateOptions) (*v1alpha1.VirtualMachinePool, error)
+	UpdateStatus(ctx context.Context, virtualMachinePool *poolv1alpha1.VirtualMachinePool, opts v1.UpdateOptions) (*poolv1alpha1.VirtualMachinePool, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.VirtualMachinePool, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.VirtualMachinePoolList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*poolv1alpha1.VirtualMachinePool, error)
+	List(ctx context.Context, opts v1.ListOptions) (*poolv1alpha1.VirtualMachinePoolList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.VirtualMachinePool, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *poolv1alpha1.VirtualMachinePool, err error)
 	VirtualMachinePoolExpansion
 }
 
 // virtualMachinePools implements VirtualMachinePoolInterface
 type virtualMachinePools struct {
-	*gentype.ClientWithList[*v1alpha1.VirtualMachinePool, *v1alpha1.VirtualMachinePoolList]
+	*gentype.ClientWithList[*poolv1alpha1.VirtualMachinePool, *poolv1alpha1.VirtualMachinePoolList]
 }
 
 // newVirtualMachinePools returns a VirtualMachinePools
 func newVirtualMachinePools(c *PoolV1alpha1Client, namespace string) *virtualMachinePools {
 	return &virtualMachinePools{
-		gentype.NewClientWithList[*v1alpha1.VirtualMachinePool, *v1alpha1.VirtualMachinePoolList](
+		gentype.NewClientWithList[*poolv1alpha1.VirtualMachinePool, *poolv1alpha1.VirtualMachinePoolList](
 			"virtualmachinepools",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.VirtualMachinePool { return &v1alpha1.VirtualMachinePool{} },
-			func() *v1alpha1.VirtualMachinePoolList { return &v1alpha1.VirtualMachinePoolList{} }),
+			func() *poolv1alpha1.VirtualMachinePool { return &poolv1alpha1.VirtualMachinePool{} },
+			func() *poolv1alpha1.VirtualMachinePoolList { return &poolv1alpha1.VirtualMachinePoolList{} },
+		),
 	}
 }
