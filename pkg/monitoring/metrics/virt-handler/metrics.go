@@ -54,7 +54,6 @@ func SetupMetrics(nodeName string, MaxRequestsInFlight int, vmiInformer cache.Sh
 		domainstats.Collector,
 		domainstats.DomainDirtyRateStatsCollector,
 		migrationdomainstats.MigrationStatsCollector,
-		domainstats.GuestAgentInfoCollector,
 	)
 }
 
