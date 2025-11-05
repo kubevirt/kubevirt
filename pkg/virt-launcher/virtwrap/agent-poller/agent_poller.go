@@ -20,9 +20,11 @@ package agentpoller
 
 import (
 	"math"
+	"strings"
 	"sync"
 	"time"
 
+	"golang.org/x/mod/semver"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
@@ -45,6 +47,8 @@ const (
 	GetFSFreezeStatus AgentCommand = "guest-fsfreeze-status"
 
 	pollInitialInterval = 10 * time.Second
+
+	guestInfoLoadGAVersionAvailable = "v10.0.0"
 )
 
 // AgentUpdatedEvent fire up when data is changes in the store
@@ -225,6 +229,9 @@ type PollerWorker struct {
 
 	// CallTick is how often to call this set of commands
 	CallTick time.Duration
+
+	// MinimumGAVersion is the minimum guest agent version required to run this poller
+	MinimumGAVersion string
 }
 
 // Poll is the call to the guestagent.
@@ -318,8 +325,9 @@ func CreatePoller(
 				InfoTypes: libvirt.DOMAIN_GUEST_INFO_USERS,
 			},
 			{
-				CallTick:  qemuAgentSysInterval,
-				InfoTypes: libvirt.DOMAIN_GUEST_INFO_LOAD,
+				CallTick:         qemuAgentSysInterval,
+				InfoTypes:        libvirt.DOMAIN_GUEST_INFO_LOAD,
+				MinimumGAVersion: guestInfoLoadGAVersionAvailable,
 			},
 		},
 	}
@@ -340,6 +348,11 @@ func (p *AgentPoller) Start() {
 		}
 
 		go worker.Poll(func() {
+			if p.minimumGAVersionNotMet(worker) {
+				log.Log.Infof("Skipping agent poller with API operations: %v", worker.InfoTypes)
+				return
+			}
+
 			if len(worker.AgentCommands) != 0 {
 				executeAgentCommands(worker.AgentCommands, p)
 			} else {
@@ -347,6 +360,29 @@ func (p *AgentPoller) Start() {
 			}
 		}, p.agentDone, pollInitialInterval)
 	}
+}
+
+func (p *AgentPoller) minimumGAVersionNotMet(worker PollerWorker) bool {
+	minimumVersion := worker.MinimumGAVersion
+	if minimumVersion == "" {
+		// No minimum version set, do not skip
+		return false
+	}
+	if !strings.HasPrefix(minimumVersion, "v") {
+		minimumVersion = "v" + minimumVersion
+	}
+
+	agent := p.agentStore.GetGA()
+	agentVersion := agent.Version
+	if agentVersion == "" {
+		// No agent version available, skip
+		return true
+	}
+	if !strings.HasPrefix(agentVersion, "v") {
+		agentVersion = "v" + agentVersion
+	}
+
+	return semver.Compare(agentVersion, minimumVersion) == -1
 }
 
 // Stop all poller workers and libvirt API operations
