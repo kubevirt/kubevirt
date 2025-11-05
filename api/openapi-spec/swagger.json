@@ -17079,10 +17079,6 @@
       "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
       "type": "string"
      },
-     "load": {
-      "description": "Load contains the system load averages (1M, 5M, 15M) from the guest agent",
-      "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSLoad"
-     },
      "os": {
       "description": "OS contains the guest operating system information",
       "default": {},
@@ -17145,39 +17141,6 @@
      "versionId": {
       "description": "Version ID of the Guest OS",
       "type": "string"
-     }
-    }
-   },
-   "v1.VirtualMachineInstanceGuestOSLoad": {
-    "description": "VirtualMachineInstanceGuestOSLoad represents the system load averages from the guest agent",
-    "type": "object",
-    "properties": {
-     "load15m": {
-      "description": "Load average over 15 minutes",
-      "type": "number",
-      "format": "double"
-     },
-     "load15mSet": {
-      "description": "Load15mSet indicates whether the 15 minute load average is set",
-      "type": "boolean"
-     },
-     "load1m": {
-      "description": "Load average over 1 minute",
-      "type": "number",
-      "format": "double"
-     },
-     "load1mSet": {
-      "description": "Load1mSet indicates whether the 1 minute load average is set",
-      "type": "boolean"
-     },
-     "load5m": {
-      "description": "Load average over 5 minutes",
-      "type": "number",
-      "format": "double"
-     },
-     "load5mSet": {
-      "description": "Load5mSet indicates whether the 5 minute load average is set",
-      "type": "boolean"
      }
     }
    },
