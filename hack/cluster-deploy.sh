@@ -89,6 +89,7 @@ fi
 
 if [ "${KUBEVIRT_DEPLOY_NP}" == "true" ]; then
     _kubectl apply -f hack/cluster-services-np.yaml
+    _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-network-policies.yaml
 fi
 
 # Deploy kubevirt operator
