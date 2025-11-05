@@ -20,7 +20,6 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-github/v32 v32.0.0
 	github.com/google/goexpect v0.0.0-20190425035906-112704a48083
-	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.6.0
 	github.com/gordonklaus/ineffassign v0.0.0-20210209182638-d0e41b2fc8ed
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
@@ -81,6 +80,7 @@ require (
 	libvirt.org/go/libvirtxml v1.11000.1
 	mvdan.cc/sh/v3 v3.8.0
 	sigs.k8s.io/controller-runtime v0.20.2
+	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -157,7 +157,6 @@ require (
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
 	mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
-	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
 
