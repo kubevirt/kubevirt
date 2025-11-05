@@ -665,6 +665,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/snapshot/v1alpha1.Error":                                                         schema_kubevirtio_api_snapshot_v1alpha1_Error(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.PersistentVolumeClaim":                                         schema_kubevirtio_api_snapshot_v1alpha1_PersistentVolumeClaim(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.SnapshotVolumesLists":                                          schema_kubevirtio_api_snapshot_v1alpha1_SnapshotVolumesLists(ref),
+		"kubevirt.io/api/snapshot/v1alpha1.SourceIndication":                                              schema_kubevirtio_api_snapshot_v1alpha1_SourceIndication(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.SourceSpec":                                                    schema_kubevirtio_api_snapshot_v1alpha1_SourceSpec(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.VirtualMachine":                                                schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachine(ref),
 		"kubevirt.io/api/snapshot/v1alpha1.VirtualMachineRestore":                                         schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestore(ref),
@@ -686,6 +687,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/snapshot/v1beta1.Error":                                                          schema_kubevirtio_api_snapshot_v1beta1_Error(ref),
 		"kubevirt.io/api/snapshot/v1beta1.PersistentVolumeClaim":                                          schema_kubevirtio_api_snapshot_v1beta1_PersistentVolumeClaim(ref),
 		"kubevirt.io/api/snapshot/v1beta1.SnapshotVolumesLists":                                           schema_kubevirtio_api_snapshot_v1beta1_SnapshotVolumesLists(ref),
+		"kubevirt.io/api/snapshot/v1beta1.SourceIndication":                                               schema_kubevirtio_api_snapshot_v1beta1_SourceIndication(ref),
 		"kubevirt.io/api/snapshot/v1beta1.SourceSpec":                                                     schema_kubevirtio_api_snapshot_v1beta1_SourceSpec(ref),
 		"kubevirt.io/api/snapshot/v1beta1.VirtualMachine":                                                 schema_kubevirtio_api_snapshot_v1beta1_VirtualMachine(ref),
 		"kubevirt.io/api/snapshot/v1beta1.VirtualMachineRestore":                                          schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineRestore(ref),
@@ -32063,6 +32065,36 @@ func schema_kubevirtio_api_snapshot_v1alpha1_SnapshotVolumesLists(ref common.Ref
 	}
 }
 
+func schema_kubevirtio_api_snapshot_v1alpha1_SourceIndication(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SourceIndication provides an indication of the source VM with its description message",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"indication": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indication is the indication type",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Message provides a description message of the indication",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"indication", "message"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_snapshot_v1alpha1_SourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -32701,13 +32733,32 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Deprecated: Use SourceIndications instead. This field will be removed in a future version.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: "",
 										Type:    []string{"string"},
 										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"sourceIndications": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/snapshot/v1alpha1.SourceIndication"),
 									},
 								},
 							},
@@ -32722,7 +32773,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/snapshot/v1alpha1.Condition", "kubevirt.io/api/snapshot/v1alpha1.Error", "kubevirt.io/api/snapshot/v1alpha1.SnapshotVolumesLists"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/snapshot/v1alpha1.Condition", "kubevirt.io/api/snapshot/v1alpha1.Error", "kubevirt.io/api/snapshot/v1alpha1.SnapshotVolumesLists", "kubevirt.io/api/snapshot/v1alpha1.SourceIndication"},
 	}
 }
 
@@ -32993,6 +33044,36 @@ func schema_kubevirtio_api_snapshot_v1beta1_SnapshotVolumesLists(ref common.Refe
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_snapshot_v1beta1_SourceIndication(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SourceIndication provides an indication of the source VM with its description message",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"indication": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indication is the indication type",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Message provides a description message of the indication",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"indication", "message"},
 			},
 		},
 	}
@@ -33703,13 +33784,32 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotStatus(ref com
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Deprecated: Use SourceIndications instead. This field will be removed in a future version.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: "",
 										Type:    []string{"string"},
 										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"sourceIndications": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/snapshot/v1beta1.SourceIndication"),
 									},
 								},
 							},
@@ -33724,7 +33824,7 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotStatus(ref com
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/snapshot/v1beta1.Condition", "kubevirt.io/api/snapshot/v1beta1.Error", "kubevirt.io/api/snapshot/v1beta1.SnapshotVolumesLists"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/snapshot/v1beta1.Condition", "kubevirt.io/api/snapshot/v1beta1.Error", "kubevirt.io/api/snapshot/v1beta1.SnapshotVolumesLists", "kubevirt.io/api/snapshot/v1beta1.SourceIndication"},
 	}
 }
 

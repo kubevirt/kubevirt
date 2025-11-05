@@ -749,6 +749,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
@@ -783,10 +784,21 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				if vmiExists {
 					updatedSnapshot.Status.Indications = []snapshotv1.Indication{
 						snapshotv1.VMSnapshotNoGuestAgentIndication,
 						snapshotv1.VMSnapshotOnlineSnapshotIndication,
+					}
+					updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+						{
+							Indication: snapshotv1.VMSnapshotNoGuestAgentIndication,
+							Message:    IndicationMessage(snapshotv1.VMSnapshotNoGuestAgentIndication),
+						},
+						{
+							Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+							Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+						},
 					}
 				}
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
@@ -842,6 +854,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
@@ -868,6 +881,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
@@ -909,6 +923,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
@@ -1001,6 +1016,16 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
+				}
+				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotNoGuestAgentIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotNoGuestAgentIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
 				}
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
@@ -1097,6 +1122,16 @@ var _ = Describe("Snapshot controlleer", func() {
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 				}
+				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotNoGuestAgentIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotNoGuestAgentIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
+				}
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				controller.processVMSnapshotWorkItem()
@@ -1117,6 +1152,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.ReadyToUse = pointer.P(true)
 				updatedSnapshot.Status.Phase = snapshotv1.Succeeded
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
 					newReadyCondition(corev1.ConditionTrue, "Ready"),
@@ -1159,6 +1195,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.ReadyToUse = pointer.P(true)
 				updatedSnapshot.Status.Phase = snapshotv1.Succeeded
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
 					newReadyCondition(corev1.ConditionTrue, "Ready"),
@@ -1512,6 +1549,20 @@ var _ = Describe("Snapshot controlleer", func() {
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 					snapshotv1.VMSnapshotQuiesceFailedIndication,
 				}
+				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotGuestAgentIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotGuestAgentIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotQuiesceFailedIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceFailedIndication),
+					},
+				}
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "In error state"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
@@ -1545,6 +1596,20 @@ var _ = Describe("Snapshot controlleer", func() {
 					snapshotv1.VMSnapshotGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 					snapshotv1.VMSnapshotQuiesceFailedIndication,
+				}
+				vmSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotGuestAgentIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotGuestAgentIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotQuiesceFailedIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceFailedIndication),
+					},
 				}
 				addVirtualMachineSnapshot(vmSnapshot)
 
@@ -1675,6 +1740,16 @@ var _ = Describe("Snapshot controlleer", func() {
 					updatedSnapshot.ResourceVersion = "1"
 					updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
 					updatedSnapshot.Status.Indications = expectedIndications
+
+					// Convert indications to sourceIndications with messages
+					var expectedSourceIndications []snapshotv1.SourceIndication
+					for _, indication := range expectedIndications {
+						expectedSourceIndications = append(expectedSourceIndications, snapshotv1.SourceIndication{
+							Indication: indication,
+							Message:    IndicationMessage(indication),
+						})
+					}
+					updatedSnapshot.Status.SourceIndications = expectedSourceIndications
 					updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),
