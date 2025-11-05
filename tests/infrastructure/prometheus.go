@@ -132,18 +132,17 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 			if len(epsList.Items) == 0 {
 				return false
 			}
-			for _, eps := range epsList.Items {
+			for i := range epsList.Items {
+				eps := &epsList.Items[i]
+
 				// ignore IPv6 case
 				if eps.AddressType != discoveryv1.AddressTypeIPv4 {
-					continue
-				}
-				if len(eps.Ports) == 0 || *eps.Ports[0].Name != "web" {
 					continue
 				}
 				if len(eps.Endpoints) == 0 || len(eps.Endpoints[0].Addresses) == 0 {
 					return false
 				}
-				epSlice = &eps
+				epSlice = eps
 			}
 			return true
 		}, 10*time.Second, time.Second).Should(BeTrue())
@@ -154,8 +153,13 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		}
 		promIP := epSlice.Endpoints[0].Addresses[0]
 		Expect(promIP).ToNot(Equal(""), "could not get Prometheus IP from endpoint slice")
-		// we already checked that Port is for the web on the above checking.
-		promPort := *epSlice.Ports[0].Port
+		var promPort int32
+		for _, port := range epSlice.Ports {
+			if port.Name != nil && *port.Name == "web" {
+				promPort = *port.Port
+				break
+			}
+		}
 		Expect(promPort).ToNot(BeEquivalentTo(0), "could not get Prometheus port from endpoint slice")
 
 		// the Service Account needs to have access to the Prometheus subresource api
