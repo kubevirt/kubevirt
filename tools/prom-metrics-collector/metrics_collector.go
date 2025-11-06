@@ -33,7 +33,10 @@ import (
 // https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/#metrics-guidelines
 // should be ignored.
 var excludedMetrics = map[string]struct{}{
-	"kubevirt_vmi_phase_count": {},
+	"kubevirt_vmi_phase_count":                            {},
+	"vmi:kubevirt_vmi_vcpu:count":                         {},
+	"cluster:kubevirt_virt_controller_pods_running:count": {},
+	"kubevirt_vmi_migration_data_total_bytes":             {},
 }
 
 // Extract the name, help, and type from the metrics doc file
