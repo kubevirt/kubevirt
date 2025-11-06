@@ -67,6 +67,30 @@ var (
 	memInfoPath = "/proc/meminfo"
 )
 
+type Handler struct {
+	clusterConfig *virtconfig.ClusterConfig
+	nodeName      string
+	client        k8scorev1.CoreV1Interface
+}
+
+func NewHandler(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) *Handler {
+	return &Handler{
+		clusterConfig: clusterConfig,
+		nodeName:      nodeName,
+		client:        client,
+	}
+}
+
+func (k *Handler) Start() {
+	go func() {
+		forceUpdateKSM := func() { k.HandleKSMUpdate(true) }
+		handleKSMUpdate := func() { k.HandleKSMUpdate(false) }
+
+		forceUpdateKSM()
+		k.clusterConfig.SetConfigModifiedCallback(handleKSMUpdate)
+	}()
+}
+
 type ksmState struct {
 	running bool
 	sleep   uint64
@@ -254,16 +278,16 @@ func getIntParam(node *k8sv1.Node, param string, defaultValue, lowerBound, upper
 // will set the outcome value to the n.KSM struct
 // If the node labels match the selector terms, the ksm will be enabled.
 // Empty Selector will enable ksm for every node
-func handleKSM(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs, needsUpdate bool) {
+func (k *Handler) handleKSM() (ksmLabelValue, ksmEnabledByUs, needsUpdate bool) {
 	available, enabled := loadKSM()
 	if !available {
 		return
 	}
 
 	nodeCache, err := cache.NewOneShotCache(func() (*k8sv1.Node, error) {
-		node, err := client.Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		node, err := k.client.Nodes().Get(context.Background(), k.nodeName, metav1.GetOptions{})
 		if err != nil {
-			log.Log.Reason(err).Errorf("Can't get node %s", nodeName)
+			log.Log.Reason(err).Errorf("Can't get node %s", k.nodeName)
 		}
 		return node, err
 	})
@@ -273,7 +297,7 @@ func handleKSM(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig 
 		return
 	}
 
-	ksmConfig := clusterConfig.GetKSMConfiguration()
+	ksmConfig := k.clusterConfig.GetKSMConfiguration()
 	if ksmConfig == nil {
 		if enabled {
 			disableKSM(nodeCache)
@@ -323,8 +347,8 @@ func handleKSM(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig 
 	return
 }
 
-func HandleKSMUpdate(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig, forceUpdate bool) {
-	ksmEnabled, ksmEnabledByUs, needsUpdate := handleKSM(nodeName, client, clusterConfig)
+func (k *Handler) HandleKSMUpdate(forceUpdate bool) {
+	ksmEnabled, ksmEnabledByUs, needsUpdate := k.handleKSM()
 	if !forceUpdate && !needsUpdate {
 		return
 	}
@@ -349,9 +373,9 @@ func HandleKSMUpdate(nodeName string, client k8scorev1.CoreV1Interface, clusterC
 		log.DefaultLogger().Reason(err).Error("Can't parse json patch")
 	}
 
-	_, err = client.Nodes().Patch(context.Background(), nodeName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	_, err = k.client.Nodes().Patch(context.Background(), k.nodeName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", nodeName)
+		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", k.nodeName)
 	}
 }
 
