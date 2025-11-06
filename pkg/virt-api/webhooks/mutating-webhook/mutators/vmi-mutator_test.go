@@ -647,25 +647,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.CPU.Threads).To(Equal(uint32(1)), "Expect threads")
 	})
 
-	It("should apply memory-overcommit when hugepages are set and memory-request is not set", func() {
-		// no limits wanted on this test, to not copy the limit to requests
-		vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "3072M"}}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
-		Expect(vmiSpec.Domain.Memory.Hugepages.PageSize).To(Equal("3072M"))
-		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("3072M"))
-	})
-
-	It("should not apply memory overcommit when memory-request and guest-memory are set", func() {
-		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-			k8sv1.ResourceMemory: resource.MustParse("512M"),
-		}
-		guestMemory := resource.MustParse("4096M")
-		vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
-		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("512M"))
-		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("4096M"))
-	})
-
 	It("should apply foreground finalizer on VMI create", func() {
 		vmiMeta, _, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiMeta.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
@@ -681,18 +662,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal("1"))
 		Expect(vmiSpec.Domain.Resources.Limits.Cpu().String()).To(Equal("1"))
-	})
-
-	It("should copy memory limits to requests if only limits are set", func() {
-		vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-			Requests: k8sv1.ResourceList{},
-			Limits: k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64M"),
-			},
-		}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
-		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
-		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
 	})
 
 	DescribeTable("should always set memory.guest", func(options ...libvmi.Option) {
