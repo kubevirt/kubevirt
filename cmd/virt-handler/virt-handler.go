@@ -49,6 +49,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
+
 	"kubevirt.io/kubevirt/pkg/safepath"
 
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
@@ -272,13 +273,8 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
-	go func() {
-		forceUpdateKSM := func() { ksm.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, true) }
-		handleKSMUpdate := func() { ksm.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, false) }
-
-		forceUpdateKSM()
-		app.clusterConfig.SetConfigModifiedCallback(handleKSMUpdate)
-	}()
+	ksmHandler := ksm.NewHandler(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig)
+	ksmHandler.Start()
 
 	if err := app.setupTLS(factory); err != nil {
 		logger.Criticalf("Error constructing migration tls config: %v", err)
