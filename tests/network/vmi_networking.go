@@ -411,7 +411,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			}
 			networkData, err := cloudinit.NewNetworkData(
 				cloudinit.WithEthernet("eth0",
-					cloudinit.WithDHCP4Enabled(),
 					cloudinit.WithAddresses(ipv6NetworkCIDR),
 					cloudinit.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
 				),
@@ -525,7 +524,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
 			})
 
-			DescribeTable("[QUARANTINE] IPv6", decorators.Quarantine, func(ports []v1.Port, tcpPort int, networkCIDR string) {
+			DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
 				clientVMI, err := fedoraMasqueradeVMI([]v1.Port{}, networkCIDR)
