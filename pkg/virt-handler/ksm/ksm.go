@@ -29,6 +29,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,34 +69,224 @@ var (
 	memInfoPath = "/proc/meminfo"
 )
 
+type ksmState struct {
+	running bool
+	sleep   uint64
+	pages   int
+}
+
 type Handler struct {
-	clusterConfig *virtconfig.ClusterConfig
-	nodeName      string
-	client        k8scorev1.CoreV1Interface
+	isLoopRunning     bool
+	clusterConfig     *virtconfig.ClusterConfig
+	nodeName          string
+	client            k8scorev1.CoreV1Interface
+	lock              sync.Mutex
+	nodeCache         *cache.OneShotCache[*k8sv1.Node]
+	clusterConfigChan chan struct{}
+	doneChan          chan struct{}
 }
 
 func NewHandler(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) *Handler {
+	nodeCache, err := cache.NewOneShotCache(func() (*k8sv1.Node, error) {
+		node, err := client.Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			log.Log.Reason(err).Errorf("Can't get node %s", nodeName)
+		}
+		return node, err
+	})
+	if err != nil {
+		panic(err)
+	}
 	return &Handler{
+		isLoopRunning: false,
 		clusterConfig: clusterConfig,
 		nodeName:      nodeName,
 		client:        client,
+		nodeCache:     nodeCache,
 	}
 }
 
 func (k *Handler) Start() {
 	go func() {
-		forceUpdateKSM := func() { k.HandleKSMUpdate(true) }
-		handleKSMUpdate := func() { k.HandleKSMUpdate(false) }
+		// Perform the initial node patch
+		if ksmEligible := k.spin(); ksmEligible {
+			k.isLoopRunning = true
+			k.doneChan = make(chan struct{})
+			go k.loop()
+		}
 
-		forceUpdateKSM()
-		k.clusterConfig.SetConfigModifiedCallback(handleKSMUpdate)
+		k.clusterConfigChan = make(chan struct{})
+		k.clusterConfig.SetConfigModifiedCallback(k.configCallback)
 	}()
 }
 
-type ksmState struct {
-	running bool
-	sleep   uint64
-	pages   int
+func (k *Handler) configCallback() {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	ksmEligible, curState := k.isKSMEligible()
+	if !ksmEligible {
+		// stop the jitter if running
+		if k.isLoopRunning {
+			k.isLoopRunning = false
+			// Stop the ksm loop
+			close(k.doneChan)
+		}
+		if curState {
+			k.disableKSM()
+		}
+
+		k.patchKSM(ksmEligible, false)
+		return
+	}
+
+	// loop already running, trigger another spin
+	if k.isLoopRunning {
+		k.clusterConfigChan <- struct{}{}
+		return
+	}
+
+	k.isLoopRunning = true
+	k.doneChan = make(chan struct{})
+	go k.loop()
+}
+
+func (k *Handler) loop() {
+	k.spin()
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-k.clusterConfigChan:
+			k.spin()
+			ticker.Reset(10 * time.Minute)
+		case <-ticker.C:
+			k.spin()
+		case <-k.doneChan:
+			return
+		}
+	}
+}
+
+func (k *Handler) spin() bool {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	if err := k.nodeCache.ForceUpdate(); err != nil {
+		log.Log.Reason(err).Errorf("Can't force update")
+		return false
+	}
+	// check that a concurrent config update has not disabled the ksm
+	ksmEligible, curState := k.isKSMEligible()
+	if !ksmEligible && curState {
+		k.disableKSM()
+	}
+	var ksmEnabledByUs bool
+	if ksmEligible {
+		ksmEnabledByUs = k.handleNodePressure(curState)
+	}
+
+	k.patchKSM(ksmEligible, ksmEnabledByUs)
+	return ksmEligible
+}
+
+func (k *Handler) shouldNodeHandleKSM() (shouldHandle, currentState bool, err error) {
+	available, enabled := loadKSM()
+	if !available {
+		return false, false, nil
+	}
+
+	ksmConfig := k.clusterConfig.GetKSMConfiguration()
+	if ksmConfig == nil {
+		return false, enabled, nil
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(ksmConfig.NodeLabelSelector)
+	if err != nil {
+		return false, enabled, fmt.Errorf("an error occurred while converting the ksm selector: %s", err)
+	}
+
+	node, err := k.nodeCache.Get()
+	if err != nil {
+		return false, enabled, err
+	}
+
+	if !selector.Matches(labels.Set(node.Labels)) {
+		return false, enabled, nil
+	}
+
+	return true, enabled, nil
+}
+
+// isKSMEligible will return whether the node is eligible for the ksm handling:
+// - ksm is enabled on the node
+// - the node labels matches the node label selector ksm configuration
+// Alongside, it will return the current ksm state and if the node labels need to be updated.
+// Empty Selector will enable ksm for every node
+func (k *Handler) isKSMEligible() (shouldHandle, currentState bool) {
+	var err error
+	if shouldHandle, currentState, err = k.shouldNodeHandleKSM(); err != nil {
+		log.Log.Reason(err).Error(err.Error())
+	}
+
+	return
+}
+
+func (k *Handler) handleNodePressure(currentState bool) (ksmEnabledByUs bool) {
+	node, err := k.nodeCache.Get()
+	if err != nil {
+		return false
+	}
+
+	ksm, err := calculateNewRunSleepAndPages(node, currentState)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("An error occurred while calculating the new KSM values")
+		return false
+	}
+
+	if err = writeKsmValuesToFiles(ksm); err != nil {
+		log.DefaultLogger().Reason(err).Errorf("An error occurred while writing the new KSM values")
+		return false
+	}
+
+	return ksm.running
+}
+
+func (k *Handler) patchKSM(ksmEligible, ksmEnabledByUs bool) {
+	// merge patch is being used here to handle the case in which the node has an empty/nil labels/annotations map,
+	// which would cause a JSON patch to fail.
+	patchPayload := struct {
+		Metadata metav1.ObjectMeta `json:"metadata"`
+	}{
+		Metadata: metav1.ObjectMeta{
+			Labels: map[string]string{
+				v1.KSMEnabledLabel: fmt.Sprintf("%t", ksmEligible),
+			},
+			Annotations: map[string]string{
+				v1.KSMHandlerManagedAnnotation: fmt.Sprintf("%t", ksmEnabledByUs),
+			},
+		},
+	}
+	patchBytes, err := json.Marshal(patchPayload)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Can't parse json patch")
+	}
+
+	_, err = k.client.Nodes().Patch(context.Background(), k.nodeName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", k.nodeName)
+	}
+}
+
+func (k *Handler) disableKSM() {
+	node, err := k.nodeCache.Get()
+	if err != nil {
+		return
+	}
+
+	if value, found := node.GetAnnotations()[v1.KSMHandlerManagedAnnotation]; found && value == "true" {
+		if err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644); err != nil {
+			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
+		}
+	}
 }
 
 // Inspired from https://github.com/artyom/meminfo
@@ -272,123 +464,4 @@ func getIntParam(node *k8sv1.Node, param string, defaultValue, lowerBound, upper
 	}
 
 	return boundCheck(value, defaultValue, lowerBound, upperBound, fmt.Sprintf("%s override value out of bounds", param))
-}
-
-// handleKSM will update the ksm of the node (if available) based on the kv configuration and
-// will set the outcome value to the n.KSM struct
-// If the node labels match the selector terms, the ksm will be enabled.
-// Empty Selector will enable ksm for every node
-func (k *Handler) handleKSM() (ksmLabelValue, ksmEnabledByUs, needsUpdate bool) {
-	available, enabled := loadKSM()
-	if !available {
-		return
-	}
-
-	nodeCache, err := cache.NewOneShotCache(func() (*k8sv1.Node, error) {
-		node, err := k.client.Nodes().Get(context.Background(), k.nodeName, metav1.GetOptions{})
-		if err != nil {
-			log.Log.Reason(err).Errorf("Can't get node %s", k.nodeName)
-		}
-		return node, err
-	})
-
-	if err != nil {
-		log.Log.Reason(err).Errorf("An error occurred while creating the node cache")
-		return
-	}
-
-	ksmConfig := k.clusterConfig.GetKSMConfiguration()
-	if ksmConfig == nil {
-		if enabled {
-			disableKSM(nodeCache)
-			needsUpdate = true
-		}
-
-		return
-	}
-
-	selector, err := metav1.LabelSelectorAsSelector(ksmConfig.NodeLabelSelector)
-	if err != nil {
-		log.DefaultLogger().Errorf("An error occurred while converting the ksm selector: %s", err)
-		return
-	}
-
-	node, err := nodeCache.Get()
-	if err != nil {
-		return
-	}
-
-	if !selector.Matches(labels.Set(node.Labels)) {
-		if enabled {
-			disableKSM(nodeCache)
-			needsUpdate = true
-		}
-
-		return
-	}
-
-	ksmLabelValue = true
-	needsUpdate = true
-
-	ksm, err := calculateNewRunSleepAndPages(node, enabled)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("An error occurred while calculating the new KSM values")
-		return
-	}
-
-	err = writeKsmValuesToFiles(ksm)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("An error occurred while writing the new KSM values")
-		return
-	}
-
-	ksmEnabledByUs = ksm.running
-
-	return
-}
-
-func (k *Handler) HandleKSMUpdate(forceUpdate bool) {
-	ksmEnabled, ksmEnabledByUs, needsUpdate := k.handleKSM()
-	if !forceUpdate && !needsUpdate {
-		return
-	}
-
-	// merge patch is being used here to handle the case in which the node has an empty/nil labels/annotations map,
-	// which would cause a JSON patch to fail.
-	patchPayload := struct {
-		Metadata metav1.ObjectMeta `json:"metadata"`
-	}{
-		Metadata: metav1.ObjectMeta{
-			Labels: map[string]string{
-				v1.KSMEnabledLabel: fmt.Sprintf("%t", ksmEnabled),
-			},
-			Annotations: map[string]string{
-				v1.KSMHandlerManagedAnnotation: fmt.Sprintf("%t", ksmEnabledByUs),
-			},
-		},
-	}
-
-	patchBytes, err := json.Marshal(patchPayload)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Error("Can't parse json patch")
-	}
-
-	_, err = k.client.Nodes().Patch(context.Background(), k.nodeName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", k.nodeName)
-	}
-}
-
-func disableKSM(nodeCache *cache.OneShotCache[*k8sv1.Node]) {
-	node, err := nodeCache.Get()
-	if err != nil {
-		return
-	}
-
-	if value, found := node.GetAnnotations()[v1.KSMHandlerManagedAnnotation]; found && value == "true" {
-		err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644)
-		if err != nil {
-			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
-		}
-	}
 }

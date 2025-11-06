@@ -131,7 +131,8 @@ var _ = Describe("KSM", func() {
 			fakeClient := fake.NewSimpleClientset(node)
 			clusterConfig := generateClusterConfig(featuregate.CPUManager)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
-			handler.HandleKSMUpdate(true)
+			handler.spin()
+
 			createCustomMemInfo(false)
 
 			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
@@ -141,7 +142,7 @@ var _ = Describe("KSM", func() {
 			err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
-			handler.HandleKSMUpdate(false)
+			handler.spin()
 			node, err = fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"))
@@ -193,7 +194,7 @@ var _ = Describe("KSM", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
-			handler.HandleKSMUpdate(true)
+			handler.spin()
 
 			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -220,10 +221,10 @@ var _ = Describe("KSM", func() {
 			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), 0644)
 			Expect(err).ToNot(HaveOccurred())
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
-			handler.HandleKSMUpdate(true)
+			handler.spin()
 
 			createCustomMemInfo(true)
-			handler.HandleKSMUpdate(false)
+			handler.spin()
 
 			node, err = fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -272,43 +273,43 @@ var _ = Describe("KSM", func() {
 			fakeClient := fake.NewSimpleClientset(node)
 			createCustomMemInfo(false)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
-			handler.HandleKSMUpdate(true)
+			handler.spin()
 
 			By("running a first HandleKSMUpdate and expecting no change")
-			handler.HandleKSMUpdate(false)
+			handler.spin()
 			expectKSMState(expected)
 
 			By("inducing memory pressure and expecting KSM to start running")
 			createCustomMemInfo(true)
-			handler.HandleKSMUpdate(false)
+			handler.spin()
 			expected.running = true
 			expectKSMState(expected)
 
 			By("expecting the number of pages to scan to increase every HandleKSMUpdate up to max value")
-			handler.HandleKSMUpdate(false)
+			handler.spin()
 			expected.pages = nPagesInitDefault + pagesBoostDefault
 			expectKSMState(expected)
-			handler.HandleKSMUpdate(false)
-			handler.HandleKSMUpdate(false)
-			handler.HandleKSMUpdate(false)
+			handler.spin()
+			handler.spin()
+			handler.spin()
 			expected.pages = nPagesMaxDefault
 			expectKSMState(expected)
 
 			By("cancelling memory pressure and expecting more sleep and a decay of the number of pages to scan")
 			createCustomMemInfo(false)
-			handler.HandleKSMUpdate(false)
+			handler.spin()
 			expected.pages = nPagesMaxDefault + pagesDecayDefault
 			expected.sleep = sleepMsBaselineDefault * (16 * 1024 * 1024) / (memTotal - memAvailableNoPressure)
 			expectKSMState(expected)
 			for i := 0; i < 15; i++ {
-				handler.HandleKSMUpdate(false)
+				handler.spin()
 			}
 			expected.pages = nPagesMaxDefault + 16*pagesDecayDefault
 			expectKSMState(expected)
 
 			By("expecting KSM to stop running after enough time without memory pressure")
 			for i := 0; i < 30; i++ {
-				handler.HandleKSMUpdate(false)
+				handler.spin()
 			}
 			expected.running = false
 			expectKSMState(expected)
@@ -339,17 +340,17 @@ var _ = Describe("KSM", func() {
 			fakeClient := fake.NewSimpleClientset(node)
 			createCustomMemInfo(false)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
-			handler.HandleKSMUpdate(true)
+			handler.spin()
 
 			By("running a first HandleKSMUpdate and expecting the right values")
 			expectKSMState(expected)
 
 			By("expecting the number of pages to scan to increase every HandleKSMUpdate up to max value")
-			handler.HandleKSMUpdate(false)
+			handler.spin()
 			expected.pages = 166 + 123
 			expectKSMState(expected)
 			for i := 0; i < 5; i++ {
-				handler.HandleKSMUpdate(false)
+				handler.spin()
 			}
 			expected.pages = 789
 			expectKSMState(expected)
@@ -358,11 +359,11 @@ var _ = Describe("KSM", func() {
 			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "%s"}}}`, kubevirtv1.KSMFreePercentOverride, "0.1"))
 			_, err := fakeClient.CoreV1().Nodes().Patch(context.Background(), testNodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			handler.HandleKSMUpdate(false)
+			handler.spin()
 			expected.pages = 789 - 50
 			expectKSMState(expected)
 			for i := 0; i < 16; i++ {
-				handler.HandleKSMUpdate(false)
+				handler.spin()
 			}
 			expected.running = false
 			expectKSMState(expected)
