@@ -76,7 +76,7 @@ func createHostDevicesMetadata(vmiHostDevices []v1.HostDevice) []hostdevice.Host
 	for _, dev := range vmiHostDevices {
 		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
 			AliasPrefix:  AliasPrefix,
-			Name:         dev.Name,
+			Name:         hostdevice.GenerateEncodedAliasIfNeeded(dev.Name),
 			ResourceName: dev.DeviceName,
 		})
 	}

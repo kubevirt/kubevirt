@@ -41,6 +41,8 @@ const (
 	hostdevName0 = "hostdev_name0"
 	hostdevName1 = "hostdev_name1"
 
+	hostdevInvalidAliasName = "hostdev.name0"
+
 	hostdevResource0    = "vendor.com/hostdev_name0"
 	hostdevResource1    = "vendor.com/hostdev_name1"
 	envHostDevResource0 = "VENDOR_COM_HOSTDEV_NAME0"

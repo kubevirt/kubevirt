@@ -67,7 +67,7 @@ func createHostDevicesMetadata(vmiGPUs []v1.GPU) []hostdevice.HostDeviceMetaData
 	for _, dev := range vmiGPUs {
 		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
 			AliasPrefix:       AliasPrefix,
-			Name:              dev.Name,
+			Name:              hostdevice.GenerateEncodedAliasIfNeeded(dev.Name),
 			ResourceName:      dev.DeviceName,
 			VirtualGPUOptions: dev.VirtualGPUOptions,
 		})
