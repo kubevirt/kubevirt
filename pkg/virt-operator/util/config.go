@@ -113,6 +113,20 @@ var DefaultMonitorNamespaces = []string{
 	"monitoring",           // default namespace of https://github.com/prometheus-operator/kube-prometheus
 }
 
+type ComponentImages struct {
+	VirtOperatorImage                  string `json:"virtOperatorImage,omitempty" optional:"true"`
+	VirtApiImage                       string `json:"virtApiImage,omitempty" optional:"true"`
+	VirtControllerImage                string `json:"virtControllerImage,omitempty" optional:"true"`
+	VirtHandlerImage                   string `json:"virtHandlerImage,omitempty" optional:"true"`
+	VirtLauncherImage                  string `json:"virtLauncherImage,omitempty" optional:"true"`
+	VirtExportProxyImage               string `json:"virtExportProxyImage,omitempty" optional:"true"`
+	VirtExportServerImage              string `json:"virtExportServerImage,omitempty" optional:"true"`
+	VirtSynchronizationControllerImage string `json:"virtSynchronizationControllerImage,omitempty" optional:"true"`
+	GsImage                            string `json:"GsImage,omitempty" optional:"true"`
+	PrHelperImage                      string `json:"PrHelperImage,omitempty" optional:"true"`
+	SidecarShimImage                   string `json:"SidecarShimImage,omitempty" optional:"true"`
+}
+
 type KubeVirtDeploymentConfig struct {
 	ID          string `json:"id,omitempty" optional:"true"`
 	Namespace   string `json:"namespace,omitempty" optional:"true"`
@@ -125,18 +139,7 @@ type KubeVirtDeploymentConfig struct {
 	KubeVirtVersion string `json:"kubeVirtVersion,omitempty" optional:"true"`
 
 	// the images names of every image we use
-	VirtOperatorImage                  string `json:"virtOperatorImage,omitempty" optional:"true"`
-	VirtApiImage                       string `json:"virtApiImage,omitempty" optional:"true"`
-	VirtControllerImage                string `json:"virtControllerImage,omitempty" optional:"true"`
-	VirtHandlerImage                   string `json:"virtHandlerImage,omitempty" optional:"true"`
-	VirtLauncherImage                  string `json:"virtLauncherImage,omitempty" optional:"true"`
-	VirtExportProxyImage               string `json:"virtExportProxyImage,omitempty" optional:"true"`
-	VirtExportServerImage              string `json:"virtExportServerImage,omitempty" optional:"true"`
-	VirtSynchronizationControllerImage string `json:"virtSynchronizationControllerImage,omitempty" optional:"true"`
-	GsImage                            string `json:"GsImage,omitempty" optional:"true"`
-	PrHelperImage                      string `json:"PrHelperImage,omitempty" optional:"true"`
-	SidecarShimImage                   string `json:"SidecarShimImage,omitempty" optional:"true"`
-
+	ComponentImages
 	// everything else, which can e.g. come from KubeVirt CR spec
 	AdditionalProperties map[string]string `json:"additionalProperties,omitempty" optional:"true"`
 
@@ -352,26 +355,32 @@ func GetPassthroughEnvWithEnvVarManager(envVarManager EnvVarManager) map[string]
 
 func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, gsImage, prHelperImage, sidecarShimImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
-		Registry:                           registry,
-		ImagePrefix:                        imagePrefix,
-		KubeVirtVersion:                    tag,
-		VirtOperatorImage:                  operatorImage,
-		VirtApiImage:                       apiImage,
-		VirtControllerImage:                controllerImage,
-		VirtHandlerImage:                   handlerImage,
-		VirtLauncherImage:                  launcherImage,
-		VirtExportProxyImage:               exportProxyImage,
-		VirtExportServerImage:              exportServerImage,
-		VirtSynchronizationControllerImage: synchronizationControllerImage,
-		GsImage:                            gsImage,
-		PrHelperImage:                      prHelperImage,
-		SidecarShimImage:                   sidecarShimImage,
-		Namespace:                          namespace,
-		AdditionalProperties:               kvSpec,
-		PassthroughEnvVars:                 passthroughEnv,
+		Registry:        registry,
+		ImagePrefix:     imagePrefix,
+		KubeVirtVersion: tag,
+		ComponentImages: ComponentImages{
+			VirtOperatorImage:                  operatorImage,
+			VirtApiImage:                       apiImage,
+			VirtControllerImage:                controllerImage,
+			VirtHandlerImage:                   handlerImage,
+			VirtLauncherImage:                  launcherImage,
+			VirtExportProxyImage:               exportProxyImage,
+			VirtExportServerImage:              exportServerImage,
+			VirtSynchronizationControllerImage: synchronizationControllerImage,
+			GsImage:                            gsImage,
+			PrHelperImage:                      prHelperImage,
+			SidecarShimImage:                   sidecarShimImage,
+		},
+		Namespace:            namespace,
+		AdditionalProperties: kvSpec,
+		PassthroughEnvVars:   passthroughEnv,
 	}
 	c.generateInstallStrategyID()
 	return c
+}
+
+func (c *KubeVirtDeploymentConfig) GetComponentImages() ComponentImages {
+	return c.ComponentImages
 }
 
 func (c *KubeVirtDeploymentConfig) GetOperatorVersion() string {
