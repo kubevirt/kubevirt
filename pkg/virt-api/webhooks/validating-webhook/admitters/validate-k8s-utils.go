@@ -19,7 +19,7 @@ The "core" package is change to exported package "k8s.io/api/core/v1" in
 order to avoid dependency on kubernetes/kubernetes
 
 https://github.com/kubernetes/kubernetes/blame/29fb8e8b5a41b2a7d760190284bae7f2829312d3/pkg/apis/core/validation/validation.go#L3288
-the code hardly changes all of the changes have been atleast a few years older
+the code hardly changes all of the changes have been at least a few years older
 this makes it easier to copy and maintain instead of vendoring in kubernetes or
 creating dry runs of the pod object during admission validation.
 */

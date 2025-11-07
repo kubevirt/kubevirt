@@ -247,7 +247,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 				Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
 			}
 
-			By("showing that an overide does not occur")
+			By("showing that an override does not occur")
 			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -281,7 +281,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 				Hyperv: &v1.FeatureHyperv{},
 			}
 
-			By("showing that an overide does not occur")
+			By("showing that an override does not occur")
 			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -311,7 +311,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			preset.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "testcase", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}}}
 
-			By("showing that an overide does not occur")
+			By("showing that an override does not occur")
 			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 

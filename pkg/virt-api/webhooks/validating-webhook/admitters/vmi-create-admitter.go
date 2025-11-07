@@ -121,7 +121,7 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	}
 
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
-	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
+	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is separated from the above call that is shared with the VM admitter.
 	causes = append(causes, validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
 
@@ -864,7 +864,7 @@ func validateCPULimitIsInteger(field *k8sfield.Path, spec *v1.VirtualMachineInst
 	if spec.Domain.Resources.Limits.Cpu().Value() > 0 && spec.Domain.Resources.Limits.Cpu().Value()*1000 != spec.Domain.Resources.Limits.Cpu().MilliValue() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "provided resources CPU limits must be an interger",
+			Message: "provided resources CPU limits must be an integer",
 			Field:   field.Child("domain", "resources", "limits", "cpu").String(),
 		})
 	}
@@ -876,7 +876,7 @@ func validateCPURequestIsInteger(field *k8sfield.Path, spec *v1.VirtualMachineIn
 	if spec.Domain.Resources.Requests.Cpu().Value() > 0 && spec.Domain.Resources.Requests.Cpu().Value()*1000 != spec.Domain.Resources.Requests.Cpu().MilliValue() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "provided resources CPU requests must be an interger",
+			Message: "provided resources CPU requests must be an integer",
 			Field:   field.Child("domain", "resources", "requests", "cpu").String(),
 		})
 	}

@@ -363,7 +363,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 			if ok {
 				return []metav1.StatusCause{{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("AddVolume request for [%s] aleady exists", name),
+					Message: fmt.Sprintf("AddVolume request for [%s] already exists", name),
 					Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 				}}, nil
 			}
@@ -413,7 +413,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 			if ok {
 				return []metav1.StatusCause{{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("RemoveVolume request for [%s] aleady exists", name),
+					Message: fmt.Sprintf("RemoveVolume request for [%s] already exists", name),
 					Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 				}}, nil
 			}

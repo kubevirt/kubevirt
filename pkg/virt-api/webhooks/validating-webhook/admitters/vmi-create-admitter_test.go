@@ -979,7 +979,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
-		It("should reject not divisable by hugepages.size requests.memory", func() {
+		It("should reject not divisible by hugepages.size requests.memory", func() {
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("65Mi"),
 			}
@@ -1669,7 +1669,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			))
 		})
 
-		It("should reject specs without cpu reqirements", func() {
+		It("should reject specs without cpu requirements", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.dedicatedCpuPlacement"))
@@ -1685,7 +1685,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.isolateEmulatorThread"))
 		})
 
-		It("should reject specs without inconsistent cpu reqirements", func() {
+		It("should reject specs without inconsistent cpu requirements", func() {
 			vmi.Spec.Domain.CPU.Cores = 4
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
 				k8sv1.ResourceCPU: resource.MustParse("2"),

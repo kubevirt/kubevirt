@@ -170,7 +170,7 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 	if exists {
 		prop := objectMeta.Properties["creationTimestamp"]
 		prop.Type = spec.StringOrArray{"string", "null"}
-		// mask v1.Time as in validation v1.Time override sting,null type
+		// mask v1.Time as in validation v1.Time override string,null type
 		prop.Ref = spec.Ref{}
 		objectMeta.Properties["creationTimestamp"] = prop
 	}
