@@ -148,23 +148,6 @@ type KubeVirtDeploymentConfig struct {
 
 var DefaultEnvVarManager EnvVarManager = EnvVarManagerImpl{}
 
-func GetConfigFromEnv() (*KubeVirtDeploymentConfig, error) {
-	return GetConfigFromEnvWithEnvVarManager(DefaultEnvVarManager)
-}
-
-func GetConfigFromEnvWithEnvVarManager(envVarManager EnvVarManager) (*KubeVirtDeploymentConfig, error) {
-	// first check if we have the new deployment config json
-	c := envVarManager.Getenv(TargetDeploymentConfig)
-	if c != "" {
-		config := &KubeVirtDeploymentConfig{}
-		if err := json.Unmarshal([]byte(c), config); err != nil {
-			return nil, err
-		}
-		return config, nil
-	}
-	return nil, fmt.Errorf("no config provided")
-}
-
 func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
 	return GetTargetConfigFromKVWithEnvVarManager(kv, DefaultEnvVarManager)
 }

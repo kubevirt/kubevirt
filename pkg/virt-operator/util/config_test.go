@@ -47,35 +47,6 @@ var _ = Describe("Operator Config", func() {
 		}
 	}
 
-	DescribeTable("Parse image", func(image string, config *KubeVirtDeploymentConfig) {
-		envVarManager.Setenv(OldOperatorImageEnvName, image)
-
-		// Mimic generateInstallStrategyJob
-		// TODO: Refactor
-		envVars := NewEnvVarMap(config.GetExtraEnv())
-		for _, envVar := range *envVars {
-			envVarManager.Setenv(envVar.Name, envVar.Value)
-		}
-		deploymentConfigJson, err := config.GetJson()
-		Expect(err).ToNot(HaveOccurred())
-		envVarManager.Setenv(TargetDeploymentConfig, deploymentConfigJson)
-
-		err = VerifyEnv()
-		Expect(err).ToNot(HaveOccurred())
-
-		parsedConfig, err := GetConfigFromEnvWithEnvVarManager(envVarManager)
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(parsedConfig.GetImageRegistry()).To(Equal(config.GetImageRegistry()), "registry should match")
-		Expect(parsedConfig.GetKubeVirtVersion()).To(Equal(config.GetKubeVirtVersion()), "tag should match")
-	},
-		Entry("without registry", "kubevirt/virt-operator:v123", getConfig("kubevirt", "v123")),
-		Entry("with registry", "reg/kubevirt/virt-operator:v123", getConfig("reg/kubevirt", "v123")),
-		Entry("with registry with port", "reg:1234/kubevirt/virt-operator:latest", getConfig("reg:1234/kubevirt", "latest")),
-		Entry("without tag", "kubevirt/virt-operator", getConfig("kubevirt", "latest")),
-		Entry("with shasum", "kubevirt/virt-operator@sha256:abcdef", getConfig("kubevirt", "latest")),
-	)
-
 	Describe("GetPassthroughEnv()", func() {
 		It("should eturn environment variables matching the passthrough prefix (and only those vars)", func() {
 			realKey := rand.String(10)
@@ -118,34 +89,6 @@ var _ = Describe("Operator Config", func() {
 			}
 
 			Expect(*envObjects).To(ConsistOf(expected))
-		})
-	})
-
-	Describe("Config json from env var", func() {
-		It("should be parsed", func() {
-			json := `{"id":"9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59","namespace":"kubevirt","registry":"registry:5000/kubevirt","imagePrefix":"somePrefix","kubeVirtVersion":"devel","additionalProperties":{"ImagePullPolicy":"IfNotPresent", "MonitorNamespace":"non-default-monitor-namespace", "MonitorAccount":"non-default-prometheus-k8s"}}`
-			envVarManager.Setenv(TargetDeploymentConfig, json)
-			parsedConfig, err := GetConfigFromEnv()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(parsedConfig.GetDeploymentID()).To(Equal("9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59"))
-			Expect(parsedConfig.GetNamespace()).To(Equal("kubevirt"))
-			Expect(parsedConfig.GetImageRegistry()).To(Equal("registry:5000/kubevirt"))
-			Expect(parsedConfig.GetImagePrefix()).To(Equal("somePrefix"))
-			Expect(parsedConfig.GetKubeVirtVersion()).To(Equal("devel"))
-			Expect(parsedConfig.GetImagePullPolicy()).To(Equal(k8sv1.PullIfNotPresent))
-			Expect(parsedConfig.GetPotentialMonitorNamespaces()).To(ConsistOf("non-default-monitor-namespace"))
-			Expect(parsedConfig.GetMonitorServiceAccountName()).To(Equal("non-default-prometheus-k8s"))
-		})
-	})
-
-	Describe("Config json with default value", func() {
-		It("should be parsed", func() {
-			json := `{"id":"9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59","additionalProperties":{"ImagePullPolicy":"IfNotPresent"}}`
-			envVarManager.Setenv(TargetDeploymentConfig, json)
-			parsedConfig, err := GetConfigFromEnv()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(parsedConfig.GetPotentialMonitorNamespaces()).To(ConsistOf("openshift-monitoring", "monitoring"))
-			Expect(parsedConfig.GetMonitorServiceAccountName()).To(Equal("prometheus-k8s"))
 		})
 	})
 

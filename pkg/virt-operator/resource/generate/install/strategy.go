@@ -25,6 +25,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -352,8 +353,25 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, potentionalMonitor
 	return "", nil
 }
 
+func GetConfigFromEnv() (*operatorutil.KubeVirtDeploymentConfig, error) {
+	return getConfigFromEnvWithEnvVarManager(operatorutil.EnvVarManagerImpl{})
+}
+
+func getConfigFromEnvWithEnvVarManager(envVarManager operatorutil.EnvVarManager) (*operatorutil.KubeVirtDeploymentConfig, error) {
+	// first check if we have the new deployment config json
+	c := envVarManager.Getenv(operatorutil.TargetDeploymentConfig)
+	if c != "" {
+		config := &operatorutil.KubeVirtDeploymentConfig{}
+		if err := json.Unmarshal([]byte(c), config); err != nil {
+			return nil, err
+		}
+		return config, nil
+	}
+	return nil, fmt.Errorf("no config provided")
+}
+
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
-	config, err := operatorutil.GetConfigFromEnv()
+	config, err := GetConfigFromEnv()
 	if err != nil {
 		return err
 	}
